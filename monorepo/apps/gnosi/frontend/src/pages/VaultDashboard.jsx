@@ -203,6 +203,11 @@ export default function VaultDashboard() {
     }, [getVisibleTableRecords, pages, visibleTableRecordsById]);
 
     const syncPagesState = useCallback((nextPages) => {
+        if (!Array.isArray(nextPages)) {
+            console.error("VaultDashboard syncPagesState: nextPages is not an array", nextPages);
+            return;
+        }
+
         setPages(nextPages);
 
         if (activeTableId) {
@@ -215,7 +220,7 @@ export default function VaultDashboard() {
         setGlobalIndex(Object.fromEntries(
             nextPages.map(page => [page.id, page.title || 'Sense títol'])
         ));
-    }, [activeTableId, getVisibleTableRecords, resolvePageTableId, visibleTableRecordsById]);
+    }, [activeTableId, getVisibleTableRecords, resolvePageTableId, visibleTableRecordsById, setPages, setGlobalIndex]);
 
 
     const applySchemaDefaults = useCallback((tableId, metadata = {}, title = 'Nou') => {

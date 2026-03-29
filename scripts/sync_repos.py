@@ -12,10 +12,10 @@ def run_cmd(cmd, error_msg):
 
 def main():
     print("=============================================")
-    print("🚀 Iniciant sincronització Multi-Remote (Clean Slate)")
+    print("🚀 Iniciant sincronització Multi-Remote (Reliable Focus)")
     print("=============================================\n")
 
-    print("🔐 Configurant repositoris per utilitzar SSH (evita els Timeouts 408 d'HTTPS)...")
+    print("🔐 Configurant repositoris per utilitzar SSH...")
     run_cmd("git remote set-url origin git@github.com:ismigar/Projectes.git", "Incapaç de configurar origen SSH")
     run_cmd("git remote set-url gnosi git@github.com:ismigar/Gnosi.git", "Incapaç de configurar gnosi SSH")
     run_cmd("git remote set-url profile git@github.com:ismigar/ismigar.git", "Incapaç de configurar profile SSH")
@@ -25,15 +25,32 @@ def main():
     run_cmd("git push -f -u origin main", "No s'ha pogut pujar al repositori privat.")
 
     # 2. Push del producte a Gnosi (Públic)
-    print("🌐 2. Extraient i pujant Gnosi (Producte Públic)...")
-    # Agafem només la carpeta monorepo i la pujem al remote gnosi
-    run_cmd("git push gnosi $(git subtree split --prefix monorepo main):main --force", "Fallada al sincronitzar Gnosi. (Revisa si GitHub Secret Scanning està bloquejant a causa de claus temporals)")
+    print("🌐 2. Sincronitzant Gnosi (Producte Públic)...")
+    # Estratègia d'òrfena per garantir historial net a l'arrel de Gnosi
+    run_cmd("git checkout --orphan sync-gnosi-tmp", "Error creant branca òrfena per a Gnosi")
+    run_cmd("git rm -rf . --quiet", "Error netejant branca òrfena")
+    run_cmd("git checkout main -- monorepo/", "Error agafant contingut monorepo")
+    run_cmd("mv monorepo/* . 2>/dev/null || true", "Error movent contingut a l'arrel")
+    run_cmd("mv monorepo/.* . 2>/dev/null || true", "Error movent fitxers ocults")
+    run_cmd("rm -rf monorepo", "Error eliminant directori monorepo")
+    run_cmd("git add .", "Error afegint fitxers per a Gnosi")
+    run_cmd("git commit -m 'Sync cleanup (Product)'", "Error creant commit per a Gnosi")
+    run_cmd("git push gnosi sync-gnosi-tmp:main --force", "Error pujant a Gnosi")
+    run_cmd("git checkout main", "Error tornant a main")
+    run_cmd("git branch -D sync-gnosi-tmp", "Error eliminat branca temporal")
 
-    # 3. Push de Skills a l'aparador (Públic)
-    print("🛠️  3. Extraient i pujant Skills (Perfil Públic)...")
-    run_cmd("git push profile $(git subtree split --prefix monorepo/apps/gnosi/pipeline/skills main):main --force", "Fallada al sincronitzar els skills.")
+    # 3. Push de Docs i Scripts a Ismigar (Públic)
+    print("🛠️  3. Sincronitzant Perfil (ismigar Pública)...")
+    run_cmd("git checkout --orphan sync-profile-tmp", "Error creant branca òrfena per a Profile")
+    run_cmd("git rm -rf . --quiet", "Error netejant branca òrfena")
+    run_cmd("git checkout main -- docs/ scripts/ .gitignore .env_shared README.md", "Error agafant bases per a Profile")
+    run_cmd("git add .", "Error afegint fitxers per a Profile")
+    run_cmd("git commit -m 'Sync cleanup (Profile)'", "Error creant commit per a Profile")
+    run_cmd("git push profile sync-profile-tmp:main --force", "Error pujant a Profile")
+    run_cmd("git checkout main", "Error tornant a main")
+    run_cmd("git branch -D sync-profile-tmp", "Error eliminant branca temporal")
 
-    print("🎉 Sincronització completada amb èxit!")
+    print("\n🎉 Sincronització completada amb èxit!")
 
 if __name__ == "__main__":
     main()
