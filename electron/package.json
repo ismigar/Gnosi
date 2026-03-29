@@ -1,0 +1,25 @@
+{
+  "name": "cervell-digital",
+  "version": "1.0.0",
+  "description": "Cervell Digital - Digital Brain Application",
+  "main": "main.js",
+  "author": "Ismael Garcia Fernandez",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "npm run build:python && electron-builder",
+    "build:python": "bash build-python.sh",
+    "build:mac": "npm run build:python && electron-builder --mac",
+    "build:linux": "npm run build:python && electron-builder --linux",
+    "build:win": "npm run build:python && electron-builder --win",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  }
+}

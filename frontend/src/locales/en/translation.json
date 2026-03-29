@@ -1,0 +1,23 @@
+{
+    "app_title": "Digital Brain",
+    "search_placeholder": "Search nodes...",
+    "filter_by_kind": "Filter by Kind",
+    "filter_by_cluster": "Filter by Cluster",
+    "filter_by_project": "Filter by Project",
+    "legend_real_connection": "Real Connection",
+    "legend_directed_connection": "Directed Connection",
+    "legend_strong_similarity": "Strong Similarity (>85%)",
+    "legend_medium_similarity": "Medium Similarity (>70%)",
+    "legend_weak_similarity": "Weak Similarity (>60%)",
+    "reset_filters": "Reset Filters",
+    "depth_filter": "Depth Filter",
+    "depth_1": "1 (Direct)",
+    "depth_2": "2 (Extended)",
+    "depth_3": "3 (Deep)",
+    "legend_title": "Legend",
+    "connections_title": "Connections",
+    "no_connections": "No connections found.",
+    "similarity_score": "Similarity",
+    "reason": "Reason",
+    "language": "Language"
+}

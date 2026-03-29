@@ -1,0 +1,114 @@
+MAX_REASON_WORDS: 25
+MIN_CONTENT_WORDS: 3
+MIN_REASON_WORDS: 5
+MIN_SIM: 60
+ai:
+  # Hybrid system: Ollama (local) + Groq (cloud fallback)
+  primary_provider: ollama
+  fallback_provider: groq
+  providers:
+    ollama:
+      model_name: llama3.2
+      model_url: "http://localhost:11434/v1/chat/completions"
+      timeout: 60
+      max_content_chars: 2000
+      retries: 1
+    groq:
+      model_name: llama-3.3-70b-versatile
+      model_url: "https://api.groq.com/openai/v1/chat/completions"
+      timeout: 300
+      max_content_chars: 8000
+      retries: 2
+      daily_token_limit: 100000
+  # Legacy/shared settings
+  backoff: 1.5
+  max_reason_words: 20
+  min_content_words: 2
+  min_reason_words: 3
+  min_similarity: 50
+colors:
+  default_bg: '#ffffff'
+  default_fg: '#222222'
+  edges:
+    default_inferred_color: '#E0E0E0'
+    direct_color: '#371a94'
+    explicit_color: '#2c1376'
+    inferred_dashed: true
+    similarity_buckets:
+    - color: '#2E7D32'
+      label: strong
+      min: 85
+    - color: '#FB8C00'
+      label: medium
+      min: 70
+    - color: '#9E9E9E'
+      label: weak
+      min: 60
+    tag_edge_color: '#4d22b3'
+    suggestion_color: '#FF4081'
+  node_types:
+    default:
+      bg: '#90A4AE'
+      border: '#546E7A'
+      font: '#0e2026'
+    index:
+      bg: '#9C27B0'
+      border: '#5C1671'
+      font: '#23092b'
+    lectura:
+      bg: '#FF9800'
+      border: '#B75E00'
+      font: '#3a2200'
+    permanent:
+      bg: '#00BCD4'
+      border: '#007888'
+      font: '#0b2b33'
+    tag:
+      bg: '#8BC34A'
+      border: '#558B2F'
+      font: '#1b250f'
+    dialogo:
+      bg: '#009688'
+      border: '#00695C'
+      font: '#e0f2f1'
+  notion_color_map:
+    blue: '#2196F3'
+    brown: '#B08770'
+    default: '#a1a1a1'
+    gray: '#9B9B9B'
+    green: '#4CAF50'
+    orange: '#FF9800'
+    pink: '#E91E63'
+    purple: '#9C27B0'
+    red: '#F44336'
+    yellow: '#FDD835'
+delay_entre_ia: 0.5
+delay_entre_notas: 0.1
+graph:
+  visible_databases: []
+  visible_tables: []
+  default_height: 850px
+  default_width: 100%
+logging_level: info
+mail_from: null
+mail_to: null
+notion:
+  links_property: Enllaça a
+  tags_property: Tags
+  title_property: title
+  type_property: Tipus de nota
+paths:
+  # Vault: notes, assets, registry (OneDrive per defecte)
+  vault: "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi"
+  # DB: operational databases (OneDrive/data per defecte)
+  databases: "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi/data"
+server:
+  backend_port: 5002
+  enabled_cors: true
+  frontend_port: 5173
+  host: 0.0.0.0
+smtp_host: null
+smtp_pass: null
+smtp_port: null
+smtp_user: null
+tags_min_score_keep: 60
