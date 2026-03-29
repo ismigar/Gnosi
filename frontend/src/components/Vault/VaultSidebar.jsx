@@ -264,7 +264,7 @@ const PageTreeItem = ({
                             setMenuState(null);
                             setTimeout(() => onDeletePage(page.id, page.title), 10);
                         }}
-                        className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm btn-gnosi-danger !bg-transparent !text-[var(--status-error)] hover:!bg-[var(--status-error)]/10 !border-0 font-medium"
+                        className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
                     >
                         <Trash2 size={14} className="text-[var(--status-error)]" />
                         <span>Eliminar</span>
@@ -907,9 +907,9 @@ export const VaultSidebar = ({
                             });
                             setMenuState(null);
                         }}
-                        className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-500/10 transition-colors font-medium"
+                        className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
                     >
-                        <Trash2 size={14} className="text-red-400" />
+                        <Trash2 size={14} className="text-[var(--status-error)]" />
                         <span>Eliminar</span>
                     </button>
                 </div>,
