@@ -1,0 +1,28 @@
+hash_expiration: 86400
+
+newsletter:
+  issue_tokens: FALSE
+  format: plain
+  priority: 0
+  receipt: TRUE
+
+subscriber:
+  sync_fields: TRUE
+
+subscription:
+  skip_verification: FALSE
+  tidy_unconfirmed: 7
+  confirm_subject: "Confirmation for [site:name]"
+  confirm_body: "We have received a request to subscribe [simplenews-subscriber:mail] at [site:url]. To confirm please use the link below.\r\n\r\n[simplenews-subscriber:confirm-url]"
+  validate_subject: "Manage your subscriptions at [site:name]"
+  validate_body: "We have received a request to manage your subscriptions for [simplenews-subscriber:mail] at [site:url]. To proceed please use the link below.\r\n\r\n[simplenews-subscriber:manage-url]"
+  confirm_subscribe_page: ""
+  confirm_unsubscribe_page: ""
+
+mail:
+  use_cron: TRUE
+  textalt: FALSE
+  throttle: 20
+  spool_progress_expiration: 3600
+  spool_expire: 0
+  debug: FALSE

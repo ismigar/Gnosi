@@ -1,0 +1,13 @@
+uuid: e29b129f-d585-448a-a67f-206f4d0816e6
+langcode: ca
+status: true
+dependencies:
+  module:
+    - node
+_core:
+  default_config_hash: LhdsoZPL_pFas2fjaAWue4zvrQ_tEVofLYtcNec-JGM
+id: node_save_action
+label: 'Desa el contingut'
+type: node
+plugin: 'entity:save_action:node'
+configuration: {  }

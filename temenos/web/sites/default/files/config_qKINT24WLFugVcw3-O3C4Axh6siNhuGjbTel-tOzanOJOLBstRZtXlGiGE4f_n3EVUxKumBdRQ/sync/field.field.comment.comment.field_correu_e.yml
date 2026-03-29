@@ -1,0 +1,19 @@
+uuid: 17a22764-783c-4864-82e4-5b31ee462291
+langcode: es
+status: true
+dependencies:
+  config:
+    - comment.type.comment
+    - field.storage.comment.field_correu_e
+id: comment.comment.field_correu_e
+field_name: field_correu_e
+entity_type: comment
+bundle: comment
+label: Correu-e
+description: 'Este campo no se publlicará.'
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: email

@@ -1,0 +1,41 @@
+
+# System
+.DS_Store
+Thumbs.db
+
+# Environments
+.env
+.env.*
+!.env.example
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Application Data (Digital Brain)
+apps/digital-brain/backend/data/logs/
+apps/digital-brain/backend/data/*.tmp
+apps/digital-brain/backend/data/content_cache.json
+apps/digital-brain/backend/data/ai_cache.json
+# Keep structure but ignore massive data if needed, but user might want data?
+# User said "excepte credencials". Usually cache is ok to ignore, but let's ignore caches.
+temp_n8n_db.sqlite
+
+# Private Skills (Infrastructure / Not for Public Repo)
+apps/digital-brain/pipeline/private_skills/

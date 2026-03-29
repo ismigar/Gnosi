@@ -1,0 +1,7 @@
+crop_image.settings:
+  path: '/admin/config/media/crop-image'
+  defaults:
+    _form: 'Drupal\crop_image\Form\SettingsForm'
+    _title: 'Crop Image settings'
+  requirements:
+    _permission: 'administer site configuration'

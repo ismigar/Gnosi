@@ -1,0 +1,23 @@
+uuid: 247456d0-4345-44cd-a044-0fc6aa7ee21f
+langcode: ca
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - elraco
+id: elraco_marcadellloc
+theme: elraco
+region: header2
+weight: -10
+provider: null
+plugin: system_branding_block
+settings:
+  id: system_branding_block
+  label: 'Marca del lloc'
+  label_display: '0'
+  provider: system
+  use_site_logo: true
+  use_site_name: true
+  use_site_slogan: true
+visibility: {  }

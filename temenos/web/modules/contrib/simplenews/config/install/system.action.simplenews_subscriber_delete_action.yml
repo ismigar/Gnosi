@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - simplenews
+id: simplenews_subscriber_delete_action
+label: 'Delete subscriber'
+type: simplenews_subscriber
+plugin: entity:delete_action:simplenews_subscriber
+configuration: {  }

@@ -1,0 +1,60 @@
+uuid: cddb122d-c2c9-4dd3-8717-b56dbc6ea2b2
+langcode: ca
+status: true
+dependencies:
+  module:
+    - node
+    - options
+id: node.field_tipus
+field_name: field_tipus
+entity_type: node
+type: list_string
+settings:
+  allowed_values:
+    -
+      value: article_d_investigacio
+      label: 'Article científic'
+    -
+      value: article_divulgatiu
+      label: 'Article divulgatiu'
+    -
+      value: llibre
+      label: Llibre
+    -
+      value: ponencia
+      label: Ponència
+    -
+      value: tesis
+      label: Tesis
+    -
+      value: relat
+      label: Relat
+    -
+      value: manual
+      label: Manual
+    -
+      value: informe
+      label: Informe
+    -
+      value: epistola
+      label: Epístola
+    -
+      value: infografia
+      label: Infografía
+    -
+      value: eines
+      label: Eines
+    -
+      value: manifest
+      label: Manifest
+    -
+      value: altres
+      label: Altres
+  allowed_values_function: ''
+module: options
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

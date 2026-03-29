@@ -1,0 +1,17 @@
+uuid: 95ad02f2-26f5-4320-8ced-844dd73744ff
+langcode: ca
+status: true
+dependencies:
+  module:
+    - notion_sync
+title: 'Default cron handler'
+id: notion_sync_cron
+weight: 0
+module: notion_sync
+callback: 'notion_sync#cron'
+scheduler:
+  id: simple
+launcher:
+  id: serial
+logger:
+  id: database

@@ -1,0 +1,13 @@
+name: 'Orphaned Files'
+type: module
+description: 'Provides a list of orphaned files.'
+package: 'Other'
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:file
+configure: orphaned_files.page
+
+# Information added by Drupal.org packaging script on 2024-07-30
+version: '1.0.1'
+project: 'orphaned_files'
+datestamp: 1722332207

@@ -1,0 +1,69 @@
+{#
+/**
+ * @file
+ * Default theme implementation to format the simplenews newsletter body.
+ *
+ * Copy this file in your theme directory to create a custom themed body.
+ * Rename it to override it. Available templates:
+ *   simplenews-newsletter-body--[newsletter_id].html.twig
+ *   simplenews-newsletter-body--[view mode].html.twig
+ *   simplenews-newsletter-body--[newsletter_id]--[view mode].html.twig
+ * See README.txt for more details.
+ *
+ * Available variables:
+ * - title: Node title
+ * - build: The rendered newsletter issue entity.
+ * - reason: (optional) Translated text explaining why the subscriber is
+ *   receiving this newsletter.
+ * - unsubscribe_text: (optional) Translated text to describe the subscribe
+ *   link, which is available as [simplenews-subscriber:unsubscribe-url]. If
+ *   this variable isn't set then the link is likely to be unavailable.
+ * - test_message: (optional) Translated text that if set describes that this
+ *   is a test version of the newsletter
+ * - format: newsletter format [plain|html]
+ * - newsletter: object(Drupal\simplenews\Entity\Newsletter)
+ *     {{ newsletter.from_name }}: string
+ *     {{ newsletter.subject }}: string
+ *
+ * Less recommended variables that normally shouldn't be needed:
+ * - node: The issue entity that was rendered to create {{ build }}, hence
+ *   shouldn't normally need to be accessed again. There is limited access to
+ *   object properties and methods.
+ * - view_mode: The active display view mode of the node
+ * - key: email key [node|test|extra]
+ * - simplenews_subscriber: object(Drupal\simplenews\Entity\Subscriber)
+ *   The subscriber for which the newsletter is built.
+ *     {{ simplenews_subscriber.getMail  }}: string: subscriber's email address
+ *   Note that depending on the used caching strategy, the generated body might
+ *   be used for multiple subscribers. If you created personalized newsletters
+ *   and can't use tokens for that, make sure to disable caching or write a
+ *   custom caching strategy implementation.
+ *
+ * @see template_preprocess_simplenews_newsletter_body()
+ */
+#}
+
+<h2>{{ title }}</h2>
+{{ build }}
+
+{% if format == 'html' %}
+  {% if reason or unsubscribe_text %}
+    <p class="newsletter-footer">
+      {{ reason }}
+      {% if unsubscribe_text %}
+        <a href="[simplenews-subscriber:unsubscribe-url]">{{ unsubscribe_text }}</a>
+      {% endif %}
+    </p>
+  {% endif %}
+  {% if test_message %}
+    <p class="simplenews-test-message">{{ test_message }}</p>
+  {% endif %}
+{% else %}
+  {{ reason }}
+  {% if unsubscribe_text %}
+    -- {{ unsubscribe_text }} : [simplenews-subscriber:unsubscribe-url]
+  {% endif %}
+  {% if test_message %}
+    - - - {{ test_message }} - - -
+  {% endif %}
+{% endif %}

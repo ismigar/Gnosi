@@ -1,0 +1,5 @@
+_core:
+  default_config_hash: TYKfSXfk8QEFkr753oyAeDOrvMhmXBzJZi7uXP1DS6E
+api_key: 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
+databases: ''
+config_json: '[{"name":"Articles","id":"1e0268e5-2714-8002-9ee6-f8740bb81f5a","drupal_type":"article","field_mapping":{"Data d''escriptura":"created","Idioma":"langcode","Imatge destacada":"field_image","Temes":"field_tags","T\u00edtol":"title"},"filters":{"logic":"and","conditions":[{"property":"Publicar al web","operator":"equals","value":true}]},"publish_property":"Publicar al web"}]'

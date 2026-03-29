@@ -1,0 +1,18 @@
+uuid: e1d423fb-4300-48c0-ae98-04be29bcabee
+langcode: ca
+status: true
+dependencies:
+  config:
+    - comment.type.comment
+id: comment.comment.homepage
+field_name: homepage
+entity_type: comment
+bundle: comment
+label: 'Pàgina inicial'
+description: "The comment author's home page address."
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: uri

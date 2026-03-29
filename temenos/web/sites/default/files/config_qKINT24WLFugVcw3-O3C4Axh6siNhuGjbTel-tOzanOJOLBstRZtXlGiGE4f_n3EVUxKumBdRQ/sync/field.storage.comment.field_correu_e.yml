@@ -1,0 +1,18 @@
+uuid: 2e17359d-7b3e-43d1-8d3a-9407ccd15368
+langcode: es
+status: true
+dependencies:
+  module:
+    - comment
+id: comment.field_correu_e
+field_name: field_correu_e
+entity_type: comment
+type: email
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

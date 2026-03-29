@@ -1,0 +1,27 @@
+{
+    "name": "drupal/multilingual_menu_urls",
+    "type": "drupal-module",
+    "description": "Provides the options to add different external URLs to a menu item translation.",
+    "keywords": [
+        "Drupal",
+        "Menu links",
+        "Multilingual Menu links"
+    ],
+    "license": "GPL-2.0+",
+    "authors": [
+        {
+            "name": "George Anderson (geoanders)",
+            "homepage": "https://www.drupal.org/u/geoanders",
+            "role": "Maintainer"
+        }
+    ],
+    "homepage": "https://www.drupal.org/project/multilingual_menu_urls",
+    "minimum-stability": "dev",
+    "support": {
+        "issues": "https://drupal.org/project/issues/multilingual_menu_urls",
+        "source": "https://git.drupalcode.org/project/multilingual_menu_urls"
+    },
+    "require": {
+        "drupal/core": "^8.8 || ^9 || ^10"
+    }
+}

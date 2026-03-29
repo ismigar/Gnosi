@@ -1,0 +1,15 @@
+name: "Remove Unused Files Form"
+description: "Move all managed unused files to temporary status, those files removal next time cron run."
+type: "module"
+core_version_requirement: ">=10"
+php: 8.1
+configure: "remove_unused_files_form.form"
+dependencies:
+  - "drupal:user"
+  - "drupal:file"
+  - "remove_unused_files:remove_unused_files"
+
+# Information added by Drupal.org packaging script on 2024-06-28
+version: '2.1.0'
+project: 'remove_unused_files'
+datestamp: 1719592871

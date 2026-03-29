@@ -1,0 +1,22 @@
+uuid: ca20d864-d7a6-4d00-99ab-1679124f5594
+langcode: ca
+status: true
+dependencies:
+  theme:
+    - elraco
+_core:
+  default_config_hash: ACjBZI5shAMiiUpsz-inLYVXDqNNXRnSzAWV3kV_8Hw
+id: elraco_primary_local_tasks
+theme: elraco
+region: content_top
+weight: -9
+provider: null
+plugin: local_tasks_block
+settings:
+  id: local_tasks_block
+  label: 'Pestanyes primàries'
+  label_display: '0'
+  provider: core
+  primary: true
+  secondary: false
+visibility: {  }

@@ -1,0 +1,17 @@
+uuid: e7dfe7da-f563-4752-ab83-90d923f2923a
+langcode: ca
+status: true
+dependencies:
+  module:
+    - update
+title: 'Comprova actualitzacions'
+id: update_cron
+weight: 0
+module: update
+callback: 'update#cron'
+scheduler:
+  id: simple
+launcher:
+  id: serial
+logger:
+  id: database

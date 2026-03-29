@@ -1,0 +1,10 @@
+uuid: 63b511ed-2904-425c-887f-e22c9c655522
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: BCM-vV1zzRaLHN18dqAR_CuGOj8AFJvTx7BKl_8Gcxc
+id: tools
+label: Eines
+description: "Enllaços a eines d'usuari, normalment afegits pels mòduls"
+locked: true

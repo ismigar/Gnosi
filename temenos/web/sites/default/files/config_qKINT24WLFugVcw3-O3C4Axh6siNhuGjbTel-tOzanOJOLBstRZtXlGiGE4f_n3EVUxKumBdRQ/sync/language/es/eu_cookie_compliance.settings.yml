@@ -1,0 +1,5 @@
+popup_info:
+  value: '<p>Este sitio web utiliza cookies técnicas para garantizar su funcionamiento. También puede utilizar servicios externos como Ko-fi o vídeos incrustados que podrían instalar cookies propias. Puedes aceptar, rechazar o configurar las opciones.</p>'
+  format: basic_html
+popup_more_info_button_message: 'Más información'
+disagree_button_label: 'No, gracias'

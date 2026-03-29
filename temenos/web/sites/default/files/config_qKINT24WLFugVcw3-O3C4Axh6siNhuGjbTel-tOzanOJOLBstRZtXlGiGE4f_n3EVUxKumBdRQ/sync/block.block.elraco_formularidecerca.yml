@@ -1,0 +1,21 @@
+uuid: f5e74104-8b51-4f58-aa77-ccaf3a1dd90d
+langcode: ca
+status: true
+dependencies:
+  module:
+    - search
+  theme:
+    - elraco
+id: elraco_formularidecerca
+theme: elraco
+region: primary_menu
+weight: -9
+provider: null
+plugin: search_form_block
+settings:
+  id: search_form_block
+  label: 'Formulari de cerca'
+  label_display: '0'
+  provider: search
+  page_id: ''
+visibility: {  }

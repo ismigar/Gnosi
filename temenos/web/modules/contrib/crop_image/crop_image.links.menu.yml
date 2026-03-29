@@ -1,0 +1,5 @@
+crop_image.settings:
+  title: 'Crop Image settings'
+  description: 'Configure common settings for Crop Image.'
+  parent: system.admin_config_media
+  route_name: crop_image.settings

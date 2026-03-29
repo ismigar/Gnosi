@@ -1,0 +1,7 @@
+eu_cookie_compliance.klaro_migration_form:
+  path: '/admin/config/system/eu-cookie-compliance/klaro-migration'
+  defaults:
+    _form: '\Drupal\klaro_migrator\Form\KlaroMigrationForm'
+    _title: 'EU Cookie Compliance to Klaro Migration'
+  requirements:
+    _permission: 'administer eu cookie compliance popup'

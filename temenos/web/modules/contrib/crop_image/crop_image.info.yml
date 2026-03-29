@@ -1,0 +1,14 @@
+name: Crop Image
+type: module
+description: Module allow to crop image selected from media library.
+package: Crop
+core_version_requirement: ^9.3 || ^10
+
+dependencies:
+  - image_widget_crop:image_widget_crop
+  - entity_browser:entity_browser (>=2.10)
+
+# Information added by Drupal.org packaging script on 2024-08-27
+version: '2.0.5'
+project: 'crop_image'
+datestamp: 1724771564

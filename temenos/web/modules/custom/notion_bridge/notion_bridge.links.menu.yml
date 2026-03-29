@@ -1,0 +1,6 @@
+notion_bridge.settings:
+  title: 'Notion bridge'
+  description: 'Configure Notion databases, field mapping and filters'
+  route_name: notion_bridge.config
+  parent: system.admin_config_content
+  weight: 0

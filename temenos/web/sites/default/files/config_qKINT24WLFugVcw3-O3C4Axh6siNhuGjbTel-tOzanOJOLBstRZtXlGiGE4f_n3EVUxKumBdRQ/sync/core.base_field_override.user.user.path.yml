@@ -1,0 +1,19 @@
+uuid: de9dcf87-b1a0-437f-bf55-94d02feb880f
+langcode: ca
+status: true
+dependencies:
+  module:
+    - path
+    - user
+id: user.user.path
+field_name: path
+entity_type: user
+bundle: user
+label: 'Àlies URL'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: path

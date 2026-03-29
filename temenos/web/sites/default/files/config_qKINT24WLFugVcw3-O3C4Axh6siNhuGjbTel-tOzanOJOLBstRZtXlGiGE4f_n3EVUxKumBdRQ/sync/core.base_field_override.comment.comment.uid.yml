@@ -1,0 +1,20 @@
+uuid: 82607f5e-fe87-43d2-ad8c-762fcd65434b
+langcode: ca
+status: true
+dependencies:
+  config:
+    - comment.type.comment
+id: comment.comment.uid
+field_name: uid
+entity_type: comment
+bundle: comment
+label: "Identificador d'usuari"
+description: "L'ID d'usuari de l'autor del comentari."
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: 'Drupal\comment\Entity\Comment::getDefaultEntityOwner'
+settings:
+  handler: default
+  handler_settings: {  }
+field_type: entity_reference

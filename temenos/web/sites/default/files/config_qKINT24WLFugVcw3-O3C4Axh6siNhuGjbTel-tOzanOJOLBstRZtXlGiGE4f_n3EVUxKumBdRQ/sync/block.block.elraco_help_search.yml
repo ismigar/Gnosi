@@ -1,0 +1,32 @@
+uuid: afa0241e-6259-4cea-ad6e-3bf7a7ed950f
+langcode: ca
+status: true
+dependencies:
+  module:
+    - search
+    - system
+  theme:
+    - elraco
+  enforced:
+    config:
+      - search.page.help_search
+_core:
+  default_config_hash: 2ToeZLvlHKTeFY74gpgu1PejLoFyCECLO_gw6rAZwqw
+id: elraco_help_search
+theme: elraco
+region: help
+weight: -5
+provider: null
+plugin: search_form_block
+settings:
+  id: search_form_block
+  label: 'Ajuda de la cerca'
+  label_display: visible
+  provider: search
+  page_id: help_search
+visibility:
+  request_path:
+    id: request_path
+    negate: false
+    context_mapping: {  }
+    pages: /admin/help

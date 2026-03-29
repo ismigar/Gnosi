@@ -1,0 +1,13 @@
+uuid: 98599233-38c9-4361-94f4-778c31b1b853
+langcode: ca
+status: true
+dependencies:
+  module:
+    - simplenews
+_core:
+  default_config_hash: _80qceRjNVCStX2wbyle-6zMazNn3VsvHpwLRV3Gr5M
+id: simplenews_send_action
+label: 'Envia el butlletí'
+type: node
+plugin: simplenews_send_action
+configuration: {  }

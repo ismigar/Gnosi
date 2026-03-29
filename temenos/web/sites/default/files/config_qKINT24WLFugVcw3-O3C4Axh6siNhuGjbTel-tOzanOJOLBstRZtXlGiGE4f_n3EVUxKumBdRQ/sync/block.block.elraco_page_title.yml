@@ -1,0 +1,20 @@
+uuid: 21d16ee5-a3d2-479c-ad4b-a66706c7aff8
+langcode: ca
+status: true
+dependencies:
+  theme:
+    - elraco
+_core:
+  default_config_hash: fNwDdW063tk_ktzSWzZVeQS9wzvLooVO280BQ9WrsIs
+id: elraco_page_title
+theme: elraco
+region: content_top
+weight: -10
+provider: null
+plugin: page_title_block
+settings:
+  id: page_title_block
+  label: 'Títol de la pàgina'
+  label_display: '0'
+  provider: core
+visibility: {  }

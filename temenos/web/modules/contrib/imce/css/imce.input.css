@@ -1,0 +1,40 @@
+.imce-url-button {
+  display: inline-block;
+  margin: 1px 0;
+}
+
+.imce-url-button::before {
+  float: left;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  content: "";
+  background: url(images/browse.png) no-repeat 50% 50%;
+}
+
+.imce-selector-button.imce-url-button::before {
+  height: 100%;
+  margin: 0 5px;
+}
+
+.imce-selector-button.imce-url-button span {
+  display: none;
+}
+
+.ck-imce-image-wrp > .ck.ck-input {
+  flex: 1;
+  min-width: auto;
+}
+
+.ck-imce-image-button::before,
+.ck-imce-link-button::before {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  content: "";
+  background: url(images/image.png) no-repeat 50% 50%;
+}
+
+.ck-imce-link-button::before {
+  background-image: url(images/link.png);
+}

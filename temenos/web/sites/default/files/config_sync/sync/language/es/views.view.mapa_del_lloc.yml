@@ -1,0 +1,20 @@
+label: 'Mapa del sitio'
+display:
+  default:
+    display_options:
+      title: 'Mapa del sitio'
+      pager:
+        options:
+          expose:
+            items_per_page_label: 'Elementos por página'
+            items_per_page_options_all_label: '- Todo -'
+            offset_label: Desplazamiento
+      exposed_form:
+        options:
+          reset_button_label: Reinicializa
+          exposed_sorts_label: 'Ordena por'
+      header:
+        area:
+          content:
+            value: '<p>Este mapa muestra todo el contenido de la web agrupado por tipo.</p>'
+            format: basic_html

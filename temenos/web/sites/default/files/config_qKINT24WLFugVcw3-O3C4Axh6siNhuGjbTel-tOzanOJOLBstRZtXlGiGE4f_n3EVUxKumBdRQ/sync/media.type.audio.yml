@@ -1,0 +1,16 @@
+uuid: 8a14f5ac-78d0-43e2-ab6b-394531d8fbe4
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: eJw8n6Tk2tO3ZysuEeGR1gZa1yRffaZzR4t0Q7iNurs
+id: audio
+label: Àudio
+description: "Un fitxer d'àudio allotjat en local."
+source: audio_file
+queue_thumbnail_downloads: false
+new_revision: true
+source_configuration:
+  source_field: field_media_audio_file
+field_map:
+  name: name

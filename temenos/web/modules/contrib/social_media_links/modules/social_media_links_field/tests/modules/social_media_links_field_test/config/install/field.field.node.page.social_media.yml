@@ -1,0 +1,114 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.social_media
+  module:
+    - node
+    - social_media_links_field
+id: node.page.social_media
+field_name: social_media
+entity_type: node
+bundle: page
+label: 'Social media'
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    platform: null
+    value: null
+    platform_values:
+      facebook:
+        value: ''
+      github:
+        value: ''
+      googleplus:
+        value: ''
+      linkedin:
+        value: ''
+      slideshare:
+        value: ''
+      twitter:
+        value: ''
+      vimeo:
+        value: ''
+      youtube:
+        value: ''
+default_value_callback: ''
+settings:
+  iconset: 'fontawesome:2x'
+  platforms:
+    behance:
+      description: ''
+      weight: -28
+      enabled: false
+    bitbucket:
+      description: ''
+      weight: -27
+      enabled: false
+    contact:
+      description: ''
+      weight: -26
+      enabled: false
+    drupal:
+      description: ''
+      weight: -25
+      enabled: false
+    email:
+      description: ''
+      weight: -24
+      enabled: false
+    facebook:
+      enabled: true
+      description: ''
+      weight: -23
+    twitter:
+      enabled: true
+      description: ''
+      weight: -22
+    linkedin:
+      enabled: true
+      description: ''
+      weight: -21
+    github:
+      enabled: true
+      description: ''
+      weight: -20
+    googleplus:
+      enabled: true
+      description: ''
+      weight: -19
+    slideshare:
+      enabled: true
+      description: ''
+      weight: -18
+    instagram:
+      description: ''
+      weight: -17
+      enabled: false
+    pinterest:
+      description: ''
+      weight: -16
+      enabled: false
+    rss:
+      description: ''
+      weight: -15
+      enabled: false
+    tumblr:
+      description: ''
+      weight: -14
+      enabled: false
+    youtube:
+      enabled: true
+      description: ''
+      weight: -13
+    vimeo:
+      enabled: true
+      description: ''
+      weight: -12
+    youtube_channel:
+      description: ''
+      weight: -11
+      enabled: false
+field_type: social_media_links_field

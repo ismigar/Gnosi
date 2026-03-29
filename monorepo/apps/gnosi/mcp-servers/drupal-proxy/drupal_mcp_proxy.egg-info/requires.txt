@@ -1,0 +1,5 @@
+model-context-protocol
+pyyaml
+thefuzz
+python-levenshtein
+httpx

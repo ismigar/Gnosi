@@ -1,0 +1,13 @@
+uuid: c075660f-89aa-44cc-9b4d-28feb5e7033d
+langcode: ca
+status: true
+dependencies:
+  module:
+    - media
+_core:
+  default_config_hash: VVyUA6PIaVeGtcIbgEWqJ6SYDiJdReBeojFswURFpKs
+id: media_save_action
+label: 'Desa mèdia'
+type: media
+plugin: 'entity:save_action:media'
+configuration: {  }

@@ -1,0 +1,254 @@
+simplenews.settings_newsletter:
+  path: '/admin/config/services/simplenews/settings/newsletter'
+  defaults:
+    _form: '\Drupal\simplenews\Form\NewsletterSettingsForm'
+    _title: 'Newsletter'
+  requirements:
+    _permission: 'administer simplenews settings'
+
+simplenews.settings_subscriber:
+  path: '/admin/config/people/simplenews/settings/subscriber'
+  defaults:
+    _form: '\Drupal\simplenews\Form\SubscriberSettingsForm'
+    _title: 'Subscriber'
+  requirements:
+    _permission: 'administer simplenews settings'
+
+simplenews.settings_subscription:
+  path: '/admin/config/services/simplenews/settings/subscription'
+  defaults:
+    _form: '\Drupal\simplenews\Form\SubscriptionSettingsForm'
+    _title: 'Subscription'
+  requirements:
+    _permission: 'administer simplenews settings'
+
+simplenews.settings_mail:
+  path: '/admin/config/services/simplenews/settings/mail'
+  defaults:
+    _form: '\Drupal\simplenews\Form\MailSettingsForm'
+    _title: 'Send mail'
+  requirements:
+    _permission: 'administer simplenews settings'
+
+simplenews.settings_prepare_uninstall:
+  path: '/admin/config/services/simplenews/settings/uninstall'
+  defaults:
+    _form: '\Drupal\simplenews\Form\PrepareUninstallForm'
+    _title: 'Prepare uninstall'
+  requirements:
+    _permission: 'administer simplenews settings'
+
+simplenews.newsletter_list:
+  path: '/admin/config/services/simplenews'
+  defaults:
+    _entity_list: 'simplenews_newsletter'
+    _title: 'Simplenews'
+  requirements:
+    _permission: 'administer newsletters'
+
+simplenews.newsletter_add:
+  path: '/admin/config/services/simplenews/add'
+  defaults:
+    _entity_form: 'simplenews_newsletter.add'
+    _title: 'Add newsletter'
+  requirements:
+    _entity_create_access: 'simplenews_newsletter'
+
+entity.simplenews_newsletter.edit_form:
+  path: '/admin/config/services/simplenews/manage/{simplenews_newsletter}'
+  defaults:
+    _entity_form: 'simplenews_newsletter.edit'
+    _title: 'Edit newsletter'
+  requirements:
+    _entity_access: 'simplenews_newsletter.update'
+
+entity.simplenews_newsletter.delete_form:
+  path: '/admin/config/services/simplenews/manage/{simplenews_newsletter}/delete'
+  defaults:
+    _entity_form: 'simplenews_newsletter.delete'
+    _title: 'Delete'
+  requirements:
+    _entity_access: 'simplenews_newsletter.delete'
+
+entity.simplenews_subscriber.collection:
+  path: /admin/people/simplenews
+  defaults:
+    _entity_list: 'simplenews_subscriber'
+    _title: 'Subscribers'
+  requirements:
+    _permission: 'administer simplenews subscriptions'
+
+entity.simplenews_subscriber.add_form:
+  path: '/admin/people/simplenews/create'
+  defaults:
+    _entity_form: 'simplenews_subscriber.add'
+    _title: 'Add subscriber'
+  requirements:
+    _entity_create_access: 'simplenews_subscriber'
+
+entity.simplenews_subscriber.edit_form:
+  path: '/admin/people/simplenews/edit/{simplenews_subscriber}'
+  defaults:
+    _entity_form: 'simplenews_subscriber.default'
+    _title: 'Edit subscriber'
+  requirements:
+    _entity_access: 'simplenews_subscriber.update'
+
+entity.simplenews_subscriber.delete_form:
+  path: '/admin/people/simplenews/delete/{simplenews_subscriber}'
+  defaults:
+    _entity_form: 'simplenews_subscriber.delete'
+    _title: 'Delete'
+  requirements:
+    _entity_access: 'simplenews_subscriber.delete'
+
+entity.simplenews_subscriber.delete_multiple_form:
+  path: '/admin/people/simplenews/delete/subscribers'
+  defaults:
+    _title: 'Delete'
+    _form: '\Drupal\Core\Entity\Form\DeleteMultipleForm'
+    entity_type_id: 'simplenews_subscriber'
+  requirements:
+    _entity_delete_multiple_access: 'simplenews_subscriber'
+
+simplenews.subscriber_import:
+  path: '/admin/people/simplenews/import'
+  defaults:
+    _form: '\Drupal\simplenews\Form\SubscriberMassSubscribeForm'
+    _title: 'Mass subscribe'
+  requirements:
+    _permission: 'administer simplenews subscriptions'
+
+simplenews.subscriber_unsubscribe:
+  path: '/admin/people/simplenews/unsubscribe'
+  defaults:
+    _form: '\Drupal\simplenews\Form\SubscriberMassUnsubscribeForm'
+    _title: 'Mass unsubscribe'
+  requirements:
+    _permission: 'administer simplenews subscriptions'
+
+simplenews.subscriber_export:
+  path: '/admin/people/simplenews/export'
+  defaults:
+    _form: '\Drupal\simplenews\Form\SubscriberExportForm'
+    _title: 'Export'
+  requirements:
+    _permission: 'administer simplenews subscriptions'
+
+simplenews.newsletter_subscriptions_user:
+  path: '/user/{user}/simplenews'
+  defaults:
+    _entity_form: 'simplenews_subscriber.account'
+    _title: 'Newsletters'
+  requirements:
+    _custom_access: 'Drupal\simplenews\Form\SubscriptionsAccountForm::checkAccess'
+  options:
+    parameters:
+      user:
+        type: entity:user
+
+simplenews.node_tab:
+  path: '/node/{node}/simplenews'
+  defaults:
+    _form: '\Drupal\simplenews\Form\NodeTabForm'
+    _title: 'Newsletter'
+  requirements:
+    _custom_access: 'Drupal\simplenews\Form\NodeTabForm::checkAccess'
+  options:
+    _admin_route: true
+    no_cache: TRUE
+
+simplenews.subscriptions_validate:
+  path: '/simplenews/validate'
+  defaults:
+    _form: '\Drupal\simplenews\Form\SubscriberValidateForm'
+    _title: 'Access your subscriptions'
+  requirements:
+    _permission: 'subscribe to newsletters'
+
+simplenews.subscriptions:
+  path: '/simplenews/subscriptions'
+  defaults:
+    _controller: '\Drupal\simplenews\Controller\ConfirmationController::subscriptionsPage'
+    _title: 'Subscriptions'
+  requirements:
+    _permission: 'subscribe to newsletters'
+
+# The remaining routes have no access check because the access is verified by the
+# hash. It's not good UX to force a user to login in order to unsubscribe.
+simplenews.subscriptions_manage:
+  path: '/simplenews/manage/{snid}/{timestamp}/{hash}'
+  defaults:
+    _entity_form: 'simplenews_subscriber.page'
+    _title: 'Your newsletter subscriptions'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+simplenews.subscriptions_confirm:
+  path: '/simplenews/confirm/{snid}/{timestamp}/{hash}'
+  defaults:
+    _controller: '\Drupal\simplenews\Controller\ConfirmationController::confirmSubscribe'
+    _title: 'Confirm subscribe'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+simplenews.subscriptions_remove:
+  path: '/simplenews/remove/{snid}/{newsletter_id}/{timestamp}/{hash}'
+  defaults:
+    _controller: '\Drupal\simplenews\Controller\ConfirmationController::handleSubscription'
+    _title: 'Remove newsletter subscription'
+    action: 'remove'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+simplenews.subscriptions_add:
+  path: '/simplenews/add/{snid}/{newsletter_id}/{timestamp}/{hash}'
+  defaults:
+    _controller: '\Drupal\simplenews\Controller\ConfirmationController::handleSubscription'
+    _title: 'Add newsletter subscription'
+    action: 'add'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+simplenews.subscriptions_confirm_immediate:
+  path: '/simplenews/confirm/{snid}/{timestamp}/{hash}/ok'
+  defaults:
+    _controller: '\Drupal\simplenews\Controller\ConfirmationController::confirmSubscribe'
+    _title: 'Confirm subscribe'
+    immediate: true
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+simplenews.subscriptions_remove_immediate:
+  path: '/simplenews/remove/{snid}/{newsletter_id}/{timestamp}/{hash}/ok'
+  defaults:
+    _controller: '\Drupal\simplenews\Controller\ConfirmationController::handleSubscription'
+    _title: 'Remove newsletter subscription'
+    immediate: true
+    action: 'remove'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+simplenews.subscriptions_add_immediate:
+  path: '/simplenews/add/{snid}/{newsletter_id}/{timestamp}/{hash}/ok'
+  defaults:
+    _controller: '\Drupal\simplenews\Controller\ConfirmationController::handleSubscription'
+    _title: 'Add newsletter subscription'
+    immediate: true
+    action: 'add'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE

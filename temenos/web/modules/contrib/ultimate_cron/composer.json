@@ -1,0 +1,13 @@
+{
+  "name": "drupal/ultimate_cron",
+  "type": "drupal-module",
+  "license": "GPL-2.0+",
+  "description": "Ultimate cron",
+  "extra": {
+    "drush": {
+      "services": {
+        "drush.services.yml": "^10 || ^11 || ^12 || ^13"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+uuid: 2374b4de-bcec-4d5a-ab06-b8ec6a9168b8
+langcode: zxx
+status: true
+dependencies: {  }
+id: legal
+label: Legal
+description: ''
+locked: false

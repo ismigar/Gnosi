@@ -1,0 +1,9 @@
+name: Social Media Links Block
+description: The module provides a block that display links (icons) to your profiles on various social networking sites.
+type: module
+core_version_requirement: ^9.5 || ^10 || ^11
+
+# Information added by Drupal.org packaging script on 2024-08-27
+version: '8.x-2.10'
+project: 'social_media_links'
+datestamp: 1724736721

@@ -1,0 +1,14 @@
+{
+  "name": "drupal/ckeditor5_fullscreen",
+  "description": "A Fullscreen / Maximize button for CKeditor5",
+  "type": "drupal-module",
+  "authors": [
+    {
+      "name": "O'Toole, James",
+      "email": "james.otoole@ubc.ca"
+    }
+  ],
+  "require": {
+    "drupal/core": "^10  || ^11"
+  }
+}

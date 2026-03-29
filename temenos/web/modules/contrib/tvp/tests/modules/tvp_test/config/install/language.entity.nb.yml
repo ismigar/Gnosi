@@ -1,0 +1,7 @@
+langcode: nb
+status: true
+dependencies: {  }
+id: nb
+label: 'Norwegian'
+direction: ltr
+locked: false

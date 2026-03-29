@@ -1,0 +1,11 @@
+name: 'File delete'
+type: module
+description: 'Add capability for admins to delete files'
+core_version_requirement: ^8.8 || ^9 || ^10
+dependencies:
+  - drupal:file
+
+# Information added by Drupal.org packaging script on 2023-07-13
+version: '1.0.0-beta3'
+project: 'file_delete_ui'
+datestamp: 1689253706

@@ -1,0 +1,22 @@
+uuid: 6708fbd2-d59b-472e-a4f3-3ab1818e1947
+langcode: ca
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - elraco
+_core:
+  default_config_hash: NjcxOBrPOiK5-38t56DwFBDVY4yer7YSlbRWXFuHe7A
+id: elraco_breadcrumbs
+theme: elraco
+region: breadcrumb
+weight: -10
+provider: null
+plugin: system_breadcrumb_block
+settings:
+  id: system_breadcrumb_block
+  label: "Fil d'ariadna"
+  label_display: '0'
+  provider: system
+visibility: {  }

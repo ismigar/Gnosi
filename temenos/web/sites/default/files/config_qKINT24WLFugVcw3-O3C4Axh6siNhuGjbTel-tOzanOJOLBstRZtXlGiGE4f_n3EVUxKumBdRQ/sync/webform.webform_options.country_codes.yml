@@ -1,0 +1,14 @@
+uuid: 726a39a4-002a-4a7a-b73a-9cdd9ec1af54
+langcode: ca
+status: true
+dependencies:
+  enforced:
+    module:
+      - webform
+_core:
+  default_config_hash: adQ16YGDPk7QfUKrfrC35o2sKdHEozdNtdpiH7CftQQ
+id: country_codes
+label: 'Codis de país'
+category: Geogràfic
+likert: false
+options: ''

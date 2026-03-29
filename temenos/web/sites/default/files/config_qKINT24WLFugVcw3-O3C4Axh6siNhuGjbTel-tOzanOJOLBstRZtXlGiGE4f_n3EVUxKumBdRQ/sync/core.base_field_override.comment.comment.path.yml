@@ -1,0 +1,20 @@
+uuid: 721f342d-7d14-4e5b-8e04-375329cf5e12
+langcode: es
+status: true
+dependencies:
+  config:
+    - comment.type.comment
+  module:
+    - path
+id: comment.comment.path
+field_name: path
+entity_type: comment
+bundle: comment
+label: 'Alias de URL'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: path

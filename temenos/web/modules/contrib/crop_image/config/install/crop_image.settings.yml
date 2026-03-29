@@ -1,0 +1,8 @@
+entity_browser_image_crop:
+  preview_image_style: 'thumbnail'
+  crop_preview_image_style: 'crop_thumbnail'
+  show_crop_area: FALSE
+  show_default_crop: TRUE
+  field_widget_remove: TRUE
+  field_widget_replace: TRUE
+automatic_crop: FALSE

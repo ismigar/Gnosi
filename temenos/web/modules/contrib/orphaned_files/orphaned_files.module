@@ -1,0 +1,19 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_theme().
+ */
+function orphaned_files_theme() {
+  return [
+    'orphaned_files_page' => [
+      'variables' => [
+        'filters_form' => NULL,
+        'files_list' => NULL,
+      ],
+    ],
+  ];
+}

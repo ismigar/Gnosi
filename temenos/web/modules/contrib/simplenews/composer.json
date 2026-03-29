@@ -1,0 +1,11 @@
+{
+    "name": "drupal/simplenews",
+    "description": "Simplenews publishes and sends newsletters to lists of subscribers",
+    "type": "drupal-module",
+    "homepage": "https://www.drupal.org/project/simplenews",
+    "license": "GPL-2.0-or-later",
+    "require-dev": {
+        "drupal/monitoring":"^1.10",
+        "drupal/token":"^1"
+    }
+}

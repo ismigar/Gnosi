@@ -1,0 +1,4 @@
+label: 'Acepto la <a href="/politica-de-privacidad">política de privacidaa</a>'
+settings:
+  on_label: Activo
+  off_label: Inactivo

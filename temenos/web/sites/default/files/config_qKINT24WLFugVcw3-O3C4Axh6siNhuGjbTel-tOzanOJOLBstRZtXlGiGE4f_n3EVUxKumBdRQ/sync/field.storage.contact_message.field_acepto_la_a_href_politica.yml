@@ -1,0 +1,18 @@
+uuid: cf474e1c-3c4e-4bdd-b5c2-56b979996fac
+langcode: ca
+status: true
+dependencies:
+  module:
+    - contact
+id: contact_message.field_acepto_la_a_href_politica
+field_name: field_acepto_la_a_href_politica
+entity_type: contact_message
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

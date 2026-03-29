@@ -1,0 +1,31 @@
+uuid: 5cad5139-9918-412a-b959-cf1d34e280b5
+langcode: es
+status: true
+dependencies:
+  config:
+    - image.style.article_desktop
+    - image.style.article_desktop_fit
+    - image.style.article_mobile_fit
+    - image.style.article_tablet_fit
+  theme:
+    - elraco
+id: article_respons
+label: article_responsive_fit
+image_style_mappings:
+  -
+    image_mapping_type: image_style
+    image_mapping: article_desktop
+    breakpoint_id: elraco.desktop
+    multiplier: 1x
+  -
+    image_mapping_type: image_style
+    image_mapping: article_tablet_fit
+    breakpoint_id: elraco.tablet
+    multiplier: 1x
+  -
+    image_mapping_type: image_style
+    image_mapping: article_mobile_fit
+    breakpoint_id: elraco.mobile
+    multiplier: 1x
+breakpoint_group: elraco
+fallback_image_style: article_desktop_fit

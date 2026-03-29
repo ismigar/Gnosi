@@ -1,0 +1,35 @@
+<?php
+
+use Drupal\Core\Config\FileStorage;
+
+/**
+ * Update the Image Browser view and new default configurations.
+ */
+function crop_image_update_8100() {
+  $source = new FileStorage(\Drupal::service('file_system')->realpath(\Drupal::service('extension.list.module')->getPath('crop_image') . '/config/install'));
+  /** @var \Drupal\Core\Config\StorageInterface $active_storage */
+  $active_storage = \Drupal::service('config.storage');
+
+  $config_factory = \Drupal::configFactory();
+  $uuid_service = \Drupal::service('uuid');
+
+  $active_storage->write('views.view.image_browser', $source->read('views.view.image_browser'));
+  $config_factory->getEditable('views.view.image_browser')->set('uuid', $uuid_service->generate())->save();
+  
+  $active_storage->write('crop_image.settings', $source->read('crop_image.settings'));
+}
+
+/**
+ * Update the Image Browser view.
+ */
+function crop_image_update_8101() {
+  $source = new FileStorage(\Drupal::service('file_system')->realpath(\Drupal::service('extension.list.module')->getPath('crop_image') . '/config/install'));
+  /** @var \Drupal\Core\Config\StorageInterface $active_storage */
+  $active_storage = \Drupal::service('config.storage');
+
+  $config_factory = \Drupal::configFactory();
+  $uuid_service = \Drupal::service('uuid');
+
+  $active_storage->write('views.view.image_browser', $source->read('views.view.image_browser'));
+  $config_factory->getEditable('views.view.image_browser')->set('uuid', $uuid_service->generate())->save();
+}

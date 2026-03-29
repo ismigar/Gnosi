@@ -1,0 +1,7 @@
+services:
+  remove_unused_files.commands:
+    class: "\\Drupal\\remove_unused_files\\Commands\\RemoveUnusedFilesCommands"
+    arguments:
+      - "@remove_unused_files"
+    tags:
+      - { name: "drush.command" }

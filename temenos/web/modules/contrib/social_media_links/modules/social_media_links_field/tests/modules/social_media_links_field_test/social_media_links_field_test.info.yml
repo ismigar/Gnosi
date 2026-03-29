@@ -1,0 +1,14 @@
+type: module
+name: 'Social Media Links Field Test'
+description: 'Testing module for Social Media Links Field.'
+package: Testing
+
+dependencies:
+  - drupal:entity_test
+  - drupal:field
+  - social_media_links:social_media_links_field
+
+# Information added by Drupal.org packaging script on 2024-08-27
+version: '8.x-2.10'
+project: 'social_media_links'
+datestamp: 1724736721

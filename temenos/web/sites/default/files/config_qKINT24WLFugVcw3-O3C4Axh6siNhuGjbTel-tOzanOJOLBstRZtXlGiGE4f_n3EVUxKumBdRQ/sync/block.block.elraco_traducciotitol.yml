@@ -1,0 +1,25 @@
+uuid: 114f549b-efd6-456b-8368-a0a6edcf5a45
+langcode: ca
+status: true
+dependencies:
+  content:
+    - 'block_content:basic:866ad190-439c-4dc8-b942-3113b937a890'
+  module:
+    - block_content
+  theme:
+    - elraco
+id: elraco_traducciotitol
+theme: elraco
+region: header2
+weight: -8
+provider: null
+plugin: 'block_content:866ad190-439c-4dc8-b942-3113b937a890'
+settings:
+  id: 'block_content:866ad190-439c-4dc8-b942-3113b937a890'
+  label: 'Traducció títol'
+  label_display: '0'
+  provider: block_content
+  status: true
+  info: ''
+  view_mode: full
+visibility: {  }

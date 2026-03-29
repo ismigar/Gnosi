@@ -1,0 +1,14 @@
+uuid: b37ae66c-f77c-48fb-85c3-07f6604c36da
+langcode: ca
+status: true
+dependencies:
+  enforced:
+    module:
+      - webform
+_core:
+  default_config_hash: qBS2TmfAJB37Qn3TnrNM8x4AWimmDapcizzRllgo0fo
+id: likert_would_you
+label: 'Likert: Voldries?'
+category: Likert
+likert: true
+options: "1: Definitivament No\r\n2: Probablement no\r\n3: No estic segur\r\n4: Probablement\r\n5: Definitivament\n"

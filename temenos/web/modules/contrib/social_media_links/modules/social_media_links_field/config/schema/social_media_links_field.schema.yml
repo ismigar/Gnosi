@@ -1,0 +1,76 @@
+# Schema for the configuration files of the Social Media Links Field module.
+
+field.storage_settings.social_media_links_field:
+  type: mapping
+  label: 'Social Media Links field settings'
+
+field.field_settings.social_media_links_field:
+  label: 'Social Media Links field instance settings'
+  type: mapping
+  mapping:
+    iconset:
+      type: string
+      label: Iconset
+    platforms:
+      type: sequence
+      label: Platforms
+      sequence:
+        type: mapping
+        label: 'Platform settings'
+        mapping:
+          enabled:
+            type: boolean
+            label: 'Platform is enabled'
+          description:
+            type: label
+            label: Description
+          weight:
+            type: integer
+            label: Weight
+
+field.value.social_media_links_field:
+  type: mapping
+  label: 'Default value'
+  mapping:
+    platform:
+      type: string
+      label: 'Single platform'
+    value:
+      type: string
+      label: 'Single platform account'
+    platform_values:
+      type: ignore
+      label: 'Multiple accounts blob'
+
+field.formatter.settings.social_media_links_field_default:
+  type: mapping
+  label: 'Social Media Links Field Default formatter settings'
+  mapping:
+    appearance:
+      type: mapping
+      label: Appearance
+      mapping:
+        orientation:
+          type: string
+          label: Orientation
+        show_name:
+          type: boolean
+          label: 'Show name'
+    link_attributes:
+      type: mapping
+      label: 'Link attributes'
+      mapping:
+        target:
+          type: string
+          label: 'Target attribute'
+        rel:
+          type: string
+          label: 'Rel attribute'
+
+field.widget.settings.social_media_links_field_default:
+  type: mapping
+  label: 'Social Media Links Field Default widget settings'
+
+field.widget.settings.social_media_links_field_select:
+  type: mapping
+  label: 'Social Media Links Field Select widget settings'

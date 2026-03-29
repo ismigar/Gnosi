@@ -1,0 +1,24 @@
+uuid: 563146f7-0e9d-4ec8-9769-dcc1d3939d98
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.storage.simplenews_subscriber.field_accepto_la_a_href_politica
+  module:
+    - simplenews
+id: simplenews_subscriber.simplenews_subscriber.field_accepto_la_a_href_politica
+field_name: field_accepto_la_a_href_politica
+entity_type: simplenews_subscriber
+bundle: simplenews_subscriber
+label: 'Accepto la <a href="/politica-de-privacitat">política de privacitat</a>'
+description: ''
+required: true
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Sí
+  off_label: 'No'
+field_type: boolean

@@ -1,0 +1,14 @@
+uuid: 24228c3f-3737-4e38-9df5-50c366dfda73
+langcode: ca
+status: true
+dependencies:
+  enforced:
+    module:
+      - webform
+_core:
+  default_config_hash: zsfFP124dAM-sJkuEfnwaA7DN6o3-IsaXLgdNmObbYg
+id: country_names
+label: 'Noms de països'
+category: Geogràfic
+likert: false
+options: ''

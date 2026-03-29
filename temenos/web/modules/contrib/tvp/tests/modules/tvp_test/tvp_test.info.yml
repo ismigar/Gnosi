@@ -1,0 +1,12 @@
+name: 'TVP test'
+description: 'Support module for tvp.'
+type: module
+package: Testing
+dependencies:
+  - drupal:tvp
+  - drupal:pathauto
+
+# Information added by Drupal.org packaging script on 2025-05-06
+version: '1.1.2'
+project: 'tvp'
+datestamp: 1746541725

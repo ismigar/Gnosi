@@ -1,0 +1,14 @@
+uuid: 9e292d0a-cbb7-4841-83a7-963f3ce98731
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: vymHlgJy26BuI5GGj9-IXjwR3dRC5C0tij4BpWJnoqw
+id: feedback
+label: Contacta
+recipients:
+  - ismigar@pangea.org
+reply: "Hola,\r\n\r\nEt confirmo que rebut el teu missatge. Et contestaré tant aviat com pugui.\r\n\r\nQue l'eudonímia t'acompanyi.\r\n\r\nIsmael García\r\n"
+weight: 0
+message: "El vostre missatge s'ha enviat."
+redirect: ''

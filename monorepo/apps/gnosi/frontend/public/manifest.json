@@ -1,0 +1,16 @@
+{
+    "short_name": "Gnosi",
+    "name": "Gnosi - Digital Brain Ecosystem",
+    "icons": [
+        {
+            "src": "app-icon-home.png",
+            "sizes": "1024x1024",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "start_url": ".",
+    "display": "standalone",
+    "theme_color": "#0f172a",
+    "background_color": "#0f172a"
+}

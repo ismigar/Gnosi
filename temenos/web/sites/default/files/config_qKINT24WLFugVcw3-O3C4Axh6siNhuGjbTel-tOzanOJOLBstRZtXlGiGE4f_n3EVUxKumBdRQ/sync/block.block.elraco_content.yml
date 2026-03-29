@@ -1,0 +1,22 @@
+uuid: 7d3f96b7-f1bf-46f3-b3a2-1180738f2879
+langcode: ca
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - elraco
+_core:
+  default_config_hash: a0Yyx1GeyKarZ4T_yXQBR_ZFKnXiFLtxAb6gWLd8nr0
+id: elraco_content
+theme: elraco
+region: content
+weight: 0
+provider: null
+plugin: system_main_block
+settings:
+  id: system_main_block
+  label: 'Contingut principal de la pàgina'
+  label_display: '0'
+  provider: system
+visibility: {  }

@@ -1,0 +1,16 @@
+# Library definition for the Notion bridge filter form styles
+notion_bridge_filter_form:
+  version: 1.x
+  css:
+    theme:
+      css/notion_bridge_filter.css: {}  # Custom styles applied to the filter form UI
+
+# Library definition for the Notion bridge password hidden
+show_password:
+  version: 1.x
+  js:
+    js/show_password.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once

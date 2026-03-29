@@ -1,0 +1,10 @@
+uuid: 43992972-d5ab-47d7-9566-d01aa5626ee3
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: pQP5iQy4SdhAMVcjDUncCfkJmTofnHVtXrsMzx4k6Yk
+id: basic
+label: 'Bloc bàsic'
+revision: false
+description: 'Un bloc bàsic conté un títol i un cos.'

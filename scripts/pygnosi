@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec /Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/.venv/bin/python "$@"

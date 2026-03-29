@@ -1,0 +1,93 @@
+uuid: 856cd632-f5b8-4a3c-adfa-71dc7a62c7d0
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.field.node.recurs.body
+    - field.field.node.recurs.field_any
+    - field.field.node.recurs.field_ciutat
+    - field.field.node.recurs.field_editorial_institucio
+    - field.field.node.recurs.field_fitxer
+    - field.field.node.recurs.field_llibre_revista
+    - field.field.node.recurs.field_tags
+    - field.field.node.recurs.field_tipus
+    - node.type.recurs
+  module:
+    - file
+    - text
+    - user
+id: node.recurs.default
+targetEntityType: node
+bundle: recurs
+mode: default
+content:
+  addtoany:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  body:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+  field_any:
+    type: number_integer
+    label: hidden
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_ciutat:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_editorial_institucio:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_fitxer:
+    type: file_default
+    label: above
+    settings:
+      use_description_as_link_text: true
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_llibre_revista:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_tags:
+    type: entity_reference_entity_view
+    label: inline
+    settings:
+      view_mode: token
+      link: false
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 8
+    region: content
+hidden:
+  field_tipus: true
+  langcode: true

@@ -1,0 +1,34 @@
+<div class="orphaned-files-page-filters">
+  <h2>{{ 'Filters'|t }}</h2>
+  {{ filters_form }}
+</div>
+
+<div class="orphaned-files-list-files">
+  <h2>{{ 'Files'|t }}</h2>
+  {% if files_list is defined and files_list|length > 0 %}
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'File ID'|t }}</th>
+          <th>{{ 'Filename'|t }}</th>
+          <th>{{ 'Count'|t }}</th>
+          <th>{{ 'Operation'|t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for file in files_list %}
+          <tr>
+            <td>{{ file.fid }}</td>
+            <td>{{ file.filename }}</td>
+            <td>{{ file.usage_count }}</td>
+            <td>
+              <a href="{{ path('orphaned_files.delete', {'fid': file.fid}) }}" class="button">{{ 'Delete'|t }}</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>{{ 'No files found.'|t }}</p>
+  {% endif %}
+</div>

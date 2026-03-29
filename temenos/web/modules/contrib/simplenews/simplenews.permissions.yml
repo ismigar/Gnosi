@@ -1,0 +1,12 @@
+administer newsletters:
+  title: 'Administer newsletters'
+administer simplenews subscriptions:
+  title: 'Administer simplenews subscriptions'
+view simplenews subscriptions:
+  title: 'View simplenews subscriptions'
+administer simplenews settings:
+  title: 'Administer simplenews settings'
+send newsletter:
+  title: 'Send newsletter'
+subscribe to newsletters:
+  title: 'Subscribe to newsletters'

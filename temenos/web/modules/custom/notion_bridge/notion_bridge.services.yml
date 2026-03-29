@@ -1,0 +1,135 @@
+services:
+  notion_bridge.notion_client:
+    class: Drupal\notion_bridge\NotionClient
+    arguments:
+      - '@http_client_factory'
+      - '@config.factory'
+      - '@cache.default'
+      - '@logger.channel.notion_bridge'
+      - '@language_manager'
+      - '@datetime.time'
+      - '@file_system'
+      - '@notion_bridge.mapping_storage'
+      - '@string_translation'
+      - '@entity_type.manager'
+      - '@token'
+      - '@file.repository'
+      - '@path_alias.manager'
+
+  notion_bridge.content_importer:
+    class: Drupal\notion_bridge\ContentImporter
+    arguments:
+      - '@notion_bridge.notion_client'
+      - '@entity_type.manager'
+      - '@notion_bridge.mapping_storage'
+      - '@entity_field.manager'
+      - '@file_system'
+      - '@cache.default'
+      - '@token'
+      - '@config.factory'
+      - '@entity_display.repository'
+      - '@datetime.time'
+      - '@logger.channel.notion_bridge'
+      - '@string_translation'
+      - '@file.repository'
+      - '@pathauto.generator'
+      - '@current_user'
+      - '@http_client_factory'
+      - '@file.usage'
+      - '@file.mime_type.guesser'
+      - '@queue'
+
+  notion_bridge.config_form:
+    class: Drupal\notion_bridge\Form\NotionBridgeConfigForm
+    arguments:
+      - '@notion_bridge.notion_client'
+      - '@entity_type.manager'
+      - '@entity_field.manager'
+      - '@notion_bridge.config_manager'
+    tags:
+      - { name: form, form_id: notion_bridge_settings_form }
+
+  notion_bridge.mapping_storage:
+    class: Drupal\notion_bridge\MappingStorage
+    arguments:
+      - '@database'
+      - '@date.formatter'
+      - '@cache.default'
+      - '@logger.channel.notion_bridge'
+
+  notion_bridge.controller:
+    class: Drupal\notion_bridge\Controller\NotionbridgeController
+    arguments:
+      - '@database'
+      - '@renderer'
+      - '@pager.manager'
+      - '@date.formatter'
+      - '@notion_bridge.notion_client'
+      - '@logger.channel.notion_bridge'
+
+  notion_bridge.clear_form:
+    class: Drupal\notion_bridge\Form\NotionBridgeClearForm
+    arguments: [ '@database' ]
+    tags:
+      - { name: form, form_id: notion_bridge_clear_form }
+
+  notion_bridge.cleaner:
+    class: Drupal\notion_bridge\Cleaner
+    arguments:
+      - '@entity_type.manager'
+      - '@logger.factory'
+      - '@file.usage'
+
+  notion_bridge.filter_form:
+    class: Drupal\notion_bridge\Form\NotionbridgeFilterForm
+    arguments:
+      - '@database'
+      - '@request_stack'
+      - '@notion_bridge.notion_client'
+      - '@logger.channel.notion_bridge'
+    tags:
+      - { name: form, form_id: notion_bridge_filter_form }
+
+  notion_bridge.execution_form:
+    class: Drupal\notion_bridge\Form\NotionBridgeExecutionForm
+    arguments:
+      - '@notion_bridge.content_importer'
+      - '@logger.channel.notion_bridge'
+      - '@state'
+    tags:
+      - { name: form, form_id: notion_bridge_execution_form }
+
+  logger.channel.notion_bridge:
+    parent: logger.channel_base
+    arguments: [ 'notion_bridge' ]
+
+  notion_bridge.cron:
+    class: Drupal\notion_bridge\Cron\NotionBridgeCron
+    arguments:
+      - '@notion_bridge.content_importer'
+      - '@logger.channel.notion_bridge'
+      - '@state'
+      - '@config.factory'
+      - '@datetime.time'
+    tags:
+      - { name: cron }
+
+  notion_bridge.config_manager:
+    class: Drupal\notion_bridge\ConfigManager
+    arguments: [ '@config.factory' ]
+
+  notion_bridge.page_batch_handler:
+    class: Drupal\notion_bridge\Batch\NotionPageBatchHandler
+    arguments: [ '@notion_bridge.notion_client', '@notion_bridge.content_importer' ]
+
+  notion_bridge.sync_manager:
+    class: Drupal\notion_bridge\NotionBridgeSyncManager
+    arguments:
+      - '@entity_type.manager'
+      - '@language_manager'
+      - '@uuid'
+      - '@keyvalue'
+      - '@logger.channel.notion_bridge'
+      - '@notion_bridge.notion_client'
+      - '@notion_bridge.mapping_storage'
+      - '@config.factory'

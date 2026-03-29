@@ -1,0 +1,5 @@
+remove_unused_files_form.form:
+  title: "Remove Unused Files"
+  description: "Move all managed unused files to temporary status, those files removal next time cron run."
+  parent: "system.admin_config_media"
+  route_name: "remove_unused_files_form.form"

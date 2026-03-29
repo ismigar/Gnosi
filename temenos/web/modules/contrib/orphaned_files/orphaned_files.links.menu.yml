@@ -1,0 +1,6 @@
+orphaned_files.admin:
+  title: 'Orphaned Files'
+  route_name: orphaned_files.page
+  description: 'List of every orphaned file by the Drupal website'
+  parent: system.admin_content
+  weight: 0

@@ -1,0 +1,20 @@
+uuid: 718f6173-069f-41f8-8e52-49d3ab0eb419
+langcode: es
+status: true
+dependencies:
+  config:
+    - shortcut.set.default
+  module:
+    - path
+id: shortcut.default.path
+field_name: path
+entity_type: shortcut
+bundle: default
+label: 'Alias de URL'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: path

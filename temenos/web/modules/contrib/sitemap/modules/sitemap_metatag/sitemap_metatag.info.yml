@@ -1,0 +1,12 @@
+name: 'Sitemap metatag'
+type: module
+description: 'Add metatag settings for the sitemap page.'
+core_version_requirement: ^10.2 || ^11
+dependencies:
+  - metatag:metatag
+  - sitemap:sitemap
+
+# Information added by Drupal.org packaging script on 2025-08-26
+version: '8.x-2.3'
+project: 'sitemap'
+datestamp: 1756220337

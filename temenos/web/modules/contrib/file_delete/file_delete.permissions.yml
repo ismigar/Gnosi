@@ -1,0 +1,9 @@
+delete files override usage:
+  title: 'Override Usage Delete files'
+  description: 'Delete files from the file system even if they are used on other entities (may cause links and media to malfunction).'
+  restrict access: true
+
+delete files immediately:
+  title: 'Instantly Delete files'
+  description: 'Delete files from the file system immediately, do not mark as temporary.'
+  restrict access: true

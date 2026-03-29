@@ -1,0 +1,12 @@
+name: 'EUCC to Klaro migrator module'
+type: module
+description: 'This module attempts to migrate the settings from the EUCC to Klaro modules'
+package: User interface
+core_version_requirement: ^9 || ^10 || ^11
+dependencies:
+  - drupal:eu_cookie_compliance
+  - drupal:klaro
+# Information added by Drupal.org packaging script on 2025-07-24
+version: '8.x-1.28'
+project: 'eu_cookie_compliance'
+datestamp: 1753332677

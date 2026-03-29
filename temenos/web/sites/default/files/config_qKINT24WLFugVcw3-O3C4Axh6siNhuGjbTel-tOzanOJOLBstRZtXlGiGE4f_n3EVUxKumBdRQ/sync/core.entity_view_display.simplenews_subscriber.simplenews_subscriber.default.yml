@@ -1,0 +1,33 @@
+uuid: e5121b9f-a0e8-4ae5-ae8e-cc43b908726c
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.field.simplenews_subscriber.simplenews_subscriber.field_accepto_la_a_href_politica
+    - field.field.simplenews_subscriber.simplenews_subscriber.field_nom_i_cognoms
+  module:
+    - simplenews
+id: simplenews_subscriber.simplenews_subscriber.default
+targetEntityType: simplenews_subscriber
+bundle: simplenews_subscriber
+mode: default
+content:
+  field_accepto_la_a_href_politica:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_nom_i_cognoms:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 0
+    region: content
+hidden: {  }

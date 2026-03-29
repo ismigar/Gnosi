@@ -1,0 +1,9 @@
+{% if links %}
+  <ul class="language-switcher nav">
+    {% for key, item in links %}
+      <li{{ item.attributes.addClass('nav-item') }}>
+        {{ item.link }}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

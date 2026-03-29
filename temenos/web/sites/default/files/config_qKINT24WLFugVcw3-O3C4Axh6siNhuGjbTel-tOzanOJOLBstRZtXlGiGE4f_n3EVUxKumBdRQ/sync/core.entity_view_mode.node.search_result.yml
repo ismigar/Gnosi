@@ -1,0 +1,13 @@
+uuid: cd07c919-5eb6-4de8-b6db-212915f24cde
+langcode: ca
+status: false
+dependencies:
+  module:
+    - node
+_core:
+  default_config_hash: d8wBEm7XvJ6H3S0IneDD9PfTBklPIH7GMpxElVemPf8
+id: node.search_result
+label: 'Destaca els resultats de la cerca realitzada'
+description: ''
+targetEntityType: node
+cache: true

@@ -1,0 +1,13 @@
+uuid: 69a97f3f-6c2d-41f8-9ba2-a67244b68510
+langcode: ca
+status: false
+dependencies:
+  module:
+    - media
+_core:
+  default_config_hash: dTfAUHooYV0uOVPO3saGpgv-c5PppJXDwxvwRTJOycM
+id: media.full
+label: 'Contingut sencer'
+description: ''
+targetEntityType: media
+cache: true

@@ -1,0 +1,18 @@
+{# themes/custom/elraco/templates/field/field--file.html.twig #}
+{% if items|length %}
+  <table class="table files-table">
+    <thead>
+    <tr>
+      <th>{{ 'Nom'|t }}</th>
+      <th>{{ 'MIME'|t }}</th>
+      <th>{{ 'Pes'|t }}</th>
+      <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+      <tr>{{ item.content }}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}

@@ -1,0 +1,16 @@
+name: Simplenews Demo
+type: module
+description: Demo module for Simplenews.
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:block
+  - drupal:views
+  - simplenews:simplenews
+#  - simplenews_scheduler:simplenews_scheduler
+hidden: false
+package: Mail
+
+# Information added by Drupal.org packaging script on 2025-07-17
+version: '4.1.1'
+project: 'simplenews'
+datestamp: 1752745475

@@ -1,0 +1,20 @@
+uuid: 42a2a3e4-c0da-450a-9da0-b01409f526af
+langcode: ca
+status: true
+dependencies:
+  theme:
+    - elraco
+_core:
+  default_config_hash: CdXfDmRgAvms7EQovxxWPdYi0GitxeRbVtScYK16ZH0
+id: elraco_local_actions
+theme: elraco
+region: content
+weight: -10
+provider: null
+plugin: local_actions_block
+settings:
+  id: local_actions_block
+  label: "Accions principals d'administració"
+  label_display: '0'
+  provider: core
+visibility: {  }

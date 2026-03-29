@@ -1,0 +1,21 @@
+uuid: 361aae13-d98e-48e8-a09a-58b323364f0a
+langcode: ca
+status: true
+dependencies:
+  module:
+    - simplenews
+id: simplenews_subscriber.field_nom_i_cognoms
+field_name: field_nom_i_cognoms
+entity_type: simplenews_subscriber
+type: string
+settings:
+  max_length: 255
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

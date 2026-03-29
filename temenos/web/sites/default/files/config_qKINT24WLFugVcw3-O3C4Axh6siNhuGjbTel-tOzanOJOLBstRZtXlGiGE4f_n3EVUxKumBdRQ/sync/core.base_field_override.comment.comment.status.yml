@@ -1,0 +1,22 @@
+uuid: 1f4e0062-ccc1-436d-9869-804077a3b413
+langcode: ca
+status: true
+dependencies:
+  config:
+    - comment.type.comment
+id: comment.comment.status
+field_name: status
+entity_type: comment
+bundle: comment
+label: Publicat
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: 'Drupal\comment\Entity\Comment::getDefaultStatus'
+settings:
+  on_label: Actiu
+  off_label: Inactiu
+field_type: boolean
