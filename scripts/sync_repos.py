@@ -26,31 +26,46 @@ def ensure_remote(name, url):
     else:
         run_cmd(f"git remote set-url {name} {url}", f"No s'ha pogut actualitzar el remote {name}")
 
+def get_remote_url(repo_path):
+    """Retorna la URL del remote basada en l'entorn (PAT per CI, SSH per local)."""
+    pat = os.environ.get("SYNC_PAT", "")
+    if pat:
+        # GitHub Actions: usar HTTPS amb PAT
+        return f"https://x-access-token:{pat}@github.com/{repo_path}.git"
+    else:
+        # Local: usar SSH
+        return f"git@github.com:{repo_path}.git"
+
 def main():
     print("=============================================")
     print("🚀 Iniciant sincronització Multi-Remote")
     print("=============================================\n")
 
-    # Detectar si estem a GitHub Actions o en local
     is_ci = os.environ.get("GITHUB_ACTIONS") == "true"
+    has_pat = bool(os.environ.get("SYNC_PAT"))
 
     if is_ci:
         print("🤖 Executant a GitHub Actions")
-        # Configurar SSH per usar la clau correcta
-        run_cmd("ssh -T git@github.com 2>&1 || true", "Test SSH", allow_fail=True)
+        if has_pat:
+            print("🔑 Utilitzant Personal Access Token (HTTPS)")
+        else:
+            print("⚠️  AVÍS: No s'ha trobat SYNC_PAT, es provarà SSH")
+    else:
+        print("💻 Executant en local (SSH)")
 
-    print("🔐 Configurant repositoris SSH...")
-    ensure_remote("gnosi", "git@github.com:ismigar/Gnosi.git")
-    ensure_remote("profile", "git@github.com:ismigar/ismigar.git")
+    print("\n🔐 Configurant repositoris...")
+    ensure_remote("gnosi", get_remote_url("ismigar/Gnosi"))
+    ensure_remote("profile", get_remote_url("ismigar/ismigar"))
 
     # 1. Push del producte a Gnosi (Públic)
     print("🌐 1. Sincronitzant Gnosi (Producte Públic)...")
     run_cmd("git checkout --orphan sync-gnosi-tmp", "Error creant branca òrfena per a Gnosi")
     run_cmd("git rm -rf . --quiet", "Error netejant branca òrfena")
     run_cmd("git checkout main -- monorepo/", "Error agafant contingut monorepo")
-    # Moure contingut de monorepo/ a l'arrel
-    run_cmd("find monorepo -maxdepth 1 -mindepth 1 -not -name '.*' -exec mv {} . \\;", "Error movent contingut a l'arrel", allow_fail=True)
-    run_cmd("find monorepo -maxdepth 1 -name '.*' -not -name '.' -not -name '..' -exec mv {} . \\;", "Error movent fitxers ocults", allow_fail=True)
+    run_cmd("find monorepo -maxdepth 1 -mindepth 1 -not -name '.*' -exec mv {} . \\;",
+            "Error movent contingut a l'arrel", allow_fail=True)
+    run_cmd("find monorepo -maxdepth 1 -name '.*' -not -name '.' -not -name '..' -exec mv {} . \\;",
+            "Error movent fitxers ocults", allow_fail=True)
     run_cmd("rm -rf monorepo", "Error eliminant directori monorepo")
     run_cmd("git add .", "Error afegint fitxers per a Gnosi")
     run_cmd("git commit -m 'Sync from Projectes'", "Error creant commit per a Gnosi")
