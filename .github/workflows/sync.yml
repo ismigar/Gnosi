@@ -17,11 +17,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Configure Git
         run: |
           git config --global user.name "Github Action"
           git config --global user.email "action@github.com"
+          git config --global --unset-all credential.helper || true
 
       - name: Run Sync Script
         env:
