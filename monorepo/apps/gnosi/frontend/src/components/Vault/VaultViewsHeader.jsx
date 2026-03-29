@@ -119,9 +119,9 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
                     <button 
                         onClick={() => { setShowMenu(false); onAction?.(view, 'delete'); }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--status-error)]/10 transition-colors text-left btn-gnosi-danger !bg-transparent !text-[var(--status-error)] hover:!bg-[var(--status-error)]/10 !border-0"
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
-                        <Trash2 size={13} />
+                        <Trash2 size={13} className="text-[var(--status-error)]" />
                         Eliminar
                     </button>
                 </div>
