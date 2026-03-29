@@ -94,23 +94,24 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                 <div 
                     ref={menuRef}
                     className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1000] py-1 animate-in fade-in zoom-in-95 duration-100"
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <button 
-                        onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
+                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'configure'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Settings size={13} />
                         Configurar
                     </button>
                     <button 
-                        onClick={() => { setShowMenu(false); onAction?.(view, 'rename'); }}
+                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'rename'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Edit2 size={13} />
                         Renombrar
                     </button>
                     <button 
-                        onClick={() => { setShowMenu(false); onAction?.(view, 'duplicate'); }}
+                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'duplicate'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Copy size={13} />
@@ -118,7 +119,7 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                     </button>
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
                     <button 
-                        onClick={() => { setShowMenu(false); onAction?.(view, 'delete'); }}
+                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'delete'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Trash2 size={13} className="text-[var(--status-error)]" />
@@ -177,9 +178,9 @@ export function VaultViewsHeader({
                 const actionsWidth = actionsRef.current ? actionsRef.current.offsetWidth : 210;
                 
                 // Espai per les pestanyes = Total - Accions - Marges/Gaps - (+ bar i ... que ocupen uns 80px)
-                const availableForTabs = totalWidth - actionsWidth - 40; 
-                const tabWidth = 135; 
-                const reservedInternal = 60; // + i ...
+                const availableForTabs = totalWidth - actionsWidth - 60; 
+                const tabWidth = 140; 
+                const reservedInternal = 40; // el botó "+" i el botó "..." d'overflow
                 
                 const count = Math.max(1, Math.floor((availableForTabs - reservedInternal) / tabWidth));
                 setVisibleCount(count);
