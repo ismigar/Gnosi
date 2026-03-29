@@ -4,8 +4,12 @@ import sys
 
 def run_cmd(cmd, error_msg, allow_fail=False):
     print(f"🔄 Executant: {cmd}")
-    result = subprocess.run(cmd, shell=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if result.stdout:
+        print(result.stdout)
     if result.returncode != 0:
+        if result.stderr:
+            print(f"STDERR: {result.stderr}")
         if allow_fail:
             print(f"⚠️  AVÍS (no crític): {error_msg}")
             return False
@@ -26,6 +30,14 @@ def main():
     print("=============================================")
     print("🚀 Iniciant sincronització Multi-Remote")
     print("=============================================\n")
+
+    # Detectar si estem a GitHub Actions o en local
+    is_ci = os.environ.get("GITHUB_ACTIONS") == "true"
+
+    if is_ci:
+        print("🤖 Executant a GitHub Actions")
+        # Configurar SSH per usar la clau correcta
+        run_cmd("ssh -T git@github.com 2>&1 || true", "Test SSH", allow_fail=True)
 
     print("🔐 Configurant repositoris SSH...")
     ensure_remote("gnosi", "git@github.com:ismigar/Gnosi.git")
@@ -50,7 +62,6 @@ def main():
     print("🛠️  2. Sincronitzant Perfil (ismigar Pública)...")
     run_cmd("git checkout --orphan sync-profile-tmp", "Error creant branca òrfena per a Profile")
     run_cmd("git rm -rf . --quiet", "Error netejant branca òrfena")
-    # Intentar agafar fitxers, ignorar si algun no existeix
     run_cmd("git checkout main -- docs/ scripts/", "Error agafant bases per a Profile")
     run_cmd("git checkout main -- .gitignore README.md", "Error agafant fitxers base", allow_fail=True)
     run_cmd("git add .", "Error afegint fitxers per a Profile")
