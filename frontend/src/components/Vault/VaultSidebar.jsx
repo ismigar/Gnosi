@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2 } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
+import { getViewIcon } from './viewConstants';
 
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement }) => (
     <button
@@ -626,7 +627,7 @@ export const VaultSidebar = ({
                             {!wikiVirtualizationEnabled && rootPages.length > visibleWikiCount && (
                                 <button
                                     onClick={() => setVisibleWikiCount(prev => Math.min(prev + WIKI_BATCH_SIZE, rootPages.length))}
-                                    className="btn-gnosi btn-gnosi-primary !text-[10px] !py-1 w-full mt-1"
+                                    className="btn-gnosi btn-gnosi-primary w-full mt-2 !py-1.5 !text-[11px]"
                                 >
                                     Mostrar {Math.min(WIKI_BATCH_SIZE, rootPages.length - visibleWikiCount)} més
                                 </button>
@@ -716,9 +717,9 @@ export const VaultSidebar = ({
                                                             {expandedTables[table.id] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                                         </button>
                                                         <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
                                                                 if (onOpenTable) onOpenTable(table.id);
-                                                                else if (onTableSelect) onTableSelect(table.id);
+                                                                if (onTableSelect) onTableSelect(table.id, null, false, true);
                                                             }}
                                                             className={`flex items-center gap-2 flex-1 min-w-0 ${activeTableId === table.id ? 'text-gnosi font-medium' : ''}`}
                                                         >
@@ -780,18 +781,21 @@ export const VaultSidebar = ({
                                                     {/* Nested Views */}
                                                     {tableViews.length > 0 && (
                                                         <div className="ml-4 border-l border-[var(--border-primary)] pl-2 flex flex-col gap-0.5 mt-0.5 mb-1">
-                                                            {tableViews.map(view => (
-                                                                <button
-                                                                    key={view.id}
-                                                                    onClick={() => {
-                                                                        onTableSelect && onTableSelect(table.id, view.id);
-                                                                    }}
-                                                                    className="flex items-center gap-2 px-2 py-1 text-[11px] text-[var(--text-secondary)] hover:text-gnosi hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
-                                                                >
-                                                                    <Hash size={10} className="shrink-0" />
-                                                                    <span className="truncate">{view.name}</span>
-                                                                </button>
-                                                            ))}
+                                                            {tableViews.map(view => {
+                                                                const ViewIcon = getViewIcon(view.type);
+                                                                return (
+                                                                    <button
+                                                                        key={view.id}
+                                                                        onClick={() => {
+                                                                            onTableSelect && onTableSelect(table.id, view.id);
+                                                                        }}
+                                                                        className="flex items-center gap-2 px-2 py-1 text-[11px] text-[var(--text-secondary)] hover:text-gnosi hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
+                                                                    >
+                                                                        <ViewIcon size={10} className="shrink-0" />
+                                                                        <span className="truncate">{view.name}</span>
+                                                                    </button>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
@@ -803,7 +807,7 @@ export const VaultSidebar = ({
                                                     ...prev,
                                                     [db.id]: Math.min((prev[db.id] || TABLES_BATCH_SIZE) + TABLES_BATCH_SIZE, dbTables.length)
                                                 }))}
-                                                className="ml-2 mt-1 px-2 py-1 text-[11px] text-[var(--text-secondary)] border border-[var(--border-primary)] rounded hover:bg-[var(--bg-secondary)] transition-colors"
+                                                className="btn-gnosi btn-gnosi-primary !bg-transparent !text-[var(--text-secondary)] border border-[var(--border-primary)] hover:!bg-[var(--bg-secondary)] !py-1 !px-2 !text-[10px] ml-6 mt-1"
                                             >
                                                 Mostrar {Math.min(TABLES_BATCH_SIZE, dbTables.length - visibleTableCount)} taules més
                                             </button>
@@ -819,7 +823,7 @@ export const VaultSidebar = ({
                     {databases.length > visibleDatabasesCount && (
                         <button
                             onClick={() => setVisibleDatabasesCount(prev => Math.min(prev + DATABASES_BATCH_SIZE, databases.length))}
-                            className="w-full mt-1 px-2 py-1 text-xs text-[var(--text-secondary)] border border-[var(--border-primary)] rounded hover:bg-[var(--bg-secondary)] transition-colors"
+                            className="btn-gnosi btn-gnosi-primary !bg-transparent !text-[var(--text-secondary)] border border-[var(--border-primary)] hover:!bg-[var(--bg-secondary)] !py-1 !px-2 !text-[11px] w-full mt-2"
                         >
                             Mostrar {Math.min(DATABASES_BATCH_SIZE, databases.length - visibleDatabasesCount)} bases de dades més
                         </button>

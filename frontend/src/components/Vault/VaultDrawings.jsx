@@ -99,7 +99,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
 
                         <button
                             onClick={(e) => handleDeleteClick(e, drawing.id)}
-                            className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur shadow-sm rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                            className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur shadow-sm rounded-lg text-slate-400 hover:text-[var(--status-error)] hover:bg-[var(--status-error)]/10 opacity-0 group-hover:opacity-100 transition-all"
                         >
                             <Trash2 size={14} />
                         </button>

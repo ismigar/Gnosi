@@ -3,14 +3,24 @@ import {
     Calendar, CalendarRange, Newspaper 
 } from 'lucide-react';
 
+export const VIEW_TYPE_IDS = {
+    TABLE: 'table',
+    BOARD: 'board',
+    GALLERY: 'gallery',
+    LIST: 'list',
+    CALENDAR: 'calendar',
+    TIMELINE: 'timeline',
+    FEED: 'feed'
+};
+
 export const VIEW_TYPES = [
-    { id: 'table', label: 'Taula', icon: Table },
-    { id: 'board', label: 'Kanban', icon: Columns2 },
-    { id: 'gallery', label: 'Galeria', icon: LayoutGrid },
-    { id: 'list', label: 'Llista', icon: List },
-    { id: 'calendar', label: 'Calendari', icon: Calendar },
-    { id: 'timeline', label: 'Timeline', icon: CalendarRange },
-    { id: 'feed', label: 'Feed', icon: Newspaper },
+    { id: VIEW_TYPE_IDS.TABLE, label: 'Taula', icon: Table },
+    { id: VIEW_TYPE_IDS.BOARD, label: 'Kanban', icon: Columns2 },
+    { id: VIEW_TYPE_IDS.GALLERY, label: 'Galeria', icon: LayoutGrid },
+    { id: VIEW_TYPE_IDS.LIST, label: 'Llista', icon: List },
+    { id: VIEW_TYPE_IDS.CALENDAR, label: 'Calendari', icon: Calendar },
+    { id: VIEW_TYPE_IDS.TIMELINE, label: 'Timeline', icon: CalendarRange },
+    { id: VIEW_TYPE_IDS.FEED, label: 'Feed', icon: Newspaper },
 ];
 
 export const getViewIcon = (typeId) => {
