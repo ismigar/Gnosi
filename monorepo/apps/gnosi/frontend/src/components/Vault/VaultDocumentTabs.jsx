@@ -249,7 +249,7 @@ export function VaultDocumentTabs({
                             )}
                             <button
                                 onClick={(e) => { e.stopPropagation(); onTabClose(tab.id); }}
-                                className="p-1 rounded text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50/10 transition-colors"
+                                className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--status-error)]/10 transition-colors"
                                 title="Tancar pestanya"
                             >
                                 <X size={14} />

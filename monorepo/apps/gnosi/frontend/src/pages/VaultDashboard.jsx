@@ -26,6 +26,7 @@ import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormu
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import TldrawEditor from '../components/Vault/TldrawEditor';
+import { VIEW_TYPE_IDS } from '../components/Vault/viewConstants';
 
 export default function VaultDashboard() {
     const navigate = useNavigate();
@@ -736,13 +737,15 @@ export default function VaultDashboard() {
         return () => window.removeEventListener('keydown', handleUndoRedo);
     }, []);
 
-    const handleTableSelect = async (tableId, viewId = null, fromHistory = false) => {
+    const handleTableSelect = async (tableId, viewId = null, fromHistory = false, navigate = true) => {
         if (!fromHistory) {
             pushToHistory({ type: 'table', id: tableId, subId: viewId });
         }
         setActiveTableId(tableId);
-        setViewMode('table');
-        setActiveTabId(null);
+        if (navigate) {
+            setViewMode('table');
+            setActiveTabId(null);
+        }
 
         // Buscar notes que pertanyin a aquesta taula.
         // Font única: resolved_table_id (backend). Fallback legacy: metadata table_id/database_table_id.
@@ -1620,8 +1623,8 @@ export default function VaultDashboard() {
             currentView={viewMode}
             databases={registry.databases}
             tables={registry.tables}
-            onTableSelect={(tableId, fromHistory = false) => {
-                handleTableSelect(tableId, null, fromHistory);
+            onTableSelect={(tableId, viewId = null, fromHistory = false, skipNav = false) => {
+                handleTableSelect(tableId, viewId, fromHistory, !skipNav);
             }}
             onOpenTable={(tableId) => handleOpenTableAsTab(tableId)}
             onOpenTableParallel={handleOpenTableParallel}
@@ -1772,7 +1775,7 @@ export default function VaultDashboard() {
                     />
                     <div className="flex-1 overflow-hidden">
                         {(() => {
-                            if (cv.type === 'board') {
+                            if (cv.type === VIEW_TYPE_IDS.BOARD) {
                                 return (
                                     <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-slate-50">
                                         <VaultKanban
@@ -1800,7 +1803,7 @@ export default function VaultDashboard() {
                                 );
                             }
 
-                            if (cv.type === 'gallery') {
+                            if (cv.type === VIEW_TYPE_IDS.GALLERY) {
                                 return (
                                     <div className="p-0 h-full overflow-hidden w-full">
                                         <VaultGallery
@@ -1839,7 +1842,7 @@ export default function VaultDashboard() {
                                     idToTitle={globalIndex}
                                     activeView={cv}
                                     onUpdateView={handleUpdateView}
-                                    isListView={cv.type === 'list'}
+                                    isListView={cv.type === VIEW_TYPE_IDS.LIST}
                                     isEmbedded={false}
                                     onDeletePage={handleDeletePage}
                                     onDeleteSelected={handleDeleteSelected}
@@ -1945,7 +1948,7 @@ export default function VaultDashboard() {
                 />
                 <div className="flex-1 overflow-hidden">
                     {(() => {
-                        if (cv.type === 'board') {
+                        if (cv.type === VIEW_TYPE_IDS.BOARD) {
                             return (
                                 <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-slate-50">
                                     <VaultKanban
@@ -1973,7 +1976,7 @@ export default function VaultDashboard() {
                             );
                         }
 
-                        if (cv.type === 'gallery') {
+                        if (cv.type === VIEW_TYPE_IDS.GALLERY) {
                             return (
                                 <div className="p-0 h-full overflow-hidden w-full">
                                     <VaultGallery
@@ -2025,7 +2028,7 @@ export default function VaultDashboard() {
                                 idToTitle={globalIndex}
                                 activeView={cv}
                                 onUpdateView={handleUpdateView}
-                                isListView={cv.type === 'list'}
+                                isListView={cv.type === VIEW_TYPE_IDS.LIST}
                                 isEmbedded={true}
                                 onDeletePage={handleDeletePage}
                                 onDeleteSelected={handleDeleteSelected}
@@ -2154,6 +2157,7 @@ export default function VaultDashboard() {
                     ) : viewMode === 'table' && activeTableId ? (
                         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
                             {(() => {
+                                const activeTable = registry.tables?.find(t => t.id === activeTableId);
                                 const currentTableViews = (registry.views?.filter(v => v.table_id === activeTableId) || []).concat(
                                     views.filter(v => v.table_id === activeTableId && !registry.views?.find(rv => rv.id === v.id))
                                 );
@@ -2196,7 +2200,7 @@ export default function VaultDashboard() {
                                     const allAvailableViews = (registry.views || []).concat(views);
                                     const cv = allAvailableViews.find(v => v.id === activeViewId) || { name: "Taula Principal", type: "table", sort: { field: "last_modified", direction: "desc" } };
 
-                                    if (cv.type === 'board') {
+                                    if (cv.type === VIEW_TYPE_IDS.BOARD) {
                                         return (
                                             <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]">
                                                 <VaultKanban
@@ -2223,7 +2227,7 @@ export default function VaultDashboard() {
                                         );
                                     }
 
-                                    if (cv.type === 'calendar') {
+                                    if (cv.type === VIEW_TYPE_IDS.CALENDAR) {
                                         return (
                                             <div className="p-6 h-full">
                                                 <DigitalBrainCalendar
@@ -2236,7 +2240,7 @@ export default function VaultDashboard() {
                                         );
                                     }
 
-                                    if (cv.type === 'gallery') {
+                                    if (cv.type === VIEW_TYPE_IDS.GALLERY) {
                                         return (
                                             <div className="p-0 h-full overflow-hidden w-full">
                                                 <VaultGallery
@@ -2265,7 +2269,7 @@ export default function VaultDashboard() {
                                         );
                                     }
 
-                                    if (cv.type === 'timeline') {
+                                    if (cv.type === VIEW_TYPE_IDS.TIMELINE) {
                                         return (
                                             <div className="p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]">
                                                 <VaultTimeline
@@ -2294,7 +2298,7 @@ export default function VaultDashboard() {
                                         );
                                     }
 
-                                    if (cv.type === 'feed') {
+                                    if (cv.type === VIEW_TYPE_IDS.FEED) {
                                         return (
                                             <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]">
                                                 <VaultFeed
@@ -2321,7 +2325,7 @@ export default function VaultDashboard() {
                                             idToTitle={globalIndex}
                                             activeView={cv}
                                             onUpdateView={handleUpdateView}
-                                            isListView={cv.type === 'list'}
+                                            isListView={cv.type === VIEW_TYPE_IDS.LIST}
                                             onDeletePage={handleDeletePage}
                                             onDeleteSelected={handleDeleteSelected}
                                             onOpenParallel={handleOpenParallel}

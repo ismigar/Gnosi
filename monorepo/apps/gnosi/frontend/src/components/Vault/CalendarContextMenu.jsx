@@ -55,7 +55,7 @@ export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onD
             {onDeleteEvent && (
                 <button
                     onClick={() => { onDeleteEvent(); onClose(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--status-error)] hover:bg-[var(--status-error)]/10 transition-colors text-left font-medium"
                 >
                     <span className="text-lg">🗑️</span>
                     <span className="font-medium">{t('delete_event', 'Eliminar')}</span>

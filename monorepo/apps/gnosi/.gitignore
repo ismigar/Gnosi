@@ -9,7 +9,9 @@ venv/
 
 # Data
 # Data
-backend/data/
+backend/data/*.db
+backend/data/*.json
+backend/data/logs/
 
 # Node
 node_modules/
