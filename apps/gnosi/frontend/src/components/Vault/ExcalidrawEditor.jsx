@@ -1,0 +1,418 @@
+import React, { useState, useEffect, useCallback, Component } from 'react';
+import { Excalidraw, exportToSvg, serializeAsJSON, convertToExcalidrawElements } from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css";
+import axios from 'axios';
+import { Loader2, Save, X, Maximize2, Minimize2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../../hooks/useTheme';
+import { BlockEditor } from './BlockEditor';
+import './ExcalidrawEditor.css';
+
+class ErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+    render() {
+        if (this.state.hasError) {
+            // Error boundary strings don't necessarily need t() if they are only for devs, 
+            // but for completeness I'll pass it if possible, though EB is a class component.
+            // I'll leave them in English as they are technical.
+            return (
+                <div style={{ padding: 20, color: 'red', background: '#ffebee', height: '100%', overflow: 'auto' }}>
+                    <h2>Excalidraw Crash</h2>
+                    <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.error?.stack || this.state.error?.toString()}</pre>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+const API_BASE_URL = '/api/vault';
+
+const EmbeddedNote = ({ noteId }) => {
+    const { t } = useTranslation();
+    const [noteData, setNoteData] = useState(null);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchNote = async () => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/pages/${noteId}`);
+                setNoteData(res.data);
+            } catch (err) {
+                console.error("Error fetching embedded note:", err);
+                setError(err);
+            }
+        };
+        fetchNote();
+    }, [noteId]);
+
+    if (error) return <div className="p-4 text-red-500 text-sm">{t('Error loading note.')}</div>;
+    if (!noteData) return <div className="p-4 text-slate-400 text-sm flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> {t('Loading content...')}</div>;
+
+    return (
+        <BlockEditor
+            noteFilename={noteId}
+            initialContent={noteData.content}
+            initialMetadata={noteData.metadata}
+            isEmbedded={true}
+            onNoteSelect={() => { }}
+        />
+    );
+};
+
+const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSuccess }) => {
+    const { t, i18n } = useTranslation();
+    const { effectiveTheme } = useTheme();
+    const [excalidrawAPI, setExcalidrawAPI] = useState(null);
+    const [initialData, setInitialData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+    const [title, setTitle] = useState(initialTitle || t('New Drawing'));
+
+    const overlayContainerRef = React.useRef(null);
+    const [dropTick, setDropTick] = useState(0);
+
+    // Map i18next language to Excalidraw langCode
+    const langCode = i18n.language.startsWith('ca') ? 'ca-ES' : 'en';
+
+    // Load initial data
+    useEffect(() => {
+        const fetchDrawing = async () => {
+            try {
+                setLoading(true);
+                const response = await axios.get(`${API_BASE_URL}/drawings/${drawingId}`);
+                let payload = response.data;
+
+                // Auto-repair corrupted drawings on load
+                const elementsArray = payload.elements || payload.data?.elements;
+                if (elementsArray && Array.isArray(elementsArray)) {
+                    const repairedElements = elementsArray.map(el => {
+                        // 1. Fix float seeds that crash Rough.js
+                        if (el.seed && !Number.isInteger(el.seed)) {
+                            el.seed = Math.floor(Math.random() * 2147483648);
+                        }
+                        // 2. Fix legacy types (embeddable from previous attempts)
+                        if (el.type === "embeddable" && el.link?.startsWith('gnosi-note://')) {
+                            el.type = "rectangle";
+                            el.customData = { gnosiNoteId: el.link.replace('gnosi-note://', '') };
+                            el.roundness = { type: 3 };
+                            delete el.link;
+                        }
+                        return el;
+                    });
+                    if (payload.elements) payload.elements = repairedElements;
+                    if (payload.data?.elements) payload.data.elements = repairedElements;
+                }
+
+                // CRITICAL FIX: JSON.stringify turns standard Excalidraw Maps (like collaborators) into {}.
+                // When we pass {} back to initialData, Excalidraw crashes trying to call `.forEach` on it.
+                // We must strip `collaborators` from the loaded appState to prevent this crash.
+                const stateData = payload.data || payload;
+                if (stateData.appState && stateData.appState.collaborators) {
+                    delete stateData.appState.collaborators;
+                }
+
+                setInitialData(stateData);
+                if (payload.metadata?.title || payload.title) {
+                    setTitle(payload.metadata?.title || payload.title);
+                }
+            } catch (error) {
+                if (error.response?.status === 404) {
+                    // If not found, initialize empty
+                    setInitialData({ 
+                        elements: [], 
+                        appState: { 
+                            viewBackgroundColor: effectiveTheme === 'dark' ? "#121212" : "#ffffff" 
+                        }, 
+                        files: {} 
+                    });
+                } else {
+                    toast.error(t('Error loading drawing'));
+                    console.error(error);
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (drawingId) {
+            fetchDrawing();
+        }
+    }, [drawingId, effectiveTheme, t]);
+
+    // Save function
+    const handleSave = useCallback(async (elements, appState, files) => {
+        if (!drawingId) return;
+
+        setSaving(true);
+        try {
+            await axios.put(`${API_BASE_URL}/drawings/${drawingId}`, {
+                title: title,
+                data: { elements, appState, files },
+                metadata: {}
+            });
+            if (onSaveSuccess) onSaveSuccess();
+        } catch (error) {
+            console.error("Error auto-saving drawing:", error);
+        } finally {
+            setSaving(false);
+        }
+    }, [drawingId, title, onSaveSuccess]);
+
+    // Save trigger
+    const triggerSave = () => {
+        if (excalidrawAPI) {
+            const elements = excalidrawAPI.getSceneElements();
+            const appState = excalidrawAPI.getAppState();
+            const files = excalidrawAPI.getFiles();
+            handleSave(elements, appState, files);
+            toast.success(t('Drawing saved'));
+        }
+    };
+
+    // Handle Drag & Drop of notes to canvas
+    const handleDrop = useCallback((e) => {
+        if (!excalidrawAPI) {
+            console.error("No Excalidraw API available");
+            return;
+        }
+
+        const noteDataString = e.dataTransfer.getData('application/gnosi-note');
+        if (!noteDataString) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+            const noteData = JSON.parse(noteDataString);
+
+            const appState = excalidrawAPI.getAppState();
+            const x = (e.clientX - appState.offsetLeft - appState.scrollX) / appState.zoom.value;
+            const y = (e.clientY - appState.offsetTop - appState.scrollY) / appState.zoom.value;
+
+            // Use the native converter to ensure 100% schema compliance (seed, index, ids, etc.)
+            const elements = convertToExcalidrawElements([{
+                type: "rectangle",
+                x: x,
+                y: y,
+                width: 400,
+                height: 500,
+                customData: {
+                    gnosiNoteId: noteData.id,
+                },
+                backgroundColor: "transparent",
+                strokeColor: "#e2e8f0",
+                fillStyle: "hachure",
+                strokeWidth: 2,
+                strokeStyle: "solid",
+                roundness: { type: 3 },
+            }]);
+
+            const newElement = elements[0];
+
+            const currentElements = excalidrawAPI.getSceneElements();
+            excalidrawAPI.updateScene({ elements: [...currentElements, newElement] });
+
+            setDropTick(prev => prev + 1);
+
+            toast.success(t('Note added to canvas'));
+        } catch (err) {
+            console.error("Error processing note on canvas:", err);
+        }
+    }, [excalidrawAPI, t]);
+
+    const handleDragOver = (e) => {
+        e.preventDefault(); // Necessary to allow drop
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    // Draw UI overlay for elements with customData.gnosiNoteId
+    const renderUIOverlays = () => {
+        if (!excalidrawAPI) return null;
+
+        const elements = excalidrawAPI.getSceneElements();
+        const noteElements = elements.filter(el => el.customData?.gnosiNoteId && !el.isDeleted);
+
+        if (noteElements.length === 0) return null;
+
+        return noteElements.map(el => {
+            const handleEditorInteraction = (e) => {
+                e.stopPropagation();
+            };
+
+            return (
+                <div
+                    key={el.id}
+                    id={`gnosi-overlay-${el.id}`}
+                    style={{
+                        position: 'absolute',
+                        left: `-9999px`, // Initial offscreen
+                        top: `-9999px`,
+                        width: `0px`,
+                        height: `0px`,
+                        zIndex: 10,
+                        pointerEvents: 'none', // Allow clicking "through" edges
+                        padding: '12px' // 12px interactive margin (grabbed from Excalidraw box)
+                    }}
+                >
+                    <div
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: 'var(--bg-primary)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: '8px',
+                            overflow: 'auto',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            pointerEvents: 'auto' // Only interior captures events
+                        }}
+                        onPointerDown={handleEditorInteraction}
+                        onKeyDown={handleEditorInteraction}
+                        onWheel={handleEditorInteraction}
+                    >
+                        <EmbeddedNote noteId={el.customData.gnosiNoteId} />
+                    </div>
+                </div>
+            );
+        });
+    };
+
+    // Sync positions at 60fps independently of React state
+    useEffect(() => {
+        if (!excalidrawAPI || !overlayContainerRef.current) return;
+
+        let animationFrameId;
+
+        const syncPositions = () => {
+            const appState = excalidrawAPI.getAppState();
+            const elements = excalidrawAPI.getSceneElementsIncludingDeleted ? excalidrawAPI.getSceneElementsIncludingDeleted() : excalidrawAPI.getSceneElements();
+            const zoom = appState.zoom.value;
+
+            const allOverlays = document.querySelectorAll('[id^="gnosi-overlay-"]');
+
+            const activeElementIds = new Set();
+            elements.forEach(el => {
+                if (el.customData?.gnosiNoteId && !el.isDeleted) {
+                    activeElementIds.add(el.id);
+                }
+            });
+
+            allOverlays.forEach(node => {
+                const elementId = node.id.replace('gnosi-overlay-', '');
+                if (!activeElementIds.has(elementId)) {
+                    node.style.display = 'none';
+                }
+            });
+
+            // Adjust size and position
+            elements.forEach(el => {
+                if (el.customData?.gnosiNoteId && !el.isDeleted) {
+                    const domNode = document.getElementById(`gnosi-overlay-${el.id}`);
+                    if (domNode) {
+                        const x = (el.x + appState.scrollX) * zoom;
+                        const y = (el.y + appState.scrollY) * zoom;
+                        const w = el.width * zoom;
+                        const h = el.height * zoom;
+
+                        // Only adjust if visible on screen
+                        if (x + w < -100 || y + h < -100 || x > window.innerWidth + 100 || y > window.innerHeight + 100) {
+                            domNode.style.display = 'none';
+                        } else {
+                            domNode.style.display = 'block';
+                            domNode.style.left = `${x}px`;
+                            domNode.style.top = `${y}px`;
+                            domNode.style.width = `${w}px`;
+                            domNode.style.height = `${h}px`;
+                        }
+                    }
+                }
+            });
+
+            animationFrameId = requestAnimationFrame(syncPositions);
+        };
+
+        syncPositions();
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, [excalidrawAPI]);
+
+    if (loading) {
+        return (
+            <div className="excalidraw-loader">
+                <Loader2 className="animate-spin" size={48} />
+                <p>{t('Loading drawing editor...')}</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className={`excalidraw-editor-container ${isFullScreen ? 'full-screen' : ''}`}>
+            <div className="excalidraw-editor-header">
+                <div className="header-left">
+                    <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder={t('Drawing title...')}
+                        className="drawing-title-input"
+                    />
+                    {saving && <span className="saving-indicator"><Loader2 className="animate-spin-fast" size={14} /> {t('Saving...')}</span>}
+                </div>
+                <div className="header-actions">
+                    <button onClick={triggerSave} disabled={saving} title={t('Save')} className="action-btn">
+                        <Save size={18} />
+                    </button>
+                    <button onClick={() => setIsFullScreen(!isFullScreen)} title={isFullScreen ? t('Exit full screen') : t('Full screen')} className="action-btn">
+                        {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                    </button>
+                    <button onClick={onClose} title={t('Close')} className="action-btn close-btn">
+                        <X size={18} />
+                    </button>
+                </div>
+            </div>
+
+            <div
+                className="excalidraw-wrapper"
+                onDropCapture={handleDrop}
+                onDragOverCapture={handleDragOver}
+            >
+                <ErrorBoundary>
+                    <Excalidraw
+                        excalidrawAPI={(api) => setExcalidrawAPI(api)}
+                        initialData={initialData}
+                        langCode={langCode}
+                        theme={effectiveTheme}
+                        renderTopRightUI={() => null} // Placeholder, use absolute overlay
+                        UIOptions={{
+                            canvasActions: {
+                                loadScene: false,
+                                saveAsImage: true,
+                                export: { saveFileToDisk: true },
+                                theme: true,
+                            }
+                        }}
+                    />
+                </ErrorBoundary>
+
+                {/* Custom Overlay for Notes outside native canvas to avoid collapse */}
+                <div ref={overlayContainerRef} className="excalidraw-gnosi-overlays" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                    <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }}>
+                        {renderUIOverlays()}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ExcalidrawEditor;
