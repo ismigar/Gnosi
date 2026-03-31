@@ -151,7 +151,7 @@ def fetch_and_store_newsletters():
         source = db.query(FeedSource).filter(FeedSource.type == "newsletter").first()
         if not source:
             source = FeedSource(
-                name="Bústia de Newsletters",
+                name="Newsletters Inbox",
                 url=EMAIL_ACCOUNT,
                 category="Newsletters",
                 type="newsletter"
@@ -163,7 +163,7 @@ def fetch_and_store_newsletters():
         try:
             pop = _connect_pop3()
             num_messages = len(pop.list()[1])
-            log.info(f"📬 Connectat a {MAIL_SERVER}. {num_messages} missatge(s) a la bústia.")
+            log.info(f"📬 Connected to {MAIL_SERVER}. {num_messages} message(s) in the mailbox.")
 
             if num_messages == 0:
                 pop.quit()
@@ -179,7 +179,7 @@ def fetch_and_store_newsletters():
                 msg = email.message_from_bytes(raw_email)
 
                 # Decode Subject
-                subject_raw = msg.get("Subject", "(Sense assumpte)")
+                subject_raw = msg.get("Subject", "(No subject)")
                 decoded_parts = decode_header(subject_raw)
                 subject = ""
                 for part, enc in decoded_parts:
@@ -241,10 +241,10 @@ def fetch_and_store_newsletters():
             if DELETE_AFTER_INGEST and delete_ids:
                 for msg_id in delete_ids:
                     pop.dele(msg_id)
-                log.info(f"🗑️ {len(delete_ids)} email(s) eliminat(s) de la bústia.")
+                log.info(f"🗑️ {len(delete_ids)} email(s) deleted from the mailbox.")
 
             pop.quit()
-            log.info(f"✅ Newsletter ingestion complete. {new_articles_count} nou(s) article(s).")
+            log.info(f"✅ Newsletter ingestion complete. {new_articles_count} new article(s).")
             return new_articles_count
 
         except Exception as e:

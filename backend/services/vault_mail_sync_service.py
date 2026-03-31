@@ -11,9 +11,15 @@ log = logging.getLogger(__name__)
 class VaultMailSyncService:
     def __init__(self):
         self.config = load_params()
-        self.vault_path = Path(self.config.paths.get("VAULT"))
-        self.mail_folder = self.vault_path / "Mail"
-        self.mail_folder.mkdir(parents=True, exist_ok=True)
+        raw_vault = self.config.paths.get("VAULT")
+        self.vault_path = Path(raw_vault) if raw_vault else None
+        self.mail_folder = self.vault_path / "Mail" if self.vault_path else None
+        
+        if self.mail_folder:
+            try:
+                self.mail_folder.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                print(f"⚠️ MailSync: Error creating Mail directory: {e}")
 
     def sync_emails(self, email_account: str, limit: int = 20):
         """Syncs recent emails from Gmail to the Vault."""
@@ -46,8 +52,8 @@ class VaultMailSyncService:
             thread_id = msg.get('threadId')
             headers = msg.get('payload', {}).get('headers', [])
             
-            subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), "Sense Titol")
-            sender = next((h['value'] for h in headers if h['name'].lower() == 'from'), "Desconegut")
+            subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), "Untitled")
+            sender = next((h['value'] for h in headers if h['name'].lower() == 'from'), "Unknown")
             to = next((h['value'] for h in headers if h['name'].lower() == 'to'), "")
             date_str = next((h['value'] for h in headers if h['name'].lower() == 'date'), "")
             
@@ -72,11 +78,11 @@ class VaultMailSyncService:
             metadata = {
                 "title": _sanitize(subject),
                 "id": msg_id,
-                "type": "Rebut",
+                "type": "Received",
                 "sender": _sanitize(sender),
                 "recipients": _sanitize(to),
                 "date": date_str,
-                "category": "Principal",
+                "category": "Main",
                 "archived": False,
                 "spam": False,
                 "is_starred": False,

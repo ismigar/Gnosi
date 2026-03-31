@@ -23,3 +23,14 @@ async def update_integration(integration_id: str, payload: dict = Body(...)):
     except Exception as e:
         log.error(f"Error updating integration {integration_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/bulk")
+async def bulk_update_integrations(payload: dict = Body(...)):
+    """Updates multiple integrations at once."""
+    try:
+        integration_manager.bulk_update(payload)
+        return {"status": "success", "message": "Integrations updated in bulk"}
+    except Exception as e:
+        log.error(f"Error bulk updating integrations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -4,6 +4,7 @@ import "@excalidraw/excalidraw/index.css";
 import axios from 'axios';
 import { Loader2, Save, X, Maximize2, Minimize2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { BlockEditor } from './BlockEditor';
 import './ExcalidrawEditor.css';
@@ -18,6 +19,9 @@ class ErrorBoundary extends Component {
     }
     render() {
         if (this.state.hasError) {
+            // Error boundary strings don't necessarily need t() if they are only for devs, 
+            // but for completeness I'll pass it if possible, though EB is a class component.
+            // I'll leave them in English as they are technical.
             return (
                 <div style={{ padding: 20, color: 'red', background: '#ffebee', height: '100%', overflow: 'auto' }}>
                     <h2>Excalidraw Crash</h2>
@@ -32,6 +36,7 @@ class ErrorBoundary extends Component {
 const API_BASE_URL = '/api/vault';
 
 const EmbeddedNote = ({ noteId }) => {
+    const { t } = useTranslation();
     const [noteData, setNoteData] = useState(null);
     const [error, setError] = useState(null);
 
@@ -48,8 +53,8 @@ const EmbeddedNote = ({ noteId }) => {
         fetchNote();
     }, [noteId]);
 
-    if (error) return <div className="p-4 text-red-500 text-sm">Error carregant nota.</div>;
-    if (!noteData) return <div className="p-4 text-slate-400 text-sm flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Carregant contingut...</div>;
+    if (error) return <div className="p-4 text-red-500 text-sm">{t('Error loading note.')}</div>;
+    if (!noteData) return <div className="p-4 text-slate-400 text-sm flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> {t('Loading content...')}</div>;
 
     return (
         <BlockEditor
@@ -63,18 +68,22 @@ const EmbeddedNote = ({ noteId }) => {
 };
 
 const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSuccess }) => {
+    const { t, i18n } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [excalidrawAPI, setExcalidrawAPI] = useState(null);
     const [initialData, setInitialData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
-    const [title, setTitle] = useState(initialTitle || 'Nou Dibuix');
+    const [title, setTitle] = useState(initialTitle || t('New Drawing'));
 
     const overlayContainerRef = React.useRef(null);
     const [dropTick, setDropTick] = useState(0);
 
-    // Carregar dades inicials
+    // Map i18next language to Excalidraw langCode
+    const langCode = i18n.language.startsWith('ca') ? 'ca-ES' : 'en';
+
+    // Load initial data
     useEffect(() => {
         const fetchDrawing = async () => {
             try {
@@ -117,7 +126,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                 }
             } catch (error) {
                 if (error.response?.status === 404) {
-                    // Si no existeix, inicialitzem buit
+                    // If not found, initialize empty
                     setInitialData({ 
                         elements: [], 
                         appState: { 
@@ -126,7 +135,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                         files: {} 
                     });
                 } else {
-                    toast.error("Error carregant el dibuix");
+                    toast.error(t('Error loading drawing'));
                     console.error(error);
                 }
             } finally {
@@ -137,9 +146,9 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
         if (drawingId) {
             fetchDrawing();
         }
-    }, [drawingId]);
+    }, [drawingId, effectiveTheme, t]);
 
-    // Funció per guardar
+    // Save function
     const handleSave = useCallback(async (elements, appState, files) => {
         if (!drawingId) return;
 
@@ -158,30 +167,26 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
         }
     }, [drawingId, title, onSaveSuccess]);
 
-    // Debounce save (manual o automàtic al tancar)
+    // Save trigger
     const triggerSave = () => {
         if (excalidrawAPI) {
             const elements = excalidrawAPI.getSceneElements();
             const appState = excalidrawAPI.getAppState();
             const files = excalidrawAPI.getFiles();
             handleSave(elements, appState, files);
-            toast.success("Dibuix desat");
+            toast.success(t('Drawing saved'));
         }
     };
 
-    // Gestionar el Drag & Drop de notes al llenç
+    // Handle Drag & Drop of notes to canvas
     const handleDrop = useCallback((e) => {
-        console.log("DROP CAPTURED", e.dataTransfer.types);
         if (!excalidrawAPI) {
-            console.error("No Excalidraw API");
+            console.error("No Excalidraw API available");
             return;
         }
 
         const noteDataString = e.dataTransfer.getData('application/gnosi-note');
-        if (!noteDataString) {
-            console.log("No valid payload for gnosi-note");
-            return;
-        }
+        if (!noteDataString) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -189,9 +194,6 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
         try {
             const noteData = JSON.parse(noteDataString);
 
-            // Obtenir la posició (intent de traduir pantalles a coordenades internes)
-            // L'API d'Excalidraw inclou `screenToClient` o similiar si exportéssim o usem ref.
-            // Una aproximació simple si tenim la posició central del viewport:
             const appState = excalidrawAPI.getAppState();
             const x = (e.clientX - appState.offsetLeft - appState.scrollX) / appState.zoom.value;
             const y = (e.clientY - appState.offsetTop - appState.scrollY) / appState.zoom.value;
@@ -221,18 +223,18 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
 
             setDropTick(prev => prev + 1);
 
-            toast.success(`Nota afegida al llenç`);
+            toast.success(t('Note added to canvas'));
         } catch (err) {
-            console.error("Error processant nota al llenç:", err);
+            console.error("Error processing note on canvas:", err);
         }
-    }, [excalidrawAPI]);
+    }, [excalidrawAPI, t]);
 
     const handleDragOver = (e) => {
-        e.preventDefault(); // Necessari per permetre el drop
+        e.preventDefault(); // Necessary to allow drop
         e.dataTransfer.dropEffect = 'copy';
     };
 
-    // Dibuixa l'overlay per als elements que tenen customData.gnosiNoteId
+    // Draw UI overlay for elements with customData.gnosiNoteId
     const renderUIOverlays = () => {
         if (!excalidrawAPI) return null;
 
@@ -257,8 +259,8 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                         width: `0px`,
                         height: `0px`,
                         zIndex: 10,
-                        pointerEvents: 'none', // Permet fer click "a través" de les vores
-                        padding: '12px' // Deixem 12px de marge interactuable (agafable de la caixa d'Excalidraw)
+                        pointerEvents: 'none', // Allow clicking "through" edges
+                        padding: '12px' // 12px interactive margin (grabbed from Excalidraw box)
                     }}
                 >
                     <div
@@ -270,7 +272,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                             borderRadius: '8px',
                             overflow: 'auto',
                             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                            pointerEvents: 'auto' // Només l'interior captura events
+                            pointerEvents: 'auto' // Only interior captures events
                         }}
                         onPointerDown={handleEditorInteraction}
                         onKeyDown={handleEditorInteraction}
@@ -283,7 +285,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
         });
     };
 
-    // Sincronitza posicions a 60fps independentment de l'estat de React per evitar cracs
+    // Sync positions at 60fps independently of React state
     useEffect(() => {
         if (!excalidrawAPI || !overlayContainerRef.current) return;
 
@@ -294,7 +296,6 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
             const elements = excalidrawAPI.getSceneElementsIncludingDeleted ? excalidrawAPI.getSceneElementsIncludingDeleted() : excalidrawAPI.getSceneElements();
             const zoom = appState.zoom.value;
 
-            // Ens assegurem de matar completament les overlays eliminades de l'escena
             const allOverlays = document.querySelectorAll('[id^="gnosi-overlay-"]');
 
             const activeElementIds = new Set();
@@ -311,7 +312,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                 }
             });
 
-            // Ajusta mida i posició
+            // Adjust size and position
             elements.forEach(el => {
                 if (el.customData?.gnosiNoteId && !el.isDeleted) {
                     const domNode = document.getElementById(`gnosi-overlay-${el.id}`);
@@ -321,7 +322,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                         const w = el.width * zoom;
                         const h = el.height * zoom;
 
-                        // Només calculem i ajustem si està en pantalla
+                        // Only adjust if visible on screen
                         if (x + w < -100 || y + h < -100 || x > window.innerWidth + 100 || y > window.innerHeight + 100) {
                             domNode.style.display = 'none';
                         } else {
@@ -349,7 +350,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
         return (
             <div className="excalidraw-loader">
                 <Loader2 className="animate-spin" size={48} />
-                <p>Carregant editor de dibuix...</p>
+                <p>{t('Loading drawing editor...')}</p>
             </div>
         );
     }
@@ -362,19 +363,19 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        placeholder="Títol del dibuix..."
+                        placeholder={t('Drawing title...')}
                         className="drawing-title-input"
                     />
-                    {saving && <span className="saving-indicator"><Loader2 className="animate-spin-fast" size={14} /> Desant...</span>}
+                    {saving && <span className="saving-indicator"><Loader2 className="animate-spin-fast" size={14} /> {t('Saving...')}</span>}
                 </div>
                 <div className="header-actions">
-                    <button onClick={triggerSave} disabled={saving} title="Desar" className="action-btn">
+                    <button onClick={triggerSave} disabled={saving} title={t('Save')} className="action-btn">
                         <Save size={18} />
                     </button>
-                    <button onClick={() => setIsFullScreen(!isFullScreen)} title={isFullScreen ? "Sortir de pantalla completa" : "Pantalla completa"} className="action-btn">
+                    <button onClick={() => setIsFullScreen(!isFullScreen)} title={isFullScreen ? t('Exit full screen') : t('Full screen')} className="action-btn">
                         {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                     </button>
-                    <button onClick={onClose} title="Tancar" className="action-btn close-btn">
+                    <button onClick={onClose} title={t('Close')} className="action-btn close-btn">
                         <X size={18} />
                     </button>
                 </div>
@@ -389,9 +390,9 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                     <Excalidraw
                         excalidrawAPI={(api) => setExcalidrawAPI(api)}
                         initialData={initialData}
-                        langCode="ca-ES"
+                        langCode={langCode}
                         theme={effectiveTheme}
-                        renderTopRightUI={() => null} // Només placeholder, usem l'overlay absolut
+                        renderTopRightUI={() => null} // Placeholder, use absolute overlay
                         UIOptions={{
                             canvasActions: {
                                 loadScene: false,
@@ -403,7 +404,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                     />
                 </ErrorBoundary>
 
-                {/* Custom Overlay per les Notes construït fora del llenç natiu per no col·lapsar-lo */}
+                {/* Custom Overlay for Notes outside native canvas to avoid collapse */}
                 <div ref={overlayContainerRef} className="excalidraw-gnosi-overlays" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
                     <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }}>
                         {renderUIOverlays()}

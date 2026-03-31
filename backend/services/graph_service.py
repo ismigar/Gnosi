@@ -41,7 +41,7 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
         except Exception as e:
             location = f" in {file_path}" if file_path else ""
             # debug level to avoid log spam if some pages have bad frontmatter
-            log.debug(f"Error parsejant YAML frontmatter{location}: {e}")
+            log.debug(f"Error parsing YAML frontmatter{location}: {e}")
             return {}, content
     return {}, content
 
@@ -50,7 +50,7 @@ class GraphService:
         self.registry = self._load_registry()
         
     def _load_registry(self) -> Dict[str, Any]:
-        """Carrega el registre de bases de dades i taules des del fitxer o la memòria."""
+        """Loads the database and table registry from file or memory."""
         cfg = load_params(strict_env=False)
         
         # Safety check for VAULT path
@@ -59,14 +59,16 @@ class GraphService:
             log.warning("VAULT path not configured in cfg.paths. Skipping registry load.")
             return {"databases": [], "tables": [], "views": []}
 
-        registry_path = cfg.paths.get("REGISTRY") or (vault_path / "vault_db_registry.json")
+        registry_path = cfg.paths.get("REGISTRY")
+        if not registry_path and vault_path:
+            registry_path = vault_path / "vault_db_registry.json"
         
         if registry_path and registry_path.exists():
             try:
                 with open(registry_path, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
-                log.error(f"Error carregant vault_db_registry.json: {e}")
+                log.error(f"Error loading vault_db_registry.json: {e}")
         
         return {"databases": [], "tables": [], "views": []}
 
@@ -233,20 +235,20 @@ class GraphService:
                 title = metadata.get("title") or file_id
                 
                 # Extract kind/note_type
-                type_prop = cfg.app.get("type_property", "tipus de nota")
+                type_prop = cfg.app.get("type_property", "note_type")
                 raw_kind = metadata.get("note_type") or metadata.get(type_prop) or metadata.get("type") or "page"
                 
-                # Normalitzar per mapar amb colors
+                # Normalize to map with colors
                 norm_kind = str(raw_kind).lower()
-                if "lectura" in norm_kind: kind = "lectura"
+                if "reading" in norm_kind or "lectura" in norm_kind: kind = "reading"
                 elif "permanent" in norm_kind: kind = "permanent"
                 elif "index" in norm_kind or "índex" in norm_kind: kind = "index"
-                elif "diari" in norm_kind or "bitàcora" in norm_kind: kind = "diario"
-                elif "diàleg" in norm_kind or "dialogo" in norm_kind: kind = "dialogo"
-                elif "esborrany" in norm_kind: kind = "page"
+                elif "journal" in norm_kind or "diari" in norm_kind or "bitàcora" in norm_kind: kind = "journal"
+                elif "dialogue" in norm_kind or "diàleg" in norm_kind or "dialogo" in norm_kind: kind = "dialogue"
+                elif "draft" in norm_kind or "esborrany" in norm_kind: kind = "page"
                 else: kind = "page"
 
-                # Obtenir color de la configuració
+                # Get color from configuration
                 node_colors = cfg.colors.get("node_types", {})
                 color_cfg = node_colors.get(kind, node_colors.get("default", {}))
                 color = color_cfg.get("bg", COLOR_PALETTE.get(kind, COLOR_PALETTE["page"]))
@@ -273,7 +275,7 @@ class GraphService:
                     "path": file_path
                 })
             except Exception as e:
-                log.error(f"Error processant node {file_id}: {e}")
+                log.error(f"Error processing node {file_id}: {e}")
                 
         return page_nodes
 
@@ -368,7 +370,7 @@ class GraphService:
                                    dashed=True,
                                    reason=sug.get("reason", "AI Suggested"))
         except Exception as e:
-            log.error(f"Error loadjant suggeriments IA: {e}")
+            log.error(f"Error loading AI suggestions: {e}")
 
     def _add_tag_inference_edges(self, G: nx.Graph, page_nodes: List[Dict[str, Any]]):
         """Adds edges between pages that share common tags, creating tag nodes."""

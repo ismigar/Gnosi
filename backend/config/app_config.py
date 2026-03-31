@@ -39,9 +39,17 @@ def load_params(strict_env: bool = True) -> Config:
     """Carrega params.yaml i retorna un objecte Config."""
     params_path = Path(__file__).parents[2] / "config" / "params.yaml"
     
+    import os
+    abs_path = params_path.resolve()
+    print(f"DEBUG_LOAD: Intentant llegir configuració de: {abs_path}")
+    
     if not params_path.exists():
+        print(f"DEBUG_LOAD: El fitxer NO EXISTEIX a la ruta indicada!")
         return Config({}, strict_env=strict_env)
         
     with open(params_path, "r", encoding="utf-8") as f:
+        content = f.read()
+        print(f"DEBUG_LOAD: Fitxer trobat. Mida: {len(content)} bytes.")
+        f.seek(0)
         params = yaml.safe_load(f)
     return Config(params, strict_env=strict_env)

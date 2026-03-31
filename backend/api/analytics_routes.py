@@ -40,7 +40,7 @@ async def get_analytics() -> Dict[str, Any]:
             "total": directive_count,
             "traps_documented": trap_count
         },
-        "errors_prevented": trap_count,  # Cada trampa és un error potencialment evitat
+        "errors_prevented": trap_count,  # Each trap is a potentially avoided error
     }
 
 

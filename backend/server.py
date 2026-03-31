@@ -4,22 +4,26 @@ import logging
 import os
 import re
 
-# Configurar paths com a l'antic app.py
-BASE_DIR = Path(__file__).resolve().parents[1]
+# Configure paths as in the old app.py
+BASE_DIR = Path(__file__).resolve().parents[1] # monorepo/apps/gnosi
+BACKEND_DIR = Path(__file__).resolve().parents[0] # monorepo/apps/gnosi/backend
+
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from config.app_config import load_params
-from config.logger_config import setup_logging
+from backend.config.app_config import load_params
+from backend.config.logger_config import setup_logging
 import uvicorn
 
 log = logging.getLogger(__name__)
 
-# Importar rutes noves i velles (adaptades)
-# Importar rutes noves i velles (adaptades)
+# Import new and old routes (adapted)
+# Import new and old routes (adapted)
 from backend.api import agent_routes, system_routes, tools_routes
 from backend.api import analytics_routes, sync_routes, scheduler_routes, social_routes
 from backend.api import vault_routes, vault_graph_routes, calendar_routes, mail_routes
@@ -38,8 +42,8 @@ from backend.config.mcp_config import MCP_SERVERS
 from backend.mcp.client import MultiServerMCPClient
 from backend.agent.factory import build_graph
 
-# Variable global per guardar el graf (o usar app.state)
-# Però app.state és millor.
+# Global variable to store the graph (or use app.state)
+# But app.state is better.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -66,8 +70,8 @@ async def lifespan(app: FastAPI):
         
     except Exception as e:
         log.error(f"❌ Error during startup: {e}")
-        # No fem raise e per no bloquejar el servidor sencer, 
-        # però l'agent no funcionarà.
+        # We don't raise e to not block the whole server,
+        # but the agent will not work.
     
     yield
     
@@ -88,8 +92,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registrar Rutes
-# Injectem dependency si cal, però agent_bp el pot treure de request.app.state
+# Register Routes
+# Inject dependency if needed, but agent_bp can get it from request.app.state
 
 # 4. Include Routers
 app.include_router(agent_routes.router, prefix="/api")
@@ -116,8 +120,8 @@ app.include_router(zotero_routes.router, tags=["Zotero"])
 app.include_router(config_routes.router, prefix="/api", tags=["Config"])
 app.include_router(env_routes.router, prefix="/api", tags=["Env"])
 
-# TODO: Migrar rutes antigues de Flask. De moment, si l'usuari necessita el graf,
-# podem implementar ràpidament la ruta /api/graph aquí mateix per no trencar res.
+# TODO: Migrate old Flask routes. For now, if the user needs the graph,
+# we can quickly implement the /api/graph route here directly to not break anything.
 from fastapi.responses import JSONResponse, Response
 import json
 import hashlib
@@ -221,13 +225,13 @@ def _build_graph_from_vault() -> dict:
             # Fallback based on folder if not in a formal table
             folder = (page.folder or "").lower()
             if folder.startswith("mail"):
-                kind = "Correu"
-                color = "#FF9900" # Taronja per Mail
+                kind = "Mail"
+                color = "#FF9900" # Orange for Mail
                 cluster = "Email"
             elif folder.startswith("calendar"):
-                kind = "Calendari"
-                color = "#4285F4" # Blau Google per Calendar
-                cluster = "Calendari"
+                kind = "Calendar"
+                color = "#4285F4" # Google Blue for Calendar
+                cluster = "Calendar"
             else:
                 kind = "Wiki"
                 color = _WIKI_COLOR
@@ -260,7 +264,7 @@ def _build_graph_from_vault() -> dict:
         node = {
             **metadata,  # Options/properties first, base properties will override them
             "key": pid,
-            "label": page.title or "Sense títol",
+            "label": page.title or "Untitled",
             "kind": kind,
             "cluster": cluster,
             "database_id": database_id,
@@ -343,11 +347,11 @@ def _build_graph_from_vault() -> dict:
     legend_kinds = []
     for kind_name in sorted(kind_set):
         # Find the color for this kind
-        if kind_name == "📄 Pàgines Wiki":
+        if kind_name == "Wiki Pages":
             color = _WIKI_COLOR
-        elif kind_name == "Correu":
+        elif kind_name == "Mail":
             color = "#FF9900"
-        elif kind_name == "Calendari":
+        elif kind_name == "Calendar":
             color = "#4285F4"
         else:
             matching_tables = [tid for tid, info in table_map.items() if info["name"] == kind_name]

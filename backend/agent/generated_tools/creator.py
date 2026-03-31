@@ -19,56 +19,56 @@ from .learning_loop import learning_loop
 @tool
 def create_new_tool(name: str, description: str, code: str) -> str:
     """
-    Crea una nova eina per a l'agent.
+    Creates a new tool for the agent.
     
-    PROTOCOL (Bucle d'Aprenentatge):
-    1. Comprova si l'eina ja existeix
-    2. Consulta la directiva de desenvolupament
-    3. Verifica contra lliçons apreses
-    4. Valida el codi
-    5. Executa tests obligatoris
-    6. Si tot passa, aprova automàticament
+    PROTOCOL (Learning Loop):
+    1. Check if tool already exists
+    2. Consult development directive
+    3. Verify against learned lessons
+    4. Validate code
+    5. Run mandatory tests
+    6. If all pass, auto-approve
     
     Args:
-        name: Nom de l'eina (snake_case, ex: 'count_notion_articles')
-        description: Descripció clara del que fa l'eina
-        code: Codi Python complet amb el decorador @tool
+        name: Tool name (snake_case, ex: 'count_notion_articles')
+        description: Clear description of what the tool does
+        code: Full Python code with @tool decorator
         
     Returns:
-        Resultat de la creació o error si no és vàlid.
+        Creation result or error if invalid.
     """
     from .test_sandbox import test_sandbox, TestCase
     
     output_lines = []
     
     # === PHASE 1: CHECK IF TOOL ALREADY EXISTS (FIRST!) ===
-    output_lines.append("🔍 Comprovant si l'eina ja existeix...")
+    output_lines.append("🔍 Checking if tool already exists...")
     
     existing = registry.search_existing(description)
     if existing:
         return (
-            f"⚠️ Ja existeix una eina similar: '{existing.name}'\n"
-            f"Descripció: {existing.description}\n"
-            f"Usa-la en lloc de crear-ne una de nova."
+            f"⚠️ A similar tool already exists: '{existing.name}'\n"
+            f"Description: {existing.description}\n"
+            f"Use it instead of creating a new one."
         )
     
     by_name = registry.get_by_name(name)
     if by_name:
         status_msg = {
-            ToolStatus.APPROVED: "aprovada i disponible",
-            ToolStatus.PENDING: "pendent d'aprovació",
-            ToolStatus.REJECTED: "rebutjada anteriorment"
+            ToolStatus.APPROVED: "approved and available",
+            ToolStatus.PENDING: "pending approval",
+            ToolStatus.REJECTED: "previously rejected"
         }
-        return f"⚠️ Ja existeix una eina amb el nom '{name}' ({status_msg[by_name.status]})"
+        return f"⚠️ A tool with the name '{name}' already exists ({status_msg[by_name.status]})"
     
-    output_lines.append("✓ L'eina no existeix. Continuant...")
+    output_lines.append("✓ Tool does not exist. Continuing...")
     
     # === PHASE 2: CONSULT DIRECTIVE ===
-    output_lines.append("📚 Consultant directiva de desenvolupament...")
+    output_lines.append("📚 Consulting development directive...")
     directive_info = learning_loop.consult_before_create(description)
     
     if directive_info["lessons"]:
-        output_lines.append(f"⚠️ Lliçons rellevants trobades ({len(directive_info['lessons'])}):")
+        output_lines.append(f"⚠️ Relevant lessons found ({len(directive_info['lessons'])}):")
         for lesson in directive_info["lessons"][:3]:  # Max 3
             output_lines.append(f"   - {lesson.trap}: {lesson.solution}")
     
@@ -81,15 +81,15 @@ def create_new_tool(name: str, description: str, code: str) -> str:
         # Auto-correct: Document and return
         learning_loop.learn_from_error(
             tool_name=name,
-            error_message="Codi viola regles conegudes",
+            error_message="Code violates known rules",
             error_type="validation",
-            solution="Revisar directiva i corregir"
+            solution="Review directive and correct"
         )
         
-        return "\n".join(output_lines) + "\n\n❌ Codi viola regles conegudes. Revisa la directiva."
+        return "\n".join(output_lines) + "\n\n❌ Code violates known rules. Please review the directive."
     
     # === PHASE 4: VALIDATE CODE ===
-    output_lines.append("🔍 Validant codi...")
+    output_lines.append("🔍 Validating code...")
     validation = validator.validate(code, name)
     
     if not validation.is_valid:
@@ -99,19 +99,19 @@ def create_new_tool(name: str, description: str, code: str) -> str:
             tool_name=name,
             error_message=error_msg[:100],
             error_type="validation",
-            solution="Corregir segons missatge d'error"
+            solution="Correct according to error message"
         )
         
         return (
-            "❌ Codi invàlid. Errors:\n"
+            "❌ Invalid code. Errors:\n"
             + "\n".join(f"  - {e}" for e in validation.errors)
-            + "\n\n📚 Error documentat a la directiva per evitar-lo en el futur."
+            + "\n\n📚 Error documented in the directive to avoid it in the future."
         )
     
-    output_lines.append(f"✓ Validació passada. Risc: {validation.risk_level.value}")
+    output_lines.append(f"✓ Validation passed. Risk: {validation.risk_level.value}")
     
     # === PHASE 5: RUN MANDATORY TESTS ===
-    output_lines.append("🧪 Executant tests obligatoris...")
+    output_lines.append("🧪 Running mandatory tests...")
     
     # Generate basic tests
     basic_tests = [
@@ -126,7 +126,7 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     
     # For basic test, we just check the tool can be loaded (not full execution)
     # A more sophisticated version would generate proper test cases
-    output_lines.append(f"✓ Tests executats: {test_result.summary()}")
+    output_lines.append(f"✓ Tests executed: {test_result.summary()}")
     
     # === PHASE 6: SAVE AND AUTO-APPROVE ===
     needs_approval = validation.risk_level == RiskLevel.EXTERNAL_WRITE
@@ -143,18 +143,18 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     (pending_dir / f"{name}.py").write_text(code)
     
     if needs_approval:
-        output_lines.append(f"🔴 Eina '{name}' creada però PENDENT D'APROVACIÓ.")
-        output_lines.append(f"Nivell de risc: {validation.risk_level.value}")
-        output_lines.append("L'usuari ha de revisar-la al Dashboard.")
+        output_lines.append(f"🔴 Tool '{name}' created but PENDING APPROVAL.")
+        output_lines.append(f"Risk level: {validation.risk_level.value}")
+        output_lines.append("The user must review it in the Dashboard.")
     else:
-        # Auto-approve (totalment automàtic)
+        # Auto-approve (fully automatic)
         registry.approve(name)
         approved_dir = Path(__file__).parent / "approved"
         approved_dir.mkdir(exist_ok=True)
         (pending_dir / f"{name}.py").rename(approved_dir / f"{name}.py")
         
-        output_lines.append(f"✅ Eina '{name}' creada, testejada i aprovada automàticament.")
-        output_lines.append(f"Ja pots usar-la: `{name}(...)`")
+        output_lines.append(f"✅ Tool '{name}' created, tested and auto-approved.")
+        output_lines.append(f"You can now use it: `{name}(...)`")
     
     return "\n".join(output_lines)
 
@@ -162,15 +162,15 @@ def create_new_tool(name: str, description: str, code: str) -> str:
 @tool
 def list_available_tools() -> str:
     """
-    Llista totes les eines generades disponibles (aprovades).
-    Útil per saber què ja existeix abans de crear una eina nova.
+    Lists all available generated tools (approved).
+    Useful to know what already exists before creating a new tool.
     """
     approved = registry.list_approved()
     
     if not approved:
-        return "No hi ha eines generades aprovades. Pots crear-ne amb `create_new_tool`."
+        return "No approved generated tools found. You can create one with `create_new_tool`."
     
-    lines = ["📦 Eines Generades Disponibles:"]
+    lines = ["📦 Available Generated Tools:"]
     for tool in approved:
         lines.append(f"  - {tool.name}: {tool.description[:60]}...")
     
@@ -180,15 +180,15 @@ def list_available_tools() -> str:
 @tool
 def get_pending_tools() -> str:
     """
-    Llista les eines pendents d'aprovació.
-    Només eines de risc 🔴 (EXTERNAL_WRITE) requereixen aprovació manual.
+    Lists tools pending approval.
+    Only 🔴 risk tools (EXTERNAL_WRITE) require manual approval.
     """
     pending = registry.list_pending()
     
     if not pending:
-        return "No hi ha eines pendents d'aprovació."
+        return "No tools pending approval."
     
-    lines = ["⏳ Eines Pendents d'Aprovació:"]
+    lines = ["⏳ Tools Pending Approval:"]
     for tool in pending:
         lines.append(
             f"  - {tool.name} [{tool.risk_level}]\n"

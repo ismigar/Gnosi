@@ -46,7 +46,7 @@ async def get_sync_status() -> Dict[str, Any]:
     if _last_sync is None:
         return {
             "last_sync": None,
-            "message": "Mai sincronitzat"
+            "message": "Never synced"
         }
     
     return {
@@ -61,7 +61,7 @@ async def sync_single_directive(name: str) -> Dict[str, Any]:
         result = await notion_exporter.export_directive(name)
         return result
     except FileNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Directiva '{name}' no trobada")
+        raise HTTPException(status_code=404, detail=f"Directive '{name}' not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

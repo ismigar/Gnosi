@@ -3,7 +3,7 @@ from pipeline.notion_api import create_page, notion_url
 from config.app_config import load_params
 
 cfg = load_params(strict_env=False)
-DEFAULT_NOTE_TYPE = cfg.notion.get("type_permanent", "Nota permanent")
+DEFAULT_NOTE_TYPE = cfg.notion.get("type_permanent", "Permanent note")
 
 input_bp = Blueprint('input_routes', __name__)
 

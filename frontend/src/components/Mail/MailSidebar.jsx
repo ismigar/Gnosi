@@ -4,6 +4,7 @@ import {
     ChevronDown, Plus, Mail, Users, Star,
     ShoppingBag, Archive, Search, Settings, HelpCircle
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function MailSidebar({
     selectedAccount,
@@ -13,6 +14,7 @@ export default function MailSidebar({
     onSelectFolder,
     onSelectCategory
 }) {
+    const { t } = useTranslation();
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -34,18 +36,18 @@ export default function MailSidebar({
     }, []);
 
     const vistes = [
-        { id: 'INBOX', label: "Bandeja de entrada", icon: <Inbox size={18} />, type: 'folder' },
-        { id: 'STARRED', label: "Destacados", icon: <Star size={18} />, type: 'folder' },
-        { id: 'Social', label: 'Social', icon: <Users size={18} />, type: 'category' },
-        { id: 'labels', label: 'Labels', icon: <Tag size={18} />, type: 'other' },
-        { id: 'Promotions', label: 'Promotions', icon: <ShoppingBag size={18} />, type: 'category' },
+        { id: 'INBOX', label: t('inbox'), icon: <Inbox size={18} />, type: 'folder' },
+        { id: 'STARRED', label: t('starred'), icon: <Star size={18} />, type: 'folder' },
+        { id: 'Social', label: t('social'), icon: <Users size={18} />, type: 'category' },
+        { id: 'labels', label: t('labels'), icon: <Tag size={18} />, type: 'other' },
+        { id: 'Promotions', label: t('promotions'), icon: <ShoppingBag size={18} />, type: 'category' },
     ];
 
     const correu = [
-        { id: 'all', label: 'Todos los correos', icon: <Archive size={18} />, type: 'folder' },
-        { id: 'SENT', label: 'Enviados', icon: <Send size={18} />, type: 'folder' },
-        { id: 'DRAFTS', label: 'Borradores', icon: <FileText size={18} />, type: 'folder' },
-        { id: 'TRASH', label: 'Papelera', icon: <Trash2 size={18} />, type: 'folder' },
+        { id: 'all', label: t('all_mail'), icon: <Archive size={18} />, type: 'folder' },
+        { id: 'SENT', label: t('sent'), icon: <Send size={18} />, type: 'folder' },
+        { id: 'DRAFTS', label: t('drafts'), icon: <FileText size={18} />, type: 'folder' },
+        { id: 'TRASH', label: t('trash'), icon: <Trash2 size={18} />, type: 'folder' },
     ];
 
     const handleItemClick = (item) => {
@@ -79,7 +81,7 @@ export default function MailSidebar({
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                     <input
                         type="text"
-                        placeholder="Buscar"
+                        placeholder={t('search')}
                         className="w-full bg-[#efefee] border-transparent text-xs py-1.5 pl-8 pr-2 rounded-md focus:outline-none focus:ring-0 placeholder:text-slate-500"
                     />
                 </div>
@@ -91,7 +93,7 @@ export default function MailSidebar({
                 {/* Vistes Section */}
                 <div className="space-y-0.5">
                     <div className="px-2 mb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Vistas
+                        {t('views')}
                     </div>
                     {vistes.map((item) => {
                         const isActive = (item.type === 'folder' && activeFolder === item.id) ||
@@ -108,20 +110,20 @@ export default function MailSidebar({
                                 <span className={isActive ? 'text-indigo-600' : 'text-slate-400'}>
                                     {item.icon}
                                 </span>
-                                <span>{item.label}</span>
+                                <span className="capitalize">{item.label}</span>
                             </button>
                         );
                     })}
                     <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:bg-[#efefee]/70 transition-all font-medium">
                         <Plus size={18} className="text-slate-300" />
-                        <span>Añadir vista</span>
+                        <span>{t('add_view')}</span>
                     </button>
                 </div>
 
                 {/* Correu Section */}
                 <div className="space-y-0.5">
                     <div className="px-2 mb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Correo
+                        {t('email')}
                     </div>
                     {correu.map((item) => {
                         const isActive = (item.type === 'folder' && activeFolder === item.id);
@@ -137,7 +139,7 @@ export default function MailSidebar({
                                 <span className={isActive ? 'text-indigo-600' : 'text-slate-400'}>
                                     {item.icon}
                                 </span>
-                                <span>{item.label}</span>
+                                <span className="capitalize">{item.label}</span>
                             </button>
                         );
                     })}
@@ -149,11 +151,11 @@ export default function MailSidebar({
             <div className="px-3 py-4 border-t border-slate-200/60 space-y-0.5">
                 <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-[#efefee]/70 transition-all font-medium">
                     <Settings size={18} className="text-slate-400" />
-                    <span>Configuración</span>
+                    <span>{t('settings')}</span>
                 </button>
                 <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-[#efefee]/70 transition-all font-medium">
                     <HelpCircle size={18} className="text-slate-400" />
-                    <span>Soporte y comentarios</span>
+                    <span>{t('support_and_feedback')}</span>
                 </button>
             </div>
         </div>

@@ -12,7 +12,7 @@ class BrowseRequest(BaseModel):
 
 @router.get("/stats")
 async def get_system_stats():
-    """Retorna estadístiques mímimes del sistema."""
+    """Returns basic system statistics."""
     return {"cpu": 10.0, "ram_percent": 50.0, "memory_items": 42, "status": "online"}
 
 
@@ -45,32 +45,38 @@ async def browse_directory(body: BrowseRequest = Body(...)):
     if not target.is_dir():
         return {"error": "Not a directory"}
 
-    # ── Rutas amigables (Host Mapping) ──
-    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH", "/vault")
-    vault_host = os.getenv("VAULT_HOST_PATH")
+    # ── Friendly Routes (Host Mapping) ──
+    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
+    vault_host = os.getenv("VAULT_HOST_PATH") or ""
     home_host = os.getenv("HOME_HOST_PATH")
 
     display_path = str(target)
     if vault_host and str(target).startswith(vault_internal):
         display_path = str(target).replace(vault_internal, vault_host, 1)
     elif home_host and str(target).startswith(home_host):
-        # Si la ruta interna coincideix amb la del host (com la HOME)
+        # If the internal path matches the host's (like HOME)
         display_path = str(target)
 
     directories = []
     try:
-        # Intentem iterar sobre el directori
-        for entry in target.iterdir():
-            try:
-                # Comprovem individualment si és un directori i tenim permís
-                if entry.is_dir() and not entry.name.startswith("."):
-                    directories.append(entry.name)
-            except (PermissionError, OSError):
-                # Ignorem carpetes individuals sense permís
-                continue
+        import os as native_os
+        # os.scandir is much faster than Path.iterdir() because it already reads the node-type
+        with native_os.scandir(target) as it:
+            for entry in it:
+                try:
+                    if entry.is_dir() and not entry.name.startswith("."):
+                        directories.append(entry.name)
+                except (PermissionError, OSError):
+                    continue
+                
+                # Preventive limit to avoid bloat in the frontend
+                if len(directories) > 200:
+                    break
     except PermissionError:
-        # Si el directori arrel és el que no té permís
-        return {"error": "Permission denied", "current_path": str(target), "display_path": display_path}
+        # If the root directory lacks permission
+        return {"error": f"Permission denied at {target}. Check macroscopic Mac permissions.", "current_path": str(target), "display_path": display_path}
+    except Exception as e:
+        return {"error": f"Error accessing path: {str(e)}", "current_path": str(target), "display_path": display_path}
 
     directories.sort(key=lambda s: s.lower())
 

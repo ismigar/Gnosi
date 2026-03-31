@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2 } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
+import { useTranslation } from 'react-i18next';
 import { getViewIcon } from './viewConstants';
 
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement }) => (
@@ -49,6 +50,7 @@ const PageTreeItem = ({
     activePageId,
     onPageSelect,
     onOpenParallel,
+    onSearch,
     onCreatePage,
     onRenamePage,
     onDuplicatePage,
@@ -58,6 +60,7 @@ const PageTreeItem = ({
     menuState,
     setMenuState
 }) => {
+    const { t } = useTranslation();
     const hasChildren = childrenMap[page.id] && childrenMap[page.id].length > 0;
     const isExpanded = Boolean(expandedNodes?.[page.id]);
     const [isRenaming, setIsRenaming] = useState(false);
@@ -183,14 +186,14 @@ const PageTreeItem = ({
                                 });
                             }
                         }}
-                        title="Opcions"
+                        title={t('Options')}
                     >
                         <MoreHorizontal size={14} />
                     </button>
                     <button
                         className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
                         onClick={(e) => { e.stopPropagation(); onCreatePage(page.id); }}
-                        title="Afegeix Pàgina Filla"
+                        title={t('Add child page')}
                     >
                         <Plus size={14} />
                     </button>
@@ -214,7 +217,7 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Edit2 size={14} className="text-[var(--text-secondary)]/60" />
-                            <span>Renomenar</span>
+                            <span>{t('Rename')}</span>
                         </button>
                     )}
                     {onToggleFavorite && (
@@ -228,7 +231,7 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Star size={14} className={isFavorite ? "text-amber-400" : "text-[var(--text-secondary)]/60"} fill={isFavorite ? "currentColor" : "none"} />
-                            <span>{isFavorite ? "Treure de Favorits" : "Afegir a Favorits"}</span>
+                            <span>{isFavorite ? t('Remove from Favorites') : t('Add to Favorites')}</span>
                         </button>
                     )}
                     {onDuplicatePage && (
@@ -241,7 +244,7 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Copy size={14} className="text-[var(--text-secondary)]/60" />
-                            <span>Duplicar</span>
+                            <span>{t('Duplicate')}</span>
                         </button>
                     )}
                     {onOpenParallel && (
@@ -254,7 +257,7 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Columns2 size={14} className="text-[var(--text-secondary)]/60" />
-                            <span>Obrir en paral·lel</span>
+                            <span>{t('Open in parallel')}</span>
                         </button>
                     )}
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2"></div>
@@ -339,6 +342,7 @@ export const VaultSidebar = ({
     onCreateDrawing,
     currentView = 'editor'
 }) => {
+    const { t } = useTranslation();
     const WIKI_BATCH_SIZE = 150;
     const DATABASES_BATCH_SIZE = 40;
     const TABLES_BATCH_SIZE = 60;
@@ -516,7 +520,7 @@ export const VaultSidebar = ({
             <div className="px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
                 <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
-                    <span className="text-sm font-semibold text-[var(--text-primary)]">El meu Vault</span>
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{t('My Vault')}</span>
                 </div>
 
             </div>
@@ -524,17 +528,17 @@ export const VaultSidebar = ({
             <div className="px-2 space-y-0.5">
                 <NavItem
                     icon={Search}
-                    label="Cerca"
+                    label={t('Search')}
                     onClick={onSearch}
                     rightElement={<span className="text-[10px] font-semibold text-[var(--text-secondary)]/60 border border-[var(--border-primary)] bg-[var(--bg-secondary)] rounded px-1.5 py-0.5">Cmd K</span>}
                 />
-                <NavItem icon={Clock} label="Recent" onClick={onOpenRecent} />
+                <NavItem icon={Clock} label={t('Recent')} onClick={onOpenRecent} />
                 <div
                     className={`group flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                     onClick={() => onNavigate('drawing')}
                 >
                     <Palette size={16} className={currentView === 'drawing' ? 'text-gnosi' : 'text-amber-500'} />
-                    <span className="truncate flex-1 text-left text-[var(--text-primary)]">Dibuixos</span>
+                    <span className="truncate flex-1 text-left text-[var(--text-primary)]">{t('Drawings')}</span>
                     {onCreateDrawing && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onCreateDrawing(); }}
@@ -549,7 +553,7 @@ export const VaultSidebar = ({
             {favoritePages.length > 0 && (
                 <>
                     <SectionHeader
-                        label="Favorites"
+                        label={t('Favorites')}
                         isExpanded={isFavoritesExpanded}
                         onToggle={() => setIsFavoritesExpanded(!isFavoritesExpanded)}
                     />
@@ -590,9 +594,9 @@ export const VaultSidebar = ({
                     className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar"
                 >
                     {isRegistryLoading ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">Carregant...</div>
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('Loading...')}</div>
                     ) : rootPages.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">No hi ha pàgines sense taula</div>
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('No pages without table')}</div>
                     ) : (
                         <>
                             {wikiVirtualizationEnabled && wikiTopSpacerHeight > 0 && (
@@ -629,7 +633,7 @@ export const VaultSidebar = ({
                                     onClick={() => setVisibleWikiCount(prev => Math.min(prev + WIKI_BATCH_SIZE, rootPages.length))}
                                     className="btn-gnosi btn-gnosi-primary w-full mt-2 !py-1.5 !text-[11px]"
                                 >
-                                    Mostrar {Math.min(WIKI_BATCH_SIZE, rootPages.length - visibleWikiCount)} més
+                                    {t('Show more', { count: Math.min(WIKI_BATCH_SIZE, rootPages.length - visibleWikiCount) })}
                                 </button>
                             )}
                         </>
@@ -692,7 +696,7 @@ export const VaultSidebar = ({
                                         <button
                                             className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60 hover:text-gnosi"
                                             onClick={(e) => { e.stopPropagation(); onCreateTable && onCreateTable(db.id); }}
-                                            title="Nova Taula"
+                                            title={t('New Table')}
                                         >
                                             <Plus size={14} />
                                         </button>
@@ -809,11 +813,11 @@ export const VaultSidebar = ({
                                                 }))}
                                                 className="btn-gnosi btn-gnosi-primary !bg-transparent !text-[var(--text-secondary)] border border-[var(--border-primary)] hover:!bg-[var(--bg-secondary)] !py-1 !px-2 !text-[10px] ml-6 mt-1"
                                             >
-                                                Mostrar {Math.min(TABLES_BATCH_SIZE, dbTables.length - visibleTableCount)} taules més
+                                                {t('Show more tables', { count: Math.min(TABLES_BATCH_SIZE, dbTables.length - visibleTableCount) })}
                                             </button>
                                         )}
                                         {dbTables.length === 0 && (
-                                            <div className="px-2 py-1 text-[11px] text-[var(--text-secondary)]/60 italic">Sense taules</div>
+                                            <div className="px-2 py-1 text-[11px] text-[var(--text-secondary)]/60 italic">{t('No tables')}</div>
                                         )}
                                     </div>
                                 )}
@@ -825,17 +829,17 @@ export const VaultSidebar = ({
                             onClick={() => setVisibleDatabasesCount(prev => Math.min(prev + DATABASES_BATCH_SIZE, databases.length))}
                             className="btn-gnosi btn-gnosi-primary !bg-transparent !text-[var(--text-secondary)] border border-[var(--border-primary)] hover:!bg-[var(--bg-secondary)] !py-1 !px-2 !text-[11px] w-full mt-2"
                         >
-                            Mostrar {Math.min(DATABASES_BATCH_SIZE, databases.length - visibleDatabasesCount)} bases de dades més
+                            {t('Show more databases', { count: Math.min(DATABASES_BATCH_SIZE, databases.length - visibleDatabasesCount) })}
                         </button>
                     )}
                     {isRegistryLoading && (
                         <div className="px-4 py-2 text-[11px] text-[var(--text-secondary)]/60 italic">
-                            Carregant bases de dades...
+                            {t('Loading databases...')}
                         </div>
                     )}
                     {!isRegistryLoading && databases.length === 0 && (
                         <div className="px-4 py-2 text-[11px] text-[var(--text-secondary)]/60 italic">
-                            No hi ha bases de dades creades.
+                            {t('No databases created.')}
                         </div>
                     )}
                 </div>
@@ -857,7 +861,7 @@ export const VaultSidebar = ({
                                 className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                             >
                                 <LayoutPanelLeft size={14} className="text-[var(--text-secondary)]/60" />
-                                <span>Obrir taula</span>
+                                <span>{t('Open table')}</span>
                             </button>
                             {onOpenTable && (
                                 <button
@@ -868,7 +872,7 @@ export const VaultSidebar = ({
                                     className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                                 >
                                     <Plus size={14} className="text-[var(--text-secondary)]/60" />
-                                    <span>Obrir en pestanya nova</span>
+                                    <span>{t('Open in new tab')}</span>
                                 </button>
                             )}
                             {onOpenTableParallel && (
@@ -880,7 +884,7 @@ export const VaultSidebar = ({
                                     className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                                 >
                                     <Columns2 size={14} className="text-[var(--text-secondary)]/60" />
-                                    <span>Obrir en paral·lel</span>
+                                    <span>{t('Open in parallel')}</span>
                                 </button>
                             )}
                             <div className="h-px bg-[var(--border-primary)] my-1 mx-2"></div>
@@ -914,7 +918,7 @@ export const VaultSidebar = ({
                         className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
                     >
                         <Trash2 size={14} className="text-[var(--status-error)]" />
-                        <span>Eliminar</span>
+                        <span>{t('Delete')}</span>
                     </button>
                 </div>,
                 document.body
@@ -931,9 +935,12 @@ export const VaultSidebar = ({
                         }
                         setConfirmModal({ ...confirmModal, isOpen: false });
                     }}
-                    title={`Eliminar ${confirmModal.type === 'database' ? 'Database' : 'Taula'}`}
-                    message={`Estàs segur que vols eliminar ${confirmModal.type === 'database' ? 'la Database (i totes les seves taules)' : 'la Taula'}? Aquesta acció no es pot desfer.`}
-                    confirmText="Eliminar"
+                    title={confirmModal.type === 'database' ? t('Delete Database') : t('Delete Table')}
+                    message={confirmModal.type === 'database' 
+                        ? t('Delete database confirmation', { name: confirmModal.name }) 
+                        : t('Delete table confirmation', { name: confirmModal.name })}
+                    confirmText={t('Delete')}
+                    cancelText={t('Cancel')}
                     isDestructive={true}
                 />
             )}

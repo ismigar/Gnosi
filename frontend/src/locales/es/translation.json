@@ -19,5 +19,11 @@
     "no_connections": "No se encontraron conexiones.",
     "similarity_score": "Similitud",
     "reason": "Razón",
-    "language": "Idioma"
+    "language": "Idioma",
+    "Mail": "Correo",
+    "Calendar": "Calendario",
+    "Wiki": "Wiki",
+    "Wiki Pages": "Páginas Wiki",
+    "Untitled": "Sin título",
+    "Email": "Correo"
 }

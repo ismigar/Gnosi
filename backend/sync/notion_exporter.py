@@ -54,7 +54,7 @@ class NotionExporter:
             search_result = await mcp_client.call_tool(
                 "notion-server",
                 "API-post-search",
-                {"query": f"Directiva: {name}"}
+                {"query": f"Directive: {name}"}
             )
             
             # Create blocks from markdown content
@@ -78,7 +78,7 @@ class NotionExporter:
                     {
                         "parent": {"page_id": self._parent_page_id or ""},
                         "properties": {
-                            "title": [{"text": {"content": f"Directiva: {name}"}}]
+                            "title": [{"text": {"content": f"Directive: {name}"}}]
                         }
                     }
                 )
@@ -89,7 +89,7 @@ class NotionExporter:
             return {
                 "success": True,
                 "action": "simulated",
-                "message": f"Directiva '{name}' preparada per sincronitzar (MCP no disponible)",
+                "message": f"Directive '{name}' ready to sync (MCP not available)",
                 "content_preview": content[:200] + "..."
             }
         except Exception as e:

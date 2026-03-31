@@ -32,7 +32,7 @@ ZOTERO_FIELDS = [
 ]
 
 def load_json(path: Path, default: Any = None) -> Any:
-    if not path.exists():
+    if path is None or not path.exists():
         return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -89,4 +89,4 @@ async def trigger_sync(background_tasks: BackgroundTasks):
             print(f"Error running Zotero sync: {e}")
 
     background_tasks.add_task(run_sync)
-    return {"status": "started", "message": "Sincronització iniciada en segon pla"}
+    return {"status": "started", "message": "Sync started in the background"}

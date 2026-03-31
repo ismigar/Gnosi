@@ -32,27 +32,32 @@ class SchedulerManager:
 
     AVAILABLE_TASKS = {
         "sync_directives": {
-            "description": "Sincronitzar directives a Notion",
+            "description": "Sync directives to Notion",
             "default_interval": 1440,  # 24 hours
         },
         "backup_tools": {
-            "description": "Backup d'eines aprovades",
+            "description": "Backup approved tools",
             "default_interval": 720,  # 12 hours
         },
         "cleanup_rejected": {
-            "description": "Netejar eines rebutjades antigues",
+            "description": "Cleanup old rejected tools",
             "default_interval": 10080,  # 7 days
         },
         "update_analytics": {
-            "description": "Actualitzar estadístiques",
+            "description": "Update statistics",
             "default_interval": 60,  # 1 hour
         },
     }
 
     def __init__(self):
         cfg = load_params(strict_env=False)
-        self.config_path = cfg.paths["SCHEDULER"]
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        self.config_path = cfg.paths.get("SCHEDULER")
+        
+        if self.config_path:
+            try:
+                self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                print(f"⚠️ Scheduler: Error creating configuration directory: {e}")
 
         self._tasks: Dict[str, ScheduledTask] = {}
         self._running = False
@@ -62,15 +67,17 @@ class SchedulerManager:
 
     def _load_config(self):
         """Load scheduler configuration from file."""
-        if self.config_path.exists():
-            try:
-                with open(self.config_path) as f:
-                    data = json.load(f)
-                    for name, task_data in data.get("tasks", {}).items():
-                        self._tasks[name] = ScheduledTask(**task_data)
-            except Exception:
-                self._init_default_tasks()
-        else:
+        if not self.config_path or not self.config_path.exists():
+            self._init_default_tasks()
+            return
+            
+        try:
+            with open(self.config_path) as f:
+                data = json.load(f)
+                for name, task_data in data.get("tasks", {}).items():
+                    self._tasks[name] = ScheduledTask(**task_data)
+        except Exception as e:
+            print(f"⚠️ Scheduler: Error loading configuration, restoring default values: {e}")
             self._init_default_tasks()
 
     def _init_default_tasks(self):
@@ -86,9 +93,15 @@ class SchedulerManager:
 
     def _save_config(self):
         """Save scheduler configuration to file."""
-        data = {"tasks": {name: asdict(task) for name, task in self._tasks.items()}}
-        with open(self.config_path, "w") as f:
-            json.dump(data, f, indent=2)
+        if not self.config_path:
+            return
+            
+        try:
+            data = {"tasks": {name: asdict(task) for name, task in self._tasks.items()}}
+            with open(self.config_path, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"⚠️ Scheduler: Could not save configuration: {e}")
 
     def get_tasks(self) -> List[Dict[str, Any]]:
         """Get all scheduled tasks."""
@@ -165,7 +178,11 @@ class SchedulerManager:
 
         approved = registry.list_approved()
         cfg = load_params(strict_env=False)
-        backup_dir = cfg.paths["BACKUPS"] / "tools"
+        backup_base = cfg.paths.get("BACKUPS")
+        if not backup_base:
+            return {"error": "Backup path not structurally configured in the Vault."}
+            
+        backup_dir = backup_base / "tools"
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
