@@ -14,11 +14,16 @@ from config.app_config import load_params
 router = APIRouter(prefix="/api/mail", tags=["mail"])
 log = logging.getLogger(__name__)
 
-# Carregar configuració i definir rutes del Vault
+# Load configuration and define Vault paths
 cfg = load_params(strict_env=False)
 VAULT_PATH = cfg.paths["VAULT"]
-MAIL_VAULT_PATH = VAULT_PATH / "Mail"
-MAIL_VAULT_PATH.mkdir(parents=True, exist_ok=True)
+MAIL_VAULT_PATH = cfg.paths["MAIL"]
+
+if MAIL_VAULT_PATH:
+    try:
+        MAIL_VAULT_PATH.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 
 def _sanitize_yaml_string(val: str) -> str:
     """Escape problematic characters to make a string safe for YAML.
@@ -70,7 +75,7 @@ def _repair_file(file_path: Path, yaml_text: str, body: str):
 
 
 def parse_frontmatter(content: str, file_path: Optional[Path] = None):
-    """Parses d'un arxiu markdown per extreure el YAML frontmatter i el body.
+    """Parses a markdown file to extract YAML frontmatter and body.
 
     ``file_path`` is optional and only used to provide context in logs.
     In the mail subsystem we log at DEBUG level because malformed frontmatter
@@ -101,16 +106,16 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     return {}, content
 
 def get_unix_timestamp(date_str):
-    """Converteix una data string a timestamp Unix (segons)."""
+    """Converts a date string to a Unix timestamp (seconds)."""
     if not date_str:
         return int(time.time())
     try:
-        # Intentem format correu (RFC 2822)
+        # Try email format (RFC 2822)
         dt = parsedate_to_datetime(str(date_str))
         return int(dt.timestamp())
     except Exception:
         try:
-            # Si és un objecte datetime de YAML
+            # If it's a YAML datetime object
             if isinstance(date_str, datetime):
                 return int(date_str.timestamp())
         except Exception:
@@ -125,9 +130,9 @@ async def get_messages(
     limit: int = 50,
     offset: int = 0
 ):
-    """Llista missatges directament des del Vault (Markdown)."""
+    """Lists messages directly from the Vault (Markdown)."""
     try:
-        # Sincronització ràpida en demanar la llista
+        # Fast synchronization when requesting the list
         sync_service.sync_emails(email, limit=10)
 
         messages = []
@@ -138,15 +143,24 @@ async def get_messages(
                 content = file_path.read_text(encoding="utf-8")
                 metadata, body = parse_frontmatter(content, file_path)
                 
-                # Filtratge bàsic
+                # Basic filtering
                 if category and metadata.get("category") != category:
                     continue
-                if folder == "SENT" and metadata.get("type") != "Enviat":
+                if folder == "SENT" and metadata.get("type") != "Sent":
                     continue
-                if (not folder or folder == "INBOX") and metadata.get("type") == "Enviat":
+                if (not folder or folder == "INBOX") and metadata.get("type") == "Sent":
                     continue
                 if folder == "STARRED" and not metadata.get("is_starred"):
                     continue
+
+                # Final categorization by metadata.type
+                type_mapping = {
+                    "Received": "inbox",
+                    "Sent": "sent",
+                    "Draft": "drafts",
+                    "Spam": "spam",
+                    "Deleted": "trash"
+                }
 
                 msg_id = metadata.get("id") or metadata.get("gmail_id") or file_path.stem.split('_')[0]
                 date_val = metadata.get("date")
@@ -155,21 +169,21 @@ async def get_messages(
                 messages.append({
                     "id": msg_id,
                     "thread_id": metadata.get("thread_id") or msg_id,
-                    "subject": metadata.get("title") or "Sense títol",
-                    "sender": metadata.get("sender") or "Desconegut",
+                    "subject": metadata.get("title") or "Untitled",
+                    "sender": metadata.get("sender") or "Unknown",
                     "recipient": metadata.get("recipients") or email,
-                    "timestamp": ts,  # ARA ÉS UN ENTER (segons Unix)
+                    "timestamp": ts,  # NOW IT IS AN INTEGER (Unix seconds)
                     "date": str(date_val) if date_val else "",
-                    "snippet": (body[:150] if body else "Sense contingut") + "...",
+                    "snippet": (body[:150] if body else "No content") + "...",
                     "is_read": metadata.get("is_read", True),
                     "is_starred": metadata.get("is_starred", False),
                     "labels": "INBOX" if metadata.get("type") != "Enviat" else "SENT",
-                    "category": metadata.get("category", "Principal")
+                    "category": metadata.get("category", "Main")
                 })
             except Exception as e:
-                log.error(f"Error llegint fitxer de mail {file_path}: {e}")
+                log.error(f"Error reading mail file {file_path}: {e}")
 
-        # Ordenar per timestamp descendent
+        # Sort by descending timestamp
         messages.sort(key=lambda x: x['timestamp'], reverse=True)
         
         return messages[offset:offset+limit]
@@ -179,7 +193,7 @@ async def get_messages(
 
 @router.get("/messages/{message_id}")
 async def get_message(message_id: str):
-    """Obté els detalls d'un missatge des del Vault."""
+    """Gets message details from the Vault."""
     files = list(MAIL_VAULT_PATH.glob(f"{message_id}_*.md"))
     if not files:
         raise HTTPException(status_code=404, detail="Message not found in Vault")
@@ -191,13 +205,13 @@ async def get_message(message_id: str):
     return {
         "id": metadata.get("id") or message_id,
         "thread_id": metadata.get("thread_id") or message_id,
-        "subject": metadata.get("title") or "Sense títol",
-        "sender": metadata.get("sender") or "Desconegut",
+        "subject": metadata.get("title") or "Untitled",
+        "sender": metadata.get("sender") or "Unknown",
         "recipient": metadata.get("recipients") or "",
         "date": str(metadata.get("date")) if metadata.get("date") else "",
-        "body_text": body or "Sense contingut",
+        "body_text": body or "No content",
         "is_starred": metadata.get("is_starred", False),
-        "category": metadata.get("category", "Principal")
+        "category": metadata.get("category", "Main")
     }
 
 @router.patch("/messages/{message_id}")
@@ -214,13 +228,13 @@ async def reply_message(
     success = send_reply(email=email, thread_id=message_id, body=body)
     if success:
         return {"status": "success"}
-    raise HTTPException(status_code=500, detail="Error enviant correu")
+    raise HTTPException(status_code=500, detail="Error sending email")
 
 @router.post("/ai/generate_draft")
 async def generate_draft(payload: dict = Body(...)):
     from pipeline.ai_client import call_ai_with_fallback
     context = payload.get("context", "")
-    instruction = payload.get("prompt", "Escriu una resposta professional.")
-    ai_prompt = f"Context: {context}\nInstrucció: {instruction}\nRespon només el cos del correu en català."
+    instruction = payload.get("prompt", "Write a professional response.")
+    ai_prompt = f"Context: {context}\nInstruction: {instruction}\nRespond only with the email body in English."
     content, provider = call_ai_with_fallback(ai_prompt)
     return {"draft": content, "provider": provider}

@@ -1,0 +1,49 @@
+{
+  "project": "Gnosi Multi-Agent Implementation",
+  "status": "IDLE",
+  "agents": {
+    "Director": {
+      "status": "IDLE",
+      "active_task": null
+    },
+    "Architect": {
+      "status": "IDLE",
+      "active_task": null
+    },
+    "Specialist": {
+      "status": "IDLE",
+      "active_task": null
+    },
+    "Researcher": {
+      "status": "IDLE",
+      "active_task": null
+    },
+    "Reviewer": {
+      "status": "IDLE",
+      "active_task": null
+    }
+  },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Initialize Team Infrastructure",
+      "description": "Create .antigravity/team directories and initial files.",
+      "assigned_to": "Specialist",
+      "status": "DONE",
+      "dependencies": [],
+      "history": [
+        {
+          "timestamp": "2026-03-30T18:38:00Z",
+          "action": "Created",
+          "by": "Director"
+        },
+        {
+          "timestamp": "2026-03-30T18:54:00Z",
+          "action": "Completed",
+          "by": "Reviewer"
+        }
+      ]
+    }
+  ],
+  "last_updated": "2026-03-30T18:54:00Z"
+}

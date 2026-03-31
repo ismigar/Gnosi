@@ -66,7 +66,7 @@ export const Legend = ({ graphData, isDarkMode, colorMode }) => {
                                         border: `1px solid ${isDarkMode ? '#555' : '#ccc'}`
                                     }}
                                 />
-                                <span>{item.label} ({item.count})</span>
+                                <span>{t(item.label)} ({item.count})</span>
                             </div>
                         ))}
                     </div>

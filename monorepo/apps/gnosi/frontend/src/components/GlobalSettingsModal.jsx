@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar } from 'lucide-react';
+import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar, Share2, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
 import axios from 'axios';
@@ -12,10 +12,11 @@ const LANGUAGES = [
 ];
 
 const THEME_OPTIONS = [
-    { id: 'light', label: 'Clar', previewClass: 'settings-theme-preview--light', disabled: false },
-    { id: 'dark', label: 'Fosc', previewClass: 'settings-theme-preview--dark', disabled: false },
-    { id: 'system', label: 'Sistema', icon: Monitor, disabled: false },
+    { id: 'light', labelKey: 'theme_light', previewClass: 'settings-theme-preview--light', disabled: false },
+    { id: 'dark', labelKey: 'theme_dark', previewClass: 'settings-theme-preview--dark', disabled: false },
+    { id: 'system', labelKey: 'theme_system', icon: Monitor, disabled: false },
 ];
+
 
 function getStoredTheme() {
     return localStorage.getItem('db-theme') || 'system';
@@ -120,9 +121,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const res = await fetch('/api/config');
             if (res.ok) {
                 const cfg = await res.json();
+                console.log("Config carregada del búnquer:", cfg);
                 setFullConfig(cfg);
                 if (cfg.settings) setLocalSettings(prev => ({ ...prev, ...cfg.settings }));
-                if (cfg.paths) setLocalPaths(prev => ({ ...prev, ...cfg.paths }));
+                if (cfg.paths) {
+                    console.log("Rutes detectades:", cfg.paths);
+                    setLocalPaths(prev => ({ ...prev, ...cfg.paths }));
+                }
                 if (cfg.graph) setGraphConfig(prev => ({ ...prev, ...cfg.graph }));
             }
         } catch (err) {
@@ -175,46 +180,69 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const handleSaveGlobal = async () => {
         setIsSaving(true);
-        setSaveStatus('Guardant...');
+        setSaveStatus(t('Saving...'));
         try {
             const updatedConfig = {
                 ...fullConfig,
-                settings: localSettings,
-                paths: localPaths,
-                graph: graphConfig
+                settings: { ...localSettings },
+                paths: { ...localPaths },
+                graph: { ...graphConfig }
             };
 
-            // Save main config
-            const res = await fetch('/api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
+            console.log("Configurant dades per desar:", updatedConfig);
 
-            // Save Zotero config
-            if (zoteroConfig) {
-                await fetch('/api/zotero/config', {
+            // preparem totes les promeses per guardar en paral·lel
+            const savePromises = [
+                // 1. Guardar configuració principal
+                fetch('/api/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(zoteroConfig)
-                });
+                    body: JSON.stringify(updatedConfig)
+                }),
+                // 2. Guardar totes les integracions en bloc
+                fetch('/api/integrations/bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(integrations)
+                })
+            ];
+
+            // 3. Guardar configuració de Zotero si cal
+            if (zoteroConfig) {
+                savePromises.push(
+                    fetch('/api/zotero/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(zoteroConfig)
+                    })
+                );
             }
 
-            if (res.ok) {
-                setSaveStatus('✅ Guardat!');
-                setTimeout(() => {
-                    setSaveStatus('');
-                    window.location.reload();
-                }, 1000);
-            } else {
-                setSaveStatus('❌ Error');
+            const results = await Promise.all(savePromises);
+            const allOk = results.every(res => res.ok);
+
+            if (!allOk) {
+                setSaveStatus(t('Error saving settings'));
+                setIsSaving(false);
+                return;
             }
+
+            setSaveStatus(t('Saved!'));
+            setFullConfig(updatedConfig);
+
+            setTimeout(() => {
+                setSaveStatus('');
+                window.location.reload();
+            }, 1000);
+
         } catch (err) {
-            setSaveStatus('❌ Error de connexió');
+            console.error("Error al guardar:", err);
+            setSaveStatus(t('Connection error'));
         } finally {
             setIsSaving(false);
         }
     };
+
 
 
 
@@ -225,37 +253,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         try {
             const res = await fetch('/api/sync', { method: 'POST' });
             if (res.status === 429) {
-                setSyncMessage('⏳ Ja en curs...');
+                setSyncMessage(t('Syncing already in progress...'));
             } else if (res.ok) {
-                setSyncMessage('✅ Sincronització completada!');
+                setSyncMessage(t('Synchronization completed!'));
             } else {
-                setSyncMessage('❌ Error al sincronitzar');
+                setSyncMessage(t('Error synchronizing'));
             }
         } catch {
-            setSyncMessage('❌ No s\'ha pogut connectar');
+            setSyncMessage(t('Could not connect'));
         } finally {
             setSyncing(false);
         }
     };
 
-    const handleZoteroSave = async () => {
-        setZoteroSaveStatus('Guardant...');
-        try {
-            const res = await fetch('/api/zotero/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(zoteroConfig)
-            });
-            if (res.ok) {
-                setZoteroSaveStatus('✅ Guardat!');
-                setTimeout(() => setZoteroSaveStatus(''), 3000);
-            } else {
-                setZoteroSaveStatus('❌ Error al guardar');
-            }
-        } catch (err) {
-            setZoteroSaveStatus('❌ Error de connexió');
-        }
-    };
+    // handleZoteroSave removed as part of save unification
+
 
     const handleZoteroSync = async () => {
         if (zoteroSyncing) return;
@@ -263,30 +275,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         try {
             const res = await fetch('/api/zotero/sync', { method: 'POST' });
             if (res.ok) {
-                alert('Sincronització de Zotero iniciada!');
+                alert(t('Zotero sync started!'));
             } else {
-                alert('Error al iniciar la sincronització');
+                alert(t('Error starting sync'));
             }
         } catch (err) {
-            alert('Error de connexió');
+            alert(t('Connection error'));
         } finally {
             setZoteroSyncing(false);
         }
     };
 
-    const handleIntegrationSave = async (type, data) => {
-        setIntegrationSaveStatus("Saving...");
-        try {
-            const res = await axios.put(`/api/integrations/${type}`, data);
-            if (res.data.status === 'success') {
-                setIntegrationSaveStatus("Saved successfully!");
-            } else {
-                setIntegrationSaveStatus('❌ Error al guardar');
-            }
-        } catch (err) {
-            setIntegrationSaveStatus('❌ Error de connexió');
-        }
-    };
+    // handleIntegrationSave removed as part of save unification
+
 
     const handleAddIntegrationItem = (type) => {
         setIntegrations(prev => {
@@ -305,18 +306,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     const handleUpdateIntegrationItem = (type, index, field, value) => {
-        let updatedList = [];
         setIntegrations(prev => {
             const list = [...(prev[type] || [])];
             list[index] = { ...list[index], [field]: value };
-            updatedList = list;
             return { ...prev, [type]: list };
         });
-
-        // Auto-save if it's a simple property mutation (color, default)
-        if (field === 'color' || field === 'is_default') {
-            handleIntegrationSave(type, updatedList);
-        }
     };
 
     // Helper to get properties for the current selected table
@@ -330,10 +324,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     if (!isOpen) return null;
 
+    const tabs = [
+        { id: 'general', label: t('General'), icon: Settings },
+        { id: 'integrations', label: t('Integrations'), icon: Share2 },
+        { id: 'calendar', label: t('Calendar'), icon: Calendar },
+        { id: 'graph', label: t('Graph'), icon: Sliders },
+        { id: 'notion', label: t('Notion'), icon: Database },
+        { id: 'zotero', label: t('Zotero'), icon: BookOpen },
+        { id: 'schedulers', label: t('Scheduled Tasks'), icon: Clock },
+        { id: 'ai', label: t('AI'), icon: Cpu },
+    ];
+
     return (
         <>
-            <div className="settings-overlay" onClick={onClose}>
-                <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-overlay" onClick={onClose} style={{ zIndex: 500 }}>
+                <div className="settings-modal" onClick={(e) => e.stopPropagation()} style={{ zIndex: 501 }}>
                     {/* Header */}
                     <div className="settings-modal__header" style={{
                         background: 'var(--settings-header-bg)',
@@ -363,15 +368,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             flexDirection: 'column',
                             gap: '6px'
                         }}>
-                            {[
-                                { id: 'general', label: 'General', icon: Globe },
-                                { id: 'integrations', label: 'Integracions', icon: Zap },
-                                { id: 'graph', label: 'Graf', icon: Database },
-                                { id: 'ai', label: 'AI', icon: Cpu },
-                                { id: 'notion', label: 'Notion', icon: RefreshCw },
-                                { id: 'zotero', label: 'Zotero', icon: BookOpen },
-                                { id: 'schedulers', label: 'Schedulers', icon: Clock }
-                            ].map(tab => (
+                            {tabs.map(tab => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
@@ -439,7 +436,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('theme_label')}</h3>
                                         </div>
                                         <div className="settings-theme-row" style={{ display: 'flex', gap: '15px' }}>
-                                            {THEME_OPTIONS.map(({ id, label, icon: Icon, previewClass, disabled }) => (
+                                            {THEME_OPTIONS.map(({ id, labelKey, icon: Icon, previewClass, disabled }) => (
                                                 <button
                                                     key={id}
                                                     onClick={() => !disabled && handleThemeChange(id)}
@@ -463,9 +460,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     }}
                                                 >
                                                     {Icon ? <Icon size={24} /> : <div className={`theme-preview ${id}`} style={{ width: '40px', height: '24px', borderRadius: '4px', background: id === 'dark' ? '#1e293b' : '#f8fafc', border: '1px solid var(--settings-border)' }} />}
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: theme === id ? '600' : '400' }}>{label}</span>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: theme === id ? '600' : '400' }}>{t(labelKey)}</span>
                                                 </button>
                                             ))}
+
                                         </div>
                                     </section>
 
@@ -515,7 +513,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'integrations' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura aquí de forma segura els comptes externs. Cada compte desa les credencials de forma independent.</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('integration_intro_desc')}</p>
                                         {integrationSaveStatus && <span style={{ fontSize: '0.85rem', color: integrationSaveStatus.includes('✅') ? '#10b981' : '#ef4444', fontWeight: '500' }}>{integrationSaveStatus}</span>}
                                     </div>
 
@@ -524,10 +522,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Comptes de Correu (IMAP/SMTP)</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('email_accounts_title')}</h3>
                                             </div>
                                             {!emailWizard && (
-                                                <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Compte</button>
+                                                <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ {t('Add Account')}</button>
                                             )}
                                         </div>
 
@@ -535,7 +533,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
                                                 {emailWizard.step === 'ask_email' ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu</label>
+                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('Enter email address')}</label>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
                                                                 type="email"
@@ -569,9 +567,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 disabled={!emailWizard.email}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: emailWizard.email ? 1 : 0.5 }}
                                                             >
-                                                                Continuar
+                                                                {t('Continue')}
                                                             </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -581,21 +579,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 {emailWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
                                                                 {emailWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
                                                                 {emailWizard.provider === 'pangea' && <span style={{ fontSize: '1.2rem' }}>📧</span>}
-                                                                Configurant compte {emailWizard.email}
+                                                                {t('Configuring account')} {emailWizard.email}
                                                             </span>
-                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
+                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Change email')}</button>
                                                         </div>
 
                                                         {emailWizard.provider === 'google' && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
                                                                     <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
+                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('Recommended: Connect directly')}
                                                                     </div>
-                                                                    Evita les configuracions manuals i connecta amb Google OAuth2.
+                                                                    {t('Avoid manual configurations by connecting your account directly.')}
                                                                     {!googleAuthConfigured ? (
                                                                         <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides al fitxer <code>.env_shared</code>. Configura el <code>CLIENT_ID</code> i <code>CLIENT_SECRET</code> per activar-ho.
+                                                                            ⚠️ <strong>{t('Configuration required:')}</strong> {t('google_oauth_error_detailed')}
                                                                         </div>
                                                                     ) : (
                                                                         <div style={{ marginTop: '12px' }}>
@@ -610,21 +608,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     )}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — o bé manualment —
+                                                                    — {t('manual_or')} —
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {emailWizard.provider === 'icloud' && (
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
-                                                                <strong>Nota:</strong> Has d'utilitzar una <strong>Contrasenya d'Aplicació</strong>.
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
+                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #f59e0b', marginBottom: '15px', marginTop: '-5px' }}>
+                                                                <strong>{t('Note:')}</strong> {t('icloud_app_password_note')}
+                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('manage_apple_id')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
                                                             </div>
                                                         )}
 
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor IMAP</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('IMAP Server')}</label>
                                                                 <input
                                                                     type="text"
                                                                     id="email_wizard_imap"
@@ -633,7 +631,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor SMTP</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('SMTP Server')}</label>
                                                                 <input
                                                                     type="text"
                                                                     id="email_wizard_smtp"
@@ -642,7 +640,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </div>
                                                             <div style={{ gridColumn: 'span 2' }}>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Password / App Password')}</label>
                                                                 <input
                                                                     type="password"
                                                                     id="email_wizard_password"
@@ -660,7 +658,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     const password = document.getElementById('email_wizard_password').value;
 
                                                                     if (!imap || !smtp || !password) {
-                                                                        alert('Cal omplir tots els camps');
+                                                                        alert(t('all_fields_required'));
                                                                         return;
                                                                     }
 
@@ -681,9 +679,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
                                                             >
-                                                                Afegir Compte
+                                                                {t('Add Account')}
                                                             </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
                                                         </div>
                                                     </div>
                                                 )}
@@ -693,62 +691,63 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             {(integrations?.emails || []).map((account, index) => (
                                                 <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Compte {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
-                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('Account')} {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('Connected')} ✅</span>}</span>
+                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('Remove')}</button>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>IMAP Server</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('IMAP Server')}</label>
                                                             <input type="text" value={account.imap_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'imap_server', e.target.value)} placeholder="imap.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>SMTP Server</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('SMTP Server')}</label>
                                                             <input type="text" value={account.smtp_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'smtp_server', e.target.value)} placeholder="smtp.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Adreça Email</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Email Address')}</label>
                                                             <input type="email" value={account.username || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'username', e.target.value)} placeholder="nom@exemple.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Contrasenya / App Password</label>
-                                                            <input type="password" placeholder={account.password_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('password_app_password')}</label>
+                                                            <input type="password" placeholder={account.password_status === 'connected' ? t('password_hint_connected') : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div style={{ gridColumn: 'span 2' }}>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Signatura (HTML)</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Signature (HTML)')}</label>
                                                             <textarea
                                                                 value={account.html_signature || ''}
                                                                 onChange={(e) => handleUpdateIntegrationItem('emails', index, 'html_signature', e.target.value)}
-                                                                placeholder="<p>Atentament, <b>Ismael</b></p>"
+                                                                placeholder={t('signature_placeholder')}
                                                                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'monospace' }}
                                                             />
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
-                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap compte de correu configurat. Prem "+ Afegir Compte" per començar.</p>}
-                                            <button onClick={() => handleIntegrationSave('emails', integrations.emails || [])} style={{ alignSelf: 'flex-start', padding: '8px 16px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-border)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
-                                                <Save size={14} /> Desar Correus
-                                            </button>
+                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('No email accounts configured. Click "Add Account" to start.')}</p>}
                                         </div>
+
+
                                     </section>
 
                                     {/* Calendar Settings */}
                                     <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                                        <div className="settings-section__header" style={{ marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Calendar size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Calendaris (Google / CalDAV)</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('calendar_accounts_title')}</h3>
                                             </div>
-                                            {!calendarWizard && (
-                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Calendari</button>
-                                            )}
                                         </div>
+                                        {!calendarWizard && (
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ {t('Add Calendar')}</button>
+                                            </div>
+                                        )}
 
                                         {calendarWizard && (
                                             <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
                                                 {calendarWizard.step === 'ask_email' ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu o identificador</label>
+                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('Enter email address or identifier')}</label>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
                                                                 type="email"
@@ -780,9 +779,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 disabled={!calendarWizard.email}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: calendarWizard.email ? 1 : 0.5 }}
                                                             >
-                                                                Continuar
+                                                                {t('Continue')}
                                                             </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -791,21 +790,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <span style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                 {calendarWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
                                                                 {calendarWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
-                                                                Configurant {calendarWizard.email} ({calendarWizard.provider})
+                                                                {t('Configuring')} {calendarWizard.email} ({calendarWizard.provider})
                                                             </span>
-                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
+                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Change email')}</button>
                                                         </div>
 
                                                         {calendarWizard.provider === 'google' && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
                                                                     <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
+                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('Recommended: Connect directly')}
                                                                     </div>
-                                                                    Per evitar configurar contrasenyes d'aplicació manuals, pots connectar el teu compte de Google directament per sincronitzar calendaris i correu.
+                                                                    {t('Avoid manual configurations calendars...')}
                                                                     {!googleAuthConfigured ? (
                                                                         <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides.
+                                                                            ⚠️ <strong>{t('Configuration required:')}</strong> {t('No Google OAuth credentials found.')}
                                                                         </div>
                                                                     ) : (
                                                                         <div style={{ marginTop: '12px' }}>
@@ -820,44 +819,44 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     )}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — o bé manualment —
+                                                                    — {t('or manually')} —
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {calendarWizard.provider === 'icloud' && (
                                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
-                                                                <strong>Nota:</strong> Per a iCloud, necessites una contrasenya específica per a aplicacions.
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>Gestiona el teu ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
+                                                                <strong>{t('Note:')}</strong> {t('iCloud app password required')}
+                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('Manage Apple ID')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
                                                             </div>
                                                         )}
 
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nom personalitzat (Ex: Feina, Personal...)</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Custom name (Ex: Work, Personal...)')}</label>
                                                                 <input
                                                                     type="text"
-                                                                    placeholder="Calendari Personal"
-                                                                    id="wizard_name"
+                                                                    placeholder={t('personal_calendar_placeholder')}
+                                                                    onChange={(e) => setCalendarWizard({ ...calendarWizard, name: e.target.value })}
                                                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor / URL CalDAV</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Server / CalDAV URL')}</label>
                                                                 <input
                                                                     type="text"
                                                                     defaultValue={calendarWizard.provider === 'icloud' ? 'caldav.icloud.com' : (calendarWizard.provider === 'google' ? 'https://apidata.googleusercontent.com/caldav/v1/calendars/primary/events' : '')}
                                                                     placeholder="https://servidor.com/caldav"
-                                                                    id="wizard_url"
+                                                                    onChange={(e) => setCalendarWizard({ ...calendarWizard, url: e.target.value })}
                                                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Password / App Password')}</label>
                                                                 <input
                                                                     type="password"
                                                                     placeholder="••••••••"
-                                                                    id="wizard_token"
+                                                                    onChange={(e) => setCalendarWizard({ ...calendarWizard, password: e.target.value })}
                                                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                 />
                                                             </div>
@@ -866,20 +865,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
                                                             <button
                                                                 onClick={() => {
-                                                                    const name = document.getElementById('wizard_name').value || calendarWizard.email;
-                                                                    const url = document.getElementById('wizard_url').value;
-                                                                    const token = document.getElementById('wizard_token').value;
-
-                                                                    if (!url || !token) {
-                                                                        alert('Cal omplir la URL i la contrasenya');
+                                                                    if (!calendarWizard.url || !calendarWizard.password) {
+                                                                        alert(t('url_password_required'));
                                                                         return;
                                                                     }
 
                                                                     const newCalendar = {
                                                                         id: 'new_' + Date.now().toString(),
-                                                                        name,
-                                                                        url,
-                                                                        token,
+                                                                        name: calendarWizard.name || calendarWizard.email,
+                                                                        url: calendarWizard.url,
+                                                                        token: calendarWizard.password,
                                                                         username: calendarWizard.email,
                                                                         provider: calendarWizard.provider
                                                                     };
@@ -894,9 +889,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
                                                             >
-                                                                Afegir de forma definitiva
+                                                                {t('Add permanently')}
                                                             </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
                                                         </div>
                                                     </div>
                                                 )}
@@ -907,7 +902,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             {(integrations?.calendars || []).map((account, index) => (
                                                 <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `Calendari ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `Calendari ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('Connected')} ✅</span>}</span>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                                                 <input
@@ -921,7 +916,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         setIntegrations(prev => ({ ...prev, calendars: updated }));
                                                                     }}
                                                                 />
-                                                                Predeterminat
+                                                                {t('Default')}
                                                             </label>
                                                             <input
                                                                 type="color"
@@ -929,30 +924,29 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'color', e.target.value)}
                                                                 style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
                                                             />
-                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
+                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('Remove')}</button>
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Nom / Identificador</label>
-                                                            <input type="text" value={account.name || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'name', e.target.value)} placeholder="Ex: Feina, Personal..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('name_identifier')}</label>
+                                                            <input type="text" value={account.name || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'name', e.target.value)} placeholder="Personal" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Servidor / URL</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Server / CalDAV URL')}</label>
                                                             <input type="text" value={account.url || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'url', e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Token d'Açcés / Autenticació</label>
-                                                            <input type="password" placeholder={account.token_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'token', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('access_token_auth')}</label>
+                                                            <input type="password" placeholder={account.token_status === 'connected' ? t('password_hint_connected') : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'token', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
-                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap calendari configurat. Prem "+ Afegir Calendari" per començar.</p>}
-                                            <button onClick={() => handleIntegrationSave('calendars', integrations.calendars || [])} style={{ alignSelf: 'flex-start', padding: '8px 16px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-border)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
-                                                <Save size={14} /> Desar Calendaris
-                                            </button>
+                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('No calendars configured. Click "+ Add Calendar" to start.')}</p>}
                                         </div>
+
+
                                     </section>
 
                                     {/* Vault Tables for Calendar */}
@@ -960,10 +954,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Taules de la Vault al Calendari</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('Vault Tables on Calendar')}</h3>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Color per defecte:</span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('Default color:')}</span>
                                                 <input
                                                     type="color"
                                                     value={integrations?.vault_calendar?.color || '#e57373'}
@@ -977,7 +971,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                         </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Selecciona quines taules vols que mostrin els seus registres amb data al calendari.</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('vault_calendar_tables_desc')}</p>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '15px' }}>
                                             {tables.map(table => (
                                                 <label key={table.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
@@ -999,12 +993,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </label>
                                             ))}
                                         </div>
-                                        <button
-                                            onClick={() => handleIntegrationSave('vault_calendar', integrations.vault_calendar || { enabled_tables: [] })}
-                                            style={{ alignSelf: 'flex-start', padding: '8px 16px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-border)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-                                        >
-                                            <Save size={14} /> Desar Selecció de Taules
-                                        </button>
+
+
                                     </section>
                                 </div>
                             )}
@@ -1014,7 +1004,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Sliders size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visualització</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('visualization')}</h3>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                             <div className="setting-control">
@@ -1024,11 +1014,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         checked={graphConfig.show_arrows}
                                                         onChange={e => setGraphConfig(prev => ({ ...prev, show_arrows: e.target.checked }))}
                                                     />
-                                                    Mostrar fletxes
+                                                    {t('show_arrows')}
                                                 </label>
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Mida dels nodes ({graphConfig.node_size.toFixed(1)})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('node_size')} ({graphConfig.node_size.toFixed(1)})</label>
                                                 <input
                                                     type="range" min="0.1" max="5" step="0.1"
                                                     value={graphConfig.node_size}
@@ -1037,7 +1027,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gruix dels enllaços ({graphConfig.edge_thickness.toFixed(1)})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Edge thickness')} ({graphConfig.edge_thickness.toFixed(1)})</label>
                                                 <input
                                                     type="range" min="0.1" max="5" step="0.1"
                                                     value={graphConfig.edge_thickness}
@@ -1046,7 +1036,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Llindar d'etiquetes ({graphConfig.label_threshold})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Label threshold')} ({graphConfig.label_threshold})</label>
                                                 <input
                                                     type="range" min="0" max="50" step="1"
                                                     value={graphConfig.label_threshold}
@@ -1060,11 +1050,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Forces (Física)</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('forces_physics')}</h3>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gravetat ({graphConfig.physics.gravity})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Gravity')} ({graphConfig.physics.gravity})</label>
                                                 <input
                                                     type="range" min="0" max="2" step="0.05"
                                                     value={graphConfig.physics.gravity}
@@ -1073,7 +1063,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Repulsió ({graphConfig.physics.repulsion})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Repulsion')} ({graphConfig.physics.repulsion})</label>
                                                 <input
                                                     type="range" min="0" max="10000" step="100"
                                                     value={graphConfig.physics.repulsion}
@@ -1082,7 +1072,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Fricció ({graphConfig.physics.friction})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Friction')} ({graphConfig.physics.friction})</label>
                                                 <input
                                                     type="range" min="1" max="20" step="1"
                                                     value={graphConfig.physics.friction}
@@ -1097,7 +1087,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         checked={graphConfig.physics.lin_log_mode}
                                                         onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, lin_log_mode: e.target.checked } }))}
                                                     />
-                                                    Mode Lin-Log
+                                                    {t('Lin-Log Mode')}
                                                 </label>
                                             </div>
                                         </div>
@@ -1106,11 +1096,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visibilitat</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('visualization')}</h3>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             <div>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Selecció Jeràrquica</h4>
+                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('hierarchical_selection')}</h4>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                     {(databases || []).map(db => {
                                                         const dbTables = (tables || []).filter(t => t.database_id === db.id);
@@ -1211,8 +1201,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
 
                                             <div style={{ marginTop: '10px' }}>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Filtres de Taula (Barra lateral)</h4>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Selecciona quines taules voldràs filtrar individualment des de la barra lateral.</p>
+                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('table_filters_sidebar')}</h4>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>{t('table_filters_sidebar_desc')}</p>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
                                                     {(tables || []).filter(t => graphConfig.visible_tables.includes(t.id)).map(table => (
                                                         <label key={`filter-${table.id}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-section-border)' }}>
@@ -1242,9 +1232,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <section className="settings-section">
                                     <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                         <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Sincronització de Notion</h3>
+                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('Notion Sync')}</h3>
                                     </div>
                                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('sync_desc')}</p>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('access_token_auth')}</label>
+                                        <input type="password" value={localIntegrations.notion?.token || ''} onChange={(e) => handleUpdateIntegrationField('notion', 'token', e.target.value)} placeholder="secret_..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                    </div>
                                     <button
                                         onClick={handleSync}
                                         disabled={syncing}
@@ -1276,18 +1270,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <BookOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Zotero Sync</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('Zotero Sync')}</h3>
                                         </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Configura la sincronització de la teva biblioteca local de Zotero.</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('Configure Zotero local library sync.')}</p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Taula Destí</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Target Table')}</label>
                                                 <select
                                                     value={zoteroConfig.target_table || ''}
                                                     onChange={e => setZoteroConfig(prev => ({ ...prev, target_table: e.target.value }))}
                                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
                                                 >
-                                                    <option value="">Selecciona una taula...</option>
+                                                    <option value="">{t('Select a table...')}</option>
                                                     {zoteroTables.map(t => (
                                                         <option key={t.id} value={t.id}>{t.name}</option>
                                                     ))}
@@ -1295,7 +1289,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
 
                                             <div className="settings-mapping-list" style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)', maxHeight: '300px', overflowY: 'auto' }}>
-                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>Mapeig de Camps</h4>
+                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>{t('Field Mapping')}</h4>
                                                 {(zoteroFields || []).map(field => (
                                                     <div key={field.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '15px' }}>
                                                         <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '500' }}>{field.label}</span>
@@ -1313,7 +1307,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }));
                                                             }}
                                                         >
-                                                            <option value="">-- No mapar --</option>
+                                                            <option value="">{t('-- Do not map --')}</option>
                                                             {availableProperties.map(prop => (
                                                                 <option key={prop.name} value={prop.name}>{prop.name}</option>
                                                             ))}
@@ -1324,20 +1318,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                             <div style={{ display: 'flex', gap: '10px' }}>
                                                 <button
-                                                    onClick={handleZoteroSave}
-                                                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                                >
-                                                    <Save size={16} /> Guardar Mapeig
-                                                </button>
-                                                <button
                                                     onClick={handleZoteroSync}
                                                     disabled={zoteroSyncing}
                                                     style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--settings-btn-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: zoteroSyncing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                                                 >
                                                     <RefreshCw size={16} className={zoteroSyncing ? 'spin-anim' : ''} />
-                                                    Sincronitzar
+                                                    {t('Sync')}
                                                 </button>
                                             </div>
+
                                             {zoteroSaveStatus && <p style={{ fontSize: '0.8rem', textAlign: 'center', color: zoteroSaveStatus.includes('✅') ? '#10b981' : '#ef4444' }}>{zoteroSaveStatus}</p>}
                                         </div>
                                     </section>
@@ -1348,7 +1337,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <section className="settings-section">
                                     <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                         <Clock size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Tasques Programades</h3>
+                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('scheduled_tasks')}</h3>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                         {schedulers.map(task => (
@@ -1383,11 +1372,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }} />
                                                         </span>
                                                     </label>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: '500', minWidth: '45px' }}>{task.enabled ? 'Actiu' : 'Inactiu'}</span>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: '500', minWidth: '45px' }}>{task.enabled ? t('Active') : t('Inactive')}</span>
                                                 </div>
                                             </div>
                                         ))}
-                                        {schedulers.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>No hi ha tasques programades.</p>}
+                                        {schedulers.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>{t('No scheduled tasks found.')}</p>}
                                     </div>
                                 </section>
                             )}
@@ -1396,34 +1385,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <section className="settings-section">
                                     <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                         <Cpu size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Sistemes d'IA (Groq / OpenAI)</h3>
-                                        {integrations?.ai?.groq_api_key_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>Connectat ✅</span>}
+                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('ai_systems_title')}</h3>
+                                        {integrations?.ai?.groq_api_key_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>{t('Connected')} ✅</span>}
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Groq API Key</label>
                                             <input
                                                 type="password"
-                                                placeholder={integrations?.ai?.groq_api_key_status === 'connected' ? '******** (Modifica per actualitzar)' : 'gsk_...'}
+                                                placeholder={integrations?.ai?.groq_api_key_status === 'connected' ? t('password_hint_connected') : 'gsk_...'}
                                                 onChange={(e) => setIntegrations(prev => ({ ...prev, ai: { ...prev.ai, groq_api_key: e.target.value } }))}
                                                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
                                             />
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <button
-                                                onClick={() => handleIntegrationSave('ai', integrations.ai || {})}
-                                                style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-                                            >
-                                                <Save size={14} /> Desar Clau
-                                            </button>
-                                            {integrationSaveStatus && <span style={{ fontSize: '0.85rem', color: integrationSaveStatus.includes('✅') ? '#10b981' : '#ef4444', fontWeight: '500' }}>{integrationSaveStatus}</span>}
                                         </div>
                                     </div>
 
                                     <div style={{ background: 'rgba(0,0,0,0.03)', padding: '20px', borderRadius: '12px', border: '1px solid var(--settings-border)', textAlign: 'center', marginTop: '30px' }}>
                                         <Cpu size={40} style={{ color: 'var(--gnosi-blue)', opacity: 0.5, marginBottom: '15px' }} />
-                                        <p style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: '500', marginBottom: '5px' }}>Properament</p>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura models d'IA personalitzats i paràmetres de generació per defecte.</p>
+                                        <p style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: '500', marginBottom: '5px' }}>{t('coming_soon')}</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('ai_params_desc')}</p>
                                     </div>
                                 </section>
                             )}
@@ -1449,39 +1429,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         )}
                         <button
                             onClick={onClose}
-                            style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--settings-border)',
-                                background: 'transparent',
-                                cursor: 'pointer',
-                                color: 'var(--text-primary)',
-                                fontWeight: '500',
-                                transition: 'all 0.2s'
-                            }}
+                            className="btn-gnosi btn-gnosi-secondary"
                         >
-                            Tancar
+                            {t('Close')}
                         </button>
                         <button
                             onClick={handleSaveGlobal}
-                            disabled={isSaving}
-                            style={{
-                                padding: '10px 24px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: 'var(--gnosi-blue)',
-                                color: 'white',
-                                fontWeight: '600',
-                                cursor: isSaving ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                            }}
+                            className="btn-gnosi btn-gnosi-primary"
                         >
                             {isSaving ? <RefreshCw size={18} className="spin-anim" /> : <Save size={18} />}
-                            Guardar Canvis
+                            {t('Save Changes')}
                         </button>
                     </div>
                 </div>

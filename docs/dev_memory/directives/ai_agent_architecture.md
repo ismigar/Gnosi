@@ -5,9 +5,10 @@ Aquesta directiva defineix com es construeix i es gestiona l'Agent IA del Cervel
 
 ## Arquitectura de l'Agent
 L'agent es basa en un graf de **LangGraph** amb un model **Multi-Agent**:
-- **Supervisor**: El cervell central que decideix quin especialista ha d'actuar.
-- **Coder**: Specialist en codi, fitxers i git.
-- **Brain**: Specialist en coneixement (Notion, n8n, RAG).
+- **Supervisor (Director/Alejabot)**: El cervell central que decideix quin especialista ha d'actuar. Gestiona l'infraestructura `.antigravity/team/`.
+- **Coder (Specialist)**: Specialist en codi, fitxers i git. Executa les tasques de `tasks.json`.
+- **Brain (Architect)**: Specialist en coneixement i disseny d'arquitectura.
+- **Reviewer**: Rol de QA que aplica el protocol de verificació abans del "Done".
 - **General**: Per a converses trivials.
 
 ## Estratègia de Perfils (Personas)
@@ -28,6 +29,7 @@ Per permetre que l'agent sigui versàtil, implementarem "Perfils". Un perfil mod
 - **Eines**: Totes les eines MCP han de ser accessibles pel perfil "Arquitecte", però filtrades per altres perfils si cal.
 
 ## Instruccions de Desenvolupament
-1. No dupliquis la lògica del graf. Usa una factory que accepti un `config` de perfil.
-2. Totes les interaccions han de quedar registrades a la memòria (sqlite checkpoints).
-3. Prioritza Ollama (local) per a tasques simples per estalviar costos/privacitat, i Groq/OpenAI per a tasques complexes.
+31. No dupliquis la lògica del graf. Usa una factory que accepti un `config` de perfil.
+32. Totes les interaccions han de quedar registrades a la memòria (.antigravity/team/tasks.json).
+33. Prioritza Ollama (local) per a tasques simples per estalviar costos/privacitat, i Groq/OpenAI per a tasques complexes.
+34. Quan un especialista acaba, el Director ha de moure el missatge a la bústia de revisió.

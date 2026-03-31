@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from config.app_config import load_params
+from backend.config.app_config import load_params
 from pathlib import Path
 import yaml
 import logging
@@ -7,6 +7,7 @@ import logging
 router = APIRouter()
 log = logging.getLogger(__name__)
 
+# Absolute path to the configuration file
 PARAMS_PATH = Path(__file__).resolve().parents[2] / "config" / "params.yaml"
 
 @router.get("/config")
@@ -14,10 +15,24 @@ async def get_config():
     try:
         # Reload params to get the latest version from disk
         cfg = load_params(strict_env=False)
+        # Absolute origin trace of the function for debugging
+        import inspect
+        source_file = inspect.getfile(load_params)
+        log.info(f"DEBUG: load_params loaded from: {source_file}")
+        log.info(f"DEBUG: Complete config remembered: {cfg.params}")
         return cfg.params
     except Exception as e:
         log.error(f"Error reading config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def deep_merge(dict1, dict2):
+    """Recursively merges dict2 into dict1."""
+    for k, v in dict2.items():
+        if isinstance(v, dict) and k in dict1 and isinstance(dict1[k], dict):
+            deep_merge(dict1[k], v)
+        else:
+            dict1[k] = v
+    return dict1
 
 @router.post("/config")
 async def update_config(request: Request):
@@ -26,9 +41,30 @@ async def update_config(request: Request):
         if not new_config:
             raise HTTPException(status_code=400, detail="No data provided")
 
+        log.info(f"POST /config received. Data: {new_config}")
+
+        # Retrieve the current configuration
+        current_config = {}
+        if PARAMS_PATH.exists():
+            with open(PARAMS_PATH, 'r', encoding='utf-8') as f:
+                current_config = yaml.safe_load(f) or {}
+
+        # Merge data and preserve unsent keys
+        merged_config = deep_merge(current_config, new_config)
+        
+        log.info(f"Final configuration to save: {merged_config}")
+
+        # Write to disk
         with open(PARAMS_PATH, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(new_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            yaml.safe_dump(merged_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             
+        # Force environment restart (uvicorn --reload) to apply critical route changes
+        server_file = Path(__file__).resolve().parents[1] / "server.py"
+        if server_file.exists():
+            server_file.touch()
+            log.info("Server restart forced to apply new parameters.")
+
+        log.info("File params.yaml updated successfully.")
         return {"status": "success", "message": "Configuration updated"}
 
     except Exception as e:

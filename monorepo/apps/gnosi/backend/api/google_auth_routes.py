@@ -9,7 +9,7 @@ from pathlib import Path
 router = APIRouter(prefix="/api/auth/google", tags=["auth"])
 log = logging.getLogger(__name__)
 
-# Emmagatzematge temporal en memòria pel Code Verifier (PKCE)
+# Temporary in-memory storage for the Code Verifier (PKCE)
 pending_auths = {}
 
 # Scopes needed for Calendar and Gmail
@@ -66,7 +66,7 @@ async def login():
         prompt='consent'
     )
     
-    # Desa el code_verifier generat associat a l'estat
+    # Save the generated code_verifier associated with the state
     if hasattr(flow, "code_verifier"):
         pending_auths[state] = flow.code_verifier
         
@@ -87,7 +87,7 @@ async def callback(request: Request):
         redirect_uri=config["web"]["redirect_uris"][0]
     )
     
-    # Recupera el code_verifier si n'hi ha
+    # Retrieve the code_verifier if it exists
     if state and state in pending_auths:
         flow.code_verifier = pending_auths.pop(state)
     
@@ -101,7 +101,7 @@ async def callback(request: Request):
         user_info = service.userinfo().get().execute()
         email = user_info.get("email")
         
-        # Format per a ser reconegut al frontend en les llistes generals d'emails i calendaris
+        # Format to be recognized by the frontend in general lists of emails and calendars
         account_data = {
             "id": f"google_{email}",
             "email": email,
@@ -119,18 +119,11 @@ async def callback(request: Request):
         integration_manager.update("emails", [account_data])
         integration_manager.update("calendars", [account_data])
         
-        # Redirigir de tornada al frontend
-        # TODO: Detectar la URL del frontend dinàmicament si cal
+        # Redirect back to the frontend
+        # TODO: Detect the frontend URL dynamically if necessary
         frontend_url = "http://localhost:5173/calendar?auth=success"
         return RedirectResponse(url=frontend_url)
         
     except Exception as e:
         log.error(f"Error in Google OAuth callback: {e}")
         return RedirectResponse(url="http://localhost:5173/calendar?auth=error")
-@router.get("/status")
-async def status():
-    config = get_google_config()
-    return {
-        "configured": config is not None,
-        "client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID") if config else None
-    }

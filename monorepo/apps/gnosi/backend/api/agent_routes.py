@@ -10,36 +10,36 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: str = "default" # ID de sessió per a memòria
+    session_id: str = "default" # Session ID for memory
     history: List[Dict[str, Any]] = [] 
 
 @router.post("/chat")
 async def chat_endpoint(request: Request, chat_req: ChatRequest):
     """
-    Endpoint principal per xatejar amb l'agent.
+    Main endpoint for chatting with the agent.
     """
     try:
-        # Recuperar graf de l'estat
+        # Retrieve graph from state
         if not hasattr(request.app.state, "agent_app"):
              raise HTTPException(status_code=503, detail="Agent not ready (MCP initialization failed?)")
         
         agent_app = request.app.state.agent_app
         
-        # Construir estat inicial
+        # Construct initial state
         inputs = {"messages": [HumanMessage(content=chat_req.message)]}
         
-        # Configurar fil de memòria
+        # Configure memory thread
         config = {"configurable": {"thread_id": chat_req.session_id}}
         
         async def event_generator():
             try:
-                # Executem el graf amb config (thread_id)
+                # Run the graph with config (thread_id)
                 async for event in agent_app.astream(inputs, config=config):
                     for node_name, state_update in event.items():
                         if "messages" in state_update:
                             messages = state_update["messages"]
-                            # Poden venir diversos missatges, iterem per si de cas
-                            # Normalment langgraph retorna l'últim afegit en "updates" mode
+                            # Multiple messages may come, iterate just in case
+                            # Normally langgraph returns the last one added in "updates" mode
                             for msg in messages:
                                 # 1. AI Message (Thinking or Tool Call)
                                 if msg.type == "ai":

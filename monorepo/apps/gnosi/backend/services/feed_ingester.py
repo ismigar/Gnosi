@@ -17,7 +17,7 @@ def _fetch_feed(source):
     """Fetches and parses a single RSS feed with a strict timeout."""
     log.info(f"📥 Fetching RSS: {source.name} ({source.url})")
     try:
-        # Peticions amb timeout estricte per evitar bloquejos si un servidor RSS va lent o està caigut
+        # Requests with strict timeout to avoid blocking if an RSS server is slow or down
         response = requests.get(source.url, timeout=7)
         response.raise_for_status()
         parsed = feedparser.parse(response.content)

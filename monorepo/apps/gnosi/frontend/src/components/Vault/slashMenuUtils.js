@@ -1,57 +1,60 @@
 /**
  * slashMenuUtils.js
- * Utilitats per construir catàlegs de comandes del menú Slash de BlockNote.
- * IMPORTANT: Aquest fitxer NO pot contenir JSX (extensió .js pura).
+ * Utilities for building BlockNote Slash menu command catalogs.
+ * IMPORTANT: This file cannot contain JSX (pure .js extension).
  */
 
 /**
- * Construeix el catàleg d'elements del menú Slash personalitzats.
+ * Builds the custom Slash menu item catalog.
  * @param {Object} params
- * @param {Array}  params.allTables   - Llista de taules disponibles al Vault
- * @param {Function} params.editor    - Instància de l'editor BlockNote
- * @returns {Array} - Llista de grups del menú Slash
+ * @param {Array}  params.allTables   - List of available tables in the Vault
+ * @param {Function} params.editor    - BlockNote editor instance
+ * @param {Function} params.t         - Translation function
+ * @returns {Array} - List of Slash menu items
  */
-export function buildSlashCommandCatalog({ allTables = [], editor } = {}) {
-    if (!allTables.length) return [];
+export function buildSlashCommandCatalog({ allTables = [], editor, t } = {}) {
+    if (!allTables.length || !t) return [];
 
     return allTables.map(table => ({
         title: table.name || table.id,
-        subtext: 'Inserir taula del Vault',
-        aliases: ['vault', 'taula', table.name].filter(Boolean),
+        description: t('Insert Vault table'),
+        aliases: ['vault', 'table', table.name].filter(Boolean),
         group: 'Vault',
         onItemClick: () => {
             if (!editor) return;
             try {
                 editor.insertBlocks(
-                    [{ type: 'vaultTable', props: { tableId: table.id, search: '' } }],
+                    [{ type: 'database', props: { database_table_id: table.id } }],
                     editor.getTextCursorPosition().block,
                     'after'
                 );
             } catch (e) {
-                // El tipus vaultTable podria no estar definit; simplement ignorem
-                console.warn('SlashMenu: no s\'ha pogut inserir el bloc vaultTable', e);
+                console.warn('SlashMenu: failed to insert database block', e);
             }
         },
     }));
 }
 
 /**
- * Construeix el catàleg d'elements del menú Slash per als layouts de columnes.
+ * Builds the Slash menu item catalog for column layouts.
  * @param {Object} params
- * @param {Function} params.editor - Instància de l'editor BlockNote
+ * @param {Function} params.editor - BlockNote editor instance
+ * @param {Function} params.t      - Translation function
  * @returns {Array}
  */
-export function buildColumnLayoutCatalog({ editor } = {}) {
+export function buildColumnLayoutCatalog({ editor, t } = {}) {
+    if (!t) return [];
+    
     const layouts = [
-        { title: '2 columnes', columns: 2 },
-        { title: '3 columnes', columns: 3 },
+        { title: t('2 columns'), columns: 2 },
+        { title: t('3 columns'), columns: 3 },
     ];
 
     return layouts.map(layout => ({
         title: layout.title,
-        subtext: 'Inserir un disseny en columnes',
-        aliases: ['columna', 'column', 'layout', `${layout.columns}col`],
-        group: 'Layout',
+        subtext: t('Insert column layout'),
+        aliases: ['column', 'layout', `${layout.columns}col`],
+        group: t('Layout'),
         onItemClick: () => {
             if (!editor) return;
             try {
@@ -65,7 +68,7 @@ export function buildColumnLayoutCatalog({ editor } = {}) {
                     'after'
                 );
             } catch (e) {
-                console.warn('SlashMenu: no s\'ha pogut inserir el layout de columnes', e);
+                console.warn('SlashMenu: failed to insert column layout', e);
             }
         },
     }));

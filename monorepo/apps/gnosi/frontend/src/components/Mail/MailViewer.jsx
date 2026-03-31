@@ -5,13 +5,15 @@ import {
     Sparkles, ExternalLink, Archive, Clock, Tag, Mail, Calendar, X as CloseIcon, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-import { ca } from 'date-fns/locale';
+import { ca, enUS } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import MailBlockEditor from './MailBlockEditor';
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
+import { useTranslation } from 'react-i18next';
 
 export default function MailViewer({ account, mail: selectedMail }) {
+    const { t, i18n } = useTranslation();
     const [mailData, setMailData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [replyBody, setReplyBody] = useState('');
@@ -24,6 +26,8 @@ export default function MailViewer({ account, mail: selectedMail }) {
     const [calendarTitle, setCalendarTitle] = useState('');
     const editorRef = React.useRef(null);
     const calendarCompRef = React.useRef(null);
+
+    const dateLocale = i18n.language === 'ca' ? ca : enUS;
 
     useEffect(() => {
         if (!selectedMail?.id) {
@@ -64,13 +68,13 @@ export default function MailViewer({ account, mail: selectedMail }) {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ [key]: value })
-        }).catch(err => toast.error("Error actualitzant metadades"));
+        }).catch(err => toast.error(t('update_metadata_error')));
     };
 
     const handleSendReply = () => {
         if (!replyBody.trim() || !account?.email || !mailData?.id) return;
         if (replyMode === 'forward' && !forwardTo.trim()) {
-            toast.error("Indica un destinatari per al reenviament");
+            toast.error(t('recipient_required_forward'));
             return;
         }
 
@@ -90,12 +94,12 @@ export default function MailViewer({ account, mail: selectedMail }) {
                 setForwardTo('');
                 setSending(false);
                 setReplyMode(null);
-                toast.success("Enviat correctament!");
+                toast.success(t('sent_successfully'));
             })
             .catch(err => {
                 console.error("Error sending reply:", err);
                 setSending(false);
-                toast.error("Error enviant la resposta");
+                toast.error(t('error_sending_reply'));
             });
     };
 
@@ -114,12 +118,12 @@ export default function MailViewer({ account, mail: selectedMail }) {
             .then(data => {
                 setReplyBody(data.draft);
                 setAiGenerating(false);
-                toast.success("Esborrany generat amb IA");
+                toast.success(t('ai_draft_generated'));
             })
             .catch(err => {
                 console.error("Error generating draft:", err);
                 setAiGenerating(false);
-                toast.error("Error generant l'esborrany");
+                toast.error(t('error_generating_draft'));
             });
     };
 
@@ -137,7 +141,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
             });
         } catch (err) {
             console.error("Error fetching calendar resources:", err);
-            toast.error("Error carregant el calendari");
+            toast.error(t('error_loading_calendar'));
         }
     };
 
@@ -152,12 +156,12 @@ export default function MailViewer({ account, mail: selectedMail }) {
         if (!editorRef.current) return;
 
         const { start, end, allDay } = selection;
-        const startStr = format(start, allDay ? 'd MMMM' : 'd MMMM HH:mm', { locale: ca });
-        const endStr = end ? format(end, allDay ? 'd MMMM' : 'HH:mm', { locale: ca }) : '';
+        const startStr = format(start, allDay ? 'd MMMM' : 'd MMMM HH:mm', { locale: dateLocale });
+        const endStr = end ? format(end, allDay ? 'd MMMM' : 'HH:mm', { locale: dateLocale }) : '';
 
         const availabilityText = allDay
-            ? `Disponible el dia ${startStr}`
-            : `Disponible de ${startStr} a ${endStr}`;
+            ? `${t('availability_day_prefix', { defaultValue: 'Disponible el dia' })} ${startStr}`
+            : `${t('availability_range_prefix', { defaultValue: 'Disponible de' })} ${startStr} ${t('availability_range_separator', { defaultValue: 'a' })} ${endStr}`;
 
         // Insert as a new block in the editor
         const editor = editorRef.current;
@@ -168,31 +172,31 @@ export default function MailViewer({ account, mail: selectedMail }) {
         );
 
         setShowAvailability(false);
-        toast.success("Disponibilitat inserida");
+        toast.success(t('availability_inserted'));
     };
 
     const handleAddToVault = () => {
-        toast.success("Afegit al Vault correctament!");
+        toast.success(t('added_to_vault_success'));
     };
 
     const handleReply = () => {
         if (!mailData) return;
         setReplyMode('reply');
-        setReplyBody(`\n\n--- Missatge original ---\nDe: ${mailData.sender}\nData: ${mailData.date}\nAssumpte: ${mailData.subject}\n\n${mailData.body_text || ''}`);
+        setReplyBody(`\n\n--- ${t('original_message')} ---\n${t('to', { defaultValue: 'De' })}: ${mailData.sender}\n${t('date', { defaultValue: 'Data' })}: ${mailData.date}\n${t('subject', { defaultValue: 'Assumpte' })}: ${mailData.subject}\n\n${mailData.body_text || ''}`);
         setTimeout(() => document.getElementById('reply-area')?.scrollIntoView({ behavior: 'smooth' }), 100);
     };
 
     const handleReplyAll = () => {
         if (!mailData) return;
         setReplyMode('reply_all');
-        setReplyBody(`\n\n--- Missatge original ---\nDe: ${mailData.sender}\nData: ${mailData.date}\nAssumpte: ${mailData.subject}\n\n${mailData.body_text || ''}`);
+        setReplyBody(`\n\n--- ${t('original_message')} ---\n${t('to', { defaultValue: 'De' })}: ${mailData.sender}\n${t('date', { defaultValue: 'Data' })}: ${mailData.date}\n${t('subject', { defaultValue: 'Assumpte' })}: ${mailData.subject}\n\n${mailData.body_text || ''}`);
         setTimeout(() => document.getElementById('reply-area')?.scrollIntoView({ behavior: 'smooth' }), 100);
     };
 
     const handleForward = () => {
         if (!mailData) return;
         setReplyMode('forward');
-        setReplyBody(`\n\n--- Missatge reenviat ---\nDe: ${mailData.sender}\nData: ${mailData.date}\nAssumpte: ${mailData.subject}\n\n${mailData.body_text || ''}`);
+        setReplyBody(`\n\n--- ${t('forwarded_message')} ---\n${t('to', { defaultValue: 'De' })}: ${mailData.sender}\n${t('date', { defaultValue: 'Data' })}: ${mailData.date}\n${t('subject', { defaultValue: 'Assumpte' })}: ${mailData.subject}\n\n${mailData.body_text || ''}`);
         setTimeout(() => document.getElementById('reply-area')?.scrollIntoView({ behavior: 'smooth' }), 100);
     };
 
@@ -200,7 +204,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
         if (!mailData) return;
         const newValue = !mailData.is_starred;
         updateMetadata('is_starred', newValue);
-        toast.success(newValue ? "Afegit a preferits" : "Eliminat de preferits");
+        toast.success(newValue ? t('added_to_favorites') : t('removed_from_favorites'));
     };
 
     const handleArchive = () => {
@@ -208,9 +212,9 @@ export default function MailViewer({ account, mail: selectedMail }) {
         fetch(`/api/mail/messages/${mailData.id}/archive?email=${encodeURIComponent(account.email)}`, { method: 'POST' })
             .then(res => res.json())
             .then(() => {
-                toast.success("Correu arxivat");
+                toast.success(t('mail_archived'));
             })
-            .catch(err => toast.error("Error en arxivar"));
+            .catch(err => toast.error(t('error_archiving')));
     };
 
     const handleDelete = () => {
@@ -218,9 +222,9 @@ export default function MailViewer({ account, mail: selectedMail }) {
         fetch(`/api/mail/messages/${mailData.id}/trash?email=${encodeURIComponent(account.email)}`, { method: 'POST' })
             .then(res => res.json())
             .then(() => {
-                toast.success("Correu enviat a la paperera");
+                toast.success(t('mail_sent_to_trash'));
             })
-            .catch(err => toast.error("Error en eliminar"));
+            .catch(err => toast.error(t('error_deleting')));
     };
 
     if (!selectedMail) {
@@ -229,8 +233,8 @@ export default function MailViewer({ account, mail: selectedMail }) {
                 <div className="w-24 h-24 rounded-3xl bg-slate-50 flex items-center justify-center mb-6 shadow-inner">
                     <Mail size={40} className="text-slate-100" />
                 </div>
-                <p className="text-lg font-semibold text-slate-400">Selecciona un correu</p>
-                <p className="text-sm text-slate-300">Tria un missatge de la llista per començar.</p>
+                <p className="text-lg font-semibold text-slate-400">{t('select_a_mail')}</p>
+                <p className="text-sm text-slate-300">{t('choose_message_hint')}</p>
             </div>
         );
     }
@@ -239,7 +243,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-white">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-slate-400 font-medium">Carregant contingut...</p>
+                <p className="text-slate-400 font-medium">{t('Loading content...')}</p>
             </div>
         );
     }
@@ -249,28 +253,28 @@ export default function MailViewer({ account, mail: selectedMail }) {
             {/* Action Bar */}
             <div className="h-16 border-b border-slate-100 px-6 flex items-center justify-between bg-white/80 backdrop-blur-xl sticky top-0 z-20">
                 <div className="flex items-center gap-1.5">
-                    <button onClick={handleAddToVault} title="Afegir al Vault" className="p-2.5 hover:bg-indigo-50 rounded-xl text-slate-600 hover:text-indigo-600 transition-all flex items-center gap-2 text-sm font-medium">
+                    <button onClick={handleAddToVault} title={t('add_to_vault')} className="p-2.5 hover:bg-indigo-50 rounded-xl text-slate-600 hover:text-indigo-600 transition-all flex items-center gap-2 text-sm font-medium">
                         <ExternalLink size={18} />
-                        <span className="hidden lg:block">Add to Vault</span>
+                        <span className="hidden lg:block">{t('add_to_vault')}</span>
                     </button>
                     <div className="w-px h-6 bg-slate-100 mx-2"></div>
-                    <button onClick={handleReply} title="Respondre" className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
+                    <button onClick={handleReply} title={t('reply')} className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
                         <Reply size={18} />
                     </button>
-                    <button onClick={handleReplyAll} title="Respondre a tots" className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
+                    <button onClick={handleReplyAll} title={t('reply_all')} className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
                         <ReplyAll size={18} />
                     </button>
-                    <button onClick={handleForward} title="Reenviar" className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
+                    <button onClick={handleForward} title={t('forward')} className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
                         <Forward size={18} />
                     </button>
                     <div className="w-px h-6 bg-slate-100 mx-2"></div>
-                    <button onClick={handleArchive} title="Arxivar" className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
+                    <button onClick={handleArchive} title={t('archive')} className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
                         <Archive size={18} />
                     </button>
-                    <button title="Recordatori (Snooze)" className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
+                    <button title={t('snooze')} className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all">
                         <Clock size={18} />
                     </button>
-                    <button onClick={handleDelete} title="Eliminar" className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 hover:text-red-500 transition-all">
+                    <button onClick={handleDelete} title={t('delete')} className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 hover:text-red-500 transition-all">
                         <Trash2 size={18} />
                     </button>
                 </div>
@@ -279,7 +283,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                     <button
                         onClick={handleToggleStar}
                         className={`p-2.5 rounded-xl transition-all ${mailData?.is_starred ? 'text-amber-500 bg-amber-50' : 'text-slate-600 hover:bg-slate-50'}`}
-                        title={mailData?.is_starred ? "Treure de preferits" : "Afegir a preferits"}
+                        title={mailData?.is_starred ? t('removed_from_favorites') : t('added_to_favorites')}
                     >
                         <Star size={18} fill={mailData?.is_starred ? "currentColor" : "none"} />
                     </button>
@@ -307,7 +311,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                                         {mailData?.sender?.split('<')[0].trim()}
                                     </div>
                                     <div className="text-xs text-slate-400 font-medium">
-                                        Per a: {mailData?.recipient}
+                                        {t('to')}: {mailData?.recipient}
                                         {mailData?.cc && <span className="block italic mt-0.5">CC: {mailData.cc}</span>}
                                         {mailData?.bcc && <span className="block italic mt-0.5">BCC: {mailData.bcc}</span>}
                                     </div>
@@ -315,7 +319,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                             </div>
                             <div className="text-right">
                                 <div className="text-sm font-bold text-slate-900">
-                                    {mailData?.timestamp ? format(new Date(mailData.timestamp * 1000), 'd MMM yyyy', { locale: ca }) : ''}
+                                    {mailData?.timestamp ? format(new Date(mailData.timestamp * 1000), 'd MMM yyyy', { locale: dateLocale }) : ''}
                                 </div>
                                 <div className="text-xs text-slate-400 font-medium tracking-wide uppercase">
                                     {mailData?.timestamp ? format(new Date(mailData.timestamp * 1000), 'HH:mm') : ''}
@@ -328,7 +332,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                     <div className="flex flex-wrap gap-4 items-center">
                         <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
                             <Tag size={14} className="text-slate-400" />
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{mailData?.category || 'General'}</span>
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{mailData?.category || t('general')}</span>
                         </div>
                         <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100/50">
                             <div className="w-2 h-2 rounded-full bg-indigo-500" />
@@ -359,7 +363,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                                         {replyMode === 'forward' ? <Forward size={16} /> : replyMode === 'reply_all' ? <ReplyAll size={16} /> : <Reply size={16} />}
                                     </div>
                                     <h3 className="font-bold text-slate-800">
-                                        {replyMode === 'forward' ? 'Reenviar' : replyMode === 'reply_all' ? 'Respondre a tots' : 'Resposta ràpida'}
+                                        {replyMode === 'forward' ? t('forward') : replyMode === 'reply_all' ? t('reply_all') : t('quick_reply')}
                                     </h3>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -368,7 +372,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                                         className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-100 rounded-xl text-sm font-bold transition-all hover:shadow-md active:scale-95"
                                     >
                                         <Calendar size={14} />
-                                        Disponibilitat
+                                        {t('availability')}
                                     </button>
                                     <button
                                         onClick={handleAIAssist}
@@ -376,14 +380,14 @@ export default function MailViewer({ account, mail: selectedMail }) {
                                         className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-sm font-bold transition-all hover:shadow-md hover:shadow-indigo-50 active:scale-95 disabled:opacity-50"
                                     >
                                         {aiGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                        IA Assist
+                                        {t('ai_assist')}
                                     </button>
                                 </div>
                             </div>
 
                             {replyMode === 'forward' && (
                                 <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Para:</label>
+                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">{t('to')}:</label>
                                     <input
                                         type="email"
                                         placeholder="correu@exemple.com"
@@ -408,7 +412,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                                     className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[15px] font-bold rounded-2xl transition-all shadow-lg shadow-indigo-100 hover:shadow-indigo-200 active:scale-95 translate-y-0 hover:-translate-y-0.5"
                                 >
                                     {sending ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
-                                    Enviar correu
+                                    {t('send_mail')}
                                 </button>
                             </div>
                         </div>
@@ -427,7 +431,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                                     <div className="w-10 h-10 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
                                         <Calendar size={20} />
                                     </div>
-                                    Tria la teva disponibilitat
+                                    {t('choose_availability_title')}
                                 </h3>
                                 <p className="text-xs text-slate-400 font-medium ml-13 mt-1 uppercase tracking-wider">{calendarTitle}</p>
                             </div>
@@ -444,7 +448,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                                         onClick={() => calendarCompRef.current?.getApi().today()}
                                         className="px-4 text-xs font-bold uppercase tracking-tight text-slate-500 hover:text-indigo-600"
                                     >
-                                        Avui
+                                        {t('today_btn')}
                                     </button>
                                     <button
                                         onClick={() => calendarCompRef.current?.getApi().next()}
@@ -478,7 +482,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
                         {/* Footer Tips */}
                         <div className="p-6 bg-slate-50 border-t border-slate-100 text-center">
                             <p className="text-sm text-slate-400 font-medium italic">
-                                Fes clic i arrossega per crear una franja de disponibilitat. Apareixerà automàticament al correu.
+                                {t('availability_hint')}
                             </p>
                         </div>
                     </div>

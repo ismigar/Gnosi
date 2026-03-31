@@ -1,46 +1,33 @@
-# config/logger_config.py
 import logging
-from typing import Optional
 from config.paths_config import LOG_DIR
+from typing import Optional
+from pathlib import Path
 
-# ─────────────────────────────────────────────────────
-# ─────────────────────────────────────────────────────
-# Default logging level (propagates globally)
-# ─────────────────────────────────────────────────────
-DEFAULT_LOG_LEVEL = "INFO"   # pots posar "DEBUG" o "WARNING"
-LOG_FILE =  LOG_DIR / "notion_scripts.log"
+# Configurar el directori i el fitxer de log (resilient a None per al 30 de març)
+LOG_FILE = (LOG_DIR / "gnosi.log") if LOG_DIR else None
 
-# ─────────────────────────────────────────────────────
-# ─────────────────────────────────────────────────────
-# Basic logging configuration
-# ─────────────────────────────────────────────────────
-def setup_logging(level: Optional[str] = None):
-    """
-    Configure the global logging system.
-    If already configured, only adjusts the level.
-    """
-    log_level = (level or DEFAULT_LOG_LEVEL).upper()
-
-    # Create logs directory if it does not exist
-    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    # Prevent handler duplication on multiple calls
-    root = logging.getLogger()
-    if root.handlers:
-        root.setLevel(log_level)
-        return root
-
-    fmt = "%(asctime)s %(levelname)s [%(name)s]: %(message)s"
+def setup_logging(level=logging.INFO):
+    """Encapsulated log setup with console and file handlers."""
+    fmt = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
     datefmt = "%H:%M:%S"
 
+    # Console handler is ALWAYS safe
+    handlers = [logging.StreamHandler()]
+    
+    # File handler is only attempted if VAULT_PATH is configured
+    if LOG_DIR and LOG_FILE:
+        try:
+            LOG_DIR.mkdir(parents=True, exist_ok=True)
+            handlers.append(logging.FileHandler(LOG_FILE, encoding="utf-8"))
+        except Exception as e:
+            # We don't use log.error here because logging isn't fully setup yet
+            print(f"⚠️ Avís: No s'ha pogut inicialitzar el FileHandler estructural: {e}")
+
     logging.basicConfig(
-        level=log_level,
+        level=level,
         format=fmt,
         datefmt=datefmt,
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        ],
+        handlers=handlers,
     )
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -49,9 +36,5 @@ def setup_logging(level: Optional[str] = None):
 
     return logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────
-# ─────────────────────────────────────────────────────
-# Helper function to obtain named loggers
-# ─────────────────────────────────────────────────────
 def get_logger(name: Optional[str] = None):
     return logging.getLogger(name)

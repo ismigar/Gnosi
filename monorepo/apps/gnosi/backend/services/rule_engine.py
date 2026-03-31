@@ -46,6 +46,9 @@ class RuleEngine:
         }
 
     def _load_registry(self) -> Dict[str, Any]:
+        if not self.vault_path:
+            return {"databases": [], "tables": [], "views": []}
+            
         registry_path = self.vault_path / "vault_db_registry.json"
         if not registry_path.exists():
             return {"databases": [], "tables": [], "views": []}
@@ -586,6 +589,9 @@ class RuleEngine:
 
     def _query(self, table_id: str, filter_expr: str, property_name: Optional[str] = None) -> Any:
         """Query all records in a table using an expression."""
+        if not self.vault_path:
+            return []
+            
         cache_key = (table_id, filter_expr, property_name)
         if cache_key in self._query_cache:
             return self._query_cache[cache_key]
@@ -633,7 +639,7 @@ class RuleEngine:
 
     def _collect_column_values(self, property_name: str, table_id: Optional[str] = None, filter_expr: Optional[str] = None) -> List[Any]:
         effective_table_id = table_id or self._current_table_id()
-        if not effective_table_id:
+        if not effective_table_id or not self.vault_path:
             return []
 
         values: List[Any] = []
@@ -709,6 +715,9 @@ class RuleEngine:
 
     def _find_record_path(self, record_id: str) -> Optional[Path]:
         """Search for a markdown file by ID."""
+        if not self.vault_path:
+            return None
+            
         # Check root first
         direct = self.vault_path / f"{record_id}.md"
         if direct.exists():

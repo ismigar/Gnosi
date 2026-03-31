@@ -29,6 +29,8 @@ Status: DRAFT
     - `Newsletters`: `{vault}/Newsletters`
     - `Wiki`: `{vault}/Wiki`
     - `BD`: `{vault}/BD`
+        - `Database`: `{vault}/BD/{Database}`
+            - `Table`: `{vault}/BD/{Database}/{Table}`            
     - `data`: `{vault}/data`
     - `Mail`: `{vault}/Mail`
     - `Plantilles`: `{vault}/Plantilles`

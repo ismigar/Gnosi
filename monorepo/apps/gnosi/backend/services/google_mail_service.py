@@ -41,7 +41,7 @@ def get_gmail_service(email: str):
     integrations_file = cfg.paths["SECRETS"] / "integrations.json"
 
     if not integrations_file.exists():
-        log.error("No es troba integrations.json per sincronitzar Gmail.")
+        log.error("No integrations.json found to sync Gmail.")
         return None
 
     try:
@@ -67,7 +67,7 @@ def get_gmail_service(email: str):
                     creds = Credentials(**creds_dict)
                     return build("gmail", "v1", credentials=creds)
                 except Exception as e:
-                    log.error(f"Error inicialitzant Gmail service per a {email}: {e}")
+                    log.error(f"Error initializing Gmail service for {email}: {e}")
                     return None
     return None
 
@@ -106,11 +106,11 @@ def list_threads(email: str, query: str = "label:INBOX", max_results: int = 50):
 
             subject = next(
                 (h["value"] for h in headers if h["name"].lower() == "subject"),
-                "Sense Títol",
+                "Untitled",
             )
             sender = next(
                 (h["value"] for h in headers if h["name"].lower() == "from"),
-                "Desconegut",
+                "Unknown",
             )
             date = next(
                 (h["value"] for h in headers if h["name"].lower() == "date"), ""
@@ -130,7 +130,7 @@ def list_threads(email: str, query: str = "label:INBOX", max_results: int = 50):
 
         return detailed_threads
     except Exception as e:
-        log.error(f"Error llistant threads per a {email}: {e}")
+        log.error(f"Error listing threads for {email}: {e}")
         return []
 
 
@@ -144,7 +144,7 @@ def get_thread_details(email: str, thread_id: str):
         thread = service.users().threads().get(userId="me", id=thread_id).execute()
         return thread
     except Exception as e:
-        log.error(f"Error obtenint detalls del fil {thread_id} per a {email}: {e}")
+        log.error(f"Error getting thread details for {thread_id} for {email}: {e}")
         return None
 
 
@@ -211,7 +211,7 @@ def send_reply(
 
         return True
     except Exception as e:
-        log.error(f"Error enviant resposta/reenviament al fil {thread_id}: {e}")
+        log.error(f"Error sending reply/forward to thread {thread_id}: {e}")
         return False
 
 
@@ -233,5 +233,5 @@ def update_thread_labels(
         service.users().threads().modify(userId="me", id=thread_id, body=body).execute()
         return True
     except Exception as e:
-        log.error(f"Error actualitzant etiquetes del fil {thread_id}: {e}")
+        log.error(f"Error updating labels for thread {thread_id}: {e}")
         return False

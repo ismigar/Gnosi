@@ -102,8 +102,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-x64
-          path: apps/gnosi/electron/dist/*.AppImage
-          path: apps/gnosi/electron/dist/*.deb
+          path: |
+            apps/gnosi/electron/dist/*.AppImage
+            apps/gnosi/electron/dist/*.deb
           retention-days: 5
 
   build-windows:

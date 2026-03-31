@@ -50,6 +50,14 @@ def main():
 
     # Sincronitzar monorepo/ → Gnosi (arrel)
     print("🌐 Sincronitzant Gnosi (Producte Públic)...")
+    
+    # PROTECCIÓ: Mai fer neteja massiva si no estem en un entorn CI aïllat!
+    if not is_ci:
+        print("⚠️  AVÍS: Estàs executant aquest script en local.")
+        print("🛑 Per seguretat, no es farà neteja massiva (git rm -rf .) per evitar pèrdua de fitxers no registrats.")
+        print("💡 Aquest script només és apte per a execució total en entorn CI d'un sol ús.")
+        sys.exit(0)
+
     run_cmd("git checkout --orphan sync-gnosi-tmp", "Error creant branca òrfena")
     run_cmd("git rm -rf . --quiet", "Error netejant branca òrfena")
     run_cmd("git checkout main -- monorepo/", "Error agafant contingut monorepo")

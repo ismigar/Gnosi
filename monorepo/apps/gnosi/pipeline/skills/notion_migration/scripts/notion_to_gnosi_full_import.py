@@ -34,14 +34,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[7]  # -> Projectes/
 ENV_SHARED = PROJECT_ROOT / ".env_shared"
 
 if ENV_SHARED.exists():
-    load_dotenv(ENV_SHARED)
+    load_dotenv(ENV_SHARED, override=True)
 
 TOKEN = os.getenv("NOTION_TOKEN")
 VAULT_ROOT = (
-    os.getenv("DIGITAL_BRAIN_VAULT_PATH")
+    os.getenv("VAULT_PATH")
+    or os.getenv("DIGITAL_BRAIN_VAULT_PATH")
     or os.getenv("gnosi_VAULT_PATH")
-    or str(PROJECT_ROOT / "monorepo" / "apps" / "gnosi" / "vault")
 )
+
+if not VAULT_ROOT:
+    print("❌ ERROR: No s'ha trobat cap ruta al Vault (VAULT_PATH).")
+    print("Siusplau, configura la carpeta structural a settings o al fitxer .env_shared.")
+    sys.exit(1)
+
+print(f"  📂 VAULT_ROOT configurada a: {VAULT_ROOT}")
 VAULT_PATH = Path(VAULT_ROOT)
 ASSETS_PATH = VAULT_PATH / "Assets"
 ASSETS_PATH.mkdir(parents=True, exist_ok=True)
@@ -72,7 +79,7 @@ DATABASE_MAP = {
     "XXSS": os.getenv("NOTION_DB_XXSS"),
 }
 
-RATE_LIMIT_DELAY = 0.35  # seconds between page fetches
+RATE_LIMIT_DELAY = 0.55  # seconds between page fetches
 
 # ─� Notion color → BlockNote named color ──
 # BlockNote accepts: "default", "gray", "brown", "red", "orange", "yellow",
@@ -115,19 +122,31 @@ def _build_reverse_maps():
             registry = json.load(f)
         _view_registry = registry.get("views", [])
 
-        # Map Notion DB env var values → Gnosi table IDs
-        # Each table in registry has an 'id' which is the Notion DB ID
-        gnosi_tables = {t["id"]: t for t in registry.get("tables", [])}
+        # 1. Map directly from all tables in registry
+        # Also map database names
+        db_folders = {db["id"]: db.get("folder", "") for db in registry.get("databases", [])}
+        
+        for table in registry.get("tables", []):
+            nid = table.get("id")
+            if nid:
+                table_folder = table.get("folder", "")
+                db_id = table.get("database_id")
+                db_folder = db_folders.get(db_id, "BD") # Default to BD if not found
+                
+                # Full relative path: BD/Database/Table
+                full_path = f"{db_folder}/{table_folder}".replace("//", "/")
+                _reverse_db_map[nid] = (full_path, nid)
+                _reverse_db_map[nid.replace("-", "")] = (full_path, nid)
 
+        # 2. Ensure DATABASE_MAP mappings exist (fallback)
         for folder_name, notion_db_id in DATABASE_MAP.items():
             if not notion_db_id:
                 continue
-            # Normalize: Notion IDs in registry may have dashes
             normalized = notion_db_id.replace("-", "")
-            table = gnosi_tables.get(notion_db_id) or gnosi_tables.get(normalized)
-            if table:
-                _reverse_db_map[notion_db_id] = (folder_name, table["id"])
-                _reverse_db_map[normalized] = (folder_name, table["id"])
+            if notion_db_id not in _reverse_db_map:
+                _reverse_db_map[notion_db_id] = (f"BD/{folder_name}", notion_db_id)
+            if normalized not in _reverse_db_map:
+                _reverse_db_map[normalized] = (f"BD/{folder_name}", notion_db_id)
     except Exception as e:
         print(f"  ⚠️  Error carregant registry: {e}")
 
@@ -198,19 +217,37 @@ def fetch_all_pages(database_id: str) -> List[Dict]:
         if cursor:
             payload["start_cursor"] = cursor
 
-        res = requests.post(
-            f"{API_BASE}/databases/{database_id}/query",
-            headers=HEADERS,
-            json=payload,
-        )
-        if res.status_code != 200:
-            print(f"    [!] Error querying database {database_id}: {res.text}")
+        # Retry logic for Notion API
+        for attempt in range(3):
+            try:
+                res = requests.post(
+                    f"{API_BASE}/databases/{database_id}/query",
+                    headers=HEADERS,
+                    json=payload,
+                    timeout=45
+                )
+                if res.status_code == 200:
+                    break
+                elif res.status_code == 429:
+                    print(f"    [!] Rate limited by Notion. Sleeping 5s... (intent {attempt+1})")
+                    time.sleep(5)
+                else:
+                    print(f"    [!] Error querying database {database_id}: {res.text}")
+                    return results # Best effort
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                print(f"    [!] Connection error: {e}. Retrying in 3s... (intent {attempt+1})")
+                time.sleep(3)
+        else:
+            print("    [!] Failed to query Notion after 3 attempts. Stopping pagination.")
             break
 
         data = res.json()
         results.extend(data.get("results", []))
         has_more = data.get("has_more", False)
         cursor = data.get("next_cursor")
+        
+        if has_more:
+            time.sleep(RATE_LIMIT_DELAY) # Avoid burst
 
     return results
 
@@ -226,15 +263,32 @@ def fetch_blocks(block_id: str) -> List[Dict]:
         if cursor:
             url += f"&start_cursor={cursor}"
 
-        res = requests.get(url, headers=HEADERS)
-        if res.status_code == 200:
-            data = res.json()
-            results.extend(data.get("results", []))
-            has_more = data.get("has_more", False)
-            cursor = data.get("next_cursor")
+        # Retry logic for Notion API
+        for attempt in range(3):
+            try:
+                res = requests.get(url, headers=HEADERS, timeout=45)
+                if res.status_code == 200:
+                    break
+                elif res.status_code == 429:
+                    print(f"      [!] Rate limited. Sleeping 5s... (intent {attempt+1})")
+                    time.sleep(5)
+                else:
+                    print(f"      [!] Error fetching blocks: {res.text}")
+                    return results # Return what we have
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                print(f"      [!] Connection error: {e}. Retrying in 3s... (intent {attempt+1})")
+                time.sleep(3)
         else:
-            print(f"      [!] Error fetching blocks: {res.text}")
+            print("      [!] Failed to fetch blocks after 3 attempts.")
             break
+
+        data = res.json()
+        results.extend(data.get("results", []))
+        has_more = data.get("has_more", False)
+        cursor = data.get("next_cursor")
+        
+        if has_more:
+            time.sleep(RATE_LIMIT_DELAY) # Be nice to Notion
 
     return results
 
@@ -747,8 +801,7 @@ def convert_block_to_blocknote(block: dict) -> List[Dict]:
             {
                 "id": _bn_id(),
                 "type": "columnList",
-                "props": {},
-                "content": [],
+                "props": {"backgroundColor": "default"},
                 "children": columns_bn,
             }
         )
@@ -857,10 +910,12 @@ def convert_block_to_blocknote(block: dict) -> List[Dict]:
     # ── Child database (embedded view) ──
     elif btype == "child_database":
         title = bdata.get("title", "Database")
-        db_id_notion = bid  # The block ID IS the Notion database ID
+        # Notion database IDs can be block IDs OR found in parent/id
+        notion_id_raw = bid
+        notion_id_norm = bid.replace("-", "")
 
         # Try to find matching Gnosi table
-        folder_name, gnosi_table_id = _reverse_db_map.get(db_id_notion, (None, None))
+        folder_name, gnosi_table_id = _reverse_db_map.get(notion_id_raw) or _reverse_db_map.get(notion_id_norm) or (None, None)
 
         if gnosi_table_id:
             # Create a database block pointing to the Gnosi table
@@ -872,13 +927,8 @@ def convert_block_to_blocknote(block: dict) -> List[Dict]:
                     "props": {
                         "database_table_id": gnosi_table_id,
                         "viewId": db_view_id,
-                        "filters": "",
-                        "sort": "",
-                        "search": "",
-                        "visibleProperties": "",
                         "viewType": "table",
                     },
-                    "content": [],
                     "children": [],
                 }
             )
@@ -891,7 +941,6 @@ def convert_block_to_blocknote(block: dict) -> List[Dict]:
                     "type": "table",
                     "filters": [],
                     "sort": {"field": "last_modified", "direction": "desc"},
-                    "visibleProperties": None,
                 }
             )
             print(
@@ -950,16 +999,25 @@ def convert_blocks_to_blocknote(blocks: List[Dict]) -> List[Dict]:
 
 def migrate_database(db_name: str, db_id: str) -> int:
     """Migrate a single Notion database to the vault.
-
-    Returns:
-        Number of pages migrated.
+    Ensures path is: {VAULT_PATH}/BD/{DatabaseName}/{TableName}
     """
     print(f"\n{'=' * 50}")
     print(f"Abocant: {db_name} ({db_id})")
     print(f"{'=' * 50}")
 
-    target_folder = VAULT_PATH / db_name
+    # Build correct hierarchical path
+    # Look up in registry first
+    rel_path, _ = _reverse_db_map.get(db_id) or _reverse_db_map.get(db_id.replace("-","")) or (None, None)
+    
+    if not rel_path:
+        # Construct fallback path if not in registry
+        # We assume database "Cervell Digital" for these migrations as default
+        rel_path = f"BD/Cervell Digital/{db_name}"
+    
+    target_folder = VAULT_PATH / rel_path
     target_folder.mkdir(parents=True, exist_ok=True)
+    
+    print(f"  📍 Destí: {target_folder}")
 
     pages = fetch_all_pages(db_id)
     print(f"  Trobades {len(pages)} pàgines.")

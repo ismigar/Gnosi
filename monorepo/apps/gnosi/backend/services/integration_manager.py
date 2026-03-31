@@ -84,10 +84,8 @@ class IntegrationManager:
             merged[k] = v
         return merged
 
-    def update(self, key: str, data):
-        """Updates a specific integration configuration."""
-        config = self._load()
-
+    def _update_single_key(self, config: dict, key: str, data):
+        """Internal helper to update a single key in the dictionary without saving."""
         if isinstance(data, list):
             # Expecting a list of dicts with 'id'. Merge by ID.
             old_list = config.get(key, [])
@@ -122,7 +120,19 @@ class IntegrationManager:
                 old_d = {}
             config[key] = self._merge_dict(old_d, data)
 
+    def update(self, key: str, data):
+        """Updates a specific integration configuration."""
+        config = self._load()
+        self._update_single_key(config, key, data)
         self._save(config)
+
+    def bulk_update(self, updates: dict):
+        """Updates multiple integration keys and saves once."""
+        config = self._load()
+        for key, data in updates.items():
+            self._update_single_key(config, key, data)
+        self._save(config)
+
 
 
 integration_manager = IntegrationManager()

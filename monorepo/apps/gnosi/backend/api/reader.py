@@ -65,9 +65,9 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
             url = outline.attrib.get('xmlUrl')
             title = outline.attrib.get('title', outline.attrib.get('text', 'Unknown'))
             
-            # Travesar cap a dalt per trobar la categoria
+            # Traverse up to find the category
             category = "Uncategorized"
-            parent = getattr(outline, "parent", None) # xml.etree no fa parents fàcils, simplifiquem
+            parent = getattr(outline, "parent", None) # xml.etree doesn't make parents easy, let's simplify
             
             # Check if exists
             existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
@@ -113,20 +113,20 @@ def mark_article_read(article_id: int, read: bool = True, db: Session = Depends(
 
 @router.post("/podcast/generate")
 def trigger_podcast_generation():
-    """Llança la generació del podcast en segon pla"""
+    """Launches podcast generation in the background"""
     from backend.services.audio_summarizer import start_generation_async, generation_status
     
     if generation_status["running"]:
-        return {"status": "already_running", "message": "Ja s'està generant un podcast.", "progress": generation_status["progress"]}
+        return {"status": "already_running", "message": "A podcast is already being generated.", "progress": generation_status["progress"]}
     
     started = start_generation_async()
     if not started:
-        raise HTTPException(status_code=409, detail="Generació ja en curs.")
-    return {"status": "started", "message": "Generació iniciada en segon pla."}
+        raise HTTPException(status_code=409, detail="Generation already in progress.")
+    return {"status": "started", "message": "Generation started in the background."}
 
 @router.get("/podcast/status")
 def get_podcast_status():
-    """Retorna l'estat actual de la generació del podcast"""
+    """Returns the current status of podcast generation"""
     from backend.services.audio_summarizer import generation_status
     return {
         "running": generation_status["running"],
@@ -137,12 +137,13 @@ def get_podcast_status():
 
 @router.get("/podcast/info")
 def get_podcast_info():
-    """Retorna informació sobre l'últim podcast generat"""
+    """Returns information about the last generated podcast"""
     import os
     from datetime import datetime
     
-    # AUDIO_OUTPUT_DIR es defineix a l'inici d'aquest fitxer? Ho comprovem: no, ho estem important o usant directament des de audio_summarizer?
-    # Revisant l'endpoint get_latest_podcast, utilitza AUDIO_OUTPUT_DIR directament... Anem a resoldre de forma segura:
+    # Is AUDIO_OUTPUT_DIR defined at the beginning of this file? Let's check: 
+    # no, we are importing it or using it directly from audio_summarizer?
+    # Reviewing the get_latest_podcast endpoint, it uses AUDIO_OUTPUT_DIR directly... Let's resolve safely:
     from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR
     
     if not os.path.exists(AUDIO_OUTPUT_DIR):
@@ -155,7 +156,7 @@ def get_podcast_info():
     latest_file = sorted(files, reverse=True)[0]
     file_path = os.path.join(AUDIO_OUTPUT_DIR, latest_file)
     
-    # Obtenir la data de modificació
+    # Get the modification date
     mtime = os.path.getmtime(file_path)
     dt = datetime.fromtimestamp(mtime)
     

@@ -1,43 +1,42 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Eye, EyeOff, SlidersHorizontal, ArrowUpDown, Filter, Table, LayoutGrid, Columns2, List, CalendarRange } from 'lucide-react';
 import { VIEW_TYPES } from './viewConstants';
 import { getSchemaFieldNames } from './schemaUtils';
 
-const FILTER_OPERATORS = [
-    { value: 'equals', label: 'és igual a' },
-    { value: 'not_equals', label: 'no és igual a' },
-    { value: 'contains', label: 'conté' },
-    { value: 'not_contains', label: 'no conté' },
-    { value: 'is_empty', label: 'és buit' },
-    { value: 'is_not_empty', label: 'no és buit' },
-    { value: 'greater_than', label: 'és major que' },
-    { value: 'less_than', label: 'és menor que' },
+const getFilterOperators = (t) => [
+    { value: 'equals', label: t('is equal to') },
+    { value: 'not_equals', label: t('is not equal to') },
+    { value: 'contains', label: t('contains') },
+    { value: 'not_contains', label: t('does not contain') },
+    { value: 'is_empty', label: t('is empty') },
+    { value: 'is_not_empty', label: t('is not empty') },
+    { value: 'greater_than', label: t('is greater than') },
+    { value: 'less_than', label: t('is lower than') },
 ];
 
-const SORT_DIRECTIONS = [
-    { value: 'asc', label: 'Ascendent (A→Z)' },
-    { value: 'desc', label: 'Descendent (Z→A)' },
+const getSortDirections = (t) => [
+    { value: 'asc', label: t('Ascending (A-Z)') },
+    { value: 'desc', label: t('Descending (Z-A)') },
 ];
 
-const CARD_SIZE_OPTIONS = [
-    { value: 'small', label: 'Petit' },
-    { value: 'medium', label: 'Mitjà' },
-    { value: 'large', label: 'Gran' },
+const getCardSizeOptions = (t) => [
+    { value: 'small', label: t('Small') },
+    { value: 'medium', label: t('Medium') },
+    { value: 'large', label: t('Large') },
 ];
 
-const GALLERY_PREVIEW_OPTIONS = [
-    { value: 'none', label: 'Cap' },
-    { value: 'cover', label: 'Portada (imatge)' },
-    { value: 'text', label: 'Text del document' },
+const getGalleryPreviewOptions = (t) => [
+    { value: 'none', label: t('None') },
+    { value: 'cover', label: t('Cover (image)') },
+    { value: 'text', label: t('Document text') },
 ];
 
-
-
-const TABS = [
-    { id: 'appearance', label: 'Aparença', icon: SlidersHorizontal },
-    { id: 'properties', label: 'Propietats', icon: Eye },
-    { id: 'filters', label: 'Filtres', icon: Filter },
-    { id: 'sort', label: 'Ordenació', icon: ArrowUpDown },
+const getTabs = (t) => [
+    { id: 'appearance', label: t('Appearance'), icon: SlidersHorizontal },
+    { id: 'properties', label: t('Properties'), icon: Eye },
+    { id: 'filters', label: t('Filters'), icon: Filter },
+    { id: 'sort', label: t('Sort'), icon: ArrowUpDown },
 ];
 
 export function ViewConfigModal({
@@ -53,6 +52,13 @@ export function ViewConfigModal({
     initialTab,
     onSave,
 }) {
+    const { t } = useTranslation();
+    const FILTER_OPERATORS = getFilterOperators(t);
+    const SORT_DIRECTIONS = getSortDirections(t);
+    const CARD_SIZE_OPTIONS = getCardSizeOptions(t);
+    const GALLERY_PREVIEW_OPTIONS = getGalleryPreviewOptions(t);
+    const TABS = getTabs(t);
+    
     const [activeTab, setActiveTab] = useState(initialTab || 'properties');
     const [visibleProperties, setVisibleProperties] = useState([]);
     const [cardSize, setCardSize] = useState(initialCardSize || 'medium');
@@ -124,7 +130,7 @@ export function ViewConfigModal({
                 <div className="px-5 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <SlidersHorizontal size={18} className="text-[var(--gnosi-primary)]" />
-                        Configurar Vista
+                        {t('Configure view')}
                     </h2>
                     <button onClick={onClose} className="text-[var(--text-secondary)]/60 hover:text-[var(--text-primary)] transition-colors p-1 rounded-md hover:bg-[var(--bg-secondary)]">
                         <X size={18} />
@@ -157,7 +163,7 @@ export function ViewConfigModal({
                     {/* Propietats */}
                     {activeTab === 'properties' && (
                         <div className="space-y-2">
-                            <p className="text-xs text-[var(--text-secondary)]/60 mb-3">Selecciona les columnes visibles en aquesta vista.</p>
+                            <p className="text-xs text-[var(--text-secondary)]/60 mb-3">{t('Select visible columns')}</p>
                             {allFields.map(field => (
                                 <div key={field} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--bg-secondary)] cursor-pointer" onClick={() => toggleProperty(field)}>
                                     <span className="text-sm text-[var(--text-primary)] font-medium capitalize">{field}</span>
@@ -166,14 +172,14 @@ export function ViewConfigModal({
                                     </button>
                                 </div>
                             ))}
-                            {allFields.length === 0 && <p className="text-sm text-[var(--text-secondary)]/60 text-center py-8">No hi ha propietats configurades.</p>}
+                            {allFields.length === 0 && <p className="text-sm text-[var(--text-secondary)]/60 text-center py-8">{t('No properties configured')}</p>}
                         </div>
                     )}
 
                     {/* Filtres */}
                     {activeTab === 'filters' && (
                         <div className="space-y-3">
-                            <p className="text-xs text-[var(--text-secondary)]/60 mb-3">Mostra només els registres que compleixin les condicions.</p>
+                            <p className="text-xs text-[var(--text-secondary)]/60 mb-3">{t('Filter hint')}</p>
                             {filters.map(filter => (
                                 <div key={filter.id} className="flex items-center gap-2 bg-[var(--bg-secondary)] p-2 rounded-lg border border-[var(--border-primary)]">
                                     <select
@@ -195,7 +201,7 @@ export function ViewConfigModal({
                                             type="text"
                                             value={filter.value}
                                             onChange={e => updateFilter(filter.id, 'value', e.target.value)}
-                                            placeholder="Valor..."
+                                            placeholder={t('Value...')}
                                             className="flex-1 text-xs border border-[var(--border-primary)] rounded-md px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
                                         />
                                     )}
@@ -208,7 +214,7 @@ export function ViewConfigModal({
                                 onClick={addFilter}
                                 className="btn-gnosi btn-gnosi-primary !text-xs !py-1.5 w-full mt-2"
                             >
-                                + Afegir filtre
+                                + {t('Add filter')}
                             </button>
                         </div>
                     )}
@@ -216,7 +222,7 @@ export function ViewConfigModal({
                     {/* Ordenació */}
                     {activeTab === 'sort' && (
                         <div className="space-y-3">
-                            <p className="text-xs text-[var(--text-secondary)]/60 mb-3">Defineix l'ordre en que es mostren els registres.</p>
+                            <p className="text-xs text-[var(--text-secondary)]/60 mb-3">{t('Sort hint')}</p>
                             {sorts.map(sort => (
                                 <div key={sort.id} className="flex items-center gap-2 bg-[var(--bg-secondary)] p-2 rounded-lg border border-[var(--border-primary)]">
                                     <select
@@ -242,7 +248,7 @@ export function ViewConfigModal({
                                 onClick={addSort}
                                 className="btn-gnosi btn-gnosi-primary !text-xs !py-1.5 w-full mt-2"
                             >
-                                + Afegir ordenació
+                                + {t('Add sort')}
                             </button>
                         </div>
                     )}
@@ -251,7 +257,7 @@ export function ViewConfigModal({
                     {activeTab === 'appearance' && (
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-xs font-bold text-[var(--text-secondary)]/60 mb-3 uppercase tracking-wider">Format de la vista</label>
+                                <label className="block text-xs font-bold text-[var(--text-secondary)]/60 mb-3 uppercase tracking-wider">{t('View format')}</label>
                                 <div className="grid grid-cols-5 gap-2">
                                     {VIEW_TYPES.map(opt => {
                                         const Icon = opt.icon;
@@ -266,7 +272,7 @@ export function ViewConfigModal({
                                                 }`}
                                             >
                                                 <Icon size={20} />
-                                                <span className="text-[10px] font-bold uppercase">{opt.label}</span>
+                                                <span className="text-[10px] font-bold uppercase">{t(opt.label)}</span>
                                             </button>
                                         );
                                     })}
@@ -278,7 +284,7 @@ export function ViewConfigModal({
                             {currentViewType === 'gallery' && (
                                 <div className="space-y-5 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <div>
-                                        <label className="block text-xs font-bold text-[var(--text-secondary)]/60 mb-3 uppercase tracking-wider">Mida de la targeta</label>
+                                        <label className="block text-xs font-bold text-[var(--text-secondary)]/60 mb-3 uppercase tracking-wider">{t('Card size')}</label>
                                         <div className="flex gap-2">
                                             {CARD_SIZE_OPTIONS.map(opt => (
                                                 <button
@@ -292,7 +298,7 @@ export function ViewConfigModal({
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-[var(--text-secondary)]/60 mb-3 uppercase tracking-wider">Previsualització del contingut</label>
+                                        <label className="block text-xs font-bold text-[var(--text-secondary)]/60 mb-3 uppercase tracking-wider">{t('Content preview')}</label>
                                         <select
                                             value={galleryPreview}
                                             onChange={e => setGalleryPreview(e.target.value)}
@@ -309,7 +315,7 @@ export function ViewConfigModal({
                             {currentViewType === 'board' && (
                                 <div className="p-4 bg-[var(--gnosi-primary)]/5 border border-[var(--gnosi-primary)]/20 rounded-lg animate-in fade-in slide-in-from-top-1 duration-200">
                                     <p className="text-xs text-[var(--text-secondary)]/80 leading-relaxed italic text-center">
-                                        Les opcions de disseny de Kanban es configuren directament des de les preferències de la columna a la vista del tauler.
+                                        {t('kanban_config_hint')}
                                     </p>
                                 </div>
                             )}
@@ -317,7 +323,7 @@ export function ViewConfigModal({
                             {(currentViewType === 'table' || currentViewType === 'timeline' || currentViewType === 'list') && (
                                 <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg animate-in fade-in duration-200">
                                     <p className="text-xs text-[var(--text-secondary)]/60 text-center italic">
-                                        Aquest format no requereix configuracions addicionals de disseny.
+                                        {t('format_no_extra_config_hint')}
                                     </p>
                                 </div>
                             )}
@@ -328,10 +334,10 @@ export function ViewConfigModal({
                 {/* Footer */}
                 <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-4 py-2 border border-[var(--border-primary)] rounded-lg text-sm font-semibold text-[var(--text-secondary)]/60 hover:bg-[var(--bg-primary)] transition-colors">
-                        Cancel·lar
+                        {t('Cancel')}
                     </button>
                     <button onClick={handleSave} className="btn-gnosi btn-gnosi-primary px-8">
-                        Aplicar
+                        {t('Apply')}
                     </button>
                 </div>
             </div>

@@ -24,9 +24,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+import { useTranslation } from 'react-i18next';
 import { VIEW_TYPES, getViewIcon } from './viewConstants';
 
 function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
+    const { t } = useTranslation();
     const {
         attributes,
         listeners,
@@ -101,21 +103,21 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Settings size={13} />
-                        Configurar
+                        {t('Configure view')}
                     </button>
                     <button 
                         onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'rename'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Edit2 size={13} />
-                        Renombrar
+                        {t('Rename')}
                     </button>
                     <button 
                         onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'duplicate'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Copy size={13} />
-                        Duplicar
+                        {t('Duplicate')}
                     </button>
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
                     <button 
@@ -123,7 +125,7 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Trash2 size={13} className="text-[var(--status-error)]" />
-                        Eliminar
+                        {t('Delete')}
                     </button>
                 </div>
             )}
@@ -152,6 +154,7 @@ export function VaultViewsHeader({
     templates = [],
     onClose
 }) {
+    const { t } = useTranslation();
     const [showSearch, setShowSearch] = useState(false);
     const [isAddingView, setIsAddingView] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
@@ -242,7 +245,7 @@ export function VaultViewsHeader({
                         {tableName}
                     </h1>
                     <span className="text-[10px] md:text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full border border-[var(--border-primary)]">
-                        {recordCount} registres
+                        {t('records', { count: recordCount })}
                     </span>
                 </div>
 
@@ -250,7 +253,7 @@ export function VaultViewsHeader({
                     <button
                         onClick={onClose}
                         className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors p-1"
-                        title="Tancar panell"
+                        title={t('Close panel')}
                     >
                         <X size={20} />
                     </button>
@@ -288,7 +291,7 @@ export function VaultViewsHeader({
                                     <button 
                                         onClick={() => setShowOverflow(!showOverflow)}
                                         className={`p-1 mb-2 rounded transition-colors ${showOverflow ? 'bg-[var(--bg-tertiary)] text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
-                                        title="Més vistes"
+                                        title={t('More views')}
                                     >
                                         <MoreHorizontal size={15} />
                                     </button>
@@ -298,7 +301,7 @@ export function VaultViewsHeader({
                                             <div className="fixed inset-0 z-40" onClick={() => setShowOverflow(false)}></div>
                                             <div className="absolute top-full left-0 mt-1 w-52 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
                                                 <div className="px-3 py-1.5 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                                                    Altres vistes
+                                                    {t('Other views')}
                                                 </div>
                                                 {displayViews.slice(visibleCount).map(view => {
                                                     const Icon = getViewIcon(view.type);
@@ -346,7 +349,7 @@ export function VaultViewsHeader({
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     onBlur={() => !searchTerm && setShowSearch(false)}
-                                    placeholder="Cerca registres..."
+                                    placeholder={t('Search registers...')}
                                     className="text-xs outline-none w-32 md:w-48 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-transparent"
                                 />
                                 <button
@@ -360,7 +363,7 @@ export function VaultViewsHeader({
                             <button
                                 onClick={() => setShowSearch(true)}
                                 className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                                title="Cerca"
+                                title={t('Search')}
                             >
                                 <Search size={18} />
                             </button>
@@ -373,7 +376,7 @@ export function VaultViewsHeader({
                         className="btn-gnosi !text-xs !py-1.5 !px-3"
                     >
                         <Settings size={14} />
-                        <span className="hidden md:inline">Camps</span>
+                        <span className="hidden md:inline">{t('Fields')}</span>
                     </button>
 
                     {/* Botó Nou */}
@@ -383,7 +386,7 @@ export function VaultViewsHeader({
                             className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 !text-xs !gap-1.5 shadow-md active:scale-95"
                         >
                             <Plus size={14} />
-                            <span className="hidden sm:inline">Nou</span>
+                            <span className="hidden sm:inline">{t('New')}</span>
                             <div 
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -402,20 +405,20 @@ export function VaultViewsHeader({
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                 >
                                     <Plus size={14} className="text-[var(--text-tertiary)]" />
-                                    <span>Nou registre buit</span>
+                                    <span>{t('New empty record')}</span>
                                 </button>
                                 <button
                                     onClick={() => { setShowNewMenu(false); onCreateTemplate?.(); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                 >
                                     <LayoutTemplate size={14} className="text-[var(--text-tertiary)]" />
-                                    <span>Nova plantilla</span>
+                                    <span>{t('New template')}</span>
                                 </button>
                                 
                                 {templates.length > 0 && (
                                     <>
                                         <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
-                                        <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">Plantilles</div>
+                                        <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('Templates')}</div>
                                         {templates.map(tpl => (
                                             <button
                                                 key={tpl.id}
@@ -423,9 +426,9 @@ export function VaultViewsHeader({
                                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left group"
                                             >
                                                 <LayoutTemplate size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]" />
-                                                <span className="truncate">{tpl.title || 'Sense títol'}</span>
+                                                <span className="truncate">{tpl.title || t('Untitled')}</span>
                                                 {tpl.metadata?.is_default_template && (
-                                                    <span className="ml-auto text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">Pred.</span>
+                                                    <span className="ml-auto text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">{t('Def.')}</span>
                                                 )}
                                             </button>
                                         ))}
