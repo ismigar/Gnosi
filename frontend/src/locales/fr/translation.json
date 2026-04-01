@@ -1,0 +1,23 @@
+{
+    "app_title": "Cerveau Numérique",
+    "search_placeholder": "Rechercher des nœuds...",
+    "filter_by_kind": "Filtrer par Type",
+    "filter_by_cluster": "Filtrer par Cluster",
+    "filter_by_project": "Filtrer par Projet",
+    "legend_real_connection": "Connexion Réelle",
+    "legend_directed_connection": "Connexion Dirigée",
+    "legend_strong_similarity": "Forte Similitude (>85%)",
+    "legend_medium_similarity": "Similitude Moyenne (>70%)",
+    "legend_weak_similarity": "Faible Similitude (>60%)",
+    "reset_filters": "Réinitialiser les Filtres",
+    "depth_filter": "Filtre de Profondeur",
+    "depth_1": "1 (Direct)",
+    "depth_2": "2 (Étendu)",
+    "depth_3": "3 (Profond)",
+    "legend_title": "Légende",
+    "connections_title": "Connexions",
+    "no_connections": "Aucune connexion trouvée.",
+    "similarity_score": "Similarité",
+    "reason": "Raison",
+    "language": "Langue"
+}
