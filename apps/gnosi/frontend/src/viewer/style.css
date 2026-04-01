@@ -1,0 +1,428 @@
+/* ───────────────────────────────────────────── */
+/* 🎨 VARIABLES PRINCIPALS */
+/* ───────────────────────────────────────────── */
+:root {
+  --bg-main: #f7f7f7;
+  --bg-side: rgba(255, 255, 255, 0.95);
+  --bg-graph: radial-gradient(circle at center, #fcfcfc 0%, #f1f1f1 100%);
+  --color-text: #2f3437;
+  --color-border: #e4e4e4;
+  --color-accent: #4583ec;
+  --color-accent-light: #e8f0fe;
+  --radius: 8px;
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 2px 6px rgba(0, 0, 0, 0.15);
+  --transition: 0.2s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-main: #111;
+    --bg-side: rgba(25, 25, 25, 0.95);
+    --bg-graph: radial-gradient(circle at center, #151515 0%, #0e0e0e 100%);
+    --color-text: #eee;
+    --color-border: #333;
+    --color-accent: #6ba8ff;
+    --color-accent-light: #2a3a52;
+    --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-medium: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* 🧱 ESTRUCTURA GENERAL */
+/* ───────────────────────────────────────────── */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg-graph);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  grid-template-rows: 50px 1fr auto;
+  height: 100vh;
+}
+
+#top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-side);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+  z-index: 100;
+}
+
+/* ───────────────────────────────────────────── */
+/* 📐 Layout responsive entre graf i panell */
+/* ───────────────────────────────────────────── */
+#main-content {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  overflow: hidden;
+  transition: grid-template-columns 0.4s ease;
+  /* Fixed height for the graph area */
+}
+
+#sigma-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-main);
+  overflow: hidden;
+}
+
+#sigma-container canvas:not(#minimap) {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* ───────────────────────────────────────────── */
+/* 🗺️ MINIMAP */
+/* ───────────────────────────────────────────── */
+#minimap {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  width: 160px;
+  height: 160px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  z-index: 10;
+}
+
+@media (prefers-color-scheme: dark) {
+  #minimap {
+    background: rgba(30, 30, 30, 0.7);
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* 🧩 Panell lateral */
+/* ───────────────────────────────────────────── */
+#app.panel-hidden #main-content {
+  grid-template-columns: 1fr 0px;
+}
+
+#side-panel {
+  background: var(--bg-side);
+  border-left: 1px solid var(--color-border);
+  padding: 12px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  transition: opacity 0.3s ease, transform 0.35s ease;
+}
+
+#app.panel-hidden #side-panel {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(20px);
+}
+
+/* ───────────────────────────────────────────── */
+/* 🧭 Controls “Seleccionar / Desmarcar tot” amb capçalera sticky */
+/* ───────────────────────────────────────────── */
+.section {
+  position: relative;
+  margin-top: 10px;
+  background: var(--bg-side);
+  z-index: 3;
+  padding: 6px 8px 4px 8px;
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.filter-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 6px 8px 4px 8px;
+}
+
+.filter-title {
+  margin: 2px 0 6px 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.filter-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.btn-filter-action {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--bg-side);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-filter-action:hover {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .filter-header {
+    background: rgba(25, 25, 25, 0.95);
+  }
+
+  .btn-filter-action {
+    border-color: #444;
+    background: rgba(30, 30, 30, 0.9);
+    color: #ddd;
+  }
+
+  .btn-filter-action:hover {
+    background: var(--color-accent-light);
+    color: #fff;
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* 🟢 Elements de filtre i punts de color */
+/* ───────────────────────────────────────────── */
+.cluster-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease;
+}
+
+.filter-item:hover .cluster-dot {
+  transform: scale(1.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .cluster-dot {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* 🧭 Botons generals */
+/* ───────────────────────────────────────────── */
+button {
+  cursor: pointer;
+}
+
+input,
+select {
+  font-family: inherit;
+}
+
+/* ───────────────────────────────────────────── */
+/* 🧩 Scrollbar */
+/* ───────────────────────────────────────────── */
+#side-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+#side-panel::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+#side-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-light);
+}
+
+/* ───────────────────────────────────────────── */
+/* 🎛️ Controls del graf */
+/* ───────────────────────────────────────────── */
+.graph-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 15;
+}
+
+.graph-controls button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  background: var(--bg-side);
+  color: var(--color-text);
+  border-radius: var(--radius);
+  font-size: 1.1rem;
+  box-shadow: var(--shadow-soft);
+  transition: background var(--transition), transform var(--transition);
+}
+
+.graph-controls button:hover {
+  background: var(--color-accent-light);
+  transform: translateY(-1px);
+}
+
+.graph-controls button:active {
+  transform: translateY(0);
+}
+
+@media (prefers-color-scheme: dark) {
+  .graph-controls button {
+    background: rgba(40, 40, 40, 0.9);
+    border-color: #444;
+    color: var(--color-text);
+  }
+
+  .graph-controls button:hover {
+    background: var(--color-accent-light);
+    color: #fff;
+  }
+}
+
+.filter-item-advanced {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.filter-item-advanced label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+/* El cercle de color que simula el checkbox */
+.custom-checkbox {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-right: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+/* Punt blanc a l'interior quan està seleccionat */
+.filter-item-advanced input:checked+label .custom-checkbox::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: white;
+  transform: translate(-50%, -50%);
+}
+
+.filter-label-text {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+/* Barra de densitat */
+.density-bar-container {
+  width: 100%;
+  height: 3px;
+  background-color: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.density-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease-out;
+}
+
+/* Petita animació en fer hover */
+.filter-item-advanced:hover .custom-checkbox {
+  transform: scale(1.1);
+}
+
+/* ───────────────────────────────────────────── */
+/* 📊 Llegenda */
+/* ───────────────────────────────────────────── */
+#legend-container {
+  position: absolute;
+  width: 56%;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 6px 12px;
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+  z-index: 50;
+  pointer-events: auto;
+}
+
+#sigma-container canvas {
+  z-index: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  #legend-container {
+    background: rgba(20, 20, 20, 0.75);
+  }
+}
+
+#legend-edges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-color-line {
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.legend-label {
+  font-size: 0.9rem;
+  color: var(--color-text, #333);
+}
+
+.legend-color-box {
+  width: 15px;
+  height: 15px;
+  margin-right: 8px;
+  border: 1px solid #ccc;
+}
+
+.legend-color-line {
+  width: 15px;
+  height: 3px;
+  margin-right: 8px;
+}

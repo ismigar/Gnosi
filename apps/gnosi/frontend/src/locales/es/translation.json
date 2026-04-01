@@ -1,0 +1,23 @@
+{
+    "app_title": "Cerebro Digital",
+    "search_placeholder": "Buscar nodos...",
+    "filter_by_kind": "Filtrar por Tipo",
+    "filter_by_cluster": "Filtrar por Clúster",
+    "filter_by_project": "Filtrar por Proyecto",
+    "reset_filters": "Restablecer Filtros",
+    "depth_filter": "Profundidad",
+    "depth_1": "1 (Directo)",
+    "depth_2": "2 (Extendido)",
+    "depth_3": "3 (Profundo)",
+    "legend_title": "Leyenda",
+    "legend_real_connection": "Conexión Real",
+    "legend_directed_connection": "Conexión Dirigida",
+    "legend_strong_similarity": "Similitud Fuerte (>85%)",
+    "legend_medium_similarity": "Similitud Media (>70%)",
+    "legend_weak_similarity": "Similitud Débil (>60%)",
+    "connections_title": "Conexiones",
+    "no_connections": "No se encontraron conexiones.",
+    "similarity_score": "Similitud",
+    "reason": "Razón",
+    "language": "Idioma"
+}
