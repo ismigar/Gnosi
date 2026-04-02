@@ -11,6 +11,9 @@ export function SettingsModal({ isOpen, onClose }) {
     const [saving, setSaving] = useState(false);
     const [showToken, setShowToken] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
+    const [credentials, setCredentials] = useState([]);
+    const [editingCredential, setEditingCredential] = useState(null);
+    const [credentialValue, setCredentialValue] = useState('');
     const [schedulers, setSchedulers] = useState([]);
     const [syncing, setSyncing] = useState(false);
     const [syncStatus, setSyncStatus] = useState(null);
@@ -21,6 +24,7 @@ export function SettingsModal({ isOpen, onClose }) {
             loadEnvVars();
             loadSchedulers();
             loadSyncStatus();
+            loadCredentials();
         }
     }, [isOpen]);
 
@@ -41,6 +45,16 @@ export function SettingsModal({ isOpen, onClose }) {
             setSyncStatus(data.last_sync);
         } catch (err) {
             console.error("Error loading sync status:", err);
+        }
+    };
+
+    const loadCredentials = async () => {
+        try {
+            const res = await fetch('/api/credentials/');
+            const data = await res.json();
+            setCredentials(data);
+        } catch (err) {
+            console.error("Error loading credentials:", err);
         }
     };
 
@@ -142,6 +156,7 @@ export function SettingsModal({ isOpen, onClose }) {
                     <button className={activeTab === 'ai' ? 'active' : ''} onClick={() => setActiveTab('ai')}>AI</button>
                     <button className={activeTab === 'notion' ? 'active' : ''} onClick={() => setActiveTab('notion')}>Notion</button>
                     <button className={activeTab === 'schedulers' ? 'active' : ''} onClick={() => setActiveTab('schedulers')}>Schedulers</button>
+                    <button className={activeTab === 'credentials' ? 'active' : ''} onClick={() => setActiveTab('credentials')}>Credentials</button>
                 </div>
 
                 <div className="settings-content">
@@ -500,6 +515,134 @@ export function SettingsModal({ isOpen, onClose }) {
                                             ))}
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {activeTab === 'credentials' && (
+                                <div className="settings-section">
+                                    <h3>API Keys & Credentials</h3>
+                                    <p style={{ marginBottom: '20px', color: '#a0aec0', fontSize: '0.9em' }}>
+                                        Les teves claus API s'emmagatzemen de forma segura al Keychain del teu ordinador.
+                                        Aquesta pestanya mostra quines claus estan configurades.
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {credentials.map(cred => (
+                                            <div
+                                                key={cred.key}
+                                                style={{
+                                                    background: '#2d3748',
+                                                    padding: '15px',
+                                                    borderRadius: '8px',
+                                                    border: cred.has_value ? '1px solid #48bb78' : '1px solid #4a5568'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div>
+                                                        <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {cred.has_value ? '🔐' : '🔓'}
+                                                            {cred.name}
+                                                        </strong>
+                                                        <p style={{ margin: '5px 0 0 24px', color: '#a0aec0', fontSize: '0.85em' }}>
+                                                            {cred.description}
+                                                        </p>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        {cred.has_value ? (
+                                                            <>
+                                                                <span style={{ color: '#48bb78', fontSize: '0.85em' }}>✓ Configurat</span>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingCredential(cred.key);
+                                                                        setCredentialValue('');
+                                                                    }}
+                                                                    style={{ padding: '5px 10px', background: '#4a5568', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}
+                                                                >
+                                                                    Editar
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingCredential(cred.key);
+                                                                    setCredentialValue('');
+                                                                }}
+                                                                style={{ padding: '5px 10px', background: '#4a90d9', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', fontSize: '0.85em' }}
+                                                            >
+                                                                + Afegir
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {editingCredential === cred.key && (
+                                                    <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #4a5568' }}>
+                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                            <input
+                                                                type="password"
+                                                                value={credentialValue}
+                                                                onChange={(e) => setCredentialValue(e.target.value)}
+                                                                placeholder={`Introdueix la clau per a ${cred.name}`}
+                                                                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #4a5568', background: '#1a202c', color: 'white' }}
+                                                            />
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        const res = await fetch('/api/credentials/', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ key: cred.key, value: credentialValue })
+                                                                        });
+                                                                        if (res.ok) {
+                                                                            setEditingCredential(null);
+                                                                            setCredentialValue('');
+                                                                            loadCredentials();
+                                                                        }
+                                                                    } catch (err) {
+                                                                        alert('Error guardant: ' + err.message);
+                                                                    }
+                                                                }}
+                                                                disabled={!credentialValue}
+                                                                style={{ padding: '8px 16px', background: '#48bb78', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                                                            >
+                                                                Guardar
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingCredential(null);
+                                                                    setCredentialValue('');
+                                                                }}
+                                                                style={{ padding: '8px 16px', background: '#4a5568', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                                            >
+                                                                Cancel·lar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div style={{ marginTop: '20px', padding: '15px', background: '#1a202c', borderRadius: '8px' }}>
+                                        <h4 style={{ marginTop: 0 }}>Migració des de .env_shared</h4>
+                                        <p style={{ color: '#a0aec0', fontSize: '0.9em', marginBottom: '15px' }}>
+                                            Si tens claus al fitxer .env_shared, pots migrar-les al Keychain automàticament.
+                                        </p>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await fetch('/api/credentials/migrate', { method: 'POST' });
+                                                    const data = await res.json();
+                                                    if (data.status === 'success') {
+                                                        alert(`Migrades ${data.total} claus!`);
+                                                        loadCredentials();
+                                                    }
+                                                } catch (err) {
+                                                    alert('Error migrant: ' + err.message);
+                                                }
+                                            }}
+                                            style={{ padding: '10px 20px', background: '#805ad5', border: 'none', borderRadius: '5px', cursor: 'pointer', color: 'white' }}
+                                        >
+                                            🔄 Migrar claus des de .env_shared
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </>

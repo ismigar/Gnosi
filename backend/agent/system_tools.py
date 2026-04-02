@@ -211,12 +211,59 @@ def query_memory(query: str) -> str:
         return "No memory found."
     return "Relevant Memories:\n- " + "\n- ".join(results)
 
+@tool
+def search_vault(query: str, k: int = 5) -> str:
+    """
+    Busca contingut rellevant al Vault de Gnosi (Wiki, BD, etc.).
+    Usa-ho per respondre preguntes sobre la informació personal, notes i bases de dades de l'usuari.
+    Retorna un resum dels fragments més rellevants.
+    """
+    from .memory import vault_store
+    results = vault_store.search_vault(query, k=k)
+    if not results:
+        return "No s'ha trobat informació rellevant al Vault."
+        
+    formatted = "Informació rellevant trobada al Vault:\n"
+    for r in results:
+        meta = r.get("metadata", {})
+        source = meta.get("source", "Desconeguda")
+        formatted += f"- [Font: {source}]\n  Contingut: {r['content']}\n\n"
+    return formatted
+
+@tool
+def get_vault_registry() -> str:
+    """
+    Retorna un resum de les bases de dades i taules disponibles al Vault de Gnosi.
+    Usa-ho per saber quins IDs de base de dades utilitzar en les eines de Notion.
+    """
+    from backend.config.app_config import load_params
+    import json
+    
+    cfg = load_params(strict_env=False)
+    registry_path = cfg.paths["REGISTRY"]
+    
+    if not registry_path or not registry_path.exists():
+        return "Error: Vault Registry not found."
+        
+    try:
+        with open(registry_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        summary = "Bases de dades disponibles al Vault:\n"
+        for table in data.get("tables", []):
+            summary += f"- Nom: {table['name']} | ID: {table['id']}\n"
+            summary += "  Propietats: " + ", ".join([p['name'] for p in table.get('properties', [])[:10]]) + "...\n"
+            
+        return summary
+    except Exception as e:
+        return f"Error reading registry: {str(e)}"
+
 # Llista exportable
 from backend.agent.directive_tools import list_directives, read_directive, update_directive
 
 SYSTEM_TOOLS = [
     inspect_codebase, create_git_branch, commit_changes, apply_patch, 
     run_tests, search_code_symbols, 
-    save_memory, query_memory,
+    save_memory, query_memory, search_vault, get_vault_registry,
     list_directives, read_directive, update_directive
 ]

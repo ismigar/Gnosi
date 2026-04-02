@@ -65,7 +65,33 @@ For the viewer to work correctly, you need a Notion database with a specific str
 
 ## ⚙️ Configuration
 
-1.  Create a `.env` file in the root directory (copy from a template if available, or set the following):
+### Credentials Management
+
+Credentials (API keys, tokens, passwords) are stored securely using the system Keychain:
+
+- **macOS**: Uses macOS Keychain
+- **Docker/Linux**: Falls back to environment variables from `.env_shared`
+
+#### Migration from .env_shared
+
+If you have credentials in `.env_shared`, you can migrate them to Keychain:
+
+```bash
+cd monorepo/apps/gnosi
+python migrate_to_keychain.py --dry-run  # Preview what will be migrated
+python migrate_to_keychain.py            # Execute migration
+```
+
+#### Using the Web Interface
+
+1. Open the app and go to **Settings** (⚙️)
+2. Click on the **Credentials** tab
+3. Add or update your API keys
+4. Keys are stored securely in your system's Keychain
+
+#### Adding Credentials Manually
+
+Create a `.env` file in the root directory (copy from a template if available, or set the following):
 
     ```env
     # Notion Configuration

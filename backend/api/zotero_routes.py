@@ -5,7 +5,7 @@ import os
 import subprocess
 from typing import Dict, Any, List
 
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 router = APIRouter(prefix="/api/zotero", tags=["zotero"])
 

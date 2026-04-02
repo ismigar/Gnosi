@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar, Share2, Settings } from 'lucide-react';
+import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
+import { IconPicker, NOTION_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
+import * as LucideIcons from 'lucide-react';
 
 const LANGUAGES = [
     { code: 'ca', label: 'Català', icon: '🏴󠁥󠁳󠁣󠁡󠁿' },
@@ -12,15 +14,24 @@ const LANGUAGES = [
 ];
 
 const THEME_OPTIONS = [
-    { id: 'light', labelKey: 'theme_light', previewClass: 'settings-theme-preview--light', disabled: false },
-    { id: 'dark', labelKey: 'theme_dark', previewClass: 'settings-theme-preview--dark', disabled: false },
-    { id: 'system', labelKey: 'theme_system', icon: Monitor, disabled: false },
+    { id: 'light', label: 'Clar', previewClass: 'settings-theme-preview--light', disabled: false },
+    { id: 'dark', label: 'Fosc', previewClass: 'settings-theme-preview--dark', disabled: false },
+    { id: 'system', label: 'Sistema', icon: Monitor, disabled: false },
 ];
-
 
 function getStoredTheme() {
     return localStorage.getItem('db-theme') || 'system';
 }
+
+const LLM_PROVIDERS_META = {
+    groq: { name: 'Groq', icon: '⚡', color: '#f59e0b', description: 'Inferència ultra-ràpida amb Llama 3 i Mixtral.', baseUrl: 'https://api.groq.com/openai/v1' },
+    openai: { name: 'OpenAI', icon: '🤖', color: '#10b981', description: 'Models GPT-4o i GPT-4-turbo originals.', baseUrl: 'https://api.openai.com/v1' },
+    anthropic: { name: 'Anthropic', icon: '🎨', color: '#d97706', description: 'Models Claude 3.5 Sonnet i Opus.', baseUrl: '' },
+    ollama: { name: 'Ollama', icon: '🏠', color: '#71717a', description: 'Models locals sense privacitat compromesa.', baseUrl: 'http://localhost:11434' },
+    openrouter: { name: 'OpenRouter', icon: '🌐', color: '#3b82f6', description: 'Accés a centenars de models via API unificada.', baseUrl: 'https://openrouter.ai/api/v1' },
+    google: { name: 'Google Gemini', icon: '✨', color: '#4285f4', description: 'Models Gemini Pro i Flash via Google AI Studio.', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/' },
+    custom: { name: 'Personalitzat', icon: '⚙️', color: '#8b5cf6', description: 'Qualsevol endpoint compatible amb OpenAI.', baseUrl: '' }
+};
 
 export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
     const { t, i18n } = useTranslation();
@@ -31,12 +42,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [zoteroTables, setZoteroTables] = useState([]);
     const [zoteroFields, setZoteroFields] = useState([]);
     const [zoteroSyncing, setZoteroSyncing] = useState(false);
-    const [zoteroSaveStatus, setZoteroSaveStatus] = useState('');
     const [databases, setDatabases] = useState([]);
     const [tables, setTables] = useState([]);
-
     const [integrations, setIntegrations] = useState({});
-    const [integrationSaveStatus, setIntegrationSaveStatus] = useState('');
     const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
 
     const [activeTab, setActiveTab] = useState(initialTab);
@@ -76,8 +84,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
+    const [aiAgents, setAiAgents] = useState([]);
+    const [aiProviders, setAiProviders] = useState({});
+    const [activeAgentId, setActiveAgentId] = useState('');
+    const [editingAgent, setEditingAgent] = useState(null);
+
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerField, setPickerField] = useState(null); // 'vault', 'databases', 'newsletters'
+    const [editingProvider, setEditingProvider] = useState(null); // { id, name, api_key, base_url, source, ... }
+    const [isAddProviderOpen, setIsAddProviderOpen] = useState(false);
 
     // Theme application is now handled globally in App.jsx via db-theme-changed event
     const handleThemeChange = (newTheme) => {
@@ -121,14 +136,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const res = await fetch('/api/config');
             if (res.ok) {
                 const cfg = await res.json();
-                console.log("Config carregada del búnquer:", cfg);
                 setFullConfig(cfg);
                 if (cfg.settings) setLocalSettings(prev => ({ ...prev, ...cfg.settings }));
-                if (cfg.paths) {
-                    console.log("Rutes detectades:", cfg.paths);
-                    setLocalPaths(prev => ({ ...prev, ...cfg.paths }));
-                }
+                if (cfg.paths) setLocalPaths(prev => ({ ...prev, ...cfg.paths }));
                 if (cfg.graph) setGraphConfig(prev => ({ ...prev, ...cfg.graph }));
+                
+                // AI Config
+                if (cfg.ai) {
+                    setAiAgents(cfg.ai.agents || []);
+                    setAiProviders(cfg.ai.providers || {});
+                    setActiveAgentId(cfg.ai.active_agent_id || '');
+                }
             }
         } catch (err) {
             console.error("Error loading config:", err);
@@ -180,69 +198,51 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const handleSaveGlobal = async () => {
         setIsSaving(true);
-        setSaveStatus(t('Saving...'));
+        setSaveStatus('Guardant...');
         try {
             const updatedConfig = {
                 ...fullConfig,
-                settings: { ...localSettings },
-                paths: { ...localPaths },
-                graph: { ...graphConfig }
+                settings: localSettings,
+                paths: localPaths,
+                graph: graphConfig,
+                ai: {
+                    agents: aiAgents,
+                    providers: aiProviders,
+                    active_agent_id: activeAgentId
+                }
             };
 
-            console.log("Configurant dades per desar:", updatedConfig);
-
-            // preparem totes les promeses per guardar en paral·lel
             const savePromises = [
-                // 1. Guardar configuració principal
-                fetch('/api/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedConfig)
-                }),
-                // 2. Guardar totes les integracions en bloc
-                fetch('/api/integrations/bulk', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(integrations)
-                })
+                // Save main config
+                axios.post('/api/config', updatedConfig),
+                // Save all integrations (bulk)
+                axios.post('/api/integrations/bulk', integrations)
             ];
 
-            // 3. Guardar configuració de Zotero si cal
+            // Save Zotero config if available
             if (zoteroConfig) {
-                savePromises.push(
-                    fetch('/api/zotero/config', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(zoteroConfig)
-                    })
-                );
+                savePromises.push(axios.post('/api/zotero/config', zoteroConfig));
             }
 
             const results = await Promise.all(savePromises);
-            const allOk = results.every(res => res.ok);
+            const allOk = results.every(res => res.status >= 200 && res.status < 300);
 
-            if (!allOk) {
-                setSaveStatus(t('Error saving settings'));
-                setIsSaving(false);
-                return;
+            if (allOk) {
+                setSaveStatus('✅ Guardat!');
+                setTimeout(() => {
+                    setSaveStatus('');
+                    window.location.reload();
+                }, 1000);
+            } else {
+                setSaveStatus('❌ Error al guardar');
             }
-
-            setSaveStatus(t('Saved!'));
-            setFullConfig(updatedConfig);
-
-            setTimeout(() => {
-                setSaveStatus('');
-                window.location.reload();
-            }, 1000);
-
         } catch (err) {
-            console.error("Error al guardar:", err);
-            setSaveStatus(t('Connection error'));
+            console.error("Error saving global config:", err);
+            setSaveStatus('❌ Error de connexió');
         } finally {
             setIsSaving(false);
         }
     };
-
 
 
 
@@ -253,20 +253,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         try {
             const res = await fetch('/api/sync', { method: 'POST' });
             if (res.status === 429) {
-                setSyncMessage(t('Syncing already in progress...'));
+                setSyncMessage('⏳ Ja en curs...');
             } else if (res.ok) {
-                setSyncMessage(t('Synchronization completed!'));
+                setSyncMessage('✅ Sincronització completada!');
             } else {
-                setSyncMessage(t('Error synchronizing'));
+                setSyncMessage('❌ Error al sincronitzar');
             }
         } catch {
-            setSyncMessage(t('Could not connect'));
+            setSyncMessage('❌ No s\'ha pogut connectar');
         } finally {
             setSyncing(false);
         }
     };
-
-    // handleZoteroSave removed as part of save unification
 
 
     const handleZoteroSync = async () => {
@@ -275,26 +273,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         try {
             const res = await fetch('/api/zotero/sync', { method: 'POST' });
             if (res.ok) {
-                alert(t('Zotero sync started!'));
+                alert('Sincronització de Zotero iniciada!');
             } else {
-                alert(t('Error starting sync'));
+                alert('Error al iniciar la sincronització');
             }
-        } catch (err) {
-            alert(t('Connection error'));
+        } catch {
+            alert('Error de connexió');
         } finally {
             setZoteroSyncing(false);
         }
     };
 
-    // handleIntegrationSave removed as part of save unification
-
-
-    const handleAddIntegrationItem = (type) => {
-        setIntegrations(prev => {
-            const currentList = Array.isArray(prev[type]) ? prev[type] : [];
-            return { ...prev, [type]: [...currentList, { id: 'new_' + Date.now().toString() + Math.random().toString(36).substring(2, 9) }] };
-        });
-    };
 
     const handleRemoveIntegrationItem = (type, index) => {
         setIntegrations(prev => {
@@ -324,21 +313,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     if (!isOpen) return null;
 
-    const tabs = [
-        { id: 'general', label: t('General'), icon: Settings },
-        { id: 'integrations', label: t('Integrations'), icon: Share2 },
-        { id: 'calendar', label: t('Calendar'), icon: Calendar },
-        { id: 'graph', label: t('Graph'), icon: Sliders },
-        { id: 'notion', label: t('Notion'), icon: Database },
-        { id: 'zotero', label: t('Zotero'), icon: BookOpen },
-        { id: 'schedulers', label: t('Scheduled Tasks'), icon: Clock },
-        { id: 'ai', label: t('AI'), icon: Cpu },
-    ];
-
     return (
         <>
-            <div className="settings-overlay" onClick={onClose} style={{ zIndex: 500 }}>
-                <div className="settings-modal" onClick={(e) => e.stopPropagation()} style={{ zIndex: 501 }}>
+            <div className="settings-overlay" onClick={onClose}>
+                <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
                     {/* Header */}
                     <div className="settings-modal__header" style={{
                         background: 'var(--settings-header-bg)',
@@ -368,7 +346,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             flexDirection: 'column',
                             gap: '6px'
                         }}>
-                            {tabs.map(tab => (
+                            {[
+                                { id: 'general', label: 'General', icon: Globe },
+                                { id: 'integrations', label: 'Integracions', icon: Zap },
+                                { id: 'graph', label: 'Graf', icon: Database },
+                                { id: 'ai', label: 'AI', icon: Cpu },
+                                { id: 'notion', label: 'Notion', icon: RefreshCw },
+                                { id: 'zotero', label: 'Zotero', icon: BookOpen },
+                                { id: 'schedulers', label: 'Schedulers', icon: Clock }
+                            ].map(tab => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
@@ -436,7 +422,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('theme_label')}</h3>
                                         </div>
                                         <div className="settings-theme-row" style={{ display: 'flex', gap: '15px' }}>
-                                            {THEME_OPTIONS.map(({ id, labelKey, icon: Icon, previewClass, disabled }) => (
+                                            {THEME_OPTIONS.map(({ id, label, icon: Icon, disabled }) => (
                                                 <button
                                                     key={id}
                                                     onClick={() => !disabled && handleThemeChange(id)}
@@ -460,10 +446,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     }}
                                                 >
                                                     {Icon ? <Icon size={24} /> : <div className={`theme-preview ${id}`} style={{ width: '40px', height: '24px', borderRadius: '4px', background: id === 'dark' ? '#1e293b' : '#f8fafc', border: '1px solid var(--settings-border)' }} />}
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: theme === id ? '600' : '400' }}>{t(labelKey)}</span>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: theme === id ? '600' : '400' }}>{label}</span>
                                                 </button>
                                             ))}
-
                                         </div>
                                     </section>
 
@@ -513,8 +498,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'integrations' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('integration_intro_desc')}</p>
-                                        {integrationSaveStatus && <span style={{ fontSize: '0.85rem', color: integrationSaveStatus.includes('✅') ? '#10b981' : '#ef4444', fontWeight: '500' }}>{integrationSaveStatus}</span>}
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura aquí de forma segura els comptes externs. Cada compte desa les credencials de forma independent.</p>
                                     </div>
 
                                     {/* Email Settings */}
@@ -522,10 +506,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('email_accounts_title')}</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Comptes de Correu (IMAP/SMTP)</h3>
                                             </div>
                                             {!emailWizard && (
-                                                <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ {t('Add Account')}</button>
+                                                <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Compte</button>
                                             )}
                                         </div>
 
@@ -533,7 +517,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
                                                 {emailWizard.step === 'ask_email' ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('Enter email address')}</label>
+                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu</label>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
                                                                 type="email"
@@ -567,9 +551,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 disabled={!emailWizard.email}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: emailWizard.email ? 1 : 0.5 }}
                                                             >
-                                                                {t('Continue')}
+                                                                Continuar
                                                             </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
+                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -579,21 +563,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 {emailWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
                                                                 {emailWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
                                                                 {emailWizard.provider === 'pangea' && <span style={{ fontSize: '1.2rem' }}>📧</span>}
-                                                                {t('Configuring account')} {emailWizard.email}
+                                                                Configurant compte {emailWizard.email}
                                                             </span>
-                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Change email')}</button>
+                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
                                                         </div>
 
                                                         {emailWizard.provider === 'google' && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
                                                                     <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('Recommended: Connect directly')}
+                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
                                                                     </div>
-                                                                    {t('Avoid manual configurations by connecting your account directly.')}
+                                                                    Evita les configuracions manuals i connecta amb Google OAuth2.
                                                                     {!googleAuthConfigured ? (
                                                                         <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>{t('Configuration required:')}</strong> {t('google_oauth_error_detailed')}
+                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides al fitxer <code>.env_shared</code>. Configura el <code>CLIENT_ID</code> i <code>CLIENT_SECRET</code> per activar-ho.
                                                                         </div>
                                                                     ) : (
                                                                         <div style={{ marginTop: '12px' }}>
@@ -608,21 +592,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     )}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — {t('manual_or')} —
+                                                                    — o bé manualment —
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {emailWizard.provider === 'icloud' && (
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #f59e0b', marginBottom: '15px', marginTop: '-5px' }}>
-                                                                <strong>{t('Note:')}</strong> {t('icloud_app_password_note')}
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('manage_apple_id')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
+                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
+                                                                <strong>Nota:</strong> Has d'utilitzar una <strong>Contrasenya d'Aplicació</strong>.
+                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
                                                             </div>
                                                         )}
 
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('IMAP Server')}</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor IMAP</label>
                                                                 <input
                                                                     type="text"
                                                                     id="email_wizard_imap"
@@ -631,7 +615,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('SMTP Server')}</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor SMTP</label>
                                                                 <input
                                                                     type="text"
                                                                     id="email_wizard_smtp"
@@ -640,7 +624,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </div>
                                                             <div style={{ gridColumn: 'span 2' }}>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Password / App Password')}</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
                                                                 <input
                                                                     type="password"
                                                                     id="email_wizard_password"
@@ -658,7 +642,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     const password = document.getElementById('email_wizard_password').value;
 
                                                                     if (!imap || !smtp || !password) {
-                                                                        alert(t('all_fields_required'));
+                                                                        alert('Cal omplir tots els camps');
                                                                         return;
                                                                     }
 
@@ -679,9 +663,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
                                                             >
-                                                                {t('Add Account')}
+                                                                Afegir Compte
                                                             </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
+                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
                                                         </div>
                                                     </div>
                                                 )}
@@ -691,63 +675,59 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             {(integrations?.emails || []).map((account, index) => (
                                                 <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('Account')} {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('Connected')} ✅</span>}</span>
-                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('Remove')}</button>
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Compte {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
+                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('IMAP Server')}</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>IMAP Server</label>
                                                             <input type="text" value={account.imap_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'imap_server', e.target.value)} placeholder="imap.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('SMTP Server')}</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>SMTP Server</label>
                                                             <input type="text" value={account.smtp_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'smtp_server', e.target.value)} placeholder="smtp.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Email Address')}</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Adreça Email</label>
                                                             <input type="email" value={account.username || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'username', e.target.value)} placeholder="nom@exemple.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('password_app_password')}</label>
-                                                            <input type="password" placeholder={account.password_status === 'connected' ? t('password_hint_connected') : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Contrasenya / App Password</label>
+                                                            <input type="password" placeholder={account.password_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div style={{ gridColumn: 'span 2' }}>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Signature (HTML)')}</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Signatura (HTML)</label>
                                                             <textarea
                                                                 value={account.html_signature || ''}
                                                                 onChange={(e) => handleUpdateIntegrationItem('emails', index, 'html_signature', e.target.value)}
-                                                                placeholder={t('signature_placeholder')}
+                                                                placeholder="<p>Atentament, <b>Ismael</b></p>"
                                                                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'monospace' }}
                                                             />
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
-                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('No email accounts configured. Click "Add Account" to start.')}</p>}
+                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap compte de correu configurat. Prem "+ Afegir Compte" per començar.</p>}
                                         </div>
-
-
                                     </section>
 
                                     {/* Calendar Settings */}
                                     <section className="settings-section">
-                                        <div className="settings-section__header" style={{ marginBottom: '15px' }}>
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Calendar size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('calendar_accounts_title')}</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Calendaris (Google / CalDAV)</h3>
                                             </div>
+                                            {!calendarWizard && (
+                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Calendari</button>
+                                            )}
                                         </div>
-                                        {!calendarWizard && (
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
-                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ {t('Add Calendar')}</button>
-                                            </div>
-                                        )}
 
                                         {calendarWizard && (
                                             <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
                                                 {calendarWizard.step === 'ask_email' ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('Enter email address or identifier')}</label>
+                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu o identificador</label>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
                                                                 type="email"
@@ -779,9 +759,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 disabled={!calendarWizard.email}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: calendarWizard.email ? 1 : 0.5 }}
                                                             >
-                                                                {t('Continue')}
+                                                                Continuar
                                                             </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
+                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -790,21 +770,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <span style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                 {calendarWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
                                                                 {calendarWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
-                                                                {t('Configuring')} {calendarWizard.email} ({calendarWizard.provider})
+                                                                Configurant {calendarWizard.email} ({calendarWizard.provider})
                                                             </span>
-                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Change email')}</button>
+                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
                                                         </div>
 
                                                         {calendarWizard.provider === 'google' && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
                                                                     <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('Recommended: Connect directly')}
+                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
                                                                     </div>
-                                                                    {t('Avoid manual configurations calendars...')}
+                                                                    Per evitar configurar contrasenyes d'aplicació manuals, pots connectar el teu compte de Google directament per sincronitzar calendaris i correu.
                                                                     {!googleAuthConfigured ? (
                                                                         <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>{t('Configuration required:')}</strong> {t('No Google OAuth credentials found.')}
+                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides.
                                                                         </div>
                                                                     ) : (
                                                                         <div style={{ marginTop: '12px' }}>
@@ -819,44 +799,44 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     )}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — {t('or manually')} —
+                                                                    — o bé manualment —
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {calendarWizard.provider === 'icloud' && (
                                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
-                                                                <strong>{t('Note:')}</strong> {t('iCloud app password required')}
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('Manage Apple ID')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
+                                                                <strong>Nota:</strong> Per a iCloud, necessites una contrasenya específica per a aplicacions.
+                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>Gestiona el teu ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
                                                             </div>
                                                         )}
 
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Custom name (Ex: Work, Personal...)')}</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nom personalitzat (Ex: Feina, Personal...)</label>
                                                                 <input
                                                                     type="text"
-                                                                    placeholder={t('personal_calendar_placeholder')}
-                                                                    onChange={(e) => setCalendarWizard({ ...calendarWizard, name: e.target.value })}
+                                                                    placeholder="Calendari Personal"
+                                                                    id="wizard_name"
                                                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Server / CalDAV URL')}</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor / URL CalDAV</label>
                                                                 <input
                                                                     type="text"
                                                                     defaultValue={calendarWizard.provider === 'icloud' ? 'caldav.icloud.com' : (calendarWizard.provider === 'google' ? 'https://apidata.googleusercontent.com/caldav/v1/calendars/primary/events' : '')}
                                                                     placeholder="https://servidor.com/caldav"
-                                                                    onChange={(e) => setCalendarWizard({ ...calendarWizard, url: e.target.value })}
+                                                                    id="wizard_url"
                                                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('Password / App Password')}</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
                                                                 <input
                                                                     type="password"
                                                                     placeholder="••••••••"
-                                                                    onChange={(e) => setCalendarWizard({ ...calendarWizard, password: e.target.value })}
+                                                                    id="wizard_token"
                                                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                 />
                                                             </div>
@@ -865,22 +845,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
                                                             <button
                                                                 onClick={() => {
-                                                                    if (!calendarWizard.url || !calendarWizard.password) {
-                                                                        alert(t('url_password_required'));
+                                                                    const name = document.getElementById('wizard_name').value || calendarWizard.email;
+                                                                    const url = document.getElementById('wizard_url').value;
+                                                                    const token = document.getElementById('wizard_token').value;
+
+                                                                    if (!url || !token) {
+                                                                        alert('Cal omplir la URL i la contrasenya');
                                                                         return;
                                                                     }
 
                                                                     const newCalendar = {
                                                                         id: 'new_' + Date.now().toString(),
-                                                                        name: calendarWizard.name || calendarWizard.email,
-                                                                        url: calendarWizard.url,
-                                                                        token: calendarWizard.password,
+                                                                        name,
+                                                                        url,
+                                                                        token,
                                                                         username: calendarWizard.email,
                                                                         provider: calendarWizard.provider
                                                                     };
 
                                                                     const updatedCalendars = [...(Array.isArray(integrations.calendars) ? integrations.calendars : []), newCalendar];
-                                                                    handleIntegrationSave('calendars', updatedCalendars);
                                                                     setIntegrations(prev => ({
                                                                         ...prev,
                                                                         calendars: updatedCalendars
@@ -889,20 +872,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
                                                             >
-                                                                {t('Add permanently')}
+                                                                Afegir
                                                             </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('Cancel')}</button>
+                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
                                         )}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {integrationSaveStatus && <div style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', marginBottom: '5px' }}>{integrationSaveStatus}</div>}
                                             {(integrations?.calendars || []).map((account, index) => (
                                                 <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `Calendari ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('Connected')} ✅</span>}</span>
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `Calendari ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                                                 <input
@@ -916,7 +898,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         setIntegrations(prev => ({ ...prev, calendars: updated }));
                                                                     }}
                                                                 />
-                                                                {t('Default')}
+                                                                Predeterminat
                                                             </label>
                                                             <input
                                                                 type="color"
@@ -924,29 +906,27 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'color', e.target.value)}
                                                                 style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
                                                             />
-                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('Remove')}</button>
+                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('name_identifier')}</label>
-                                                            <input type="text" value={account.name || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'name', e.target.value)} placeholder="Personal" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Nom / Identificador</label>
+                                                            <input type="text" value={account.name || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'name', e.target.value)} placeholder="Ex: Feina, Personal..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Server / CalDAV URL')}</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Servidor / URL</label>
                                                             <input type="text" value={account.url || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'url', e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('access_token_auth')}</label>
-                                                            <input type="password" placeholder={account.token_status === 'connected' ? t('password_hint_connected') : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'token', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Token d'Açcés / Autenticació</label>
+                                                            <input type="password" placeholder={account.token_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'token', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
-                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('No calendars configured. Click "+ Add Calendar" to start.')}</p>}
+                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap calendari configurat. Prem "+ Afegir Calendari" per començar.</p>}
                                         </div>
-
-
                                     </section>
 
                                     {/* Vault Tables for Calendar */}
@@ -954,10 +934,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('Vault Tables on Calendar')}</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Taules de la Vault al Calendari</h3>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('Default color:')}</span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Color per defecte:</span>
                                                 <input
                                                     type="color"
                                                     value={integrations?.vault_calendar?.color || '#e57373'}
@@ -965,13 +945,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         const newVal = e.target.value;
                                                         const updated = { ...integrations.vault_calendar, color: newVal };
                                                         setIntegrations(prev => ({ ...prev, vault_calendar: updated }));
-                                                        handleIntegrationSave('vault_calendar', updated);
                                                     }}
                                                     style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
                                                 />
                                             </div>
                                         </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('vault_calendar_tables_desc')}</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Selecciona quines taules vols que mostrin els seus registres amb data al calendari.</p>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '15px' }}>
                                             {tables.map(table => (
                                                 <label key={table.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
@@ -991,10 +970,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     />
                                                     <span style={{ fontSize: '0.9rem' }}>{table.name}</span>
                                                 </label>
-                                            ))}
-                                        </div>
-
-
+                                            ))}                                        </div>
                                     </section>
                                 </div>
                             )}
@@ -1004,7 +980,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Sliders size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('visualization')}</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visualització</h3>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                             <div className="setting-control">
@@ -1014,11 +990,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         checked={graphConfig.show_arrows}
                                                         onChange={e => setGraphConfig(prev => ({ ...prev, show_arrows: e.target.checked }))}
                                                     />
-                                                    {t('show_arrows')}
+                                                    Mostrar fletxes
                                                 </label>
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('node_size')} ({graphConfig.node_size.toFixed(1)})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Mida dels nodes ({graphConfig.node_size.toFixed(1)})</label>
                                                 <input
                                                     type="range" min="0.1" max="5" step="0.1"
                                                     value={graphConfig.node_size}
@@ -1027,7 +1003,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Edge thickness')} ({graphConfig.edge_thickness.toFixed(1)})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gruix dels enllaços ({graphConfig.edge_thickness.toFixed(1)})</label>
                                                 <input
                                                     type="range" min="0.1" max="5" step="0.1"
                                                     value={graphConfig.edge_thickness}
@@ -1036,7 +1012,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Label threshold')} ({graphConfig.label_threshold})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Llindar d'etiquetes ({graphConfig.label_threshold})</label>
                                                 <input
                                                     type="range" min="0" max="50" step="1"
                                                     value={graphConfig.label_threshold}
@@ -1050,11 +1026,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('forces_physics')}</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Forces (Física)</h3>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Gravity')} ({graphConfig.physics.gravity})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gravetat ({graphConfig.physics.gravity})</label>
                                                 <input
                                                     type="range" min="0" max="2" step="0.05"
                                                     value={graphConfig.physics.gravity}
@@ -1063,7 +1039,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Repulsion')} ({graphConfig.physics.repulsion})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Repulsió ({graphConfig.physics.repulsion})</label>
                                                 <input
                                                     type="range" min="0" max="10000" step="100"
                                                     value={graphConfig.physics.repulsion}
@@ -1072,7 +1048,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('Friction')} ({graphConfig.physics.friction})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Fricció ({graphConfig.physics.friction})</label>
                                                 <input
                                                     type="range" min="1" max="20" step="1"
                                                     value={graphConfig.physics.friction}
@@ -1087,7 +1063,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         checked={graphConfig.physics.lin_log_mode}
                                                         onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, lin_log_mode: e.target.checked } }))}
                                                     />
-                                                    {t('Lin-Log Mode')}
+                                                    Mode Lin-Log
                                                 </label>
                                             </div>
                                         </div>
@@ -1096,11 +1072,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('visualization')}</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visibilitat</h3>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             <div>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('hierarchical_selection')}</h4>
+                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Selecció Jeràrquica</h4>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                     {(databases || []).map(db => {
                                                         const dbTables = (tables || []).filter(t => t.database_id === db.id);
@@ -1201,8 +1177,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
 
                                             <div style={{ marginTop: '10px' }}>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('table_filters_sidebar')}</h4>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>{t('table_filters_sidebar_desc')}</p>
+                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Filtres de Taula (Barra lateral)</h4>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Selecciona quines taules voldràs filtrar individualment des de la barra lateral.</p>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
                                                     {(tables || []).filter(t => graphConfig.visible_tables.includes(t.id)).map(table => (
                                                         <label key={`filter-${table.id}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-section-border)' }}>
@@ -1232,13 +1208,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <section className="settings-section">
                                     <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                         <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('Notion Sync')}</h3>
+                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Sincronització de Notion</h3>
                                     </div>
                                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('sync_desc')}</p>
-                                    <div style={{ marginBottom: '20px' }}>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('access_token_auth')}</label>
-                                        <input type="password" value={localIntegrations.notion?.token || ''} onChange={(e) => handleUpdateIntegrationField('notion', 'token', e.target.value)} placeholder="secret_..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                    </div>
                                     <button
                                         onClick={handleSync}
                                         disabled={syncing}
@@ -1270,18 +1242,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <BookOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('Zotero Sync')}</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Zotero Sync</h3>
                                         </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('Configure Zotero local library sync.')}</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Configura la sincronització de la teva biblioteca local de Zotero.</p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('Target Table')}</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Taula Destí</label>
                                                 <select
                                                     value={zoteroConfig.target_table || ''}
                                                     onChange={e => setZoteroConfig(prev => ({ ...prev, target_table: e.target.value }))}
                                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
                                                 >
-                                                    <option value="">{t('Select a table...')}</option>
+                                                    <option value="">Selecciona una taula...</option>
                                                     {zoteroTables.map(t => (
                                                         <option key={t.id} value={t.id}>{t.name}</option>
                                                     ))}
@@ -1289,7 +1261,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
 
                                             <div className="settings-mapping-list" style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)', maxHeight: '300px', overflowY: 'auto' }}>
-                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>{t('Field Mapping')}</h4>
+                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>Mapeig de Camps</h4>
                                                 {(zoteroFields || []).map(field => (
                                                     <div key={field.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '15px' }}>
                                                         <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '500' }}>{field.label}</span>
@@ -1307,7 +1279,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }));
                                                             }}
                                                         >
-                                                            <option value="">{t('-- Do not map --')}</option>
+                                                            <option value="">-- No mapar --</option>
                                                             {availableProperties.map(prop => (
                                                                 <option key={prop.name} value={prop.name}>{prop.name}</option>
                                                             ))}
@@ -1316,18 +1288,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 ))}
                                             </div>
 
-                                            <div style={{ display: 'flex', gap: '10px' }}>
                                                 <button
                                                     onClick={handleZoteroSync}
                                                     disabled={zoteroSyncing}
-                                                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--settings-btn-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: zoteroSyncing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: zoteroSyncing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                                                 >
                                                     <RefreshCw size={16} className={zoteroSyncing ? 'spin-anim' : ''} />
-                                                    {t('Sync')}
+                                                    Sincronitzar
                                                 </button>
-                                            </div>
-
-                                            {zoteroSaveStatus && <p style={{ fontSize: '0.8rem', textAlign: 'center', color: zoteroSaveStatus.includes('✅') ? '#10b981' : '#ef4444' }}>{zoteroSaveStatus}</p>}
                                         </div>
                                     </section>
                                 </div>
@@ -1337,7 +1305,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <section className="settings-section">
                                     <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                         <Clock size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('scheduled_tasks')}</h3>
+                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Tasques Programades</h3>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                         {schedulers.map(task => (
@@ -1372,40 +1340,454 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }} />
                                                         </span>
                                                     </label>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: '500', minWidth: '45px' }}>{task.enabled ? t('Active') : t('Inactive')}</span>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: '500', minWidth: '45px' }}>{task.enabled ? 'Actiu' : 'Inactiu'}</span>
                                                 </div>
                                             </div>
                                         ))}
-                                        {schedulers.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>{t('No scheduled tasks found.')}</p>}
+                                        {schedulers.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>No hi ha tasques programades.</p>}
                                     </div>
                                 </section>
                             )}
 
                             {activeTab === 'ai' && (
-                                <section className="settings-section">
-                                    <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                        <Cpu size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('ai_systems_title')}</h3>
-                                        {integrations?.ai?.groq_api_key_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>{t('Connected')} ✅</span>}
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Groq API Key</label>
-                                            <input
-                                                type="password"
-                                                placeholder={integrations?.ai?.groq_api_key_status === 'connected' ? t('password_hint_connected') : 'gsk_...'}
-                                                onChange={(e) => setIntegrations(prev => ({ ...prev, ai: { ...prev.ai, groq_api_key: e.target.value } }))}
-                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                            />
-                                        </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', flex: 1, overflow: 'auto', paddingRight: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura els teus assistents d'IA i els proveïdors de models (Groq, OpenAI, Ollama, etc).</p>
                                     </div>
 
-                                    <div style={{ background: 'rgba(0,0,0,0.03)', padding: '20px', borderRadius: '12px', border: '1px solid var(--settings-border)', textAlign: 'center', marginTop: '30px' }}>
-                                        <Cpu size={40} style={{ color: 'var(--gnosi-blue)', opacity: 0.5, marginBottom: '15px' }} />
-                                        <p style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: '500', marginBottom: '5px' }}>{t('coming_soon')}</p>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('ai_params_desc')}</p>
-                                    </div>
-                                </section>
+                                    {/* Providers Section */}
+                                    <section className="settings-section">
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Proveïdors de LLM</h3>
+                                            </div>
+                                            <button 
+                                                onClick={() => setIsAddProviderOpen(true)}
+                                                style={{ 
+                                                    padding: '6px 12px', 
+                                                    borderRadius: '8px', 
+                                                    background: 'var(--gnosi-blue)', 
+                                                    color: 'white', 
+                                                    border: 'none', 
+                                                    cursor: 'pointer', 
+                                                    fontSize: '0.8rem', 
+                                                    fontWeight: '600',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}
+                                            >
+                                                <LucideIcons.Plus size={14} /> Afegir Proveïdor
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="ai-provider-grid">
+                                            {Object.entries(aiProviders).map(([pId, config]) => {
+                                                const meta = LLM_PROVIDERS_META[pId] || LLM_PROVIDERS_META.custom;
+                                                const source = config.source || 'none';
+                                                
+                                                return (
+                                                    <div 
+                                                        key={pId} 
+                                                        className="provider-card"
+                                                        onClick={() => setEditingProvider({ id: pId, ...config, name: meta.name })}
+                                                    >
+                                                        <div className="provider-card__header">
+                                                            <div className="provider-card__identity">
+                                                                <div className="provider-card__logo" style={{ color: meta.color }}>
+                                                                    {meta.icon}
+                                                                </div>
+                                                                <div className="provider-card__name">{meta.name}</div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                                                            {meta.description}
+                                                        </div>
+
+                                                        <div className="provider-card__footer">
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <div className={`provider-card__indicator ${config.api_key ? 'provider-card__indicator--active' : ''}`} />
+                                                                <span>{config.api_key ? 'Connectat' : 'Sense configurar'}</span>
+                                                            </div>
+                                                            <LucideIcons.ChevronRight size={14} style={{ opacity: 0.5 }} />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {Object.entries(LLM_PROVIDERS_META)
+                                                .filter(([pId]) => !aiProviders[pId] && pId !== 'custom')
+                                                .map(([pId, meta]) => (
+                                                    <div 
+                                                        key={pId} 
+                                                        className="provider-card" 
+                                                        style={{ opacity: 0.6, borderStyle: 'dashed' }}
+                                                        onClick={() => setEditingProvider({ id: pId, name: meta.name, base_url: meta.baseUrl })}
+                                                    >
+                                                        <div className="provider-card__header">
+                                                            <div className="provider-card__identity">
+                                                                <div className="provider-card__logo" style={{ filter: 'grayscale(1)' }}>
+                                                                    {meta.icon}
+                                                                </div>
+                                                                <div className="provider-card__name">{meta.name}</div>
+                                                            </div>
+                                                            <div className="status-badge status-badge--none">NEW</div>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Configura {meta.name}.</div>
+                                                    </div>
+                                                ))
+                                            }
+                                        </div>
+                                    </section>
+
+                                    {/* Agents Section */}
+                                    <section className="settings-section">
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Cpu size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Perfils d'Agents</h3>
+                                            </div>
+                                            <button 
+                                                onClick={() => setEditingAgent({ id: 'agent_' + Date.now(), name: 'Nou Agent', icon: '🤖', persona: '', provider: 'groq', model: '', enabled: true })}
+                                                style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}
+                                            >
+                                                + Nou Agent
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
+                                            {aiAgents.map((agent, idx) => (
+                                                <div 
+                                                    key={agent.id || idx} 
+                                                    onClick={() => setEditingAgent({...agent})}
+                                                    style={{ 
+                                                        background: activeAgentId === agent.id ? 'var(--settings-sidebar-active)' : 'var(--settings-sidebar-bg)', 
+                                                        padding: '15px', 
+                                                        borderRadius: '12px', 
+                                                        border: '1.5px solid',
+                                                        borderColor: activeAgentId === agent.id ? 'var(--gnosi-blue)' : 'var(--settings-border)',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s',
+                                                        position: 'relative',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px'
+                                                    }}
+                                                >
+                                                    <div style={{ fontSize: '2rem', minWidth: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}>
+                                                        {agent.icon?.startsWith('lucide:') ? (
+                                                            (() => {
+                                                                const [_, name, colorName] = agent.icon.split(':');
+                                                                const IconComp = LucideIcons[name];
+                                                                const color = colorName ? (NOTION_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
+                                                                return IconComp ? <IconComp size={24} color={color} /> : '🤖';
+                                                            })()
+                                                        ) : (agent.icon || '🤖')}
+                                                    </div>
+                                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                        <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{agent.provider} • {agent.model || 'Auto'}</div>
+                                                    </div>
+                                                    {activeAgentId === agent.id && (
+                                                        <div style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--gnosi-blue)', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Check size={12} strokeWidth={3} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                    </section>
+
+                                    {/* Provider Editor Modal */}
+                                    {editingProvider && (
+                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                                            <div onClick={() => setEditingProvider(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
+                                            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Configura {editingProvider.name}</h3>
+                                                    <button onClick={() => setEditingProvider(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
+                                                </div>
+                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                    {editingProvider.id !== 'ollama' && (
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>API Key</label>
+                                                            <input 
+                                                                type="password" 
+                                                                placeholder="sk-..."
+                                                                value={editingProvider.api_key || ''}
+                                                                onChange={(e) => setEditingProvider({...editingProvider, api_key: e.target.value})}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL (Opcional)</label>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder={LLM_PROVIDERS_META[editingProvider.id]?.baseUrl || 'https://api...'}
+                                                            value={editingProvider.base_url || ''}
+                                                            onChange={(e) => setEditingProvider({...editingProvider, base_url: e.target.value})}
+                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                        />
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                                                        <button 
+                                                            onClick={() => setEditingProvider(null)}
+                                                            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
+                                                        >
+                                                            Cancel·lar
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => {
+                                                                setAiProviders(prev => ({
+                                                                    ...prev,
+                                                                    [editingProvider.id]: {
+                                                                        api_key: editingProvider.api_key,
+                                                                        base_url: editingProvider.base_url
+                                                                    }
+                                                                }));
+                                                                setEditingProvider(null);
+                                                            }}
+                                                            style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer' }}
+                                                        >
+                                                            Guardar
+                                                        </button>
+                                                    </div>
+
+                                                    {aiProviders[editingProvider.id] && (
+                                                        <button 
+                                                            onClick={() => {
+                                                                const newProviders = { ...aiProviders };
+                                                                delete newProviders[editingProvider.id];
+                                                                setAiProviders(newProviders);
+                                                                setEditingProvider(null);
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', marginTop: '5px' }}
+                                                        >
+                                                            Eliminar configuració
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Add Provider Modal */}
+                                    {isAddProviderOpen && (
+                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                                            <div onClick={() => setIsAddProviderOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
+                                            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Afegir Proveïdor Personalitzat</h3>
+                                                    <button onClick={() => setIsAddProviderOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
+                                                </div>
+                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Afegeix qualsevol servei compatible amb l'API d'OpenAI (ex: OpenRouter, Mistral, etc).</p>
+                                                    
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Identificador (ID)</label>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="ex: openrouter"
+                                                            id="new-provider-id"
+                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                        />
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>API Key</label>
+                                                        <input 
+                                                            type="password" 
+                                                            placeholder="sk-..."
+                                                            id="new-provider-key"
+                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                        />
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="https://api.v1..."
+                                                            id="new-provider-url"
+                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                        />
+                                                    </div>
+
+                                                    <button 
+                                                        onClick={() => {
+                                                            const id = document.getElementById('new-provider-id').value;
+                                                            const key = document.getElementById('new-provider-key').value;
+                                                            const url = document.getElementById('new-provider-url').value;
+                                                            if (id && key) {
+                                                                setAiProviders(prev => ({
+                                                                    ...prev,
+                                                                    [id]: { api_key: key, base_url: url, source: 'api' }
+                                                                }));
+                                                                setIsAddProviderOpen(false);
+                                                            }
+                                                        }}
+                                                        style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', marginTop: '5px' }}
+                                                    >
+                                                        Connectar Proveïdor
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {editingAgent && (
+                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                                            <div onClick={() => setEditingAgent(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} />
+                                            <div style={{ position: 'relative', width: '100%', maxWidth: '600px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>Edita Perfil de l'Agent</h3>
+                                                    <button onClick={() => setEditingAgent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={20} /></button>
+                                                </div>
+                                                
+                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', maxHeight: '70vh' }}>
+                                                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                                                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Icona</label>
+                                                            <button 
+                                                                id="agent-icon-trigger"
+                                                                onClick={() => {
+                                                                    setPickerField('agent_icon');
+                                                                    setPickerOpen(true);
+                                                                }}
+                                                                style={{ width: '80px', height: '80px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '2px solid var(--settings-border)', fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                            >
+                                                                {editingAgent.icon?.startsWith('lucide:') ? (
+                                                                    (() => {
+                                                                        const [_, name, colorName] = editingAgent.icon.split(':');
+                                                                        const IconComp = LucideIcons[name];
+                                                                        const color = colorName ? (NOTION_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
+                                                                        return IconComp ? <IconComp size={40} color={color} /> : editingAgent.icon;
+                                                                    })()
+                                                                ) : editingAgent.icon}
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Nom de l'Assistant</label>
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={editingAgent.name}
+                                                                    onChange={(e) => setEditingAgent({...editingAgent, name: e.target.value})}
+                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                                />
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Proveïdor</label>
+                                                                    <select 
+                                                                        value={editingAgent.provider}
+                                                                        onChange={(e) => setEditingAgent({...editingAgent, provider: e.target.value})}
+                                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
+                                                                    >
+                                                                        {Object.keys(aiProviders).map(pId => (
+                                                                            <option key={pId} value={pId}>
+                                                                                {LLM_PROVIDERS_META[pId]?.name || pId}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Model</label>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        placeholder="llama-3.3-70b-versatile"
+                                                                        value={editingAgent.model}
+                                                                        onChange={(e) => setEditingAgent({...editingAgent, model: e.target.value})}
+                                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Instruccions / Persona (System Prompt)</label>
+                                                        <textarea 
+                                                            value={editingAgent.persona}
+                                                            onChange={(e) => setEditingAgent({...editingAgent, persona: e.target.value})}
+                                                            placeholder="Ets un assistent útil que..."
+                                                            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', minHeight: '150px', fontSize: '0.9rem', lineHeight: '1.5' }} 
+                                                        />
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            id="agent_enabled" 
+                                                            checked={editingAgent.enabled} 
+                                                            onChange={(e) => setEditingAgent({...editingAgent, enabled: e.target.checked})} 
+                                                        />
+                                                        <label htmlFor="agent_enabled" style={{ fontSize: '0.85rem' }}>Habilitar aquest agent</label>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div style={{ padding: '16px 20px', borderTop: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setAiAgents(prev => prev.filter(a => a.id !== editingAgent.id));
+                                                            if (activeAgentId === editingAgent.id) setActiveAgentId(aiAgents[0]?.id || '');
+                                                            setEditingAgent(null);
+                                                        }}
+                                                        style={{ padding: '8px 16px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
+                                                    >
+                                                        Eliminar Agent
+                                                    </button>
+                                                    
+                                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                                        <button 
+                                                            onClick={() => {
+                                                                setActiveAgentId(editingAgent.id);
+                                                            }}
+                                                            style={{ padding: '8px 16px', borderRadius: '8px', background: activeAgentId === editingAgent.id ? '#10b981' : 'var(--settings-sidebar-bg)', color: activeAgentId === editingAgent.id ? 'white' : 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
+                                                        >
+                                                            {activeAgentId === editingAgent.id ? 'Agent Actiu ✅' : 'Fer Actiu'}
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => {
+                                                                setAiAgents(prev => {
+                                                                    const idx = prev.findIndex(a => a.id === editingAgent.id);
+                                                                    if (idx > -1) {
+                                                                        const newList = [...prev];
+                                                                        newList[idx] = editingAgent;
+                                                                        return newList;
+                                                                    } else {
+                                                                        return [...prev, editingAgent];
+                                                                    }
+                                                                });
+                                                                setEditingAgent(null);
+                                                            }}
+                                                            style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
+                                                        >
+                                                            Acceptar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <IconPicker 
+                                        isOpen={pickerOpen && pickerField === 'agent_icon'} 
+                                        onClose={() => setPickerOpen(false)} 
+                                        onSelectIcon={(icon) => {
+                                            setEditingAgent(prev => ({ ...prev, icon }));
+                                            setPickerOpen(false);
+                                        }} 
+                                        currentIcon={editingAgent?.icon || ''}
+                                        triggerRef={{ current: document.getElementById('agent-icon-trigger') }} 
+                                    />
+                                </div>
                             )}
 
                         </div>
@@ -1429,22 +1811,45 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         )}
                         <button
                             onClick={onClose}
-                            className="btn-gnosi btn-gnosi-secondary"
+                            style={{
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--settings-border)',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                color: 'var(--text-primary)',
+                                fontWeight: '500',
+                                transition: 'all 0.2s'
+                            }}
                         >
-                            {t('Close')}
+                            Tancar
                         </button>
                         <button
                             onClick={handleSaveGlobal}
-                            className="btn-gnosi btn-gnosi-primary"
+                            disabled={isSaving}
+                            style={{
+                                padding: '10px 24px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: 'var(--gnosi-blue)',
+                                color: 'white',
+                                fontWeight: '600',
+                                cursor: isSaving ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                            }}
                         >
                             {isSaving ? <RefreshCw size={18} className="spin-anim" /> : <Save size={18} />}
-                            {t('Save Changes')}
+                            Guardar Canvis
                         </button>
                     </div>
                 </div>
             </div>
             <FolderPickerModal
-                isOpen={pickerOpen}
+                isOpen={pickerOpen && pickerField !== 'agent_icon'}
                 onClose={() => setPickerOpen(false)}
                 initialPath={localPaths[pickerField] || ''}
                 onSelect={(path) => {
@@ -1453,6 +1858,5 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 }}
             />
         </>
-
     );
 }

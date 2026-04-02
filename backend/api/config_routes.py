@@ -52,7 +52,13 @@ async def update_config(request: Request):
         # Merge data and preserve unsent keys
         merged_config = deep_merge(current_config, new_config)
         
-        log.info(f"Final configuration to save: {merged_config}")
+        # DEBUG: Log AI specific config to see if keys are present
+        if 'ai' in new_config:
+            log.info(f"AI Config received in payload: {new_config['ai']}")
+        if 'ai' in merged_config:
+            log.info(f"Final AI Config to save: {merged_config['ai']}")
+
+        log.info(f"Final configuration to save (summary): {list(merged_config.keys())}")
 
         # Write to disk
         with open(PARAMS_PATH, 'w', encoding='utf-8') as f:

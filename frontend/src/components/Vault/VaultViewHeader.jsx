@@ -5,7 +5,6 @@
  */
 import React from 'react';
 import { Search, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 export function VaultViewHeader({
     displayViews = [],
@@ -46,7 +45,6 @@ export function VaultViewHeader({
     showAddViewMenu,
     setShowAddViewMenu,
 }) {
-    const { t } = useTranslation();
     return (
         <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/60 min-h-[40px]">
             {/* Tabs de vistes */}
@@ -61,7 +59,7 @@ export function VaultViewHeader({
                                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)]/60'
                         }`}
                     >
-                        {view.name || t('View')}
+                        {view.name || 'Vista'}
                     </button>
                 ))}
             </div>
@@ -76,7 +74,7 @@ export function VaultViewHeader({
                             type="text"
                             value={searchTerm || ''}
                             onChange={e => setSearchTerm && setSearchTerm(e.target.value)}
-                            placeholder={t("Search...")}
+                            placeholder="Cerca..."
                             className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
                         />
                         <button
@@ -93,7 +91,7 @@ export function VaultViewHeader({
                     <button
                         onClick={() => setShowSearch && setShowSearch(true)}
                         className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors"
-                        title={t("Search")}
+                        title="Cerca"
                     >
                         <Search size={14} />
                     </button>

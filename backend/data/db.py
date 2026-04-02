@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 from pathlib import Path
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 # Carregar paràmetres per obtenir la ruta de la Vault
 params = load_params(strict_env=False)

@@ -9,7 +9,7 @@ from pathlib import Path
 from email.utils import parsedate_to_datetime
 from backend.services.google_mail_service import send_reply, update_thread_labels
 from backend.services.vault_mail_sync_service import sync_service
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 router = APIRouter(prefix="/api/mail", tags=["mail"])
 log = logging.getLogger(__name__)

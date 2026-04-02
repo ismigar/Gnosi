@@ -29,7 +29,7 @@ import threading
 import time
 import sys
 import subprocess
-from config.app_config import load_params
+from backend.config.app_config import load_params
 from backend.services.rule_engine import RuleEngine
 
 log = logging.getLogger(__name__)
@@ -344,6 +344,23 @@ def ensure_default_registry_structure():
         )
         # Disabled to avoid unnecessary noise in the Vault per user feedback
         pass
+
+    # Ensure a 'wiki' table exists for properties on non-database pages
+    wiki_table = next(
+        (t for t in registry["tables"] if t.get("id") == "wiki"), None
+    )
+    if wiki_table is None:
+        wiki_table = {
+            "id": "wiki",
+            "database_id": "digital_brain_db",
+            "name": "Wiki",
+            "folder": "Wiki",
+            "properties": [
+                {"name": "Títol", "type": "title"}
+            ]
+        }
+        registry["tables"].append(wiki_table)
+        changed = True
 
     if changed:
         save_registry(registry)
@@ -981,7 +998,10 @@ def _resolve_table_id_from_context(
 
 
     # Fallback for legacy/template notes outside table folders.
-    return metadata.get("table_id") or metadata.get("database_table_id")
+    res_id = metadata.get("table_id") or metadata.get("database_table_id")
+    if not res_id and rel_folder.lower() == "wiki":
+        return "wiki"
+    return res_id
 
 
 def _resolve_table_folder_from_metadata(metadata: dict) -> Optional[Path]:
@@ -2179,7 +2199,7 @@ async def create_table(table: dict = Body(...)):
         registry["tables"].append(table)
 
     _ensure_asset_dirs_for_table_entry(table, registry)
-    _ensure_table_vault_folder(table)
+    _ensure_table_vault_folder(table, registry)
 
     save_registry(registry)
     return table
@@ -2219,7 +2239,7 @@ async def rename_table(table_id: str, data: dict = Body(...)):
             if "folder" in data:
                 t["folder"] = data["folder"]
             _ensure_asset_dirs_for_table_entry(t, registry)
-            _ensure_table_vault_folder(t)
+            _ensure_table_vault_folder(t, registry)
             break
     save_registry(registry)
     return {"status": "success"}

@@ -1,0 +1,36 @@
+{
+  "databases": [
+    {
+      "id": "digital_brain_db",
+      "name": "Cervell Digital",
+      "folder": "BD/Cervell Digital"
+    }
+  ],
+  "tables": [
+    {
+      "id": "wiki",
+      "database_id": "digital_brain_db",
+      "name": "Wiki",
+      "folder": "Wiki",
+      "properties": [
+        {
+          "name": "Títol",
+          "type": "title"
+        }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "id": "23aaf040-b6f0-441d-8d94-da63cfb574a7",
+      "table_id": "wiki",
+      "name": "Taula Principal",
+      "type": "table",
+      "sort": {
+        "field": "last_modified",
+        "direction": "desc"
+      },
+      "filters": []
+    }
+  ]
+}

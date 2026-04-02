@@ -1,12 +1,12 @@
 import os
 import operator
-from typing import Annotated, TypedDict, List, Sequence
+from typing import Annotated, TypedDict, List, Sequence, Optional
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-# Import LLM providers - Hybrid system: Ollama (primary) + Groq (fallback)
+# Import LLM providers
 try:
     from langchain_ollama import ChatOllama
 
@@ -15,7 +15,8 @@ except ImportError:
     OLLAMA_AVAILABLE = False
 
 try:
-    from langchain_openai import ChatOpenAI  # Also works for Groq
+    from langchain_openai import ChatOpenAI
+    from langchain_anthropic import ChatAnthropic
 
     OPENAI_COMPATIBLE_AVAILABLE = True
 except ImportError:
@@ -31,7 +32,7 @@ from backend.agent.system_tools import SYSTEM_TOOLS
 from backend.agent.tools import get_mcp_tools
 from backend.agent.generated_tools.creator import TOOL_CREATOR_TOOLS
 from backend.agent.generated_tools.loader import loader as tool_loader
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 cfg = load_params(strict_env=False)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -43,126 +44,177 @@ class AgentState(TypedDict):
     next: str
 
 
-# --- 2. Prompts dels Agents ---
-SUPERVISOR_PROMPT = """Ets el Supervisor del "Digital Brain".
+# --- 2. Prompts dels Agents (Base) ---
+DEFAULT_SUPERVISOR_PROMPT = """Ets el Supervisor del "Digital Brain".
 La teva feina és coordinar l'equip d'experts per resoldre la petició de l'usuari.
 
 MEMBRES DE L'EQUIP:
 1. **Coder**: Enginyer de Software Sènior. Expert en Python, Git, Tests i Sistema de Fitxers. 
-   - Usa'l per: Crear codi, aplicar patchs, fer tests, gestionar git, llegir fitxers locals.
 2. **Brain**: Gestor de Coneixement i Automatització. Expert en Notion, n8n i Memòria a Llarg Termini.
-   - Usa'l per: Consultar/guardar a Notion, executar workflows n8n, guardar/recuperar records (RAG).
 
 INSTRUCCIONS DE ROUTING:
 - Si l'usuari demana canvis de codi -> `Coder`.
 - Si l'usuari demana informació personal, Notion, n8n o gestionar **Directives/Procediments** -> `Brain`.
-- Si és una xerrada general ("Hola", "Gràcies") o una pregunta simple -> `General` (Tu mateix respons).
-- Si un agent ha acabat la feina i cal informar l'usuari -> `FINISH`.
-
-NOTA: Anima als agents a consultar les Directives existents abans d'inventar-se solucions.
+- Si és una xerrada general o una pregunta simple -> `General` (Tu mateix respons).
+- Si un agent ha acabat la feina -> `FINISH`.
 
 Retorna EXCLUSIVAMENT el nom del següent worker: 'Coder', 'Brain', 'General' o 'FINISH'.
 """
 
-CODER_PROMPT = """Ets el **Coder Agent** (Enginyer Sènior).
-Tens accés al sistema de fitxers i Git.
-PROTOCOL:
-1. Inspect -> Branch -> Patch -> Test -> Commit.
-2. No inventis fitxers que no has llegit.
-3. Si trobes un error, fes servir `grep` o `search_code_symbols` per ubicar-te.
-"""
-
-BRAIN_PROMPT = """Ets el **Brain Agent** (Gestor de Coneixement i Procediments).
-Tens accés a:
-- Notion (Llegir/Escriure pàgines).
-- n8n (Executar workflows).
-- Memòria Vectorial (RAG).
-- **Directives (SOPs)**: Fitxers Markdown amb instruccions procedurals (`list_directives`, `read_directive`, `update_directive`).
-
-PROTOCOL DE MEMÒRIA PROCEDURAL:
-1. **Llegir**: Abans de fer una tasca complexa, comprova si existeix una directiva (`list_directives` -> `read_directive`).
-2. **Executar**: Segueix les instruccions.
-3. **Actualitzar**: Si aprens alguna cosa nova o corregeixes un error, ACTUALITZA la directiva (`update_directive`).
-   - Això és crucial: La teva feina no és només fer la tasca, sinó documentar COM fer-la millor per la pròxima vegada.
-"""
+# --- 3. Gestió de Proveïdors de LLM ---
 
 
-def _get_hybrid_llm():
+def get_llm(
+    provider: str,
+    model: Optional[str] = None,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+):
     """
-    Get LLM with hybrid provider support:
-    1. Ollama (local, primary) - if available
-    2. Groq (cloud, fallback) - free tier
-    3. OpenAI (fallback) - if API key exists
+    Instancia un LLM segons el proveïdor i la configuració.
     """
-    groq_key = os.environ.get("HF_API_KEY") or os.environ.get("GROQ_API_KEY")
-    openai_key = os.environ.get("OPENAI_API_KEY")
+    # Tractar cadenes buides com a None per forçar el fallback a env vars
+    if not api_key:
+        api_key = None
+    if not base_url:
+        base_url = None
 
-    llms = []
-
-    # 1. Try Ollama (local, free, no limits)
-    if OLLAMA_AVAILABLE:
-        try:
-            ollama_llm = ChatOllama(
-                model="llama3.2",
-                base_url="http://localhost:11434",
-                timeout=30,  # Reduït per evitar penjaments llargs
+    try:
+        if provider == "ollama":
+            return ChatOllama(
+                model=model or "llama3.2",
+                base_url=base_url or "http://localhost:11434",
+                timeout=60,
             )
-            # No provem l'invoke aquí, ja que és síncron i bloqueja el lifespan.
-            # Confiem en que si Ollama està configurat com a primari, s'usarà quan calgui.
-            print("✅ Agent configured with Ollama (local)")
-            return ollama_llm
-        except Exception as e:
-            print(f"⚠️ Ollama not available: {e}")
 
-    # 2. Try Groq (free tier, fast)
-    if OPENAI_COMPATIBLE_AVAILABLE and groq_key:
-        try:
-            groq_llm = ChatOpenAI(
-                model="llama-3.3-70b-versatile",
-                api_key=groq_key,
-                base_url="https://api.groq.com/openai/v1",
+        if provider == "openai":
+            key = api_key or os.environ.get("OPENAI_API_KEY")
+            if not key:
+                print(f"❌ Error: OpenAI API Key missing for provider '{provider}'")
+                return None
+            return ChatOpenAI(
+                model=model or "gpt-4o",
+                api_key=key,
+                base_url=base_url or "https://api.openai.com/v1",
             )
-            print("✅ Agent using Groq (cloud)")
-            return groq_llm
-        except Exception as e:
-            print(f"⚠️ Groq not available: {e}")
 
-    # 3. Fallback to OpenAI
-    if OPENAI_COMPATIBLE_AVAILABLE and openai_key:
-        print("✅ Agent using OpenAI (cloud)")
-        return ChatOpenAI(model="gpt-4o", api_key=openai_key)
+        if provider == "groq":
+            key = api_key if api_key and api_key.strip() else os.environ.get("GROQ_API_KEY")
+            if not key:
+                log.warning(f"⚠️ Groq API Key missing. Provided in config: '{api_key}', Env: '{os.environ.get('GROQ_API_KEY') is not None}'")
+                return None
+            return ChatOpenAI(
+                model=model or "llama-3.3-70b-versatile",
+                api_key=key,
+                base_url=base_url or "https://api.groq.com/openai/v1",
+            )
 
-    print("❌ CRITICAL: No LLM provider available.")
+        if provider == "anthropic":
+            key = api_key if api_key and api_key.strip() else os.environ.get("ANTHROPIC_API_KEY")
+            if not key:
+                log.warning(f"⚠️ Anthropic API Key missing. Provider: '{provider}'")
+                return None
+            return ChatAnthropic(
+                model=model or "claude-3-5-sonnet-latest",
+                api_key=key,
+            )
+
+        # Generic OpenAI compatible (e.g. Local LLM via LM Studio / vLLM)
+        if provider == "local" or provider == "generic":
+            return ChatOpenAI(
+                model=model or "local-model",
+                api_key=api_key or "no-key",
+                base_url=base_url or "http://localhost:8000/v1",
+            )
+
+    except Exception as e:
+        print(f"❌ Exception initializing LLM provider '{provider}': {e}")
+        return None
+
+    # Fallback si no es reconeix el proveïdor
+    print(f"⚠️ Provider '{provider}' not explicitly handled, falling back to hybrid.")
     return None
 
 
-# --- 3. Definir Factory ---
-def build_graph(mcp_tools_list: List[dict], mcp_client):
-    """
-    Construeix un graf Multi-Agent: Supervisor -> [Coder, Brain, General].
-    Uses hybrid LLM: Ollama (local) / Groq (cloud) / OpenAI (fallback)
-    """
+def _get_hybrid_llm():
+    """Fallback logic for legacy support or missing config."""
+    groq_key = os.environ.get("HF_API_KEY") or os.environ.get("GROQ_API_KEY")
+    if OPENAI_COMPATIBLE_AVAILABLE and groq_key:
+        return ChatOpenAI(
+            model="llama-3.3-70b-versatile",
+            api_key=groq_key,
+            base_url="https://api.groq.com/openai/v1",
+        )
+    return None
 
-    # Configurar LLM Base amb sistema híbrid
-    llm = _get_hybrid_llm()
-    if not llm:
+
+# --- 4. Definir Factory ---
+
+
+async def create_agent_workflow(mcp_tools_list: List[dict], mcp_client, agent_id: str = "gnosy") -> StateGraph:
+    """
+    Crea el workflow (graf) Multi-Agent basat en un perfil d'agent específic.
+    Retorna el graf sense compilar per permetre afegir checkpointers externament.
+    """
+    # 1. Obtenir configuració de l'agent des de params.yaml
+    ai_cfg = cfg.get("ai", {})
+    agents = ai_cfg.get("agents", [])
+    providers = ai_cfg.get("providers", {})
+    
+    # Prioritat: agent_id passat -> active_agent_id -> primer agent habilitat
+    target_id = agent_id or ai_cfg.get("active_agent_id")
+    
+    agent_data = next((a for a in agents if a.get("id") == target_id), None)
+    
+    if not agent_data and agents:
+        # Trobar el primer habilitat o el primer de la llista
+        agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
+
+    if not agent_data:
+        print(f"❌ Error: Agent '{target_id}' not found and no defaults available.")
         return None
 
-    # 1. Convertir eines MCP a LangChain Tools
+    # 2. Configurar LLM per l'agent
+    provider_name = agent_data.get("provider", "groq")
+    p_cfg = providers.get(provider_name, {})
+
+    llm = get_llm(
+        provider=provider_name,
+        model=agent_data.get("model"),
+        api_key=p_cfg.get("api_key"),
+        base_url=p_cfg.get("base_url"),
+    )
+
+    if not llm:
+        llm = _get_hybrid_llm()
+
+    if not llm:
+        print(f"❌ CRITICAL: No LLM provider available for agent '{agent_data.get('name')}'.")
+        return None
+
+    # 3. Preparar Prompts (Persona)
+    persona = agent_data.get("persona", "")
+    agent_name = agent_data.get("name", "Gnosy")
+    
+    supervisor_prompt = (
+        f"Ets {agent_name}.\n{persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
+        if persona
+        else f"Ets {agent_name}.\n{DEFAULT_SUPERVISOR_PROMPT}"
+    )
+
+    # 4. Convertir eines MCP
     mcp_langchain_tools = get_mcp_tools(mcp_tools_list, mcp_client)
-
-    # --- Configurar Agents Especialistes ---
-
-    # Load any approved generated tools
     generated_tools = tool_loader.load_all_approved()
 
-    # Coder: Eines de sistema + Eines de creació d'eines + Eines generades
+    # Coder & Brain specialists
     coder_tools = SYSTEM_TOOLS + TOOL_CREATOR_TOOLS + generated_tools
     coder_llm = llm.bind_tools(coder_tools)
 
-    # Brain: Eines MCP + Memory tools
     memory_tools = [
-        t for t in SYSTEM_TOOLS if t.name in ["save_memory", "query_memory"]
+        t
+        for t in SYSTEM_TOOLS
+        if t.name
+        in ["save_memory", "query_memory", "get_vault_registry", "search_vault"]
     ]
     brain_tools = mcp_langchain_tools + memory_tools
     brain_llm = llm.bind_tools(brain_tools)
@@ -171,7 +223,7 @@ def build_graph(mcp_tools_list: List[dict], mcp_client):
 
     def supervisor_node(state: AgentState):
         messages = state["messages"]
-        prompt = [SystemMessage(content=SUPERVISOR_PROMPT)] + messages
+        prompt = [SystemMessage(content=supervisor_prompt)] + messages
         response = llm.invoke(prompt)
 
         decision = response.content.strip().replace("'", "").replace('"', "")
@@ -181,55 +233,50 @@ def build_graph(mcp_tools_list: List[dict], mcp_client):
             return {"next": "Brain"}
         if "General" in decision:
             return {"next": "General"}
-
         return {"next": "FINISH"}
 
     def coder_node(state: AgentState):
         messages = state["messages"]
-        response = coder_llm.invoke([SystemMessage(content=CODER_PROMPT)] + messages)
+        # Inject persona preference for coding style if defined? Optional for now.
+        response = coder_llm.invoke(
+            [SystemMessage(content="Ets el Coder Agent.")] + messages
+        )
         return {"messages": [response], "next": "supervisor"}
 
     def brain_node(state: AgentState):
         messages = state["messages"]
-        response = brain_llm.invoke([SystemMessage(content=BRAIN_PROMPT)] + messages)
+        response = brain_llm.invoke(
+            [SystemMessage(content="Ets el Brain Agent (Notion, Vault).")] + messages
+        )
         return {"messages": [response], "next": "supervisor"}
 
     def general_node(state: AgentState):
         messages = state["messages"]
+        # Use explicit persona for general conversation
         response = llm.invoke(
-            [SystemMessage(content="Ets un assistent útil.")] + messages
+            [SystemMessage(content=persona or "Ets un assistent útil.")] + messages
         )
         return {"messages": [response], "next": "FINISH"}
 
     # --- Construcció del Graf ---
     workflow = StateGraph(AgentState)
-
-    # 3. Define Nodes
     workflow.add_node("supervisor", supervisor_node)
     workflow.add_node("coder", coder_node)
     workflow.add_node("brain", brain_node)
     workflow.add_node("general", general_node)
-
-    # Tool Nodes
     workflow.add_node("coder_tools", ToolNode(coder_tools))
     workflow.add_node("brain_tools", ToolNode(brain_tools))
 
-    # 4. Define Edges
     workflow.add_edge(START, "supervisor")
-
     workflow.add_conditional_edges(
         "supervisor",
         lambda x: x["next"],
         {"Coder": "coder", "Brain": "brain", "General": "general", "FINISH": END},
     )
 
-    # Tool Logic for Workers
     def coder_router(state):
-        messages = state["messages"]
-        last_message = messages[-1]
-        if last_message.tool_calls:
-            return "coder_tools"
-        return "supervisor"
+        last_message = state["messages"][-1]
+        return "coder_tools" if last_message.tool_calls else "supervisor"
 
     workflow.add_conditional_edges(
         "coder",
@@ -239,11 +286,8 @@ def build_graph(mcp_tools_list: List[dict], mcp_client):
     workflow.add_edge("coder_tools", "coder")
 
     def brain_router(state):
-        messages = state["messages"]
-        last_message = messages[-1]
-        if last_message.tool_calls:
-            return "brain_tools"
-        return "supervisor"
+        last_message = state["messages"][-1]
+        return "brain_tools" if last_message.tool_calls else "supervisor"
 
     workflow.add_conditional_edges(
         "brain",
@@ -251,14 +295,7 @@ def build_graph(mcp_tools_list: List[dict], mcp_client):
         {"brain_tools": "brain_tools", "supervisor": "supervisor"},
     )
     workflow.add_edge("brain_tools", "brain")
-
     workflow.add_edge("general", END)
 
-    # 6. Compilar amb Checkpointer (SQLite)
-    db_path = cfg.paths["CHECKPOINTS"] / "checkpoints.sqlite"
-    os.makedirs(db_path.parent, exist_ok=True)
-
-    conn = sqlite3.connect(str(db_path), check_same_thread=False)
-    memory = SqliteSaver(conn)
-
-    return workflow.compile(checkpointer=memory)
+    # 6. Retornar el workflow sense compilar
+    return workflow

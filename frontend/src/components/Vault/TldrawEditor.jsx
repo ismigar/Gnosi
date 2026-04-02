@@ -1,7 +1,7 @@
 /**
  * TldrawEditor.jsx
- * Drawing editor based on Tldraw for the Gnosi Vault.
- * Replaces ExcalidrawEditor and is fully compatible with React 19.
+ * Editor de dibuixos basat en Tldraw per al Vault de Gnosi.
+ * Substitueix ExcalidrawEditor i és totalment compatible amb React 19.
  */
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { Tldraw, createTLStore, defaultShapeUtils, getSnapshot, loadSnapshot } from 'tldraw';
@@ -10,11 +10,9 @@ import 'tldraw/tldraw.css';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { X, Loader2, Eye, ExternalLink, Copy } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 // ──────────────── Page Actions Panel ────────────────
 function PageActionsPanel({ pageId, pageTitle, onClose }) {
-    const { t } = useTranslation();
     const [preview, setPreview] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -24,9 +22,9 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
         try {
             const res = await axios.get(`/api/vault/pages/${pageId}`);
             const data = res.data;
-            setPreview(data.content || t('No content'));
+            setPreview(data.content || 'Sense contingut');
         } catch (err) {
-            toast.error(t('Error loading content'));
+            toast.error('Error carregant contingut');
         } finally {
             setLoading(false);
         }
@@ -38,7 +36,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
 
     const copyId = () => {
         navigator.clipboard.writeText(pageId);
-        toast.success(t('ID copied!'));
+        toast.success('ID copiat!');
     };
 
     return (
@@ -51,7 +49,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
                 </button>
             </div>
 
-            {/* Buttons */}
+            {/* Botons */}
             <div className="flex gap-1 p-2">
                 <button
                     onClick={loadPreview}
@@ -59,29 +57,28 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-50 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                 >
                     {loading ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
-                    {t('Preview')}
+                    Previsualitzar
                 </button>
                 <button
                     onClick={openInNewTab}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-50 rounded-md hover:bg-green-50 hover:text-green-600 transition-colors"
                 >
                     <ExternalLink size={14} />
-                    {t('Open')}
+                    Obrir
                 </button>
                 <button
                     onClick={copyId}
                     className="px-3 py-2 text-xs font-medium text-slate-600 bg-slate-50 rounded-md hover:bg-slate-100 transition-colors"
-                    title={t('Copy ID')}
                 >
                     <Copy size={14} />
                 </button>
             </div>
 
-            {/* Content Preview */}
+            {/* Preview del contingut */}
             {preview !== null && (
                 <div className="border-t border-slate-200 max-h-[200px] overflow-y-auto p-3">
                     <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
-                        {preview.substring(0, 500) || t('No content')}
+                        {preview.substring(0, 500) || 'Sense contingut'}
                         {preview.length > 500 && '...'}
                     </p>
                 </div>
@@ -92,7 +89,6 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
 
 // ──────────────── TldrawEditor Component ────────────────
 export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess }) {
-    const { t } = useTranslation();
     const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
     const [isLoading, setIsLoading] = useState(true);
     const editorRef = useRef(null);
@@ -100,7 +96,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
     const autosaveTimerRef = useRef(null);
     const [selectedPage, setSelectedPage] = useState(null);
 
-    // Load existing drawing
+    // Carregar dibuix existent
     useEffect(() => {
         if (!drawingId) { setIsLoading(false); return; }
 
@@ -111,33 +107,33 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                     try {
                         loadSnapshot(store, data);
                     } catch (e) {
-                        console.error("Error loading drawing:", e);
+                        console.error("Error carregant dibuix:", e);
                     }
                 }
             })
             .catch(() => {
-                // Drawing does not exist yet → empty canvas
+                // El dibuix no existeix yet → pissarra buida
             })
             .finally(() => setIsLoading(false));
     }, [drawingId, store]);
 
-    // Save drawing (auto-save)
+    // Guardar dibuix (auto-save)
     const handleSave = useCallback(async () => {
         if (!drawingId) return;
         try {
             const snapshot = getSnapshot(store);
             await axios.put(`/api/vault/drawings/${drawingId}`, {
-                title: title || t('Untitled Drawing'),
+                title: title || 'Dibuix sense títol',
                 data: snapshot,
                 metadata: {}
             });
             onSaveSuccess?.();
         } catch (err) {
-            console.error("Error saving drawing:", err);
+            console.error("Error al desar el dibuix:", err);
         }
-    }, [drawingId, store, title, onSaveSuccess, t]);
+    }, [drawingId, store, title, onSaveSuccess]);
 
-    // Automatic autosave every 1 second if there are changes (same as BlockEditor)
+    // Autosave automàtic cada 1 segon si hi ha canvis (igual que BlockEditor)
     useEffect(() => {
         if (!drawingId) return;
 
@@ -158,7 +154,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
         };
     }, [drawingId, store, handleSave]);
 
-    // Save with Ctrl+S / Cmd+S
+    // Desar amb Ctrl+S / Cmd+S
     useEffect(() => {
         const handleKey = (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -170,7 +166,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
         return () => window.removeEventListener('keydown', handleKey);
     }, [handleSave]);
 
-    // Detect shape selection with pageId in metadata
+    // Detectar selecció de shape amb pageId al metadata
     useEffect(() => {
         const editor = editorRef.current;
         if (!editor) return;
@@ -182,7 +178,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                 if (shape?.meta?.pageId) {
                     setSelectedPage({
                         id: shape.meta.pageId,
-                        title: shape.meta.pageTitle || t('Page'),
+                        title: shape.meta.pageTitle || 'Pàgina',
                     });
                     return;
                 }
@@ -190,18 +186,18 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
             setSelectedPage(null);
         };
 
-        // Check immediately
+        // Comprovar immediatament
         checkSelection();
 
-        // Check on changes
+        // Comprovar en canvis
         const unsub = editor.store.listen(() => {
             setTimeout(checkSelection, 50);
         });
 
         return () => unsub();
-    }, [editorRef.current, isLoading, t]);
+    }, [editorRef.current, isLoading]);
 
-    // Register drag & drop handlers with capture phase
+    // Registrar els handlers de drag & drop amb fase de captura
     useEffect(() => {
         const dragOver = (e) => {
             if (e.dataTransfer.types.includes('application/gnosi-note')) {
@@ -217,7 +213,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
             const noteDataString = e.dataTransfer.getData('application/gnosi-note');
             if (!noteDataString) return;
 
-            // Verify that drop is inside the tldraw wrapper
+            // Verificar que el drop és dins del wrapper del tldraw
             const wrapper = wrapperRef.current;
             if (!wrapper || !wrapper.contains(e.target)) return;
 
@@ -228,7 +224,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
             try {
                 const noteData = JSON.parse(noteDataString);
 
-                // Convert screen coordinates to canvas coordinates
+                // Convertir coordenades de pantalla a coordenades del canvas
                 const point = editor.screenToPage({
                     x: e.clientX,
                     y: e.clientY,
@@ -236,7 +232,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
 
                 const shapeId = createShapeId();
 
-                // Create a note shape with the page title and metadata
+                // Crear una forma de nota amb el títol i metadata de la pàgina
                 editor.createShape({
                     id: shapeId,
                     type: 'note',
@@ -246,21 +242,21 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                         color: 'blue',
                         size: 'm',
                         font: 'sans',
-                        richText: toRichText(noteData.title || t('Untitled Page')),
+                        richText: toRichText(noteData.title || 'Pàgina sense títol'),
                     },
                     meta: {
                         pageId: noteData.id,
-                        pageTitle: noteData.title || t('Untitled Page'),
+                        pageTitle: noteData.title || 'Pàgina sense títol',
                     },
                 });
 
-                // Select created shape to show buttons
+                // Seleccionar el shape creat per mostrar els botons
                 editor.select(shapeId);
 
-                toast.success(t('Page "{{title}}" added to canvas', { title: noteData.title }));
+                toast.success(`Pàgina "${noteData.title}" afegida al llenç`);
             } catch (err) {
-                console.error("Error adding page to drawing:", err);
-                toast.error(t('Error adding page'));
+                console.error("Error afegint pàgina al dibuix:", err);
+                toast.error("Error afegint pàgina");
             }
         };
 
@@ -271,19 +267,18 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
             document.removeEventListener('dragover', dragOver, true);
             document.removeEventListener('drop', drop, true);
         };
-    }, [t]);
+    }, []);
 
     return (
         <div className="flex flex-col h-full w-full">
-            {/* Header */}
+            {/* Capçalera */}
             <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shrink-0">
                 <h2 className="text-sm font-semibold text-slate-700 truncate">
-                    {title || t('Untitled Drawing')}
+                    {title || 'Dibuix sense títol'}
                 </h2>
                 <button
                     onClick={onClose}
                     className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-                    title={t('Close')}
                 >
                     <X size={16} />
                 </button>
@@ -307,7 +302,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                     />
                 )}
 
-                {/* Actions panel for selected pages */}
+                {/* Panel d'accions per a pàgines seleccionades */}
                 {selectedPage && (
                     <PageActionsPanel
                         pageId={selectedPage.id}

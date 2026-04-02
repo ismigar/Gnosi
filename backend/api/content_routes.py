@@ -1,8 +1,8 @@
 from flask import Blueprint, jsonify
 from pathlib import Path
 import json
-from config.logger_config import get_logger
-from config.app_config import load_params
+from backend.config.logger_config import get_logger
+from backend.config.app_config import load_params
 
 content_bp = Blueprint("content", __name__)
 log = get_logger(__name__)

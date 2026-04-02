@@ -28,6 +28,7 @@ data/chroma_db/
 *.log
 *.bak
 .DS_Store
+.macos-secrets/
 debug_mcp_spawn.py
 reproduce_issue.py
 start_server.sh

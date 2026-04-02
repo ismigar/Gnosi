@@ -5,7 +5,7 @@ from pathlib import Path
 from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 log = logging.getLogger(__name__)
 

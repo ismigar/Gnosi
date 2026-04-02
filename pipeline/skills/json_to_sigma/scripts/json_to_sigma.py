@@ -242,6 +242,9 @@ def convert_for_sigma(
             "kind_font": node_colors(n.get("kind", "permanent"))["font"],
             "isStructural": n.get("kind") == "tag",
             "created_time": n.get("created_time"),
+            "database_id": n.get("database_id"),
+            "table_id": n.get("table_id"),
+            "metadata": n.get("metadata", n.get("properties", {})),
         })
 
     # Tag nodes have already been processed in the previous loop (filtered_nodes includes nodes with kind="tag")

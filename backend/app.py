@@ -9,8 +9,8 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from flask import Flask, jsonify, Response
-from config.logger_config import setup_logging, get_logger
-from config.app_config import load_params
+from backend.config.logger_config import setup_logging, get_logger
+from backend.config.app_config import load_params
 import threading
 import time
 import os
