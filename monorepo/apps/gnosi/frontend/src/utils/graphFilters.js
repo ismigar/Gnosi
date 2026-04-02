@@ -1,3 +1,6 @@
+import { matchesFilters, matchesSearch as vaultMatchesSearch } from './vaultFilters';
+
+export { matchesFilters, vaultMatchesSearch };
 
 export function applyFilters(graph, filters) {
     const {
@@ -15,7 +18,11 @@ export function applyFilters(graph, filters) {
         visibleDatabases = [],
         visibleTables = [],
         activeTableFilters = new Set(),
-        fieldFilters = {}
+        fieldFilters = {},
+        // Vault integration
+        isVaultMode = false,
+        vaultFilters = [],
+        activeTableId = null
     } = filters;
 
     const visibleNodes = new Set();
@@ -29,7 +36,7 @@ export function applyFilters(graph, filters) {
     const hasFieldFilters = Object.keys(fieldFilters).some(k => fieldFilters[k] && fieldFilters[k].size > 0);
 
     if (selectedNode) {
-        // Depth mode logic
+        // Depth mode logic (Pathfinding/Context)
         const maxDepth = Number(depth);
         const queue = [{ node: selectedNode, d: 0 }];
         visibleNodes.add(selectedNode);
@@ -39,16 +46,20 @@ export function applyFilters(graph, filters) {
 
             if (d >= maxDepth) continue;
 
-            const neighbors = graph.neighbors(node);
-            neighbors.forEach((neighbor) => {
-                if (!visibleNodes.has(neighbor)) {
-                    const nextDepth = d + 1;
-                    if (nextDepth <= maxDepth) {
-                        visibleNodes.add(neighbor);
-                        queue.push({ node: neighbor, d: nextDepth });
+            try {
+                const neighbors = graph.neighbors(node);
+                neighbors.forEach((neighbor) => {
+                    if (!visibleNodes.has(neighbor)) {
+                        const nextDepth = d + 1;
+                        if (nextDepth <= maxDepth) {
+                            visibleNodes.add(neighbor);
+                            queue.push({ node: neighbor, d: nextDepth });
+                        }
                     }
-                }
-            });
+                });
+            } catch (err) {
+                // Ignore if node not found
+            }
         }
 
         graph.forEachEdge((edge, attrs, source, target) => {
@@ -64,12 +75,33 @@ export function applyFilters(graph, filters) {
         const projectFiltersLower = new Set(Array.from(activeProjects).map(p => p.toLowerCase()));
 
         graph.forEachNode((node, attrs) => {
-            // 1. Database & Table Visibility (Global Settings)
-            // Skip wiki nodes (no DB) — they are handled by __wiki__ in step 2
+            // 🔍 Categorization logic
             const nodeDb = attrs.database_id;
             const nodeTable = attrs.table_id || attrs.database_table_id;
-            const isWikiNode = !nodeDb && !nodeTable;
+            // A node is only considered a Wiki node if explicitly marked as such OR lacks DB/Table info
+            const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTable || nodeTable === '__wiki__'));
 
+            // ──────── ESTAT DEL VAULT (NOU) ────────
+            if (isVaultMode) {
+                // En mode Vault, primer filtrem per la taula activa
+                if (activeTableId && activeTableId !== 'wiki') {
+                    if (nodeTable !== activeTableId) return;
+                } else if (activeTableId === 'wiki') {
+                    if (!isWikiNode) return;
+                }
+
+                // Després apliquem els filtres de la vista i la cerca
+                if (!vaultMatchesSearch(attrs, searchTerm)) return;
+                if (!matchesFilters(attrs, vaultFilters)) return;
+                
+                // Si passa, és visible
+                visibleNodes.add(node);
+                return;
+            }
+
+            // ──────── FILTRES ESTÀNDARD DEL GRAF ────────
+
+            // 1. Database & Table Visibility (Global Settings)
             if (!isWikiNode) {
                 if (hasDbVisibility && (!nodeDb || !visibleDbSet.has(nodeDb))) {
                     return;
@@ -79,22 +111,21 @@ export function applyFilters(graph, filters) {
                 }
             }
 
-            // 2. Table Sidebar Filters
-            // __wiki__ is a special sentinel for nodes that don't belong to any DB table
-            if (activeTableFilters.size > 0 || (filters.graphTableFiltersSettings && filters.graphTableFiltersSettings.length > 0)) {
-                const isWikiNode = !nodeTable;
+            // 2. Table Sidebar Filters (Strict Whitelist)
+            if (filters.activeTableFilters && filters.activeTableFilters.size > 0) {
                 if (isWikiNode) {
-                    // Wiki page: only show if __wiki__ toggle is active
-                    if (!filters.activeTableFilters?.has('__wiki__')) {
+                    if (!filters.activeTableFilters.has('__wiki__')) {
+                        // console.debug(`[Filter] Hiding Wiki node: ${attrs.label}`);
                         return;
                     }
-                } else if (nodeTable && filters.activeTableFilters && !filters.activeTableFilters.has(nodeTable)) {
-                    // DB table node: check if this table is a configured filter and if it's unchecked
-                    if (filters.graphTableFiltersSettings?.includes(nodeTable)) {
+                } else {
+                    if (!filters.activeTableFilters.has(nodeTable)) {
+                        // console.debug(`[Filter] Hiding Record node: ${attrs.label} (Table: ${nodeTable})`);
                         return;
                     }
                 }
             }
+
 
             // 3. Field Value Filters
             if (hasFieldFilters) {
@@ -170,7 +201,7 @@ export function applyFilters(graph, filters) {
             const sourceHidden = !visibleNodes.has(source);
             const targetHidden = !visibleNodes.has(target);
 
-            const isReal = attrs.kind === 'explicit';
+            const isReal = attrs.kind === 'explicit' || attrs.kind === 'structural' || attrs.kind === 'wikilink';
             const sim = attrs.similarity !== undefined ? Number(attrs.similarity) : 0;
             const filterSim = Number(similarity);
 
@@ -194,4 +225,5 @@ export function applyFilters(graph, filters) {
 
     return { visibleNodes, visibleEdges };
 }
+
 

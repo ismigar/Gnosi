@@ -8,7 +8,7 @@ import networkx as nx
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 # Import suggestion handler (Phase 1 MVP) - DISABLED: No module named 'pipeline.skills.graph_suggestions'
 # from pipeline.skills.graph_suggestions.scripts.graph_suggestion_handler import SuggestionHandler

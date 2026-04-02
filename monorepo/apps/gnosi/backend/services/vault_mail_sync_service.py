@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 from backend.services.google_mail_service import get_gmail_service
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 log = logging.getLogger(__name__)
 

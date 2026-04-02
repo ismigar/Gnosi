@@ -16,6 +16,7 @@ import SchedulerPage from './pages/SchedulerPage';
 import ComposerPage from './pages/ComposerPage';
 import { Toaster } from 'react-hot-toast';
 
+import AgentChat from './components/AgentChat';
 import { useTheme } from './hooks/useTheme';
 
 function App() {
@@ -53,6 +54,7 @@ function App() {
         </Routes>
       </div>
       <Toaster position="bottom-right" />
+      <AgentChat />
     </div>
   );
 }

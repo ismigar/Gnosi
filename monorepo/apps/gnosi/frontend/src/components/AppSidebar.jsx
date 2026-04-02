@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { Link, NavLink } from 'react-router-dom';
 import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool } from 'lucide-react';
 import { GlobalSettingsModal } from './GlobalSettingsModal';
 
@@ -23,15 +22,14 @@ const GIcon = ({ size = 14 }) => (
 
 const navItems = [
     { to: '/vault', icon: FileText, label: 'Vault' },
-    { to: '/graph', icon: Network, label: 'Graph' },
+    { to: '/graph', icon: Network, label: 'Graf' },
     { to: '/mail', icon: Inbox, label: 'Mail' },
-    { to: '/calendar', icon: Calendar, label: 'Calendar' },
-    { to: '/reader', icon: BookOpen, label: 'Reader' },
+    { to: '/calendar', icon: Calendar, label: 'Calendari' },
+    { to: '/reader', icon: BookOpen, label: 'Lector' },
     { to: '/social-dashboard', icon: Share2, label: 'Social' },
 ];
 
 export function AppSidebar() {
-    const { t } = useTranslation();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settingsTab, setSettingsTab] = useState('general');
@@ -83,14 +81,14 @@ export function AppSidebar() {
                             key={to}
                             to={to}
                             end={to === '/'}
-                            title={t(label)}
+                            title={label}
                             onClick={() => setMobileOpen(false)}
                             className={({ isActive }) =>
                                 `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                             }
                         >
                             <Icon size={18} strokeWidth={1.5} />
-                            <span className="app-sidebar__tooltip">{t(label)}</span>
+                            <span className="app-sidebar__tooltip">{label}</span>
                         </NavLink>
                     ))}
                 </div>
@@ -98,22 +96,22 @@ export function AppSidebar() {
                 <div className="app-sidebar__footer">
                     <NavLink
                         to="/dashboard"
-                        title={t("Control Center")}
+                        title="Control Center"
                         onClick={() => setMobileOpen(false)}
                         className={({ isActive }) =>
                             `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                         }
                     >
                         <Gauge size={18} strokeWidth={1.5} />
-                        <span className="app-sidebar__tooltip">{t("Dashboard")}</span>
+                        <span className="app-sidebar__tooltip">Control</span>
                     </NavLink>
                     <button
                         className="app-sidebar__item"
-                        title={t("Settings")}
+                        title="Configuració"
                         onClick={() => setSettingsOpen(true)}
                     >
                         <Settings size={18} strokeWidth={1.5} />
-                        <span className="app-sidebar__tooltip">{t("Settings")}</span>
+                        <span className="app-sidebar__tooltip">Config</span>
                     </button>
 
                 </div>

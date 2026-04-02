@@ -121,6 +121,11 @@
   /* Brand Colors Dark Overrides (if any) */
   --gnosi-primary: #3b82f6;
   --gnosi-primary-rgb: 59, 130, 246;
+
+  /* AI Provider Specifics */
+  --provider-card-bg: rgba(255, 255, 255, 0.03);
+  --provider-card-border: rgba(255, 255, 255, 0.08);
+  --provider-card-hover: rgba(255, 255, 255, 0.06);
 }
 
 body {
@@ -470,122 +475,156 @@ body {
 .home-card--dashboard:hover { border-color: rgba(112, 0, 255, 0.3); }
 .home-card--social:hover { border-color: rgba(255, 0, 112, 0.3); }
 
-/* Botons Estàndard Gnosi - Premium Design */
+/* Botons Estàndard Gnosi */
 .btn-gnosi {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
-  padding: 10px 24px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
   border-radius: 12px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid transparent;
   cursor: pointer;
   user-select: none;
   line-height: 1.25;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .btn-gnosi:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 .btn-gnosi-primary {
-  background-color: var(--gnosi-blue);
+  background-color: var(--gnosi-primary);
   color: white !important;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
 }
 
 .btn-gnosi-primary:hover {
-  background-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
-}
-
-.btn-gnosi-secondary {
-  background-color: var(--settings-btn-bg);
-  border: 1px solid var(--settings-border);
-  color: var(--text-primary) !important;
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(var(--gnosi-primary-rgb), 0.35);
 }
 
 .btn-gnosi-danger {
   background-color: #ef4444;
   color: white !important;
-  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
 }
 
 .btn-gnosi-danger:hover {
-  background-color: #dc2626;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 15px rgba(239, 68, 68, 0.4);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
 }
 
-/* ──────────────────────────────────────────────
-   Vault Typography & BlockNote Overrides
-   ────────────────────────────────────────────── */
-
-.bn-editor h1,
-.bn-editor h2,
-.bn-editor h3,
-.bn-editor h4,
-.bn-editor h5,
-.bn-editor h6 {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+/* AI Settings Premium Styles */
+.ai-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
-.bn-editor h1 { font-size: 1.875rem !important; line-height: 2.25rem !important; font-weight: 800 !important; margin-top: 2.5rem !important; margin-bottom: 1.25rem !important; color: var(--text-primary); }
-.bn-editor h2 { font-size: 1.5rem !important; line-height: 2rem !important; font-weight: 700 !important; margin-top: 2rem !important; margin-bottom: 1rem !important; color: var(--text-primary); }
-.bn-editor h3 { font-size: 1.25rem !important; line-height: 1.75rem !important; font-weight: 600 !important; margin-top: 1.5rem !important; margin-bottom: 0.875rem !important; color: var(--text-primary); }
-.bn-editor h4 { font-size: 1.125rem !important; line-height: 1.625rem !important; font-weight: 600 !important; margin-top: 1.25rem !important; margin-bottom: 0.625rem !important; color: var(--text-primary); }
-.bn-editor h5 { font-size: 1rem !important; line-height: 1.5rem !important; font-weight: 600 !important; margin-top: 1rem !important; margin-bottom: 0.5rem !important; color: var(--text-primary); }
-.bn-editor h6 { font-size: 0.875rem !important; line-height: 1.25rem !important; font-weight: 600 !important; margin-top: 0.75rem !important; margin-bottom: 0.375rem !important; color: var(--text-tertiary); }
-
-/* Fix per al color de fons (background-color) en headings */
-.bn-block-content[data-background-color] {
-    background-color: transparent !important;
+.provider-card {
+  background: var(--provider-card-bg);
+  border: 1px solid var(--provider-card-border);
+  border-radius: 14px;
+  padding: 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.bn-block-content[data-background-color] > :is(h1, h2, h3, h4, h5, h6) {
-    display: inline-block !important;
-    width: auto !important;
-    padding-left: 0.4rem !important;
-    padding-right: 0.4rem !important;
-    margin-left: -0.4rem !important;
-    border-radius: 4px;
+.provider-card:hover {
+  background: var(--provider-card-hover);
+  border-color: rgba(var(--gnosi-primary-rgb), 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
 }
 
-.bn-block-content[data-background-color="gray"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-gray-background) !important; }
-.bn-block-content[data-background-color="brown"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-brown-background) !important; }
-.bn-block-content[data-background-color="orange"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-orange-background) !important; }
-.bn-block-content[data-background-color="yellow"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-yellow-background) !important; }
-.bn-block-content[data-background-color="green"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-green-background) !important; }
-.bn-block-content[data-background-color="blue"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-blue-background) !important; }
-.bn-block-content[data-background-color="purple"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-purple-background) !important; }
-.bn-block-content[data-background-color="pink"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-pink-background) !important; }
-.bn-block-content[data-background-color="red"] > :is(h1, h2, h3, h4, h5, h6) { background-color: var(--bn-colors-highlights-red-background) !important; }
-
-
-/* Column List Layout Fix */
-[data-block-type="columnList"] > .bn-block-group { 
-    display: flex !important; 
-    flex-direction: row !important; 
-    gap: 32px !important; 
-    width: 100% !important; 
-    align-items: flex-start !important; 
+.provider-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-[data-block-type="columnList"] > .bn-block-group > .bn-block-outer { 
-    flex: 1 !important; 
-    min-width: 0 !important; 
+.provider-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-/* Ensure columns are responsive on very small screens */
-@media (max-width: 640px) {
-    [data-block-type="columnList"] > .bn-block-group { 
-        flex-direction: column !important; 
-        gap: 16px !important;
-    }
+.provider-card__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.provider-card__name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-badge--env {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-badge--api {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-badge--custom {
+  background: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.status-badge--none {
+  background: rgba(113, 113, 122, 0.1);
+  color: #71717a;
+  border: 1px solid rgba(113, 113, 122, 0.2);
+}
+
+.provider-card__footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.provider-card__indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #71717a;
+}
+
+.provider-card__indicator--active {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }

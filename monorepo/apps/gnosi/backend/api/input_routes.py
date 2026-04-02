@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pipeline.notion_api import create_page, notion_url
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 cfg = load_params(strict_env=False)
 DEFAULT_NOTE_TYPE = cfg.notion.get("type_permanent", "Permanent note")

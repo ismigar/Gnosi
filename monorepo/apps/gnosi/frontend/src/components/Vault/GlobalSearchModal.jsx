@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, FileText, Hash, FolderClosed } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
-    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef(null);
@@ -69,7 +67,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
     if (!isOpen) return null;
 
     const getIcon = (folder) => {
-        if (folder === 'Tasques' || folder === 'Tasks') return <Hash size={16} className="text-[var(--text-tertiary)]" />;
+        if (folder === 'Tasques') return <Hash size={16} className="text-[var(--text-tertiary)]" />;
         if (folder === 'Notes') return <FileText size={16} className="text-[var(--text-tertiary)]" />;
         return <FolderClosed size={16} className="text-[var(--text-tertiary)]" />;
     };
@@ -91,7 +89,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder={t('Search across the entire Vault...')}
+                        placeholder="Cerca a tot el Vault..."
                         className="w-full bg-transparent border-none focus:ring-0 text-lg px-3 py-1 outline-none text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                     />
                     <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-1 rounded border border-[var(--border-primary)]">
@@ -102,11 +100,11 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                 <div className="overflow-y-auto max-h-[60vh] custom-scrollbar" ref={listRef}>
                     {query.trim() === '' ? (
                         <div className="px-6 py-12 text-center text-[var(--text-secondary)] text-sm">
-                            {t('Start typing to search for notes and databases...')}
+                            Comença a escriure per cercar notes i bases de dades...
                         </div>
                     ) : filteredNotes.length === 0 ? (
                         <div className="px-6 py-12 text-center text-[var(--text-secondary)] text-sm">
-                            {t('No results found for "{{query}}"', { query })}
+                            No s'ha trobat cap resultat per "{query}"
                         </div>
                     ) : (
                         <div className="p-2 space-y-1">
@@ -131,11 +129,11 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                             )}
                                             <div>
                                                 <h3 className={`text-sm font-medium ${isSelected ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>
-                                                    {note.title || note.id || t('No Title')}
+                                                    {note.title || note.id || 'Sense Títol'}
                                                 </h3>
                                                 <div className="flex items-center gap-2 mt-0.5 opacity-70">
                                                     <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">
-                                                        {t(note.folder)}
+                                                        {note.folder}
                                                     </span>
                                                 </div>
                                             </div>

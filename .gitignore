@@ -37,3 +37,4 @@ coverage/
 # Podem permetre testejar però no pujar temporalitats
 monorepo/apps/gnosi/pipeline/sandbox/
 !monorepo/apps/gnosi/pipeline/sandbox/.gitkeep
+monorepo/apps/gnosi/config/params.yaml

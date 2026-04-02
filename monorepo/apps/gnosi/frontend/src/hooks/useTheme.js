@@ -6,13 +6,7 @@ import { useState, useEffect } from 'react';
  */
 export function useTheme() {
     const [themePreference, setThemePreference] = useState(() => localStorage.getItem('db-theme') || 'system');
-    const [effectiveTheme, setEffectiveTheme] = useState(() => {
-        const pref = localStorage.getItem('db-theme') || 'system';
-        if (pref === 'dark') return 'dark';
-        if (pref === 'light') return 'light';
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    });
-
+    const [effectiveTheme, setEffectiveTheme] = useState('light');
 
     useEffect(() => {
         const updateEffectiveTheme = () => {
@@ -42,23 +36,12 @@ export function useTheme() {
         };
 
         window.addEventListener('db-theme-changed', handleThemeChanged);
-        
-        // Multi-browser compatibility for media query listener
-        if (mediaQuery.addEventListener) {
-            mediaQuery.addEventListener('change', handleSystemChange);
-        } else if (mediaQuery.addListener) {
-            mediaQuery.addListener(handleSystemChange);
-        }
+        mediaQuery.addEventListener('change', handleSystemChange);
 
         return () => {
             window.removeEventListener('db-theme-changed', handleThemeChanged);
-            if (mediaQuery.removeEventListener) {
-                mediaQuery.removeEventListener('change', handleSystemChange);
-            } else if (mediaQuery.removeListener) {
-                mediaQuery.removeListener(handleSystemChange);
-            }
+            mediaQuery.removeEventListener('change', handleSystemChange);
         };
-
     }, []);
 
     return {

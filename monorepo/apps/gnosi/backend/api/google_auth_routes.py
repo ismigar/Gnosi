@@ -20,7 +20,7 @@ SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email'
 ]
 
-from config.env_config import get_env
+from backend.config.env_config import get_env
 
 def get_google_config():
     client_id = get_env("GOOGLE_OAUTH_CLIENT_ID")

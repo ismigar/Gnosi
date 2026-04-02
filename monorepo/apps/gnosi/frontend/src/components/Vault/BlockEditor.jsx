@@ -23,7 +23,8 @@ import {
     ExternalLink,
     Maximize2,
     Columns,
-    MessageSquare
+    MessageSquare,
+    Settings
 } from 'lucide-react';
 import axios from 'axios';
 import { 
@@ -40,15 +41,14 @@ import "@blocknote/core/fonts/inter.css";
 import "@blocknote/react/style.css";
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from 'react-hot-toast';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import PageHistory from './PageHistory';
 
 import { VaultEditorContext } from './VaultEditorContext';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
+import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 
 const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, fieldKey }) => {
-    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef(null);
@@ -106,7 +106,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                         <input
                             autoFocus
                             className="w-full pl-9 pr-4 py-2 bg-[var(--bg-secondary)] border-none rounded-lg text-sm focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none text-[var(--text-primary)]"
-                            placeholder={t("Search...")}
+                            placeholder="Buscar..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
@@ -128,7 +128,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                                 className="btn-gnosi btn-gnosi-primary !text-xs !py-2 w-full mt-2"
                             >
                                 <Plus size={14} />
-                                {t('Create "{{searchTerm}}"', { searchTerm })}
+                                Crear "{searchTerm}"
                             </button>
                         )}
                     </div>
@@ -139,7 +139,6 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
 };
 
 const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) => {
-    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
 
@@ -165,7 +164,7 @@ const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) 
             </div>
             {isOpen && (
                 <div className="absolute z-[100] top-full mt-2 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="text-[10px] font-bold text-[var(--text-tertiary)]/40 px-3 py-2 uppercase tracking-wider">{t("Select Table")}</div>
+                    <div className="text-[10px] font-bold text-[var(--text-tertiary)]/40 px-3 py-2 uppercase tracking-wider">Selecciona Taula</div>
                     {(options || []).map(opt => (
                         <div
                             key={opt}
@@ -183,7 +182,6 @@ const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) 
 };
 
 const InlineDatabase = ({ block, editor }) => {
-    const { t } = useTranslation();
     const context = React.useContext(VaultEditorContext);
     const { allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry } = context || {};
     const [activeTableId, setActiveTableId] = useState(block.props.database_table_id);
@@ -199,22 +197,22 @@ const InlineDatabase = ({ block, editor }) => {
             <div className="p-12 border-2 border-dashed border-[var(--border-primary)] rounded-xl flex flex-col items-center justify-center gap-4 bg-[var(--bg-secondary)]/30 group-hover:border-[var(--gnosi-primary)]/30 transition-colors">
                 <div className="p-4 bg-[var(--gnosi-primary)]/10 rounded-2xl"><Database size={32} className="text-[var(--gnosi-primary)]/60" /></div>
                 <div className="text-center">
-                    <h3 className="text-sm font-semibold text-[var(--text-secondary)]">{t("Configure view")}</h3>
-                    <p className="text-xs text-[var(--text-tertiary)]/60 mt-1">{t("Select a database to start")}</p>
+                    <h3 className="text-sm font-semibold text-[var(--text-secondary)]">Configura la vista</h3>
+                    <p className="text-xs text-[var(--text-tertiary)]/60 mt-1">Selecciona una base de dades per començar</p>
                 </div>
                 <SingleSelectPill 
                     value={activeTableId} 
                     onChange={handleTableChange} 
                     options={(allTables || []).map(t => t.id)} 
                     idToTitle={Object.fromEntries((allTables || []).map(t => [t.id, t.name]))} 
-                    placeholder={t("Choose table...")} 
+                    placeholder="Triar taula..." 
                 />
             </div>
         );
     }
     return (
         <div className="p-8 text-center text-[var(--text-tertiary)]/60 text-[11px] italic border border-[var(--border-primary)] rounded-lg bg-[var(--bg-primary)] shadow-sm my-6">
-            {t("Online data editor will be available in a future update.")}
+            L'editor de dades en línia estarà disponible en una futura actualització.
         </div>
     );
 };
@@ -224,7 +222,6 @@ class ErrorBoundary extends React.Component {
         super(props);
         this.state = { hasError: false, error: null };
     }
-    static contextType = VaultEditorContext;
     static getDerivedStateFromError(error) { return { hasError: true, error }; }
     componentDidCatch(error, errorInfo) { console.error("ErrorBoundary caught an error", error, errorInfo); }
     render() {
@@ -233,8 +230,8 @@ class ErrorBoundary extends React.Component {
                 <div className="p-12 border-2 border-dashed border-[var(--status-error)]/30 rounded-xl bg-[var(--status-error)]/5 flex flex-col items-center gap-4 text-center my-10">
                     <div className="p-4 bg-[var(--status-error)]/10 rounded-full text-[var(--status-error)]"><X size={32} /></div>
                     <div className="max-w-md">
-                        <h3 className="text-lg font-bold text-[var(--text-primary)]">{this.props.t ? this.props.t("An error occurred in the editor") : "An error occurred in the editor"}</h3>
-                        <p className="text-sm text-[var(--text-tertiary)] mt-1">{this.props.t ? this.props.t("The content of this page contains unsupported or malformed blocks.") : "The content of this page contains unsupported or malformed blocks."}</p>
+                        <h3 className="text-lg font-bold text-[var(--text-primary)]">S'ha produït un error a l'editor</h3>
+                        <p className="text-sm text-[var(--text-tertiary)] mt-1">El contingut d'aquesta pàgina conté blocs no suportats o mal formatats.</p>
                         <div className="bg-[var(--bg-secondary)] p-3 rounded-lg text-left mt-4 overflow-auto max-h-40 border border-[var(--border-primary)] shadow-inner">
                             <code className="text-[10px] text-[var(--text-tertiary)] leading-relaxed whitespace-pre-wrap">
                                 {this.state.error?.toString()}
@@ -249,7 +246,6 @@ class ErrorBoundary extends React.Component {
 }
 
 const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTitle, onRefreshNotes, effectiveTheme, contextValue }) => {
-    const { t } = useTranslation();
     const schema = useMemo(() => {
         const specs = {
             database: createReactBlockSpec({
@@ -301,7 +297,7 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
         return blocks.map(block => {
             let sanitizedBlock = { ...block };
             
-            // 1. Legacy type mapping (Notion -> Modern BlockNote)
+            // 1. Mapatge de tipus llegat (Notion -> Modern BlockNote)
             if (block.type === 'heading1') {
                 sanitizedBlock.type = 'heading';
                 sanitizedBlock.props = { ...sanitizedBlock.props, level: 1 };
@@ -317,18 +313,18 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                 sanitizedBlock.type = 'numberedListItem';
             }
 
-            // 2. Remove content if the block is one of our strict containers
+            // 2. Eliminar content si el bloc és un dels nostres contenidors estrictes
             if (['columnList', 'column', 'database'].includes(sanitizedBlock.type)) {
                 delete sanitizedBlock.content;
             }
             
-            // 3. General safety rule for Notion data:
-            // If it has content as empty array and has children, BlockNote prefers only children
+            // 3. Regla de seguretat general per a dades de Notion: 
+            // Si té content com a array buit i té fills, BlockNote prefereix només els fills
             if (Array.isArray(sanitizedBlock.content) && sanitizedBlock.content.length === 0 && sanitizedBlock.children && sanitizedBlock.children.length > 0) {
                 delete sanitizedBlock.content;
             }
 
-            // Recursive traversal
+            // Recorre recursivament
             if (sanitizedBlock.children) {
                 sanitizedBlock.children = sanitizeBlocks(sanitizedBlock.children);
             }
@@ -336,57 +332,174 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
         });
     }, []);
 
+    const [blocks, setBlocks] = useState(null);
+    const [isParsing, setIsParsing] = useState(true);
+
     const editor = useCreateBlockNote({
         schema,
-        initialContent: (() => {
-            if (!initialContent) return undefined;
-            if (typeof initialContent === 'object') return sanitizeBlocks(initialContent);
-            try {
-                const parsed = JSON.parse(initialContent);
-                if (!Array.isArray(parsed)) return undefined;
-                return sanitizeBlocks(parsed);
-            } catch (e) {
-                console.warn("Error parsing initial content:", e);
-                return undefined;
-            }
-        })(),
+        initialContent: blocks || undefined,
     });
+
+    useEffect(() => {
+        const loadInitialContent = async () => {
+            if (!initialContent) {
+                setIsParsing(false);
+                return;
+            }
+            try {
+                const parsedBlocks = await richMarkdownToBlocks(initialContent, editor);
+                if (parsedBlocks) {
+                    const sanitized = sanitizeBlocks(parsedBlocks);
+                    setBlocks(sanitized);
+                    // Si l'editor ja està creat, aprofitem per injectar-los
+                    if (editor && editor.document.length <= 1 && editor.document[0].content.length === 0) {
+                         editor.replaceBlocks(editor.document, sanitized);
+                    }
+                }
+            } catch (e) {
+                console.error("Error carregant contingut inicial:", e);
+            } finally {
+                setIsParsing(false);
+            }
+        };
+        loadInitialContent();
+    }, [initialContent, editor, sanitizeBlocks]);
 
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
 
     const saveTimerRef = useRef(null);
-    const handleSave = useCallback(async (updatedContent, updatedMetadata) => {
+    const handleSave = useCallback(async (updatedMetadata) => {
         if (!noteFilename || !editor) return;
         try {
-            const data = { title: updatedMetadata?.title || metadata?.title || t("Untitled"), content: updatedContent || JSON.stringify(editor.document), metadata: updatedMetadata || metadata };
+            // Generem el Markdown des del document de l'editor
+            const markdownContent = blocksToRichMarkdown(editor.document);
+            const data = { 
+                title: updatedMetadata?.title || metadata?.title || "Sense títol", 
+                content: markdownContent, 
+                metadata: updatedMetadata || metadata 
+            };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
             if (onUpdate) onUpdate(data.content, { metadata: data.metadata, title: data.title });
             if (onRefreshNotes) onRefreshNotes();
-        } catch (err) { console.error("Error saving automatically:", err); }
+        } catch (err) { console.error("Error al desar automàticament:", err); }
     }, [noteFilename, metadata, editor, onUpdate, onRefreshNotes]);
 
     useEffect(() => {
-        if (!editor) return;
+        if (!editor || isParsing) return;
         const sub = editor.onChange(() => {
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-            saveTimerRef.current = setTimeout(() => handleSave(JSON.stringify(editor.document), metadata), 1000);
+            saveTimerRef.current = setTimeout(() => handleSave(metadata), 1000);
         });
         return () => { if (typeof sub === 'function') sub(); else if (sub && sub.remove) sub.remove(); if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-    }, [editor, handleSave, metadata]);
+    }, [editor, handleSave, metadata, isParsing]);
 
-    if (!editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> {t("Loading editor...")}</div>;
+    if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> Carregant editor...</div>;
 
     return (
         <VaultEditorContext.Provider value={contextValue}>
+            <style>{`
+                /* === Editor padding === */
+                .bn-editor { padding-left: 40px !important; padding-right: 40px !important; }
+
+                /* === 1. Heading sizes: mai més grans que el títol de la pàgina (text-4xl ≈ 2.25rem) === */
+                .bn-editor [data-content-type="heading"] h1,
+                .bn-editor .bn-block-content[data-content-type="heading"] [data-level="1"] h1,
+                .bn-editor h1.bn-inline-content {
+                    font-size: 1.75rem !important;
+                    line-height: 1.3 !important;
+                    font-weight: 700 !important;
+                    margin: 0.6em 0 0.3em !important;
+                }
+                .bn-editor [data-content-type="heading"] h2,
+                .bn-editor .bn-block-content[data-content-type="heading"] [data-level="2"] h2,
+                .bn-editor h2.bn-inline-content {
+                    font-size: 1.4rem !important;
+                    line-height: 1.3 !important;
+                    font-weight: 600 !important;
+                    margin: 0.5em 0 0.25em !important;
+                }
+                .bn-editor [data-content-type="heading"] h3,
+                .bn-editor .bn-block-content[data-content-type="heading"] [data-level="3"] h3,
+                .bn-editor h3.bn-inline-content {
+                    font-size: 1.15rem !important;
+                    line-height: 1.4 !important;
+                    font-weight: 600 !important;
+                    margin: 0.4em 0 0.2em !important;
+                }
+
+                /* === 2. Background colors: only on text, not full block === */
+                /* Override BlockNote's 3-selector system:
+                   1. [data-background-color=X] on .bn-block-content
+                   2. .bn-block:has(>.bn-block-content[data-background-color=X]) on parent
+                   3. [data-style-type=backgroundColor][data-value=X] on inline spans */
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) {
+                    background-color: transparent !important;
+                }
+                .bn-editor .bn-block-content[data-background-color]:not([data-background-color="default"]) {
+                    background-color: transparent !important;
+                }
+                .bn-editor [data-background-color]:not([data-background-color="default"]):not(.bn-block):not(.bn-block-content) {
+                    background-color: transparent !important;
+                }
+                /* Apply background only on inline-content (the text element) */
+                .bn-editor .bn-block-content[data-background-color="gray"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="gray"]) .bn-inline-content { background-color: #ebeced !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="brown"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="brown"]) .bn-inline-content { background-color: #e9e5e3 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="red"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="red"]) .bn-inline-content { background-color: #fbe4e4 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="orange"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="orange"]) .bn-inline-content { background-color: #f6e9d9 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="yellow"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="yellow"]) .bn-inline-content { background-color: #fbf3db !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="green"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="green"]) .bn-inline-content { background-color: #ddedea !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="blue"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="blue"]) .bn-inline-content { background-color: #ddebf1 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="purple"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="purple"]) .bn-inline-content { background-color: #eae4f2 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                .bn-editor .bn-block-content[data-background-color="pink"] .bn-inline-content,
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="pink"]) .bn-inline-content { background-color: #f4dfeb !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+
+                /* === 3. Column layout === */
+                [data-block-type="columnList"] > .bn-block-group,
+                .bn-block-content[data-content-type="columnList"] + .bn-block-group {
+                    display: flex !important;
+                    flex-direction: row !important;
+                    gap: 24px !important;
+                    width: 100% !important;
+                    align-items: stretch !important;
+                }
+                [data-block-type="columnList"] > .bn-block-group > .bn-block-outer,
+                .bn-block-content[data-content-type="columnList"] + .bn-block-group > .bn-block-outer {
+                    flex: 1 !important;
+                    min-width: 0 !important;
+                }
+                /* Hide empty column content placeholders */
+                [data-block-type="column"] > .bn-block-content:empty,
+                [data-block-type="columnList"] > .bn-block-content:empty {
+                    display: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    min-height: 0 !important;
+                }
+
+                /* === Toggle marker === */
+                .bn-toggle summary::-webkit-details-marker { display: none; }
+            `}</style>
             <BlockNoteView editor={editor} slashMenu={false} theme={effectiveTheme}>
                 <SuggestionMenuController
                     triggerCharacter="/"
                     getItems={async (query) => {
                         if (!editor) return [];
                         const defaultItems = getDefaultReactSlashMenuItems(editor);
-                        const vaultItems = buildSlashCommandCatalog({ allTables: contextValue.allTables, editor, t });
-                        const layoutItems = buildColumnLayoutCatalog({ editor, t });
+                        const vaultItems = buildSlashCommandCatalog().map(item => ({
+                            title: item.title, onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: "database", props: { ...item.props } }), aliases: item.aliases, group: "Base de dades", icon: <Database size={18} />, subtext: item.description
+                        }));
+                        const layoutItems = buildColumnLayoutCatalog({ editor }).map(item => ({
+                            title: item.title, onItemClick: item.onItemClick, aliases: item.aliases, group: item.group, icon: <Columns size={18} />, subtext: item.subtext
+                        }));
                         const allItems = [...defaultItems, ...vaultItems, ...layoutItems];
                         if (!query) return allItems.slice(0, 12);
                         const lowerQuery = query.toLowerCase();
@@ -399,25 +512,24 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
 };
 
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {} }) {
-    const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [metadata, setMetadata] = useState(initialMetadata);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry]);
-    const handleSaveMetadata = useCallback(async (updatedMetadata) => { if (!noteFilename) return; try { const data = { title: updatedMetadata?.title || metadata?.title || t("Untitled"), metadata: updatedMetadata || metadata }; await axios.patch(`/api/vault/pages/${noteFilename}`, data); if (onRefreshNotes) onRefreshNotes(); } catch (err) { console.error("Error saving metadata:", err); } }, [noteFilename, metadata, onRefreshNotes, t]);
+    const handleSaveMetadata = useCallback(async (updatedMetadata) => { if (!noteFilename) return; try { const data = { title: updatedMetadata?.title || metadata?.title || "Sense títol", metadata: updatedMetadata || metadata }; await axios.patch(`/api/vault/pages/${noteFilename}`, data); if (onRefreshNotes) onRefreshNotes(); } catch (err) { console.error("Error al desar metadades:", err); } }, [noteFilename, metadata, onRefreshNotes]);
     const handleTitleChange = (e) => { const nextTitle = e.target.value; const nextMeta = { ...metadata, title: nextTitle }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
     const handleMetaChange = (key, value) => { const nextMeta = { ...metadata, [key]: value }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
     const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
     const currentTableId = metadata.table_id || metadata.database_table_id;
-    const currentTable = (allTables || []).find(t => t.id === currentTableId);
+    const currentTable = (allTables || []).find(t => t.id === currentTableId) || (!currentTableId ? (allTables || []).find(t => t.id === 'wiki') : null);
     const properties = currentTable?.properties || [];
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
             <div className="max-w-4xl w-full py-12 px-8 min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 <div className="mb-10 space-y-1.5">
-                    <input type="text" value={metadata.title || ""} onChange={handleTitleChange} placeholder={t("Untitled")} className="w-full text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/30 text-[var(--text-primary)] mb-6 bg-transparent" />
+                    <input type="text" value={metadata.title || ""} onChange={handleTitleChange} placeholder="Sense títol" className="w-full text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/30 text-[var(--text-primary)] mb-6 bg-transparent" />
                     <div className="absolute top-12 right-8 flex gap-2">
-                         <button onClick={() => setIsHistoryOpen(true)} className="p-2 text-[var(--text-tertiary)]/60 hover:text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 rounded-full transition-all" title={t("Version history")}><Clock size={20} /></button>
+                         <button onClick={() => setIsHistoryOpen(true)} className="p-2 text-[var(--text-tertiary)]/60 hover:text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 rounded-full transition-all" title="Històric de versions"><Clock size={20} /></button>
                     </div>
                     <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-1 items-center px-1">
                         {properties.map(prop => {
@@ -428,21 +540,21 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     <div className="flex items-center gap-2 group py-1.5 h-9"><div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors"><Icon size={14} /></div><span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span></div>
                                     <div className="flex items-center gap-2 group h-9">
                                         {prop.type === 'multi_select' ? (
-                                            <MultiSelectPills value={value} onChange={val => handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder={t("Add options...")} onCreate={val => { const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(value) ? value : []), val]); }} />
+                                            <MultiSelectPills value={value} onChange={val => handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder="Afegir opcions..." onCreate={val => { const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(value) ? value : []), val]); }} />
                                         ) : prop.type === 'select' ? (
                                             <select value={value || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-transparent hover:border-[var(--border-primary)] rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:bg-[var(--bg-primary)] focus:border-[var(--gnosi-primary)]/40 transition-all font-medium h-8">
-                                                <option value="">{t("Empty")}</option>
+                                                <option value="">Buit</option>
                                                 {(prop.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                             </select>
                                         ) : (
-                                            <input type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={value || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder={t("Empty")} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-8" />
+                                            <input type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={value || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder="Buit" className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-8" />
                                         )}
-                                        <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t("Delete property")}><X size={14} /></button>
+                                        <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title="Eliminar propietat"><X size={14} /></button>
                                     </div>
                                 </React.Fragment>
                             );
                         })}
-                        <button onClick={() => onEditSchema(currentTable)} className="btn-gnosi btn-gnosi-primary !text-[10px] !py-1 !px-3 mt-2"><Plus size={14} /> {t("ADD PROPERTY")}</button>
+                        <button onClick={() => onEditSchema(currentTable)} className="btn-gnosi btn-gnosi-primary !text-[10px] !py-1 !px-3 mt-2"><Settings size={14} /> GESTIONAR PROPIETATS</button>
                     </div>
                 </div>
                 <div className="relative -mx-10 min-h-[500px]">
@@ -456,9 +568,4 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     );
 }
 
-const BlockEditorWithTranslation = (props) => {
-    const { t } = useTranslation();
-    return <BlockEditor {...props} t={t} />;
-};
-
-export default BlockEditorWithTranslation;
+export default BlockEditor;

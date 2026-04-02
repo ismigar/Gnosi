@@ -52,7 +52,11 @@ class ToolRegistry:
             cfg = load_params(strict_env=False)
             db_path = cfg.paths["TOOLS"] / "tool_registry.sqlite"
 
-        db_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"⚠️ Warning: Could not create tools directory {db_path.parent}: {e}")
+
         self.db_path = db_path
         self._init_db()
 

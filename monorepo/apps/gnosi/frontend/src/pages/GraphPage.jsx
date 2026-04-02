@@ -14,7 +14,6 @@ import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
 
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
-import AgentChat from '../components/AgentChat';
 import '../viewer/style.css';
 
 function GraphPage() {
@@ -52,13 +51,14 @@ function GraphPage() {
     const [showArrows, setShowArrows] = useState(true);
     const [labelThreshold, setLabelThreshold] = useState(14);
     const [nodeSize, setNodeSize] = useState(1.0);
-    const [edgeThickness, setEdgeThickness] = useState(0.5);
+    const [edgeThickness, setEdgeThickness] = useState(1.2);
 
     // Physics State - UI (Instant feedback for sliders)
-    const [gravityUI, setGravityUI] = useState(0.005);   // Low Gravity
-    const [repulsionUI, setRepulsionUI] = useState(2000); // Low Repulsion
-    const [frictionUI, setFrictionUI] = useState(1.5);    // Very Fast
+    const [gravityUI, setGravityUI] = useState(0.01);   // Increased Gravity
+    const [repulsionUI, setRepulsionUI] = useState(15000); // Increased Repulsion
+    const [frictionUI, setFrictionUI] = useState(2.5);    // Increased Friction
     const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(5); // High Link Force
+
     const [linLogMode, setLinLogMode] = useState(false); // Vanilla
 
     // Sync State
@@ -283,6 +283,8 @@ function GraphPage() {
 
     const pathResult = useMemo(() => {
         if (!graphInstance || !pathSource || !pathTarget) return null;
+        if (!pathSource || !pathTarget) return null;
+
         const queue = [[pathSource]];
         const visited = new Set([pathSource]);
 
@@ -659,8 +661,6 @@ function GraphPage() {
                     onClose={() => setSelectedNode(null)}
                 />
             </div>
-
-            <AgentChat />
         </Layout>
     );
 }

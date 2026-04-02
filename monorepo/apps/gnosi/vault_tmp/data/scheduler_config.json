@@ -1,0 +1,40 @@
+{
+  "tasks": {
+    "sync_directives": {
+      "name": "sync_directives",
+      "description": "Sync directives to Notion",
+      "interval_minutes": 1440,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    },
+    "backup_tools": {
+      "name": "backup_tools",
+      "description": "Backup approved tools",
+      "interval_minutes": 720,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    },
+    "cleanup_rejected": {
+      "name": "cleanup_rejected",
+      "description": "Cleanup old rejected tools",
+      "interval_minutes": 10080,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    },
+    "update_analytics": {
+      "name": "update_analytics",
+      "description": "Update statistics",
+      "interval_minutes": 60,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    }
+  }
+}

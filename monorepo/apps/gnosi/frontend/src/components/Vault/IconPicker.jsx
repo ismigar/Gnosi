@@ -6,9 +6,8 @@ import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
 import axios from 'axios';
 import { useTheme } from '../../hooks/useTheme';
 import { toast } from 'react-hot-toast';
-import { useTranslation } from 'react-i18next';
 
-const NOTION_COLORS = [
+export const NOTION_COLORS = [
     { name: 'default', color: '#37352f', label: 'Default' },
     { name: 'gray', color: '#787774', label: 'Gray' },
     { name: 'brown', color: '#976d57', label: 'Brown' },
@@ -33,7 +32,6 @@ const FALLBACK_LUCIDE_ICONS = [
 ];
 
 export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, triggerRef }) => {
-    const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [activeTab, setActiveTab] = useState('emoji');
     const [selectedColor, setSelectedColor] = useState('default');
@@ -75,7 +73,8 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
         const formData = new FormData();
         formData.append('file', file);
-        
+        // Usarem el mateix endpoint que per covers però potser hauríem de tenir un específic per icons
+        // De moment, l'endpoint upload-cover ens serveix per pujar Assets.
         setIsUploading(true);
         try {
             const res = await axios.post('/api/vault/upload-cover', formData, {
@@ -83,10 +82,10 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             });
             onSelectIcon(res.data.url);
             onClose();
-            toast.success(t('Icon uploaded successfully'));
+            toast.success("Icona pujada correctament");
         } catch (error) {
             console.error(error);
-            toast.error(t('Error uploading icon'));
+            toast.error("Error al pujar la icona");
         } finally {
             setIsUploading(false);
         }
@@ -119,19 +118,19 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'emoji' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('emoji')}
                     >
-                        {t('Emoji')}
+                        Emoji
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'icons' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('icons')}
                     >
-                        {t('Icons')}
+                        Icones
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'custom' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('custom')}
                     >
-                        {t('Custom')}
+                        Personalitzat
                     </button>
                     <div className="flex-1" />
                     {currentIcon && (
@@ -139,7 +138,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                             onClick={() => { onSelectIcon(''); onClose(); }}
                             className="text-[10px] text-[var(--status-error)] hover:text-[var(--status-error)]/80 hover:bg-[var(--status-error)]/10 px-2 py-1 rounded transition-colors mr-1 font-bold"
                         >
-                            {t('Remove')}
+                            ELIMINAR
                         </button>
                     )}
                 </div>
@@ -173,7 +172,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                         autoFocus
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        placeholder={t('Search icons...')}
+                                        placeholder="Cerca d'icones..."
                                         className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded text-xs outline-none focus:border-[var(--gnosi-primary)] transition-all text-[var(--text-primary)] shadow-sm"
                                     />
                                 </div>
@@ -212,7 +211,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                     })}
                                 </div>
                                 {filteredIcons.length === 0 && (
-                                    <div className="text-center text-[var(--text-tertiary)]/60 text-xs py-10">{t('No icons')}</div>
+                                    <div className="text-center text-[var(--text-tertiary)]/60 text-xs py-10">Sense icones</div>
                                 )}
                             </div>
                         </div>
@@ -221,7 +220,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                     {activeTab === 'custom' && (
                         <div className="flex flex-col gap-6">
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">{t('Upload File')}</span>
+                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Pujar Arxiu</span>
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -235,12 +234,12 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                     className="w-full border border-dashed border-[var(--border-primary)] hover:border-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/5 rounded-lg py-6 flex flex-col items-center gap-2 transition-all"
                                 >
                                     {isUploading ? <Loader2 size={24} className="animate-spin text-[var(--gnosi-primary)]" /> : <Upload size={24} className="text-[var(--text-tertiary)]/60" />}
-                                    <span className="text-xs text-[var(--text-secondary)]/60">{isUploading ? t('Uploading...') : t('Click to upload')}</span>
+                                    <span className="text-xs text-[var(--text-secondary)]/60">{isUploading ? 'Pujant...' : 'Fes clic per pujar'}</span>
                                 </button>
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">{t('Content link')}</span>
+                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Enllaç de contingut</span>
                                 <div className="flex gap-2">
                                     <input
                                         value={linkInput}
@@ -257,7 +256,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                         }}
                                         className="bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm"
                                     >
-                                        {t('Mount')}
+                                        Muntar
                                     </button>
                                 </div>
                             </div>

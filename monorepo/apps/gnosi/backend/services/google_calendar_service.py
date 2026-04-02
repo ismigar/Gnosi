@@ -2,7 +2,7 @@ import logging
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 log = logging.getLogger(__name__)
 

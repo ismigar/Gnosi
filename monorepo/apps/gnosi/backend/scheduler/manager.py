@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, asdict
 import asyncio
 import threading
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 
 @dataclass

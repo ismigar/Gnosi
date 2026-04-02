@@ -248,20 +248,24 @@ export const GraphViewer = forwardRef(({
     }));
 
     // 3. Initialize Sigma (Once)
+    const initializedRef = useRef(false);
     useEffect(() => {
-        if (!containerRef.current) return;
-        console.log("GraphViewer: Initialize Sigma (Once)");
+        if (!containerRef.current || initializedRef.current) return;
+        console.log("GraphViewer: Attempting to initialize Sigma");
 
         // Wait for container to have dimensions
         if (containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
-            console.warn("GraphViewer: Container has no dimensions, waiting for resize...");
+            console.warn("GraphViewer: Container has no dimensions, waiting for next opportunity...");
             return;
         }
+
+        console.log("GraphViewer: Initializing Sigma (Success)");
+        initializedRef.current = true;
 
         // Create Graph Instance
         const graph = new Graph();
         graphRef.current = graph;
-        setGraphInstance(graph);
+        if (setGraphInstance) setGraphInstance(graph);
 
         // Define Reducers
         let hoveredNode = null;
@@ -395,20 +399,33 @@ export const GraphViewer = forwardRef(({
             }
 
             // Apply edge thickness multiplier and arrow toggle from visualization controls
-            const result = { ...data, color };
-            if (edgeThicknessRef.current !== 1.0) {
-                result.size = (result.size || data.size || 1) * edgeThicknessRef.current;
+            let finalColor = color;
+            if (!finalColor || finalColor === data.color) {
+                // HIGH CONTRAST: Black for light mode, White for dark mode
+                finalColor = isDarkModeRef.current ? '#FFFFFF' : '#000000';
             }
-            if (!showArrowsRef.current) {
-                result.type = 'line';  // Remove arrows
-            }
+            
+            // Ensure a robust base visible size for edges in WebGL mode
+            const baseSize = data.size || 3.0; // Increased base size
+            const result = { 
+                ...data, 
+                color: finalColor,
+                type: 'line', // Force line type to ensure it uses the correct program
+                zIndex: 1
+            };
+            
+            const thickness = edgeThicknessRef.current || 1.0;
+            result.size = Math.max(1.5, baseSize * thickness);
+            
             return result;
+
+
         };
 
         // Initialize Sigma
         if (rendererRef.current) rendererRef.current.kill();
         const renderer = new Sigma(graph, containerRef.current, {
-            renderer: "canvas",
+            // WebGL is the default and more robust for standard setups
             nodeReducer,
             edgeReducer,
             minArrowSize: 10,
@@ -501,9 +518,10 @@ export const GraphViewer = forwardRef(({
                 try { renderer.kill(); } catch (e) { console.error(e); }
             }
             rendererRef.current = null;
+            initializedRef.current = false;
             if (setRendererInstance) setRendererInstance(null);
         };
-    }, []); // Only run once!
+    }, [graphData]); // Re-attempt initialization when graphData arrives (container might be ready then)
 
 
     // 4. Data Update Effect

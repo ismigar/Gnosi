@@ -53,7 +53,7 @@ export function Sidebar({
 
             {/* --- COLOR SELECTOR --- */}
             <div className="section">
-                <h2 className="filter-title">{t('Color by', 'Color by')}</h2>
+                <h2 className="filter-title">Pintar per</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <label style={{ cursor: 'pointer' }}>
                         <input
@@ -64,7 +64,7 @@ export function Sidebar({
                             onChange={(e) => onColorModeChange(e.target.value)}
                             style={{ marginRight: '5px' }}
                         />
-                        {t('Kind', 'Kind')}
+                        Tipus
                     </label>
                     <label style={{ cursor: 'pointer' }}>
                         <input
@@ -75,7 +75,7 @@ export function Sidebar({
                             onChange={(e) => onColorModeChange(e.target.value)}
                             style={{ marginRight: '5px' }}
                         />
-                        {t('Cluster', 'Cluster')}
+                        Clúster
                     </label>
                     <label style={{ cursor: 'pointer' }}>
                         <input
@@ -94,7 +94,7 @@ export function Sidebar({
             {/* --- PATHFINDING SECTION --- */}
             <div className="section" style={{ border: isPathfindingMode ? '2px solid #3498db' : 'none', borderRadius: '8px', padding: isPathfindingMode ? '10px' : '0' }}>
                 <h2 className="filter-title" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    {t('Pathfinding', 'Pathfinding')}
+                    Cerca de camins
                 </h2>
                 <div style={{ marginBottom: '10px' }}>
                     <button
@@ -110,7 +110,7 @@ export function Sidebar({
                             fontWeight: 'bold'
                         }}
                     >
-                        {isPathfindingMode ? t('Stop search', 'Stop search') : t('Start search', 'Start search')}
+                        {isPathfindingMode ? 'Atura la cerca' : 'Comença la cerca'}
                     </button>
                 </div>
 
@@ -127,10 +127,10 @@ export function Sidebar({
                             }}
                         >
                             <div style={{ fontWeight: 'bold', color: !pathSource ? '#d35400' : 'inherit' }}>
-                                {!pathSource ? `👉 ${t('Select', 'Select').toUpperCase()}:` : '✅'} {t('Source', 'Source')}
+                                {!pathSource ? '👉 SELECCIONA:' : '✅'} Origen
                             </div>
                             <div style={{ fontSize: '0.85em' }}>
-                                {pathSource ? getNodeLabel(pathSource) : t('(Click a node on the graph)', '(Click a node on the graph)')}
+                                {pathSource ? getNodeLabel(pathSource) : '(Clica un node al graf)'}
                             </div>
                         </div>
 
@@ -145,10 +145,10 @@ export function Sidebar({
                             }}
                         >
                             <div style={{ fontWeight: 'bold', color: (pathSource && !pathTarget) ? '#27ae60' : 'inherit' }}>
-                                {(pathSource && !pathTarget) ? `👉 ${t('Select', 'Select').toUpperCase()}:` : (pathTarget ? '✅' : '⏳')} {t('Target', 'Target')}
+                                {(pathSource && !pathTarget) ? '👉 SELECCIONA:' : (pathTarget ? '✅' : '⏳')} Destí
                             </div>
                             <div style={{ fontSize: '0.85em' }}>
-                                {pathTarget ? getNodeLabel(pathTarget) : (pathSource ? t('(Click another node)', '(Click another node)') : t('(Wait to select source)', '(Wait to select source)'))}
+                                {pathTarget ? getNodeLabel(pathTarget) : (pathSource ? '(Clica un altre node)' : '(Espera a seleccionar origen)')}
                             </div>
                         </div>
 
@@ -166,13 +166,13 @@ export function Sidebar({
                                     marginBottom: '10px'
                                 }}
                             >
-                                {t('Clear selection', 'Clear selection')}
+                                Neteja selecció
                             </button>
                         )}
 
                         {pathResult && pathResult.fullPath && pathResult.fullPath.length > 0 && (
                             <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(52, 152, 219, 0.1)', borderRadius: '4px' }}>
-                                <div style={{ fontWeight: 'bold', color: '#3498db', marginBottom: '5px' }}>{t('Path found ({{count}} nodes):', { count: pathResult.fullPath.length })}</div>
+                                <div style={{ fontWeight: 'bold', color: '#3498db', marginBottom: '5px' }}>Camí trobat ({pathResult.fullPath.length} nodes):</div>
                                 <div style={{ fontSize: '0.8rem' }}>
                                     {pathResult.fullPath.map((nodeId, index) => (
                                         <div key={nodeId} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -186,7 +186,7 @@ export function Sidebar({
 
                         {pathResult && pathResult.noPath && (
                             <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(231, 76, 60, 0.1)', borderRadius: '4px', color: '#e74c3c', fontSize: '0.8rem' }}>
-                                {t('No path found between these nodes.', 'No path found between these nodes.')}
+                                No s'ha trobat cap camí entre aquests nodes.
                             </div>
                         )}
                     </div>
@@ -195,7 +195,7 @@ export function Sidebar({
 
             {/* --- TIMELINE SECTION --- */}
             <div className="section">
-                <h2 className="filter-title">{t('Timeline', 'Timeline')}</h2>
+                <h2 className="filter-title">Cronologia</h2>
                 <div className="similarity-filter">
                     {/* Only show slider if we have valid dates */}
                     {minDate && maxDate ? (
@@ -215,7 +215,7 @@ export function Sidebar({
                             </label>
                         </>
                     ) : (
-                        <div style={{ fontSize: "0.8rem", color: "#888" }}>{t('No time data', 'No time data')}</div>
+                        <div style={{ fontSize: "0.8rem", color: "#888" }}>No hi ha dades de temps</div>
                     )}
                 </div>
             </div>
@@ -244,7 +244,7 @@ export function Sidebar({
                         checked={hideIsolated}
                         onChange={(e) => onHideIsolatedChange(e.target.checked)}
                     />
-                    <label htmlFor="isolated-nodes-filter">{t('Hide isolated nodes', 'Hide isolated nodes')}</label>
+                    <label htmlFor="isolated-nodes-filter">Oculta nodes aïllats</label>
                 </div>
 
                 {!hideIsolated && (
@@ -255,7 +255,7 @@ export function Sidebar({
                             checked={onlyIsolated}
                             onChange={(e) => onOnlyIsolatedChange(e.target.checked)}
                         />
-                        <label htmlFor="only-isolated-filter">{t('Show only isolated nodes', 'Show only isolated nodes')}</label>
+                        <label htmlFor="only-isolated-filter">Mostra només nodes aïllats</label>
                     </div>
                 )}
             </div>

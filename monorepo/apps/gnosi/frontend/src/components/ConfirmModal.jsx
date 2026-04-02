@@ -1,22 +1,16 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { AlertCircle, X, Check } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 export const ConfirmModal = ({
     isOpen,
     onClose,
     onConfirm,
-    title,
-    message,
-    confirmText,
-    cancelText,
+    title = "Confirmar acció",
+    message = "N'estàs segur que vols procedir amb aquesta acció?",
+    confirmText = "Confirmar",
+    cancelText = "Cancel·lar",
     isDestructive = true
 }) => {
-    const { t } = useTranslation();
-    const displayTitle = title || t('Confirm Action', 'Confirm Action');
-    const displayMessage = message || t("Are you sure you want to proceed with this action?", "Are you sure you want to proceed with this action?");
-    const displayConfirmText = confirmText || t('Confirm', 'Confirm');
-    const displayCancelText = cancelText || t('Cancel', 'Cancel');
     const modalRef = useRef(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -87,10 +81,10 @@ export const ConfirmModal = ({
 
                 <div>
                     <h3 className="text-lg font-semibold text-slate-800 mb-2">
-                        {displayTitle}
+                        {title}
                     </h3>
                     <p className="text-sm text-slate-500 leading-relaxed mb-6">
-                        {displayMessage}
+                        {message}
                     </p>
                 </div>
 
@@ -101,7 +95,7 @@ export const ConfirmModal = ({
                         disabled={isSubmitting}
                         className="px-4 py-2 font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors focus:ring-2 focus:ring-slate-100 outline-none"
                     >
-                        {displayCancelText}
+                        {cancelText}
                     </button>
                     <button
                         autoFocus
@@ -113,7 +107,7 @@ export const ConfirmModal = ({
                             : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/50'
                             }`}
                     >
-                        {isSubmitting ? '...' : displayConfirmText}
+                        {isSubmitting ? '...' : confirmText}
                     </button>
                 </div>
             </div>
