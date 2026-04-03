@@ -28,7 +28,7 @@ from backend.api import agent_routes, system_routes, tools_routes
 from backend.api import analytics_routes, sync_routes, scheduler_routes, social_routes
 from backend.api import vault_routes, vault_graph_routes, calendar_routes, mail_routes
 from backend.api import reader, google_auth_routes, integrations_routes, zotero_routes
-from backend.api import config_routes, env_routes, credentials_routes
+from backend.api import config_routes, env_routes, credentials_routes, ai_routes
 
 # Config
 setup_logging()
@@ -56,18 +56,25 @@ async def lifespan(app: FastAPI):
     try:
         await mcp_client.start()
         log.info("✅ MCP Client started.")
+        app.state.mcp_client = mcp_client
 
         # 2. Discover Tools
         log.info("🔍 Discovering tools...")
         tools_list = await mcp_client.get_all_tools()
         log.info(f"🛠️ Found {len(tools_list)} tools: {[t['name'] for t in tools_list]}")
+        app.state.tools_list = tools_list
 
         # 3. Build Agent Graph
         # Utilitzem un ID per defecte per a l'arrencada
-        workflow = await create_agent_workflow(tools_list, mcp_client, agent_id="gnosy")
+        workflow, _llm_selection = await create_agent_workflow(
+            tools_list,
+            mcp_client,
+            agent_id="gnosy",
+        )
+        if workflow is None:
+            raise RuntimeError("No LLM provider available for startup workflow")
         app.state.agent_workflow = workflow
         app.state.agent_app = workflow.compile()
-        app.state.mcp_client = mcp_client
 
         log.info("🧠 Agent Graph built and ready.")
 
@@ -126,6 +133,7 @@ app.include_router(zotero_routes.router, tags=["Zotero"])
 app.include_router(config_routes.router, prefix="/api", tags=["Config"])
 app.include_router(env_routes.router, prefix="/api", tags=["Env"])
 app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])
+app.include_router(ai_routes.router, prefix="/api", tags=["AI Settings"])
 
 # TODO: Migrate old Flask routes. For now, if the user needs the graph,
 # we can quickly implement the /api/graph route here directly to not break anything.
@@ -204,6 +212,9 @@ def _build_graph_from_vault() -> dict:
     table_color = {
         tid: _TABLE_COLORS[i % len(_TABLE_COLORS)] for i, tid in enumerate(table_ids)
     }
+    # Explicitly set Wiki color to purple
+    table_color["__wiki__"] = _WIKI_COLOR
+
 
     nodes = []
     edges = []
@@ -252,6 +263,14 @@ def _build_graph_from_vault() -> dict:
             database_id = table_info["database_id"]
             color = table_color.get(table_id, "#888888")
             cluster = table_info["name"]
+            
+            # Robust override for Wiki nodes (Clean v7)
+            if kind.lower() == "wiki" or table_id == "wiki":
+                kind = "Wiki"
+                color = _WIKI_COLOR
+                cluster = "Wiki"
+                table_id = "__wiki__"
+
         else:
             # Fallback based on folder OR resolved table ID
             folder = (page.folder or "").lower()
@@ -283,6 +302,10 @@ def _build_graph_from_vault() -> dict:
                     table_id = f"__folder_{folder}__"
             else:
                 table_id = page.resolved_table_id
+                # Enforce Wiki ID consistency
+                if kind == "Wiki":
+                    table_id = "__wiki__"
+
                 
             database_id = page.metadata.get("database_id") if page.metadata else None
 

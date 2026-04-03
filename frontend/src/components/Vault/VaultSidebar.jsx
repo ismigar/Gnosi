@@ -471,7 +471,8 @@ export const VaultSidebar = ({
     const hasExpandedWikiNodes = useMemo(() => Object.values(expandedWikiNodes).some(Boolean), [expandedWikiNodes]);
     const wikiVirtualizationEnabled = isWorkspaceExpanded && rootPages.length > 300 && !hasExpandedWikiNodes;
 
-    const wikiStartIndex = Math.max(0, Math.floor(wikiScrollTop / WIKI_ITEM_HEIGHT) - WIKI_OVERSCAN);
+    const wikiRawStartIndex = Math.max(0, Math.floor(wikiScrollTop / WIKI_ITEM_HEIGHT) - WIKI_OVERSCAN);
+    const wikiStartIndex = Math.min(wikiRawStartIndex, Math.max(0, rootPages.length - 1));
     const wikiVisibleCount = Math.max(1, Math.ceil(wikiViewportHeight / WIKI_ITEM_HEIGHT) + WIKI_OVERSCAN * 2);
     const wikiEndIndex = Math.min(rootPages.length, wikiStartIndex + wikiVisibleCount);
     const virtualWikiRootPages = useMemo(
@@ -573,7 +574,16 @@ export const VaultSidebar = ({
                 label="Wiki"
                 isExpanded={isWorkspaceExpanded}
                 onToggle={() => {
-                    setIsWorkspaceExpanded(!isWorkspaceExpanded);
+                    setIsWorkspaceExpanded((prev) => {
+                        const next = !prev;
+                        if (next) {
+                            setWikiScrollTop(0);
+                            requestAnimationFrame(() => {
+                                if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0;
+                            });
+                        }
+                        return next;
+                    });
                     setExpandedWikiNodes({});
                 }}
                 onAdd={() => onCreatePage(null)}

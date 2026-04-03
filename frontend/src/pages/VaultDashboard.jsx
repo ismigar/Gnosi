@@ -133,6 +133,7 @@ export default function VaultDashboard() {
     const resolvePageTableId = useCallback((page, currentPages = pages) => {
         if (!page) return null;
         const directId = page.resolved_table_id || page.metadata?.table_id || page.metadata?.database_table_id;
+        if (String(directId || '').toLowerCase() === 'wiki') return null;
         if (directId) return directId;
         
         // Cerca recursiva cap amunt per context de taula (per subcarpetes a BD/)
@@ -808,7 +809,10 @@ export default function VaultDashboard() {
                 id: pageId,
                 title: res.data.title || "Sense Títol",
                 content: res.data.content,
-                metadata: res.data.metadata || {},
+                metadata: {
+                    ...(res.data.metadata || {}),
+                    resolved_table_id: res.data.resolved_table_id || res.data.metadata?.resolved_table_id || null,
+                },
                 folder: res.data.folder || "",
                 resolved_table_id: res.data.resolved_table_id || null
             };
@@ -850,7 +854,10 @@ export default function VaultDashboard() {
                 id: pageId,
                 title: res.data.title || "Sense Títol",
                 content: res.data.content,
-                metadata: res.data.metadata || {},
+                metadata: {
+                    ...(res.data.metadata || {}),
+                    resolved_table_id: res.data.resolved_table_id || res.data.metadata?.resolved_table_id || null,
+                },
                 folder: res.data.folder || "",
                 resolved_table_id: res.data.resolved_table_id || null
             };
@@ -1893,8 +1900,11 @@ export default function VaultDashboard() {
                 onRefreshRegistry={fetchRegistry}
                 onNoteSelect={loadPage}
                 onEditSchema={(table) => {
-                    // Fallback to the page's resolved table or 'wiki'
-                    const tid = table?.id || resolvePageTableId({ metadata: tab.metadata }) || 'wiki';
+                    const tid = table?.id || resolvePageTableId({ metadata: tab.metadata });
+                    if (!tid) {
+                        toast('Esta página wiki no tiene tabla global asociada.');
+                        return;
+                    }
                     setActiveTableId(tid);
                     setIsSchemaModalOpen(true);
                 }}

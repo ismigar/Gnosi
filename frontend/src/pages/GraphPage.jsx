@@ -12,6 +12,9 @@ import { Controls } from '../components/Controls';
 import { Legend } from '../components/Legend';
 import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
+import Graph from 'graphology';
+import { applyFilters } from '../utils/graphFilters';
+
 
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
 import '../viewer/style.css';
@@ -332,6 +335,25 @@ function GraphPage() {
         fieldFilters,
         graphTableFiltersSettings
     }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings]);
+    
+    // Efficiently calculate filtered counts as derived state (Clean v6)
+    const memoizedGraph = useMemo(() => {
+        if (!graphData?.nodes) return null;
+        const g = new Graph();
+        graphData.nodes.forEach(n => g.addNode(n.key, n));
+        graphData.edges.forEach(e => g.addEdge(e.source, e.target, e));
+        return g;
+    }, [graphData]);
+
+    const { filteredNodesCount, filteredEdgesCount } = useMemo(() => {
+        if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0 };
+        const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
+        return { 
+            filteredNodesCount: visibleNodes.size, 
+            filteredEdgesCount: visibleEdges.size 
+        };
+    }, [memoizedGraph, filters]);
+
 
 
 
@@ -646,7 +668,14 @@ function GraphPage() {
                     edgeInfluence={edgeInfluence}
                     linLogMode={linLogMode}
                 />
-                <Legend graphData={graphData} isDarkMode={isDarkMode} colorMode={colorMode} />
+                <Legend 
+                    graphData={graphData} 
+                    isDarkMode={isDarkMode} 
+                    colorMode={colorMode} 
+                    filteredNodesCount={filteredNodesCount}
+                    filteredEdgesCount={filteredEdgesCount}
+                />
+
                 <Minimap
                     graph={graphInstance}
                     mainRenderer={rendererInstance}

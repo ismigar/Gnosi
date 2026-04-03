@@ -27,25 +27,25 @@ import yaml
 from dotenv import load_dotenv
 
 # ──────────────────────────────────────────────
-#  Environment & Configuration
+#  Environment & Configuration (Gnosi Unified)
 # ──────────────────────────────────────────────
 
-PROJECT_ROOT = Path(__file__).resolve().parents[7]  # -> Projectes/
-ENV_SHARED = PROJECT_ROOT / ".env_shared"
+# Path to Gnosi app root (monorepo/apps/gnosi)
+GNOSI_APP_ROOT = Path(__file__).resolve().parents[4]
+if str(GNOSI_APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(GNOSI_APP_ROOT))
 
-if ENV_SHARED.exists():
-    load_dotenv(ENV_SHARED, override=True)
+try:
+    from backend.config.env_config import get_env
+except ImportError:
+    # Basic fallback if get_env is not available
+    def get_env(name, default=None): return os.getenv(name, default)
 
-TOKEN = os.getenv("NOTION_TOKEN")
-VAULT_ROOT = (
-    os.getenv("VAULT_PATH")
-    or os.getenv("DIGITAL_BRAIN_VAULT_PATH")
-    or os.getenv("gnosi_VAULT_PATH")
-)
+TOKEN = get_env("NOTION_TOKEN")
+VAULT_ROOT = get_env("VAULT_PATH")
 
-if not VAULT_ROOT:
-    print("❌ ERROR: No s'ha trobat cap ruta al Vault (VAULT_PATH).")
-    print("Siusplau, configura la carpeta structural a settings o al fitxer .env_shared.")
+if not TOKEN or not VAULT_ROOT:
+    print("❌ ERROR: No s'ha trobat NOTION_TOKEN o VAULT_PATH al Keychain o fitxers d'entorn.")
     sys.exit(1)
 
 print(f"  📂 VAULT_ROOT configurada a: {VAULT_ROOT}")
@@ -106,8 +106,10 @@ NOTION_COLOR_MAP = {
     "red_background": "red",
 }
 
-# Reverse map: Notion DB ID → (vault folder name, Gnosi table_id from registry)
+# Reverse map: Notion DB ID (normalized) → (vault folder name, Gnosi table_id from registry)
 _reverse_db_map: Dict[str, Tuple[str, str]] = {}
+# Reverse map: Table Name (lowercase) → (vault folder name, Gnosi table_id)
+_name_to_db_info: Dict[str, Tuple[str, str]] = {}
 _view_registry: List[Dict] = []
 
 
@@ -128,15 +130,32 @@ def _build_reverse_maps():
         
         for table in registry.get("tables", []):
             nid = table.get("id")
+            name = table.get("name", "").lower()
+            table_folder = table.get("folder", "")
+            db_id = table.get("database_id")
+            db_folder = db_folders.get(db_id, "BD") # Default to BD if not found
+            
+            # Full relative path: BD/Database/Table
+            full_path = f"{db_folder}/{table_folder}".replace("//", "/")
+            
             if nid:
-                table_folder = table.get("folder", "")
-                db_id = table.get("database_id")
-                db_folder = db_folders.get(db_id, "BD") # Default to BD if not found
-                
-                # Full relative path: BD/Database/Table
-                full_path = f"{db_folder}/{table_folder}".replace("//", "/")
-                _reverse_db_map[nid] = (full_path, nid)
-                _reverse_db_map[nid.replace("-", "")] = (full_path, nid)
+                norm_nid = nid.replace("-", "")
+                _reverse_db_map[norm_nid] = (full_path, nid)
+            
+            if name:
+                _name_to_db_info[name] = (full_path, nid or name)
+
+        # 1.5. Map views from the registry to their parent tables
+        for v in _view_registry:
+            vid = v.get("id", "").replace("-", "")
+            tid = v.get("table_id")
+            if not vid or not tid:
+                continue
+            
+            # Find the path of the target table
+            target_path, _ = _reverse_db_map.get(tid.replace("-", ""), (None, None))
+            if target_path:
+                _reverse_db_map[vid] = (target_path, tid)
 
         # 2. Ensure DATABASE_MAP mappings exist (fallback)
         for folder_name, notion_db_id in DATABASE_MAP.items():
@@ -459,48 +478,35 @@ def _bn_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def rich_text_to_blocknote(rich_text_array: list) -> list:
-    """Convert Notion rich_text to BlockNote inline content items.
-
-    Returns list of {"type": "text", "text": "...", "styles": {...}}.
-    """
-    items = []
+def rich_text_to_markdown(rich_text_array: list) -> str:
+    """Convert Notion rich_text to standard Markdown (bold, italic, strike, code, link)."""
+    markdown = ""
     for rt in rich_text_array:
         text = rt.get("plain_text", "")
         if not text:
             continue
         annots = rt.get("annotations", {})
         href = rt.get("href")
-        styles = {}
-
-        if annots.get("bold"):
-            styles["bold"] = True
-        if annots.get("italic"):
-            styles["italic"] = True
-        if annots.get("strikethrough"):
-            styles["strike"] = True
+        
+        # Apply styles
         if annots.get("code"):
-            styles["code"] = True
+            text = f"`{text}`"
+        else:
+            if annots.get("bold"):
+                text = f"**{text}**"
+            if annots.get("italic"):
+                text = f"*{text}*"
+            if annots.get("strikethrough"):
+                text = f"~~{text}~~"
+            if annots.get("underline"):
+                text = f"<u>{text}</u>"
 
-        color = annots.get("color", "default")
-        if color and color != "default":
-            bn_color = _notion_color_to_blocknote(color, _is_background_color(color))
-            if _is_background_color(color):
-                styles["backgroundColor"] = bn_color
-            else:
-                styles["textColor"] = bn_color
+        if href:
+            text = f"[{text}]({href})"
+        
+        markdown += text
 
-        if rt.get("type") == "mention":
-            mention = rt.get("mention", {})
-            if mention.get("type") == "page":
-                page_id = mention["page"]["id"]
-                text = f"{text} (notion://page/{page_id})"
-        elif href:
-            text = f"{text} ({href})"
-
-        items.append({"type": "text", "text": text, "styles": styles})
-
-    return items if items else [{"type": "text", "text": "", "styles": {}}]
+    return markdown
 
 
 def _extract_block_colors(bdata: dict, rich_text_key: str = "rich_text") -> dict:
@@ -540,456 +546,180 @@ def _extract_block_colors(bdata: dict, rich_text_key: str = "rich_text") -> dict
     return props
 
 
-def convert_block_to_blocknote(block: dict) -> List[Dict]:
-    """Convert a single Notion block to one or more BlockNote JSON blocks.
-
-    Returns a list because some Notion blocks produce multiple BlockNote blocks
-    (e.g., table rows → multiple paragraph blocks).
+def convert_block_to_markdown(block: dict, indent_level: int = 0) -> str:
+    """Convert a single Notion block to Gnosi-enriched Markdown.
+    
+    Compatible with the new BlockEditor (markdown-mapper.js).
     """
     btype = block.get("type")
     if not btype:
-        return []
+        return ""
     bdata = block.get(btype, {})
     has_children = block.get("has_children", False)
     bid = block["id"]
-    results = []
-
-    def _make_block(
-        bn_type, content=None, children=None, extra_props=None, block_data=None
-    ):
-        data = block_data or bdata
-        props = {"textAlignment": "left"}
-        props.update(_extract_block_colors(data))
-        if extra_props:
-            props.update(extra_props)
-        return {
-            "id": _bn_id(),
-            "type": bn_type,
-            "props": props,
-            "content": content if content is not None else [],
-            "children": children if children is not None else [],
-        }
-
-    inline = rich_text_to_blocknote(bdata.get("rich_text", []))
-
+    indent = "  " * indent_level
+    
     # ── Text blocks ──
-    if btype == "paragraph":
-        children = []
+    if btype in ("paragraph", "heading_1", "heading_2", "heading_3", 
+                  "bulleted_list_item", "numbered_list_item", "to_do", "quote"):
+        content = rich_text_to_markdown(bdata.get("rich_text", []))
+        
+        prefix = ""
+        if btype == "heading_1": prefix = "# "
+        elif btype == "heading_2": prefix = "## "
+        elif btype == "heading_3": prefix = "### "
+        elif btype == "bulleted_list_item": prefix = "- "
+        elif btype == "numbered_list_item": prefix = "1. "
+        elif btype == "to_do": 
+            checked = "[x]" if bdata.get("checked") else "[ ]"
+            prefix = f"- {checked} "
+        elif btype == "quote": prefix = "> "
+        
+        res = f"{indent}{prefix}{content}\n"
+        
         if has_children:
-            children = convert_blocks_to_blocknote(fetch_blocks(bid))
-        results.append(_make_block("paragraph", inline, children))
+            # Handle nested items (except for paragraph/quote which use directives for specialized stuff)
+            child_blocks = fetch_blocks(bid)
+            for child in child_blocks:
+                res += convert_block_to_markdown(child, indent_level + 1)
+        return res
 
-    elif btype in ("heading_1", "heading_2", "heading_3"):
-        level = btype.split("_")[1]
-        results.append(_make_block(f"heading{level}", inline))
-
-    elif btype == "bulleted_list_item":
-        children = []
+    # ── Structural directives ──
+    elif btype == "column_list":
+        res = f"{indent}:::column-list\n"
         if has_children:
-            children = convert_blocks_to_blocknote(fetch_blocks(bid))
-        results.append(_make_block("bulletListItem", inline, children))
+            for col in fetch_blocks(bid):
+                res += convert_block_to_markdown(col, indent_level + 1)
+        res += f"{indent}:::\n"
+        return res
 
-    elif btype == "numbered_list_item":
-        children = []
+    elif btype == "column":
+        width = bdata.get("width_ratio")
+        width_attr = f" {{width={width}}}" if width else ""
+        res = f"{indent}:::column{width_attr}\n"
         if has_children:
-            children = convert_blocks_to_blocknote(fetch_blocks(bid))
-        results.append(_make_block("numberedListItem", inline, children))
+            for child in fetch_blocks(bid):
+                res += convert_block_to_markdown(child, indent_level + 1)
+        res += f"{indent}:::\n"
+        return res
 
-    elif btype == "to_do":
-        checked = bdata.get("checked", False)
-        children = []
+    elif btype == "toggle":
+        summary = rich_text_to_markdown(bdata.get("rich_text", [])) or "Toggle"
+        res = f"{indent}:::toggle {summary}\n"
         if has_children:
-            children = convert_blocks_to_blocknote(fetch_blocks(bid))
-        results.append(
-            _make_block("checkListItem", inline, children, {"checked": checked})
-        )
-
-    elif btype == "quote":
-        children = []
-        if has_children:
-            children = convert_blocks_to_blocknote(fetch_blocks(bid))
-        results.append(_make_block("quote", inline, children))
+            for child in fetch_blocks(bid):
+                res += convert_block_to_markdown(child, indent_level + 1)
+        res += f"{indent}:::\n"
+        return res
 
     elif btype == "callout":
         icon = bdata.get("icon", {}).get("emoji", "💡")
-        caption_text = f"{icon} "
-        for item in inline:
-            caption_text += item.get("text", "")
-        caption_inline = [{"type": "text", "text": caption_text, "styles": {}}]
-        children = []
+        content = rich_text_to_markdown(bdata.get("rich_text", []))
+        # Callouts are mapped to quotes in our current editor logic or simple styled box
+        # For simplicity, we use Markdown quote with icon prefix
+        res = f"{indent}> {icon} {content}\n"
         if has_children:
-            children = convert_blocks_to_blocknote(fetch_blocks(bid))
-        results.append(_make_block("quote", caption_inline, children))
+            for child in fetch_blocks(bid):
+                res += convert_block_to_markdown(child, indent_level + 1)
+        return res
 
-    elif btype == "toggle":
-        summary_text = "".join(item.get("text", "") for item in inline)
-        bold_inline = [{"type": "text", "text": summary_text, "styles": {"bold": True}}]
-        children = []
-        if has_children:
-            children = convert_blocks_to_blocknote(fetch_blocks(bid))
-        results.append(_make_block("paragraph", bold_inline, children))
-
-    elif btype == "code":
-        code_text = "".join(t.get("plain_text", "") for t in bdata.get("rich_text", []))
-        lang = bdata.get("language", "")
-        results.append(
-            _make_block(
-                "codeBlock",
-                [{"type": "text", "text": code_text, "styles": {}}],
-                extra_props={"language": lang},
-            )
-        )
-
-    elif btype == "equation":
-        expr = bdata.get("expression", "")
-        results.append(
-            _make_block("codeBlock", [{"type": "text", "text": expr, "styles": {}}])
-        )
+    # ── Code blocks ──
+    elif btype in ("code", "equation"):
+        code_text = "".join(t.get("plain_text", "") for t in bdata.get("rich_text", [])) if btype == "code" else bdata.get("expression", "")
+        lang = bdata.get("language", "latex" if btype == "equation" else "")
+        return f"{indent}```{lang}\n{code_text}\n{indent}```\n"
 
     elif btype == "divider":
-        results.append(
-            {
-                "id": _bn_id(),
-                "type": "divider",
-                "props": {},
-                "content": [],
-                "children": [],
-            }
-        )
+        return f"{indent}---\n"
 
     # ── Media blocks ──
-    elif btype == "image":
-        img_type = bdata.get("type")
-        url = (
-            bdata.get("file", {}).get("url")
-            if img_type == "file"
-            else bdata.get("external", {}).get("url")
-        )
-        if url:
-            orig_name = os.path.basename(urllib.parse.urlparse(url).path) or "image"
-            local = download_asset(url, orig_name)
-            caption_text = "".join(
-                t.get("plain_text", "") for t in bdata.get("caption", [])
-            )
-            results.append(
-                {
-                    "id": _bn_id(),
-                    "type": "imageBlock" if False else "image",
-                    "props": {
-                        "url": local if local else url,
-                        "caption": caption_text,
-                        "textAlignment": "left",
-                        "backgroundColor": "default",
-                        "textColor": "default",
-                    },
-                    "content": [],
-                    "children": [],
-                }
-            )
+    elif btype in ("image", "file", "pdf", "video", "audio"):
+        mtype = bdata.get("type", "file")
+        url = bdata.get("file", {}).get("url") if mtype == "file" else bdata.get("external", {}).get("url")
+        if not url: return ""
+        
+        caption = "".join(t.get("plain_text", "") for t in bdata.get("caption", [])) or btype.upper()
+        local = download_asset(url, os.path.basename(urllib.parse.urlparse(url).path) or f"notion_{btype}")
+        final_url = local if local else url
+        
+        if btype == "image":
+            return f"{indent}![{caption}]({final_url})\n"
         else:
-            results.append(
-                _make_block(
-                    "paragraph",
-                    [{"type": "text", "text": "[Imatge sense URL]", "styles": {}}],
-                )
-            )
+            return f"{indent}📎 [{caption}]({final_url})\n"
 
-    elif btype in ("file", "pdf", "video", "audio"):
-        url = (
-            bdata.get("file", {}).get("url")
-            if bdata.get("type") == "file"
-            else bdata.get("external", {}).get("url")
-        )
-        label = (
-            "".join(t.get("plain_text", "") for t in bdata.get("caption", []))
-            or btype.upper()
-        )
-        if url:
-            orig_name = (
-                os.path.basename(urllib.parse.urlparse(url).path) or f"notion_{btype}"
-            )
-            local = download_asset(url, orig_name)
-            link_url = local if local else url
-        else:
-            link_url = ""
-        results.append(
-            _make_block(
-                "paragraph",
-                [
-                    {"type": "text", "text": f"📎 {label}", "styles": {}},
-                    {"type": "text", "text": f" ({link_url})", "styles": {}},
-                ],
-            )
-        )
-
-    # ── Table ──
+    # ── Tables ──
     elif btype == "table":
+        res = ""
         table_rows = fetch_blocks(bid)
-        for row in table_rows:
-            if row.get("type") != "table_row":
-                continue
+        for i, row in enumerate(table_rows):
+            if row.get("type") != "table_row": continue
             cells = row.get("table_row", {}).get("cells", [])
-            cell_text = " | ".join(
-                "".join(t.get("plain_text", "") for t in cell) for cell in cells
-            )
-            results.append(
-                _make_block(
-                    "paragraph",
-                    [{"type": "text", "text": cell_text, "styles": {}}],
-                )
-            )
-
-    # ── Columns ──
-    elif btype == "column_list":
-        columns_bn = []
-        if has_children:
-            child_columns = fetch_blocks(bid)
-            for col_block in child_columns:
-                if col_block.get("type") != "column":
-                    continue
-                col_children = []
-                if col_block.get("has_children", False):
-                    col_children = convert_blocks_to_blocknote(
-                        fetch_blocks(col_block["id"])
-                    )
-                if not col_children:
-                    col_children = [
-                        {
-                            "id": _bn_id(),
-                            "type": "paragraph",
-                            "props": {
-                                "textAlignment": "left",
-                                "backgroundColor": "default",
-                                "textColor": "default",
-                            },
-                            "content": [],
-                            "children": [],
-                        }
-                    ]
-                columns_bn.append(
-                    {
-                        "id": _bn_id(),
-                        "type": "column",
-                        "props": {},
-                        "content": [],
-                        "children": col_children,
-                    }
-                )
-        if not columns_bn:
-            columns_bn = [
-                {
-                    "id": _bn_id(),
-                    "type": "column",
-                    "props": {},
-                    "content": [],
-                    "children": [
-                        {
-                            "id": _bn_id(),
-                            "type": "paragraph",
-                            "props": {
-                                "textAlignment": "left",
-                                "backgroundColor": "default",
-                                "textColor": "default",
-                            },
-                            "content": [],
-                            "children": [],
-                        }
-                    ],
-                }
-            ]
-        results.append(
-            {
-                "id": _bn_id(),
-                "type": "columnList",
-                "props": {"backgroundColor": "default"},
-                "children": columns_bn,
-            }
-        )
-
-    elif btype == "column":
-        if has_children:
-            col_children = convert_blocks_to_blocknote(fetch_blocks(bid))
-            results.append(
-                {
-                    "id": _bn_id(),
-                    "type": "column",
-                    "props": {},
-                    "content": [],
-                    "children": col_children,
-                }
-            )
-
-    # ── Embedded / linked content ──
-    elif btype == "embed":
-        url = bdata.get("url", "")
-        results.append(
-            _make_block(
-                "paragraph",
-                [{"type": "text", "text": f"🔗 Embed: {url}", "styles": {}}],
-            )
-        )
-
-    elif btype == "bookmark":
-        url = bdata.get("url", "")
-        caption = (
-            "".join(t.get("plain_text", "") for t in bdata.get("caption", [])) or url
-        )
-        results.append(
-            _make_block(
-                "paragraph",
-                [{"type": "text", "text": f"🔖 {caption}", "styles": {}}],
-            )
-        )
-
-    elif btype == "link_preview":
-        url = bdata.get("url", "")
-        results.append(
-            _make_block(
-                "paragraph",
-                [{"type": "text", "text": f"🔗 {url}", "styles": {}}],
-            )
-        )
-
-    elif btype == "link_to_page":
-        page_id = bdata.get("page_id") or bdata.get("database_id", "")
-        results.append(
-            _make_block(
-                "paragraph",
-                [
-                    {
-                        "type": "text",
-                        "text": f"🔗 Enllaç a pàgina (notion://page/{page_id})",
-                        "styles": {},
-                    }
-                ],
-            )
-        )
-
-    # ── Synced blocks ──
-    elif btype == "synced_block":
-        synced_from = bdata.get("synced_from")
-        if synced_from and synced_from.get("block_id"):
-            try:
-                synced_children = convert_blocks_to_blocknote(
-                    fetch_blocks(synced_from["block_id"])
-                )
-                results.extend(synced_children)
-            except Exception:
-                results.append(
-                    _make_block(
-                        "paragraph",
-                        [
-                            {
-                                "type": "text",
-                                "text": "[synced_block: font inaccessible]",
-                                "styles": {},
-                            }
-                        ],
-                    )
-                )
-        elif has_children:
-            synced_children = convert_blocks_to_blocknote(fetch_blocks(bid))
-            results.extend(synced_children)
-
-    # ── Child page ──
-    elif btype == "child_page":
-        title = bdata.get("title", "Untitled")
-        results.append(
-            _make_block(
-                "paragraph",
-                [
-                    {
-                        "type": "text",
-                        "text": f"📄 {title} (subpàgina)",
-                        "styles": {"bold": True},
-                    }
-                ],
-            )
-        )
+            row_text = " | ".join(rich_text_to_markdown(cell) for cell in cells)
+            res += f"{indent}| {row_text} |\n"
+            if i == 0: # Add separator after header
+                sep = " | ".join("---" for _ in cells)
+                res += f"{indent}| {sep} |\n"
+        return res
 
     # ── Child database (embedded view) ──
     elif btype == "child_database":
         title = bdata.get("title", "Database")
-        # Notion database IDs can be block IDs OR found in parent/id
-        notion_id_raw = bid
-        notion_id_norm = bid.replace("-", "")
-
-        # Try to find matching Gnosi table
-        folder_name, gnosi_table_id = _reverse_db_map.get(notion_id_raw) or _reverse_db_map.get(notion_id_norm) or (None, None)
-
-        if gnosi_table_id:
-            # Create a database block pointing to the Gnosi table
-            db_view_id = _bn_id()
-            results.append(
-                {
-                    "id": _bn_id(),
-                    "type": "database",
-                    "props": {
-                        "database_table_id": gnosi_table_id,
-                        "viewId": db_view_id,
-                        "viewType": "table",
-                    },
-                    "children": [],
-                }
-            )
-            # Register a default view for this table
-            _view_registry.append(
-                {
-                    "id": db_view_id,
+        norm_bid = bid.replace("-", "")
+        
+        # 1. Try ID-based lookup
+        mapped = _reverse_db_map.get(norm_bid)
+        
+        # 2. Try Name-based lookup if ID fails
+        if not mapped:
+            mapped = _name_to_db_info.get(title.lower())
+            
+        if mapped:
+            rel_path, gnosi_table_id = mapped
+            
+            # 3. Check if table already has a standard "table" view in the registry
+            # We look for a view of type 'table' belonging to this table_id
+            existing_view = next((v for v in _view_registry if v.get("table_id") == gnosi_table_id and v.get("type") == "table"), None)
+            
+            if existing_view:
+                view_id = existing_view["id"]
+            else:
+                view_id = _bn_id()
+                # Register new view in memory (to be saved later)
+                _view_registry.append({
+                    "id": view_id,
                     "table_id": gnosi_table_id,
-                    "name": title,
+                    "name": f"Vista: {title}",
                     "type": "table",
                     "filters": [],
-                    "sort": {"field": "last_modified", "direction": "desc"},
-                }
-            )
-            print(
-                f"      🔗 Vista incrustada: '{title}' → taula Gnosi {gnosi_table_id}"
-            )
+                    "sort": {"field": "last_modified", "direction": "desc"}
+                })
+
+            db_props = {
+                "database_table_id": gnosi_table_id,
+                "viewId": view_id,
+                "viewType": "table"
+            }
+            return f"{indent}```gnosi-database\n{json.dumps(db_props, indent=2)}\n{indent}```\n"
         else:
-            # Fallback: informational callout
-            results.append(
-                _make_block(
-                    "quote",
-                    [
-                        {
-                            "type": "text",
-                            "text": f"🗃️ {title}",
-                            "styles": {"bold": True},
-                        },
-                        {
-                            "type": "text",
-                            "text": " (vista incrustada — taula no trobada al registry)",
-                            "styles": {},
-                        },
-                    ],
-                )
-            )
+            return f"{indent}> 🗃️ **{title}** (vista incrustada — taula no trobada al registry amb ID `{norm_bid}` o nom `{title}`)\n"
 
-    # ── Fallback ──
-    else:
-        results.append(
-            _make_block(
-                "paragraph",
-                [
-                    {
-                        "type": "text",
-                        "text": f"[bloc no suportat: {btype}]",
-                        "styles": {},
-                    }
-                ],
-            )
-        )
+    # ── Synced blocks ──
+    elif btype == "synced_block":
+        shared = bdata.get("synced_from")
+        if shared and shared.get("block_id"):
+            try: return convert_blocks_to_markdown(fetch_blocks(shared["block_id"]), indent_level)
+            except: return f"{indent}> [synced_block: font inaccessible]\n"
+        elif has_children:
+            return convert_blocks_to_markdown(fetch_blocks(bid), indent_level)
 
-    return results
+    return ""
 
-
-def convert_blocks_to_blocknote(blocks: List[Dict]) -> List[Dict]:
-    """Convert a list of Notion blocks to a BlockNote JSON array."""
-    bn_blocks = []
+def convert_blocks_to_markdown(blocks: List[Dict], indent_level: int = 0) -> str:
+    """Convert a list of Notion blocks to Gnosi Rich Markdown."""
+    markdown = ""
     for block in blocks:
-        bn_blocks.extend(convert_block_to_blocknote(block))
-    return bn_blocks
+        markdown += convert_block_to_markdown(block, indent_level)
+    return markdown
 
 
 # ──────────────────────────────────────────────
@@ -1033,11 +763,10 @@ def migrate_database(db_name: str, db_id: str) -> int:
         print(f"  [{count + 1}/{len(pages)}] {title_key}")
 
         blocks = fetch_blocks(page_id)
-        bn_blocks = convert_blocks_to_blocknote(blocks)
-        content_json = json.dumps(bn_blocks, ensure_ascii=False)
+        content_markdown = convert_blocks_to_markdown(blocks)
 
         yaml_fm = yaml.dump(frontmatter, allow_unicode=True, default_flow_style=False)
-        full_content = f"---\n{yaml_fm}---\n{content_json}"
+        full_content = f"---\n{yaml_fm}---\n{content_markdown}"
 
         filename = get_safe_filename(title_key) + ".md"
         filepath = target_folder / filename

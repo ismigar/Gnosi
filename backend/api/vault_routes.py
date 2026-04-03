@@ -345,23 +345,6 @@ def ensure_default_registry_structure():
         # Disabled to avoid unnecessary noise in the Vault per user feedback
         pass
 
-    # Ensure a 'wiki' table exists for properties on non-database pages
-    wiki_table = next(
-        (t for t in registry["tables"] if t.get("id") == "wiki"), None
-    )
-    if wiki_table is None:
-        wiki_table = {
-            "id": "wiki",
-            "database_id": "digital_brain_db",
-            "name": "Wiki",
-            "folder": "Wiki",
-            "properties": [
-                {"name": "Títol", "type": "title"}
-            ]
-        }
-        registry["tables"].append(wiki_table)
-        changed = True
-
     if changed:
         save_registry(registry)
 
@@ -481,6 +464,14 @@ def normalize_table_context(metadata: dict) -> dict:
     """Keeps table context fields synchronized (canonical + legacy)."""
     table_id = metadata.get("table_id")
     database_table_id = metadata.get("database_table_id")
+
+    # Legacy compatibility: wiki pages must not behave as DB rows.
+    if str(table_id or "").strip().lower() == "wiki":
+        metadata.pop("table_id", None)
+        table_id = None
+    if str(database_table_id or "").strip().lower() == "wiki":
+        metadata.pop("database_table_id", None)
+        database_table_id = None
 
     if table_id and not database_table_id:
         metadata["database_table_id"] = table_id
@@ -999,8 +990,8 @@ def _resolve_table_id_from_context(
 
     # Fallback for legacy/template notes outside table folders.
     res_id = metadata.get("table_id") or metadata.get("database_table_id")
-    if not res_id and rel_folder.lower() == "wiki":
-        return "wiki"
+    if str(res_id or "").strip().lower() == "wiki":
+        return None
     return res_id
 
 
@@ -1923,8 +1914,23 @@ def load_registry():
             changed = True
             log.info("🗑️ Deleted default taula_1 from registry.")
 
+        # 1.5 Cleanup: legacy wiki table is no longer supported as DB table.
+        if any(str(t.get("id") or "").strip().lower() == "wiki" for t in data.get("tables", [])):
+            data["tables"] = [
+                t
+                for t in data.get("tables", [])
+                if str(t.get("id") or "").strip().lower() != "wiki"
+            ]
+            data["views"] = [
+                v
+                for v in data.get("views", [])
+                if str(v.get("table_id") or "").strip().lower() != "wiki"
+            ]
+            changed = True
+            log.info("🧹 Removed legacy wiki table and its views from registry.")
+
         # 2. Sanejament i creació de carpetes
-        for table in tables:
+        for table in data.get("tables", []):
             # Assegurar propietat 'folder' i que sigui RELATIVA (neteja host paths)
             folder_raw = table.get("folder") or table.get("name", "untitled_table")
             folder_normalized = _normalize_rel_folder(folder_raw)
@@ -2054,7 +2060,14 @@ async def get_registry():
         registry["databases"] = sorted(
             registry.get("databases", []), key=_sort_key_name
         )
-        registry["tables"] = sorted(registry.get("tables", []), key=_sort_key_name)
+        registry["tables"] = sorted(
+            [
+                t
+                for t in registry.get("tables", [])
+                if str(t.get("id") or "").strip().lower() != "wiki"
+            ],
+            key=_sort_key_name,
+        )
         registry["views"] = sorted(registry.get("views", []), key=_sort_key_name)
         return registry
     except Exception as e:
@@ -2149,7 +2162,11 @@ async def delete_database(database_id: str):
 @router.get("/tables")
 async def list_tables(database_id: Optional[str] = None):
     registry = load_registry()
-    tables = registry.get("tables", [])
+    tables = [
+        t
+        for t in registry.get("tables", [])
+        if str(t.get("id") or "").strip().lower() != "wiki"
+    ]
     if database_id:
         tables = [t for t in tables if t.get("database_id") == database_id]
     return sorted(tables, key=_sort_key_name)

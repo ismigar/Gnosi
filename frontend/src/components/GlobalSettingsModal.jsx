@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
@@ -24,13 +24,153 @@ function getStoredTheme() {
 }
 
 const LLM_PROVIDERS_META = {
+    opencode_zen: { name: 'OpenCode Zen', icon: '🧠', color: '#2563eb', description: 'Models validats per l’equip d’OpenCode.', baseUrl: '' },
+    opencode_go: { name: 'OpenCode Go', icon: '🚀', color: '#0ea5e9', description: 'Pla low-cost amb models de coding verificats.', baseUrl: '' },
+    '302_ai': { name: '302.AI', icon: '🔗', color: '#0891b2', description: 'Accés multi-model via API.', baseUrl: '' },
+    'amazon-bedrock': { name: 'Amazon Bedrock', icon: '☁️', color: '#f59e0b', description: 'Models via AWS Bedrock.', baseUrl: '' },
     groq: { name: 'Groq', icon: '⚡', color: '#f59e0b', description: 'Inferència ultra-ràpida amb Llama 3 i Mixtral.', baseUrl: 'https://api.groq.com/openai/v1' },
     openai: { name: 'OpenAI', icon: '🤖', color: '#10b981', description: 'Models GPT-4o i GPT-4-turbo originals.', baseUrl: 'https://api.openai.com/v1' },
     anthropic: { name: 'Anthropic', icon: '🎨', color: '#d97706', description: 'Models Claude 3.5 Sonnet i Opus.', baseUrl: '' },
+    'azure-openai': { name: 'Azure OpenAI', icon: '🟦', color: '#2563eb', description: 'OpenAI desplegat a Azure.', baseUrl: '' },
+    'azure-cognitive-services': { name: 'Azure Cognitive Services', icon: '🧩', color: '#1d4ed8', description: 'Models servits des de Cognitive Services.', baseUrl: '' },
+    baseten: { name: 'Baseten', icon: '📦', color: '#7c3aed', description: 'Inferència i hosting de models.', baseUrl: '' },
+    cerebras: { name: 'Cerebras', icon: '🧮', color: '#ea580c', description: 'Inferència d’alta velocitat.', baseUrl: '' },
+    'cloudflare-ai-gateway': { name: 'Cloudflare AI Gateway', icon: '🛡️', color: '#f97316', description: 'Gateway unificat multi-proveïdor.', baseUrl: '' },
+    'cloudflare-workers-ai': { name: 'Cloudflare Workers AI', icon: '🌩️', color: '#fb923c', description: 'Models al edge de Cloudflare.', baseUrl: '' },
+    cortecs: { name: 'Cortecs', icon: '🧪', color: '#db2777', description: 'Provider de models fundacionals.', baseUrl: '' },
+    deepseek: { name: 'DeepSeek', icon: '🔍', color: '#0f766e', description: 'Models DeepSeek API.', baseUrl: '' },
+    'deep-infra': { name: 'Deep Infra', icon: '🏗️', color: '#0ea5e9', description: 'Infraestructura d’inferència multi-model.', baseUrl: '' },
+    firmware: { name: 'Firmware', icon: '🧱', color: '#6d28d9', description: 'Provider compatible OpenAI.', baseUrl: '' },
+    fireworks: { name: 'Fireworks AI', icon: '🎆', color: '#ef4444', description: 'Inferència accelerada.', baseUrl: '' },
+    'gitlab-duo': { name: 'GitLab Duo', icon: '🦊', color: '#f97316', description: 'Duo Agent Platform / OAuth o PAT.', baseUrl: '' },
+    'github-copilot': { name: 'GitHub Copilot', icon: '🐙', color: '#111827', description: 'Subscripció Copilot via login OAuth.', baseUrl: '' },
+    'google-vertex-ai': { name: 'Google Vertex AI', icon: '🛰️', color: '#2563eb', description: 'Models a Google Cloud Vertex.', baseUrl: '' },
+    'hugging-face': { name: 'Hugging Face', icon: '🤗', color: '#eab308', description: 'Inference Providers de Hugging Face.', baseUrl: '' },
+    helicone: { name: 'Helicone', icon: '📊', color: '#7c3aed', description: 'Gateway + observabilitat LLM.', baseUrl: 'https://ai-gateway.helicone.ai' },
+    'llama-cpp': { name: 'llama.cpp', icon: '🦙', color: '#4b5563', description: 'Servidor local compatible OpenAI.', baseUrl: 'http://127.0.0.1:8080/v1' },
+    'io-net': { name: 'IO.NET', icon: '🌐', color: '#06b6d4', description: 'Plataforma d’inferència de models.', baseUrl: '' },
+    lmstudio: { name: 'LM Studio', icon: '💻', color: '#6366f1', description: 'Models locals via LM Studio.', baseUrl: 'http://127.0.0.1:1234/v1' },
+    moonshot: { name: 'Moonshot AI', icon: '🌙', color: '#4338ca', description: 'Kimi i altres models Moonshot.', baseUrl: '' },
+    minimax: { name: 'MiniMax', icon: '🧠', color: '#14b8a6', description: 'Models MiniMax.', baseUrl: '' },
+    nebius: { name: 'Nebius Token Factory', icon: '🏭', color: '#0f766e', description: 'Token Factory per inferència.', baseUrl: '' },
     ollama: { name: 'Ollama', icon: '🏠', color: '#71717a', description: 'Models locals sense privacitat compromesa.', baseUrl: 'http://localhost:11434' },
+    'ollama-cloud': { name: 'Ollama Cloud', icon: '☁️', color: '#4f46e5', description: 'Models cloud d’Ollama.', baseUrl: '' },
     openrouter: { name: 'OpenRouter', icon: '🌐', color: '#3b82f6', description: 'Accés a centenars de models via API unificada.', baseUrl: 'https://openrouter.ai/api/v1' },
     google: { name: 'Google Gemini', icon: '✨', color: '#4285f4', description: 'Models Gemini Pro i Flash via Google AI Studio.', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/' },
+    'sap-ai-core': { name: 'SAP AI Core', icon: '🏢', color: '#0ea5e9', description: 'Models via service key JSON de SAP.', baseUrl: '' },
+    stackit: { name: 'STACKIT', icon: '🇪🇺', color: '#2563eb', description: 'Hosting sobirà europeu de models.', baseUrl: '' },
+    ovhcloud: { name: 'OVHcloud AI Endpoints', icon: '🌍', color: '#1d4ed8', description: 'Endpoints AI d’OVHcloud.', baseUrl: '' },
+    scaleway: { name: 'Scaleway', icon: '🛰️', color: '#7c3aed', description: 'Generative APIs de Scaleway.', baseUrl: '' },
+    together: { name: 'Together AI', icon: '🤝', color: '#0f766e', description: 'Models open i propietaris.', baseUrl: '' },
+    venice: { name: 'Venice AI', icon: '🏛️', color: '#be123c', description: 'Models via API de Venice.', baseUrl: '' },
+    vercel: { name: 'Vercel AI Gateway', icon: '▲', color: '#111827', description: 'Gateway multi-proveïdor de Vercel.', baseUrl: '' },
+    xai: { name: 'xAI', icon: '❌', color: '#111827', description: 'Models Grok via xAI.', baseUrl: '' },
+    z_ai: { name: 'Z.AI', icon: '🧬', color: '#16a34a', description: 'Models GLM i pla coding.', baseUrl: '' },
+    zenmux: { name: 'ZenMux', icon: '🔀', color: '#1d4ed8', description: 'Router multi-model compatible.', baseUrl: '' },
     custom: { name: 'Personalitzat', icon: '⚙️', color: '#8b5cf6', description: 'Qualsevol endpoint compatible amb OpenAI.', baseUrl: '' }
+};
+
+const PROVIDERS_REQUIREMENTS = {
+    opencode_zen: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    opencode_go: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    '302_ai': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    'amazon-bedrock': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'AWS Credentials / Bearer Token' },
+    groq: { needsApiKey: true, needsBaseUrl: false },
+    openai: { needsApiKey: true, needsBaseUrl: false },
+    anthropic: { needsApiKey: true, needsBaseUrl: false },
+    'azure-openai': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Azure Resource Name' },
+    'azure-cognitive-services': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Cognitive Resource Name' },
+    baseten: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    cerebras: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    'cloudflare-ai-gateway': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Account ID + Gateway ID' },
+    'cloudflare-workers-ai': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Cloudflare Account ID' },
+    cortecs: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    deepseek: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    'deep-infra': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    firmware: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    fireworks: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    'gitlab-duo': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'OAuth o GitLab PAT' },
+    'github-copilot': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'OAuth Device Login' },
+    'google-vertex-ai': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'Project ID + Credentials' },
+    'hugging-face': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    helicone: { needsApiKey: true, needsBaseUrl: true, needsSecret: false },
+    'llama-cpp': { needsApiKey: false, needsBaseUrl: true, needsSecret: false },
+    'io-net': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    lmstudio: { needsApiKey: false, needsBaseUrl: true, needsSecret: false },
+    moonshot: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    minimax: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    nebius: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    ollama: { needsApiKey: false, needsBaseUrl: true, needsSecret: false },
+    'ollama-cloud': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    openrouter: { needsApiKey: true, needsBaseUrl: true, needsSecret: false },
+    google: { needsApiKey: true, needsBaseUrl: false },
+    'sap-ai-core': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'Service Key JSON' },
+    stackit: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    ovhcloud: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    scaleway: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    together: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    venice: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    vercel: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    xai: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    z_ai: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    zenmux: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
+    custom: { needsApiKey: true, needsBaseUrl: true, needsSecret: false }
+};
+
+const PROVIDER_CATEGORY_ORDER = [
+    'OpenCode',
+    'Major LLMs',
+    'Cloud Platforms',
+    'Gateways & Routing',
+    'Specialized APIs',
+    'Enterprise',
+    'Local'
+];
+
+const PROVIDER_CATEGORY_MAP = {
+    opencode_zen: 'OpenCode',
+    opencode_go: 'OpenCode',
+    openai: 'Major LLMs',
+    anthropic: 'Major LLMs',
+    google: 'Major LLMs',
+    groq: 'Major LLMs',
+    xai: 'Major LLMs',
+    deepseek: 'Major LLMs',
+    moonshot: 'Major LLMs',
+    minimax: 'Major LLMs',
+    z_ai: 'Major LLMs',
+    'amazon-bedrock': 'Cloud Platforms',
+    'google-vertex-ai': 'Cloud Platforms',
+    'azure-openai': 'Cloud Platforms',
+    'azure-cognitive-services': 'Cloud Platforms',
+    'cloudflare-workers-ai': 'Cloud Platforms',
+    openrouter: 'Gateways & Routing',
+    vercel: 'Gateways & Routing',
+    zenmux: 'Gateways & Routing',
+    helicone: 'Gateways & Routing',
+    'cloudflare-ai-gateway': 'Gateways & Routing',
+    '302_ai': 'Specialized APIs',
+    baseten: 'Specialized APIs',
+    cerebras: 'Specialized APIs',
+    cortecs: 'Specialized APIs',
+    'deep-infra': 'Specialized APIs',
+    firmware: 'Specialized APIs',
+    fireworks: 'Specialized APIs',
+    'hugging-face': 'Specialized APIs',
+    'io-net': 'Specialized APIs',
+    nebius: 'Specialized APIs',
+    ovhcloud: 'Specialized APIs',
+    scaleway: 'Specialized APIs',
+    stackit: 'Specialized APIs',
+    together: 'Specialized APIs',
+    venice: 'Specialized APIs',
+    'sap-ai-core': 'Enterprise',
+    'gitlab-duo': 'Enterprise',
+    'github-copilot': 'Enterprise',
+    ollama: 'Local',
+    'ollama-cloud': 'Local',
+    'llama-cpp': 'Local',
+    lmstudio: 'Local'
 };
 
 export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
@@ -86,6 +226,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const [aiAgents, setAiAgents] = useState([]);
     const [aiProviders, setAiProviders] = useState({});
+    const [aiCatalog, setAiCatalog] = useState({});
     const [activeAgentId, setActiveAgentId] = useState('');
     const [editingAgent, setEditingAgent] = useState(null);
 
@@ -93,6 +234,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [pickerField, setPickerField] = useState(null); // 'vault', 'databases', 'newsletters'
     const [editingProvider, setEditingProvider] = useState(null); // { id, name, api_key, base_url, source, ... }
     const [isAddProviderOpen, setIsAddProviderOpen] = useState(false);
+    const [newProviderDraft, setNewProviderDraft] = useState({ providerId: 'groq', apiKey: '', secretValue: '', baseUrl: '' });
+    const [providerSearchQuery, setProviderSearchQuery] = useState('');
+    const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+    const [highlightedProviderId, setHighlightedProviderId] = useState('');
 
     // Theme application is now handled globally in App.jsx via db-theme-changed event
     const handleThemeChange = (newTheme) => {
@@ -104,6 +249,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     useEffect(() => {
         if (isOpen) {
             loadConfig();
+            loadAiCatalog();
             loadZoteroData();
             loadSchedulers();
             loadIntegrations();
@@ -144,12 +290,38 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 // AI Config
                 if (cfg.ai) {
                     setAiAgents(cfg.ai.agents || []);
-                    setAiProviders(cfg.ai.providers || {});
                     setActiveAgentId(cfg.ai.active_agent_id || '');
                 }
             }
         } catch (err) {
             console.error("Error loading config:", err);
+        }
+    };
+
+    const loadAiCatalog = async () => {
+        try {
+            const res = await fetch('/api/ai/catalog');
+            if (!res.ok) return;
+            const payload = await res.json();
+            const providers = Array.isArray(payload?.catalog?.providers) ? payload.catalog.providers : [];
+            const catalogMap = providers.reduce((acc, provider) => {
+                acc[provider.id] = provider;
+                return acc;
+            }, {});
+            setAiCatalog(catalogMap);
+
+            if (payload?.config?.providers) {
+                const persistedProviders = Object.entries(payload.config.providers).reduce((acc, [providerId, providerCfg]) => {
+                    if (!providerCfg || providerCfg.source !== 'user') {
+                        return acc;
+                    }
+                    acc[providerId] = providerCfg;
+                    return acc;
+                }, {});
+                setAiProviders(persistedProviders);
+            }
+        } catch (err) {
+            console.error('Error loading AI catalog:', err);
         }
     };
 
@@ -189,8 +361,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-    if (!isOpen) return null;
-
     const handleLanguageChange = (code) => {
         i18n.changeLanguage(code);
         setLocalSettings(prev => ({ ...prev, language: code }));
@@ -200,6 +370,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         setIsSaving(true);
         setSaveStatus('Guardant...');
         try {
+            const persistedProviders = Object.entries(aiProviders).reduce((acc, [providerId, providerCfg]) => {
+                const cfg = { ...(providerCfg || {}) };
+                delete cfg.api_key;
+                delete cfg.has_api_key;
+                delete cfg.pending_api_key;
+                acc[providerId] = cfg;
+                return acc;
+            }, {});
+
             const updatedConfig = {
                 ...fullConfig,
                 settings: localSettings,
@@ -207,7 +386,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 graph: graphConfig,
                 ai: {
                     agents: aiAgents,
-                    providers: aiProviders,
+                    providers: persistedProviders,
                     active_agent_id: activeAgentId
                 }
             };
@@ -310,6 +489,174 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     const availableProperties = getAvailableProperties();
+
+    const getProviderModels = (providerId) => {
+        const entry = aiCatalog[providerId];
+        return Array.isArray(entry?.models) ? entry.models : [];
+    };
+
+    const getProviderRequirements = (providerId) => {
+        return PROVIDERS_REQUIREMENTS[providerId] || PROVIDERS_REQUIREMENTS.custom;
+    };
+
+    const getProviderRequirementLabels = (providerId) => {
+        const req = getProviderRequirements(providerId);
+        const labels = [];
+        if (req.needsApiKey) labels.push('API Key');
+        if (req.needsSecret) labels.push(req.secretLabel || 'Secret');
+        if (req.needsBaseUrl) labels.push('Base URL');
+        if (providerId === 'google') labels.push('Project Key');
+        return labels;
+    };
+
+    const getProviderName = (providerId) => {
+        return LLM_PROVIDERS_META[providerId]?.name || providerId;
+    };
+
+    const getProviderCategory = (providerId) => {
+        return PROVIDER_CATEGORY_MAP[providerId] || 'Specialized APIs';
+    };
+
+    const getFilteredProviderIds = (query) => {
+        const q = (query || '').trim().toLowerCase();
+        const ids = Object.keys(LLM_PROVIDERS_META).filter(p => p !== 'custom');
+        if (!q) return ids;
+        return ids.filter((providerId) => {
+            const meta = LLM_PROVIDERS_META[providerId] || {};
+            return [providerId, meta.name, meta.description]
+                .filter(Boolean)
+                .some(value => String(value).toLowerCase().includes(q));
+        });
+    };
+
+    const getGroupedProviderOptions = (query) => {
+        const filteredIds = getFilteredProviderIds(query);
+        const grouped = PROVIDER_CATEGORY_ORDER.map((category) => {
+            const options = filteredIds
+                .filter(providerId => getProviderCategory(providerId) === category)
+                .sort((a, b) => getProviderName(a).localeCompare(getProviderName(b)));
+            return { category, options };
+        }).filter(group => group.options.length > 0);
+        return grouped;
+    };
+
+    const groupedProviderOptions = useMemo(
+        () => getGroupedProviderOptions(providerSearchQuery),
+        [providerSearchQuery]
+    );
+
+    const flatProviderOptionIds = useMemo(
+        () => groupedProviderOptions.flatMap(group => group.options),
+        [groupedProviderOptions]
+    );
+
+    const selectProviderFromDropdown = (providerId) => {
+        setNewProviderDraft(prev => ({
+            ...prev,
+            providerId,
+            apiKey: '',
+            secretValue: '',
+            baseUrl: LLM_PROVIDERS_META[providerId]?.baseUrl || ''
+        }));
+        setProviderSearchQuery('');
+        setIsProviderDropdownOpen(false);
+    };
+
+    const handleProviderDropdownKeyDown = (event) => {
+        if (!isProviderDropdownOpen) return;
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            if (!flatProviderOptionIds.length) return;
+            const currentIndex = flatProviderOptionIds.indexOf(highlightedProviderId);
+            const nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, flatProviderOptionIds.length - 1);
+            setHighlightedProviderId(flatProviderOptionIds[nextIndex]);
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (!flatProviderOptionIds.length) return;
+            const currentIndex = flatProviderOptionIds.indexOf(highlightedProviderId);
+            const nextIndex = currentIndex <= 0 ? 0 : currentIndex - 1;
+            setHighlightedProviderId(flatProviderOptionIds[nextIndex]);
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (highlightedProviderId) {
+                selectProviderFromDropdown(highlightedProviderId);
+            }
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            setIsProviderDropdownOpen(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!isProviderDropdownOpen) return;
+
+        if (!flatProviderOptionIds.length) {
+            setHighlightedProviderId('');
+            return;
+        }
+
+        setHighlightedProviderId((prev) => {
+            if (prev && flatProviderOptionIds.includes(prev)) {
+                return prev;
+            }
+            if (flatProviderOptionIds.includes(newProviderDraft.providerId)) {
+                return newProviderDraft.providerId;
+            }
+            return flatProviderOptionIds[0];
+        });
+    }, [isProviderDropdownOpen, flatProviderOptionIds, newProviderDraft.providerId]);
+
+    useEffect(() => {
+        if (!isProviderDropdownOpen || !highlightedProviderId) return;
+
+        const optionElement = document.getElementById(`provider-option-${highlightedProviderId}`);
+        if (optionElement) {
+            optionElement.scrollIntoView({ block: 'nearest' });
+        }
+    }, [isProviderDropdownOpen, highlightedProviderId]);
+
+    const renderHighlightedText = (text, query) => {
+        const value = String(text || '');
+        const q = String(query || '').trim();
+        if (!q) return value;
+        const lowerValue = value.toLowerCase();
+        const lowerQuery = q.toLowerCase();
+        const start = lowerValue.indexOf(lowerQuery);
+        if (start < 0) return value;
+        const end = start + q.length;
+        return (
+            <>
+                {value.slice(0, start)}
+                <mark style={{ background: 'rgba(59,130,246,0.2)', color: 'var(--text-primary)', borderRadius: '4px', padding: '0 2px' }}>
+                    {value.slice(start, end)}
+                </mark>
+                {value.slice(end)}
+            </>
+        );
+    };
+
+    const openAddProviderModal = () => {
+        const firstProvider = Object.keys(LLM_PROVIDERS_META).find(p => p !== 'custom') || 'groq';
+        setNewProviderDraft({
+            providerId: firstProvider,
+            apiKey: '',
+            secretValue: '',
+            baseUrl: LLM_PROVIDERS_META[firstProvider]?.baseUrl || ''
+        });
+        setProviderSearchQuery('');
+        setIsProviderDropdownOpen(false);
+        setIsAddProviderOpen(true);
+    };
 
     if (!isOpen) return null;
 
@@ -1363,7 +1710,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Proveïdors de LLM</h3>
                                             </div>
                                             <button 
-                                                onClick={() => setIsAddProviderOpen(true)}
+                                                onClick={openAddProviderModal}
                                                 style={{ 
                                                     padding: '6px 12px', 
                                                     borderRadius: '8px', 
@@ -1385,13 +1732,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="ai-provider-grid">
                                             {Object.entries(aiProviders).map(([pId, config]) => {
                                                 const meta = LLM_PROVIDERS_META[pId] || LLM_PROVIDERS_META.custom;
-                                                const source = config.source || 'none';
                                                 
                                                 return (
                                                     <div 
                                                         key={pId} 
                                                         className="provider-card"
-                                                        onClick={() => setEditingProvider({ id: pId, ...config, name: meta.name })}
+                                                        onClick={() => setEditingProvider({ id: pId, ...config, name: meta.name, pending_api_key: '' })}
                                                     >
                                                         <div className="provider-card__header">
                                                             <div className="provider-card__identity">
@@ -1406,10 +1752,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             {meta.description}
                                                         </div>
 
+                                                                                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                                                                                                    {getProviderRequirementLabels(pId).map((label) => (
+                                                                                                                        <span key={`${pId}-${label}`} style={{ fontSize: '0.7rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '2px 8px', color: 'var(--text-secondary)' }}>
+                                                                                                                            {label}
+                                                                                                                        </span>
+                                                                                                                    ))}
+                                                                                                                </div>
+
                                                         <div className="provider-card__footer">
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <div className={`provider-card__indicator ${config.api_key ? 'provider-card__indicator--active' : ''}`} />
-                                                                <span>{config.api_key ? 'Connectat' : 'Sense configurar'}</span>
+                                                                <div className={`provider-card__indicator ${config.has_api_key ? 'provider-card__indicator--active' : ''}`} />
+                                                                <span>{config.has_api_key ? 'Connectat' : 'Sense configurar'}</span>
                                                             </div>
                                                             <LucideIcons.ChevronRight size={14} style={{ opacity: 0.5 }} />
                                                         </div>
@@ -1417,28 +1771,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 );
                                             })}
 
-                                            {Object.entries(LLM_PROVIDERS_META)
-                                                .filter(([pId]) => !aiProviders[pId] && pId !== 'custom')
-                                                .map(([pId, meta]) => (
-                                                    <div 
-                                                        key={pId} 
-                                                        className="provider-card" 
-                                                        style={{ opacity: 0.6, borderStyle: 'dashed' }}
-                                                        onClick={() => setEditingProvider({ id: pId, name: meta.name, base_url: meta.baseUrl })}
-                                                    >
-                                                        <div className="provider-card__header">
-                                                            <div className="provider-card__identity">
-                                                                <div className="provider-card__logo" style={{ filter: 'grayscale(1)' }}>
-                                                                    {meta.icon}
-                                                                </div>
-                                                                <div className="provider-card__name">{meta.name}</div>
-                                                            </div>
-                                                            <div className="status-badge status-badge--none">NEW</div>
-                                                        </div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Configura {meta.name}.</div>
-                                                    </div>
-                                                ))
-                                            }
+                                            {Object.keys(aiProviders).length === 0 && (
+                                                <div style={{ border: '1px dashed var(--settings-border)', borderRadius: '12px', padding: '16px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                                                    Encara no hi ha proveïdors afegits. Prem "Afegir Proveïdor" per configurar-ne un.
+                                                </div>
+                                            )}
                                         </div>
                                     </section>
 
@@ -1511,29 +1848,36 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <button onClick={() => setEditingProvider(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
                                                 </div>
                                                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    {editingProvider.id !== 'ollama' && (
+                                                    {(getProviderRequirements(editingProvider.id).needsApiKey || getProviderRequirements(editingProvider.id).needsSecret) && (
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>API Key</label>
+                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>
+                                                                {getProviderRequirements(editingProvider.id).needsSecret ? (getProviderRequirements(editingProvider.id).secretLabel || 'Secret') : 'API Key'}
+                                                            </label>
                                                             <input 
                                                                 type="password" 
                                                                 placeholder="sk-..."
-                                                                value={editingProvider.api_key || ''}
-                                                                onChange={(e) => setEditingProvider({...editingProvider, api_key: e.target.value})}
+                                                                value={editingProvider.pending_api_key || ''}
+                                                                onChange={(e) => setEditingProvider({...editingProvider, pending_api_key: e.target.value})}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                            />
+                                                            <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                                {editingProvider.has_api_key ? 'Credencial guardada en almacenamiento seguro.' : 'La clave se guardará en keychain/secret store y no en params.yaml.'}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {getProviderRequirements(editingProvider.id).needsBaseUrl && (
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder={LLM_PROVIDERS_META[editingProvider.id]?.baseUrl || 'https://api...'}
+                                                                value={editingProvider.base_url || ''}
+                                                                onChange={(e) => setEditingProvider({...editingProvider, base_url: e.target.value})}
                                                                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
                                                             />
                                                         </div>
                                                     )}
-                                                    
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL (Opcional)</label>
-                                                        <input 
-                                                            type="text" 
-                                                            placeholder={LLM_PROVIDERS_META[editingProvider.id]?.baseUrl || 'https://api...'}
-                                                            value={editingProvider.base_url || ''}
-                                                            onChange={(e) => setEditingProvider({...editingProvider, base_url: e.target.value})}
-                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                        />
-                                                    </div>
 
                                                     <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                                                         <button 
@@ -1543,15 +1887,36 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             Cancel·lar
                                                         </button>
                                                         <button 
-                                                            onClick={() => {
-                                                                setAiProviders(prev => ({
-                                                                    ...prev,
-                                                                    [editingProvider.id]: {
-                                                                        api_key: editingProvider.api_key,
-                                                                        base_url: editingProvider.base_url
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const pendingApiKey = (editingProvider.pending_api_key || '').trim();
+                                                                        if (editingProvider.id !== 'ollama' && pendingApiKey) {
+                                                                        const credentialRes = await fetch(`/api/ai/providers/${editingProvider.id}/credentials`, {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ api_key: pendingApiKey, base_url: editingProvider.base_url || '' })
+                                                                        });
+                                                                        if (!credentialRes.ok) {
+                                                                            const payload = await credentialRes.json().catch(() => ({}));
+                                                                            throw new Error(payload?.detail || 'No s\'ha pogut guardar la credencial');
+                                                                        }
                                                                     }
-                                                                }));
-                                                                setEditingProvider(null);
+
+                                                                    setAiProviders(prev => ({
+                                                                        ...prev,
+                                                                        [editingProvider.id]: {
+                                                                            ...prev[editingProvider.id],
+                                                                            source: 'user',
+                                                                            base_url: editingProvider.base_url,
+                                                                            credential_ref: editingProvider.credential_ref || prev[editingProvider.id]?.credential_ref,
+                                                                            has_api_key: pendingApiKey ? true : Boolean(prev[editingProvider.id]?.has_api_key)
+                                                                        }
+                                                                    }));
+                                                                    setEditingProvider(null);
+                                                                } catch (error) {
+                                                                    console.error('Error saving provider credentials:', error);
+                                                                    alert(error.message || 'Error guardant credencial del proveïdor');
+                                                                }
                                                             }}
                                                             style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer' }}
                                                         >
@@ -1580,61 +1945,200 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     {/* Add Provider Modal */}
                                     {isAddProviderOpen && (
                                         <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                                            <div onClick={() => setIsAddProviderOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
+                                            <div onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
                                             <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
                                                 <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Afegir Proveïdor Personalitzat</h3>
-                                                    <button onClick={() => setIsAddProviderOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
+                                                    <button onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
                                                 </div>
                                                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Afegeix qualsevol servei compatible amb l'API d'OpenAI (ex: OpenRouter, Mistral, etc).</p>
-                                                    
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Identificador (ID)</label>
-                                                        <input 
-                                                            type="text" 
-                                                            placeholder="ex: openrouter"
-                                                            id="new-provider-id"
-                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                        />
+                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Selecciona el proveïdor i completa només les credencials necessàries.</p>
+
+                                                    <div style={{ position: 'relative' }}>
+                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Proveïdor</label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setIsProviderDropdownOpen(prev => {
+                                                                    const nextState = !prev;
+                                                                    if (nextState) {
+                                                                        setProviderSearchQuery('');
+                                                                    }
+                                                                    return nextState;
+                                                                });
+                                                            }}
+                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                                                        >
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span>{LLM_PROVIDERS_META[newProviderDraft.providerId]?.icon || '⚙️'}</span>
+                                                                <span>{getProviderName(newProviderDraft.providerId)}</span>
+                                                            </span>
+                                                            <LucideIcons.ChevronDown size={16} style={{ color: 'var(--text-secondary)', transform: isProviderDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                                                        </button>
+
+                                                        {isProviderDropdownOpen && (
+                                                            <>
+                                                                <div
+                                                                    onClick={() => setIsProviderDropdownOpen(false)}
+                                                                    style={{ position: 'fixed', inset: 0, zIndex: 1 }}
+                                                                />
+                                                                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 2, border: '1px solid var(--settings-border)', borderRadius: '10px', background: 'var(--settings-bg)', boxShadow: '0 14px 30px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+                                                                    <div style={{ padding: '10px', borderBottom: '1px solid var(--settings-border)' }}>
+                                                                        <input
+                                                                            type="text"
+                                                                            autoFocus
+                                                                            placeholder="Buscar proveïdor..."
+                                                                            value={providerSearchQuery}
+                                                                            onChange={(e) => setProviderSearchQuery(e.target.value)}
+                                                                            onKeyDown={handleProviderDropdownKeyDown}
+                                                                            style={{ width: '100%', padding: '9px 10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
+                                                                        />
+                                                                    </div>
+
+                                                                    <div style={{ maxHeight: '260px', overflowY: 'auto', padding: '8px' }}>
+                                                                        {groupedProviderOptions.length === 0 && (
+                                                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '8px' }}>
+                                                                                Sense resultats per aquesta cerca.
+                                                                            </div>
+                                                                        )}
+                                                                        {groupedProviderOptions.map((group) => (
+                                                                            <div key={group.category} style={{ marginBottom: '8px' }}>
+                                                                                <div style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', padding: '6px 8px' }}>
+                                                                                    {group.category}
+                                                                                </div>
+                                                                                {group.options.map((providerId) => (
+                                                                                    <button
+                                                                                        id={`provider-option-${providerId}`}
+                                                                                        key={providerId}
+                                                                                        type="button"
+                                                                                        onMouseEnter={() => setHighlightedProviderId(providerId)}
+                                                                                        onClick={() => selectProviderFromDropdown(providerId)}
+                                                                                        style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '7px 8px', borderRadius: '8px', border: 'none', background: highlightedProviderId === providerId ? 'var(--settings-sidebar-active)' : (newProviderDraft.providerId === providerId ? 'rgba(59,130,246,0.12)' : 'transparent'), color: 'var(--text-primary)', cursor: 'pointer' }}
+                                                                                    >
+                                                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                            <span>{LLM_PROVIDERS_META[providerId]?.icon || '⚙️'}</span>
+                                                                                            <span>{renderHighlightedText(getProviderName(providerId), providerSearchQuery)}</span>
+                                                                                        </span>
+                                                                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{getProviderCategory(providerId)}</span>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </>
+                                                        )}
                                                     </div>
-                                                    
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>API Key</label>
-                                                        <input 
-                                                            type="password" 
-                                                            placeholder="sk-..."
-                                                            id="new-provider-key"
-                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                        />
+
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {getProviderRequirementLabels(newProviderDraft.providerId).map((label) => (
+                                                            <span key={`draft-${newProviderDraft.providerId}-${label}`} style={{ fontSize: '0.72rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '3px 9px', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)' }}>
+                                                                {label} requerit
+                                                            </span>
+                                                        ))}
                                                     </div>
-                                                    
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
-                                                        <input 
-                                                            type="text" 
-                                                            placeholder="https://api.v1..."
-                                                            id="new-provider-url"
-                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                        />
+
+                                                    {getProviderRequirements(newProviderDraft.providerId).needsApiKey && (
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>API Key</label>
+                                                            <input 
+                                                                type="password" 
+                                                                placeholder="sk-..."
+                                                                value={newProviderDraft.apiKey}
+                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, apiKey: e.target.value }))}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {getProviderRequirements(newProviderDraft.providerId).needsSecret && (
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>
+                                                                {getProviderRequirements(newProviderDraft.providerId).secretLabel || 'Secret'}
+                                                            </label>
+                                                            <input
+                                                                type="password"
+                                                                placeholder="Introdueix el secret"
+                                                                value={newProviderDraft.secretValue}
+                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, secretValue: e.target.value }))}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {getProviderRequirements(newProviderDraft.providerId).needsBaseUrl && (
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder="https://api..."
+                                                                value={newProviderDraft.baseUrl}
+                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, baseUrl: e.target.value }))}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                        Les credencials es guarden en emmagatzematge segur (keychain/secret store).
                                                     </div>
 
                                                     <button 
-                                                        onClick={() => {
-                                                            const id = document.getElementById('new-provider-id').value;
-                                                            const key = document.getElementById('new-provider-key').value;
-                                                            const url = document.getElementById('new-provider-url').value;
-                                                            if (id && key) {
+                                                        onClick={async () => {
+                                                            try {
+                                                                const providerId = newProviderDraft.providerId;
+                                                                const requirements = getProviderRequirements(providerId);
+                                                                const apiKey = (newProviderDraft.apiKey || '').trim();
+                                                                const secretValue = (newProviderDraft.secretValue || '').trim();
+                                                                const baseUrl = (newProviderDraft.baseUrl || '').trim();
+
+                                                                if (requirements.needsApiKey && !apiKey) {
+                                                                    throw new Error('Aquest proveïdor necessita API key');
+                                                                }
+                                                                if (requirements.needsSecret && !secretValue) {
+                                                                    throw new Error('Aquest proveïdor necessita secret addicional');
+                                                                }
+
+                                                                const credentialValue = apiKey || secretValue;
+
+                                                                if (credentialValue) {
+                                                                    const credentialRes = await fetch(`/api/ai/providers/${providerId}/credentials`, {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ api_key: credentialValue, base_url: baseUrl })
+                                                                    });
+                                                                    if (!credentialRes.ok) {
+                                                                        const payload = await credentialRes.json().catch(() => ({}));
+                                                                        throw new Error(payload?.detail || 'No s\'ha pogut connectar el proveïdor');
+                                                                    }
+                                                                }
+
                                                                 setAiProviders(prev => ({
                                                                     ...prev,
-                                                                    [id]: { api_key: key, base_url: url, source: 'api' }
+                                                                    [providerId]: {
+                                                                        ...prev[providerId],
+                                                                        source: 'user',
+                                                                        base_url: baseUrl,
+                                                                        has_api_key: Boolean(credentialValue)
+                                                                    }
                                                                 }));
+                                                                setIsProviderDropdownOpen(false);
                                                                 setIsAddProviderOpen(false);
+                                                            } catch (error) {
+                                                                console.error('Error adding AI provider:', error);
+                                                                alert(error.message || 'Error afegint el proveïdor');
                                                             }
                                                         }}
                                                         style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', marginTop: '5px' }}
                                                     >
-                                                        Connectar Proveïdor
+                                                        Afegir Proveïdor
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }}
+                                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
+                                                    >
+                                                        Cancel·lar
                                                     </button>
                                                 </div>
                                             </div>
@@ -1687,7 +2191,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Proveïdor</label>
                                                                     <select 
                                                                         value={editingAgent.provider}
-                                                                        onChange={(e) => setEditingAgent({...editingAgent, provider: e.target.value})}
+                                                                        onChange={(e) => {
+                                                                            const nextProvider = e.target.value;
+                                                                            const models = getProviderModels(nextProvider);
+                                                                            const nextModel = models.includes(editingAgent.model) ? editingAgent.model : (models[0] || '');
+                                                                            setEditingAgent({...editingAgent, provider: nextProvider, model: nextModel});
+                                                                        }}
                                                                         style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                     >
                                                                         {Object.keys(aiProviders).map(pId => (
@@ -1701,11 +2210,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Model</label>
                                                                     <input 
                                                                         type="text" 
+                                                                        list={`provider-models-${editingAgent.provider}`}
                                                                         placeholder="llama-3.3-70b-versatile"
                                                                         value={editingAgent.model}
                                                                         onChange={(e) => setEditingAgent({...editingAgent, model: e.target.value})}
                                                                         style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
                                                                     />
+                                                                    <datalist id={`provider-models-${editingAgent.provider}`}>
+                                                                        {getProviderModels(editingAgent.provider).map(modelId => (
+                                                                            <option key={modelId} value={modelId} />
+                                                                        ))}
+                                                                    </datalist>
                                                                 </div>
                                                             </div>
                                                         </div>

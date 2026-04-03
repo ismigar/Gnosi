@@ -399,25 +399,21 @@ export const GraphViewer = forwardRef(({
             }
 
             // Apply edge thickness multiplier and arrow toggle from visualization controls
-            let finalColor = color;
-            if (!finalColor || finalColor === data.color) {
-                // HIGH CONTRAST: Black for light mode, White for dark mode
-                finalColor = isDarkModeRef.current ? '#FFFFFF' : '#000000';
-            }
+            let finalColor = color || (isDarkModeRef.current ? '#888888' : '#666666');
             
             // Ensure a robust base visible size for edges in WebGL mode
-            const baseSize = data.size || 3.0; // Increased base size
+            const baseSize = data.size || 2.0; 
             const result = { 
                 ...data, 
                 color: finalColor,
-                type: 'line', // Force line type to ensure it uses the correct program
                 zIndex: 1
             };
             
             const thickness = edgeThicknessRef.current || 1.0;
-            result.size = Math.max(1.5, baseSize * thickness);
+            result.size = Math.max(1.0, baseSize * thickness);
             
             return result;
+
 
 
         };
@@ -428,8 +424,11 @@ export const GraphViewer = forwardRef(({
             // WebGL is the default and more robust for standard setups
             nodeReducer,
             edgeReducer,
-            minArrowSize: 10,
-            maxArrowSize: 20,
+            renderEdges: true, // Native edge rendering
+            defaultEdgeType: "arrow", // Global arrows
+            minArrowSize: 8,
+            maxArrowSize: 15,
+
             labelColor: { color: isDarkMode ? "#ffffff" : "#000000" },
             labelRenderThreshold: labelThreshold,
             labelSizeRatio: 1.1,
