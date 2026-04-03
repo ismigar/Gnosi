@@ -1,26 +1,17 @@
 /**
  * markdown-mapper.js
  * Utilitat per a la conversió bi-direccional entre BlockNote JSON i Markdown Enriquit.
- * 
- * Dissenyat per a:
- * 1. Portabilitat (Obsidian compatible)
- * 2. Llegibilitat per LLMs
- * 3. Fidelitat visual (Notion-like)
  */
 
 /**
  * Converteix una llista de blocs de BlockNote a Markdown enriquit.
- * @param {Array} blocks - Llista de blocs de BlockNote
- * @param {Object} editor - Instància de l'editor (opcional, per a mètodes auxiliars)
- * @returns {string} - Markdown resultant
  */
 export const blocksToRichMarkdown = (blocks, editor) => {
     if (!blocks || !Array.isArray(blocks)) return "";
 
     let markdown = "";
-
     blocks.forEach((block) => {
-        markdown += blockToMarkdown(block, editor, 0) + "\n";
+        markdown += blockToMarkdown(block, editor, 0);
     });
 
     return markdown.trim();
@@ -28,12 +19,13 @@ export const blocksToRichMarkdown = (blocks, editor) => {
 
 /**
  * Converteix un bloc individual a Markdown recursivament.
+ * ESTRATÈGIA: Cada bloc-nivell s'assegura de tenir el seu propi \n.
  */
 const blockToMarkdown = (block, editor, indentLevel = 0) => {
     const indent = "  ".repeat(indentLevel);
     let content = "";
 
-    // Gestió de tipus especials de Gnosi (Directives)
+    // Directives Estructurals (Gnosi)
     if (block.type === "columnList") {
         let res = `:::column-list\n`;
         if (block.children) {
@@ -41,18 +33,19 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
                 res += blockToMarkdown(col, editor, indentLevel + 1);
             });
         }
-        res += `:::`;
+        res += `:::\n`;
         return res;
     }
 
     if (block.type === "column") {
-        let res = `:::column\n`;
+        const widthAttr = (block.props && block.props.width && block.props.width !== 1) ? ` {width=${block.props.width}}` : "";
+        let res = `:::column${widthAttr}\n`;
         if (block.children) {
             block.children.forEach(child => {
                 res += blockToMarkdown(child, editor, indentLevel + 1);
             });
         }
-        res += `:::`;
+        res += `:::\n`;
         return res;
     }
 
@@ -63,15 +56,15 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
                 res += blockToMarkdown(child, editor, indentLevel + 1);
             });
         }
-        res += `:::`;
+        res += `:::\n`;
         return res;
     }
 
     if (block.type === "database") {
-        return `\`\`\`gnosi-database\n${JSON.stringify(block.props, null, 2)}\n\`\`\``;
+        return `\`\`\`gnosi-database\n${JSON.stringify(block.props, null, 2)}\n\`\`\`\n`;
     }
 
-    // Tipus estàndard de BlockNote
+    // Tipus estàndard
     switch (block.type) {
         case "heading":
             const level = "#".repeat(block.props.level || 1);
@@ -81,7 +74,7 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             content = `- ${inlineContentToMarkdown(block.content)}`;
             break;
         case "numberedListItem":
-            content = `1. ${inlineContentToMarkdown(block.content)}`; // BlockNote auto-numera
+            content = `1. ${inlineContentToMarkdown(block.content)}`;
             break;
         case "checkListItem":
             const checked = block.props.checked ? "[x]" : "[ ]";
@@ -96,7 +89,7 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             break;
     }
 
-    // Gestionar color de text/background (Només si no és default)
+    // Color/Background
     if (block.props && (block.props.textColor !== "default" || block.props.backgroundColor !== "default")) {
         let style = "";
         if (block.props.textColor !== "default") style += `color: ${block.props.textColor};`;
@@ -104,18 +97,18 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         content = `<div style="${style}">${content}</div>`;
     }
 
-    // Gestionar fills recursivament (si no són columnes que ja hem gestionat)
+    // Fills (standard nesting)
     if (block.children && block.children.length > 0 && !["columnList", "column", "toggle"].includes(block.type)) {
         block.children.forEach(child => {
             content += "\n" + blockToMarkdown(child, editor, indentLevel + 1);
         });
     }
 
-    return indent + content;
+    return indent + content + "\n";
 };
 
 /**
- * Converteix contingut inline (text amb estils) a Markdown amb HTML per a colors.
+ * Converteix contingut inline
  */
 const inlineContentToMarkdown = (content) => {
     if (!content) return "";
@@ -131,56 +124,105 @@ const inlineContentToMarkdown = (content) => {
                 if (item.styles.underline) text = `<u>${text}</u>`;
                 if (item.styles.strike) text = `~~${text}~~`;
                 if (item.styles.code) text = `\`${text}\``;
-                
-                // Color inline (Obsidian compatible)
-                if (item.styles.textColor && item.styles.textColor !== "default") {
-                    text = `<span style="color:${item.styles.textColor}">${text}</span>`;
-                }
-                if (item.styles.backgroundColor && item.styles.backgroundColor !== "default") {
-                    text = `<span style="background-color:${item.styles.backgroundColor}">${text}</span>`;
-                }
             }
             return text;
         }
-        if (item.type === "link") {
-            return `[${inlineContentToMarkdown(item.content)}](${item.href})`;
-        }
+        if (item.type === "link") return `[${inlineContentToMarkdown(item.content)}](${item.href})`;
         return "";
     }).join("");
 };
 
 /**
- * Converteix Markdown enriquit de tornada a blocs de BlockNote.
- * @param {string} markdown - Contingut del fitxer .md
- * @param {Object} editor - Instància de l'editor per fer el parsing inicial
- * @returns {Array|null} - Llista de blocs o null si és JSONLegacy
+ * Converteix Markdown enriquit a blocs.
  */
 export const richMarkdownToBlocks = async (markdown, editor) => {
     if (!markdown) return [];
-
-    // Si detectem que és un JSON stringificat (per retrocompatibilitat)
     if (markdown.trim().startsWith("[") && markdown.trim().endsWith("]")) {
-        try {
-            return JSON.parse(markdown);
-        } catch (e) {
-            console.error("MarkdownMapper: Error parsing legacy JSON content", e);
-        }
+        try { return JSON.parse(markdown); } catch (e) { console.error(e); }
     }
 
-    // Utilitzem el parser natiu de BlockNote per al Markdown estàndard
-    // Nota: El parser natiu no entén les directives :::, així que les hem de pre-processar 
-    // o utilitzar una estratègia de parsing manual per a les branques estructurals.
-    
-    // Per simplicitat en aquesta iteració, farem un parsing "lossy" però funcional
-    // de l'estructura de blocs natius de BlockNote si és possible.
-    if (editor && editor.tryParseMarkdownToBlocks) {
-        try {
-            return await editor.tryParseMarkdownToBlocks(markdown);
-        } catch (e) {
-            console.warn("MarkdownMapper: Native parser failed, falling back to manual line-by-line", e);
-        }
-    }
+    const lines = markdown.split("\n");
 
-    // Implementació de fallback senzilla (per a Markdown que ja és net)
-    return [{ type: "paragraph", content: markdown }];
+    const parseRecursive = async (inputLines) => {
+        let blocks = [];
+        let i = 0;
+
+        while (i < inputLines.length) {
+            const line = inputLines[i];
+            const trimmed = line.trim();
+
+            // REGLA ESTRICTA: La directiva ha de ser l'únic que hi ha a la línia trimada
+            const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle)(.*)$/);
+            
+            if (startMatch) {
+                const type = startMatch[2] === "column-list" ? "columnList" : startMatch[2];
+                const label = startMatch[3].trim();
+
+                let innerLines = [];
+                let depth = 1;
+                let j = i + 1;
+                
+                while (j < inputLines.length && depth > 0) {
+                    const currentTrimmed = inputLines[j].trim();
+                    if (currentTrimmed.match(/^:{3,}(column-list|column|toggle)$/)) depth++;
+                    else if (currentTrimmed.match(/^:{3,}$/)) depth--;
+                    
+                    if (depth > 0) innerLines.push(inputLines[j]);
+                    j++;
+                }
+
+                const block = {
+                    type,
+                    props: { backgroundColor: "default" },
+                    children: await parseRecursive(innerLines)
+                };
+
+                // Per al tipus "column", cal afegir l'amplada segons l'esquema de @blocknote/xl-multi-column
+                if (type === "column") {
+                    const widthMatch = label.match(/\{width=([0-9.]+)\}/);
+                    block.props.width = widthMatch ? parseFloat(widthMatch[1]) : 1;
+                }
+
+                // Per als toggles, el contingut és un array d'inlineContent
+                if (type === "toggle") {
+                    // Netegem possibles atributs del label si fos necessari
+                    const cleanLabel = label.replace(/\{.*\}/, "").trim();
+                    block.content = [{ type: "text", text: (cleanLabel || "Toggle"), styles: {} }];
+                    block.props.textColor = "default";
+                }
+                
+                blocks.push(block);
+                i = j;
+                continue;
+            }
+
+            // Normal text block
+            let textBuffer = [];
+            while (i < inputLines.length) {
+                const nextTrimmed = inputLines[i].trim();
+                if (nextTrimmed.match(/^:{3,}(column-list|column|toggle)$/)) break;
+                textBuffer.push(inputLines[i]);
+                i++;
+            }
+
+            if (textBuffer.length > 0) {
+                const text = textBuffer.join("\n").trim();
+                if (text) {
+                    if (editor?.tryParseMarkdownToBlocks) {
+                        try {
+                            const parsed = await editor.tryParseMarkdownToBlocks(text);
+                            blocks.push(...parsed);
+                        } catch (e) {
+                            blocks.push({ type: "paragraph", content: text });
+                        }
+                    } else {
+                        blocks.push({ type: "paragraph", content: text });
+                    }
+                }
+            }
+        }
+        return blocks;
+    };
+
+    return await parseRecursive(lines);
 };

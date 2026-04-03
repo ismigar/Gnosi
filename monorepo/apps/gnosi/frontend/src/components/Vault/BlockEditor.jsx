@@ -36,9 +36,11 @@ import {
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultStyleSpecs } from "@blocknote/core";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
+import { withMultiColumn, multiColumnDropCursor } from "@blocknote/xl-multi-column";
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/react/style.css";
+import { useTranslation } from 'react-i18next';
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
@@ -253,16 +255,6 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                 propSchema: { database_table_id: { default: "" }, viewId: { default: "" }, filters: { default: "" }, sort: { default: "" }, search: { default: "" }, visibleProperties: { default: "" }, viewType: { default: "table" } },
                 content: "none",
             }, { render: (props) => <InlineDatabase block={props.block} editor={props.editor} /> }),
-            columnList: createReactBlockSpec({
-                type: "columnList",
-                propSchema: { backgroundColor: { default: "default" } },
-                content: "none",
-            }, { render: (props) => <div className="bn-column-list flex w-full gap-8 my-4" ref={props.contentRef} /> }),
-            column: createReactBlockSpec({
-                type: "column",
-                propSchema: { backgroundColor: { default: "default" } },
-                content: "none",
-            }, { render: (props) => <div className="flex-1 min-w-[100px]" ref={props.contentRef} /> }),
             toggle: createReactBlockSpec({
                 type: "toggle",
                 propSchema: { backgroundColor: { default: "default" }, textColor: { default: "default" } },
@@ -279,17 +271,17 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                 </div>
             ) })
         };
-        return BlockNoteSchema.create({
+        const baseSchema = BlockNoteSchema.create({
             blockSpecs: {
                 ...defaultBlockSpecs,
                 database: { ...specs.database(), group: "bnBlock" },
-                columnList: { ...specs.columnList(), group: "bnBlock" },
-                column: { ...specs.column(), group: "bnBlock" },
                 toggle: { ...specs.toggle(), group: "bnBlock" },
             },
             inlineContentSpecs: defaultInlineContentSpecs,
             styleSpecs: defaultStyleSpecs,
         });
+        // Wrap with official multi-column support (adds columnList + column blocks natively)
+        return withMultiColumn(baseSchema);
     }, []);
 
     const sanitizeBlocks = useCallback((blocks) => {
@@ -338,6 +330,7 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
     const editor = useCreateBlockNote({
         schema,
         initialContent: blocks || undefined,
+        dropCursor: multiColumnDropCursor,
     });
 
     useEffect(() => {
@@ -462,27 +455,14 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                 .bn-editor .bn-block-content[data-background-color="pink"] .bn-inline-content,
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color="pink"]) .bn-inline-content { background-color: #f4dfeb !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
 
-                /* === 3. Column layout === */
-                [data-block-type="columnList"] > .bn-block-group,
-                .bn-block-content[data-content-type="columnList"] + .bn-block-group {
-                    display: flex !important;
-                    flex-direction: row !important;
-                    gap: 24px !important;
-                    width: 100% !important;
-                    align-items: stretch !important;
+                /* === 3. Column layout (via @blocknote/xl-multi-column) === */
+                /* The package handles flex layout natively. We only add subtle Gnosi styling. */
+                [data-content-type="columnList"] {
+                    gap: 1.5rem !important;
                 }
-                [data-block-type="columnList"] > .bn-block-group > .bn-block-outer,
-                .bn-block-content[data-content-type="columnList"] + .bn-block-group > .bn-block-outer {
-                    flex: 1 !important;
-                    min-width: 0 !important;
-                }
-                /* Hide empty column content placeholders */
-                [data-block-type="column"] > .bn-block-content:empty,
-                [data-block-type="columnList"] > .bn-block-content:empty {
-                    display: none !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    min-height: 0 !important;
+                [data-content-type="column"] + [data-content-type="column"] {
+                    border-left: 1px dashed rgba(var(--gnosi-primary-rgb), 0.1);
+                    padding-left: 1.5rem !important;
                 }
 
                 /* === Toggle marker === */
@@ -512,17 +492,38 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
 };
 
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {} }) {
+    const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [metadata, setMetadata] = useState(initialMetadata);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [isAddingProp, setIsAddingProp] = useState(false);
+    const [newPropName, setNewPropName] = useState("");
     const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry]);
     const handleSaveMetadata = useCallback(async (updatedMetadata) => { if (!noteFilename) return; try { const data = { title: updatedMetadata?.title || metadata?.title || "Sense títol", metadata: updatedMetadata || metadata }; await axios.patch(`/api/vault/pages/${noteFilename}`, data); if (onRefreshNotes) onRefreshNotes(); } catch (err) { console.error("Error al desar metadades:", err); } }, [noteFilename, metadata, onRefreshNotes]);
     const handleTitleChange = (e) => { const nextTitle = e.target.value; const nextMeta = { ...metadata, title: nextTitle }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
     const handleMetaChange = (key, value) => { const nextMeta = { ...metadata, [key]: value }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
     const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
-    const currentTableId = metadata.table_id || metadata.database_table_id;
-    const currentTable = (allTables || []).find(t => t.id === currentTableId) || (!currentTableId ? (allTables || []).find(t => t.id === 'wiki') : null);
-    const properties = currentTable?.properties || [];
+    const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
+    const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
+    const currentTable = (allTables || []).find(t => t.id === currentTableId);
+    const properties = (currentTable?.properties || []).filter(prop => 
+        prop.type !== 'title' && 
+        prop.name.toLowerCase() !== 'títol' && 
+        prop.name.toLowerCase() !== 'title'
+    );
+
+    const internalKeys = ['title', 'table_id', 'database_id', 'database_table_id', 'id', 'parent_id', 'source_id', 'resolved_table_id', 'last_modified', 'created_time', 'last_edited_time', 'source_parent_id', 'is_default_template', 'path', 'filename'];
+    const adhocProperties = Object.keys(metadata).filter(key => 
+        !internalKeys.includes(key) && 
+        !properties.find(p => p.name === key)
+    );
+
+    const handleAddAdhocProperty = () => {
+        if (!newPropName.trim()) { setIsAddingProp(false); return; }
+        handleMetaChange(newPropName.trim(), "");
+        setNewPropName("");
+        setIsAddingProp(false);
+    };
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
             <div className="max-w-4xl w-full py-12 px-8 min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
@@ -531,30 +532,86 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     <div className="absolute top-12 right-8 flex gap-2">
                          <button onClick={() => setIsHistoryOpen(true)} className="p-2 text-[var(--text-tertiary)]/60 hover:text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 rounded-full transition-all" title="Històric de versions"><Clock size={20} /></button>
                     </div>
-                    <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-1 items-center px-1">
-                        {properties.map(prop => {
-                            const value = metadata[prop.name];
-                            const Icon = prop.type === 'date' ? Calendar : (prop.type === 'select' ? Tag : (prop.type === 'number' ? Hash : Type));
-                            return (
-                                <React.Fragment key={prop.name}>
-                                    <div className="flex items-center gap-2 group py-1.5 h-9"><div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors"><Icon size={14} /></div><span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span></div>
-                                    <div className="flex items-center gap-2 group h-9">
-                                        {prop.type === 'multi_select' ? (
-                                            <MultiSelectPills value={value} onChange={val => handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder="Afegir opcions..." onCreate={val => { const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(value) ? value : []), val]); }} />
-                                        ) : prop.type === 'select' ? (
-                                            <select value={value || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-transparent hover:border-[var(--border-primary)] rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:bg-[var(--bg-primary)] focus:border-[var(--gnosi-primary)]/40 transition-all font-medium h-8">
-                                                <option value="">Buit</option>
-                                                {(prop.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                            </select>
-                                        ) : (
-                                            <input type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={value || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder="Buit" className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-8" />
-                                        )}
-                                        <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title="Eliminar propietat"><X size={14} /></button>
+                    <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-1 items-center px-1 mb-4">
+                        {/* 1. Propietats de l'Esquema */}
+                        {properties.map(prop => (
+                            <React.Fragment key={prop.name}>
+                                <div className="flex items-center gap-2 group py-1.5 h-9">
+                                    <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors">
+                                        {prop.type === 'date' ? <Calendar size={14} /> : (prop.type === 'select' ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
                                     </div>
-                                </React.Fragment>
-                            );
-                        })}
-                        <button onClick={() => onEditSchema(currentTable)} className="btn-gnosi btn-gnosi-primary !text-[10px] !py-1 !px-3 mt-2"><Settings size={14} /> GESTIONAR PROPIETATS</button>
+                                    <span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 group h-9">
+                                    {prop.type === 'multi_select' ? (
+                                        <MultiSelectPills value={metadata[prop.name]} onChange={val => handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder="Afegir opcions..." onCreate={val => { const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(metadata[prop.name]) ? metadata[prop.name] : []), val]); }} />
+                                    ) : prop.type === 'select' ? (
+                                        <select value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-transparent hover:border-[var(--border-primary)] rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:bg-[var(--bg-primary)] focus:border-[var(--gnosi-primary)]/40 transition-all font-medium h-8">
+                                            <option value="">Buit</option>
+                                            {(prop.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                        </select>
+                                    ) : (
+                                        <input type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder="Buit" className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-8" />
+                                    )}
+                                    {!currentTable && (
+                                        <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title="Eliminar propietat"><X size={14} /></button>
+                                    )}
+                                </div>
+                            </React.Fragment>
+                        ))}
+
+                        {/* 2. Propietats Locals (Ad-hoc / Obsidian style) */}
+                        {adhocProperties.map(key => (
+                            <React.Fragment key={key}>
+                                <div className="flex items-center gap-2 group py-1.5 h-9">
+                                    <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--gnosi-primary)]/40 group-hover:bg-[var(--gnosi-primary)]/10 transition-colors border border-[var(--gnosi-primary)]/10"><Settings size={14} /></div>
+                                    <span className="text-sm text-[var(--text-secondary)] font-medium truncate italic">{key}</span>
+                                </div>
+                                <div className="flex items-center gap-2 group h-9">
+                                    <input 
+                                        type="text" 
+                                        value={metadata[key] || ""} 
+                                        onChange={e => handleMetaChange(key, e.target.value)} 
+                                        placeholder="Buit (local)" 
+                                        className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-8" 
+                                    />
+                                    {!currentTable && (
+                                        <button onClick={() => handleRemoveProperty(key)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title="Eliminar propietat local"><X size={14} /></button>
+                                    )}
+                                </div>
+                            </React.Fragment>
+                        ))}
+
+                        {/* 3. Accions */}
+                        <div className="col-span-2 flex gap-3 mt-4">
+                            {!currentTable && (!isAddingProp ? (
+                                <button
+                                    onClick={() => setIsAddingProp(true)}
+                                    className="btn btn-gnosi-primary flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold"
+                                >
+                                    <Plus size={14} /> {t('vault_add_local_property')}
+                                </button>
+                            ) : (
+                                !currentTable && <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
+                                    <input
+                                        autoFocus
+                                        className="bg-[var(--bg-secondary)] border border-[var(--gnosi-primary)]/30 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                                        placeholder="Nom de la clau (ex: Autor)"
+                                        value={newPropName}
+                                        onChange={e => setNewPropName(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddAdhocProperty()}
+                                        onBlur={() => !newPropName && setIsAddingProp(false)}
+                                    />
+                                    <button onClick={handleAddAdhocProperty} className="p-1.5 bg-[var(--gnosi-primary)] text-white rounded-lg hover:brightness-110 transition-all"><Plus size={16} /></button>
+                                    <button onClick={() => { setIsAddingProp(false); setNewPropName(""); }} className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--status-error)] transition-all"><X size={16} /></button>
+                                </div>
+                            ))}
+                            {currentTable && (
+                                <button onClick={() => onEditSchema(currentTable)} className="btn btn-gnosi-primary flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold">
+                                    <Settings size={14} /> {t('vault_manage_fields')}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="relative -mx-10 min-h-[500px]">

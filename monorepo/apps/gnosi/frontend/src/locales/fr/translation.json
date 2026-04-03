@@ -19,5 +19,7 @@
     "no_connections": "Aucune connexion trouvée.",
     "similarity_score": "Similarité",
     "reason": "Raison",
-    "language": "Langue"
+    "language": "Langue",
+    "vault_add_local_property": "Ajouter une propriété locale",
+    "vault_manage_fields": "Gérer les champs"
 }

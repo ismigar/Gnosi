@@ -29,5 +29,7 @@
     "newsletters_path_label": "Ruta de Newsletters",
     "sync_now_btn": "Sincronitzar Ara",
     "sync_desc": "Sincronitza les dades amb els serveis externs",
-    "syncing_label": "Sincronitzant..."
+    "syncing_label": "Sincronitzant...",
+    "vault_add_local_property": "Afegir propietat local",
+    "vault_manage_fields": "Gestionar camps"
 }

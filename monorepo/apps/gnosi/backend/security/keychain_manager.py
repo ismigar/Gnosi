@@ -284,7 +284,10 @@ class KeychainManager:
             secret = self._docker_get(key)
             if secret is not None:
                 return True
-            return self._docker_save(key, value)
+            # Docker secrets are read-only at runtime; fallback to local encrypted file.
+            if self._docker_save(key, value):
+                return True
+            return self._file_save(key, value)
 
         if self.system == "Darwin":
             return self._macos_save(key, value)
@@ -294,7 +297,10 @@ class KeychainManager:
     def get_credential(self, key: str) -> Optional[str]:
         """Get a credential from the secure storage."""
         if self._is_docker:
-            return self._docker_get(key)
+            from_docker_secret = self._docker_get(key)
+            if from_docker_secret is not None:
+                return from_docker_secret
+            return self._file_get(key)
 
         if self.system == "Darwin":
             value = self._macos_get(key)
@@ -306,7 +312,7 @@ class KeychainManager:
     def delete_credential(self, key: str) -> bool:
         """Delete a credential from the secure storage."""
         if self._is_docker:
-            return True
+            return self._file_delete(key)
 
         if self.system == "Darwin":
             self._macos_delete(key)

@@ -44,13 +44,13 @@ def load_params(strict_env: bool = True) -> Config:
     load_env()
     migrated = False
     
-    # Mapeig de claus d'entorn a la seva ruta en el YAML
+    # Mapeig de claus d'entorn a referències segures en YAML (mai el valor secret).
     env_migration_map = {
-        "OPENAI_API_KEY": ("openai", "api_key"),
-        "GROQ_API_KEY": ("groq", "api_key"),
-        "ANTHROPIC_API_KEY": ("anthropic", "api_key"),
-        "OPENROUTER_API_KEY": ("openrouter", "api_key"),
-        "GOOGLE_API_KEY": ("google", "api_key")
+        "OPENAI_API_KEY": ("openai", "__keychain__:openai_api_key"),
+        "GROQ_API_KEY": ("groq", "__keychain__:groq_api_key"),
+        "ANTHROPIC_API_KEY": ("anthropic", "__keychain__:anthropic_api_key"),
+        "OPENROUTER_API_KEY": ("openrouter", "__keychain__:openrouter_api_key"),
+        "GOOGLE_API_KEY": ("google", "__keychain__:google_api_key"),
     }
 
     if "ai" not in params:
@@ -60,17 +60,16 @@ def load_params(strict_env: bool = True) -> Config:
 
     providers = params["ai"]["providers"]
     
-    for env_var, (p_id, key_name) in env_migration_map.items():
+    for env_var, (p_id, credential_ref) in env_migration_map.items():
         env_val = os.environ.get(env_var)
         if env_val:
-            # Si el proveïdor no existeix o no té la clau configurada, migrem
+            # Si el proveïdor no existeix o no té referència segura, migrem només la referència.
             if p_id not in providers:
                 providers[p_id] = {}
-            
-            # Només migrem si el valor actual és buit o és el placeholder d'abans
-            current_val = providers[p_id].get(key_name)
-            if not current_val or current_val == "********":
-                providers[p_id][key_name] = env_val
+
+            current_ref = providers[p_id].get("credential_ref")
+            if not current_ref:
+                providers[p_id]["credential_ref"] = credential_ref
                 migrated = True
 
     # Si hi ha hagut canvis, guardem el YAML actualitzat

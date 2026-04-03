@@ -1,7 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-export const Legend = ({ graphData, isDarkMode, colorMode }) => {
+export const Legend = ({ graphData, isDarkMode, colorMode, filteredNodesCount, filteredEdgesCount }) => {
+
     const { t } = useTranslation();
     if (!graphData || !graphData.legend) return null;
 
@@ -47,9 +48,10 @@ export const Legend = ({ graphData, isDarkMode, colorMode }) => {
         >
             {/* Counts */}
             <div style={{ display: 'flex', flexDirection: 'column', marginRight: '20px', borderRight: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, paddingRight: '20px' }}>
-                <span style={{ fontWeight: 'bold' }}>{graphData?.nodes?.length || 0} Nodes</span>
-                <span style={{ opacity: 0.7 }}>{graphData?.edges?.length || 0} Edges</span>
+                <span style={{ fontWeight: 'bold' }}>{filteredNodesCount || 0} Nodes</span>
+                <span style={{ opacity: 0.7 }}>{filteredEdgesCount || 0} Edges</span>
             </div>
+
 
             {/* Node Legend */}
             {visibleNodeItems.length > 0 && (

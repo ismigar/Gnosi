@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { X, Plus, Trash2, Settings, GripVertical, Eye, EyeOff, Layers } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -65,11 +65,10 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
                         placeholder="Nom de propietar (ex: Data d'entrega)"
                         className="w-full text-sm font-semibold bg-transparent border-none focus:ring-0 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]/40 outline-none"
-                        disabled={field.type === 'title'}
                     />
                 </div>
 
-                <div className="w-44">
+                <div className={`w-44 ${field.type === 'title' ? 'mr-10' : ''}`}>
                     <select
                         value={field.type}
                         onChange={(e) => handleUpdateField(idx, 'type', e.target.value)}
@@ -96,22 +95,15 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                     </select>
                 </div>
 
-                <button 
-                    onClick={() => handleUpdateField(idx, 'visible', !field.visible)} 
-                    className={`p-2 rounded-lg transition-all ${field.visible ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-secondary)]/40 hover:bg-[var(--bg-secondary)]'}`}
-                    title={field.visible ? "Visible a la taula" : "Oculta a la taula"}
-                >
-                    {field.visible ? <Eye size={18} /> : <EyeOff size={18} />}
-                </button>
-
-                <button
-                    onClick={() => handleRemoveField(idx)}
-                    className={`p-2 rounded-lg transition-colors ${field.type === 'title' ? 'text-[var(--text-tertiary)]/20 cursor-not-allowed' : 'btn-gnosi-danger !p-1.5'}`}
-                    disabled={field.type === 'title'}
-                    title="Eliminar propietat"
-                >
-                    <Trash2 size={18} />
-                </button>
+                {field.type !== 'title' && (
+                    <button
+                        onClick={() => handleRemoveField(idx)}
+                        className="btn-gnosi-danger !p-1.5"
+                        title="Eliminar propietat"
+                    >
+                        <Trash2 size={18} />
+                    </button>
+                )}
             </div>
 
             {/* Secció de Configuració Específica (Fórmula, Rollup, Relació) */}

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
 from backend.config.app_config import load_params
+from backend.security.ai_credentials import migrate_ai_provider_secrets, sanitize_ai_config
 from pathlib import Path
 import yaml
 import logging
@@ -19,8 +20,10 @@ async def get_config():
         import inspect
         source_file = inspect.getfile(load_params)
         log.info(f"DEBUG: load_params loaded from: {source_file}")
-        log.info(f"DEBUG: Complete config remembered: {cfg.params}")
-        return cfg.params
+        safe_params = dict(cfg.params or {})
+        safe_params["ai"] = sanitize_ai_config(dict(safe_params.get("ai") or {}))
+        log.info("DEBUG: Config loaded and AI secrets sanitized for API response")
+        return safe_params
     except Exception as e:
         log.error(f"Error reading config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -51,12 +54,25 @@ async def update_config(request: Request):
 
         # Merge data and preserve unsent keys
         merged_config = deep_merge(current_config, new_config)
+
+        # For AI providers, frontend sends the full desired map.
+        # Replace instead of deep-merging to allow deleting removed providers.
+        if isinstance(new_config.get("ai"), dict) and "providers" in new_config.get("ai", {}):
+            if "ai" not in merged_config or not isinstance(merged_config.get("ai"), dict):
+                merged_config["ai"] = {}
+            merged_config["ai"]["providers"] = dict(new_config["ai"].get("providers") or {})
+
+        ai_cfg = dict(merged_config.get("ai") or {})
+        migrated_ai_cfg, migrated = migrate_ai_provider_secrets(ai_cfg)
+        merged_config["ai"] = migrated_ai_cfg
+        if migrated:
+            log.info("AI provider secrets migrated to secure storage")
         
         # DEBUG: Log AI specific config to see if keys are present
         if 'ai' in new_config:
             log.info(f"AI Config received in payload: {new_config['ai']}")
         if 'ai' in merged_config:
-            log.info(f"Final AI Config to save: {merged_config['ai']}")
+            log.info(f"Final AI Config to save (sanitized): {sanitize_ai_config(merged_config['ai'])}")
 
         log.info(f"Final configuration to save (summary): {list(merged_config.keys())}")
 

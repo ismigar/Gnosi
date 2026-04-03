@@ -16,33 +16,77 @@ cfg = load_params()
 log = logging.getLogger(__name__)
 router = APIRouter()
 
+
+class MentionRef(BaseModel):
+    type: str
+    id: str
+    label: Optional[str] = None
+
 class ChatRequest(BaseModel):
     message: str
     agent_id: str = "gnosy" # Default agent
     session_id: str = "default"
     history: List[Dict[str, Any]] = []
+    llm_mode: str = "auto"  # auto | manual | agent_default
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    mentions: List[MentionRef] = []
 
-async def get_agent_workflow(request: Request, agent_id: str):
+async def get_agent_workflow(
+    request: Request,
+    agent_id: str,
+    llm_mode: str = "agent_default",
+    llm_provider: Optional[str] = None,
+    llm_model: Optional[str] = None,
+    user_message: str = "",
+):
     """
     Helper to get or build the agent workflow for a specific ID.
     Caches the StateGraph in app.state.agent_cache.
     """
+    use_cache = llm_mode == "agent_default" and not llm_provider and not llm_model
+
     if not hasattr(request.app.state, "agent_cache"):
         request.app.state.agent_cache = {}
-    
-    if agent_id not in request.app.state.agent_cache:
-        if not hasattr(request.app.state, "mcp_client"):
-             raise HTTPException(status_code=503, detail="MCP Client not ready")
-        
+
+    if use_cache and agent_id in request.app.state.agent_cache:
+        cached = request.app.state.agent_cache[agent_id]
+        return cached["workflow"], cached.get("llm_selection", {})
+
+    mcp_client = getattr(request.app.state, "mcp_client", None)
+    mcp_ready = mcp_client is not None
+
+    tools_list = []
+    if mcp_ready:
         tools_list = getattr(request.app.state, "tools_list", [])
         if not tools_list:
-            tools_list = await request.app.state.mcp_client.get_all_tools()
+            tools_list = await mcp_client.get_all_tools()
             request.app.state.tools_list = tools_list
+    else:
+        # Degrade gracefully while MCP initializes: chat still works without MCP tools.
+        log.warning("MCP client not ready, creating workflow without MCP tools")
+        use_cache = False
 
-        workflow = await create_agent_workflow(tools_list, request.app.state.mcp_client, agent_id=agent_id)
-        request.app.state.agent_cache[agent_id] = workflow
-    
-    return request.app.state.agent_cache[agent_id]
+    workflow, llm_selection = await create_agent_workflow(
+        tools_list,
+        mcp_client,
+        agent_id=agent_id,
+        llm_mode=llm_mode,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        user_message=user_message,
+    )
+
+    if workflow is None:
+        raise HTTPException(status_code=503, detail="No LLM provider available")
+
+    if use_cache:
+        request.app.state.agent_cache[agent_id] = {
+            "workflow": workflow,
+            "llm_selection": llm_selection,
+        }
+
+    return workflow, llm_selection
 
 
 @router.post("/chat")
@@ -52,10 +96,31 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
     """
     try:
         # 1. Get dynamic agent workflow
-        workflow = await get_agent_workflow(request, chat_req.agent_id)
+        workflow, llm_selection = await get_agent_workflow(
+            request,
+            chat_req.agent_id,
+            llm_mode=chat_req.llm_mode,
+            llm_provider=chat_req.llm_provider,
+            llm_model=chat_req.llm_model,
+            user_message=chat_req.message,
+        )
         
         # 2. Construct initial state
-        inputs = {"messages": [HumanMessage(content=chat_req.message)]}
+        user_content = chat_req.message
+        if chat_req.mentions:
+            mention_lines = []
+            for mention in chat_req.mentions:
+                mention_type = (mention.type or "").strip().lower()
+                mention_id = (mention.id or "").strip()
+                if not mention_type or not mention_id:
+                    continue
+                mention_label = (mention.label or "").strip() or mention_id
+                mention_lines.append(f"- {mention_type}: {mention_label} (id: {mention_id})")
+
+            if mention_lines:
+                user_content += "\n\nContexto de menciones seleccionadas:\n" + "\n".join(mention_lines)
+
+        inputs = {"messages": [HumanMessage(content=user_content)]}
         
         # 3. Configure memory thread (per agent + session)
         config = {"configurable": {"thread_id": f"{chat_req.agent_id}_{chat_req.session_id}"}}
@@ -66,6 +131,14 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         
         async def event_generator():
             try:
+                if llm_selection:
+                    yield json.dumps({
+                        "type": "llm_selected",
+                        "mode": llm_selection.get("mode") or chat_req.llm_mode,
+                        "provider": llm_selection.get("provider"),
+                        "model": llm_selection.get("model"),
+                    }) + "\n"
+
                 async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                     agent_app = workflow.compile(checkpointer=saver)
                     async for event in agent_app.astream(inputs, config=config, stream_mode="updates"):
@@ -101,6 +174,20 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:
+        if e.status_code == 503:
+            error_detail = str(e.detail or "Service unavailable")
+
+            async def unavailable_generator():
+                yield json.dumps({
+                    "type": "error",
+                    "content": error_detail,
+                }) + "\n"
+
+            return StreamingResponse(
+                unavailable_generator(),
+                media_type="application/x-ndjson",
+                status_code=200,
+            )
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
