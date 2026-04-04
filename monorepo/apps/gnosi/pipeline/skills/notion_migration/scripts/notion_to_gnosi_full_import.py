@@ -110,7 +110,10 @@ NOTION_COLOR_MAP = {
 _reverse_db_map: Dict[str, Tuple[str, str]] = {}
 # Reverse map: Table Name (lowercase) → (vault folder name, Gnosi table_id)
 _name_to_db_info: Dict[str, Tuple[str, str]] = {}
+# Global cache for resolving Page ID → Title
+_id_to_title: Dict[str, str] = {}
 _view_registry: List[Dict] = []
+_notion_db_search_cache: Optional[List[Dict]] = None
 
 
 def _build_reverse_maps():
@@ -168,6 +171,106 @@ def _build_reverse_maps():
                 _reverse_db_map[normalized] = (f"BD/{folder_name}", notion_db_id)
     except Exception as e:
         print(f"  ⚠️  Error carregant registry: {e}")
+
+
+def _fetch_accessible_databases() -> List[Dict]:
+    """Return accessible Notion databases via search, cached for this run."""
+    global _notion_db_search_cache
+    if _notion_db_search_cache is not None:
+        return _notion_db_search_cache
+
+    found: List[Dict] = []
+    cursor = None
+    for _ in range(10):
+        payload = {
+            "filter": {"property": "object", "value": "database"},
+            "page_size": 100,
+        }
+        if cursor:
+            payload["start_cursor"] = cursor
+
+        try:
+            res = requests.post(
+                f"{API_BASE}/search", headers=HEADERS, json=payload, timeout=45
+            )
+            if res.status_code != 200:
+                break
+            data = res.json()
+            found.extend(data.get("results", []))
+            if not data.get("has_more"):
+                break
+            cursor = data.get("next_cursor")
+        except Exception:
+            break
+
+    _notion_db_search_cache = found
+    return found
+
+
+def _resolve_embedded_table_info(block_id: str, title: str) -> Optional[Tuple[str, str]]:
+    """Try to resolve an embedded database block to a Gnosi table mapping."""
+    norm_bid = block_id.replace("-", "")
+
+    # 1) Direct ID lookup from registry mappings.
+    mapped = _reverse_db_map.get(norm_bid)
+    if mapped:
+        return mapped
+
+    # 2) Name-based lookup from registry mappings.
+    mapped = _name_to_db_info.get((title or "").lower())
+    if mapped:
+        return mapped
+
+    # 3) Search accessible DBs and try mapping using actual DB id or title.
+    for db in _fetch_accessible_databases():
+        db_title = "".join(t.get("plain_text", "") for t in db.get("title", [])).strip()
+        db_id = (db.get("id") or "").replace("-", "")
+
+        if db_id == norm_bid:
+            mapped = _reverse_db_map.get(db_id)
+            if mapped:
+                return mapped
+
+        if db_title and title and db_title.casefold() == title.casefold():
+            mapped = _name_to_db_info.get(db_title.lower())
+            if mapped:
+                return mapped
+
+    return None
+
+
+def _resolve_relation_title(notion_id: str) -> str:
+    """Resolve a Notion Page ID to its best known title for [[Wiki]] links."""
+    norm_id = notion_id.replace("-", "")
+    if norm_id in _id_to_title:
+        return _id_to_title[norm_id]
+    
+    # Optional: fetch via API if not found (can be slow, use sparingly)
+    # For now, return ID as placeholder or better, wait after one full scan
+    return notion_id
+
+
+def _populate_id_to_title_cache():
+    """Scan all databases quickly to populate ID -> Title mapping before migration."""
+    print(f"\n⚡ Pre-escanejant títols per resoldre relacions...")
+    for db_name, db_id in DATABASE_MAP.items():
+        if not db_id: continue
+        
+        # We only need the ID and the title property
+        # Fetching all pages just for titles
+        pages = fetch_all_pages(db_id)
+        for p in pages:
+            pid = p["id"].replace("-", "")
+            title = "Untitled"
+            # Standard Title property detection
+            props = p.get("properties", {})
+            for k, v in props.items():
+                if v.get("type") == "title":
+                    parts = v.get("title", [])
+                    title = "".join(t.get("plain_text", "") for t in parts)
+                    break
+            _id_to_title[pid] = title
+    print(f"   ✅ Trobats {len(_id_to_title)} títols.")
 
 
 def _notion_color_to_blocknote(color: str, is_background: bool) -> str:
@@ -349,6 +452,12 @@ def extract_flat_properties(props: dict) -> Tuple[dict, str]:
             if options:
                 frontmatter[fmt_key] = [str(opt["name"]) for opt in options]
 
+        elif prop_type == "rich_text":
+            parts = value.get("rich_text", [])
+            extracted = "".join(t.get("plain_text", "") for t in parts).strip()
+            if extracted:
+                frontmatter[fmt_key] = str(extracted)
+
         elif prop_type == "relation":
             rels = value.get("relation", [])
             if rels:
@@ -460,6 +569,10 @@ def extract_flat_properties(props: dict) -> Tuple[dict, str]:
                     file_paths.append(local if local else url)
             if file_paths:
                 frontmatter[fmt_key] = file_paths
+
+        elif prop_type == "button":
+            # Notion button is an action-only field; preserve marker to avoid silent empties.
+            frontmatter[fmt_key] = "__notion_button__"
 
     if not title_key:
         frontmatter["title"] = "Untitled"
@@ -664,22 +777,15 @@ def convert_block_to_markdown(block: dict, indent_level: int = 0) -> str:
     # ── Child database (embedded view) ──
     elif btype == "child_database":
         title = bdata.get("title", "Database")
-        norm_bid = bid.replace("-", "")
-        
-        # 1. Try ID-based lookup
-        mapped = _reverse_db_map.get(norm_bid)
-        
-        # 2. Try Name-based lookup if ID fails
-        if not mapped:
-            mapped = _name_to_db_info.get(title.lower())
-            
+        mapped = _resolve_embedded_table_info(bid, title)
+
         if mapped:
             rel_path, gnosi_table_id = mapped
-            
+
             # 3. Check if table already has a standard "table" view in the registry
             # We look for a view of type 'table' belonging to this table_id
             existing_view = next((v for v in _view_registry if v.get("table_id") == gnosi_table_id and v.get("type") == "table"), None)
-            
+
             if existing_view:
                 view_id = existing_view["id"]
             else:
@@ -697,11 +803,59 @@ def convert_block_to_markdown(block: dict, indent_level: int = 0) -> str:
             db_props = {
                 "database_table_id": gnosi_table_id,
                 "viewId": view_id,
-                "viewType": "table"
+                "viewType": "table",
+                "source": {
+                    "notion_block_id": bid,
+                    "notion_title": title,
+                    "resolved": True,
+                },
             }
-            return f"{indent}```gnosi-database\n{json.dumps(db_props, indent=2)}\n{indent}```\n"
+            return f"{indent}```gnosi-database\n{json.dumps(db_props, indent=2)}\n{indent}```\n{indent}:::gnosi-ignore\n{indent}[[{title}]]\n{indent}:::\n"
         else:
-            return f"{indent}> 🗃️ **{title}** (vista incrustada — taula no trobada al registry amb ID `{norm_bid}` o nom `{title}`)\n"
+            unresolved = {
+                "database_table_id": None,
+                "viewId": None,
+                "viewType": "table",
+                "source": {
+                    "notion_block_id": bid,
+                    "notion_title": title,
+                    "resolved": False,
+                },
+            }
+            return f"{indent}```gnosi-database\n{json.dumps(unresolved, indent=2)}\n{indent}```\n{indent}:::gnosi-ignore\n{indent}[[{title}]]\n{indent}:::\n"
+
+    elif btype == "link_to_page":
+        link_type = bdata.get("type")
+        if link_type == "database_id":
+            db_id = bdata.get("database_id", "")
+            mapped = _resolve_embedded_table_info(db_id, "")
+            if mapped:
+                _, gnosi_table_id = mapped
+                db_props = {
+                    "database_table_id": gnosi_table_id,
+                    "viewId": None,
+                    "viewType": "table",
+                    "source": {
+                        "notion_database_id": db_id,
+                        "resolved": True,
+                    },
+                }
+                return f"{indent}```gnosi-database\n{json.dumps(db_props, indent=2)}\n{indent}```\n"
+
+            unresolved = {
+                "database_table_id": None,
+                "viewId": None,
+                "viewType": "table",
+                "source": {
+                    "notion_database_id": db_id,
+                    "resolved": False,
+                },
+            }
+            return f"{indent}```gnosi-database\n{json.dumps(unresolved, indent=2)}\n{indent}```\n"
+
+        if link_type == "page_id":
+            page_id = bdata.get("page_id", "")
+            return f"{indent}> 🔗 Pàgina enllaçada: {page_id}\n"
 
     # ── Synced blocks ──
     elif btype == "synced_block":
@@ -765,6 +919,23 @@ def migrate_database(db_name: str, db_id: str) -> int:
         blocks = fetch_blocks(page_id)
         content_markdown = convert_blocks_to_markdown(blocks)
 
+        # Append Obsidian-style relationship links (hidden from Gnosi UI)
+        relations_links = []
+        for key, val in frontmatter.items():
+            # Check for relations (they are lists of UUIDs)
+            if isinstance(val, list) and all(isinstance(v, str) and len(v) >= 32 for v in val):
+                # We assume these are relations or some list of IDs
+                for rid in val:
+                    title = _resolve_relation_title(rid)
+                    relations_links.append(f"- [[{title}]]")
+        
+        if relations_links:
+            # Join links and wrap in gnosi-ignore directive
+            # We add a small header for clarity in Obsidian
+            content_markdown += "\n:::gnosi-ignore\n## Relacions\n"
+            content_markdown += "\n".join(relations_links)
+            content_markdown += "\n:::\n"
+
         yaml_fm = yaml.dump(frontmatter, allow_unicode=True, default_flow_style=False)
         full_content = f"---\n{yaml_fm}---\n{content_markdown}"
 
@@ -818,6 +989,9 @@ def main():
 
     # Build reverse maps from vault_db_registry for embedded views
     _build_reverse_maps()
+
+    # Pre-scan for titles to resolve all relations properly
+    _populate_id_to_title_cache()
 
     # Optional argument: migrate a single database
     target_db = sys.argv[1] if len(sys.argv) > 1 else None

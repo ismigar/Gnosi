@@ -131,7 +131,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, on
         <div className="w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-secondary)] flex flex-col items-center">
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
-                    selectedCount={selectedIds.size}
+                        selectedIds={selectedIds}
                     totalCount={sortedNotes.length}
                     onSelectAll={() => selectAll(sortedNotes.map(n => n.id))}
                     onClearSelection={clearSelection}

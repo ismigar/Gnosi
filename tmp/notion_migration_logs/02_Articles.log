@@ -1,0 +1,53 @@
+  📂 VAULT_ROOT configurada a: /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi
+
+⚡ Pre-escanejant títols per resoldre relacions...
+    [!] Error querying database 102268e527148024858ef1467de2a9ba: {"object":"error","status":400,"code":"validation_error","message":"Provided ID 102268e5-2714-8024-858e-f1467de2a9ba is a page, not a database. Use the retrieve page API instead","request_id":"fd6c2703-1e78-45f0-ab5a-8f281482fa09"}
+    [!] Error querying database 8c80f2a861b843b790da4f0e260b7db9: {"object":"error","status":404,"code":"object_not_found","message":"Could not find database with ID: 8c80f2a8-61b8-43b7-90da-4f0e260b7db9. Make sure the relevant pages and databases are shared with your integration \"Antigravity\".","additional_data":{"integration_id":"337268e5-2714-815c-924d-00279dc13772"},"request_id":"fa2c7fed-930f-4295-bd6b-bed9bcbd8f9b"}
+    [!] Error querying database 9fa13965699b4087ae792fb8d3660589: {"object":"error","status":400,"code":"validation_error","message":"Provided ID 9fa13965-699b-4087-ae79-2fb8d3660589 is a page, not a database. Use the retrieve page API instead","request_id":"28a20408-0975-49d6-a83e-2e41f6a71079"}
+   ✅ Trobats 1151 títols.
+
+==================================================
+Abocant: Articles (270268e5271480ca8b47fa9f28904287)
+==================================================
+  📍 Destí: /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi/BD/Cervell Digital/Articles
+  Trobades 37 pàgines.
+  [1/37] Un aliado en el camino
+  [2/37] Enfadoaccionados en las plazas
+  [3/37] Generosa señora
+  [4/37] Tornant de vacances
+  [5/37] El imperativo emocional
+  [6/37] Espiritualitat? Quina espiritualitat?
+  [7/37] Més enllà dels límits, tu m’aportes
+  [8/37] Viure als marges
+  [9/37] Sobre la responsabilitat afectiva
+  [10/37] Quan caiguè el teló de l’empatia
+  [11/37] Resolució de conflictes amb la cadira buida
+  [12/37] Apostem per un model de cures comunitaries
+  [13/37] La violència del porno inspiracional
+  [14/37] I si tinguèssim la clau de la plenitud?
+  [15/37] Alliberem-nos de l’heroisme
+  [16/37] El llenguatge de la jirafa
+  [17/37] Cóm prendre decisions?
+  [18/37] La Cimera de Glasgow des de la mirada de l’ESS
+  [19/37] El consum conscient de les telecomunicacions
+  [20/37] Mobilitat sostenible i ESS
+  [21/37] Economia Social i Solidària. De què parlem?
+  [22/37] L'habitatge en l'Economia Social i Solidària (ESS)
+  [23/37] Propostes per a una democratització econòmica i una transformació ecosocial
+  [24/37] Decrèixer, única sortida justa a la crisis ecosocial
+  [25/37] Els criteris que fan una iniciativa ESS
+  [26/37] COVID-19 ataca també als ismes
+  [27/37] Un pla d’habitatge massa conservador
+  [28/37] La covid-19 des de la perspectiva de la resolució de conflicte
+  [29/37] Reivindicació confosa. No al pas de cautxú i sí a l’ascensor
+  [30/37] Qui m'ha robat el Nadal?
+  [31/37] Economia Social i Solidària: resiliència davant la pandèmia i la crisi climàtica
+  [32/37] Un parell de preguntes (que són tres) a:
+  [33/37] COVID-19 i la mutació jordiniana
+  [34/37] Fem una festa major inclusiva i per a totes   
+  [35/37] Emocions segrestades: recuperar el vincle entre sentir i pensar
+  [36/37] Emotions hijacked: recovering the bond between feeling and thinking
+  [37/37] Emociones secuestradas: recuperar el vínculo entre sentir y pensar
+  ✅ Articles: 37 entrades migrades.
+
+🏁 Migració completada. Total: 37 entrades.

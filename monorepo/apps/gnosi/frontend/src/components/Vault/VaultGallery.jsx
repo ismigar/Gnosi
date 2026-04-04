@@ -4,6 +4,7 @@ import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { getFieldType, getSchemaFieldNames } from './schemaUtils';
+import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
@@ -46,8 +47,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         onDeleteSelection: handleBulkDelete,
     });
 
-    // Utilitzem visibleProperties de la vista si existeix, sinó les primeres 3 propietats
-    const visibleProperties = activeView.visibleProperties || getSchemaFieldNames(schema).slice(0, 3);
+    // La vista principal sempre mostra totes les propietats.
+    const visibleProperties = isMainView(activeView, [activeView].filter(Boolean))
+        ? getSchemaFieldNames(schema)
+        : (activeView.visibleProperties || getSchemaFieldNames(schema).slice(0, 3));
     const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([key, type]) => type);
 
     // Apply card size configuration
@@ -172,7 +175,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             {/* Barra d'accions en bulk */}
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
-                    selectedCount={selectedIds.size}
+                    selectedIds={selectedIds}
                     totalCount={sortedAndFilteredNotes.length}
                     onSelectAll={() => selectAll(sortedAndFilteredNotes.map(n => n.id))}
                     onClearSelection={clearSelection}

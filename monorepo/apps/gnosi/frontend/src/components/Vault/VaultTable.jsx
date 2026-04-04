@@ -8,6 +8,7 @@ import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
 import { getFieldConfig, getFieldType, getSchemaFieldEntries } from './schemaUtils';
 import { applyDefaultFormulasToMetadata } from './defaultFormulaUtils';
+import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
@@ -163,7 +164,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // Despellejar l'esquema treient title per posar-lo al principi i filtrant per visibilitat
     const dynamicColumns = useMemo(() => {
         const titleFieldName = Object.entries(schema || {}).find(([, t]) => t === 'title')?.[0];
-        const baseFields = activeView?.visibleProperties
+        const forceAllProperties = isMainView(activeView, [activeView].filter(Boolean));
+        const baseFields = (!forceAllProperties && activeView?.visibleProperties)
             ? activeView.visibleProperties.map(key => [key, getFieldType(schema, key)]).filter(([key, type]) => key && type)
             : getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title');
         
@@ -1289,7 +1291,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 {/* Barra d'accions en bulk (apareix quan hi ha selecció) */}
                 {selectedIds.size > 0 && (
                     <VaultBulkActionsBar
-                        selectedCount={selectedIds.size}
+                        selectedIds={selectedIds}
                         totalCount={sortedNotes.length}
                         onSelectAll={() => selectAll(sortedNotes.map(n => n.id))}
                         onClearSelection={clearSelection}

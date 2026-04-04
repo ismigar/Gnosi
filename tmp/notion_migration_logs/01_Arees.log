@@ -1,0 +1,25 @@
+  📂 VAULT_ROOT configurada a: /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi
+
+⚡ Pre-escanejant títols per resoldre relacions...
+    [!] Error querying database 102268e527148024858ef1467de2a9ba: {"object":"error","status":400,"code":"validation_error","message":"Provided ID 102268e5-2714-8024-858e-f1467de2a9ba is a page, not a database. Use the retrieve page API instead","request_id":"fddd2db1-0c63-4d9e-924c-36ac8d0aeb4b"}
+    [!] Error querying database 8c80f2a861b843b790da4f0e260b7db9: {"object":"error","status":404,"code":"object_not_found","message":"Could not find database with ID: 8c80f2a8-61b8-43b7-90da-4f0e260b7db9. Make sure the relevant pages and databases are shared with your integration \"Antigravity\".","additional_data":{"integration_id":"337268e5-2714-815c-924d-00279dc13772"},"request_id":"af3ed042-5f32-439b-adbb-126fec5667b6"}
+    [!] Error querying database 9fa13965699b4087ae792fb8d3660589: {"object":"error","status":400,"code":"validation_error","message":"Provided ID 9fa13965-699b-4087-ae79-2fb8d3660589 is a page, not a database. Use the retrieve page API instead","request_id":"ac085cb0-af8e-43db-9051-cc740ad5a23a"}
+   ✅ Trobats 1151 títols.
+
+==================================================
+Abocant: Arees (90e31c41f815489b99f30086b120cbfa)
+==================================================
+  📍 Destí: /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi/BD/Cervell Digital/Arees
+  Trobades 9 pàgines.
+  [1/9] Escritura acedèmica, creativa y terapéutica
+  [2/9] Cooperación internacional, cultura de paz y activismo
+  [3/9] Acompañamiento y liderazgo
+  [4/9] Ocio
+  [5/9] Relaciones
+  [6/9] (Auto)cura i cultiu interior
+  [7/9] Tecnología i disseny 3D
+  [8/9] Religión y espiritualidad (Comunitat Sunday)
+  [9/9] Filosofia i espiritualitat
+  ✅ Arees: 9 entrades migrades.
+
+🏁 Migració completada. Total: 9 entrades.

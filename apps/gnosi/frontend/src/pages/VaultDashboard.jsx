@@ -1701,6 +1701,7 @@ export default function VaultDashboard() {
                     databaseId: databaseId // Meta per saber a quina db pertany
                 });
             }}
+            onCreateTableRecord={(tableId) => handleCreateRecordForTable(tableId)}
             onCreateDrawing={() => handleOpenCreatePrompt(null, false, true)}
         />
     );

@@ -12,9 +12,10 @@ export function VaultTabs({ views, activeViewId, onViewChange, onAddView, onUpda
                     <button
                         key={view.id}
                         onClick={() => onViewChange(view.id)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ${isActive ? 'border-indigo-500 text-indigo-700 bg-white shadow-sm' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                        className={`w-[184px] flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ${isActive ? 'border-indigo-500 text-indigo-700 bg-white shadow-sm' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                        title={view.name}
                     >
-                        {view.name}
+                        <span className="truncate flex-1 min-w-0">{view.name}</span>
                     </button>
                 );
             })}

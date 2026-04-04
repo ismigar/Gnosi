@@ -22,10 +22,10 @@ const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var
 );
 
 const SectionHeader = ({ label, isExpanded, onToggle, onAdd }) => (
-    <div className="group flex items-center justify-between px-3 mt-6 mb-1">
+    <div className="group relative flex items-center px-3 mt-6 mb-1">
         <button
             onClick={onToggle}
-            className="flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors"
+            className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
         >
             {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             {label}
@@ -33,7 +33,7 @@ const SectionHeader = ({ label, isExpanded, onToggle, onAdd }) => (
         {onAdd && (
             <button
                 onClick={onAdd}
-                className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
             >
                 <Plus size={14} />
             </button>
@@ -58,7 +58,8 @@ const PageTreeItem = ({
     onRankPage,
     onToggleFavorite,
     menuState,
-    setMenuState
+    setMenuState,
+    canCreateChild = true
 }) => {
     const { t } = useTranslation();
     const hasChildren = childrenMap[page.id] && childrenMap[page.id].length > 0;
@@ -161,7 +162,7 @@ const PageTreeItem = ({
                 )}
 
                 {/* Accions hover per afegir Pàgines filles o menú de context */}
-                <div className={`flex items-center transition-opacity ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} bg-transparent pl-1`}>
+                <div className={`ml-auto flex items-center justify-end w-12 shrink-0 transition-opacity ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} bg-transparent pl-1`}>
                     <button
                         className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
                         onClick={(e) => {
@@ -190,13 +191,15 @@ const PageTreeItem = ({
                     >
                         <MoreHorizontal size={14} />
                     </button>
-                    <button
-                        className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
-                        onClick={(e) => { e.stopPropagation(); onCreatePage(page.id); }}
-                        title={t('Add child page')}
-                    >
-                        <Plus size={14} />
-                    </button>
+                    {canCreateChild && (
+                        <button
+                            className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
+                            onClick={(e) => { e.stopPropagation(); onCreatePage(page.id); }}
+                            title={t('Add child page')}
+                        >
+                            <Plus size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -298,6 +301,7 @@ const PageTreeItem = ({
                             onToggleFavorite={onToggleFavorite}
                             menuState={menuState}
                             setMenuState={setMenuState}
+                            canCreateChild={canCreateChild}
                         />
                     ))}
                 </div>
@@ -338,6 +342,7 @@ export const VaultSidebar = ({
     onRenameDatabase,
     onDeleteDatabase,
     onCreateTable,
+    onCreateTableRecord,
     onOpenRecent,
     onCreateDrawing,
     currentView = 'editor'
@@ -471,6 +476,16 @@ export const VaultSidebar = ({
         return mapping;
     }, [views]);
 
+    const tableAllowsSubitems = useMemo(() => {
+        const mapping = {};
+        Object.entries(viewsByTable).forEach(([tableId, tableViews]) => {
+            const normalizedViews = Array.isArray(tableViews) ? tableViews : [];
+            const mainTableView = normalizedViews.find((v) => (v?.type || 'table') === 'table') || normalizedViews[0];
+            mapping[tableId] = Boolean(mainTableView?.enableSubitems);
+        });
+        return mapping;
+    }, [viewsByTable]);
+
     const visibleRootPages = useMemo(() => rootPages.slice(0, visibleWikiCount), [rootPages, visibleWikiCount]);
     const visibleDatabases = useMemo(() => databases.slice(0, visibleDatabasesCount), [databases, visibleDatabasesCount]);
     const hasExpandedWikiNodes = useMemo(() => Object.values(expandedWikiNodes).some(Boolean), [expandedWikiNodes]);
@@ -534,7 +549,7 @@ export const VaultSidebar = ({
                 />
                 <NavItem icon={Clock} label={t('Recent')} onClick={onOpenRecent} />
                 <div
-                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+                    className={`group relative -mx-2 flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                     onClick={() => onNavigate('drawing')}
                 >
                     <Palette size={16} className={currentView === 'drawing' ? 'text-gnosi' : 'text-amber-500'} />
@@ -542,7 +557,7 @@ export const VaultSidebar = ({
                     {onCreateDrawing && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onCreateDrawing(); }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
                         >
                             <Plus size={14} />
                         </button>
@@ -668,7 +683,7 @@ export const VaultSidebar = ({
                                         <span className="truncate flex-1 text-left text-[var(--text-primary)]">{db.name}</span>
                                     </button>
 
-                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="ml-auto flex items-center justify-end w-12 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -754,6 +769,16 @@ export const VaultSidebar = ({
                                                         >
                                                             <MoreHorizontal size={12} />
                                                         </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (onCreateTableRecord) onCreateTableRecord(table.id);
+                                                            }}
+                                                            className="opacity-0 group-hover/tableItem:opacity-100 p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-gnosi"
+                                                            title={t('New record')}
+                                                        >
+                                                            <Plus size={12} />
+                                                        </button>
                                                     </div>
 
                                                     {/* Nested Pages (Records) within the Table */}
@@ -777,6 +802,7 @@ export const VaultSidebar = ({
                                                                     onToggleFavorite={onToggleFavorite}
                                                                     menuState={menuState}
                                                                     setMenuState={setMenuState}
+                                                                    canCreateChild={Boolean(tableAllowsSubitems[table.id])}
                                                                 />
                                                             ))}
                                                         </div>

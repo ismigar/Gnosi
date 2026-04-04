@@ -22,6 +22,7 @@ import { VaultDocumentTabs } from '../components/Vault/VaultDocumentTabs';
 import { VaultViewsHeader } from '../components/Vault/VaultViewsHeader';
 import VaultDrawings from '../components/Vault/VaultDrawings';
 import { VaultGraph } from '../components/Vault/VaultGraph';
+import { MAIN_VIEW_NAME, isMainView } from '../components/Vault/viewConstants';
 import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
@@ -80,8 +81,20 @@ export default function VaultDashboard() {
     const [redoStack, setRedoStack] = useState([]);
     const undoRef = useRef(null);
     const redoRef = useRef(null);
+    const TABLE_TAB_PREFIX = 'table:';
 
     console.log("VaultDashboard Render:", { viewMode, activeTabId, activeTableId, tabsCount: tabs.length });
+
+    const buildTableTabId = (tableId) => `${TABLE_TAB_PREFIX}${tableId}`;
+
+    const getTableIdFromTab = (tab) => {
+        if (!tab?.isTable) return null;
+        if (tab.tableId) return tab.tableId;
+        if (typeof tab.id === 'string' && tab.id.startsWith(TABLE_TAB_PREFIX)) {
+            return tab.id.slice(TABLE_TAB_PREFIX.length);
+        }
+        return tab.id;
+    };
 
     const pushToHistory = useCallback((entry) => {
         if (isInternalNavigating) return;
@@ -390,11 +403,37 @@ export default function VaultDashboard() {
         }
     };
 
+    const ensureMainViewForTable = useCallback((tableViews = [], tableId = null) => {
+        if (!Array.isArray(tableViews) || tableViews.length === 0) {
+            return [{
+                id: 'default',
+                table_id: tableId,
+                name: MAIN_VIEW_NAME,
+                type: 'table',
+                sort: { field: 'last_modified', direction: 'desc' },
+                filters: [],
+                is_main: true,
+            }];
+        }
+
+        return tableViews.map(v => ({
+            ...v,
+            is_main: isMainView(v, tableViews),
+        }));
+    }, []);
+
+    const getTableViews = useCallback((tableId) => {
+        const persisted = registry.views?.filter(v => v.table_id === tableId) || [];
+        const localOnly = views.filter(v => v.table_id === tableId && !persisted.find(pv => pv.id === v.id));
+        return ensureMainViewForTable([...persisted, ...localOnly], tableId);
+    }, [registry.views, views, ensureMainViewForTable]);
+
     const getPreferredInitialViewId = useCallback((tableViews = []) => {
         if (!Array.isArray(tableViews) || tableViews.length === 0) return 'default';
-        const preferredView = tableViews.find(v => v.type === 'table') || tableViews[0];
+        const normalized = ensureMainViewForTable(tableViews);
+        const preferredView = normalized.find(v => v.is_main) || normalized.find(v => v.type === 'table') || normalized[0];
         return preferredView?.id || 'default';
-    }, []);
+    }, [ensureMainViewForTable]);
 
     const fetchGlobalIndex = async () => {
         try {
@@ -418,7 +457,17 @@ export default function VaultDashboard() {
     const handleUpdateView = async (updatedView) => {
         if (!updatedView || !updatedView.id) return;
         try {
-            await axios.put(`/api/vault/views/${updatedView.id}`, updatedView);
+            const tableId = updatedView.table_id || activeTableId;
+            const tableSchema = getSchemaFromTableId(tableId);
+            const tableViews = getTableViews(tableId);
+            const main = isMainView(updatedView, tableViews);
+            const normalizedView = {
+                ...updatedView,
+                is_main: main,
+                ...(main ? { visibleProperties: getSchemaFieldNames(tableSchema) } : {}),
+            };
+
+            await axios.put(`/api/vault/views/${updatedView.id}`, normalizedView);
             await fetchRegistry();
             // Refresquem les pàgines de la taula actual per mostrar possibles nous registres d'alta ràpida
             if (activeTableId) {
@@ -442,7 +491,8 @@ export default function VaultDashboard() {
             id: uuidv4(),
             name: `${view.name} (Còpia)`,
             order: (view.order !== undefined ? view.order : 0) + 0.5,
-            table_id: view.table_id || activeTableId
+            table_id: view.table_id || activeTableId,
+            is_main: false,
         };
         try {
             await axios.post('/api/vault/views', newView);
@@ -458,7 +508,8 @@ export default function VaultDashboard() {
     const handleDeleteView = (targetView) => {
         const view = typeof targetView === 'object' ? targetView : registry.views?.find(v => v.id === targetView);
         if (!view) return;
-        if (view.id === 'default') {
+        const tableViews = getTableViews(view.table_id || activeTableId);
+        if (isMainView(view, tableViews)) {
             toast.error("No es pot eliminar la vista principal");
             return;
         }
@@ -779,13 +830,21 @@ export default function VaultDashboard() {
             axios.post(`/api/vault/views`, {
                 id: defaultId,
                 table_id: tableId,
-                name: "Taula Principal",
+                name: MAIN_VIEW_NAME,
                 type: "table",
                 sort: { field: "last_modified", direction: "desc" },
-                filters: []
+                filters: [],
+                is_main: true,
             }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creant vista:", err));
         }
     };
+
+    const focusPageTab = useCallback((pageId) => {
+        setActiveTabId(pageId);
+        setViewMode('editor');
+        setActiveTableId(null);
+        setSplitTabIds(prev => prev.filter(id => id !== pageId));
+    }, []);
 
     async function loadPage(pageId, fromHistory = false) {
         if (!fromHistory) {
@@ -794,8 +853,7 @@ export default function VaultDashboard() {
         try {
             const existingTab = tabs.find(t => t.id === pageId);
             if (existingTab) {
-                setActiveTabId(pageId);
-                setViewMode('editor');
+                focusPageTab(pageId);
                 if (existingTab.metadata?.is_database) {
                     fetchSchema(pageId);
                     fetchViews(pageId);
@@ -818,8 +876,7 @@ export default function VaultDashboard() {
             };
 
             setTabs(prev => (prev.some(t => t.id === newTab.id) ? prev : [...prev, newTab]));
-            setActiveTabId(pageId);
-            setViewMode('editor');
+            focusPageTab(pageId);
 
             // Lògica d'herència d'esquema:
             // 1. Si la pàgina és una base de dades (retrocompatibilitat o nou), busquem l'esquema
@@ -885,7 +942,7 @@ export default function VaultDashboard() {
             if (nextActiveTabId) {
                 const nextTab = remainingTabs.find(tab => tab.id === nextActiveTabId);
                 setActiveTabId(nextActiveTabId);
-                setActiveTableId(nextTab?.isTable ? nextActiveTabId : null);
+                setActiveTableId(nextTab?.isTable ? getTableIdFromTab(nextTab) : null);
                 setViewMode(nextTab?.isDrawing ? 'drawing' : 'editor');
                 setSplitTabIds(remainingSplitTabIds.filter(id => id !== nextActiveTabId));
             } else if (splitTableIds.length > 0) {
@@ -1038,9 +1095,10 @@ export default function VaultDashboard() {
 
     const handleOpenTableAsTab = async (tableId) => {
         try {
-            const existingTab = tabs.find(t => t.id === tableId && t.isTable);
+            const existingTab = tabs.find(t => t.isTable && getTableIdFromTab(t) === tableId);
             if (existingTab) {
-                setActiveTabId(tableId);
+                pushToHistory({ type: 'table', id: tableId });
+                setActiveTabId(existingTab.id);
                 setActiveTableId(tableId);
                 setViewMode('editor');
                 return;
@@ -1053,13 +1111,15 @@ export default function VaultDashboard() {
             }
 
             const newTab = {
-                id: tableId,
+                id: buildTableTabId(tableId),
                 title: table.name || "Sense Títol",
-                isTable: true
+                isTable: true,
+                tableId
             };
 
             setTabs(prev => (prev.some(t => t.id === newTab.id && t.isTable) ? prev : [...prev, newTab]));
-            setActiveTabId(tableId);
+            pushToHistory({ type: 'table', id: tableId });
+            setActiveTabId(newTab.id);
             setViewMode('editor');
             setActiveTableId(tableId);
 
@@ -1090,10 +1150,11 @@ export default function VaultDashboard() {
                 axios.post(`/api/vault/views`, {
                     id: defaultId,
                     table_id: tableId,
-                    name: "Taula Principal",
+                    name: MAIN_VIEW_NAME,
                     type: "table",
                     sort: { field: "last_modified", direction: "desc" },
-                    filters: []
+                    filters: [],
+                    is_main: true,
                 }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creant vista:", err));
             }
         } catch (err) {
@@ -1106,6 +1167,17 @@ export default function VaultDashboard() {
         const tab = tabs.find(t => t.id === tabId);
         if (!tab) return;
 
+        if (tab.isDrawing) {
+            pushToHistory({ type: 'drawing', id: tabId });
+        } else if (tab.isTable) {
+            const tableId = getTableIdFromTab(tab);
+            if (tableId) {
+                pushToHistory({ type: 'table', id: tableId });
+            }
+        } else {
+            pushToHistory({ type: 'editor', id: tabId });
+        }
+
         setActiveTabId(tabId);
 
         if (tab.isDrawing) {
@@ -1117,7 +1189,7 @@ export default function VaultDashboard() {
         setViewMode('editor');
 
         if (tab.isTable) {
-            setActiveTableId(tabId);
+            setActiveTableId(getTableIdFromTab(tab));
             return;
         }
 
@@ -1187,7 +1259,8 @@ export default function VaultDashboard() {
                         id: uuidv4(),
                         table_id: view.table_id || activeTableId,
                         name: title,
-                        order: 0
+                        order: 0,
+                        is_main: true,
                     };
                     await axios.post('/api/vault/views', newView);
                     setActiveViewId(newView.id);
@@ -1232,10 +1305,11 @@ export default function VaultDashboard() {
                 await axios.post(`/api/vault/views`, {
                     id: uuidv4(),
                     table_id: tableRes.data.id,
-                    name: "Taula Principal",
+                    name: MAIN_VIEW_NAME,
                     type: "table",
                     sort: { field: "last_modified", direction: "desc" },
-                    filters: []
+                    filters: [],
+                    is_main: true,
                 });
                 await fetchRegistry();
                 toast.success(`Taula "${title}" creada`);
@@ -1673,7 +1747,10 @@ export default function VaultDashboard() {
                         setActiveTableId(null);
                         setViewMode('editor');
                     }
-                    handleTabClose(tableId);
+                    const tableTab = tabs.find(tab => tab.isTable && getTableIdFromTab(tab) === tableId);
+                    if (tableTab) {
+                        handleTabClose(tableTab.id);
+                    }
                     toast.success("Taula eliminada");
                 } catch (err) {
                     toast.error("Error al eliminar la taula");
@@ -1705,6 +1782,7 @@ export default function VaultDashboard() {
                     databaseId: databaseId // Meta per saber a quina db pertany
                 });
             }}
+            onCreateTableRecord={(tableId) => handleCreateRecordForTable(tableId)}
             onCreateDrawing={() => handleOpenCreatePrompt(null, false, true)}
         />
     );
@@ -1715,17 +1793,15 @@ export default function VaultDashboard() {
 
         // If this is a table tab, render the table instead of the editor
         if (tab.isTable) {
-            const tableId = tabId;
+            const tableId = getTableIdFromTab(tab);
+            if (!tableId) return null;
             const table = registry.tables?.find(t => t.id === tableId);
             const paneNotes = getTableVisibleRecords(tableId);
             const paneTemplates = pages.filter(p => resolvePageTableId(p) === tableId && p.metadata?.is_template);
             const paneSchema = getSchemaFromTableId(tableId);
             
             // Get views for this specific table
-            const tableViews = (registry.views?.filter(v => v.table_id === tableId) || []).concat(
-                views.filter(v => v.table_id === tableId && !registry.views?.find(rv => rv.id === v.id))
-            );
-            const displayViews = tableViews.length > 0 ? tableViews : [{ id: 'default', name: "Taula Principal", type: "table" }];
+            const displayViews = getTableViews(tableId);
             const currentViewId = activeTableId === tableId ? (activeViewId || displayViews[0].id) : displayViews[0].id;
             const cv = displayViews.find(v => v.id === currentViewId) || displayViews[0];
 
@@ -1919,10 +1995,7 @@ export default function VaultDashboard() {
         const paneSchema = getSchemaFromTableId(tableId);
         
         // Get views for this specific table
-        const tableViews = (registry.views?.filter(v => v.table_id === tableId) || []).concat(
-            views.filter(v => v.table_id === tableId && !registry.views?.find(rv => rv.id === v.id))
-        );
-        const displayViews = tableViews.length > 0 ? tableViews : [{ id: 'default', name: "Taula Principal", type: "table" }];
+        const displayViews = getTableViews(tableId);
         const currentViewId = activeTableId === tableId ? (activeViewId || displayViews[0].id) : displayViews[0].id;
         const cv = displayViews.find(v => v.id === currentViewId) || displayViews[0];
 
@@ -2090,6 +2163,8 @@ export default function VaultDashboard() {
         );
     };
 
+    const activeTable = registry.tables?.find(t => t.id === activeTableId);
+
     return (
         <NotionShell
             sidebarContent={sidebar}
@@ -2190,10 +2265,7 @@ export default function VaultDashboard() {
                     ) : viewMode === 'table' && activeTableId ? (
                         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
                             {(() => {
-                                const currentTableViews = (registry.views?.filter(v => v.table_id === activeTableId) || []).concat(
-                                    views.filter(v => v.table_id === activeTableId && !registry.views?.find(rv => rv.id === v.id))
-                                );
-                                const displayViews = currentTableViews.length > 0 ? currentTableViews : [{ id: activeViewId || 'default', name: "Taula Principal", type: "table" }];
+                                const displayViews = getTableViews(activeTableId);
 
                                 return (
                                     <VaultViewsHeader
@@ -2229,8 +2301,8 @@ export default function VaultDashboard() {
 
                             <div className="flex-1 overflow-hidden">
                                 {(() => {
-                                    const allAvailableViews = (registry.views || []).concat(views);
-                                    const cv = allAvailableViews.find(v => v.id === activeViewId) || { name: "Taula Principal", type: "table", sort: { field: "last_modified", direction: "desc" } };
+                                    const displayViews = getTableViews(activeTableId);
+                                    const cv = displayViews.find(v => v.id === activeViewId) || displayViews[0] || { id: 'default', name: MAIN_VIEW_NAME, type: 'table', sort: { field: 'last_modified', direction: 'desc' }, is_main: true };
 
                                     if (cv.type === 'board') {
                                         return (
@@ -2537,7 +2609,7 @@ export default function VaultDashboard() {
             {
                 isSchemaModalOpen && activeTableId && (() => {
                     const activeTable = registry.tables?.find(t => t.id === activeTableId);
-                    const cv = registry.views?.find(v => v.id === activeViewId) || { id: 'default', name: "Taula Principal", type: "table" };
+                    const cv = getTableViews(activeTableId).find(v => v.id === activeViewId) || { id: 'default', table_id: activeTableId, name: MAIN_VIEW_NAME, type: 'table', is_main: true };
                     const currentSchemaObj = getSchemaFromTableId(activeTableId);
                     return (
                         <SchemaConfigModal
@@ -2546,7 +2618,7 @@ export default function VaultDashboard() {
                             folder={activeTable?.name || 'Taula'}
                             currentSchema={currentSchemaObj}
                             initialEnableSubitems={cv?.enableSubitems}
-                            initialVisibleProperties={cv?.visibleProperties}
+                            initialVisibleProperties={cv?.is_main ? getSchemaFieldNames(currentSchemaObj) : cv?.visibleProperties}
                             onSchemaUpdated={(newSchema) => setSchema(newSchema)}
                             onSave={async (newSchemaObj, viewConfig) => {
                                 const newProperties = buildTablePropertiesFromSchema(newSchemaObj);
@@ -2563,7 +2635,7 @@ export default function VaultDashboard() {
                                         await handleUpdateView({
                                             ...cv,
                                             enableSubitems: viewConfig.enableSubitems,
-                                            visibleProperties: viewConfig.visibleProperties
+                                            visibleProperties: cv?.is_main ? getSchemaFieldNames(newSchemaObj) : viewConfig.visibleProperties
                                         });
                                     }
 
