@@ -220,7 +220,7 @@ export function VaultDocumentTabs({
                 const isSplit = splitSet.has(tab.id);
                 const canSplit = !tab.isTable;
 
-                let tabClasses = "flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ";
+                let tabClasses = "w-[184px] flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ";
                 if (isActive) {
                     tabClasses += "border-[var(--gnosi-blue)] text-[var(--gnosi-blue)] bg-[var(--bg-primary)] shadow-sm";
                 } else if (isSplit) {
@@ -234,8 +234,9 @@ export function VaultDocumentTabs({
                         key={tab.id}
                         className={tabClasses + " group cursor-pointer select-none flex-shrink-0"}
                         onClick={() => onTabSelect(tab.id)}
+                        title={tab.title || 'Sense Títol'}
                     >
-                        <span className="truncate max-w-[150px]">{tab.title || "Sense Títol"}</span>
+                        <span className="truncate flex-1 min-w-0" title={tab.title || 'Sense Títol'}>{tab.title || 'Sense Títol'}</span>
 
                         <div className="flex items-center ml-1">
                             {!isActive && canSplit && (

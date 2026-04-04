@@ -3,8 +3,8 @@ import {
     Plus, Settings, Hash, Search, X, MoreHorizontal, 
     Edit2, Copy, Trash2, LayoutTemplate, SlidersHorizontal, 
     ChevronDown, Filter, ArrowUpDown, Tag, Type, CheckSquare, 
-    Calendar, Layers, FileImage, Columns, List, BarChart2, 
-    Globe, MapPin, AlignLeft
+    Calendar, Layers, FileImage, Columns, List, BarChart2,
+    Globe, MapPin, AlignLeft, Lock
 } from 'lucide-react';
 import { 
     DndContext, 
@@ -24,9 +24,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { VIEW_TYPES, getViewIcon } from './viewConstants';
+import { VIEW_TYPES, getViewIcon, isMainView } from './viewConstants';
 
-function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
+function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigure }) {
     const {
         attributes,
         listeners,
@@ -47,6 +47,7 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
     };
 
     const ViewIcon = getViewIcon(view.type);
+    const isPrimaryView = isMainView(view, tableViews);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -71,13 +72,19 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                     e.preventDefault();
                     onSelect?.(view.id);
                 }}
-                className={`flex items-center gap-1.5 px-3 pt-1.5 pb-0 text-xs font-medium transition-all rounded-t-md border-b-2 mr-1 ${isActive
+                className={`w-[184px] flex items-center gap-1.5 px-3 pt-1.5 pb-0 text-xs font-medium transition-all rounded-t-md border-b-2 mr-1 ${isActive
                     ? 'text-[var(--gnosi-blue)] border-[var(--gnosi-blue)] bg-[var(--bg-primary)] shadow-[0_-2px_5px_-1px_rgba(var(--gnosi-primary-rgb),0.1)]'
                     : 'text-[var(--text-tertiary)] border-transparent hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
                     }`}
+                title={view.name}
             >
                 <ViewIcon size={13} className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]'} />
-                <span className="truncate max-w-[100px] md:max-w-[140px]">{view.name}</span>
+                <span className="truncate flex-1 min-w-0" title={view.name}>{view.name}</span>
+                {isPrimaryView && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[10px] text-[var(--text-tertiary)] border border-[var(--border-primary)]" title="Vista principal" aria-label="Vista principal">
+                        <Lock size={10} />
+                    </span>
+                )}
                 
                 <div 
                     onClick={(e) => {
@@ -117,13 +124,20 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                         Duplicar
                     </button>
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
-                    <button 
-                        onClick={() => { setShowMenu(false); onAction?.(view, 'delete'); }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
-                    >
-                        <Trash2 size={13} className="text-[var(--status-error)]" />
-                        Eliminar
-                    </button>
+                    {isPrimaryView ? (
+                        <div className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-tertiary)]/70 cursor-not-allowed">
+                            <Lock size={13} />
+                            Vista principal (bloqueada)
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => { setShowMenu(false); onAction?.(view, 'delete'); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                        >
+                            <Trash2 size={13} className="text-[var(--status-error)]" />
+                            Eliminar
+                        </button>
+                    )}
                 </div>
             )}
         </div>
@@ -178,7 +192,7 @@ export function VaultViewsHeader({
                 
                 // Espai per les pestanyes = Total - Accions - Marges/Gaps - (+ bar i ... que ocupen uns 80px)
                 const availableForTabs = totalWidth - actionsWidth - 40; 
-                const tabWidth = 135; 
+                const tabWidth = 184;
                 const reservedInternal = 60; // + i ...
                 
                 const count = Math.max(1, Math.floor((availableForTabs - reservedInternal) / tabWidth));
@@ -220,6 +234,7 @@ export function VaultViewsHeader({
     const handleViewAction = useCallback((view, action) => {
         if (action === 'configure') onEditView?.(view);
         if (action === 'delete') {
+            if (isMainView(view, views)) return;
             onDeleteView?.(view);
         }
         if (action === 'duplicate') {
@@ -274,6 +289,7 @@ export function VaultViewsHeader({
                                     <SortableTab 
                                         key={view.id}
                                         view={view}
+                                        tableViews={views}
                                         isActive={activeViewId === view.id}
                                         onSelect={onViewSelect}
                                         onAction={handleViewAction}
@@ -301,6 +317,7 @@ export function VaultViewsHeader({
                                                 </div>
                                                 {displayViews.slice(visibleCount).map(view => {
                                                     const Icon = getViewIcon(view.type);
+                                                    const primary = isMainView(view, views);
                                                     return (
                                                         <button 
                                                             key={view.id}
@@ -312,6 +329,11 @@ export function VaultViewsHeader({
                                                         >
                                                             <Icon size={13} />
                                                             <span className="truncate">{view.name}</span>
+                                                            {primary && (
+                                                                <span className="ml-auto inline-flex items-center text-[9px] px-1.5 py-0.5 rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]" title="Vista principal" aria-label="Vista principal">
+                                                                    <Lock size={9} />
+                                                                </span>
+                                                            )}
                                                         </button>
                                                     );
                                                 })}

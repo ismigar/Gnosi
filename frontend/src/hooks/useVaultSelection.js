@@ -6,7 +6,7 @@ import { useState, useCallback } from 'react';
 
 /**
  * @param {Array} pages - Llista de registres disponibles
- * @returns {{ selectedIds, toggleSelection, selectAll, clearSelection, isSelected }}
+ * @returns {{ selectedIds, toggleSelection, toggleSelect, selectAll, clearSelection, isSelected }}
  */
 export function useVaultSelection(pages = []) {
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -34,8 +34,18 @@ export function useVaultSelection(pages = []) {
         });
     }, []);
 
-    const selectAll = useCallback(() => {
-        setSelectedIds(new Set(pages.map(p => p.id)));
+    // Alias compatible amb els components existents: rep event o booleà
+    const toggleSelect = useCallback((id, eventOrShift = false) => {
+        const isShift = typeof eventOrShift === 'boolean'
+            ? eventOrShift
+            : Boolean(eventOrShift?.shiftKey);
+        const allIds = pages.map(p => p.id);
+        toggleSelection(id, isShift, allIds);
+    }, [pages, toggleSelection]);
+
+    const selectAll = useCallback((ids = null) => {
+        const sourceIds = Array.isArray(ids) ? ids : pages.map(p => p.id);
+        setSelectedIds(new Set(sourceIds));
     }, [pages]);
 
     const clearSelection = useCallback(() => {
@@ -44,5 +54,5 @@ export function useVaultSelection(pages = []) {
 
     const isSelected = useCallback((id) => selectedIds.has(id), [selectedIds]);
 
-    return { selectedIds, toggleSelection, selectAll, clearSelection, isSelected };
+    return { selectedIds, toggleSelection, toggleSelect, selectAll, clearSelection, isSelected };
 }

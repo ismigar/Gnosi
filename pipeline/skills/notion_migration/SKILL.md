@@ -90,6 +90,8 @@ En els camps de relació, si una nota no existeix, es permet crear-la al moment.
 | 22/02/26 | Relations not clickable | No mechanism to create notes from IDs | Added `POST /notes/create` and frontend UI for "+ Crear" on non-existent relations. |
 | 27/02/27 | Tables and embedded views not migrated | `convert_block_to_md` had no recursion and no `table`/`table_row` support | Rewrote to `convert_blocks_to_md(list)` with full recursion + table/toggle/embed/synced_block support. |
 | 28/03/26 | Records not visible in frontend | Registry missing `folder` field for tables | Added `folder` field mapping to actual filesystem folder names. **IMPORTANT:** The `vault_db_registry.json` MUST have the `folder` field set for each table, matching the actual folder name in the vault. |
+| 03/04/26 | Many Notion fields migrated as empty | Property type `rich_text` was not exported in frontmatter and `button` was silently ignored | Added extraction for `rich_text` and explicit marker for `button` to avoid silent data loss. |
+| 03/04/26 | Embedded database blocks lost when unresolved | `child_database` fallback degraded to plain quote text and IDs are not always retrievable as databases | Added robust resolver with search cache + unresolved `gnosi-database` placeholder block preserving Notion source IDs/titles. |
 
 ## 7. Examples of Use
 

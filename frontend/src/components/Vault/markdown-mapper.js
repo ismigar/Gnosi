@@ -152,11 +152,28 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
             const trimmed = line.trim();
 
             // REGLA ESTRICTA: La directiva ha de ser l'únic que hi ha a la línia trimada
-            const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle)(.*)$/);
+            const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle|gnosi-ignore)(.*)$/);
             
             if (startMatch) {
-                const type = startMatch[2] === "column-list" ? "columnList" : startMatch[2];
+                const typeRaw = startMatch[2];
                 const label = startMatch[3].trim();
+
+                // Cas especial: gnosi-ignore (saltem tot el bloc)
+                if (typeRaw === "gnosi-ignore") {
+                    let depth = 1;
+                    let j = i + 1;
+                    while (j < inputLines.length && depth > 0) {
+                        const currentTrimmed = inputLines[j].trim();
+                        // Suport per a anidament de gnosi-ignore (opcional però recomanat)
+                        if (currentTrimmed.match(/^:{3,}gnosi-ignore/)) depth++;
+                        else if (currentTrimmed.match(/^:{3,}$/)) depth--;
+                        j++;
+                    }
+                    i = j;
+                    continue;
+                }
+
+                const type = typeRaw === "column-list" ? "columnList" : typeRaw;
 
                 let innerLines = [];
                 let depth = 1;
