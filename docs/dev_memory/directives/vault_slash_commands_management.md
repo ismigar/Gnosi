@@ -48,6 +48,8 @@ Status: ACTIVE
 | Date | Error Detected | Root Cause | Solution/Patch Applied |
 | --- | --- | --- | --- |
 | 18/03 | Desaparición de comandos BD | Comandos hardcodeados insuficientes y falta de registro de bloque. | Reintegrar `slashMenuUtils.js` y registrar `inline_database` block. |
+| 04/04 | Menú `/` sin comandos útiles y `[[` sin sugerencias | `buildSlashCommandCatalog` invocado sin contexto (`allTables`, `editor`) y filtrado no defensivo sobre `item.title`; no había `SuggestionMenuController` para enlaces wiki. | Pasar contexto explícito al catálogo, filtrar por `title/aliases` de forma segura y añadir controlador `[` para sugerencias de notas internas con inserción de `[[Nota]]`. |
+| 05/04 | No se podía enlazar rápidamente una nota inexistente | El menú de sugerencias solo listaba notas ya creadas, sin acción de alta contextual | Añadir acciones “Crear al Wiki” y “Crear a taula X” desde sugerencias de `[[...]]` y `![[...]]`, creando la página y enlazándola automáticamente. |
 
 ## 8. Pre-Execution Checklist
 

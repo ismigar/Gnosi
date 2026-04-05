@@ -37,6 +37,7 @@ export default function VaultDashboard() {
     const [pages, setPages] = useState([]);
     const [tabs, setTabs] = useState([]);
     const [activeTabId, setActiveTabId] = useState(null);
+    const [codeViewByTabId, setCodeViewByTabId] = useState({});
     const [splitTabIds, setSplitTabIds] = useState([]);
     const [splitTableIds, setSplitTableIds] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -44,7 +45,7 @@ export default function VaultDashboard() {
     const [pageToDelete, setPageToDelete] = useState(null);
     const [recordsToDelete, setRecordsToDelete] = useState(null); // Estat per confirmar eliminació múltiple
     const [viewToDelete, setViewToDelete] = useState(null);
-    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isView: false, isRename: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
+    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashworks: false, isView: false, isRename: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
     // De moment suportem "editor" per totes les pàgines. 
     // Podeu afegir "table" directament aquí o mitjançant custom blocks.
@@ -56,6 +57,7 @@ export default function VaultDashboard() {
     const [activeViewId, setActiveViewId] = useState(null);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
     const [isRecentOpen, setIsRecentOpen] = useState(false);
+    const [historyOpenSignal, setHistoryOpenSignal] = useState(0);
     const [globalIndex, setGlobalIndex] = useState({});
     const [registry, setRegistry] = useState({ databases: [], tables: [], views: [] });
     const [activeTableId, setActiveTableId] = useState(null);
@@ -69,6 +71,7 @@ export default function VaultDashboard() {
     const [viewConfigTab, setViewConfigTab] = useState('appearance');
     const [pendingView, setPendingView] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const pageRequestInFlightRef = useRef(new Map());
 
 
     // --- Historial de Navegació Personalitzat ---
@@ -82,6 +85,59 @@ export default function VaultDashboard() {
     const undoRef = useRef(null);
     const redoRef = useRef(null);
     const TABLE_TAB_PREFIX = 'table:';
+
+    const isAbortLikeError = useCallback((err) => {
+        if (!err) return false;
+        if (axios.isCancel?.(err)) return true;
+
+        const code = String(err.code || '').toUpperCase();
+        const name = String(err.name || '').toLowerCase();
+        const message = String(err.message || '').toLowerCase();
+
+        return (
+            code === 'ERR_CANCELED'
+            || name === 'cancelederror'
+            || message.includes('aborted')
+            || message.includes('canceled')
+            || message.includes('cancelled')
+        );
+    }, []);
+
+    const fetchPageById = useCallback(async (pageId, maxAbortRetries = 1) => {
+        if (!pageId) return null;
+
+        const existingRequest = pageRequestInFlightRef.current.get(pageId);
+        if (existingRequest) {
+            return existingRequest;
+        }
+
+        const requestPromise = (async () => {
+            let lastErr = null;
+            for (let attempt = 0; attempt <= maxAbortRetries; attempt += 1) {
+                try {
+                    const res = await axios.get(`/api/vault/pages/${pageId}`);
+                    return res;
+                } catch (err) {
+                    lastErr = err;
+                    if (isAbortLikeError(err) && attempt < maxAbortRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 60));
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+
+            throw lastErr;
+        })();
+
+        pageRequestInFlightRef.current.set(pageId, requestPromise);
+
+        try {
+            return await requestPromise;
+        } finally {
+            pageRequestInFlightRef.current.delete(pageId);
+        }
+    }, [isAbortLikeError]);
 
     console.log("VaultDashboard Render:", { viewMode, activeTabId, activeTableId, tabsCount: tabs.length });
 
@@ -134,6 +190,7 @@ export default function VaultDashboard() {
             parentId: null, 
             isDatabase: false, 
             isDrawing: false, 
+            isDashworks: false,
             isView: false, 
             isRename: false, 
             targetView: null, 
@@ -336,10 +393,13 @@ export default function VaultDashboard() {
 
             return tablePages;
         } catch (err) {
+            if (isAbortLikeError(err)) {
+                return [];
+            }
             console.error('Error carregant pàgines de la taula:', err);
             return [];
         }
-    }, [activeTableId, getVisibleTableRecords, pages, resolvePageTableId]);
+    }, [activeTableId, getVisibleTableRecords, isAbortLikeError, pages, resolvePageTableId]);
 
     const handleUpdateNote = async (id, data) => {
         try {
@@ -846,22 +906,25 @@ export default function VaultDashboard() {
         setSplitTabIds(prev => prev.filter(id => id !== pageId));
     }, []);
 
+    const handleEditorUpdate = useCallback((pageId, content, payload = {}) => {
+        setTabs(prevTabs => prevTabs.map(tab => {
+            if (tab.id !== pageId) return tab;
+
+            return {
+                ...tab,
+                content,
+                title: payload?.title ?? tab.title,
+                metadata: payload?.metadata ?? tab.metadata,
+            };
+        }));
+    }, []);
+
     async function loadPage(pageId, fromHistory = false) {
         if (!fromHistory) {
             pushToHistory({ type: 'editor', id: pageId });
         }
         try {
-            const existingTab = tabs.find(t => t.id === pageId);
-            if (existingTab) {
-                focusPageTab(pageId);
-                if (existingTab.metadata?.is_database) {
-                    fetchSchema(pageId);
-                    fetchViews(pageId);
-                }
-                return true;
-            }
-
-            const res = await axios.get(`/api/vault/pages/${pageId}`);
+            const res = await fetchPageById(pageId, 1);
 
             const newTab = {
                 id: pageId,
@@ -875,7 +938,11 @@ export default function VaultDashboard() {
                 resolved_table_id: res.data.resolved_table_id || null
             };
 
-            setTabs(prev => (prev.some(t => t.id === newTab.id) ? prev : [...prev, newTab]));
+            setTabs(prev => (
+                prev.some(t => t.id === newTab.id)
+                    ? prev.map(t => (t.id === newTab.id ? { ...t, ...newTab } : t))
+                    : [...prev, newTab]
+            ));
             focusPageTab(pageId);
 
             // Lògica d'herència d'esquema:
@@ -893,6 +960,9 @@ export default function VaultDashboard() {
             }
             return true;
         } catch (err) {
+            if (isAbortLikeError(err)) {
+                return false;
+            }
             console.error(`Error provant de carregar pàgina ${pageId}`, err);
             return false;
         }
@@ -905,7 +975,7 @@ export default function VaultDashboard() {
         }
 
         try {
-            const res = await axios.get(`/api/vault/pages/${pageId}`);
+            const res = await fetchPageById(pageId, 1);
 
             const newTab = {
                 id: pageId,
@@ -922,6 +992,9 @@ export default function VaultDashboard() {
             setTabs(prev => (prev.some(t => t.id === newTab.id) ? prev : [...prev, newTab]));
             return true;
         } catch (err) {
+            if (isAbortLikeError(err)) {
+                return false;
+            }
             console.error(`Error provant de precarregar pàgina ${pageId}`, err);
             toast.error("Error obrint en paral·lel");
             return false;
@@ -958,6 +1031,50 @@ export default function VaultDashboard() {
 
         setSplitTabIds(remainingSplitTabIds);
     };
+
+    useEffect(() => {
+        const existingPageIds = new Set(pages.map(page => page.id));
+        const existingTableIds = new Set((registry.tables || []).map(table => table.id));
+
+        setTabs(prevTabs => {
+            const filteredTabs = prevTabs.filter(tab => {
+                if (tab.isTable) {
+                    const tableId = getTableIdFromTab(tab);
+                    return Boolean(tableId && existingTableIds.has(tableId));
+                }
+                return existingPageIds.has(tab.id);
+            });
+
+            if (filteredTabs.length === prevTabs.length) {
+                return prevTabs;
+            }
+
+            const validTabIds = new Set(filteredTabs.map(tab => tab.id));
+            setSplitTabIds(prev => prev.filter(id => validTabIds.has(id)));
+
+            if (activeTabId && !validTabIds.has(activeTabId)) {
+                const fallbackTab = filteredTabs[filteredTabs.length - 1] || null;
+                if (fallbackTab) {
+                    setActiveTabId(fallbackTab.id);
+                    setActiveTableId(fallbackTab.isTable ? getTableIdFromTab(fallbackTab) : null);
+                    setViewMode(fallbackTab.isDrawing ? 'drawing' : 'editor');
+                } else {
+                    setActiveTabId(null);
+                }
+            }
+
+            return filteredTabs;
+        });
+
+        setSplitTableIds(prev => prev.filter(tableId => existingTableIds.has(tableId)));
+
+        if (activeTableId && !existingTableIds.has(activeTableId)) {
+            setActiveTableId(null);
+            if (viewMode === 'table') {
+                setViewMode('editor');
+            }
+        }
+    }, [activeTabId, activeTableId, pages, registry.tables, viewMode]);
 
     const MAX_PANES = 4;
 
@@ -1196,15 +1313,17 @@ export default function VaultDashboard() {
         setActiveTableId(null);
     };
 
-    const handleOpenCreatePrompt = (parentId = null, isDatabase = false, isDrawing = false) => {
+    const handleOpenCreatePrompt = (parentId = null, isDatabase = false, isDrawing = false, isDashworks = false) => {
         let defaultTitle = isDatabase ? "Nova Base de Dades" : "Nova Pàgina";
         if (isDrawing) defaultTitle = "Nou Dibuix";
+        if (isDashworks) defaultTitle = "Nou Taulell";
         setPromptModal({ 
             isOpen: true, 
             defaultTitle, 
             parentId, 
             isDatabase, 
             isDrawing, 
+            isDashworks,
             isView: false,
             isRename: false,
             targetView: null,
@@ -1216,7 +1335,7 @@ export default function VaultDashboard() {
 
     const executeCreateContent = async (e) => {
         if (e) e.preventDefault();
-        const { inputValue, parentId, isDatabase, isDrawing, isView, isRename, targetView, viewType, folderName, isTemplate, isApp, databaseId } = promptModal;
+        const { inputValue, parentId, isDatabase, isDrawing, isDashworks, isView, isRename, targetView, viewType, folderName, isTemplate, isApp, databaseId } = promptModal;
         const title = inputValue?.trim();
 
         if (!title) {
@@ -1316,9 +1435,15 @@ export default function VaultDashboard() {
             } else {
                 const res = await axios.post(`/api/vault/pages`, {
                     title: title,
-                    content: ``,
+                    content: isDashworks ? '{\n  \n}' : ``,
                     parent_id: parentId,
-                    is_database: isDatabase
+                    is_database: isDatabase,
+                    metadata: isDashworks
+                        ? {
+                            is_dashworks: true,
+                            content_format: 'json',
+                        }
+                        : undefined,
                 });
                 await fetchPages();
                 loadPage(res.data.id);
@@ -1581,6 +1706,9 @@ export default function VaultDashboard() {
     }
 
     const currentOpenPage = activeTabId ? pages.find(p => p.id === activeTabId) : null;
+    const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
+    const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable);
+    const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
     const quickOpenItems = React.useMemo(() => {
         const pageItems = pages
             .filter(p => !p.metadata?.is_template)
@@ -1684,6 +1812,7 @@ export default function VaultDashboard() {
             onPageSelect={loadPage}
             onOpenParallel={handleOpenParallel}
             onCreatePage={(parentId) => handleOpenCreatePrompt(parentId, false)}
+            onCreateDashworksPage={(parentId) => handleOpenCreatePrompt(parentId, false, false, true)}
             onSearch={() => setIsGlobalSearchOpen(true)}
             onOpenRecent={() => setIsRecentOpen(true)}
             onNavigate={(view) => {
@@ -1965,6 +2094,9 @@ export default function VaultDashboard() {
                 noteFilename={tab.id}
                 initialContent={tab.content}
                 initialMetadata={tab.metadata}
+                isCodeView={Boolean(codeViewByTabId[tab.id])}
+                onUpdate={(content, payload) => handleEditorUpdate(tab.id, content, payload)}
+                historyOpenSignal={tab.id === activeTabId ? historyOpenSignal : 0}
                 folder="Universal"
                 schema={schema}
                 allNotes={pages}
@@ -2177,10 +2309,24 @@ export default function VaultDashboard() {
             onForward={handleNavigationForward}
             canGoBack={historyPointer > 0}
             canGoForward={historyPointer < navigationHistory.length - 1}
+            canOpenHistory={Boolean(currentOpenPage)}
+            onOpenHistory={() => {
+                if (!currentOpenPage) return;
+                setHistoryOpenSignal(prev => prev + 1);
+            }}
             canDeleteCurrentPage={Boolean(currentOpenPage)}
             onDeleteCurrentPage={() => {
                 if (!currentOpenPage) return;
                 handleDeletePage(currentOpenPage.id, currentOpenPage.title || 'Sense títol');
+            }}
+            canToggleCodeView={canToggleCodeView}
+            isCodeView={isCodeViewActive}
+            onToggleCodeView={() => {
+                if (!canToggleCodeView || !currentActiveTab?.id) return;
+                setCodeViewByTabId(prev => ({
+                    ...prev,
+                    [currentActiveTab.id]: !Boolean(prev[currentActiveTab.id]),
+                }));
             }}
         >
             <div className="h-full bg-[var(--bg-primary)] flex flex-col min-w-0">
@@ -2564,9 +2710,10 @@ export default function VaultDashboard() {
                                 {promptModal.isRename ? `Reanomenar Vista: ${promptModal.targetView?.name}` :
                                     (promptModal.isView ? "Nova Vista" :
                                         (promptModal.isDrawing ? "Crear Nou Dibuix" :
+                                            (promptModal.isDashworks ? "Crear Nou Taulell" :
                                             (promptModal.isDatabase && promptModal.databaseId ? "Crear Nova Taula" :
                                                 (promptModal.isApp ? "Crear Nova App/DB" :
-                                                    (promptModal.isTemplate ? "Desar com a Plantilla" : "Crear Nova Pàgina")))))}
+                                                    (promptModal.isTemplate ? "Desar com a Plantilla" : "Crear Nova Pàgina"))))))}
                             </h3>
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">

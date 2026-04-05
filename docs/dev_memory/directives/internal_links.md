@@ -3,7 +3,7 @@
 > ID: 20240228_INTERNAL_LINKS
 > Associated Script: N/A
 > Status: ACTIVE
-> Last Update: 2026-02-28
+> Last Update: 2026-04-05
 
 ---
 
@@ -26,6 +26,10 @@ Implementar un sistema d'enllaçat entre notes que emuli el comportament d'Obsid
 ### Sortides
 - Bloc de text amb enllaç inserit.
 - Connexió al graf de coneixement.
+- Panell bidireccional de relacions per pàgina:
+    - `Enllaça a` (outgoing links)
+    - `Enllaçat per` (backlinks / incoming links)
+- Panell `Mencions sense enllaç` (unlinked mentions) amb conversió automàtica a enllaç intern.
 
 ## 3. Flux Lògic (Algorisme)
 
@@ -33,6 +37,9 @@ Implementar un sistema d'enllaçat entre notes que emuli el comportament d'Obsid
 2. **Filtrat:** Es filtren les notes existents per títol basant-se en el text després de `[[`.
 3. **Inserció:** En confirmar, s'insereix un element de tipus "link" amb l'ID de la nota.
 4. **Sincronització:** El backend analitza el Markdown i actualitza el graf amb la nova aresta.
+5. **Backlinks:** El backend detecta i resol referències entrants per ID i per títol per alimentar el panell `Enllaçat per`.
+6. **Unlinked Mentions:** El backend detecta mencions de títol en text pla que encara no són enllaç i permet convertir-les en bloc o per nota origen.
+7. **Block References:** Les referències `#^blockId` s'han de suggerir i mantenir operatives en enllaços i transclusions.
 
 ## 4. Eines i Llibreries
 - **BlockNote SDK:** Per a la gestió del menú de suggeriments.
@@ -42,7 +49,20 @@ Implementar un sistema d'enllaçat entre notes que emuli el comportament d'Obsid
 ## 5. Restriccions i Casos Extrems
 - **Notes amb el mateix títol:** S'ha d'utilitzar l'ID (filename) per a l'enllaç real, mostrant el títol readable.
 - **Notes inexistents:** Obsidian permet crear enllaços a notes que no existeixen encara. En aquesta fase, ens centrarem en enllaçar notes existents, però és un possible "future work".
+- **Normalització d'enllaços:** Cal resoldre com a objectiu equivalent les variants `id`, `/vault/page/{id}`, `/api/vault/pages/{id}` i referències per títol.
+- **Apartats (`#section`) i alias (`|alias`):** La detecció de backlinks ha d'ignorar el fragment i comparar el target base.
+- **Mencions no enllaçades:** En convertir text pla a enllaç, no tocar segments que ja siguin `[[...]]` o `[text](...)`.
+- **Block refs (`^id`):** Per previews de transclusió, si el target és `#^id` extreure la línia marcada (sense el marcador) en lloc de cercar un heading.
+- **Nota operativa (error real detectat):** Note: Do not invoke `build_id_title_index()` in endpoints de links si la funció no existeix o no és visible en el mòdul, perquè provoca `NameError` i retorna 500 a `/api/vault/backlinks` i `/api/vault/unlinked-mentions`. Instead, do mantenir un helper global `build_id_title_index()` definit abans dels endpoints i reutilitzar-lo també a `/api/vault/global-index`.
+- **Cobertura de fonts:** Els scans de backlinks/mencions no han de limitar-se només a `*.md`; cal incloure també fitxers Dashworks `*.json` per mantenir paritat funcional entre Wiki i Dashworks.
+- **Exclusió d'històric:** Note: Do not escanejar `VAULT/.history/**` quan es construeix `id -> title` o quan es busquen backlinks/mencions, perquè introdueix pàgines antigues com si fossin vives (falsos duplicats de títol i backlinks fantasma). Instead, do excloure explícitament qualsevol fitxer amb `.history` al path.
+- **Inserció de wikilinks al bloc actual:** No fer `replaceBlocks`/`updateBlock` de tot el paràgraf quan hi ha un `[[` o `[` incomplet, perquè pot eliminar text després del cursor. Inserir contingut inline de manera no destructiva.
+- **Compatibilitat BlockNote (estils inline):** No utilitzar `styles: { link: ... }` en insercions inline si l'schema no defineix explícitament aquest estil; pot trencar amb `style link not found in styleSchema`. Prioritzar inserció de `[[...]]` com text wiki.
 
 ## 6. Protocols de Verificació
 - Validar visualment el menú de suggeriments.
 - Validar que el graf es mou segons les noves connexions.
+- Validar que `A -> B` mostra B a `Enllaça a` i A a `Enllaçat per`.
+- Validar que els backlinks funcionen tant amb wikilinks (`[[...]]`) com amb markdown links (`[text](/vault/page/...)`).
+- Validar que `Mencions sense enllaç` detecta coincidències reals i que `Enllaçar` crea links interns sense duplicar links existents.
+- Validar que `[[Nota#^bloc]]` i `![[Nota#^bloc]]` es poden seleccionar i visualitzar amb preview coherent.

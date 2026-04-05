@@ -385,8 +385,9 @@ def _build_graph_from_vault() -> dict:
             # Regex for [[Title]] or [[Title|Alias]]
             links = re.findall(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", content)
 
-            for link_title in set(links):  # deduplicate per page
-                target_id = title_to_id.get(link_title.lower().strip())
+            for link_ref in set(links):  # deduplicate per page
+                link_title = link_ref.split('#')[0].lower().strip()
+                target_id = title_to_id.get(link_title)
                 if target_id and target_id in page_ids and target_id != page.id:
                     edges.append(
                         {

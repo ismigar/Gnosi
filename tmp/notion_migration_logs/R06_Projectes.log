@@ -1,0 +1,14 @@
+  📂 VAULT_ROOT configurada a: /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi
+
+⚡ Pre-escanejant títols per resoldre relacions...
+    [!] Error querying database 102268e527148024858ef1467de2a9ba: {"object":"error","status":400,"code":"validation_error","message":"Provided ID 102268e5-2714-8024-858e-f1467de2a9ba is a page, not a database. Use the retrieve page API instead","request_id":"467bc313-f589-4418-8d84-577a9165d4af"}
+    [!] Error querying database 8c80f2a861b843b790da4f0e260b7db9: {"object":"error","status":404,"code":"object_not_found","message":"Could not find database with ID: 8c80f2a8-61b8-43b7-90da-4f0e260b7db9. Make sure the relevant pages and databases are shared with your integration \"Antigravity\".","additional_data":{"integration_id":"337268e5-2714-815c-924d-00279dc13772"},"request_id":"65ec46e9-50c3-47de-9bc4-fac7becc2c2b"}
+    [!] Error querying database 9fa13965699b4087ae792fb8d3660589: {"object":"error","status":400,"code":"validation_error","message":"Provided ID 9fa13965-699b-4087-ae79-2fb8d3660589 is a page, not a database. Use the retrieve page API instead","request_id":"6b43630f-de99-48b6-b540-ede1d1c146e3"}
+   ✅ Trobats 1151 títols.
+
+==================================================
+Abocant: Projectes (8e8d3c8d38e64ea0ac417b65561c7712)
+==================================================
+  📍 Destí: /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi/BD/Cervell Digital/Projectes
+  Trobades 43 pàgines.
+  [1/43] Asignatura Filosofía fenomenológica de la religión

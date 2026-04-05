@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'monorepo/**'
+      - 'scripts/sync_repos.py'
+      - '.github/workflows/sync.yml'
   workflow_dispatch:
 
 env:

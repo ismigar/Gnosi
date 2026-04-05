@@ -31,15 +31,111 @@ const FALLBACK_LUCIDE_ICONS = [
     'Database', 'BarChart3', 'PieChart', 'Activity', 'Zap', 'Sparkles',
 ];
 
+const CUSTOM_ICON_STORAGE_KEY = 'gnosi.vault.custom-icons';
+const MAX_CUSTOM_ICONS = 30;
+
+const readStoredCustomIcons = () => {
+    if (typeof window === 'undefined') return [];
+
+    try {
+        const raw = window.localStorage.getItem(CUSTOM_ICON_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+
+        return parsed.filter((item) => typeof item === 'string' && item.trim().length > 0);
+    } catch {
+        return [];
+    }
+};
+
 export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, triggerRef }) => {
     const { effectiveTheme } = useTheme();
     const [activeTab, setActiveTab] = useState('emoji');
     const [selectedColor, setSelectedColor] = useState('default');
     const [searchTerm, setSearchTerm] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [isImportingLink, setIsImportingLink] = useState(false);
     const [linkInput, setLinkInput] = useState('');
+    const [customIcons, setCustomIcons] = useState(() => readStoredCustomIcons());
+    const [hasLoadedRemoteIcons, setHasLoadedRemoteIcons] = useState(false);
     const pickerRef = useRef(null);
     const fileInputRef = useRef(null);
+
+    const normalizeCustomIcons = (values) => {
+        if (!Array.isArray(values)) return [];
+
+        const seen = new Set();
+        const normalized = [];
+
+        values.forEach((value) => {
+            if (typeof value !== 'string') return;
+            const clean = value.trim();
+            if (!clean || seen.has(clean)) return;
+
+            seen.add(clean);
+            normalized.push(clean);
+        });
+
+        return normalized.slice(0, MAX_CUSTOM_ICONS);
+    };
+
+    const saveCustomIcons = async (iconsList) => {
+        const normalized = normalizeCustomIcons(iconsList);
+        setCustomIcons(normalized);
+
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(CUSTOM_ICON_STORAGE_KEY, JSON.stringify(normalized));
+        }
+
+        try {
+            await axios.put('/api/vault/custom-icons', { icons: normalized });
+        } catch (error) {
+            // Keep local fallback if backend persistence fails.
+        }
+    };
+
+    useEffect(() => {
+        if (!isOpen || hasLoadedRemoteIcons) return;
+
+        let cancelled = false;
+
+        const loadRemoteCustomIcons = async () => {
+            try {
+                const response = await axios.get('/api/vault/custom-icons');
+                if (cancelled) return;
+                const remoteIcons = normalizeCustomIcons(response?.data?.icons || []);
+                setCustomIcons(remoteIcons);
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem(CUSTOM_ICON_STORAGE_KEY, JSON.stringify(remoteIcons));
+                }
+            } catch (error) {
+                // Silent fallback to local storage.
+            } finally {
+                if (!cancelled) setHasLoadedRemoteIcons(true);
+            }
+        };
+
+        loadRemoteCustomIcons();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [hasLoadedRemoteIcons, isOpen]);
+
+    const rememberCustomIcon = (value) => {
+        if (typeof value !== 'string') return;
+        const normalized = value.trim();
+        if (!normalized) return;
+
+        const next = [normalized, ...customIcons.filter((icon) => icon !== normalized)].slice(0, MAX_CUSTOM_ICONS);
+        saveCustomIcons(next);
+    };
+
+    const removeCustomIcon = (value) => {
+        const next = customIcons.filter((icon) => icon !== value);
+        saveCustomIcons(next);
+    };
 
     // Get all available Lucide icons dynamically
     const availableIcons = useMemo(() => {
@@ -73,14 +169,17 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
         const formData = new FormData();
         formData.append('file', file);
-        // Usarem el mateix endpoint que per covers però potser hauríem de tenir un específic per icons
-        // De moment, l'endpoint upload-cover ens serveix per pujar Assets.
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-cover', formData, {
+            const res = await axios.post('/api/vault/upload-icon', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            onSelectIcon(res.data.url);
+            const uploadedUrl = res.data?.url;
+            if (typeof uploadedUrl !== 'string' || !uploadedUrl.trim()) {
+                throw new Error('Upload did not return a valid URL');
+            }
+            rememberCustomIcon(uploadedUrl);
+            onSelectIcon(uploadedUrl);
             onClose();
             toast.success("Icona pujada correctament");
         } catch (error) {
@@ -88,6 +187,31 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             toast.error("Error al pujar la icona");
         } finally {
             setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleImportFromUrl = async () => {
+        const url = linkInput.trim();
+        if (!url) return;
+
+        setIsImportingLink(true);
+        try {
+            const res = await axios.post('/api/vault/import-icon-url', { url });
+            const importedUrl = res.data?.url;
+            if (typeof importedUrl !== 'string' || !importedUrl.trim()) {
+                throw new Error('Import did not return a valid URL');
+            }
+
+            rememberCustomIcon(importedUrl);
+            onSelectIcon(importedUrl);
+            onClose();
+            toast.success('Icona importada correctament');
+        } catch (error) {
+            console.error(error);
+            toast.error('Error important la icona des de URL');
+        } finally {
+            setIsImportingLink(false);
         }
     };
 
@@ -219,6 +343,37 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
                     {activeTab === 'custom' && (
                         <div className="flex flex-col gap-6">
+                            {customIcons.length > 0 && (
+                                <div className="flex flex-col gap-2">
+                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Recents</span>
+                                    <div className="grid grid-cols-6 gap-2">
+                                        {customIcons.map((iconValue) => (
+                                            <button
+                                                key={iconValue}
+                                                onClick={() => {
+                                                    onSelectIcon(iconValue);
+                                                    onClose();
+                                                }}
+                                                className="relative group aspect-square border border-[var(--border-primary)] rounded-md overflow-hidden bg-[var(--bg-secondary)] hover:border-[var(--gnosi-primary)] transition-colors"
+                                                title={iconValue}
+                                            >
+                                                <img src={iconValue} alt="icona personalitzada" className="w-full h-full object-cover" loading="lazy" />
+                                                <span
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeCustomIcon(iconValue);
+                                                    }}
+                                                    className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded-full bg-black/60 text-white cursor-pointer"
+                                                    title="Eliminar de recents"
+                                                >
+                                                    <X size={10} />
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex flex-col gap-2">
                                 <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Pujar Arxiu</span>
                                 <input
@@ -248,15 +403,11 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                         className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded px-3 py-1.5 text-xs outline-none focus:border-[var(--gnosi-primary)] transition-all text-[var(--text-primary)]"
                                     />
                                     <button
-                                        onClick={() => {
-                                            if (linkInput.trim()) {
-                                                onSelectIcon(linkInput.trim());
-                                                onClose();
-                                            }
-                                        }}
+                                        onClick={handleImportFromUrl}
+                                        disabled={isImportingLink}
                                         className="bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm"
                                     >
-                                        Muntar
+                                        {isImportingLink ? 'Important...' : 'Importar'}
                                     </button>
                                 </div>
                             </div>

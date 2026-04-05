@@ -38,6 +38,7 @@ export default function VaultDashboard() {
     const [pages, setPages] = useState([]);
     const [tabs, setTabs] = useState([]);
     const [activeTabId, setActiveTabId] = useState(null);
+    const [codeViewByTabId, setCodeViewByTabId] = useState({});
     const [splitTabIds, setSplitTabIds] = useState([]);
     const [splitTableIds, setSplitTableIds] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1503,6 +1504,9 @@ export default function VaultDashboard() {
     }
 
     const currentOpenPage = activeTabId ? pages.find(p => p.id === activeTabId) : null;
+    const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
+    const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable);
+    const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
     const quickOpenItems = React.useMemo(() => {
         const pageItems = pages
             .filter(p => !p.metadata?.is_template)
@@ -1874,6 +1878,7 @@ export default function VaultDashboard() {
                 noteFilename={tab.id}
                 initialContent={tab.content}
                 initialMetadata={tab.metadata}
+                isCodeView={Boolean(codeViewByTabId[tab.id])}
                 folder="Universal"
                 schema={schema}
                 allNotes={pages}
@@ -2070,6 +2075,15 @@ export default function VaultDashboard() {
             onDeleteCurrentPage={() => {
                 if (!currentOpenPage) return;
                 handleDeletePage(currentOpenPage.id, currentOpenPage.title || t('Untitled'));
+            }}
+            canToggleCodeView={canToggleCodeView}
+            isCodeView={isCodeViewActive}
+            onToggleCodeView={() => {
+                if (!canToggleCodeView || !currentActiveTab?.id) return;
+                setCodeViewByTabId(prev => ({
+                    ...prev,
+                    [currentActiveTab.id]: !Boolean(prev[currentActiveTab.id]),
+                }));
             }}
         >
             <div className="h-full bg-[var(--bg-primary)] flex flex-col min-w-0">

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, Menu, Trash2 } from 'lucide-react';
+import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, Menu, Trash2, History, Code2 } from 'lucide-react';
 import { AppHeader } from '../AppHeader';
 
 export const NotionShell = ({
@@ -12,8 +12,13 @@ export const NotionShell = ({
     onForward,
     canGoBack,
     canGoForward,
+    onOpenHistory,
+    canOpenHistory = false,
     onDeleteCurrentPage,
     canDeleteCurrentPage = false,
+    onToggleCodeView,
+    canToggleCodeView = false,
+    isCodeView = false,
     children
 }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -131,6 +136,32 @@ export const NotionShell = ({
 
                         {isPageMenuOpen && (
                             <div className="absolute right-0 top-[calc(100%+6px)] w-56 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[60] py-1 animate-in fade-in zoom-in-95 duration-200">
+                                <button
+                                    onClick={() => {
+                                        setIsPageMenuOpen(false);
+                                        if (canToggleCodeView && onToggleCodeView) {
+                                            onToggleCodeView();
+                                        }
+                                    }}
+                                    disabled={!canToggleCodeView}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                                >
+                                    <Code2 size={14} />
+                                    <span>{isCodeView ? 'Canviar a vista normal' : 'Canviar a vista codi (md/json)'}</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsPageMenuOpen(false);
+                                        if (canOpenHistory && onOpenHistory) {
+                                            onOpenHistory();
+                                        }
+                                    }}
+                                    disabled={!canOpenHistory}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                                >
+                                    <History size={14} />
+                                    <span>Veure històric</span>
+                                </button>
                                 <button
                                     onClick={() => {
                                         setIsPageMenuOpen(false);

@@ -339,6 +339,7 @@ export const VaultSidebar = ({
     onDeleteDatabase,
     onCreateTable,
     onCreateTableRecord,
+    onCreateDashworksPage,
     onOpenRecent,
     onCreateDrawing,
     currentView = 'editor'
@@ -349,6 +350,7 @@ export const VaultSidebar = ({
     const WIKI_ITEM_HEIGHT = 30;
     const WIKI_OVERSCAN = 10;
     const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
+    const [isDashworksExpanded, setIsDashworksExpanded] = useState(true);
     const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
     const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
     const [expandedDatabases, setExpandedDatabases] = useState({});
@@ -358,6 +360,7 @@ export const VaultSidebar = ({
     const [visibleDatabasesCount, setVisibleDatabasesCount] = useState(DATABASES_BATCH_SIZE);
     const [visibleTablesByDb, setVisibleTablesByDb] = useState({});
     const [expandedWikiNodes, setExpandedWikiNodes] = useState({});
+    const [expandedDashworksNodes, setExpandedDashworksNodes] = useState({});
     const [expandedTables, setExpandedTables] = useState({});
     const [wikiScrollTop, setWikiScrollTop] = useState(0);
     const [wikiViewportHeight, setWikiViewportHeight] = useState(380);
@@ -396,17 +399,42 @@ export const VaultSidebar = ({
         setExpandedTables(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const { childrenMap, rootPages, dataChildrenMap } = useMemo(() => {
+    const { childrenMap, rootPages, dataChildrenMap, dashworksChildrenMap, dashworksRootPages } = useMemo(() => {
         const computedChildrenMap = {};
         const computedRootPages = [];
         const computedDataChildrenMap = {};
+        const computedDashworksChildrenMap = {};
+        const computedDashworksRootPages = [];
 
         // Mapeig ràpid per trobar pàgines per ID
         const pagesById = {};
         (pages || []).forEach(p => { pagesById[p.id] = p; });
 
+        const isDashworksPage = (page) => {
+            if (!page) return false;
+            const folder = String(page.folder || '');
+            return page.metadata?.is_dashworks === true
+                || folder === 'Dashworks'
+                || folder.startsWith('Dashworks/')
+                || folder === '.Dashworks'
+                || folder.startsWith('.Dashworks/');
+        };
+
         (pages || []).forEach(p => {
             if (p.metadata?.is_template) return;
+
+            if (isDashworksPage(p)) {
+                const parent = p.parent_id ? pagesById[p.parent_id] : null;
+                const parentIsDashworks = isDashworksPage(parent);
+
+                if (parentIsDashworks) {
+                    if (!computedDashworksChildrenMap[p.parent_id]) computedDashworksChildrenMap[p.parent_id] = [];
+                    computedDashworksChildrenMap[p.parent_id].push(p);
+                } else {
+                    computedDashworksRootPages.push(p);
+                }
+                return;
+            }
 
             // Determinar si la pàgina pertany a la secció de dades (BD)
             const tableId = p.resolved_table_id || p.metadata?.table_id || p.metadata?.database_table_id;
@@ -448,7 +476,13 @@ export const VaultSidebar = ({
             }
         });
 
-        return { childrenMap: computedChildrenMap, rootPages: computedRootPages, dataChildrenMap: computedDataChildrenMap };
+        return {
+            childrenMap: computedChildrenMap,
+            rootPages: computedRootPages,
+            dataChildrenMap: computedDataChildrenMap,
+            dashworksChildrenMap: computedDashworksChildrenMap,
+            dashworksRootPages: computedDashworksRootPages,
+        };
     }, [pages]);
 
     const tablesByDatabase = useMemo(() => {
@@ -522,6 +556,10 @@ export const VaultSidebar = ({
         setExpandedWikiNodes(prev => ({ ...prev, [pageId]: !prev[pageId] }));
     };
 
+    const handleToggleDashworksExpand = (pageId) => {
+        setExpandedDashworksNodes(prev => ({ ...prev, [pageId]: !prev[pageId] }));
+    };
+
     useEffect(() => {
         setVisibleDatabasesCount(DATABASES_BATCH_SIZE);
     }, [databases.length]);
@@ -545,7 +583,7 @@ export const VaultSidebar = ({
                 />
                 <NavItem icon={Clock} label="Recent" onClick={onOpenRecent} />
                 <div
-                    className={`group relative -mx-2 flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+                    className={`group relative w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                     onClick={() => onNavigate('drawing')}
                 >
                     <Palette size={16} className={currentView === 'drawing' ? 'text-gnosi' : 'text-amber-500'} />
@@ -586,77 +624,39 @@ export const VaultSidebar = ({
             )}
 
             <SectionHeader
-                label="Wiki"
-                isExpanded={isWorkspaceExpanded}
+                label="Taulells"
+                isExpanded={isDashworksExpanded}
                 onToggle={() => {
-                    setIsWorkspaceExpanded((prev) => {
-                        const next = !prev;
-                        if (next) {
-                            setWikiScrollTop(0);
-                            requestAnimationFrame(() => {
-                                if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0;
-                            });
-                        }
-                        return next;
-                    });
-                    setExpandedWikiNodes({});
+                    setIsDashworksExpanded(prev => !prev);
+                    setExpandedDashworksNodes({});
                 }}
-                onAdd={() => onCreatePage(null)}
+                onAdd={() => onCreateDashworksPage && onCreateDashworksPage(null)}
             />
-            {isWorkspaceExpanded && (
-                <div
-                    ref={wikiViewportRef}
-                    onScroll={(e) => {
-                        if (wikiVirtualizationEnabled) {
-                            setWikiScrollTop(e.currentTarget.scrollTop);
-                        }
-                    }}
-                    className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar"
-                >
-                    {isRegistryLoading ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">Carregant...</div>
-                    ) : rootPages.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">No hi ha pàgines sense taula</div>
+            {isDashworksExpanded && (
+                <div className="px-2 space-y-0.5">
+                    {dashworksRootPages.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">No hi ha pàgines a Dashworks</div>
                     ) : (
-                        <>
-                            {wikiVirtualizationEnabled && wikiTopSpacerHeight > 0 && (
-                                <div style={{ height: `${wikiTopSpacerHeight}px` }} aria-hidden="true" />
-                            )}
-
-                            {(wikiVirtualizationEnabled ? virtualWikiRootPages : visibleRootPages).map(page => (
-                                <PageTreeItem
-                                    key={page.id}
-                                    page={page}
-                                    depth={0}
-                                    childrenMap={childrenMap}
-                                    expandedNodes={expandedWikiNodes}
-                                    onToggleExpand={handleToggleWikiExpand}
-                                    activePageId={activePageId}
-                                    onPageSelect={onPageSelect}
-                                    onOpenParallel={onOpenParallel}
-                                    onCreatePage={onCreatePage}
-                                    onRenamePage={onRenamePage}
-                                    onDuplicatePage={onDuplicatePage}
-                                    onDeletePage={onDeletePage}
-                                    onToggleFavorite={onToggleFavorite}
-                                    menuState={menuState}
-                                    setMenuState={setMenuState}
-                                />
-                            ))}
-
-                            {wikiVirtualizationEnabled && wikiBottomSpacerHeight > 0 && (
-                                <div style={{ height: `${wikiBottomSpacerHeight}px` }} aria-hidden="true" />
-                            )}
-
-                            {!wikiVirtualizationEnabled && rootPages.length > visibleWikiCount && (
-                                <button
-                                    onClick={() => setVisibleWikiCount(prev => Math.min(prev + WIKI_BATCH_SIZE, rootPages.length))}
-                                    className="btn-gnosi btn-gnosi-primary !text-[10px] !py-1 w-full mt-1"
-                                >
-                                    Mostrar {Math.min(WIKI_BATCH_SIZE, rootPages.length - visibleWikiCount)} més
-                                </button>
-                            )}
-                        </>
+                        dashworksRootPages.map(page => (
+                            <PageTreeItem
+                                key={page.id}
+                                page={page}
+                                depth={0}
+                                childrenMap={dashworksChildrenMap}
+                                expandedNodes={expandedDashworksNodes}
+                                onToggleExpand={handleToggleDashworksExpand}
+                                activePageId={activePageId}
+                                onPageSelect={onPageSelect}
+                                onOpenParallel={onOpenParallel}
+                                onCreatePage={onCreateDashworksPage || onCreatePage}
+                                onRenamePage={onRenamePage}
+                                onDuplicatePage={onDuplicatePage}
+                                onDeletePage={onDeletePage}
+                                onToggleFavorite={onToggleFavorite}
+                                menuState={menuState}
+                                setMenuState={setMenuState}
+                            />
+                        ))
                     )}
                 </div>
             )}
@@ -869,6 +869,82 @@ export const VaultSidebar = ({
                         <div className="px-4 py-2 text-[11px] text-[var(--text-secondary)]/60 italic">
                             No hi ha bases de dades creades.
                         </div>
+                    )}
+                </div>
+            )}
+
+            <SectionHeader
+                label="Wiki"
+                isExpanded={isWorkspaceExpanded}
+                onToggle={() => {
+                    setIsWorkspaceExpanded((prev) => {
+                        const next = !prev;
+                        if (next) {
+                            setWikiScrollTop(0);
+                            requestAnimationFrame(() => {
+                                if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0;
+                            });
+                        }
+                        return next;
+                    });
+                    setExpandedWikiNodes({});
+                }}
+                onAdd={() => onCreatePage(null)}
+            />
+            {isWorkspaceExpanded && (
+                <div
+                    ref={wikiViewportRef}
+                    onScroll={(e) => {
+                        if (wikiVirtualizationEnabled) {
+                            setWikiScrollTop(e.currentTarget.scrollTop);
+                        }
+                    }}
+                    className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar"
+                >
+                    {isRegistryLoading ? (
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">Carregant...</div>
+                    ) : rootPages.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">No hi ha pàgines sense taula</div>
+                    ) : (
+                        <>
+                            {wikiVirtualizationEnabled && wikiTopSpacerHeight > 0 && (
+                                <div style={{ height: `${wikiTopSpacerHeight}px` }} aria-hidden="true" />
+                            )}
+
+                            {(wikiVirtualizationEnabled ? virtualWikiRootPages : visibleRootPages).map(page => (
+                                <PageTreeItem
+                                    key={page.id}
+                                    page={page}
+                                    depth={0}
+                                    childrenMap={childrenMap}
+                                    expandedNodes={expandedWikiNodes}
+                                    onToggleExpand={handleToggleWikiExpand}
+                                    activePageId={activePageId}
+                                    onPageSelect={onPageSelect}
+                                    onOpenParallel={onOpenParallel}
+                                    onCreatePage={onCreatePage}
+                                    onRenamePage={onRenamePage}
+                                    onDuplicatePage={onDuplicatePage}
+                                    onDeletePage={onDeletePage}
+                                    onToggleFavorite={onToggleFavorite}
+                                    menuState={menuState}
+                                    setMenuState={setMenuState}
+                                />
+                            ))}
+
+                            {wikiVirtualizationEnabled && wikiBottomSpacerHeight > 0 && (
+                                <div style={{ height: `${wikiBottomSpacerHeight}px` }} aria-hidden="true" />
+                            )}
+
+                            {!wikiVirtualizationEnabled && rootPages.length > visibleWikiCount && (
+                                <button
+                                    onClick={() => setVisibleWikiCount(prev => Math.min(prev + WIKI_BATCH_SIZE, rootPages.length))}
+                                    className="btn-gnosi btn-gnosi-primary !text-[10px] !py-1 w-full mt-1"
+                                >
+                                    Mostrar {Math.min(WIKI_BATCH_SIZE, rootPages.length - visibleWikiCount)} més
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
             )}

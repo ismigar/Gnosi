@@ -250,6 +250,22 @@ class ErrorBoundary extends React.Component {
 
 const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTitle, onRefreshNotes, effectiveTheme, contextValue }) => {
     const { t } = useTranslation();
+    const linkableNotes = useMemo(() => {
+        const titleMap = idToTitle || {};
+        const registry = contextValue?.registry || {};
+        const reservedIds = new Set([
+            ...(registry.tables || []).map((item) => item.id),
+            ...(registry.databases || []).map((item) => item.id),
+            ...(registry.views || []).map((item) => item.id),
+        ]);
+
+        return Object.entries(titleMap)
+            .filter(([id, title]) => {
+                if (!id || reservedIds.has(id)) return false;
+                return typeof title === 'string' && title.trim().length > 0;
+            })
+            .map(([id, title]) => ({ id, title: title.trim() }));
+    }, [idToTitle, contextValue]);
     const schema = useMemo(() => {
         const specs = {
             database: createReactBlockSpec({
@@ -355,6 +371,94 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
 
+    const insertWikiLink = useCallback((noteTitle, section = '') => {
+        if (!editor) return;
+        const safeTitle = String(noteTitle || '').trim();
+        const safeSection = String(section || '').trim();
+        if (!safeTitle) return;
+        const linkTarget = safeSection ? `${safeTitle}#${safeSection}` : safeTitle;
+        const linkLiteral = `[[${linkTarget}]]`;
+
+        const cursor = editor.getTextCursorPosition?.();
+        const currentBlock = cursor?.block;
+        if (!currentBlock) {
+            const anchor = editor.document?.[editor.document.length - 1];
+            if (anchor) {
+                editor.insertBlocks([{ type: 'paragraph', content: linkLiteral }], anchor, 'after');
+            }
+            return;
+        }
+
+        const inline = currentBlock.content;
+
+        if (Array.isArray(inline)) {
+            const plainText = inline.map((item) => item.text || '').join('');
+            const lastDouble = plainText.lastIndexOf('[[');
+            const lastSingle = plainText.lastIndexOf('[');
+            const start = lastDouble >= 0 ? lastDouble : lastSingle;
+            const tail = start >= 0 ? plainText.slice(start) : '';
+
+            if (start >= 0 && !tail.includes(']')) {
+                const prefix = plainText.slice(0, start);
+                const replaced = `${prefix}${linkLiteral}`;
+                editor.updateBlock(currentBlock, { content: replaced });
+                return;
+            }
+        }
+
+        try {
+            editor.insertInlineContent(linkLiteral);
+        } catch {
+            editor.insertBlocks([{ type: 'paragraph', content: linkLiteral }], currentBlock, 'after');
+        }
+    }, [editor]);
+
+    const normalizePendingLinkTitle = useCallback((rawTitle) => {
+        return String(rawTitle || '')
+            .replace(/^\[\[/, '')
+            .split('|')[0]
+            .trim();
+    }, []);
+
+    const createMissingPageAndInsertLink = useCallback(async ({ rawTitle, tableId = null, section = '' }) => {
+        const safeTitle = normalizePendingLinkTitle(rawTitle);
+        const safeSection = String(section || '').trim();
+        if (!safeTitle) return;
+
+        // Insert first while suggestion context is still active.
+        insertWikiLink(safeTitle, safeSection);
+
+        const baseMetadata = { title: safeTitle };
+        if (tableId) {
+            baseMetadata.table_id = tableId;
+            baseMetadata.database_table_id = tableId;
+        }
+
+        try {
+            await axios.post('/api/vault/pages', {
+                title: safeTitle,
+                content: '',
+                is_database: false,
+                metadata: baseMetadata,
+            });
+
+            if (onRefreshNotes) {
+                window.setTimeout(() => {
+                    try {
+                        onRefreshNotes();
+                    } catch {
+                        // ignore refresh failures
+                    }
+                }, 1400);
+            }
+
+            toast.success(`Pagina creada: ${safeTitle}`);
+        } catch (error) {
+            console.error('Error creating page from wikilink:', error);
+            toast.error('No s\'ha pogut crear la pagina');
+        }
+    }, [insertWikiLink, normalizePendingLinkTitle, onRefreshNotes]);
+
     const saveTimerRef = useRef(null);
     const handleSave = useCallback(async (updatedContent, updatedMetadata) => {
         if (!noteFilename || !editor) return;
@@ -387,10 +491,99 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                         const defaultItems = getDefaultReactSlashMenuItems(editor);
                         const vaultItems = buildSlashCommandCatalog({ allTables: contextValue.allTables, editor, t });
                         const layoutItems = buildColumnLayoutCatalog({ editor, t });
-                        const allItems = [...defaultItems, ...vaultItems, ...layoutItems];
+                        const quickLinkItems = [
+                            {
+                                title: t('External link'),
+                                onItemClick: () => editor.insertInlineContent('https://'),
+                                aliases: ['link', 'url', 'web', 'external'],
+                                group: t('Links'),
+                                subtext: t('Insert a web link'),
+                            },
+                            {
+                                title: t('Internal link (wiki)'),
+                                onItemClick: () => insertWikiLink('Note name'),
+                                aliases: ['wiki', 'internal', 'note', '[[]]'],
+                                group: t('Links'),
+                                subtext: t('Insert [[Note]] format'),
+                            },
+                        ];
+                        const allItems = [...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
                         if (!query) return allItems.slice(0, 12);
-                        const lowerQuery = query.toLowerCase();
-                        return allItems.filter(item => item.title.toLowerCase().includes(lowerQuery) || (item.aliases && item.aliases.some(alias => alias.toLowerCase().includes(lowerQuery))));
+                        const lowerQuery = String(query || '').toLowerCase();
+                        return allItems.filter(item => {
+                            const title = String(item?.title || '').toLowerCase();
+                            const aliases = Array.isArray(item?.aliases) ? item.aliases : [];
+                            return title.includes(lowerQuery)
+                                || aliases.some(alias => String(alias || '').toLowerCase().includes(lowerQuery));
+                        });
+                    }}
+                />
+                <SuggestionMenuController
+                    triggerCharacter="["
+                    getItems={async (query) => {
+                        if (!editor) return [];
+                        const rawQuery = String(query || '').trim();
+                        const [noteQuery, sectionQueryRaw = ''] = rawQuery.split('#');
+                        const pendingTitle = normalizePendingLinkTitle(noteQuery);
+                        const search = pendingTitle.toLowerCase();
+                        const sectionQuery = sectionQueryRaw.trim();
+                        const filteredNotes = linkableNotes.filter(note => {
+                            if (!search) return true;
+                            const noteTitle = String(note.title || '').toLowerCase();
+                            const noteId = String(note.id || '').toLowerCase();
+                            return noteTitle.includes(search) || noteId.includes(search);
+                        }).slice(0, 20);
+
+                        const hasExactMatch = pendingTitle
+                            ? linkableNotes.some((note) => {
+                                const noteTitle = String(note.title || '').toLowerCase();
+                                const noteId = String(note.id || '').toLowerCase();
+                                const wanted = pendingTitle.toLowerCase();
+                                return noteTitle === wanted || noteId === wanted;
+                            })
+                            : true;
+
+                        const tableOptions = (contextValue?.allTables || [])
+                            .filter((table) => table?.id && String(table?.id).trim().toLowerCase() !== 'wiki');
+
+                        const createItems = (!hasExactMatch && pendingTitle)
+                            ? [
+                                {
+                                    title: `Crear al Wiki: ${pendingTitle}`,
+                                    aliases: [pendingTitle, 'crear', 'wiki'],
+                                    group: t('Create page'),
+                                    icon: <Plus size={18} />,
+                                    subtext: `Crear i enllacar [[${pendingTitle}${sectionQuery ? `#${sectionQuery}` : ''}]]`,
+                                    onItemClick: () => createMissingPageAndInsertLink({
+                                        rawTitle: pendingTitle,
+                                        tableId: null,
+                                        section: sectionQuery,
+                                    }),
+                                },
+                                ...tableOptions.map((table) => ({
+                                    title: `Crear a taula ${table.name}: ${pendingTitle}`,
+                                    aliases: [pendingTitle, 'crear', 'taula', table.name || table.id],
+                                    group: t('Create page'),
+                                    icon: <Database size={18} />,
+                                    subtext: `Crear registre a ${table.name}`,
+                                    onItemClick: () => createMissingPageAndInsertLink({
+                                        rawTitle: pendingTitle,
+                                        tableId: table.id,
+                                        section: sectionQuery,
+                                    }),
+                                })),
+                            ]
+                            : [];
+
+                        const noteItems = filteredNotes.map(note => ({
+                            title: note.title,
+                            aliases: [note.id, 'wiki', 'internal'],
+                            group: t('Internal links'),
+                            subtext: note.id,
+                            onItemClick: () => insertWikiLink(note.title, sectionQuery),
+                        }));
+
+                        return [...noteItems, ...createItems].slice(0, 40);
                     }}
                 />
             </BlockNoteView>
@@ -398,7 +591,84 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {} }) {
+const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes }) => {
+    const { t } = useTranslation();
+    const [markdownText, setMarkdownText] = useState(String(initialContent || ''));
+    const saveTimerRef = useRef(null);
+
+    useEffect(() => {
+        setMarkdownText(String(initialContent || ''));
+    }, [initialContent, noteFilename]);
+
+    const saveMarkdown = useCallback(async (nextText, { silent = true } = {}) => {
+        if (!noteFilename) return false;
+
+        try {
+            const data = {
+                title: metadata?.title || t('Untitled'),
+                content: nextText,
+                metadata: metadata || {},
+            };
+            await axios.patch(`/api/vault/pages/${noteFilename}`, data);
+            if (onUpdate) onUpdate(data.content, { metadata: data.metadata, title: data.title });
+            if (onRefreshNotes) onRefreshNotes();
+            if (!silent) toast.success(t('Saved'));
+            return true;
+        } catch (err) {
+            if (!silent) toast.error(t('Error saving'));
+            return false;
+        }
+    }, [noteFilename, metadata, onUpdate, onRefreshNotes, t]);
+
+    useEffect(() => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+            void saveMarkdown(markdownText);
+        }, 900);
+
+        return () => {
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        };
+    }, [markdownText, saveMarkdown]);
+
+    const handleForceSave = useCallback(async () => {
+        await saveMarkdown(markdownText, { silent: false });
+    }, [markdownText, saveMarkdown]);
+
+    return (
+        <div className="px-10 py-6">
+            <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/70">Mode Codi (md/json)</div>
+                <button
+                    onClick={handleForceSave}
+                    className="btn btn-gnosi-primary px-3 py-1.5 text-[10px] font-bold"
+                    title="Cmd/Ctrl+S"
+                >
+                    {t('Save')}
+                </button>
+            </div>
+
+            <textarea
+                value={markdownText}
+                onChange={(e) => setMarkdownText(e.target.value)}
+                onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && String(e.key || '').toLowerCase() === 's') {
+                        e.preventDefault();
+                        void handleForceSave();
+                    }
+                }}
+                spellCheck={false}
+                className="w-full min-h-[520px] rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/20 p-4 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none resize-y focus:border-[var(--gnosi-primary)]/40"
+            />
+
+            <div className="mt-2 text-xs text-[var(--text-secondary)]/70">
+                {t('Autosave enabled')} (Cmd/Ctrl+S)
+            </div>
+        </div>
+    );
+};
+
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, isCodeView = false }) {
     const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [metadata, setMetadata] = useState(initialMetadata);
@@ -447,7 +717,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 </div>
                 <div className="relative -mx-10 min-h-[500px]">
                     <ErrorBoundary>
-                        <EditorInner noteFilename={noteFilename} initialContent={initialContent} metadata={metadata} onUpdate={onUpdate} idToTitle={idToTitle} onRefreshNotes={onRefreshNotes} effectiveTheme={effectiveTheme} contextValue={contextValue} />
+                        {isCodeView ? (
+                            <MarkdownCodeEditor
+                                noteFilename={noteFilename}
+                                initialContent={initialContent}
+                                metadata={metadata}
+                                onUpdate={onUpdate}
+                                onRefreshNotes={onRefreshNotes}
+                            />
+                        ) : (
+                            <EditorInner noteFilename={noteFilename} initialContent={initialContent} metadata={metadata} onUpdate={onUpdate} idToTitle={idToTitle} onRefreshNotes={onRefreshNotes} effectiveTheme={effectiveTheme} contextValue={contextValue} />
+                        )}
                     </ErrorBoundary>
                 </div>
             </div>

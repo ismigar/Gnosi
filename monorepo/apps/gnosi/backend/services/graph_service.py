@@ -320,21 +320,23 @@ class GraphService:
                 # Extract [[WikiLinks]]
                 wiki_links = re.findall(r'\[\[(.*?)\]\]', content)
                 for target_label in wiki_links:
-                    target_id = target_label.split('|')[0]
-                    if G.has_node(target_id):
-                        G.add_edge(node_id, target_id, kind="link", color="#10b981", size=1.2)
+                    target_ref = target_label.split('|')[0]
+                    target_key = target_ref.split('#')[0].strip()
+                    if G.has_node(target_key):
+                        G.add_edge(node_id, target_key, kind="link", color="#10b981", size=1.2)
                     else:
                         # Match by title
                         for n_id, n_attrs in G.nodes(data=True):
-                            if n_attrs.get("label") == target_id:
+                            if str(n_attrs.get("label") or "").strip() == target_key:
                                 G.add_edge(node_id, n_id, kind="link", color="#10b981", size=1.2)
                                 break
                 
                 # Extract markdown links [text](id)
                 md_links = re.findall(r'\[.*?\]\((.*?)\)', content)
-                for target_id in md_links:
-                    if G.has_node(target_id):
-                        G.add_edge(node_id, target_id, kind="link", color="#10b981", size=1.2)
+                for target_ref in md_links:
+                    target_key = target_ref.split('#')[0].strip()
+                    if G.has_node(target_key):
+                        G.add_edge(node_id, target_key, kind="link", color="#10b981", size=1.2)
             except Exception:
                 pass
 
