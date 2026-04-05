@@ -16,20 +16,19 @@ export function buildSlashCommandCatalog({ allTables = [], editor } = {}) {
 
     return allTables.map(table => ({
         title: table.name || table.id,
-        subtext: 'Inserir taula del Vault',
+        description: 'Inserir taula del Vault',
         aliases: ['vault', 'taula', table.name].filter(Boolean),
         group: 'Vault',
         onItemClick: () => {
             if (!editor) return;
             try {
                 editor.insertBlocks(
-                    [{ type: 'vaultTable', props: { tableId: table.id, search: '' } }],
+                    [{ type: 'database', props: { database_table_id: table.id } }],
                     editor.getTextCursorPosition().block,
                     'after'
                 );
             } catch (e) {
-                // El tipus vaultTable podria no estar definit; simplement ignorem
-                console.warn('SlashMenu: no s\'ha pogut inserir el bloc vaultTable', e);
+                console.warn('SlashMenu: no s\'ha pogut inserir el bloc database', e);
             }
         },
     }));

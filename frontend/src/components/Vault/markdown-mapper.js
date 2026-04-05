@@ -64,6 +64,16 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return `\`\`\`gnosi-database\n${JSON.stringify(block.props, null, 2)}\n\`\`\`\n`;
     }
 
+    if (block.type === "transclusion") {
+        const target = String(block?.props?.target || "").trim();
+        const alias = String(block?.props?.alias || "").trim();
+        const section = String(block?.props?.section || "").trim();
+        if (!target) return "";
+
+        const targetWithSection = section ? `${target}#${section}` : target;
+        return alias ? `![[${targetWithSection}|${alias}]]\n` : `![[${targetWithSection}]]\n`;
+    }
+
     // Tipus estàndard
     switch (block.type) {
         case "heading":
@@ -130,6 +140,18 @@ const inlineContentToMarkdown = (content) => {
         if (item.type === "link") return `[${inlineContentToMarkdown(item.content)}](${item.href})`;
         return "";
     }).join("");
+};
+
+const parsePlainMarkdownBlock = async (text, editor) => {
+    if (!text) return [];
+    if (editor?.tryParseMarkdownToBlocks) {
+        try {
+            return await editor.tryParseMarkdownToBlocks(text);
+        } catch (e) {
+            return [{ type: "paragraph", content: text }];
+        }
+    }
+    return [{ type: "paragraph", content: text }];
 };
 
 /**
@@ -223,19 +245,35 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
             }
 
             if (textBuffer.length > 0) {
-                const text = textBuffer.join("\n").trim();
-                if (text) {
-                    if (editor?.tryParseMarkdownToBlocks) {
-                        try {
-                            const parsed = await editor.tryParseMarkdownToBlocks(text);
-                            blocks.push(...parsed);
-                        } catch (e) {
-                            blocks.push({ type: "paragraph", content: text });
-                        }
+                let plainBuffer = [];
+
+                const flushPlain = async () => {
+                    const text = plainBuffer.join("\n").trim();
+                    plainBuffer = [];
+                    if (!text) return;
+                    const parsed = await parsePlainMarkdownBlock(text, editor);
+                    blocks.push(...parsed);
+                };
+
+                for (const rawLine of textBuffer) {
+                    const trimmedLine = rawLine.trim();
+                    const transclusionMatch = trimmedLine.match(/^!\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]$/);
+                    if (transclusionMatch) {
+                        await flushPlain();
+                        blocks.push({
+                            type: "transclusion",
+                            props: {
+                                target: String(transclusionMatch[1] || "").trim(),
+                                section: String(transclusionMatch[2] || "").trim(),
+                                alias: String(transclusionMatch[3] || "").trim(),
+                            },
+                        });
                     } else {
-                        blocks.push({ type: "paragraph", content: text });
+                        plainBuffer.push(rawLine);
                     }
                 }
+
+                await flushPlain();
             }
         }
         return blocks;
