@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar, Mail, Trash2, Plus } from 'lucide-react';
+import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon, Sliders, Calendar, Mail, Trash2, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, NOTION_COLORS } from './Vault/IconPicker';
@@ -228,7 +228,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             lin_log_mode: false
         }
     });
-    const [schedulers, setSchedulers] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
@@ -259,7 +258,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             loadConfig();
             loadAiCatalog();
             loadZoteroData();
-            loadSchedulers();
             loadIntegrations();
             loadNewsletterSources();
 
@@ -336,17 +334,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             }
         } catch (err) {
             console.error('Error loading AI catalog:', err);
-        }
-    };
-
-    const loadSchedulers = async () => {
-        try {
-            const res = await fetch('/api/schedulers');
-            if (res.ok) {
-                setSchedulers(await res.json());
-            }
-        } catch (err) {
-            console.error("Error loading schedulers:", err);
         }
     };
 
@@ -843,8 +830,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 { id: 'graph', label: 'Graf', icon: Database },
                                 { id: 'ai', label: 'AI', icon: Cpu },
                                 { id: 'notion', label: 'Notion', icon: RefreshCw },
-                                { id: 'zotero', label: 'Zotero', icon: BookOpen },
-                                { id: 'schedulers', label: 'Schedulers', icon: Clock }
+                                { id: 'zotero', label: 'Zotero', icon: BookOpen }
                             ].map(tab => (
                                 <button
                                     key={tab.id}
@@ -1893,54 +1879,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </section>
                                 </div>
-                            )}
-
-                            {activeTab === 'schedulers' && (
-                                <section className="settings-section">
-                                    <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                        <Clock size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Tasques Programades</h3>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        {schedulers.map(task => (
-                                            <div key={task.name} style={{ background: 'rgba(0,0,0,0.03)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: '600' }}>{task.name.replace(/_/g, ' ')}</h4>
-                                                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', maxWidth: '400px' }}>{task.description}</p>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={task.enabled}
-                                                            onChange={async e => {
-                                                                const res = await fetch(`/api/schedulers/${task.name}`, {
-                                                                    method: 'PUT',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({ ...task, enabled: e.target.checked })
-                                                                });
-                                                                if (res.ok) loadSchedulers();
-                                                            }}
-                                                            style={{ opacity: 0, width: 0, height: 0 }}
-                                                        />
-                                                        <span style={{
-                                                            position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-                                                            backgroundColor: task.enabled ? 'var(--gnosi-blue)' : '#ccc',
-                                                            transition: '.4s', borderRadius: '20px'
-                                                        }}>
-                                                            <span style={{
-                                                                position: 'absolute', height: '14px', width: '14px', left: task.enabled ? '22px' : '4px', bottom: '3px',
-                                                                backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
-                                                            }} />
-                                                        </span>
-                                                    </label>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: '500', minWidth: '45px' }}>{task.enabled ? 'Actiu' : 'Inactiu'}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {schedulers.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>No hi ha tasques programades.</p>}
-                                    </div>
-                                </section>
                             )}
 
                             {activeTab === 'ai' && (
