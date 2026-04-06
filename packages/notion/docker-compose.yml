@@ -1,0 +1,10 @@
+services:
+  notion-mcp:
+    build: .
+    container_name: notion-mcp
+    restart: unless-stopped
+    # Mantenim viu el contenidor
+    command: tail -f /dev/null
+    environment:
+      # El servidor oficial espera NOTION_TOKEN
+      - NOTION_TOKEN=${NOTION_TOKEN}

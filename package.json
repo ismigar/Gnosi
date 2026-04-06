@@ -1,0 +1,19 @@
+{
+    "name": "projectes-monorepo",
+    "private": true,
+    "description": "Monorepo unificat per a serveis MCP, Digital Brain i n8n",
+    "workspaces": [
+        "packages/*",
+        "apps/*",
+        "apps/gnosi/frontend",
+        "apps/digital-brain/frontend"
+    ],
+    "scripts": {
+        "build": "npm run build --workspaces",
+        "test": "npm run test --workspaces"
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0",
+        "eslint": "^8.0.0"
+    }
+}

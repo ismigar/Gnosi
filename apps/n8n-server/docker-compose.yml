@@ -1,0 +1,37 @@
+services:
+  n8n-mcp:
+    build: ../../packages/n8n
+    container_name: n8n-mcp
+    restart: unless-stopped
+    # Mantenim el contenidor actiu perquè MCP pugui fer "docker exec"
+    command: tail -f /dev/null
+    env_file:
+      - .env
+    volumes:
+      - ../../packages/n8n:/app
+      - /app/node_modules
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.4.8
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - NODE_ENV=production
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      - GENERIC_TIMEZONE=Europe/Madrid
+      - TZ=Europe/Madrid
+      - N8N_ENCRYPTION_KEY=DrP0EtRobG5iQidDJf+my4SihnSol+/B
+    volumes:
+      - ./.n8n:/home/node/.n8n
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  n8n_data:

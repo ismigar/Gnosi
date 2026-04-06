@@ -1,0 +1,31 @@
+# Configuración para Drupal MCP Proxy
+
+mcp_server:
+  # Comando para ejecutar el servidor MCP de Drupal.
+  # Puede ser local (docker exec) o remoto (ssh).
+  # Ajustar según necesidad.
+  command: "docker"
+  args:
+    - "exec"
+    - "-i"
+    - "mcp-drupal"
+    - "deno"
+    - "run"
+    - "-A"
+    - "/app/src/mod.ts"
+    - "--drupal-url"
+    - "https://admin:YT0LTtiJ0KuUF3EUhUsl@www.temenosismael.org"
+  
+  # Variables de entorno adicionales si son necesarias
+  env: {}
+
+# Configuración de caché
+cache:
+  enabled: true
+  ttl_seconds: 3600 # 1 hora
+  file_path: ".tools_cache.json"
+
+# Configuración de búsqueda
+search:
+  fuzzy_threshold: 60 # Puntuación mínima (0-100) para considerar un match
+  max_results: 10

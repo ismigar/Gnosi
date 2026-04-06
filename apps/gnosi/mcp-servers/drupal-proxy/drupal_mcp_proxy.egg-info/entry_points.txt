@@ -1,0 +1,2 @@
+[console_scripts]
+drupal-proxy = drupal_proxy.server:main

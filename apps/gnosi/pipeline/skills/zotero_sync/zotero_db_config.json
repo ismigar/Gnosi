@@ -1,0 +1,18 @@
+{
+  "zotero_db": "~/Zotero/zotero.sqlite",
+  "target_db": "backend/data/zotero_sync.db",
+  "target_table": "resources",
+  "mapping": {
+    "itemID": "uid",
+    "key": "zotero_uri",
+    "title": "title",
+    "typeName": "tipus_item",
+    "creators": "authors",
+    "tags": "tags",
+    "date": "date",
+    "url": "url",
+    "abstractNote": "resum",
+    "dateAdded": "creat_el",
+    "dateModified": "modificat_el"
+  }
+}

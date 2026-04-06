@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies if needed
+# Install system dependencies including Docker Client for MCP
+RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# Expose port
+EXPOSE 5002
+
+# Command to run the application
+CMD ["uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "5002", "--reload"]

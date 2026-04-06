@@ -1,0 +1,40 @@
+{
+  "tasks": {
+    "sync_directives": {
+      "name": "sync_directives",
+      "description": "Sincronitzar directives a Notion",
+      "interval_minutes": 1440,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    },
+    "backup_tools": {
+      "name": "backup_tools",
+      "description": "Backup d'eines aprovades",
+      "interval_minutes": 720,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    },
+    "cleanup_rejected": {
+      "name": "cleanup_rejected",
+      "description": "Netejar eines rebutjades antigues",
+      "interval_minutes": 10080,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    },
+    "update_analytics": {
+      "name": "update_analytics",
+      "description": "Actualitzar estad\u00edstiques",
+      "interval_minutes": 60,
+      "enabled": false,
+      "last_run": null,
+      "next_run": null,
+      "status": "idle"
+    }
+  }
+}

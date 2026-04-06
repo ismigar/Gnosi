@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gnosi_backend
+    ports:
+      - "5002:5002"
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi:/vault
+      - /Users/ismaelgarciafernandez:/Users/ismaelgarciafernandez:rw
+    env_file:
+      - ../../../.env_shared # 1. Variables compartides
+      - .env # 2. Variables locals (sobreescriuen)
+    environment:
+      - LOGGING_LEVEL=debug
+      - DIGITAL_BRAIN_VAULT_PATH=/vault
+      - VAULT_HOST_PATH=/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi
+      - HOME_HOST_PATH=/Users/ismaelgarciafernandez
+      - PYTHONPATH=/app
+      # Variables calculades dinàmicament o especials
+      - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
+    restart: unless-stopped
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: gnosi_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/frontend/node_modules
+    environment:
+      - VITE_BACKEND_HOST=backend
+      - VITE_BACKEND_PORT=5002
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    restart: unless-stopped
