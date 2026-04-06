@@ -327,7 +327,7 @@ export const GraphViewer = forwardRef(({
 
             const isDark = isDarkModeRef.current;
             res.labelColor = isDark ? "#ffffff" : "#000000";
-            res.label = data.label;
+            res.label = String(data.label || "");
 
             if (hoveredNode) {
                 const d = hoverDistances[node] ?? 99;
@@ -441,15 +441,17 @@ export const GraphViewer = forwardRef(({
                     const bgColor = isDark ? "#000000" : "#ffffff";
                     const textColor = isDark ? "#ffffff" : "#000000";
                     ctx.font = `bold ${fontSize}px Arial`;
-                    const width = ctx.measureText(data.label).width;
+                    const labelText = String(data.label || "");
+                    const width = ctx.measureText(labelText).width;
                     ctx.fillStyle = bgColor;
                     ctx.fillRect(x - 2, y - fontSize, width + 4, fontSize + 4);
                     ctx.fillStyle = textColor;
-                    ctx.fillText(data.label, x, y);
+                    ctx.fillText(labelText, x, y);
                 } else {
                     ctx.font = `${fontSize}px Arial`;
                     ctx.fillStyle = isDark ? "#ffffff" : "#000000";
-                    ctx.fillText(data.label, x, y);
+                    const labelText = String(data.label || "");
+                    ctx.fillText(labelText, x, y);
                 }
             },
             defaultDrawNodeHover: (context, data, settings) => {
@@ -467,11 +469,12 @@ export const GraphViewer = forwardRef(({
                 context.arc(data.x, data.y, data.size + 2, 0, Math.PI * 2, true);
                 context.fill();
                 if (data.label) {
-                    const width = context.measureText(data.label).width;
+                    const labelText = String(data.label);
+                    const width = context.measureText(labelText).width;
                     context.fillStyle = labelBgColor;
                     context.fillRect(data.x + data.size + 3, data.y - size + 4, width, size);
                     context.fillStyle = textColor;
-                    context.fillText(data.label, data.x + data.size + 3, data.y + size / 3);
+                    context.fillText(labelText, data.x + data.size + 3, data.y + size / 3);
                 }
             }
         });
@@ -552,10 +555,18 @@ export const GraphViewer = forwardRef(({
             const source = String(e.source);
             const target = String(e.target);
             if (!graph.hasNode(source) || !graph.hasNode(target)) return;
-            if (e.directed) {
-                graph.addDirectedEdge(source, target, e);
-            } else {
-                graph.addUndirectedEdge(source, target, e);
+            
+            // Prevent graphology crash on duplicate edges in simple graphs
+            if (graph.hasEdge(source, target)) return;
+            
+            try {
+                if (e.directed) {
+                    graph.addDirectedEdge(source, target, e);
+                } else {
+                    graph.addUndirectedEdge(source, target, e);
+                }
+            } catch(err) {
+                console.warn("GraphViewer edge add error:", err);
             }
         });
 

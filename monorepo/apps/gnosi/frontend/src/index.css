@@ -518,6 +518,38 @@ body {
   box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
 }
 
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  line-height: 1.25;
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn-gnosi-primary7 {
+  background-color: var(--gnosi-primary);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
+}
+
+.btn-gnosi-primary7:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(var(--gnosi-primary-rgb), 0.35);
+}
+
 /* AI Settings Premium Styles */
 .ai-provider-grid {
   display: grid;

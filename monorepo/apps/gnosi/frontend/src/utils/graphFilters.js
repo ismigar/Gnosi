@@ -22,7 +22,8 @@ export function applyFilters(graph, filters) {
         // Vault integration
         isVaultMode = false,
         vaultFilters = [],
-        activeTableId = null
+        activeTableId = null,
+        activeMediaTags = new Set()
     } = filters;
 
     const visibleNodes = new Set();
@@ -160,6 +161,13 @@ export function applyFilters(graph, filters) {
             const nodeProject = (attrs.project || "").toLowerCase();
             const matchProject = projectFiltersLower.size === 0 || projectFiltersLower.has(nodeProject);
 
+            // 4. Media specific tag filter (New)
+            let matchMediaTags = true;
+            if (nodeKind === 'media' && activeMediaTags && activeMediaTags.size > 0) {
+                const nodeTags = attrs.tags || attrs.metadata?.tags || [];
+                matchMediaTags = nodeTags.some(tag => activeMediaTags.has(tag));
+            }
+
             const isIsolated = graph.degree(node) === 0;
             let isNodeVisible;
 
@@ -188,7 +196,7 @@ export function applyFilters(graph, filters) {
                     }
                 }
 
-                isNodeVisible = matchCluster && matchKind && matchProject && matchIsolated && matchSearch && matchTimeline;
+                isNodeVisible = matchCluster && matchKind && matchProject && matchIsolated && matchSearch && matchTimeline && matchMediaTags;
             }
 
             if (isNodeVisible) {

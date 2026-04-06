@@ -14,6 +14,30 @@ CACHE_PATH = cfg.paths["CACHE"]
 @content_bp.route("/node/<node_id>", methods=["GET"])
 def get_node_content(node_id):
     try:
+        # Handle Media Nodes Direct (New)
+        if node_id.startswith("media_"):
+            from backend.services.media_service import MediaService
+            service = MediaService()
+            media_id = node_id.replace("media_", "")
+            
+            # Find the media in all media (recursive scan)
+            all_media = service.get_all_media()
+            media = next((m for m in all_media if m["id"] == media_id), None)
+            
+            if not media:
+                return jsonify({"error": "Media not found"}), 404
+                
+            # Construct node-like response
+            return jsonify({
+                "id": node_id,
+                "title": media["filename"],
+                "kind": "media",
+                "url": media["url"],
+                "tags": media.get("tags", []),
+                "last_edited_time": media.get("date_taken") or media.get("last_modified"),
+                "content": f"{media.get('description', '')}\n\n![{media['filename']}]({media['url']})"
+            })
+
         if not CACHE_PATH.exists():
             return jsonify({"error": "Cache not found"}), 404
 
