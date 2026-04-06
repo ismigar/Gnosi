@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Clock, Zap, Settings as SettingsIcon, Sliders, Calendar, Mail, Trash2, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, NOTION_COLORS } from './Vault/IconPicker';
@@ -198,6 +198,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     });
     const [calendarWizard, setCalendarWizard] = useState(null); // { step: 'ask_email' | 'configure', email: '', provider: 'google' | 'icloud' | 'custom' }
     const [emailWizard, setEmailWizard] = useState(null); // { step: 'ask_email' | 'configure', email: '', provider: 'google' | 'icloud' | 'pangea' | 'custom' }
+    const [newsletterSources, setNewsletterSources] = useState([]);
+    const [newsletterLoading, setNewsletterLoading] = useState(false);
+    const [newsletterName, setNewsletterName] = useState('');
+    const [newsletterAddress, setNewsletterAddress] = useState('');
+    const [newsletterType, setNewsletterType] = useState('rss');
+    const [newsletterStatus, setNewsletterStatus] = useState('');
+    const [newsletterOpmlLoading, setNewsletterOpmlLoading] = useState(false);
+    const newsletterOpmlRef = useRef(null);
     const [localPaths, setLocalPaths] = useState({
         vault: '',
         databases: '',
@@ -253,6 +261,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             loadZoteroData();
             loadSchedulers();
             loadIntegrations();
+            loadNewsletterSources();
 
             // Check Google Auth Status
             fetch('/api/auth/google/status')
@@ -265,6 +274,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     useEffect(() => {
         setActiveTab(initialTab);
     }, [initialTab]);
+
+    useEffect(() => {
+        if (!isOpen || activeTab !== 'newsletters') return;
+        loadNewsletterSources();
+    }, [isOpen, activeTab]);
 
     const loadIntegrations = async () => {
         try {
@@ -333,6 +347,135 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             }
         } catch (err) {
             console.error("Error loading schedulers:", err);
+        }
+    };
+
+    const loadNewsletterSources = async () => {
+        setNewsletterLoading(true);
+        try {
+            const res = await fetch('/api/reader/sources');
+            if (!res.ok) {
+                setNewsletterStatus('No s\'han pogut carregar les subscripcions.');
+                return;
+            }
+            const sources = await res.json();
+            setNewsletterSources((sources || []).filter((source) => ['rss', 'newsletter', 'youtube'].includes(source.type)));
+            setNewsletterStatus('');
+        } catch (err) {
+            console.error('Error loading newsletter sources:', err);
+            setNewsletterStatus('Error de connexió carregant les subscripcions.');
+        } finally {
+            setNewsletterLoading(false);
+        }
+    };
+
+    const handleAddNewsletter = async () => {
+        const sourceAddress = newsletterAddress.trim();
+        const sourceName = newsletterName.trim() || sourceAddress;
+
+        if (!sourceAddress) {
+            setNewsletterStatus('Cal indicar l\'adreça o identificador de la subscripció.');
+            return;
+        }
+
+        const normalizeYoutubeUrl = (rawValue) => {
+            const value = String(rawValue || '').trim();
+            if (!value) return value;
+            if (value.includes('feeds/videos.xml?channel_id=')) return value;
+            const channelMatch = value.match(/youtube\.com\/channel\/(UC[\w-]+)/i);
+            if (channelMatch?.[1]) {
+                return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
+            }
+            return value;
+        };
+
+        const normalizedAddress = newsletterType === 'youtube'
+            ? normalizeYoutubeUrl(sourceAddress)
+            : sourceAddress;
+
+        const normalizedCategory = newsletterType === 'rss'
+            ? 'RSS'
+            : newsletterType === 'youtube'
+                ? 'YouTube'
+                : 'Newsletters';
+
+        setNewsletterStatus('Afegint subscripció...');
+        try {
+            const res = await fetch('/api/reader/sources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: sourceName,
+                    url: normalizedAddress,
+                    category: normalizedCategory,
+                    type: newsletterType
+                })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                setNewsletterStatus(errorData?.detail || 'No s\'ha pogut afegir la subscripció.');
+                return;
+            }
+
+            setNewsletterName('');
+            setNewsletterAddress('');
+            setNewsletterType('rss');
+            setNewsletterStatus('Subscripció afegida correctament.');
+            await loadNewsletterSources();
+        } catch (err) {
+            console.error('Error adding newsletter source:', err);
+            setNewsletterStatus('Error de connexió afegint la subscripció.');
+        }
+    };
+
+    const handleDeleteNewsletter = async (sourceId) => {
+        try {
+            const res = await fetch(`/api/reader/sources/${sourceId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                setNewsletterStatus('No s\'ha pogut eliminar la subscripció.');
+                return;
+            }
+            setNewsletterStatus('Subscripció eliminada.');
+            await loadNewsletterSources();
+        } catch (err) {
+            console.error('Error deleting newsletter source:', err);
+            setNewsletterStatus('Error de connexió eliminant la subscripció.');
+        }
+    };
+
+    const handleNewsletterOpmlUpload = async (file) => {
+        if (!file) return;
+
+        setNewsletterOpmlLoading(true);
+        setNewsletterStatus('Important subscripcions OPML...');
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/api/reader/sources/opml', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                setNewsletterStatus(data?.detail || 'No s\'ha pogut importar l\'OPML.');
+                return;
+            }
+
+            setNewsletterStatus(data?.message || 'Importació OPML completada.');
+            await loadNewsletterSources();
+        } catch (err) {
+            console.error('Error importing OPML newsletters:', err);
+            setNewsletterStatus('Error de connexió important l\'OPML.');
+        } finally {
+            setNewsletterOpmlLoading(false);
+            if (newsletterOpmlRef.current) {
+                newsletterOpmlRef.current.value = '';
+            }
         }
     };
 
@@ -696,6 +839,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {[
                                 { id: 'general', label: 'General', icon: Globe },
                                 { id: 'integrations', label: 'Integracions', icon: Zap },
+                                { id: 'newsletters', label: 'Subscripcions', icon: Mail },
                                 { id: 'graph', label: 'Graf', icon: Database },
                                 { id: 'ai', label: 'AI', icon: Cpu },
                                 { id: 'notion', label: 'Notion', icon: RefreshCw },
@@ -1546,6 +1690,109 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     ))}
                                                 </div>
                                             </div>
+                                        </div>
+                                    </section>
+                                </div>
+                            )}
+
+                            {activeTab === 'newsletters' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <section className="settings-section">
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                                            <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Subscripcions de contingut</h3>
+                                        </div>
+
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                                            Gestiona subscripcions RSS, newsletters i canals de YouTube des d'un únic lloc.
+                                        </p>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 180px auto', gap: '10px', marginBottom: '16px' }}>
+                                            <input
+                                                type="text"
+                                                value={newsletterName}
+                                                onChange={(e) => setNewsletterName(e.target.value)}
+                                                placeholder="Nom (opcional)"
+                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                                            />
+                                            <input
+                                                type="text"
+                                                value={newsletterAddress}
+                                                onChange={(e) => setNewsletterAddress(e.target.value)}
+                                                placeholder={newsletterType === 'rss' ? 'URL del feed RSS' : newsletterType === 'youtube' ? 'URL de canal YouTube o feed' : 'Email o identificador'}
+                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                                            />
+                                            <select
+                                                value={newsletterType}
+                                                onChange={(e) => setNewsletterType(e.target.value)}
+                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                                            >
+                                                <option value="rss">RSS</option>
+                                                <option value="newsletter">Newsletter</option>
+                                                <option value="youtube">YouTube</option>
+                                            </select>
+                                            <button
+                                                onClick={handleAddNewsletter}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 14px', borderRadius: '8px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', cursor: 'pointer', fontWeight: 600 }}
+                                            >
+                                                <Plus size={16} />
+                                                Afegir
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                            <input
+                                                ref={newsletterOpmlRef}
+                                                type="file"
+                                                accept=".opml,.xml"
+                                                onChange={(e) => handleNewsletterOpmlUpload(e.target.files?.[0])}
+                                                style={{ display: 'none' }}
+                                            />
+                                            <button
+                                                onClick={() => newsletterOpmlRef.current?.click()}
+                                                disabled={newsletterOpmlLoading}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', color: 'var(--text-primary)', cursor: newsletterOpmlLoading ? 'not-allowed' : 'pointer', opacity: newsletterOpmlLoading ? 0.7 : 1, fontWeight: 500 }}
+                                            >
+                                                <Mail size={14} />
+                                                {newsletterOpmlLoading ? 'Important OPML...' : 'Importar fitxer OPML'}
+                                            </button>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Puja un export OPML de newsletters i feeds.</span>
+                                        </div>
+
+                                        {newsletterStatus && (
+                                            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>{newsletterStatus}</p>
+                                        )}
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {newsletterLoading ? (
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Carregant subscripcions...</p>
+                                            ) : newsletterSources.length === 0 ? (
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Encara no tens subscripcions configurades.</p>
+                                            ) : (
+                                                newsletterSources.map((source) => (
+                                                    <div
+                                                        key={source.id}
+                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--settings-border)', borderRadius: '10px', padding: '12px' }}
+                                                    >
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                {source.name}
+                                                                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em', borderRadius: '999px', padding: '2px 8px', background: source.type === 'youtube' ? '#ef444422' : source.type === 'newsletter' ? '#0ea5e922' : '#22c55e22', color: source.type === 'youtube' ? '#b91c1c' : source.type === 'newsletter' ? '#0369a1' : '#166534' }}>
+                                                                    {source.type || 'rss'}
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source.url}</div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDeleteNewsletter(source.id)}
+                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #ef444433', background: 'transparent', color: '#ef4444', borderRadius: '8px', padding: '8px 10px', cursor: 'pointer' }}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                            Eliminar
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            )}
                                         </div>
                                     </section>
                                 </div>

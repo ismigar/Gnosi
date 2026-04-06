@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool } from 'lucide-react';
+import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon } from 'lucide-react';
 import { GlobalSettingsModal } from './GlobalSettingsModal';
 
 const GIcon = ({ size = 14 }) => (
@@ -27,6 +27,7 @@ const navItems = [
     { to: '/calendar', icon: Calendar, label: 'Calendari' },
     { to: '/reader', icon: BookOpen, label: 'Lector' },
     { to: '/social-dashboard', icon: Share2, label: 'Social' },
+    { to: '/media', icon: ImageIcon, label: 'Fotos' },
 ];
 
 export function AppSidebar() {

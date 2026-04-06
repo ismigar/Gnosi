@@ -33,7 +33,8 @@ import {
     useCreateBlockNote,
     getDefaultReactSlashMenuItems,
     SuggestionMenuController,
-    createReactBlockSpec
+    createReactBlockSpec,
+    createReactInlineContentSpec
 } from "@blocknote/react";
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultStyleSpecs } from "@blocknote/core";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
@@ -98,6 +99,13 @@ const markdownToPlainText = (markdown) => {
         .replace(/\s+/g, ' ')
         .trim();
 };
+
+/**
+ * Registry for notes currently in the process of being saved.
+ * This global Map survives component unmounting, allowing next component
+ * instance (or dashboard) to access most recent content before backend reflects it.
+ */
+export const inFlightSaves = new Map();
 
 const extractSectionPreview = (markdown, sectionName) => {
     const cleanSectionName = String(sectionName || '').trim().toLowerCase();
@@ -406,7 +414,7 @@ const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) 
     );
 };
 
-const InlineDatabase = ({ block, editor }) => {
+const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
     const context = React.useContext(VaultEditorContext);
     const { allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry } = context || {};
     const [activeTableId, setActiveTableId] = useState(block.props.database_table_id);
@@ -436,13 +444,16 @@ const InlineDatabase = ({ block, editor }) => {
         );
     }
     return (
-        <div className="p-8 text-center text-[var(--text-tertiary)]/60 text-[11px] italic border border-[var(--border-primary)] rounded-lg bg-[var(--bg-primary)] shadow-sm my-6">
-            L'editor de dades en línia estarà disponible en una futura actualització.
+        <div ref={ref} className="bn-database-container">
+            <div className="p-8 text-center text-[var(--text-tertiary)]/60 text-[11px] italic border border-[var(--border-primary)] rounded-lg bg-[var(--bg-primary)] shadow-sm my-6">
+                L'editor de dades en línia estarà disponible en una futura actualització.
+            </div>
         </div>
     );
-};
+});
+InlineDatabase.displayName = 'InlineDatabase';
 
-const TransclusionEmbed = ({ block }) => {
+const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
     const context = React.useContext(VaultEditorContext);
     const { idToTitle = {}, onOpenParallel = () => {} } = context || {};
     const target = String(block?.props?.target || '').trim();
@@ -498,6 +509,7 @@ const TransclusionEmbed = ({ block }) => {
 
     return (
         <div
+            ref={ref}
             className="my-4 p-4 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 cursor-pointer hover:border-[var(--gnosi-primary)]/40 transition-colors"
             onClick={() => {
                 if (resolvedId) onOpenParallel(resolvedId);
@@ -513,7 +525,8 @@ const TransclusionEmbed = ({ block }) => {
             <div className="text-xs text-[var(--text-tertiary)] leading-relaxed">{preview}</div>
         </div>
     );
-};
+});
+TransclusionEmbed.displayName = 'TransclusionEmbed';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -878,7 +891,20 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
     );
 };
 
-const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTitle, onRefreshNotes, effectiveTheme, contextValue }) => {
+export function EditorInner({ 
+    noteFilename, 
+    initialContent, 
+    metadata, 
+    onUpdate, 
+    idToTitle, 
+    onRefreshNotes, 
+    effectiveTheme, 
+    contextValue,
+    saveStatus,
+    setSaveStatus,
+    metadataRef
+}) {
+    const { t } = useTranslation();
     const schema = useMemo(() => {
         const specs = {
             database: createReactBlockSpec({
@@ -905,7 +931,43 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                         <div className="bn-toggle-content pl-6 pt-2 border-l border-[var(--border-primary)]/10 ml-3" />
                     </details>
                 </div>
-            ) })
+            ) }),
+            wikilink: createReactInlineContentSpec({
+                type: "wikilink",
+                propSchema: {
+                    title: { default: "" },
+                    target: { default: "" },
+                },
+                content: "none",
+            }, {
+                render: (props) => (
+                    <span 
+                        className="wikilink-inline text-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary-hover)] underline decoration-[var(--gnosi-primary)]/30 underline-offset-4 cursor-pointer transition-all font-semibold"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (props.inlineContent.props.target) {
+                                contextValue.onOpenParallel(props.inlineContent.props.target);
+                            }
+                        }}
+                    >
+                        {props.inlineContent.props.title}
+                    </span>
+                )
+            }),
+            alert: createReactBlockSpec({
+                type: "alert",
+                propSchema: {
+                    type: { default: "info", values: ["info", "warning", "error", "success"] },
+                },
+                content: "inline",
+            }, {
+                render: (props) => (
+                    <div className={`bn-alert bn-alert-${props.block.props.type} p-4 rounded-lg flex gap-3 my-4 bg-[var(--bg-secondary)] border-l-4 border-[var(--gnosi-primary)]`}>
+                        <div className="flex-1" ref={props.contentRef} />
+                    </div>
+                )
+            })
         };
         const baseSchema = BlockNoteSchema.create({
             blockSpecs: {
@@ -913,13 +975,17 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                 database: { ...specs.database(), group: "bnBlock" },
                 transclusion: { ...specs.transclusion(), group: "bnBlock" },
                 toggle: { ...specs.toggle(), group: "bnBlock" },
+                alert: { ...specs.alert(), group: "bnBlock" },
             },
-            inlineContentSpecs: defaultInlineContentSpecs,
+            inlineContentSpecs: {
+                ...defaultInlineContentSpecs,
+                wikilink: specs.wikilink,
+            },
             styleSpecs: defaultStyleSpecs,
         });
         // Wrap with official multi-column support (adds columnList + column blocks natively)
         return withMultiColumn(baseSchema);
-    }, []);
+    }, [contextValue]);
 
     const sanitizeBlocks = useCallback((blocks) => {
         if (!Array.isArray(blocks)) return blocks;
@@ -1010,6 +1076,8 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
         dropCursor: multiColumnDropCursor,
     });
 
+    const initializedNoteRef = useRef('');
+
     useEffect(() => {
         let cancelled = false;
         const activeEditor = editor;
@@ -1021,6 +1089,19 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                 }
                 return;
             }
+
+            const currentNoteId = String(noteFilename || '');
+            const alreadyInitializedSameNote = initializedNoteRef.current === currentNoteId;
+            const hasEditorContent = Array.isArray(editor?.document)
+                ? editor.document.some((block) => ((block?.content?.length ?? 0) > 0) || ((block?.children?.length ?? 0) > 0))
+                : false;
+
+            // Avoid re-initializing while typing in the same note; this can reset scroll/cursor.
+            if (alreadyInitializedSameNote && hasEditorContent) {
+                if (!cancelled) setIsParsing(false);
+                return;
+            }
+
             try {
                 const parsedBlocks = await richMarkdownToBlocks(initialContent, editor);
                 if (cancelled || activeEditor !== editor) return;
@@ -1028,6 +1109,7 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                 if (parsedBlocks) {
                     const sanitized = sanitizeBlocks(parsedBlocks);
                     setBlocks(sanitized);
+                    initializedNoteRef.current = currentNoteId;
 
                     // Si l'editor ja està creat, aprofitem per injectar-los
                     const currentDoc = Array.isArray(editor?.document)
@@ -1054,7 +1136,7 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
         return () => {
             cancelled = true;
         };
-    }, [initialContent, editor, sanitizeBlocks]);
+    }, [initialContent, noteFilename, editor, sanitizeBlocks]);
 
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
@@ -1157,132 +1239,206 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
         return await request;
     }, [extractHeadingsFromMarkdown]);
 
+    const saveTimerRef = useRef(null);
+    const handleSave = useCallback(async () => {
+        if (!noteFilename || !editor || isParsing || !editorReady) return;
+
+        try {
+            setSaveStatus('saving');
+            const markdownContent = blocksToRichMarkdown(editor.document);
+            const currentMetadata = metadataRef.current;
+            
+            const data = { 
+                title: currentMetadata?.title || "Sense títol", 
+                content: markdownContent, 
+                metadata: currentMetadata 
+            };
+
+            // Register in global in-flight saves before starting request
+            const savePromise = axios.patch(`/api/vault/pages/${noteFilename}`, data);
+            
+            inFlightSaves.set(noteFilename, {
+                content: markdownContent,
+                metadata: currentMetadata,
+                promise: savePromise,
+                timestamp: Date.now()
+            });
+
+            await savePromise;
+            
+            // If another save hasn't started for this file, clear from registry
+            const currentRecord = inFlightSaves.get(noteFilename);
+            if (currentRecord && currentRecord.promise === savePromise) {
+                inFlightSaves.delete(noteFilename);
+            }
+
+            setSaveStatus('saved');
+            if (onUpdate) onUpdate(noteFilename, data);
+            
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+            }
+            
+            // Revert specifically to idle after a while so it doesn't stay "Saved" forever
+            setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
+        } catch (err) { 
+            console.error("Error al desar automàticament:", err);
+            setSaveStatus('error');
+            toast.error("Error al desar automàticament");
+        }
+    }, [noteFilename, editor, isParsing, editorReady, onUpdate]);
+
+    const expandBracketRange = (text, start, end) => {
+        const source = String(text || '');
+        let safeStart = Math.max(0, Number(start) || 0);
+        let safeEnd = Math.max(safeStart, Number(end) || safeStart);
+
+        // Consume up to 2 leading brackets
+        let leftExtra = 0;
+        while (safeStart > 0 && source[safeStart - 1] === '[' && leftExtra < 2) {
+            safeStart -= 1;
+            leftExtra += 1;
+        }
+
+        // Consume up to 2 trailing brackets
+        let rightExtra = 0;
+        while (safeEnd < source.length && source[safeEnd] === ']' && rightExtra < 2) {
+            safeEnd += 1;
+            rightExtra += 1;
+        }
+
+        return { start: safeStart, end: safeEnd };
+    };
+
+    const replaceTokenInInlineArray = (inlineItems, rangeStart, rangeEnd, replacementItem) => {
+        if (!Array.isArray(inlineItems)) return null;
+        let cursor = 0;
+        let injected = false;
+        const next = [];
+
+        for (const item of inlineItems) {
+            const text = typeof item?.text === 'string' ? item.text : '';
+            const itemStart = cursor;
+            const itemEnd = cursor + (text ? text.length : 1); // Generic object placeholder length
+
+            if (!text) {
+                // If the object is outside the range to replace, keep it.
+                if (itemEnd <= rangeStart || itemStart >= rangeEnd) {
+                    next.push(item);
+                } else if (!injected) {
+                    // If the object was in the range, replace it with our link
+                    next.push(replacementItem);
+                    injected = true;
+                }
+                cursor = itemEnd;
+                continue;
+            }
+
+            const noOverlap = itemEnd <= rangeStart || itemStart >= rangeEnd;
+            if (noOverlap) {
+                next.push(item);
+                cursor = itemEnd;
+                continue;
+            }
+
+            // Text overlap logic
+            const leftCut = Math.max(0, rangeStart - itemStart);
+            const rightCut = Math.max(0, itemEnd - rangeEnd);
+            const leftText = text.slice(0, leftCut);
+            const rightText = text.slice(text.length - rightCut);
+
+            if (leftText) next.push({ ...item, text: leftText });
+            if (!injected) {
+                next.push(replacementItem);
+                injected = true;
+            }
+            if (rightText) next.push({ ...item, text: rightText });
+
+            cursor = itemEnd;
+        }
+
+        return injected ? next : null;
+    };
+
     const insertWikiLink = useCallback(async (noteTitle, section = '', noteId = '', replaceQuery = '') => {
         if (!editor) return;
         const safeTitle = String(noteTitle || '').trim();
-        const safeSection = String(section || '').trim();
-        if (!safeTitle) return;
         const safeId = String(noteId || '').trim();
-        const wikiTarget = safeSection ? `${safeTitle}#${safeSection}` : safeTitle;
-        const wikiLiteral = `[[${wikiTarget}]]`;
-        const href = safeId
-            ? `/vault/page/${encodeURIComponent(safeId)}${safeSection ? `#${encodeURIComponent(safeSection)}` : ''}`
-            : '';
-        const linkLiteral = href ? `[${safeTitle}](${href})` : wikiLiteral;
+        if (!safeTitle) return;
+
+        const wikilinkItem = {
+            type: 'wikilink',
+            props: {
+                title: section ? `${safeTitle} > ${section}` : safeTitle,
+                target: safeId || safeTitle,
+                section: section || "",
+            }
+        };
 
         const cursor = editor.getTextCursorPosition?.();
         const currentBlock = cursor?.block;
+
         if (!currentBlock) {
-            const anchor = editor.document?.[editor.document.length - 1];
-            if (anchor) {
-                editor.insertBlocks([{ type: 'paragraph', content: wikiLiteral }], anchor, 'after');
-            }
+            editor.insertInlineContent([wikilinkItem]);
             return;
         }
 
-        const inline = currentBlock.content;
+        const inline = Array.isArray(currentBlock.content) ? currentBlock.content : [];
+        const plainText = inline.map((item) => item.text || '').join('');
+        const cursorIndex = cursor.index;
+        
+        // Strategy: find the best match for the query that likely triggered the insertion,
+        // searching backwards from the current cursor position.
+        const rawQuery = String(replaceQuery || '').trim();
+        const searchTerms = [rawQuery, `[[${rawQuery}`, `[${rawQuery}`].filter(t => t.length > 0);
 
-        if (currentBlock && Array.isArray(inline)) {
-            const plainText = inline.map((item) => item.text || '').join('');
+        let matchStart = -1;
+        let matchedToken = '';
 
-            const rawQuery = String(replaceQuery || '').trim();
-            if (rawQuery) {
-                const candidates = [];
-                if (rawQuery.startsWith('[[') || rawQuery.startsWith('[')) {
-                    candidates.push(rawQuery);
-                }
-                candidates.push(`[[${rawQuery}`);
-                candidates.push(`[${rawQuery}`);
-
-                let matchStart = -1;
-                let matchedToken = '';
-                for (const token of candidates) {
-                    const idx = plainText.lastIndexOf(token);
-                    if (idx > matchStart) {
-                        matchStart = idx;
-                        matchedToken = token;
-                    }
-                }
-
-                if (matchStart >= 0 && matchedToken) {
-                    try {
-                        let replaceStart = matchStart;
-                        let replaceEnd = matchStart + matchedToken.length;
-
-                        // If the editor has auto-closed ]] around the query, replace the whole bracketed token.
-                        if (matchedToken.startsWith('[[') && plainText.slice(replaceEnd, replaceEnd + 2) === ']]') {
-                            replaceEnd += 2;
-                        } else if (matchedToken.startsWith('[') && plainText.slice(replaceEnd, replaceEnd + 1) === ']') {
-                            replaceEnd += 1;
-                        }
-
-                        if (plainText.slice(Math.max(0, matchStart - 2), matchStart) === '[[') {
-                            replaceStart = Math.max(0, matchStart - 2);
-                            if (plainText.slice(replaceEnd, replaceEnd + 2) === ']]') {
-                                replaceEnd += 2;
-                            }
-                        }
-
-                        const prefix = plainText.slice(0, replaceStart);
-                        const suffix = plainText.slice(replaceEnd);
-                        const replaced = `${prefix}${linkLiteral}${suffix}`;
-                        if (editor.tryParseMarkdownToBlocks) {
-                            const parsed = await editor.tryParseMarkdownToBlocks(replaced);
-                            if (Array.isArray(parsed) && parsed.length > 0) {
-                                editor.replaceBlocks([currentBlock], parsed);
-                                return;
-                            }
-                        }
-                        editor.updateBlock(currentBlock, { content: replaced });
-                        return;
-                    } catch {
-                        // Fall through to token-based fallback.
-                    }
-                }
+        for (const token of searchTerms) {
+            const idx = plainText.lastIndexOf(token, cursorIndex);
+            if (idx > matchStart) {
+                matchStart = idx;
+                matchedToken = token;
             }
+        }
 
-            const lastDouble = plainText.lastIndexOf('[[');
-            const lastSingle = plainText.lastIndexOf('[');
-            const start = lastDouble >= 0 ? lastDouble : lastSingle;
-            const tail = start >= 0 ? plainText.slice(start) : '';
+        // Final heuristic for pending links (last [[ or [ before cursor)
+        if (matchStart === -1) {
+            const lastDouble = plainText.lastIndexOf('[[', cursorIndex);
+            const lastSingle = plainText.lastIndexOf('[', cursorIndex);
+            matchStart = lastDouble >= 0 ? lastDouble : lastSingle;
+            if (matchStart >= 0) {
+                matchedToken = plainText.substring(matchStart, cursorIndex);
+            }
+        }
 
-            if (start >= 0 && !tail.includes(']')) {
-                // Replace the pending token ([ or [[ + query) without deleting the rest of the paragraph.
-                try {
-                    const tokenMatch = plainText
-                        .slice(start)
-                        .match(/^\[{1,3}[^\]\s]*\]{0,2}/);
+        if (matchStart >= 0) {
+            try {
+                let replaceStart = matchStart;
+                let replaceEnd = matchStart + matchedToken.length;
 
-                    if (tokenMatch?.[0]) {
-                        const tokenLength = tokenMatch[0].length;
-                        const prefix = plainText.slice(0, start);
-                        const suffix = plainText.slice(start + tokenLength);
-                        const replaced = `${prefix}${linkLiteral}${suffix}`;
-                        if (editor.tryParseMarkdownToBlocks) {
-                            const parsed = await editor.tryParseMarkdownToBlocks(replaced);
-                            if (Array.isArray(parsed) && parsed.length > 0) {
-                                editor.replaceBlocks([currentBlock], parsed);
-                                return;
-                            }
-                        }
-                        editor.updateBlock(currentBlock, { content: replaced });
-                        return;
-                    }
-
-                    editor.insertInlineContent(linkLiteral);
+                // Atomic replacement of query + brackets
+                const expanded = expandBracketRange(plainText, replaceStart, replaceEnd);
+                const inlineReplaced = replaceTokenInInlineArray(inline, expanded.start, expanded.end, wikilinkItem);
+                
+                if (inlineReplaced) {
+                    editor.updateBlock(currentBlock, { content: inlineReplaced });
+                    // Ensure save reflects the modification
+                    if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
                     return;
-                } catch {
-                    // Fallback handled by generic path below.
                 }
+            } catch (e) {
+                console.warn("Atomic replacement failed", e);
             }
         }
 
-        try {
-            editor.insertInlineContent(linkLiteral);
-        } catch {
-            editor.insertBlocks([{ type: 'paragraph', content: linkLiteral }], currentBlock, 'after');
-        }
-    }, [editor]);
+        // Fallback: standard insertion at cursor if replacement logic fails
+        editor.insertInlineContent([wikilinkItem]);
+        if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
+    }, [editor, handleSave]);
+
 
     const insertTransclusion = useCallback((targetId, alias = '', section = '') => {
         if (!editor) return;
@@ -1310,29 +1466,30 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
 
         if (Array.isArray(inline)) {
             const plainText = inline.map((item) => item.text || '').join('');
-            const start = plainText.lastIndexOf('![[');
-            const tail = start >= 0 ? plainText.slice(start) : '';
-            const removedClosed = plainText.replace(/!\[\[[^\]]*\]\]?/g, '');
-            const cleanedText = start >= 0 && !tail.includes(']')
-                ? plainText.slice(0, start).trim()
-                : removedClosed.replace(/!\[\[[^\n]*$/, '').trim();
-
-            if (cleanedText !== plainText.trim()) {
+            const lastDouble = plainText.lastIndexOf('![[');
+            const lastSingle = plainText.lastIndexOf('!');
+            const start = lastDouble >= 0 ? lastDouble : lastSingle;
+            
+            if (start >= 0) {
                 try {
-                    if (!cleanedText) {
+                    const textBefore = plainText.slice(0, start).trim();
+                    
+                    if (!textBefore) {
                         editor.replaceBlocks([currentBlock], [{
                             type: 'transclusion',
                             props: { target: safeTarget, alias: safeAlias, section: safeSection },
                         }]);
-                        return;
+                    } else {
+                        const updatedContent = plainText.slice(0, start).trim();
+                        editor.updateBlock(currentBlock, {
+                            content: [{ type: 'text', text: updatedContent, styles: {} }]
+                        });
+                        editor.insertBlocks(
+                            [{ type: 'transclusion', props: { target: safeTarget, alias: safeAlias, section: safeSection } }],
+                            currentBlock,
+                            'after'
+                        );
                     }
-
-                    editor.updateBlock(currentBlock, { content: cleanedText });
-                    editor.insertBlocks(
-                        [{ type: 'transclusion', props: { target: safeTarget, alias: safeAlias, section: safeSection } }],
-                        currentBlock,
-                        'after',
-                    );
                     return;
                 } catch (error) {
                     // Fallback to insertion below.
@@ -1400,31 +1557,54 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
         }
     }, [insertTransclusion, insertWikiLink, normalizePendingLinkTitle, onRefreshNotes]);
 
-    const saveTimerRef = useRef(null);
-    const handleSave = useCallback(async (updatedMetadata) => {
-        if (!noteFilename || !editor) return;
-        try {
-            // Generem el Markdown des del document de l'editor
-            const markdownContent = blocksToRichMarkdown(editor.document);
-            const data = { 
-                title: updatedMetadata?.title || metadata?.title || "Sense títol", 
-                content: markdownContent, 
-                metadata: updatedMetadata || metadata 
-            };
-            await axios.patch(`/api/vault/pages/${noteFilename}`, data);
-            if (onUpdate) onUpdate(data.content, { metadata: data.metadata, title: data.title });
-            if (onRefreshNotes) onRefreshNotes();
-        } catch (err) { console.error("Error al desar automàticament:", err); }
-    }, [noteFilename, metadata, editor, onUpdate, onRefreshNotes]);
-
     useEffect(() => {
         if (!editor || isParsing) return;
         const sub = editor.onChange(() => {
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-            saveTimerRef.current = setTimeout(() => handleSave(metadata), 1000);
+            saveTimerRef.current = setTimeout(() => handleSave(), 700);
         });
-        return () => { if (typeof sub === 'function') sub(); else if (sub && sub.remove) sub.remove(); if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-    }, [editor, handleSave, metadata, isParsing]);
+        return () => { 
+            if (typeof sub === 'function') sub(); 
+            else if (sub && sub.remove) sub.remove(); 
+            
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+                
+                // Flush save on unmount - move to in-flight registry
+                const markdownContent = blocksToRichMarkdown(editor.document);
+                const currentMetadata = metadataRef.current;
+                const data = { 
+                    title: currentMetadata?.title || "Sense títol", 
+                    content: markdownContent, 
+                    metadata: currentMetadata 
+                };
+
+                const savePromise = axios.patch(`/api/vault/pages/${noteFilename}`, data);
+                
+                inFlightSaves.set(noteFilename, {
+                    content: markdownContent,
+                    metadata: currentMetadata,
+                    promise: savePromise,
+                    timestamp: Date.now()
+                });
+
+                // Fire and forget, but keep in registry
+                savePromise.finally(() => {
+                    const currentRecord = inFlightSaves.get(noteFilename);
+                    if (currentRecord && currentRecord.promise === savePromise) {
+                        // Keep the data in registry for a short grace period (1s) to prevent race conditions 
+                        // with concurrent fetch operations in the dashboard
+                        setTimeout(() => {
+                           if (inFlightSaves.get(noteFilename)?.promise === savePromise) {
+                               inFlightSaves.delete(noteFilename);
+                           }
+                        }, 1000);
+                    }
+                }).catch(e => console.error("Unmount save failed", e));
+            }
+        };
+    }, [editor, isParsing, handleSave]);
 
     if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> Carregant editor...</div>;
 
@@ -1773,7 +1953,7 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                                         group: 'Enllacos interns',
                                         icon: <MessageSquare size={18} />,
                                         subtext: isBlockRef
-                                            ? `[[${note.title}#${headingTitle}]] · ${blockPreview || 'Bloc referenciat'}`
+                                            ? `[[${note.title}#${headingTitle}]]`
                                             : `[[${note.title}#${headingTitle}]]`,
                                         onItemClick: () => insertWikiLink(note.title, headingTitle, note.id, rawQuery),
                                     });
@@ -1802,8 +1982,8 @@ const EditorInner = ({ noteFilename, initialContent, metadata, onUpdate, idToTit
                     getItems={async (query) => {
                         if (!editor) return [];
                         const normalized = String(query || '');
-                        if (normalized && !normalized.startsWith('[[')) return [];
-
+                        
+                        // Si l'usuari escriu ![[, traiem el prefix per cercar només el títol
                         const rawQuery = normalized.replace(/^\[\[/, '').trim();
                         const [noteQuery, sectionQueryRaw = ''] = rawQuery.split('#');
                         const pendingTitle = normalizePendingLinkTitle(noteQuery);
@@ -1929,6 +2109,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [metadata, setMetadata] = useState(initialMetadata);
+    
+    // Save status and metadata reference for stable autosave
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
+    const metadataRef = useRef(metadata);
+    useEffect(() => {
+        metadataRef.current = metadata;
+    }, [metadata]);
+
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isAddingProp, setIsAddingProp] = useState(false);
     const [newPropName, setNewPropName] = useState("");
@@ -1949,7 +2137,24 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
     const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry]);
-    const handleSaveMetadata = useCallback(async (updatedMetadata) => { if (!noteFilename) return; try { const data = { title: updatedMetadata?.title || metadata?.title || "Sense títol", metadata: updatedMetadata || metadata }; await axios.patch(`/api/vault/pages/${noteFilename}`, data); if (onRefreshNotes) onRefreshNotes(); } catch (err) { console.error("Error al desar metadades:", err); } }, [noteFilename, metadata, onRefreshNotes]);
+    const handleSaveMetadata = useCallback(async (updatedMetadata) => {
+        if (!noteFilename) return;
+        const currentMetadata = updatedMetadata || metadataRef.current;
+        setSaveStatus('saving');
+        try {
+            const data = { 
+                title: currentMetadata?.title || "Sense títol", 
+                metadata: currentMetadata 
+            };
+            await axios.patch(`/api/vault/pages/${noteFilename}`, data);
+            setSaveStatus('saved');
+            if (onRefreshNotes) onRefreshNotes();
+            setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
+        } catch (err) {
+            console.error("Error al desar metadades:", err);
+            setSaveStatus('error');
+        }
+    }, [noteFilename, onRefreshNotes]);
     const handleTitleChange = (e) => { const nextTitle = e.target.value; const nextMeta = { ...metadata, title: nextTitle }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
     const handleMetaChange = (key, value) => { const nextMeta = { ...metadata, [key]: value }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
     const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
@@ -2245,14 +2450,34 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
                 <div className="px-12 pt-20 pb-2">
                     <div className="mb-4 space-y-1.5">
-                        <div className="flex items-center gap-4 group/title mb-6">
+                        <div className="flex items-center justify-between gap-4 group/title mb-6">
                             <input 
                                 type="text" 
                                 value={metadata.title || ""} 
                                 onChange={handleTitleChange} 
                                 placeholder="Sense títol" 
-                                className="w-full text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent" 
+                                className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent" 
                             />
+                            <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 min-w-[80px] justify-end">
+                                {saveStatus === 'saving' && (
+                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--gnosi-primary)]/5 text-[var(--gnosi-primary)]/60 text-[10px] font-bold uppercase tracking-wider">
+                                        <Loader2 size={12} className="animate-spin" />
+                                        Desant
+                                    </div>
+                                )}
+                                {saveStatus === 'saved' && (
+                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--status-success)]/5 text-[var(--status-success)]/60 text-[10px] font-bold uppercase tracking-wider">
+                                        <CheckSquare size={12} />
+                                        Desat
+                                    </div>
+                                )}
+                                {saveStatus === 'error' && (
+                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--status-error)]/5 text-[var(--status-error)]/60 text-[10px] font-bold uppercase tracking-wider">
+                                        <X size={12} />
+                                        Error
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center px-1 mb-1.5">
                             <div className="col-span-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden">
@@ -2530,7 +2755,19 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 onRefreshNotes={onRefreshNotes}
                             />
                         ) : (
-                            <EditorInner noteFilename={noteFilename} initialContent={initialContent} metadata={metadata} onUpdate={onUpdate} idToTitle={idToTitle} onRefreshNotes={onRefreshNotes} effectiveTheme={effectiveTheme} contextValue={contextValue} />
+                            <EditorInner 
+                                noteFilename={noteFilename} 
+                                initialContent={initialContent} 
+                                metadata={metadata} 
+                                onUpdate={onUpdate} 
+                                idToTitle={idToTitle} 
+                                onRefreshNotes={onRefreshNotes} 
+                                effectiveTheme={effectiveTheme} 
+                                contextValue={contextValue} 
+                                saveStatus={saveStatus}
+                                setSaveStatus={setSaveStatus}
+                                metadataRef={metadataRef}
+                            />
                         )}
                     </ErrorBoundary>
                 </div>

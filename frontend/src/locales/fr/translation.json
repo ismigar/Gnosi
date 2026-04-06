@@ -21,5 +21,9 @@
     "reason": "Raison",
     "language": "Langue",
     "vault_add_local_property": "Ajouter une propriété locale",
-    "vault_manage_fields": "Gérer les champs"
+    "vault_manage_fields": "Gérer les champs",
+    "vault_welcome_title": "Bienvenue",
+    "vault_welcome_subtitle": "Sélectionne une page du vault ou",
+    "vault_welcome_create_page": "Crée une page",
+    "vault_welcome_create_db": "Crée une BD"
 }

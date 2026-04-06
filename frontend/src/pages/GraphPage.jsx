@@ -44,6 +44,7 @@ function GraphPage() {
     const [visibleFields, setVisibleFields] = useState([]); // Array of "tableId:fieldName"
     const [graphTableFiltersSettings, setGraphTableFiltersSettings] = useState([]); // Which tables HAVE a toggle
     const [activeTableFilters, setActiveTableFilters] = useState(new Set()); // Which table toggles are ON
+    const [activeMediaTags, setActiveMediaTags] = useState(new Set()); // New: Tags specifically for media
 
     // Dynamic Field Filters
     // Map of "tableId:fieldName" -> Set of active values
@@ -116,6 +117,17 @@ function GraphPage() {
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);
     const [graphVersion, setGraphVersion] = useState(null);
+
+    const mediaTagsList = useMemo(() => {
+        if (!graphData?.nodes) return [];
+        const tags = new Set();
+        graphData.nodes.forEach(n => {
+            if (n.kind === 'media' && n.metadata?.tags) {
+                n.metadata.tags.forEach(t => tags.add(t));
+            }
+        });
+        return Array.from(tags).sort();
+    }, [graphData]);
 
     const fetchGraphData = (isBackground = false) => {
         if (!isBackground) setLoading(true);
@@ -333,8 +345,9 @@ function GraphPage() {
         visibleTables,
         activeTableFilters,
         fieldFilters,
-        graphTableFiltersSettings
-    }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings]);
+        graphTableFiltersSettings,
+        activeMediaTags
+    }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
     const memoizedGraph = useMemo(() => {
@@ -495,6 +508,39 @@ function GraphPage() {
                             })}
                         </div>
                     </CollapsibleSection>
+
+                    {/* Media Tags Filters (New) */}
+                    {graphData?.nodes?.some(n => n.kind === 'media') && (
+                        <CollapsibleSection title="Filtre de Tags de Fotos" badge={activeMediaTags.size} defaultOpen={true}>
+                            <div className="filter-list">
+                                {mediaTagsList.map(tag => (
+                                    <div key={tag} className="filter-item-advanced">
+                                        <input
+                                            type="checkbox"
+                                            id={`media-tag-${tag}`}
+                                            checked={activeMediaTags.has(tag)}
+                                            onChange={() => {
+                                                const newSet = new Set(activeMediaTags);
+                                                if (newSet.has(tag)) newSet.delete(tag);
+                                                else newSet.add(tag);
+                                                setActiveMediaTags(newSet);
+                                            }}
+                                            style={{ display: 'none' }}
+                                        />
+                                        <label htmlFor={`media-tag-${tag}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                            <span className="custom-checkbox" style={{ backgroundColor: '#ec4899', opacity: activeMediaTags.has(tag) ? 1 : 0.3 }}>
+                                                {activeMediaTags.has(tag) && <Check size={10} color="white" />}
+                                            </span>
+                                            <span className="filter-label-text">#{tag}</span>
+                                        </label>
+                                    </div>
+                                ))}
+                                {Array.from(new Set(graphData.nodes.filter(n => n.kind === 'media').flatMap(n => n.metadata?.tags || []))).length === 0 && (
+                                    <p style={{ fontSize: '0.75rem', color: '#888', margin: '10px 0' }}>Cap etiqueta trobada en fotos</p>
+                                )}
+                            </div>
+                        </CollapsibleSection>
+                    )}
 
                     {/* Field Value Filters (dynamic) */}
                     {visibleFields.length > 0 && (

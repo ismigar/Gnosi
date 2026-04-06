@@ -31,5 +31,9 @@
     "sync_desc": "Sincronitza les dades amb els serveis externs",
     "syncing_label": "Sincronitzant...",
     "vault_add_local_property": "Afegir propietat local",
-    "vault_manage_fields": "Gestionar camps"
+    "vault_manage_fields": "Gestionar camps",
+    "vault_welcome_title": "Benvinguda",
+    "vault_welcome_subtitle": "Selecciona una pàgina del vault o",
+    "vault_welcome_create_page": "Crea una pàgina",
+    "vault_welcome_create_db": "Crea una BD"
 }

@@ -37,6 +37,7 @@ except Exception:
     Image = None
 from backend.config.app_config import load_params
 from backend.services.rule_engine import RuleEngine
+from backend.services.media_service import media_service
 
 log = logging.getLogger(__name__)
 
@@ -2141,6 +2142,63 @@ async def get_asset(asset_path: str):
 
     if not requested.exists() or not requested.is_file():
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    media_type, _ = mimetypes.guess_type(str(requested))
+    return FileResponse(path=str(requested), media_type=media_type)
+
+
+# --- Media Manager (ARXIU AVANÇAT) ---
+
+@router.get("/media")
+async def get_all_media(album: Optional[str] = Query(None)):
+    """Llista tots els mitjans, opcionalment filtrats per àlbum."""
+    return media_service.get_all_media(album)
+
+
+@router.get("/media/albums")
+async def get_albums():
+    """Retorna la llista d'àlbums (carpetes)."""
+    return media_service.get_albums()
+
+
+@router.post("/media/upload")
+async def upload_media(
+    file: UploadFile = File(...),
+    album: str = Query("General"),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    """Puja un fitxer de mitjans a un àlbum."""
+    result = media_service.upload_media(file, album)
+    return result
+
+
+@router.patch("/media/metadata")
+async def update_media_metadata(
+    filename: str = Body(...),
+    album: str = Body(...),
+    metadata: Dict[str, Any] = Body(...)
+):
+    """Actualitza tags, descripció o data manualment."""
+    success = media_service.update_metadata(filename, album, metadata)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error de persistència")
+    return {"status": "ok"}
+
+
+@router.get("/images/{image_path:path}")
+async def serve_vault_image(image_path: str):
+    """Serveix imatges directament des de VAULT/Images."""
+    if not VAULT_PATH:
+        raise HTTPException(status_code=500, detail="Vault not configured")
+        
+    img_root = (VAULT_PATH / "Images").resolve()
+    requested = (img_root / image_path).resolve()
+    
+    if not str(requested).startswith(str(img_root)):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not requested.exists() or not requested.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
 
     media_type, _ = mimetypes.guess_type(str(requested))
     return FileResponse(path=str(requested), media_type=media_type)

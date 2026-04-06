@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Settings, Clock, BookOpen } from 'lucide-react';
+import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Clock, BookOpen } from 'lucide-react';
 import { FeedManagerModal } from '../components/FeedManagerModal';
 import { AppHeader } from '../components/AppHeader';
 
@@ -147,18 +147,11 @@ const ReaderDashboard = () => {
                             >
                                 <RotateCw size={18} className={loading ? "animate-spin" : ""} />
                             </button>
-                            <button
-                                onClick={() => setFeedManagerOpen(true)}
-                                className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
-                                title="Gestionar feeds"
-                            >
-                                <Settings size={18} />
-                            </button>
                         </div>
                     </div>
 
                     {/* Listen Card */}
-                    <div className="p-4 mx-4 mt-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30">
+                    <div className="p-4 mx-4 mt-4 rounded-2xl bg-[var(--gnosi-blue)] text-white shadow-lg shadow-indigo-500/30">
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-2">
                                 <Headphones size={20} className="text-indigo-100" />
