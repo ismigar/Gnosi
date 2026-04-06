@@ -300,7 +300,7 @@ function Dashboard() {
                         ) : schedulers.length === 0 ? (
                             <p className="text-gray-500">No hi ha tasques programades.</p>
                         ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 {schedulers.map(task => (
                                     <div
                                         key={task.name}
@@ -334,6 +334,8 @@ function Dashboard() {
                                                     onChange={(e) => updateScheduler(task, { interval_minutes: Number(e.target.value) })}
                                                 >
                                                     <option value={60}>1 hora</option>
+                                                    <option value={120}>2 hores</option>
+                                                    <option value={180}>3 hores</option>
                                                     <option value={360}>6 hores</option>
                                                     <option value={720}>12 hores</option>
                                                     <option value={1440}>1 dia</option>
