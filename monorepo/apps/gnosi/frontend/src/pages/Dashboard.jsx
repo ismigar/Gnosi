@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { Clock3, History, Play, RefreshCw } from 'lucide-react';
 
 function Dashboard() {
     const [stats, setStats] = useState({ cpu: 0, ram_percent: 0, memory_items: 0, status: 'offline' });
     const [pendingTools, setPendingTools] = useState([]);
-    const [selectedTool, setSelectedTool] = useState(null);
-    const [approving, setApproving] = useState(false);
+    const [approvedTools, setApprovedTools] = useState([]);
+    const [approvedLoading, setApprovedLoading] = useState(true);
     const [analytics, setAnalytics] = useState(null);
+    const [schedulers, setSchedulers] = useState([]);
+    const [schedulerLoading, setSchedulerLoading] = useState(true);
+    const [selectedControlTab, setSelectedControlTab] = useState('schedulers');
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -44,53 +48,109 @@ function Dashboard() {
             }
         };
 
+        const fetchSchedulers = async () => {
+            setSchedulerLoading(true);
+            try {
+                const res = await fetch('/api/schedulers');
+                if (res.ok) {
+                    const data = await res.json();
+                    setSchedulers(Array.isArray(data) ? data : []);
+                }
+            } catch (e) {
+                console.error("Error fetching schedulers", e);
+            } finally {
+                setSchedulerLoading(false);
+            }
+        };
+
+        const fetchApprovedTools = async () => {
+            setApprovedLoading(true);
+            try {
+                const res = await fetch('/api/tools/approved');
+                if (res.ok) {
+                    const data = await res.json();
+                    setApprovedTools(Array.isArray(data) ? data : []);
+                }
+            } catch (e) {
+                console.error("Error fetching approved tools", e);
+            } finally {
+                setApprovedLoading(false);
+            }
+        };
+
         fetchStats();
         fetchPendingTools();
         fetchAnalytics();
+        fetchSchedulers();
+        fetchApprovedTools();
         const interval = setInterval(fetchStats, 2000);
         const toolsInterval = setInterval(fetchPendingTools, 5000);
         const analyticsInterval = setInterval(fetchAnalytics, 30000);
+        const schedulersInterval = setInterval(fetchSchedulers, 30000);
+        const approvedToolsInterval = setInterval(fetchApprovedTools, 30000);
         return () => {
             clearInterval(interval);
             clearInterval(toolsInterval);
             clearInterval(analyticsInterval);
+            clearInterval(schedulersInterval);
+            clearInterval(approvedToolsInterval);
         };
     }, []);
 
-    const handleApprove = async (name) => {
-        setApproving(true);
+    const refreshSchedulers = async () => {
+        setSchedulerLoading(true);
         try {
-            const res = await fetch('/api/tools/approve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
-            });
+            const res = await fetch('/api/schedulers');
             if (res.ok) {
-                setPendingTools(prev => prev.filter(t => t.name !== name));
-                setSelectedTool(null);
+                const data = await res.json();
+                setSchedulers(Array.isArray(data) ? data : []);
             }
         } catch (e) {
-            console.error("Error approving tool", e);
+            console.error("Error refreshing schedulers", e);
+        } finally {
+            setSchedulerLoading(false);
         }
-        setApproving(false);
     };
 
-    const handleReject = async (name, reason = '') => {
-        setApproving(true);
+    const updateScheduler = async (task, overrides) => {
         try {
-            const res = await fetch('/api/tools/reject', {
-                method: 'POST',
+            const payload = { ...task, ...overrides };
+            const res = await fetch(`/api/schedulers/${task.name}`, {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, reason })
+                body: JSON.stringify(payload)
             });
             if (res.ok) {
-                setPendingTools(prev => prev.filter(t => t.name !== name));
-                setSelectedTool(null);
+                await refreshSchedulers();
             }
         } catch (e) {
-            console.error("Error rejecting tool", e);
+            console.error("Error updating scheduler", e);
         }
-        setApproving(false);
+    };
+
+    const runSchedulerNow = async (taskName) => {
+        try {
+            await fetch(`/api/schedulers/${taskName}/run`, { method: 'POST' });
+            await refreshSchedulers();
+        } catch (e) {
+            console.error("Error running scheduler", e);
+        }
+    };
+
+    const formatFrequency = (task) => {
+        if (typeof task.interval_minutes === 'number' && task.interval_minutes > 0) {
+            if (task.interval_minutes % 1440 === 0) {
+                return `Cada ${task.interval_minutes / 1440} dia(s)`;
+            }
+            if (task.interval_minutes % 60 === 0) {
+                return `Cada ${task.interval_minutes / 60} hora(s)`;
+            }
+            return `Cada ${task.interval_minutes} min`;
+        }
+        if (typeof task.interval === 'number' && task.interval > 0) {
+            return `Cada ${task.interval}s`;
+        }
+        return 'No definida';
     };
 
     return (
@@ -190,92 +250,190 @@ function Dashboard() {
                 </div>
             )}
 
-            {/* Pending Tools Section */}
-            {pendingTools.length > 0 && (
-                <div className="mt-16 relative z-10">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <span className="w-1 h-6 bg-red-500 rounded-full animate-pulse"></span>
-                        Aprovació d'Eines
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Tool List */}
-                        <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-6">Cua de Revisió</h3>
-                            <div className="space-y-4">
-                                {pendingTools.map(tool => (
+            {/* Control Center Tabs */}
+            <div className="mt-16 relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                    <button
+                        onClick={() => setSelectedControlTab('schedulers')}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${selectedControlTab === 'schedulers'
+                            ? 'bg-blue-500/20 border-blue-400/60 text-blue-200'
+                            : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                            }`}
+                    >
+                        <span className="inline-flex items-center gap-2">
+                            <Clock3 size={16} />
+                            Processos Calendaritzables
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedControlTab('history')}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${selectedControlTab === 'history'
+                            ? 'bg-blue-500/20 border-blue-400/60 text-blue-200'
+                            : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                            }`}
+                    >
+                        <span className="inline-flex items-center gap-2">
+                            <History size={16} />
+                            Logs i Historial
+                        </span>
+                    </button>
+                </div>
+
+                {selectedControlTab === 'schedulers' && (
+                    <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+                                Processos Calendaritzables
+                            </h2>
+                            <button
+                                onClick={refreshSchedulers}
+                                className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10"
+                            >
+                                <RefreshCw size={14} />
+                                Refrescar
+                            </button>
+                        </div>
+
+                        {schedulerLoading ? (
+                            <p className="text-gray-400">Carregant tasques...</p>
+                        ) : schedulers.length === 0 ? (
+                            <p className="text-gray-500">No hi ha tasques programades.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+                                {schedulers.map(task => (
                                     <div
-                                        key={tool.name}
-                                        onClick={() => setSelectedTool(tool)}
-                                        className={`p-5 rounded-2xl cursor-pointer transition-all duration-300 border ${selectedTool?.name === tool.name
-                                            ? 'bg-blue-500/10 border-blue-500/50 shadow-lg shadow-blue-500/10'
-                                            : 'bg-white/5 border-transparent hover:bg-white/10'
-                                            }`}
+                                        key={task.name}
+                                        className={`p-5 rounded-xl border transition-all h-full flex flex-col ${task.enabled ? 'border-green-500/40 bg-green-500/5' : 'border-white/10 bg-white/5'}`}
                                     >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="font-mono text-sm font-bold text-blue-400">{tool.name}</span>
-                                            <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${tool.risk_level === 'EXTERNAL_WRITE'
-                                                ? 'bg-red-500/20 text-red-400'
-                                                : 'bg-yellow-500/20 text-yellow-400'
-                                                }`}>
-                                                {tool.risk_level.replace(/_/g, ' ')}
-                                            </span>
+                                        <div className="flex-1">
+                                            <h3 className="text-sm font-bold uppercase tracking-wide">{task.name.replace(/_/g, ' ')}</h3>
+                                            <p className="text-sm text-gray-400 mt-1">{task.description}</p>
+                                            <p className="text-xs text-gray-500 mt-2">{formatFrequency(task)}</p>
+                                            {task.last_run && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Ultima execucio: {new Date(task.last_run).toLocaleString()}
+                                                </p>
+                                            )}
                                         </div>
-                                        <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">{tool.description}</p>
+
+                                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                                            <label className="inline-flex items-center gap-2 text-xs text-gray-300">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={task.enabled}
+                                                    onChange={(e) => updateScheduler(task, { enabled: e.target.checked })}
+                                                />
+                                                {task.enabled ? 'Actiu' : 'Inactiu'}
+                                            </label>
+
+                                            {typeof task.interval_minutes === 'number' && (
+                                                <select
+                                                    className="text-xs bg-black/30 border border-white/10 rounded-lg px-2 py-1"
+                                                    value={task.interval_minutes}
+                                                    onChange={(e) => updateScheduler(task, { interval_minutes: Number(e.target.value) })}
+                                                >
+                                                    <option value={60}>1 hora</option>
+                                                    <option value={360}>6 hores</option>
+                                                    <option value={720}>12 hores</option>
+                                                    <option value={1440}>1 dia</option>
+                                                    <option value={10080}>1 setmana</option>
+                                                </select>
+                                            )}
+
+                                            <button
+                                                onClick={() => runSchedulerNow(task.name)}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold"
+                                            >
+                                                <Play size={12} />
+                                                Executar ara
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
+                        )}
+                    </div>
+                )}
+
+                {selectedControlTab === 'history' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">Resum d'activitat</h3>
+                            <div className="space-y-3 text-sm">
+                                <div className="flex items-center justify-between border border-white/10 rounded-lg p-3 bg-white/5">
+                                    <span className="text-gray-300">Eines pendents d'aprovacio</span>
+                                    <span className="font-bold text-yellow-300">{pendingTools.length}</span>
+                                </div>
+                                <div className="flex items-center justify-between border border-white/10 rounded-lg p-3 bg-white/5">
+                                    <span className="text-gray-300">Eines aprovades totals</span>
+                                    <span className="font-bold text-green-300">{analytics?.tools?.approved ?? 0}</span>
+                                </div>
+                                <div className="flex items-center justify-between border border-white/10 rounded-lg p-3 bg-white/5">
+                                    <span className="text-gray-300">Eines rebutjades totals</span>
+                                    <span className="font-bold text-red-300">{analytics?.tools?.rejected ?? 0}</span>
+                                </div>
+                                <div className="flex items-center justify-between border border-white/10 rounded-lg p-3 bg-white/5">
+                                    <span className="text-gray-300">Errors evitats</span>
+                                    <span className="font-bold text-cyan-300">{analytics?.errors_prevented ?? 0}</span>
+                                </div>
+                            </div>
+
+                            <h4 className="text-gray-500 text-xs uppercase font-bold tracking-widest mt-7 mb-4">Ultimes execucions programades</h4>
+                            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                                {schedulers
+                                    .filter(task => task.last_run)
+                                    .sort((a, b) => new Date(b.last_run) - new Date(a.last_run))
+                                    .slice(0, 10)
+                                    .map(task => (
+                                        <div key={`${task.name}-last`} className="border border-white/10 rounded-lg p-3 bg-white/5">
+                                            <p className="text-sm font-semibold text-white">{task.name.replace(/_/g, ' ')}</p>
+                                            <p className="text-xs text-gray-400">{new Date(task.last_run).toLocaleString()}</p>
+                                        </div>
+                                    ))}
+                                {schedulers.filter(task => task.last_run).length === 0 && (
+                                    <p className="text-sm text-gray-500">Encara no hi ha execucions registrades.</p>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Tool Details */}
-                        <div className="glass-panel p-8 rounded-2xl border border-white/5 overflow-hidden">
-                            {selectedTool ? (
-                                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                                    <h4 className="text-2xl font-mono font-bold text-white mb-4">{selectedTool.name}</h4>
-                                    <p className="text-gray-400 mb-8 leading-relaxed">{selectedTool.description}</p>
-
-                                    <div className="mb-8 group">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">Codi Font</span>
-                                            <span className="text-blue-500 text-[10px] font-bold">PYTHON SCRIPT</span>
-                                        </div>
-                                        <div className="relative">
-                                            <div className="absolute inset-0 bg-blue-500/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            <pre className="relative p-6 bg-black/40 rounded-2xl overflow-x-auto text-sm text-blue-300 font-mono border border-white/5 max-h-[300px] scrollbar-thin scrollbar-thumb-white/10">
-                                                <code>{selectedTool.code}</code>
-                                            </pre>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <button
-                                            onClick={() => handleApprove(selectedTool.name)}
-                                            disabled={approving}
-                                            className="flex-1 bg-white text-black hover:bg-gray-200 disabled:bg-gray-800 disabled:text-gray-500 py-4 px-6 rounded-2xl font-black transition-all transform active:scale-95 shadow-xl shadow-white/5"
-                                        >
-                                            APROVAR
-                                        </button>
-                                        <button
-                                            onClick={() => handleReject(selectedTool.name, "Rebutjat per l'usuari")}
-                                            disabled={approving}
-                                            className="flex-1 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white border border-red-500/20 disabled:border-transparent py-4 px-6 rounded-2xl font-black transition-all transform active:scale-95"
-                                        >
-                                            REBUTJAR
-                                        </button>
-                                    </div>
-                                </div>
+                        <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">Historial d'eines aprovades</h3>
+                            {approvedLoading ? (
+                                <p className="text-gray-400">Carregant historial...</p>
+                            ) : approvedTools.length === 0 ? (
+                                <p className="text-gray-500">No hi ha eines aprovades encara.</p>
                             ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-center p-12">
-                                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 text-gray-600">
-                                        <Gauge size={32} />
-                                    </div>
-                                    <p className="text-gray-500 font-medium">Selecciona una eina per validar el seu codi i autoritzar l'execució.</p>
+                                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                                    {approvedTools
+                                        .slice()
+                                        .sort((a, b) => {
+                                            const aTs = a.approved_at ? new Date(a.approved_at).getTime() : 0;
+                                            const bTs = b.approved_at ? new Date(b.approved_at).getTime() : 0;
+                                            return bTs - aTs;
+                                        })
+                                        .slice(0, 30)
+                                        .map(tool => (
+                                            <div key={tool.name} className="border border-white/10 rounded-lg p-3 bg-white/5">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-sm font-semibold text-blue-300 truncate">{tool.name}</p>
+                                                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${tool.risk_level === 'EXTERNAL_WRITE'
+                                                        ? 'bg-red-500/20 text-red-400'
+                                                        : 'bg-yellow-500/20 text-yellow-400'
+                                                        }`}>
+                                                        {tool.risk_level.replace(/_/g, ' ')}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1">{tool.approved_at ? new Date(tool.approved_at).toLocaleString() : 'Sense data d\'aprovacio'}</p>
+                                                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{tool.description}</p>
+                                            </div>
+                                        ))}
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
-            )
-            }
+                )}
+            </div>
 
             {/* Agent Topology */}
             <div className="mt-20 relative z-10 pb-20">
