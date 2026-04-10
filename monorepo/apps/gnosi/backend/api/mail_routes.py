@@ -11,19 +11,19 @@ from backend.services.google_mail_service import send_reply, update_thread_label
 from backend.services.vault_mail_sync_service import sync_service
 from backend.config.app_config import load_params
 
-router = APIRouter(prefix="/api/mail", tags=["mail"])
+from backend.services.workspace_service import get_workspace_context
+from backend.services.context_vars import get_active_vault_path
+from fastapi import Depends
+
+router = APIRouter(prefix="/api/mail", tags=["mail"], dependencies=[Depends(get_workspace_context)])
 log = logging.getLogger(__name__)
 
-# Load configuration and define Vault paths
-cfg = load_params(strict_env=False)
-VAULT_PATH = cfg.paths["VAULT"]
-MAIL_VAULT_PATH = cfg.paths["MAIL"]
+# Els paths s'han de resoldre dinàmicament per cada petició
+def get_mail_vault_path() -> Path:
+    return get_active_vault_path() / "Mail"
 
-if MAIL_VAULT_PATH:
-    try:
-        MAIL_VAULT_PATH.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
+def get_vault_path() -> Path:
+    return get_active_vault_path()
 
 def _sanitize_yaml_string(val: str) -> str:
     """Escape problematic characters to make a string safe for YAML.
@@ -136,7 +136,9 @@ async def get_messages(
         sync_service.sync_emails(email, limit=10)
 
         messages = []
-        md_files = list(MAIL_VAULT_PATH.glob("*.md"))
+        mail_path = get_mail_vault_path()
+        mail_path.mkdir(parents=True, exist_ok=True)
+        md_files = list(mail_path.glob("*.md"))
         
         for file_path in md_files:
             try:
@@ -194,7 +196,8 @@ async def get_messages(
 @router.get("/messages/{message_id}")
 async def get_message(message_id: str):
     """Gets message details from the Vault."""
-    files = list(MAIL_VAULT_PATH.glob(f"{message_id}_*.md"))
+    mail_path = get_mail_vault_path()
+    files = list(mail_path.glob(f"{message_id}_*.md"))
     if not files:
         raise HTTPException(status_code=404, detail="Message not found in Vault")
     

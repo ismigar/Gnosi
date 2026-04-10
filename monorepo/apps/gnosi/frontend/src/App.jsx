@@ -12,6 +12,7 @@ import ReaderDashboard from './pages/ReaderDashboard';
 import HomePage from './pages/HomePage';
 import MailPage from './pages/MailPage';
 import MediaCenter from './pages/MediaCenter';
+import ContactsPage from './pages/ContactsPage';
 
 import SchedulerPage from './pages/SchedulerPage';
 import ComposerPage from './pages/ComposerPage';
@@ -53,6 +54,7 @@ function App() {
           <Route path="/social/calendar" element={<ContentCalendar />} />
           <Route path="/social/history" element={<PostHistory />} />
           <Route path="/media" element={<MediaCenter />} />
+          <Route path="/contacts" element={<ContactsPage />} />
         </Routes>
       </div>
       <Toaster position="bottom-right" />

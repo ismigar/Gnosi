@@ -393,7 +393,7 @@ export const DigitalBrainCalendar = ({
                     }}
                 />
             </div>
-            <style jsx global>{`
+                <style>{`
                 .fc {
                     color: var(--text-primary);
                 }

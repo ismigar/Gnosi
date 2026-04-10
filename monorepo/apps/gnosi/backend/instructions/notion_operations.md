@@ -1,7 +1,9 @@
-# Directiva: Operacions amb Notion
+# Directiva: Operacions amb Notion (Llegat i Migració)
 
-## Objectiu
-Guia per interactuar amb Notion via MCP de forma segura i eficient.
+> Status: LEGACY / MIGRATION ONLY
+> Aquestes operacions s'han de fer servir exclusivament per a la migració de dades cap a Gnosi o per a exportacions de seguretat puntuals. Gnosi és el sistema primari i sobirà.
+
+Guia per interactuar amb Notion via MCP de forma segura i eficient quan sigui necessari per a tasques de transició.
 
 ## Eines Disponibles (MCP)
 

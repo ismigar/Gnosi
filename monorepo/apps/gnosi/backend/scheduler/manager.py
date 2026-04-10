@@ -31,6 +31,18 @@ class SchedulerManager:
     """
 
     AVAILABLE_TASKS = {
+        "fetch_feeds": {
+            "description": "Fetch RSS/YouTube feeds",
+            "default_interval": 120,  # 2 hours
+        },
+        "fetch_newsletters": {
+            "description": "Fetch POP3 newsletters",
+            "default_interval": 180,  # 3 hours
+        },
+        "generate_podcast": {
+            "description": "Generate daily podcast from unread articles",
+            "default_interval": 1440,  # 24 hours
+        },
         "sync_directives": {
             "description": "Sync directives to Notion",
             "default_interval": 1440,  # 24 hours
@@ -42,6 +54,10 @@ class SchedulerManager:
         "cleanup_rejected": {
             "description": "Cleanup old rejected tools",
             "default_interval": 10080,  # 7 days
+        },
+        "purge_logs": {
+            "description": "Purge backend and pipeline log files",
+            "default_interval": 1440,  # 24 hours
         },
         "update_analytics": {
             "description": "Update statistics",
@@ -57,7 +73,7 @@ class SchedulerManager:
             try:
                 self.config_path.parent.mkdir(parents=True, exist_ok=True)
             except Exception as e:
-                print(f"⚠️ Scheduler: Error creating configuration directory: {e}")
+                pass
 
         self._tasks: Dict[str, ScheduledTask] = {}
         self._running = False
@@ -76,8 +92,25 @@ class SchedulerManager:
                 data = json.load(f)
                 for name, task_data in data.get("tasks", {}).items():
                     self._tasks[name] = ScheduledTask(**task_data)
+
+                # Backward-compatible migration: ensure new default tasks exist
+                # even if the saved config predates them.
+                updated = False
+                for name, config in self.AVAILABLE_TASKS.items():
+                    if name not in self._tasks:
+                        self._tasks[name] = ScheduledTask(
+                            name=name,
+                            description=config["description"],
+                            interval_minutes=config["default_interval"],
+                            enabled=False,
+                        )
+                        updated = True
+
+                if updated:
+                    self._save_config()
         except Exception as e:
-            print(f"⚠️ Scheduler: Error loading configuration, restoring default values: {e}")
+            pass
+
             self._init_default_tasks()
 
     def _init_default_tasks(self):
@@ -101,7 +134,7 @@ class SchedulerManager:
             with open(self.config_path, "w") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            print(f"⚠️ Scheduler: Could not save configuration: {e}")
+            pass
 
     def get_tasks(self) -> List[Dict[str, Any]]:
         """Get all scheduled tasks."""
@@ -149,28 +182,57 @@ class SchedulerManager:
 
     def _execute_task(self, name: str) -> Dict[str, Any]:
         """Execute a specific task."""
-        if name == "sync_directives":
+        if name == "fetch_feeds":
+            return self._task_fetch_feeds()
+        elif name == "fetch_newsletters":
+            return self._task_fetch_newsletters()
+        elif name == "generate_podcast":
+            return self._task_generate_podcast()
+        elif name == "sync_directives":
             return self._task_sync_directives()
         elif name == "backup_tools":
             return self._task_backup_tools()
         elif name == "cleanup_rejected":
             return self._task_cleanup_rejected()
+        elif name == "purge_logs":
+            return self._task_purge_logs()
         elif name == "update_analytics":
             return self._task_update_analytics()
         else:
             return {"error": f"Unknown task: {name}"}
 
     def _task_sync_directives(self) -> Dict[str, Any]:
-        """Sync directives to Notion."""
-        from backend.sync.notion_exporter import notion_exporter
+        """Sync directives to Notion (Legacy Backup)."""
+        from backend.sync.legacy_exporter import legacy_vault_exporter
         import asyncio
 
         loop = asyncio.new_event_loop()
         try:
-            result = loop.run_until_complete(notion_exporter.export_all_directives())
+            result = loop.run_until_complete(legacy_vault_exporter.export_all_directives())
             return result
         finally:
             loop.close()
+
+    def _task_fetch_feeds(self) -> Dict[str, Any]:
+        """Fetch RSS/YouTube feeds and store new articles."""
+        from backend.services.feed_ingester import fetch_and_store_feeds
+
+        count = fetch_and_store_feeds()
+        return {"new_articles": int(count or 0)}
+
+    def _task_fetch_newsletters(self) -> Dict[str, Any]:
+        """Fetch POP3 newsletters and store new articles."""
+        from backend.services.mail_ingester import fetch_and_store_newsletters
+
+        count = fetch_and_store_newsletters()
+        return {"new_articles": int(count or 0)}
+
+    def _task_generate_podcast(self) -> Dict[str, Any]:
+        """Generate the daily podcast from unread articles."""
+        from backend.services.audio_summarizer import generate_daily_podcast
+
+        filename = generate_daily_podcast()
+        return {"filename": filename, "generated": bool(filename)}
 
     def _task_backup_tools(self) -> Dict[str, Any]:
         """Backup approved tools."""
@@ -200,6 +262,46 @@ class SchedulerManager:
 
         # This is a placeholder - in production would delete old rejected tools
         return {"message": "Cleanup simulated", "rejected_count": 0}
+
+    def _task_purge_logs(self) -> Dict[str, Any]:
+        """Purge system logs to avoid accumulating garbage."""
+        import glob
+        import os
+        from backend.config.logger_config import get_logger
+        
+        log = get_logger(__name__)
+        purged_count = 0
+        freed_bytes = 0
+        
+        # Define log search paths (relative to repo root theoretically, 
+        # but let's use absolute if possible via env, or generic relative search)
+        cfg = load_params(strict_env=False)
+        base_dir = cfg.paths.get("ROOT", Path(__file__).parent.parent.parent.parent)
+        
+        # Standard locations to clear
+        log_patterns = [
+            str(base_dir / "monorepo" / "apps" / "gnosi" / "backend" / "data" / "logs" / "*.log"),
+            str(base_dir / "monorepo" / "apps" / "gnosi" / "backend" / "*.log"),
+            str(base_dir / "monorepo" / "apps" / "gnosi" / "pipeline" / "sandbox" / "*.log"),
+            str(base_dir / "monorepo" / "apps" / "gnosi" / "pipeline" / ".tmp" / "*.log"),
+        ]
+        
+        for pattern in log_patterns:
+            for filepath in glob.glob(pattern):
+                try:
+                    size = os.path.getsize(filepath)
+                    # Instead of deleting, we truncate to keep file permissions/handlers intact
+                    open(filepath, 'w').close()
+                    purged_count += 1
+                    freed_bytes += size
+                except Exception as e:
+                    log.warning(f"Failed to purge log {filepath}: {e}")
+                    
+        return {
+            "message": "Logs purged successfully",
+            "files_cleared": purged_count,
+            "freed_bytes": freed_bytes
+        }
 
     def _task_update_analytics(self) -> Dict[str, Any]:
         """Update cached analytics."""

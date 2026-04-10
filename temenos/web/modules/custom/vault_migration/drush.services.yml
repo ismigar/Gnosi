@@ -1,0 +1,25 @@
+# Drush commands services
+services:
+  vault_migration.drush_commands:
+    class: Drupal\vault_migration\Drush\VaultMigrationCommands
+    arguments:
+      - '@vault_migration.cleaner'
+      - '@vault_migration.sync_manager'
+      - '@state'
+      - '@date.formatter'
+      - '@config.factory'
+      - '@lock'
+    tags:
+      - { name: drush.command }
+
+  vault_migration.sync_manager:
+    class: Drupal\vault_migration\VaultMigrationSyncManager
+    arguments:
+      - '@entity_type.manager'
+      - '@language_manager'
+      - '@uuid'
+      - '@keyvalue'
+      - '@logger.channel.vault_migration'
+      - '@vault_migration.vault_client'
+      - '@vault_migration.mapping_storage'
+      - '@config.factory'

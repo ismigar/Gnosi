@@ -1,5 +1,5 @@
 import logging
-from config.paths_config import LOG_DIR
+from backend.config.paths_config import LOG_DIR
 from typing import Optional
 from pathlib import Path
 

@@ -5,26 +5,26 @@ from backend.mcp.client import MultiServerMCPClient
 
 def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> StructuredTool:
     """
-    Crea una eina de LangChain a partir d'una definició MCP.
+    Creates a LangChain tool from an MCP definition.
     """
     name = tool_def["name"]
     description = tool_def.get("description", "")
     schema_def = tool_def.get("inputSchema", {})
     
-    # Construir model Pydantic dinàmic per als arguments
+    # Build dynamic Pydantic model for arguments
     fields = {}
     if "properties" in schema_def:
         for prop_name, prop_schema in schema_def["properties"].items():
-            # Simplificació: Tots els camps string per defecte si no es detecta tipus
-            # Per una implementació robusta caldria mapejar JSON Schema a Pydantic types recursivament.
-            # Per la Fase 2, assumim strings/ints bàsics.
-            fields[prop_name] = (Any, ...) # Required per defecte per simplicitat
+            # Simplification: All fields are string by default if no type is detected
+            # For a robust implementation, standard mapping from JSON Schema to Pydantic is needed.
+            # For Phase 2, we assume basic strings/ints.
+            fields[prop_name] = (Any, ...) # Required by default for simplicity
     
-    # Si no hi ha schema, usem model buit
+    # If no schema, use empty model
     ArgsModel = create_model(f"{name}_args", **fields)
 
     async def tool_func(**kwargs):
-        # Aquesta funció serà cridada per l'agent quan usi l'eina
+        # This function will be called by the agent when it uses the tool
         return await client.call_tool(name, kwargs)
 
     return StructuredTool.from_function(

@@ -1,182 +1,55 @@
-# DIRECTIVE: NOTION_RECURSOS_UNMAPPED_RECONCILE
+# DIRECTIVE: GNOSI_MIGRATION_UNMAPPED_RECONCILE
 
-> ID: 2026-03-10
+> ID: 2026-04-07
 > Associated Script: monorepo/apps/gnosi/pipeline/sandbox/notion_recursos_unmapped_reconcile_candidates.py
-> Last Update: 2026-03-10
-> Status: DRAFT
+> Last Update: 2026-04-07
+> Status: ACTIVE
 
 ---
 
-## 1. Objectives and Scope
+## 1. Objectius i Abast
 
-- Main Objective: Generar propostes de conciliacio per `unmapped_relation_ids` de Notion cap a Recursos locals.
-- Success Criteria:
+- **Objectiu Principal:** Generar propostes de conciliació per IDs de Notion no mapejats (`unmapped_relation_ids`) cap a Recursos locals de Gnosi.
+- **Criteris d'Èxit:**
   - Report JSON amb candidats classificats per confiança.
   - Fitxer markdown resum amb recomptes i mostra.
-  - Cap modificacio del vault (read-only).
+  - Cap modificació del vault (read-only) en la fase de proposta.
 
-## 2. Input/Output (I/O) Specifications
-
-### Inputs
-
-- Environment Variables:
-  - `NOTION_TOKEN` obligatori.
-- Required Arguments:
-  - `--backfill-report` (JSON amb `unmapped_relation_ids`).
-  - `--resources-dir` (carpeta Recursos locals).
-- Optional Arguments:
-  - `--output-json`, `--output-md`, `--limit`.
-
-### Outputs
-
-- Generated Artifacts:
-  - JSON amb: ids no mapejats, títol Notion, candidats locals i score.
-  - Markdown resum amb metriques globals.
-
-## 3. Logical Flow
-
-1. Carregar report de backfill i obtenir IDs no mapejats unics.
-2. Indexar Recursos locals per titol normalitzat i variants (sense accents/puntuacio).
-3. Consultar títol de cada ID Notion no mapejat.
-4. Proposar candidats:
-   - `exact_unique` si matx exacte unic.
-   - `normalized_unique` si matx normalitzat unic.
-   - `fuzzy_candidates` si no hi ha matx unic, conservant nomes candidats amb `score >= 0.70` i limitant la sortida al top 3 per score.
-   - `ambiguous` si multiples candidats.
-   - `no_match` si cap candidat.
-5. Escriure JSON + resum markdown.
-
-## 4. Restrictions and Edge Cases
-
-- No aplicar canvis automatics en aquesta fase.
-- Els resultats `fuzzy_candidates` son nomes suggeriments: requereixen llindar minim + revisio manual abans de qualsevol `--apply`.
-- Si falla API Notion per un ID, registrar error i continuar.
-- Si hi ha titols duplicats a Recursos, marcar com ambigu i no decidir.
-- Determinisme: ordenar sempre IDs i candidats.
-
-## 5. Error Protocol and Learning
-
-| Date | Error Detected | Root Cause | Solution/Patch Applied |
-| --- | --- | --- | --- |
-| 10/03/2026 | Queden molts `unmapped_relation_ids` despres del backfill per ID i fallback per titol unic en notes | Relacions de Notion apunten a registres no presents o no alineats amb Recursos locals | Generar conciliacio assistida de candidats amb score per preparar validacio manual o fase d'aplicacio controlada. |
-| 10/03/2026 | El matching exacte tenia low recall en la fase de conciliacio | Dependencia excessiva de coincidencia exacta/normalitzada en títols heterogenis | Afegir pas `fuzzy_candidates` (top 3, `score >= 0.70`) com a suggeriment per revisio manual abans d'aplicar. Resultat: 205 IDs -> 1 exact + 16 fuzzy, 0 API errors. |
-# DIRECTIVE: NOTION_RECURSOS_UNMAPPED_RECONCILE
-
-> ID: 2026-03-10
-> Associated Script: monorepo/apps/gnosi/pipeline/sandbox/notion_recursos_unmapped_reconcile_candidates.py
-> Last Update: 2026-03-10
-> Status: DRAFT
-
----
-
-## 1. Objectives and Scope
-
-- Main Objective: Generar propostes de conciliacio per `unmapped_relation_ids` de Notion cap a Recursos locals.
-- Success Criteria:
-  - Report JSON amb candidats classificats per confiança.
-  - Fitxer markdown resum amb recomptes i mostra.
-  - Cap modificacio del vault (read-only).
-
-## 2. Input/Output (I/O) Specifications
+## 2. Especificacions d'I/O
 
 ### Inputs
-
-- Environment Variables:
-  - `NOTION_TOKEN` obligatori.
-- Required Arguments:
-  - `--backfill-report` (JSON amb `unmapped_relation_ids`).
-  - `--resources-dir` (carpeta Recursos locals).
-- Optional Arguments:
-  - `--output-json`, `--output-md`, `--limit`.
+- **Variables d'Entorn:**
+  - `NOTION_TOKEN`: Per consultar títols originals a l'API externa.
+- **Arguments Requerits:**
+  - `--backfill-report`: JSON amb `unmapped_relation_ids`.
+  - `--resources-dir`: Carpeta de Recursos locals de Gnosi.
 
 ### Outputs
+- **Artefactes Generats:**
+  - JSON amb IDs no mapejats, títol original de Notion, candidats de Gnosi i score.
+  - Markdown resum amb mètriques globals de la migració.
 
-- Generated Artifacts:
-  - JSON amb: ids no mapejats, títol Notion, candidats locals i score.
-  - Markdown resum amb metriques globals.
+## 3. Flux Lògic
 
-## 3. Logical Flow
+1. **Acquisició:** Carregar report de backfill i obtenir IDs no mapejats únics de la font externa.
+2. **Indexació:** Indexar els Recursos locals de Gnosi per títol normalitzat i variants.
+3. **Consulta Externa:** Consultar el títol de cada ID a l'API de Notion.
+4. **Matching:** Proposar candidats a Gnosi:
+    - `exact_unique`: Matx exacte únic.
+    - `normalized_unique`: Matx normalitzat únic.
+    - `fuzzy_candidates`: Candidats amb `score >= 0.70` (top 3).
+    - `no_match`: Cap candidat trobat al vault.
+5. **Persistència:** Escriure JSON + resum markdown a la carpeta de migració.
 
-1. Carregar report de backfill i obtenir IDs no mapejats unics.
-2. Indexar Recursos locals per titol normalitzat i variants (sense accents/puntuacio).
-3. Consultar títol de cada ID Notion no mapejat.
-4. Proposar candidats:
-   - `exact_unique` si matx exacte unic.
-   - `normalized_unique` si matx normalitzat unic.
-  - `fuzzy_candidates` si no hi ha matx unic, conservant nomes candidats amb `score >= 0.70` i limitant la sortida al top 3 per score.
-   - `ambiguous` si multiples candidats.
-   - `no_match` si cap candidat.
-5. Escriure JSON + resum markdown.
+## 4. Restriccions i Casos de Cantonada
 
-## 4. Restrictions and Edge Cases
+- **Seguretat:** No aplicar canvis automàtics; aquesta directiva és només per a conciliació i proposta.
+- **Ambigüitat:** Si hi ha títols duplicats a Gnosi, marcar com ambigu i requerir revisió manual.
+- **Límits API:** Si falla l'API de Notion per un ID, registrar l'error i continuar amb el següent.
 
-- No aplicar canvis automatics en aquesta fase.
-- Els resultats `fuzzy_candidates` son nomes suggeriments: requereixen llindar minim + revisio manual abans de qualsevol `--apply`.
-- Si falla API Notion per un ID, registrar error i continuar.
-- Si hi ha titols duplicats a Recursos, marcar com ambigu i no decidir.
-- Determinisme: ordenar sempre IDs i candidats.
+## 5. Protocol d'Errors i Aprenentatge (Memòria Viva)
 
-## 5. Error Protocol and Learning
-
-| Date | Error Detected | Root Cause | Solution/Patch Applied |
+| Data | Error Detectat | Causa Arrel | Solució/Patch Aplicat |
 | --- | --- | --- | --- |
-| 10/03/2026 | Queden molts `unmapped_relation_ids` despres del backfill per ID i fallback per titol unic en notes | Relacions de Notion apunten a registres no presents o no alineats amb Recursos locals | Generar conciliacio assistida de candidats amb score per preparar validacio manual o fase d'aplicacio controlada. |# DIRECTIVE: NOTION_RECURSOS_UNMAPPED_RECONCILE
-
-> ID: 2026-03-10
-> Associated Script: monorepo/apps/gnosi/pipeline/sandbox/notion_recursos_unmapped_reconcile_candidates.py
-> Last Update: 2026-03-10
-> Status: DRAFT
-
----
-
-## 1. Objectives and Scope
-
-- Main Objective: Generar propostes de conciliacio per `unmapped_relation_ids` de Notion cap a Recursos locals.
-- Success Criteria:
-  - Report JSON amb candidats classificats per confiança.
-  - Fitxer markdown resum amb recomptes i mostra.
-  - Cap modificacio del vault (read-only).
-
-## 2. Input/Output (I/O) Specifications
-
-### Inputs
-
-- Environment Variables:
-  - `NOTION_TOKEN` obligatori.
-- Required Arguments:
-  - `--backfill-report` (JSON amb `unmapped_relation_ids`).
-  - `--resources-dir` (carpeta Recursos locals).
-- Optional Arguments:
-  - `--output-json`, `--output-md`, `--limit`.
-
-### Outputs
-
-- Generated Artifacts:
-  - JSON amb: ids no mapejats, títol Notion, candidats locals i score.
-  - Markdown resum amb metriques globals.
-
-## 3. Logical Flow
-
-1. Carregar report de backfill i obtenir IDs no mapejats unics.
-2. Indexar Recursos locals per titol normalitzat i variants (sense accents/puntuacio).
-3. Consultar títol de cada ID Notion no mapejat.
-4. Proposar candidats:
-   - `exact_unique` si matx exacte unic.
-   - `normalized_unique` si matx normalitzat unic.
-   - `ambiguous` si multiples candidats.
-   - `no_match` si cap candidat.
-5. Escriure JSON + resum markdown.
-
-## 4. Restrictions and Edge Cases
-
-- No aplicar canvis automatics en aquesta fase.
-- Si falla API Notion per un ID, registrar error i continuar.
-- Si hi ha titols duplicats a Recursos, marcar com ambigu i no decidir.
-- Determinisme: ordenar sempre IDs i candidats.
-
-## 5. Error Protocol and Learning
-
-| Date | Error Detected | Root Cause | Solution/Patch Applied |
-| --- | --- | --- | --- |
-| 10/03/2026 | Queden molts `unmapped_relation_ids` despres del backfill per ID i fallback per titol unic en notes | Relacions de Notion apunten a registres no presents o no alineats amb Recursos locals | Generar conciliacio assistida de candidats amb score per preparar validacio manual o fase d'aplicacio controlada. |
-| 10/03/2026 | El matching exacte tenia low recall en la fase de conciliacio | Dependencia excessiva de coincidencia exacta/normalitzada en títols heterogenis | Afegir pas `fuzzy_candidates` (top 3, `score >= 0.70`) com a suggeriment per revisio manual abans d'aplicar. Resultat: 205 IDs -> 1 exact + 16 fuzzy, 0 API errors. |
+| 10/03/2026 | Baix recall en matching exacte | Títols heterogenis a Notion vs Gnosi | Afegir `fuzzy_candidates` amb llindar de 0.70. |
+| 07/04/2026 | Confusió d'identitat | Referències a Notion com a aplicació principal | Rebranding de la directiva: Notion és només la FONT, Gnosi és el DESTÍ. |

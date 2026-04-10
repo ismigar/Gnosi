@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Hybrid system:
+Hybrid Connection System:
 - Analysis by tags (fast)
 - Analysis with AI (AI_MODEL) optional
 - Email with suggestions (optional, via SMTP)
 - Writes JSON for the viewer to output/suggestions.json
+
+This system operates primarily on the local Markdown Vault for full sovereignty.
 """
 from __future__ import annotations
+from typing import Optional
 from collections import Counter
-from config.schema_keys import NODE_KIND_KEYS
+from backend.config.schema_keys import (
+    NODE_ID_KEYS, NODE_TITLE_KEYS, NODE_KIND_KEYS, 
+    EDGE_SRC_KEYS, EDGE_DST_KEYS, EDGE_ARRAY_KEYS, 
+    PROJECT_KEYS, LINKS_PROP_KEYS, SELECT_TO_KIND
+)
 from pipeline.parses.robust_ai_parser import analyze_ai
 from pipeline.ai_client import check_model_availability
 import requests
@@ -24,22 +31,27 @@ import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pipeline.brain.validate_suggestions import validate_graph
-from config.logger_config import setup_logging, get_logger
-from config.app_config import load_params
-from config.text_normalization import normalize_text
+from backend.config.logger_config import setup_logging, get_logger
+from backend.config.app_config import load_params
+from backend.config.text_normalization import normalize_text
 from pathlib import Path
 from pprint import pprint
 from itertools import combinations
 from pipeline.skills.json_to_sigma.scripts.json_to_sigma import convert_for_sigma
-from pipeline.notion_api import (
+from pipeline.legacy_notion_connector import (
     get_notes_by_type, 
     notion_url, 
-    update_page_relations, 
+    # update_page_relations (DEPRECATED for live use, only for migration)
     query_database, 
     get_blocks, 
     retrieve_page, 
-    get_database_properties
+    get_database_properties,
+    NOTION_TOKEN,
+    DATABASE_ID,
+    NOTION_ENABLED
 )
+from pipeline.utils.vault_loader import load_local_notes, get_active_vault_path
+from pipeline.utils.vault_writer import update_local_note_relations
 from pipeline.utils.tag_normalization import normalize_tag, normalize_tagset
 
 cfg = load_params(strict_env=False)
@@ -55,34 +67,19 @@ log = get_logger(__name__)
 # ============================================================
 
 # --- Simple keys (outside sections) ---
-MIN_REASON_WORDS   = cfg.get("MIN_REASON_WORDS")
-MAX_REASON_WORDS   = cfg.get("MAX_REASON_WORDS")
-MIN_CONTENT_WORDS  = cfg.get("MIN_CONTENT_WORDS")
-MIN_SIM            = cfg.get("MIN_SIM")
-TAGS_MIN_SCORE_KEEP= cfg.get("tags_min_score_keep")
+MIN_REASON_WORDS   = cfg.get("MIN_REASON_WORDS") or 3
+MAX_REASON_WORDS   = cfg.get("MAX_REASON_WORDS") or 30
+MIN_CONTENT_WORDS  = cfg.get("MIN_CONTENT_WORDS") or 10
+MIN_SIM            = cfg.get("MIN_SIM") or 45
+TAGS_MIN_SCORE_KEEP= cfg.get("tags_min_score_keep") or 15
 
-# --- Notion Keys (all within cfg.notion) ---
+# --- Metadata Keys (all within cfg.notion for schema compatibility) ---
 TYPE_PROP_KEYS      = cfg.notion.get("type_property")
 TAGS_PROP_KEYS      = cfg.notion.get("tags_property")
 LINKS_PROP_KEYS     = cfg.notion.get("links_property")
 TITLE_PROP_KEYS     = cfg.notion.get("title_property")
 
-# --- Schema keys (only existing ones in schema_keys.py) ---
-NODE_ID_KEYS       = cfg.schema_keys["NODE_ID_KEYS"]
-NODE_TITLE_KEYS    = cfg.schema_keys["NODE_TITLE_KEYS"]
-NODE_KIND_KEYS     = cfg.schema_keys["NODE_KIND_KEYS"]
-EDGE_SRC_KEYS      = cfg.schema_keys["EDGE_SRC_KEYS"]
-EDGE_DST_KEYS      = cfg.schema_keys["EDGE_DST_KEYS"]
-EDGE_ARRAY_KEYS    = cfg.schema_keys["EDGE_ARRAY_KEYS"]
-PROJECT_KEYS       = cfg.schema_keys["PROJECT_KEYS"]
-ENLLACA_ALIASES    = cfg.schema_keys["LINKS_PROP_KEYS"]
-SELECT_TO_KIND     = cfg.schema_keys["SELECT_TO_KIND"]
-
-# -----------------------------
-# 🔐 Environment Variables
-# -----------------------------
-NOTION_TOKEN       = cfg.notion["NOTION_TOKEN"]
-DATABASE_ID        = cfg.notion["NOTION_DATABASE"]
+# (Credentials and IDs are loaded for migration/fallback compatibility)
 
 # -----------------------------
 # 📧 SMTP
@@ -106,8 +103,8 @@ AI_MODEL_BACKOFF    = cfg.ai.get("backoff")
 # -----------------------------
 # ⏱️ Delays
 # -----------------------------
-DELAY_ENTRE_NOTAS   = cfg.get("delay_entre_notas")
-DELAY_ENTRE_IA      = cfg.get("delay_entre_ia")
+DELAY_ENTRE_NOTAS   = cfg.get("delay_entre_notas") or 0
+DELAY_ENTRE_IA      = cfg.get("delay_entre_ia") or 0
 
 # -----------------------------
 # 📁 Paths (derived from get_paths())
@@ -131,7 +128,6 @@ from notion_client import Client
 notion = Client(auth=NOTION_TOKEN)
 
 def _find_relation_prop(props: dict) -> str | None:
-    """Finds the real name of the 'Project' relation property among various aliases."""
     for k in props.keys():
         v = props.get(k)
         if isinstance(v, dict) and v.get("type") == "relation":
@@ -146,7 +142,7 @@ def _find_relation_prop(props: dict) -> str | None:
     return None
 
 def _tags_from_props(props: dict) -> list[dict]:
-    """Extracts Notion tags with their color."""
+    """Extracts tags with their color (compatibility mode)."""
     for k in TAGS_PROP_KEYS:
         v = props.get(k)
         if isinstance(v, dict) and v.get("type") == "multi_select":
@@ -173,20 +169,11 @@ def _extract_keywords(text: str, min_len: int) -> list[str]:
 
 def get_notes(select_type: str):
   """
-  Wrapper function to maintain compatibility with the unified API.
-  Ensures the return structure matches what the pipeline expects.
+  Wrapper function to maintain compatibility. 
+  Redirects to local vault by default for Standalone sovereignty.
   """
-  # Ensure tag_aliases is a list
-  tag_aliases = TAGS_PROP_KEYS if isinstance(TAGS_PROP_KEYS, list) else [TAGS_PROP_KEYS]
-  
-  return get_notes_by_type(
-       tipo_select=select_type,
-       type_property_name=TYPE_PROP_KEYS,     # "Note type"
-       title_aliases=NODE_TITLE_KEYS,    # title (multilingual)
-       tag_aliases=tag_aliases,            # Multi-select Tags
-       project_aliases=PROJECT_KEYS,      # Project / Projects / etc.
-       links_aliases=LINKS_PROP_KEYS      # NEW: Enable Sync Relations for these notes
-   )
+  log.info(f"📁 Loading '{select_type}' from local Vault (Standalone Mode)...")
+  return load_local_notes(select_type)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers for enriched export (nodes + edges)
@@ -230,12 +217,21 @@ def _find_relation_prop_by_aliases(props: dict, aliases: list[str]) -> str | Non
                 return k
     return None
 
-def _get_relations_links_to(page_id: str) -> list[str]:
-    """Reads the 'Links to' relational property (with aliases)."""
+def _get_relations_links_to(page_id: str, note_data: Optional[dict] = None) -> list[str]:
+    """Reads the 'Links to' relational property (with aliases).
+    Fallback to local mentions if note_data provided.
+    """
+    if note_data and "mentions" in note_data:
+        return note_data["mentions"]
+
+    if not NOTION_ENABLED:
+        return []
+
     try:
         page = retrieve_page(page_id=page_id)
         props = page.get("properties", {}) or {}
-        rel_name = _find_relation_prop_by_aliases(props, ENLLACA_ALIASES)
+        # Changed from ENLLACA_ALIASES to LINKS_PROP_KEYS (defined in schema_keys)
+        rel_name = _find_relation_prop_by_aliases(props, LINKS_PROP_KEYS)
         if not rel_name:
             return []
         rel = props.get(rel_name)
@@ -251,7 +247,7 @@ def _get_relations_links_to(page_id: str) -> list[str]:
 # -----------------------------------------------------------------------------
 def build_tag_edges_from_nodes(nodes: list[dict], min_shared: int = 1) -> list[dict]:
     """
-    Constructs inferred edges between nodes that share >= min_shared Notion tags.
+    Constructs inferred edges between nodes that share >= min_shared tags.
     Saves via_tags (shared literal names) and marks evidence=["tags_inferred"].
     These connections should be shown as dashed.
     """
@@ -301,11 +297,11 @@ def tag_similarity(n1: dict, n2: dict, cfg) -> tuple[int, list[str]]:
     Calculates a similarity 0..100 based on TAGS and keyword matching.
     Uses weights defined in config (cfg.tags_*).
     """
-    pts_per_tag = int(getattr(cfg, "tags_points_per_common_tag", 25))
-    tags_cap    = int(getattr(cfg, "tags_max_points_from_tags", 50))
-    kw_minlen   = int(getattr(cfg, "tags_keywords_min_len", 5))
-    kw_pts      = int(getattr(cfg, "tags_keywords_points_per_overlap", 3))
-    kw_cap      = int(getattr(cfg, "tags_keywords_max_points", 50))
+    pts_per_tag = int(cfg.get("tags_points_per_common_tag") or 25)
+    tags_cap    = int(cfg.get("tags_max_points_from_tags") or 50)
+    kw_minlen   = int(cfg.get("tags_keywords_min_len") or 5)
+    kw_pts      = int(cfg.get("tags_keywords_points_per_overlap") or 3)
+    kw_cap      = int(cfg.get("tags_keywords_max_points") or 50)
 
     score, razones = 0, []
 
@@ -508,7 +504,7 @@ def debug_edges_table(graph):
 # -----------------------------------------------------------------------------
 def process(force_layout: bool = False):
     log.info("=" * 70)
-    log.info("🔍 HYBRID SYSTEM: TAGS + AI")
+    log.info("🔍 GNOSI HYBRID SYSTEM: TAGS + AI")
     log.info("=" * 70 + "\n")
 
     AI_MODEL_ok = check_model_availability()
@@ -519,33 +515,9 @@ def process(force_layout: bool = False):
              log.info("ℹ️  AI_MODEL not configured - tags only\n")
 
     # ─────────────────────────────────────────────────────────────
-    # Notion Schema Diagnostic
+    # Vault Schema Calibration
     # ─────────────────────────────────────────────────────────────
-    log.info("🔎 Validating DB access…")
-    log.info("DATABASE_ID: %s", DATABASE_ID)
-
-    # A) Database metadata: property names and types
-    try:
-        db_meta = get_database_properties(database_id=DATABASE_ID)
-        props = db_meta.get("properties", {})
-        log.info("📇 Notion Properties (%d):", len(props))
-        pprint([{"name": k, "type": v.get("type")} for k, v in props.items()])
-    except Exception as e:
-        log.exception("❌ Error getting DB metadata: %s", e)
-
-    # B) Show 1 page and its properties
-    try:
-        qr = query_database(database_id=DATABASE_ID, page_size=1)
-        results = qr.get("results", [])
-        if results:
-            page = results[0]
-            pprops = page.get("properties", {})
-            log.info("🧪 Sample page properties:")
-            pprint(list(pprops.keys()))
-        else:
-            log.warning("⚠️ Query returned no pages (could be Notion filter or permissions).")
-    except Exception as e:
-        log.exception("❌ Error querying DB: %s", e)
+    log.info("🏠 Mode: LOCAL VAULT (Sovereign Mode Active)")
 
     # C) What your config expects (for quick comparison)
     log.info("🔧 Expecting: TYPE_PROP_KEYS=%s  LINKS_PROP_KEYS=%s", TYPE_PROP_KEYS, LINKS_PROP_KEYS)
@@ -581,11 +553,13 @@ def process(force_layout: bool = False):
     for i, lect in enumerate(lect_recents, 1):
         log.info(f"[{i}/{len(lect_recents)}] 📖 {lect['titulo'][:50]}...")
         
-        # 0) Update "Enllaça a" from mentions (if any)
+        # 0) Update "Enllaça a" from mentions (if any) - LOCAL ONLY
         mentions = lect.get("mentions", [])
         if mentions:
-            log.info(f"   → Found {len(mentions)} mentions. Updating relations...")
-            update_page_relations(lect["id"], mentions, LINKS_PROP_KEYS)
+            log.info(f"   → Found {len(mentions)} mentions. Updating local relations...")
+            path = lect.get("path")
+            if path:
+                update_local_note_relations(path, mentions)
 
         time.sleep(DELAY_ENTRE_NOTAS)
 
@@ -632,11 +606,13 @@ def process(force_layout: bool = False):
     for i, perm in enumerate(perm_recents, 1):
         log.info(f"[{i}/{len(perm_recents)}] 💎 {perm['titulo'][:50]}...")
         
-        # 0) Update "Enllaça a" from mentions (if any)
+        # 0) Update "Enllaça a" from mentions (if any) - LOCAL ONLY
         mentions = perm.get("mentions", [])
         if mentions:
-            log.info(f"   → Found {len(mentions)} mentions. Updating relations...")
-            update_page_relations(perm["id"], mentions, LINKS_PROP_KEYS)
+            log.info(f"   → Found {len(mentions)} mentions. Updating local relations...")
+            path = perm.get("path")
+            if path:
+                update_local_note_relations(path, mentions)
             
         time.sleep(DELAY_ENTRE_NOTAS)
 
@@ -720,7 +696,7 @@ def process(force_layout: bool = False):
             "id": pid,
             "title": n.get("titulo") or "Untitled",
             "kind": kind,
-            "url": notion_url(pid),
+            "url": f"http://localhost:5173/vault/page/{pid}",
             "tags": note_tags,
             "projects": n.get("projects", []),
             "project_ids": n.get("project_ids", []),
@@ -774,10 +750,7 @@ def process(force_layout: bool = False):
     edges = []
     for n in (permanents + lectures + indexos + dialogos):
         src = _norm_uuid(n["id"])
-        try:
-            targets = _get_relations_links_to(src)
-        except Exception:
-            targets = []
+        targets = _get_relations_links_to(src, note_data=n)
         for t in targets:
             dst = _norm_uuid(t)
             if src == dst:

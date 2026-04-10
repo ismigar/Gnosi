@@ -6,8 +6,8 @@ import requests, re
 import unicodedata
 import logging
 from pathlib import Path
-from config.logger_config import get_logger
-from config.app_config import load_params
+from backend.config.logger_config import get_logger
+from backend.config.app_config import load_params
 from pipeline.ai_client import call_ai_client, call_ai_with_fallback, get_provider_config, PRIMARY_PROVIDER
 from pipeline.utils.ai_analysis_cache import get_pending_queue
 import json
@@ -65,7 +65,7 @@ def _nonempty_path(p) -> Optional[Path]:
         return None
 
 def _project_root_from_this_file(levels: int = 2) -> Path:
-    """Determine project root relative to this module (e.g. .../notion-scripts)."""
+    """Determine project root relative to this module (e.g. .../vault-scripts)."""
     return Path(__file__).resolve().parents[levels]
 
 def _candidate_paths() -> list[Path]:

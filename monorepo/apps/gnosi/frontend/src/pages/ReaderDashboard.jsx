@@ -43,7 +43,7 @@ const ReaderDashboard = () => {
                 setPodcastInfo(null);
             }
         } catch (error) {
-            console.log("No podcast available");
+
         }
     };
 

@@ -1,8 +1,8 @@
 # pipeline/config/graph_styles.py
 
 from typing import Optional
-from config.app_config import load_params
-from config.logger_config import get_logger
+from backend.config.app_config import load_params
+from backend.config.logger_config import get_logger
 
 cfg = load_params(strict_env=False)
 C = cfg.colors

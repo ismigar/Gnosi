@@ -171,7 +171,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
 
     // Gestionar el Drag & Drop de notes al llenç
     const handleDrop = useCallback((e) => {
-        console.log("DROP CAPTURED", e.dataTransfer.types);
+        
         if (!excalidrawAPI) {
             console.error("No Excalidraw API");
             return;
@@ -179,7 +179,7 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
 
         const noteDataString = e.dataTransfer.getData('application/gnosi-note');
         if (!noteDataString) {
-            console.log("No valid payload for gnosi-note");
+            
             return;
         }
 

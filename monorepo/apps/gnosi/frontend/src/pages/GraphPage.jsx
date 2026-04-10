@@ -257,10 +257,8 @@ function GraphPage() {
                 const { version: newVersion } = await versionRes.json();
 
                 if (newVersion && newVersion !== graphVersion) {
-                    console.log("📊 Graph version changed, reloading...");
                     fetchGraphData(true);
                 } else {
-                    console.log("✅ Sync completed, no changes detected.");
                 }
             } catch (err) {
                 console.error("❌ Sync error:", err);
@@ -284,13 +282,11 @@ function GraphPage() {
         }
 
         if (match) {
-            console.log("Found match:", match.label);
             setSelectedNode(String(match.key));
             if (graphViewerRef.current) {
                 graphViewerRef.current.panToNode(String(match.key), 2.5);
             }
         } else {
-            console.log("No match found for", term);
         }
     };
 

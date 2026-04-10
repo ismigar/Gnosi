@@ -10,8 +10,8 @@ BASE_DIR = Path(os.getcwd()).resolve()
 @tool
 def inspect_codebase(path: str = ".") -> str:
     """
-    Llegeix l'estructura de directoris i contingut de fitxers dins del backend.
-    Limitat al directori actual de treball per seguretat.
+    Reads the directory structure and file contents within the backend.
+    Limited to the current working directory for security.
     """
     try:
         target_path = (BASE_DIR / path).resolve()
@@ -42,7 +42,7 @@ def inspect_codebase(path: str = ".") -> str:
 @tool
 def create_git_branch(branch_name: str) -> str:
     """
-    Crea una nova branca de Git per a treballar en canvis de manera segura.
+    Creates a new Git branch to work on changes safely.
     Ex: 'feat/improve-agent'
     """
     try:
@@ -61,7 +61,7 @@ def create_git_branch(branch_name: str) -> str:
 @tool
 def commit_changes(message: str) -> str:
     """
-    Afegeix TOTS els canvis actuals (git add .) i fa commit amb el missatge donat.
+    Adds ALL current changes (git add .) and commits with the given message.
     """
     try:
         # 1. Add
@@ -82,10 +82,10 @@ def commit_changes(message: str) -> str:
 @tool
 def apply_patch(file_path: str, search_text: str, replace_text: str) -> str:
     """
-    Aplica un canvi específic a un fitxer reemplaçant text.
-    search_text: Text exacte a buscar.
-    replace_text: Text nou.
-    Retorna error si el text no es troba o apareix múltiples vegades (ambigüitat).
+    Applies a specific change to a file by replacing text.
+    search_text: Exact text to search for.
+    replace_text: New text.
+    Returns error if text is not found or appears multiple times (ambiguity).
     """
     try:
         target_path = (BASE_DIR / file_path).resolve()
@@ -119,7 +119,7 @@ def apply_patch(file_path: str, search_text: str, replace_text: str) -> str:
 @tool
 def run_tests(path: str = "backend") -> str:
     """
-    Executa tests utilitzant pytest.
+    Runs tests using pytest.
     Useful for TDD (Test Driven Development) and verifying changes.
     path: File or directory to test (default: 'backend').
     """
@@ -148,9 +148,9 @@ def run_tests(path: str = "backend") -> str:
 @tool
 def search_code_symbols(query: str) -> str:
     """
-    Cerca definicions de classes i funcions en el codi backend utilitzant AST.
-    Molt més ràpid i precís que grep per trobar "on està definida la funció X".
-    query: Nom (o part del nom) de la funció o classe.
+    Searches for class and function definitions in the backend code using AST.
+    Much faster and more accurate than grep for finding "where function X is defined".
+    query: Name (or part of the name) of the function or class.
     """
     import ast
     
@@ -192,9 +192,9 @@ def search_code_symbols(query: str) -> str:
 @tool
 def save_memory(content: str) -> str:
     """
-    Guarda informació important a la memòria a llarg termini (Vector DB).
-    Usa-ho per recordar fets, preferències de l'usuari o decisions arquitectòniques.
-    content: El text a recordar (ex: "L'usuari prefereix el color taronja").
+    Saves important information to long-term memory (Vector DB).
+    Use it to remember facts, user preferences, or architectural decisions.
+    content: The text to remember (ex: "The user prefers the color orange").
     """
     from .memory import memory_store
     return memory_store.add_memory(content)
@@ -202,8 +202,8 @@ def save_memory(content: str) -> str:
 @tool
 def query_memory(query: str) -> str:
     """
-    Busca a la memòria a llarg termini.
-    Usa-ho quan l'usuari pregunti per coses del passat o context que no tens al xat actual.
+    Searches in long-term memory.
+    Use it when the user asks about things from the past or context that you don't have in the current chat.
     """
     from .memory import memory_store
     results = memory_store.search_memory(query)
@@ -214,27 +214,27 @@ def query_memory(query: str) -> str:
 @tool
 def search_vault(query: str, k: int = 5) -> str:
     """
-    Busca contingut rellevant al Vault de Gnosi (Wiki, BD, etc.).
-    Usa-ho per respondre preguntes sobre la informació personal, notes i bases de dades de l'usuari.
-    Retorna un resum dels fragments més rellevants.
+    Searches for relevant content in the Gnosi Vault (Wiki, DB, etc.).
+    Useful for answering questions about user's personal information, notes, and databases.
+    Returns a summary of the most relevant fragments.
     """
     from .memory import vault_store
     results = vault_store.search_vault(query, k=k)
     if not results:
-        return "No s'ha trobat informació rellevant al Vault."
+        return "No relevant information found in the Vault."
         
-    formatted = "Informació rellevant trobada al Vault:\n"
+    formatted = "Relevant information found in the Vault:\n"
     for r in results:
         meta = r.get("metadata", {})
-        source = meta.get("source", "Desconeguda")
-        formatted += f"- [Font: {source}]\n  Contingut: {r['content']}\n\n"
+        source = meta.get("source", "Unknown")
+        formatted += f"- [Source: {source}]\n  Content: {r['content']}\n\n"
     return formatted
 
 @tool
 def get_vault_registry() -> str:
     """
-    Retorna un resum de les bases de dades i taules disponibles al Vault de Gnosi.
-    Usa-ho per saber quins IDs de base de dades utilitzar en les eines de Notion.
+    Returns a summary of the databases and tables available in the Gnosi Vault.
+    Use it to know which database IDs to use in the Notion tools.
     """
     from backend.config.app_config import load_params
     import json
@@ -249,10 +249,10 @@ def get_vault_registry() -> str:
         with open(registry_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
-        summary = "Bases de dades disponibles al Vault:\n"
+        summary = "Databases available in the Vault:\n"
         for table in data.get("tables", []):
-            summary += f"- Nom: {table['name']} | ID: {table['id']}\n"
-            summary += "  Propietats: " + ", ".join([p['name'] for p in table.get('properties', [])[:10]]) + "...\n"
+            summary += f"- Name: {table['name']} | ID: {table['id']}\n"
+            summary += "  Properties: " + ", ".join([p['name'] for p in table.get('properties', [])[:10]]) + "...\n"
             
         return summary
     except Exception as e:

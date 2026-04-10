@@ -11,6 +11,7 @@ from fastapi import (
     File,
     UploadFile,
     Query,
+    Depends,
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -41,70 +42,53 @@ from backend.services.media_service import media_service
 
 log = logging.getLogger(__name__)
 
-router = APIRouter()
+from backend.services.workspace_service import get_workspace_context, require_role
+router = APIRouter(dependencies=[Depends(get_workspace_context)])
 
-from dotenv import load_dotenv
+from backend.services.context_vars import get_active_vault_path
+from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 
-# Actively load dotenv when starting the router to ensure
-# it picks up any changes in .env_shared quickly if running locally.
-try:
-    base_dir = Path(__file__).resolve().parents[4]
-    shared_env = base_dir / ".env_shared"
-    if shared_env.exists():
-        load_dotenv(shared_env)
-except Exception:
-    pass  # Docker envs capture it inherently from compose.yml
+# Helper function to get active paths
+def get_p(key: str) -> Path:
+    from backend.services.context_vars import get_active_vault_path
+    base = get_active_vault_path()
+    
+    # Mapping of standard sub-folders
+    mapping = {
+        "VAULT": base,
+        "ASSETS": base / "Assets",
+        "DATABASES": base / "BD",
+        # The REGISTRY is now a file inside BD
+        "REGISTRY": base / "BD" / "vault_db_registry.json",
+        "CALENDAR": base / "Calendar",
+        "MAIL": base / "Mail",
+        "PLANTILLES": base / "Templates",
+        "DIBUIXOS": base / "Drawings",
+        "WIKI": base / "Wiki",
+        "DASHWORKS": base / ".Dashworks",
+        "NEWSLETTERS": base / "Newsletters",
+        "DATA": base / "data"
+    }
+    return mapping.get(key, base / key.lower())
 
-# Load configuration and get the Vault path
-cfg = load_params(strict_env=False)
-
-# Path debugging
-print(f"STRUCTURAL DEBUG: Keys in the routes dictionary: {list(cfg.paths.keys())}")
-
-VAULT_PATH = cfg.paths.get("VAULT")
-ASSETS_PATH = cfg.paths.get("ASSETS")
-BD_PATH = cfg.paths.get("DATABASES")
-REGISTRY_PATH = cfg.paths.get("REGISTRY")
-CALENDAR_PATH = cfg.paths.get("CALENDAR")
-MAIL_PATH = cfg.paths.get("MAIL")
-PLANTILLES_PATH = cfg.paths.get("PLANTILLES")
-DIBUIXOS_PATH = cfg.paths.get("DIBUIXOS")
-WIKI_PATH = cfg.paths.get("WIKI")
-DASHWORKS_PATH = cfg.paths.get("DASHWORKS")
-NEWSLETTERS_PATH = cfg.paths.get("NEWSLETTERS")
-DATA_PATH = cfg.paths.get("DATA")
-
-# Ensure BD exists (for registry) only if the path is defined
-if BD_PATH:
-    try:
-        BD_PATH.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
-
-# If WIKI_PATH doesn't exist, maybe the user wants it to be Mail or another folder.
-# For now, we keep it but remain resilient in the reading logic.
-DEFAULT_DB_PATH = BD_PATH / "Cervell Digital" if BD_PATH else None
-DEFAULT_TABLE_PATH = DEFAULT_DB_PATH / "Taula 1" if DEFAULT_DB_PATH else None
-# NEWSLETTERS_PATH ja ve de cfg.paths.get("NEWSLETTERS"), no cal sobreescriure-ho amb VAULT_PATH
-
-# Initialize RuleEngine (Lazy Loading to avoid structural crash on startup if Vault is missing)
-def get_rule_engine():
-    global VAULT_PATH
-    # Reload path if necessary
-    if not VAULT_PATH:
-        cfg = load_params(strict_env=False)
-        VAULT_PATH = cfg.paths.get("VAULT")
-    return RuleEngine(VAULT_PATH)
-
-rule_engine = None # Will be initialized on the first request that needs it
-_table_recalc_lock = threading.Lock()
-_table_recalc_state = {}
-_TABLE_RECALC_COOLDOWN_SECONDS = 0.5
-_page_index_lock = threading.Lock()
-_page_index_entries: Dict[str, Dict[str, Any]] = {}
-_custom_icons_lock = threading.Lock()
-
-CUSTOM_ICONS_PATH = (DATA_PATH or BD_PATH or Path("/tmp")) / "vault_custom_icons.json"
+def __getattr__(name: str):
+    path_keys = {
+        "VAULT_PATH": "VAULT",
+        "ASSETS_PATH": "ASSETS",
+        "BD_PATH": "DATABASES",
+        "REGISTRY_PATH": "REGISTRY",
+        "CALENDAR_PATH": "CALENDAR",
+        "MAIL_PATH": "MAIL",
+        "PLANTILLES_PATH": "PLANTILLES",
+        "DIBUIXOS_PATH": "DIBUIXOS",
+        "WIKI_PATH": "WIKI",
+        "DASHWORKS_PATH": "DASHWORKS",
+        "NEWSLETTERS_PATH": "NEWSLETTERS",
+        "DATA_PATH": "DATA"
+    }
+    if name in path_keys:
+        return get_p(path_keys[name])
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
 def _clear_page_index_cache():
@@ -134,24 +118,8 @@ def sync_to_google_calendar_if_needed(
             background_tasks.add_task(update_google_event, email, event_uid, patch_data)
 
 
-# Ensure they exist (only if the path is defined)
-if ASSETS_PATH:
-    try:
-        ASSETS_PATH.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        log.error(f"Error creating ASSETS_PATH: {e}")
-
-log.info(f"DEBUG: VAULT_PATH is {VAULT_PATH}")
-log.info(f"DEBUG: REGISTRY_PATH is {REGISTRY_PATH}")
-
-if REGISTRY_PATH and not REGISTRY_PATH.exists():
-    try:
-        REGISTRY_PATH.write_text(
-            json.dumps({"databases": [], "tables": [], "views": []}, indent=2),
-            encoding="utf-8",
-        )
-    except Exception as e:
-        log.error(f"Error creating REGISTRY: {e}")
+# Base folders and files are now created during workspace activation (WorkspaceService)
+# or initialized on demand in each route via get_p().
 
 
 class PageSaveRequest(BaseModel):
@@ -177,7 +145,7 @@ class PageInfo(BaseModel):
     last_modified: str
     size: int
     folder: str = (
-        ""  # relative folder path inside the vault (e.g. "BD/Cervell Digital/Recursos")
+        ""  # relative folder path inside the vault (e.g. "Databases/Gnosi/Resources")
     )
     path: Optional[str] = None  # Absolute file path
     resolved_table_id: Optional[str] = None
@@ -253,13 +221,42 @@ def _normalize_custom_icons(values: Any, limit: int = 100) -> List[str]:
     return normalized
 
 
+# RuleEngine becomes a dictionary to store an instance for each vault_path (cache)
+_rule_engines = {}
+_rule_engine_lock = threading.Lock()
+
+def get_rule_engine():
+    from backend.services.context_vars import get_active_vault_path
+    from pipeline.utils.rule_engine import RuleEngine
+    v_path = get_active_vault_path()
+    v_str = str(v_path)
+    
+    with _rule_engine_lock:
+        if v_str not in _rule_engines:
+            log.info(f"Initializing RuleEngine for vault: {v_str}")
+            _rule_engines[v_str] = RuleEngine(v_path)
+        return _rule_engines[v_str]
+
+# Instead of a global constant, we use a function
+def get_custom_icons_path():
+    return get_p("DATA") / "vault_custom_icons.json"
+
+_table_recalc_lock = threading.Lock()
+_table_recalc_state = {}
+_TABLE_RECALC_COOLDOWN_SECONDS = 0.5
+_page_index_lock = threading.Lock()
+# Page index also partitioned per vault
+_page_index_entries: Dict[str, Dict[str, Dict[str, Any]]] = {}
+_custom_icons_lock = threading.Lock()
+
 def _load_custom_icons() -> List[str]:
     with _custom_icons_lock:
         try:
-            if not CUSTOM_ICONS_PATH.exists():
+            path = get_custom_icons_path()
+            if not path.exists():
                 return []
 
-            raw = json.loads(CUSTOM_ICONS_PATH.read_text(encoding="utf-8"))
+            raw = json.loads(path.read_text(encoding="utf-8"))
             return _normalize_custom_icons(raw, limit=100)
         except Exception:
             return []
@@ -270,8 +267,8 @@ def _save_custom_icons(values: List[str]) -> List[str]:
 
     with _custom_icons_lock:
         try:
-            CUSTOM_ICONS_PATH.parent.mkdir(parents=True, exist_ok=True)
-            CUSTOM_ICONS_PATH.write_text(
+            get_p("CUSTOM_ICONS").parent.mkdir(parents=True, exist_ok=True)
+            get_p("CUSTOM_ICONS").write_text(
                 json.dumps(normalized, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
@@ -297,7 +294,7 @@ def _upload_image_to_assets_subdir(file: UploadFile, subdir: str) -> Dict[str, s
     if not _is_image_upload(file):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image")
 
-    target_path = ASSETS_PATH / subdir
+    target_path = get_p("ASSETS") / subdir
     target_path.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -334,7 +331,7 @@ def _store_icon_bytes(
     if not payload:
         raise HTTPException(status_code=400, detail="Empty icon payload")
 
-    icons_dir = ASSETS_PATH / "Icons"
+    icons_dir = get_p("ASSETS") / "Icons"
     icons_dir.mkdir(parents=True, exist_ok=True)
 
     digest = hashlib.sha256(payload).hexdigest()[:12]
@@ -346,7 +343,7 @@ def _store_icon_bytes(
         icon_path.write_bytes(payload)
 
     thumbnail_rel = _maybe_create_icon_thumbnail(icon_path, digest)
-    icon_rel = str(icon_path.relative_to(VAULT_PATH)).replace("\\", "/")
+    icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
 
     response = {
         "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
@@ -384,12 +381,12 @@ def _maybe_create_icon_thumbnail(icon_path: Path, digest: str) -> Optional[str]:
             cropped = img.crop((left, top, left + side, top + side))
             thumb = cropped.resize((128, 128), Image.LANCZOS)
 
-            thumbs_dir = ASSETS_PATH / "Icons" / "Thumbnails"
+            thumbs_dir = get_p("ASSETS") / "Icons" / "Thumbnails"
             thumbs_dir.mkdir(parents=True, exist_ok=True)
             thumb_path = thumbs_dir / f"icon-{digest}-thumb.png"
 
             thumb.save(thumb_path, format="PNG")
-            return str(thumb_path.relative_to(VAULT_PATH)).replace("\\", "/")
+            return str(thumb_path.relative_to(get_p("VAULT"))).replace("\\", "/")
     except Exception:
         return None
 
@@ -407,7 +404,7 @@ def _resource_visible_record(page: PageInfo) -> bool:
     if metadata.get("is_template"):
         return False
 
-    tipus = str(metadata.get("Tipus") or "").strip().lower()
+    tipus = str(metadata.get("Type") or metadata.get("Tipus") or "").strip().lower()
     title = str(page.title or "").strip().lower()
     gnosi_id = str(metadata.get("id") or page.id or "").strip()
 
@@ -478,13 +475,13 @@ def is_calendar_entry(metadata: Optional[dict]) -> bool:
 
 def init_vault():
     """Initializes the basic environment."""
-    if not VAULT_PATH:
+    if not get_p("VAULT"):
         log.info("⚠️ Bunker in 'pending' mode: Starting without structural Vault path.")
         return
         
     paths_to_create = [
-        VAULT_PATH, ASSETS_PATH, CALENDAR_PATH, DIBUIXOS_PATH, BD_PATH, 
-        DEFAULT_DB_PATH, DEFAULT_TABLE_PATH, NEWSLETTERS_PATH, WIKI_PATH, DASHWORKS_PATH
+        get_p("VAULT"), get_p("ASSETS"), get_p("CALENDAR"), get_p("DIBUIXOS"), get_p("DATABASES"), 
+        get_p("DEFAULT_DB"), get_p("DEFAULT_TABLE"), get_p("NEWSLETTERS"), get_p("WIKI"), get_p("DASHWORKS")
     ]
     
     for p in paths_to_create:
@@ -508,26 +505,26 @@ def ensure_default_registry_structure():
     changed = False
 
     db = next(
-        (d for d in registry["databases"] if d.get("id") == "digital_brain_db"), None
+        (d for d in registry["databases"] if d.get("id") == "gnosi_vault_db"), None
     )
     if db is None:
         db = {
-            "id": "digital_brain_db",
-            "name": "Cervell Digital",
-            "folder": "BD/Cervell Digital",
+            "id": "gnosi_vault_db",
+            "name": "Gnosi Vault",
+            "folder": "Databases/Gnosi",
         }
         registry["databases"].append(db)
         changed = True
     else:
-        if db.get("name") != "Cervell Digital":
-            db["name"] = "Cervell Digital"
+        if db.get("name") != "Gnosi Vault":
+            db["name"] = "Gnosi Vault"
             changed = True
-        if db.get("folder") != "BD/Cervell Digital":
-            db["folder"] = "BD/Cervell Digital"
+        if db.get("folder") != "Databases/Gnosi":
+            db["folder"] = "Databases/Gnosi"
             changed = True
 
     default_table = next(
-        (t for t in registry["tables"] if t.get("id") == "taula_1"), None
+        (t for t in registry["tables"] if t.get("id") == "table_1"), None
     )
     if default_table is None:
         has_any_table_for_default_db = any(
@@ -540,7 +537,7 @@ def ensure_default_registry_structure():
         save_registry(registry)
 
 
-init_vault()
+# init_vault() # Disabled: Now initialized dynamically per workspace via WorkspaceService
 
 
 def parse_frontmatter(content: str, file_path: Optional[Path] = None):
@@ -679,27 +676,27 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
     is_dashworks = metadata.get("is_dashworks") is True
 
     if is_template:
-        target_dir = PLANTILLES_PATH
+        target_dir = get_p("PLANTILLES")
     elif is_calendar:
-        target_dir = CALENDAR_PATH
+        target_dir = get_p("CALENDAR")
     elif is_dashworks:
-        target_dir = DASHWORKS_PATH
+        target_dir = get_p("DASHWORKS")
     else:
         table_folder = _resolve_table_folder_from_metadata(metadata)
         if table_folder:
             target_dir = table_folder
         else:
-            target_dir = WIKI_PATH
+            target_dir = get_p("WIKI")
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
     # We don't move notes that are already in user subfolders, except Templates/Calendar.
     can_relocate = (
-        file_path.parent == VAULT_PATH
-        or file_path.parent == PLANTILLES_PATH
-        or file_path.parent == CALENDAR_PATH
-        or file_path.parent == WIKI_PATH
-        or file_path.parent == DASHWORKS_PATH
+        file_path.parent == get_p("VAULT")
+        or file_path.parent == get_p("PLANTILLES")
+        or file_path.parent == get_p("CALENDAR")
+        or file_path.parent == get_p("WIKI")
+        or file_path.parent == get_p("DASHWORKS")
     )
 
     if can_relocate and file_path.parent != target_dir:
@@ -809,10 +806,10 @@ def _safe_filename(title: str, target_dir: Path) -> str:
 
 
 def _is_dashworks_file_path(file_path: Path) -> bool:
-    if not file_path or file_path.suffix.lower() != ".json" or not DASHWORKS_PATH:
+    if not file_path or file_path.suffix.lower() != ".json" or not get_p("DASHWORKS"):
         return False
     try:
-        file_path.resolve().relative_to(DASHWORKS_PATH.resolve())
+        file_path.resolve().relative_to(get_p("DASHWORKS").resolve())
         return True
     except Exception:
         return False
@@ -943,7 +940,7 @@ def _property_assets_dir(
         (table or {}).get("name") or (table or {}).get("id") or "Table", "Table"
     )
     prop_segment = _sanitize_asset_segment(property_name, "Property")
-    return ASSETS_PATH / db_segment / table_segment / prop_segment
+    return get_p("ASSETS") / db_segment / table_segment / prop_segment
 
 
 def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
@@ -988,15 +985,15 @@ def _ensure_table_vault_folder(table: Dict[str, Any], registry_data: Dict[str, A
                 break
 
     # Correct final path: Gnosi / BD / DB Name / folder_rel
-    target_path = VAULT_PATH / db_folder / folder_rel
+    target_path = get_p("VAULT") / db_folder / folder_rel
     
     # Migration routes (where the folder might be right now)
-    legacy_root_path = VAULT_PATH / folder_rel
-    legacy_bd_path = BD_PATH / folder_rel
+    legacy_root_path = get_p("VAULT") / folder_rel
+    legacy_bd_path = get_p("DATABASES") / folder_rel
 
     try:
         # 1. MIGRATION from root (Gnosi/Articles)
-        if legacy_root_path.exists() and legacy_root_path.is_dir() and legacy_root_path != (VAULT_PATH / db_folder):
+        if legacy_root_path.exists() and legacy_root_path.is_dir() and legacy_root_path != (get_p("VAULT") / db_folder):
             if not target_path.exists():
                 log.info(f"📦 Migrating table folder from ROOT to {db_folder}: {folder_rel}")
                 target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1036,7 +1033,7 @@ def _table_assets_dir(
     table_segment = _sanitize_asset_segment(
         (table or {}).get("name") or (table or {}).get("id") or "Table", "Table"
     )
-    return ASSETS_PATH / db_segment / table_segment
+    return get_p("ASSETS") / db_segment / table_segment
 
 
 def _delete_asset_files_for_page(
@@ -1068,7 +1065,7 @@ def _delete_asset_files_for_page(
             rel = raw_path.strip()
             if not rel.startswith("Assets/"):
                 continue
-            abs_path = VAULT_PATH / rel
+            abs_path = get_p("VAULT") / rel
             if abs_path.is_file():
                 try:
                     abs_path.unlink()
@@ -1110,7 +1107,7 @@ def _copy_local_file_to_assets(local_path: Path, target_dir: Path) -> str:
         ext = local_path.suffix
         destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
     shutil.copy2(local_path, destination)
-    return str(destination.relative_to(VAULT_PATH)).replace("\\", "/")
+    return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
 
 
 def _save_uploaded_file_to_assets(upload: UploadFile, target_dir: Path) -> str:
@@ -1125,7 +1122,7 @@ def _save_uploaded_file_to_assets(upload: UploadFile, target_dir: Path) -> str:
     with open(destination, "wb") as buffer:
         shutil.copyfileobj(upload.file, buffer)
 
-    return str(destination.relative_to(VAULT_PATH)).replace("\\", "/")
+    return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
 
 
 def _save_data_url_image_to_assets(value: str, target_dir: Path) -> Optional[str]:
@@ -1150,7 +1147,7 @@ def _save_data_url_image_to_assets(value: str, target_dir: Path) -> Optional[str
     filename = f"image-{uuid.uuid4().hex[:12]}{ext}"
     destination = target_dir / filename
     destination.write_bytes(decoded)
-    return str(destination.relative_to(VAULT_PATH)).replace("\\", "/")
+    return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
 
 
 def _persist_asset_value(value: Any, target_dir: Path) -> Any:
@@ -1238,7 +1235,7 @@ def _persist_metadata_assets(metadata: dict) -> dict:
 
 
 def _normalize_rel_folder(folder: Optional[str]) -> str:
-    """Normalizes the folder path to make it relative to VAULT_PATH.
+    """Normalizes the folder path to make it relative to get_p("VAULT").
     THIS VERSION detects if an absolute path from the Mac host is received and cleans it.
     """
     if not folder:
@@ -1288,13 +1285,15 @@ def _build_table_folder_index(registry: dict) -> dict:
 
 
 def _resolve_table_id_from_context(
-    metadata: dict, rel_folder: str, folder_to_table: dict
+    metadata: dict, rel_folder: str, folder_to_table: dict, sorted_folders: Optional[List[str]] = None
 ) -> Optional[str]:
     # Canonical source: table folder from registry.
     folder_key = _normalize_rel_folder(rel_folder).lower()
     if folder_key:
-        # Sort folders by length descending to match the most specific one first
-        sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
+        # Use provided sorted folders if available, otherwise calculate once
+        if sorted_folders is None:
+            sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
+            
         for f in sorted_folders:
             if folder_key == f or folder_key.startswith(f + "/"):
                 return folder_to_table[f]
@@ -1331,13 +1330,13 @@ def _resolve_table_folder_from_metadata(metadata: dict) -> Optional[Path]:
             db_folder = _normalize_rel_folder(db.get("folder")) or f"BD/{db.get('name', 'General')}"
             break
 
-    return VAULT_PATH / db_folder / folder_rel
+    return get_p("VAULT") / db_folder / folder_rel
 
 
 def _resolve_page_context_from_path(
     metadata: dict, file_path: Path
 ) -> tuple[str, Optional[str]]:
-    rel_folder = str(file_path.parent.relative_to(VAULT_PATH)).replace("\\", "/")
+    rel_folder = str(file_path.parent.relative_to(get_p("VAULT"))).replace("\\", "/")
     if rel_folder == ".":
         rel_folder = ""
 
@@ -1386,8 +1385,8 @@ def _recompute_cross_record_formulas_for_table(
                 )
                 break
 
-            for file_path in VAULT_PATH.rglob("*.md"):
-                if any(part.startswith('.') for part in file_path.relative_to(VAULT_PATH).parts):
+            for file_path in get_p("VAULT").rglob("*.md"):
+                if any(part.startswith('.') for part in file_path.relative_to(get_p("VAULT")).parts):
                     continue
 
                 try:
@@ -1460,7 +1459,7 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         metadata = {}
 
     file_id = str(metadata.get("id") or file_path.stem)
-    rel_folder = str(file_path.parent.relative_to(VAULT_PATH)).replace("\\", "/")
+    rel_folder = str(file_path.parent.relative_to(get_p("VAULT"))).replace("\\", "/")
     if rel_folder == ".":
         rel_folder = ""
 
@@ -1479,19 +1478,19 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
 
 
 def _get_cached_page_entries() -> List[Dict[str, Any]]:
-    if not VAULT_PATH.exists():
+    if not get_p("VAULT").exists():
         return []
 
     with _page_index_lock:
         current_paths = set()
 
-        candidate_files = list(VAULT_PATH.rglob("*.md"))
-        if DASHWORKS_PATH and DASHWORKS_PATH.exists():
-            candidate_files.extend(DASHWORKS_PATH.rglob("*.json"))
+        candidate_files = list(get_p("VAULT").rglob("*.md"))
+        if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
+            candidate_files.extend(get_p("DASHWORKS").rglob("*.json"))
 
         for file_path in candidate_files:
             is_dashworks_file = _is_dashworks_file_path(file_path)
-            if not is_dashworks_file and any(part.startswith('.') for part in file_path.relative_to(VAULT_PATH).parts):
+            if not is_dashworks_file and any(part.startswith('.') for part in file_path.relative_to(get_p("VAULT")).parts):
                 continue
 
             path_str = str(file_path)
@@ -1523,27 +1522,62 @@ def _get_cached_page_entries() -> List[Dict[str, Any]]:
         return list(_page_index_entries.values())
 
 
-def _get_pages_snapshot() -> List[PageInfo]:
+def _get_pages_snapshot(only_calendar: bool = False) -> List[PageInfo]:
     entries = _get_cached_page_entries()
     if not entries:
         return []
 
     registry = load_registry()
     folder_to_table = _build_table_folder_index(registry)
+    # Pre-calculate sorted folders for performance (O(N * M) -> O(N * M log M) optimization)
+    sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
+
+    enabled_calendar_tables = []
+    if only_calendar:
+        try:
+            from backend.services.integration_manager import integration_manager
+            integrations = integration_manager.get_all_safe()
+            enabled_calendar_tables = integrations.get("vault_calendar", {}).get("enabled_tables", [])
+        except Exception as e:
+            log.warning(f"Could not load integrations for calendar filtering: {e}")
 
     pages_by_id: Dict[str, PageInfo] = {}
     duplicate_ids = set()
 
     for entry in entries:
+        metadata = entry.get("metadata", {})
+        
+        # 1. Resolve table context efficiently
         resolved_table_id = _resolve_table_id_from_context(
-            entry["metadata"], entry["folder"], folder_to_table
+            metadata, entry["folder"], folder_to_table, sorted_folders=sorted_folders
         )
+        
+        # 2. Filter if requested (Server-side filtering for calendar performance)
+        if only_calendar:
+            table_id = resolved_table_id or metadata.get("table_id") or metadata.get("database_table_id")
+            
+            is_relevant = False
+            # a) Is it in an enabled calendar table?
+            if table_id and table_id in enabled_calendar_tables:
+                is_relevant = True
+            # b) Does it have an explicit date?
+            elif metadata.get("date"):
+                is_relevant = True
+            # c) Is it an external source that isn't 'Gnosi'?
+            else:
+                source = (metadata.get("source") or "").strip().lower()
+                if source and source not in {"gnosi", "gnosi vault"}:
+                    is_relevant = True
+            
+            if not is_relevant:
+                continue
+
         page_info = PageInfo(
             id=entry["id"],
             title=entry["title"],
             parent_id=entry["parent_id"],
             is_database=entry["is_database"],
-            metadata=entry["metadata"],
+            metadata=metadata,
             last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
             size=entry["size"],
             folder=entry["folder"],
@@ -1570,9 +1604,9 @@ def _get_pages_snapshot() -> List[PageInfo]:
 
 
 @router.get("/pages", response_model=List[PageInfo])
-async def list_pages():
+async def list_pages(only_calendar: bool = Query(False)):
     """Lists all pages in the root flatly by iterating through UUID.md files."""
-    return _get_pages_snapshot()
+    return _get_pages_snapshot(only_calendar=only_calendar)
 
 
 @router.get("/pages/by-table/{table_id}", response_model=List[PageInfo])
@@ -1641,7 +1675,7 @@ def _get_unique_filepath(target_dir: Path, name: str, extension: str = ".md") ->
         counter += 1
 
 
-@router.post("/pages")
+@router.post("/pages", dependencies=[Depends(require_role("editor"))])
 async def create_page(request: PageSaveRequest, background_tasks: BackgroundTasks):
     """Creates a new page with a UUID ID."""
     page_id = str(uuid.uuid4())
@@ -1672,14 +1706,14 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     # Determinar directori destí
     if is_template:
-        target_dir = PLANTILLES_PATH
+        target_dir = get_p("PLANTILLES")
     elif is_calendar_entry(metadata):
-        target_dir = CALENDAR_PATH
+        target_dir = get_p("CALENDAR")
     elif is_dashworks:
-        target_dir = DASHWORKS_PATH
+        target_dir = get_p("DASHWORKS")
     else:
         table_folder = _resolve_table_folder_from_metadata(metadata)
-        target_dir = table_folder if table_folder else WIKI_PATH
+        target_dir = table_folder if table_folder else get_p("WIKI")
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1740,28 +1774,28 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 def find_page_path(page_id: str) -> Optional[Path]:
     """Seeks the path of an .md file by ID recursively."""
     # 1. Direct intent UUID/ID format (as before)
-    direct_path = VAULT_PATH / f"{page_id}.md"
+    direct_path = get_p("VAULT") / f"{page_id}.md"
     if direct_path.exists():
         return direct_path
 
-    dashworks_direct_path = DASHWORKS_PATH / f"{page_id}.json" if DASHWORKS_PATH else None
+    dashworks_direct_path = get_p("DASHWORKS") / f"{page_id}.json" if get_p("DASHWORKS") else None
     if dashworks_direct_path and dashworks_direct_path.exists():
         return dashworks_direct_path
 
     # 2. Cercar a l'arrel si el fitxer es diu directament id.md (ja cobert per rglob però útil)
 
     # 3. Fast recursive search by filename (UUID.md)
-    for p in VAULT_PATH.rglob(f"{page_id}.md"):
+    for p in get_p("VAULT").rglob(f"{page_id}.md"):
         return p
 
-    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
-        for p in DASHWORKS_PATH.rglob(f"{page_id}.json"):
+    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
+        for p in get_p("DASHWORKS").rglob(f"{page_id}.json"):
             return p
 
     # 4. Fallback: Search within .md files if the 'id' in frontmatter matches
     # Since this is slow, it's only done if the ID doesn't match any filename.
     # We could maintain an in-memory index if performance becomes an issue.
-    for p in VAULT_PATH.rglob("*.md"):
+    for p in get_p("VAULT").rglob("*.md"):
         try:
             # We only read the first bytes for speed if possible, but parse_frontmatter needs context
             content = p.read_text(encoding="utf-8")
@@ -1771,8 +1805,8 @@ def find_page_path(page_id: str) -> Optional[Path]:
         except Exception:
             continue
 
-    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
-        for p in DASHWORKS_PATH.rglob("*.json"):
+    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
+        for p in get_p("DASHWORKS").rglob("*.json"):
             try:
                 metadata, _ = _read_dashworks_file(p)
                 if metadata.get("id") == page_id:
@@ -1815,7 +1849,7 @@ async def get_page(page_id: str):
         raise HTTPException(status_code=500, detail="Error reading target file")
 
 
-@router.put("/pages/{page_id}")
+@router.put("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
 async def save_page(
     page_id: str, request: PageSaveRequest, background_tasks: BackgroundTasks
 ):
@@ -1840,14 +1874,14 @@ async def save_page(
     if not file_path:
         # If it doesn't exist, we create it in the correct folder according to metadata.
         if is_template:
-            target_dir = PLANTILLES_PATH
+            target_dir = get_p("PLANTILLES")
         elif is_calendar_entry(metadata):
-            target_dir = CALENDAR_PATH
+            target_dir = get_p("CALENDAR")
         elif is_dashworks:
-            target_dir = DASHWORKS_PATH
+            target_dir = get_p("DASHWORKS")
         else:
             table_folder = _resolve_table_folder_from_metadata(metadata)
-            target_dir = table_folder if table_folder else WIKI_PATH
+            target_dir = table_folder if table_folder else get_p("WIKI")
 
         target_dir.mkdir(parents=True, exist_ok=True)
         safe_name = _safe_filename(request.title, target_dir)
@@ -1923,7 +1957,7 @@ async def save_page(
         raise HTTPException(status_code=500, detail="Error writing file to disk")
 
 
-@router.patch("/pages/{page_id}")
+@router.patch("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
 async def patch_page(
     page_id: str, request: PagePatchRequest, background_tasks: BackgroundTasks
 ):
@@ -2018,7 +2052,7 @@ async def patch_page(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/pages/{page_id}")
+@router.delete("/pages/{page_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_page(page_id: str):
     """Permanently deletes the .md page (use with care)."""
     file_path = find_page_path(page_id)
@@ -2067,13 +2101,13 @@ async def delete_page(page_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/upload-cover")
+@router.post("/upload-cover", dependencies=[Depends(require_role("editor"))])
 async def upload_cover(file: UploadFile = File(...)):
     """Uploads an image to the Assets/Covers folder and returns the URL."""
     return _upload_image_to_assets_subdir(file, "Covers")
 
 
-@router.post("/upload-icon")
+@router.post("/upload-icon", dependencies=[Depends(require_role("editor"))])
 async def upload_icon(file: UploadFile = File(...)):
     """Uploads an image to the Assets/Icons folder and returns the URL."""
     if not _is_image_upload(file):
@@ -2128,12 +2162,12 @@ async def import_icon_from_url(request: IconUrlImportRequest):
 @router.get("/assets/{asset_path:path}")
 async def get_asset(asset_path: str):
     """Serves files from the Vault Assets directory."""
-    if not ASSETS_PATH:
+    if not get_p("ASSETS"):
         raise HTTPException(status_code=500, detail="Assets path is not configured")
 
     try:
-        assets_root = ASSETS_PATH.resolve()
-        requested = (ASSETS_PATH / asset_path).resolve()
+        assets_root = get_p("ASSETS").resolve()
+        requested = (get_p("ASSETS") / asset_path).resolve()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid asset path")
 
@@ -2188,10 +2222,10 @@ async def update_media_metadata(
 @router.get("/images/{image_path:path}")
 async def serve_vault_image(image_path: str):
     """Serveix imatges directament des de VAULT/Images."""
-    if not VAULT_PATH:
+    if not get_p("VAULT"):
         raise HTTPException(status_code=500, detail="Vault not configured")
         
-    img_root = (VAULT_PATH / "Images").resolve()
+    img_root = (get_p("VAULT") / "Images").resolve()
     requested = (img_root / image_path).resolve()
     
     if not str(requested).startswith(str(img_root)):
@@ -2361,23 +2395,23 @@ def build_id_title_index() -> Dict[str, str]:
     """Builds a global mapping page_id -> title for vault and dashworks."""
     index: Dict[str, str] = {}
 
-    if VAULT_PATH and VAULT_PATH.exists():
-        for file_path in VAULT_PATH.rglob("*.md"):
+    if get_p("VAULT") and get_p("VAULT").exists():
+        for file_path in get_p("VAULT").rglob("*.md"):
             if ".history" in file_path.parts:
                 continue
             try:
                 raw_content = file_path.read_text(encoding="utf-8")
                 metadata, _ = parse_frontmatter(raw_content, file_path)
                 page_id = str(
-                    metadata.get("id") or metadata.get("notion_id") or file_path.stem
+                    metadata.get("id") or metadata.get("migration_id") or file_path.stem
                 )
                 title = str(metadata.get("title") or file_path.stem)
                 index[page_id] = title
             except Exception as e:
                 log.warning(f"Error indexant {file_path.name}: {e}")
 
-    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
-        for file_path in DASHWORKS_PATH.rglob("*.json"):
+    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
+        for file_path in get_p("DASHWORKS").rglob("*.json"):
             try:
                 metadata, _ = _read_dashworks_file(file_path)
                 page_id = str(metadata.get("id") or file_path.stem)
@@ -2393,8 +2427,8 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
     """Yields page documents as (path, metadata, body, is_dashworks)."""
     docs: List[tuple[Path, Dict[str, Any], str, bool]] = []
 
-    if VAULT_PATH and VAULT_PATH.exists():
-        for file_path in VAULT_PATH.rglob("*.md"):
+    if get_p("VAULT") and get_p("VAULT").exists():
+        for file_path in get_p("VAULT").rglob("*.md"):
             if ".history" in file_path.parts:
                 continue
             try:
@@ -2404,8 +2438,8 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
             except Exception as e:
                 log.warning(f"Error parsing linkable page {file_path.name}: {e}")
 
-    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
-        for file_path in DASHWORKS_PATH.rglob("*.json"):
+    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
+        for file_path in get_p("DASHWORKS").rglob("*.json"):
             try:
                 metadata, body = _read_dashworks_file(file_path)
                 docs.append((file_path, metadata, body, True))
@@ -2776,10 +2810,10 @@ def load_registry():
     """Reads the central registry and ensures it. 
     Cleanup: Deletes default taula_1 and normalizes paths to relative.
     """
-    if not REGISTRY_PATH or not REGISTRY_PATH.exists():
+    if not get_p("REGISTRY") or not get_p("REGISTRY").exists():
         return {"databases": [], "tables": [], "views": []}
     try:
-        data = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+        data = json.loads(get_p("REGISTRY").read_text(encoding="utf-8"))
         
         changed = False
         tables = data.get("tables", [])
@@ -2832,18 +2866,19 @@ def load_registry():
 
 def save_registry(data):
     """Saves the current state to the registry file."""
-    if not REGISTRY_PATH:
+    reg_path = get_p('REGISTRY')
+    if not reg_path:
         log.warning("⚠️ Registry save attempt without configured path.")
         return
     try:
-        REGISTRY_PATH.write_text(
+        reg_path.write_text(
             json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
         )
     except Exception as e:
         log.error(f"❌ Error saving registry: {e}")
 
 
-ensure_default_registry_structure()
+# ensure_default_registry_structure() # Desactivat: S'inicialitza dinàmicament per workspace
 
 
 def _sort_key_name(item):
@@ -3215,7 +3250,7 @@ async def save_schema(folder: str, schema: dict = Body(...)):
     Legacy route to save schemas per folder.
     Now we redirect it to table creation if needed, or save it as a local file.
     """
-    schema_path = VAULT_PATH / folder / "schema.json"
+    schema_path = get_p('VAULT') / folder / "schema.json"
     schema_path.parent.mkdir(parents=True, exist_ok=True)
     schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
     return {"status": "success"}
@@ -3223,7 +3258,7 @@ async def save_schema(folder: str, schema: dict = Body(...)):
 
 @router.get("/schema")
 async def get_schema(folder: str):
-    schema_path = VAULT_PATH / folder / "schema.json"
+    schema_path = get_p('VAULT') / folder / "schema.json"
     if not schema_path.exists():
         return {}
     return json.loads(schema_path.read_text(encoding="utf-8"))
@@ -3237,12 +3272,13 @@ async def get_schema(folder: str):
 @router.get("/drawings")
 async def list_drawings():
     """Lists all drawings in the vault (tldraw and excalidraw)."""
-    DIBUIXOS_PATH.mkdir(parents=True, exist_ok=True)
+    dib_path = get_p('DIBUIXOS')
+    dib_path.mkdir(parents=True, exist_ok=True)
     drawings = []
     seen_ids = set()
 
     # First search for .tldraw.json files (new format)
-    for file_path in DIBUIXOS_PATH.glob("*.tldraw.json"):
+    for file_path in dib_path.glob("*.tldraw.json"):
         drawing_id = file_path.stem.replace(".tldraw", "")
         seen_ids.add(drawing_id)
         stat = file_path.stat()
@@ -3262,7 +3298,7 @@ async def list_drawings():
             log.warning(f"Error llegint dibuix {file_path.name}: {e}")
 
     # Then search for .excalidraw.json files (old format)
-    for file_path in DIBUIXOS_PATH.glob("*.excalidraw.json"):
+    for file_path in get_p("DIBUIXOS").glob("*.excalidraw.json"):
         drawing_id = file_path.stem.replace(".excalidraw", "")
         if drawing_id in seen_ids:
             continue  # We already have the new format
@@ -3287,10 +3323,10 @@ async def list_drawings():
 async def get_drawing(drawing_id: str):
     """Returns the data of a Tldraw drawing."""
     # Search first in new format (.tldraw.json)
-    file_path = DIBUIXOS_PATH / f"{drawing_id}.tldraw.json"
+    file_path = get_p("DIBUIXOS") / f"{drawing_id}.tldraw.json"
     if not file_path.exists():
         # Fallback to old format (.excalidraw.json)
-        file_path = DIBUIXOS_PATH / f"{drawing_id}.excalidraw.json"
+        file_path = get_p("DIBUIXOS") / f"{drawing_id}.excalidraw.json"
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Drawing not found")
 
@@ -3309,8 +3345,8 @@ async def get_drawing(drawing_id: str):
 @router.put("/drawings/{drawing_id}")
 async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
     """Saves or updates a Tldraw drawing."""
-    DIBUIXOS_PATH.mkdir(parents=True, exist_ok=True)
-    file_path = DIBUIXOS_PATH / f"{drawing_id}.tldraw.json"
+    get_p("DIBUIXOS").mkdir(parents=True, exist_ok=True)
+    file_path = get_p("DIBUIXOS") / f"{drawing_id}.tldraw.json"
 
     # Save title and data together
     payload = {
@@ -3332,9 +3368,10 @@ async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
 @router.delete("/drawings/{drawing_id}")
 async def delete_drawing(drawing_id: str):
     """Deletes a drawing."""
-    file_path = DIBUIXOS_PATH / f"{drawing_id}.tldraw.json"
+    dib_path = get_p('DIBUIXOS')
+    file_path = dib_path / f"{drawing_id}.tldraw.json"
     if not file_path.exists():
-        file_path = DIBUIXOS_PATH / f"{drawing_id}.excalidraw.json"
+        file_path = dib_path / f"{drawing_id}.excalidraw.json"
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Drawing not found")
 
@@ -3347,7 +3384,7 @@ def _create_page_version(page_id: str, file_path: Path):
     if not file_path or not file_path.exists():
         return
 
-    history_base = VAULT_PATH / ".history" / page_id
+    history_base = get_p("VAULT") / ".history" / page_id
     history_base.mkdir(parents=True, exist_ok=True)
 
     # 10-minute cooldown (600 seconds) to avoid saturating with auto-saves
@@ -3375,7 +3412,7 @@ def _create_page_version(page_id: str, file_path: Path):
 @router.get("/pages/{page_id}/history")
 async def get_page_history(page_id: str):
     """Returns the list of available versions for a page."""
-    history_base = VAULT_PATH / ".history" / page_id
+    history_base = get_p("VAULT") / ".history" / page_id
     if not history_base.exists():
         return []
     
@@ -3401,7 +3438,7 @@ async def get_page_history(page_id: str):
 @router.get("/pages/{page_id}/history/{timestamp}")
 async def get_page_version_content(page_id: str, timestamp: str):
     """Returns the content of a specific version."""
-    version_path = VAULT_PATH / ".history" / page_id / f"{timestamp}.md"
+    version_path = get_p("VAULT") / ".history" / page_id / f"{timestamp}.md"
     if not version_path.exists():
         raise HTTPException(status_code=404, detail="Version not found")
     
@@ -3422,7 +3459,7 @@ async def get_page_version_content(page_id: str, timestamp: str):
 @router.post("/pages/{page_id}/history/restore/{timestamp}")
 async def restore_page_version(page_id: str, timestamp: str, background_tasks: BackgroundTasks):
     """Restores a page to a previous version."""
-    version_path = VAULT_PATH / ".history" / page_id / f"{timestamp}.md"
+    version_path = get_p("VAULT") / ".history" / page_id / f"{timestamp}.md"
     if not version_path.exists():
         raise HTTPException(status_code=404, detail="Version not found")
     
@@ -3453,7 +3490,7 @@ async def restore_page_version(page_id: str, timestamp: str, background_tasks: B
 @router.delete("/pages/{page_id}/history")
 async def purge_page_history(page_id: str):
     """Deletes all version history of a page."""
-    history_base = VAULT_PATH / ".history" / page_id
+    history_base = get_p("VAULT") / ".history" / page_id
     if not history_base.exists():
         return {"status": "success", "message": "No history to delete"}
     

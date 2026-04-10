@@ -83,7 +83,7 @@ class ToolLoader:
             return None
             
         except Exception as e:
-            print(f"Error loading tool {name}: {e}")
+
             return None
     
     def is_loaded(self, name: str) -> bool:

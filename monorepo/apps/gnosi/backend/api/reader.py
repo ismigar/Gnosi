@@ -3,16 +3,17 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
 
-from backend.data.db import get_db, engine
+from backend.data.db import get_db
 from backend.models import reader as models
 import os
 import xml.etree.ElementTree as ET
 from fastapi.responses import FileResponse
 from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR, generate_daily_podcast
-# Create tables if they don't exist
-models.Base.metadata.create_all(bind=engine)
+from backend.services.workspace_service import get_workspace_context
+from fastapi import Depends
 
-router = APIRouter(prefix="/api/reader", tags=["reader"])
+# Taules i models ara es gestionen automàticament per cada vault a db.py
+router = APIRouter(prefix="/api/reader", tags=["reader"], dependencies=[Depends(get_workspace_context)])
 
 # -- Feed Sources --
 
@@ -141,15 +142,17 @@ def get_podcast_info():
     import os
     from datetime import datetime
     
-    # Is AUDIO_OUTPUT_DIR defined at the beginning of this file? Let's check: 
-    # no, we are importing it or using it directly from audio_summarizer?
-    # Reviewing the get_latest_podcast endpoint, it uses AUDIO_OUTPUT_DIR directly... Let's resolve safely:
     from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR
+    from backend.services.context_vars import get_active_vault_path
     
-    if not os.path.exists(AUDIO_OUTPUT_DIR):
+    # Podcast path within the active vault
+    pod_dir = get_active_vault_path() / "data" / "podcasts"
+    pod_dir.mkdir(parents=True, exist_ok=True)
+    
+    if not os.path.exists(pod_dir):
         return {"exists": False}
         
-    files = [f for f in os.listdir(AUDIO_OUTPUT_DIR) if f.endswith('.mp3')]
+    files = [f for f in os.listdir(pod_dir) if f.endswith('.mp3')]
     if not files:
         return {"exists": False}
     
@@ -171,18 +174,19 @@ def get_podcast_info():
 @router.get("/podcast/latest")
 def get_latest_podcast():
     """Download/Stream the most recent podcast"""
-    from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR
-    import os
-    if not os.path.exists(AUDIO_OUTPUT_DIR):
+    from backend.services.context_vars import get_active_vault_path
+    
+    pod_dir = get_active_vault_path() / "data" / "podcasts"
+    if not os.path.exists(pod_dir):
         raise HTTPException(status_code=404, detail="No podcasts available")
         
-    files = [f for f in os.listdir(AUDIO_OUTPUT_DIR) if f.endswith('.mp3')]
+    files = [f for f in os.listdir(pod_dir) if f.endswith('.mp3')]
     if not files:
         raise HTTPException(status_code=404, detail="No podcasts available")
         
     # Sort files by name (which contains the date format YYYY_MM_DD) to get the latest
     latest_file = sorted(files, reverse=True)[0]
-    file_path = os.path.join(AUDIO_OUTPUT_DIR, latest_file)
+    file_path = os.path.join(pod_dir, latest_file)
     
     return FileResponse(file_path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
 

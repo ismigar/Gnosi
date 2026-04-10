@@ -23,7 +23,6 @@ def _get_embeddings():
     try:
         from langchain_huggingface import HuggingFaceEmbeddings
 
-        print("✅ Memory using HuggingFace embeddings (local)")
         return HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
             model_kwargs={"device": "cpu"},
@@ -50,10 +49,8 @@ def _get_embeddings():
             def embed_query(self, text):
                 return self.model.encode(text).tolist()
 
-        print("✅ Memory using sentence-transformers (local)")
         return LocalEmbeddings()
     except ImportError:
-        print("⚠️ sentence-transformers not installed")
 
     # 2. Fallback to OpenAI (if API key exists)
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -61,12 +58,10 @@ def _get_embeddings():
         try:
             from langchain_openai import OpenAIEmbeddings
 
-            print("✅ Memory using OpenAI embeddings (cloud)")
             return OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
         except ImportError:
             pass
 
-    print("⚠️ Warning: No embeddings available. Memory will not work.")
     return None
 
 

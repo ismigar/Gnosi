@@ -14,7 +14,7 @@ class SuggestionRequest(BaseModel):
     target_id: str
     reason: Optional[str] = None
 
-@router.get("/vault-graph")
+@router.get("/graph")
 async def get_vault_graph() -> Dict[str, Any]:
     """
     Returns the unified Vault graph (4 layers + pages + suggestions)

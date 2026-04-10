@@ -1,5 +1,5 @@
 """
-Sync Routes: API endpoints for syncing directives to Notion.
+Vault Legacy Sync Routes: API endpoints for backing up Gnosi directives to Notion.
 """
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 import json
 
-from backend.sync.notion_exporter import notion_exporter
+from backend.sync.legacy_exporter import legacy_vault_exporter
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
@@ -15,13 +15,13 @@ router = APIRouter(prefix="/api/sync", tags=["sync"])
 _last_sync: Optional[Dict[str, Any]] = None
 
 
-@router.post("/directives-to-notion")
+@router.post("/legacy-backup-to-notion")
 async def sync_directives_to_notion() -> Dict[str, Any]:
-    """Export all directives to a Notion page."""
+    """Export all directives to a Notion page for backup."""
     global _last_sync
     
     try:
-        result = await notion_exporter.export_all_directives()
+        result = await legacy_vault_exporter.export_all_directives()
         
         _last_sync = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -58,7 +58,7 @@ async def get_sync_status() -> Dict[str, Any]:
 async def sync_single_directive(name: str) -> Dict[str, Any]:
     """Sync a single directive to Notion."""
     try:
-        result = await notion_exporter.export_directive(name)
+        result = await legacy_vault_exporter.export_directive(name)
         return result
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Directive '{name}' not found")

@@ -53,7 +53,7 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef })
                 }}
                 theme={effectiveTheme}
             />
-            <style jsx global>{`
+            <style>{`
                 .mail-block-editor .bn-editor {
                     padding: 1rem !important;
                     min-height: 200px;

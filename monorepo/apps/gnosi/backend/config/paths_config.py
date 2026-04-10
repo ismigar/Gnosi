@@ -58,7 +58,8 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
 
     # ── Ensure foundational directories exist (Safe mode) ──
     if vault_path:
-        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashworks_path, data_path]:
+        out_dir = data_path / "out"
+        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashworks_path, data_path, out_dir]:
             if p:
                 try:
                     if not p.exists():
@@ -83,6 +84,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "OUT_GRAPH": out_graph,
         "REGISTRY": registry,
         "LOGS": data_path / "logs",
+        "LOG_DIR": data_path / "logs",
         "CHROMA": data_path / "chroma_db",
         "AUDIO": data_path / "audio",
         "SCHEDULER": data_path / "scheduler_config.json",
@@ -90,5 +92,8 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "TOOLS": safe_base / "Tools",
         "CHECKPOINTS": data_path / "checkpoints",
         "BACKUPS": data_path / "backups",
+        "OUT_DIR": data_path / "out",
+        "STOPWORDS_PATH": project_root / "config" / "stopwords.json",
         "SECRETS": project_root / "pipeline" / "private_skills" / "secrets",
+        "MGMT_DB": safe_base / ".system" / "management.sqlite",
     }

@@ -1,19 +1,23 @@
-# Digital Brain 🧠
+# Gnosi
 
-![Digital Brain Graph View](docs/images/preview.png)
+![Gnsi Graph View](docs/images/preview.png)
 
-Digital Brain is a powerful visualization tool that connects your Notion notes into an interactive knowledge graph. It uses a hybrid approach combining **tag-based analysis** and **AI semantic analysis** to discover and visualize connections between your permanent notes, reading notes, and indexes.
+Gnosi is a powerful, **standalone** knowledge management and visualization tool. It transforms your local Markdown vault into an interactive knowledge graph using a hybrid approach of **tag-based analysis** and **AI semantic analysis**.
+
+> [!IMPORTANT]
+> **Data Sovereignty Active**: This system is now "Local-First". While it supports importing from Notion, all daily operations, note creation, and connection management happen directly in your local filesystem.
 
 ## ✨ Features
 
 -   **Hybrid Analysis**:
-    -   **Tag-based**: Instantly connects notes that share common tags.
+    -   **Tag-based**: Instantly connects notes that share common tags in frontmatter.
     -   **AI-based**: Uses a local AI model (e.g., Ollama with qwen2.5) to find deep semantic connections between note contents.
 -   **Interactive Graph**: Visualizes your knowledge base using a high-performance graph renderer (Sigma.js).
--   **Notion Integration**: Directly fetches data from your Notion database and can update relations back to Notion.
--   **Automated Pipeline**: A Python pipeline that processes your notes and generates a graph structure.
+-   **Local-First Architecture**: High performance, privacy-focused, and independent of 3rd party APIs.
+-   **Markdown Vault Integration**: Directly reads and writes to your local Obsidian-style vault.
+-   **Automated Pipeline**: A Python pipeline that processes your Markdown files and generates a graph structure.
 -   **Modern UI**: A clean React + Vite frontend to explore your digital brain.
--   **Agentic Workflows**: A multi-agent system (Supervisor, Coder, Brain) that can autonomously execute tasks, manage files, and interact with Notion/n8n.
+-   **Agentic Workflows**: A multi-agent system (Supervisor, Coder, Brain) that can autonomously execute tasks and manage files.
 
 ## 🤖 Agentic Architecture
 
@@ -113,7 +117,8 @@ Create a `.env` file in the root directory (copy from a template if available, o
     SERVER_PORT=5002
     ```
 
-2.  Ensure your Notion database has the expected properties (e.g., "Tags", "Note type", "Projects").
+1.  **Configure your Vault path** in `params.yaml`.
+2.  **(Optional) Notion Migration**: If you are coming from Notion, use the migration scripts to seed your local vault.
 
 3.  **Understanding the Similarity Filter**: The graph viewer includes a similarity filter (default: 70%) that controls which AI-inferred connections are displayed. You can adjust this in the sidebar:
     - **70-100%**: Only strong AI connections (recommended for beginners).
@@ -148,7 +153,7 @@ Running with Docker isolates the application and avoids installing dependencies 
 This script fetches data from Notion, runs the AI/Tag analysis, and generates the graph JSON.
 
 ```bash
-python pipeline/suggest_connections_digital_brain.py
+python pipeline/skills/suggest_connections/scripts/suggest_connections_digital_brain.py
 ```
 
 ### 2. Start the Application (Recommended)
@@ -196,7 +201,7 @@ The backup files will be generated in `out/markdown_backup/`. This process utili
 -   `pipeline/`: Python scripts for data fetching, AI analysis, and graph generation.
     -   `suggest_connections_digital_brain.py`: Main pipeline script.
     -   `ai_client.py`: AI model interaction.
-    -   `notion_api.py`: Notion API client.
+    -   `legacy_notion_connector.py`: Legacy Notion API client.
 -   `config/`: Configuration files and schemas.
 
 ## 🤝 Contributing

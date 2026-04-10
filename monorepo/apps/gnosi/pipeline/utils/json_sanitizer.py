@@ -4,7 +4,7 @@
 import math
 from datetime import datetime
 from typing import Any, Union
-from config.logger_config import get_logger
+from backend.config.logger_config import get_logger
 import json
 
 log = get_logger(__name__)

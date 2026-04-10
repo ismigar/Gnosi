@@ -9,7 +9,21 @@
       content="Gnosi es tu segundo cerebro digital. Organiza conocimiento, conecta ideas y potencia tu creatividad con inteligencia artificial."
     />
     <link rel="stylesheet" href="styles.css" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <script>
+      (function() {
+        var lang = navigator.language || navigator.userLanguage || 'en';
+        var path = window.location.pathname;
+        var isDirect = !document.referrer || !document.referrer.includes('ismigar.github.io');
+        if (isDirect && (path.endsWith('index.html') || path === '/' || path.endsWith('/'))) {
+          if (lang.startsWith('ca')) {
+            window.location.replace('/index.ca.html');
+          } else if (!lang.startsWith('es')) {
+            window.location.replace('/index.en.html');
+          }
+        }
+      })();
+    </script>
   </head>
   <body>
     <nav class="navbar">
@@ -19,6 +33,11 @@
           <a href="#funcionalidades">Funciones</a>
           <a href="#integraciones">Integraciones</a>
           <a href="#comienza">Comenzar</a>
+        </div>
+        <div class="lang-switch">
+          <span class="active">ES</span>
+          <a href="/index.ca.html">CA</a>
+          <a href="/index.en.html">EN</a>
         </div>
       </div>
     </nav>
