@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
-from pipeline.notion_api import create_page, notion_url
+from pipeline.utils.vault_writer import create_local_note
 from backend.config.app_config import load_params
 
 cfg = load_params(strict_env=False)
-DEFAULT_NOTE_TYPE = cfg.notion.get("type_permanent", "Permanent note")
+DEFAULT_NOTE_TYPE = cfg.notion.get("type_permanent", "Nota permanent")
 
 input_bp = Blueprint('input_routes', __name__)
 
@@ -36,20 +36,20 @@ def create_note_endpoint():
         content = "\n".join(lines[1:]) if len(lines) > 1 else ""
 
     try:
-        page = create_page(
+        # En comptes de crear a Notion, creem a la Vault local
+        result = create_local_note(
             title=title,
             content=content,
-            type_select=note_type,
+            note_type=note_type,
             tags=tags
-            # We use defaults for prop names defined in notion_api properties
-            # If we needed dynamic names, we'd import config here.
         )
         
         return jsonify({
             "status": "success",
-            "id": page["id"],
-            "url": notion_url(page["id"]),
-            "title": title
+            "id": result["id"],
+            "path": result["path"],
+            "title": title,
+            "message": "Nota creada correctament a la Vault local."
         }), 201
         
     except Exception as e:

@@ -5,7 +5,7 @@ from typing import Optional
 import json
 import math
 import networkx as nx
-from config.app_config import load_params 
+from backend.config.app_config import load_params 
 from pipeline.utils.json_sanitizer import sanitize_json_graph
 from pipeline.skills.filter_graph.scripts.filter_graph import filter_graph, normalize_notion_tags
 import sys
@@ -20,7 +20,7 @@ from pipeline.utils.graph_styles import (
 )
 import hashlib
 from collections import Counter
-from config.logger_config import get_logger
+from backend.config.logger_config import get_logger
 
 cfg = load_params(strict_env=False)
 log = get_logger(__name__)

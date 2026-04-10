@@ -23,6 +23,9 @@ class Config:
         self.input_files = params.get("input_files", {})
         self.mapping     = params.get("mapping", {})
         self.settings    = params.get("settings", {})
+        
+        # Determine Gnosi Mode (personal or org)
+        self.gnosi_mode = os.environ.get("GNOSI_MODE") or self.settings.get("gnosi_mode", "personal")
 
         # Load paths (with optional overrides from params.yaml)
         self.paths       = get_paths(params.get("paths", {}))
@@ -74,7 +77,7 @@ def load_params(strict_env: bool = True) -> Config:
 
     # Si hi ha hagut canvis, guardem el YAML actualitzat
     if migrated:
-        print(f"DEBUG_LOAD: Migrant claus d'IA des de l'entorn al fitxer {params_path}")
+
         with open(params_path, "w", encoding="utf-8") as f:
             yaml.dump(params, f, default_flow_style=False, allow_unicode=True)
 

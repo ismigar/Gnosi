@@ -76,12 +76,12 @@ export const GraphViewer = forwardRef(({
 
     useEffect(() => {
         pathSourceRef.current = pathSource;
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [pathSource]);
 
     useEffect(() => {
         pathTargetRef.current = pathTarget;
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [pathTarget]);
 
     useEffect(() => {
@@ -98,11 +98,11 @@ export const GraphViewer = forwardRef(({
 
     useEffect(() => {
         pathResultRef.current = filters?.pathResult;
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [filters?.pathResult]);
     useEffect(() => {
         isDarkModeRef.current = isDarkMode;
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [isDarkMode]);
 
     // Visualization props sync - update Sigma settings dynamically
@@ -110,7 +110,7 @@ export const GraphViewer = forwardRef(({
         showArrowsRef.current = showArrows;
         if (rendererRef.current) {
             rendererRef.current.setSetting('renderEdgeLabels', false);
-            rendererRef.current.refresh();
+            if (containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
         }
     }, [showArrows]);
 
@@ -118,18 +118,18 @@ export const GraphViewer = forwardRef(({
         labelThresholdRef.current = labelThreshold;
         if (rendererRef.current) {
             rendererRef.current.setSetting('labelRenderedSizeThreshold', labelThreshold);
-            rendererRef.current.refresh();
+            if (containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
         }
     }, [labelThreshold]);
 
     useEffect(() => {
         nodeSizeRef.current = nodeSize;
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [nodeSize]);
 
     useEffect(() => {
         edgeThicknessRef.current = edgeThickness;
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [edgeThickness]);
 
     // We remove the separate colorMode useEffect because it's now a dependency 
@@ -137,7 +137,7 @@ export const GraphViewer = forwardRef(({
 
     useEffect(() => {
         selectedNodeRef.current = filters?.selectedNode;
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [filters?.selectedNode]);
 
     // Aquest efecte només actualitza el color sense matar el servidor
@@ -146,8 +146,8 @@ export const GraphViewer = forwardRef(({
         if (rendererRef.current) {
             // Sigma és prou intel·ligent: refresh() torna a cridar al nodeReducer
             // amb el valor actualitzat de colorModeRef.current
-            rendererRef.current.refresh();
-            console.log("GraphViewer: ColorMode actualitzat a", colorMode);
+            if (containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
+            
         }
     }, [colorMode]);
 
@@ -251,7 +251,7 @@ export const GraphViewer = forwardRef(({
     const initializedRef = useRef(false);
     useEffect(() => {
         if (!containerRef.current || initializedRef.current) return;
-        console.log("GraphViewer: Attempting to initialize Sigma");
+        
 
         // Wait for container to have dimensions
         if (containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
@@ -259,7 +259,7 @@ export const GraphViewer = forwardRef(({
             return;
         }
 
-        console.log("GraphViewer: Initializing Sigma (Success)");
+
         initializedRef.current = true;
 
         // Create Graph Instance
@@ -421,6 +421,7 @@ export const GraphViewer = forwardRef(({
         // Initialize Sigma
         if (rendererRef.current) rendererRef.current.kill();
         const renderer = new Sigma(graph, containerRef.current, {
+            allowInvalidContainer: true, // Prevent "Sigma: Container has no width" error
             // WebGL is the default and more robust for standard setups
             nodeReducer,
             edgeReducer,
@@ -491,14 +492,14 @@ export const GraphViewer = forwardRef(({
             hoverDistances = {};
             hoverDistances[e.node] = 0;
             graph.forEachNeighbor(e.node, n => hoverDistances[n] = 1);
-            renderer.refresh();
+            if (containerRef.current?.offsetWidth > 0) renderer.refresh();
             if (onNodeHoverRef.current) onNodeHoverRef.current(e.node);
             containerRef.current.style.cursor = isPathfindingModeRef.current ? "crosshair" : "pointer";
         });
         renderer.on("leaveNode", () => {
             hoveredNode = null;
             hoverDistances = {};
-            renderer.refresh();
+            if (containerRef.current?.offsetWidth > 0) renderer.refresh();
             if (onNodeHoverRef.current) onNodeHoverRef.current(null);
             containerRef.current.style.cursor = "default";
         });
@@ -531,7 +532,7 @@ export const GraphViewer = forwardRef(({
         const graph = graphRef.current;
         if (!graph || !graphData) return;
 
-        console.log("GraphViewer: Updating Graph Data (Nodes:", graphData.nodes.length, ")");
+
 
         // Option 1: Clear and Rebuild (Simple and robust for layout)
         // Since backend sends full graph, this prevents ghost nodes.
@@ -574,7 +575,7 @@ export const GraphViewer = forwardRef(({
         // Actually forceAtlas worker might need restart if graph cleared? 
         // We have a separate physics effect for that.
 
-        if (rendererRef.current) rendererRef.current.refresh();
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
 
     }, [graphData]);
 
@@ -597,7 +598,7 @@ export const GraphViewer = forwardRef(({
         const DAMPING = 0.92; // Higher damping for stability
         const MIN_DISTANCE = 5;  // Smaller minimum for dense graphs
 
-        console.log(`D3Sim: Rep=${REPULSION_STRENGTH.toFixed(0)}, EdgeAttr=${EDGE_ATTRACTION.toFixed(5)}, Grav=${GRAVITY_STRENGTH.toFixed(2)}, Nodes=${graphRef.current?.order || 0}`);
+
 
         // Calculate center of mass for gravity
         let centerX = 0, centerY = 0, count = 0;
@@ -703,7 +704,9 @@ export const GraphViewer = forwardRef(({
                 graph.setNodeAttribute(node, 'vy', vy);
             });
 
-            renderer.refresh();
+            if (containerRef.current?.offsetWidth > 0) {
+                renderer.refresh();
+            }
             layoutRef.current = requestAnimationFrame(simulate);
         };
 
@@ -735,7 +738,7 @@ export const GraphViewer = forwardRef(({
             graph.setEdgeAttribute(edge, "hidden", !visibleEdges.has(edge));
         });
 
-        renderer.refresh();
+        if (renderer && containerRef.current?.offsetWidth > 0) renderer.refresh();
 
     }, [filters, graphData]); // Re-run when filters change
 

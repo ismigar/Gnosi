@@ -37,6 +37,8 @@ This directive defines the architectural standards and implementation protocols 
 - **Draft Sync**: No bi-directional sync for drafts with Gmail.
 - **Deleted Items**: Individual email deletion within a thread in Gmail is NOT reflected in Gnosi; only full thread deletion is captured.
 - **Blocked/Snoozed**: These states are NOT synchronized with Google.
+- **Calendar Data Path (Critical)**: All calendar-related local data must live under `PATH_Vault/Calendar` (resolved via backend `paths.CALENDAR`).
+	Note: Do not read calendar notes from other Vault folders (e.g., root-level mixed folders), because it produces inconsistent feeds and duplicates. Instead, index only `PATH_Vault/Calendar` for local calendar exports.
 
 ## Verification Protocol
 - **Sync Integrity**: Verify that labels created in Gnosi appear in Gmail.

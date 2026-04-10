@@ -11,7 +11,7 @@ To maintain rich text formatting (Bold, Italic, Links, Code) when processing Not
 ## Core Logic
 
 ### 1. Notion Blocks -> Markdown
-Logic located in `pipeline/notion_api.py` (`rich_text_to_markdown` / `_process_blocks_recursive`).
+Logic located in `pipeline/legacy_notion_connector.py` (`rich_text_to_markdown` / `_process_blocks_recursive`).
 - **Bold**: `**text**`
 - **Italic**: `*text*` (or `_text_`)
 - **Code**: `` `text` ``

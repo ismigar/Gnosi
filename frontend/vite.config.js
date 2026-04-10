@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       port: Number(frontendPort),
       proxy: {
         "/api": {
-          target: `http://${env.VITE_BACKEND_HOST || "localhost"}:${backendPort}`,
+          target: `http://${env.VITE_BACKEND_HOST || "127.0.0.1"}:${backendPort}`,
           changeOrigin: true,
         },
       },

@@ -9,7 +9,7 @@ from groq import Groq
 from gtts import gTTS
 from sqlalchemy.orm import Session
 
-from backend.data.db import SessionLocal
+from backend.data.db import get_db
 from backend.models.reader import FeedSource, Article
 
 log = logging.getLogger(__name__)
@@ -126,11 +126,6 @@ def _split_into_sentences(text):
 def _generate_tts_by_sentences(text, output_path):
     """
     Generate TTS audio sentence by sentence to avoid mid-sentence pauses.
-
-    gTTS internally chunks text by character count (~100 chars), which often
-    cuts sentences mid-word. By pre-splitting at sentence boundaries and
-    generating each one independently, we get natural pauses between sentences
-    and no pauses within them.
     """
     sentences = _split_into_sentences(text)
     log.info(f"TTS: {len(sentences)} sentences to process.")
@@ -163,7 +158,11 @@ def generate_daily_podcast():
     generation_status["error"] = None
     generation_status["result_filename"] = None
 
-    db: Session = SessionLocal()
+    # Obtenir sessió de BD dinàmicament
+    from backend.data.db import get_db
+    db_gen = get_db()
+    db: Session = next(db_gen)
+
     try:
         # 1. Articles no llegits de les últimes 24h
         target_time = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -244,6 +243,7 @@ def generate_daily_podcast():
 
         log.info(f"Generating TTS audio at {audio_path}...")
         try:
+            _generate_tts_by_sentences(full_script, audio_path)
             log.info(f"✅ Podcast generated successfully: {audio_filename}")
             generation_status["result_filename"] = audio_filename
             generation_status["progress"] = "Completed!"
@@ -258,7 +258,11 @@ def generate_daily_podcast():
         generation_status["error"] = str(e)
         return None
     finally:
-        db.close()
+        # Tancar la sessió obtinguda del generador
+        try:
+            next(db_gen) # Això trigerearà el 'finally' del generator
+        except StopIteration:
+            pass
         generation_status["running"] = False
 
 

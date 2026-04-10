@@ -48,19 +48,37 @@ class ToolRegistry:
     """
 
     def __init__(self, db_path: Optional[Path] = None):
+        self._db_path_override = db_path
+        self._initialized = False
+
+    def _ensure_init(self):
+        if self._initialized:
+            return
+            
+        db_path = self._db_path_override
         if db_path is None:
             cfg = load_params(strict_env=False)
-            db_path = cfg.paths["TOOLS"] / "tool_registry.sqlite"
+            # Use safe base or project root if TOOLS is missing
+            tools_dir = cfg.paths.get("TOOLS")
+            if not tools_dir:
+                 project_root = Path(__file__).resolve().parents[4]
+                 tools_dir = project_root / "data" / "Tools"
+            
+            db_path = tools_dir / "tool_registry.sqlite"
 
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
+            self.db_path = db_path
+            self._init_db_schema()
+            self._initialized = True
         except Exception as e:
-            print(f"⚠️ Warning: Could not create tools directory {db_path.parent}: {e}")
 
-        self.db_path = db_path
-        self._init_db()
+            # Fallback to memory
+            self.db_path = ":memory:"
+            self._init_db_schema()
+            self._initialized = True
 
-    def _init_db(self):
+    def _init_db_schema(self):
         """Initialize database schema."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
@@ -84,6 +102,7 @@ class ToolRegistry:
     def search_existing(
         self, description: str, threshold: float = 0.7
     ) -> Optional[ToolRecord]:
+        self._ensure_init()
         """
         Search for an existing tool that matches the description.
         Uses simple keyword matching (can be upgraded to embeddings later).
@@ -114,6 +133,7 @@ class ToolRegistry:
             return best_match
 
     def get_by_name(self, name: str) -> Optional[ToolRecord]:
+        self._ensure_init()
         """Get a tool by exact name."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -122,14 +142,17 @@ class ToolRegistry:
             return self._row_to_record(row) if row else None
 
     def list_pending(self) -> List[ToolRecord]:
+        self._ensure_init()
         """List all pending tools."""
         return self._list_by_status(ToolStatus.PENDING)
 
     def list_approved(self) -> List[ToolRecord]:
+        self._ensure_init()
         """List all approved tools."""
         return self._list_by_status(ToolStatus.APPROVED)
 
     def _list_by_status(self, status: ToolStatus) -> List[ToolRecord]:
+        self._ensure_init()
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
@@ -140,6 +163,7 @@ class ToolRegistry:
     def create(
         self, name: str, description: str, code: str, risk_level: str
     ) -> ToolRecord:
+        self._ensure_init()
         """Create a new tool record (status: pending)."""
         now = datetime.utcnow().isoformat()
 
@@ -163,6 +187,7 @@ class ToolRegistry:
         )
 
     def approve(self, name: str) -> bool:
+        self._ensure_init()
         """Approve a pending tool."""
         now = datetime.utcnow().isoformat()
 
@@ -178,6 +203,7 @@ class ToolRegistry:
             return cursor.rowcount > 0
 
     def reject(self, name: str, reason: str = "") -> bool:
+        self._ensure_init()
         """Reject a pending tool."""
         now = datetime.utcnow().isoformat()
 
@@ -206,6 +232,7 @@ class ToolRegistry:
         )
 
     def get_stats(self) -> Dict[str, Any]:
+        self._ensure_init()
         """Get statistics for analytics."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute("""

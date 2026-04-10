@@ -7,15 +7,19 @@ import logging
 from datetime import datetime
 from icalendar import Calendar, Event
 
-from backend.api.vault_routes import VAULT_PATH
 from dotenv import load_dotenv
+from backend.config.app_config import load_params
 from backend.services.google_calendar_service import (
     list_google_calendar_events,
     create_google_calendar_event,
     get_google_calendar_free_busy,
 )
 
-router = APIRouter(prefix="/api/calendar", tags=["Calendar"])
+from backend.services.workspace_service import get_workspace_context
+from backend.services.context_vars import get_active_vault_path
+from fastapi import Depends
+
+router = APIRouter(prefix="/api/calendar", tags=["Calendar"], dependencies=[Depends(get_workspace_context)])
 log = logging.getLogger(__name__)
 
 try:
@@ -26,7 +30,13 @@ try:
 except Exception:
     pass
 
-FOLDERS_TO_INDEX = ["Calendar", "Tasques"]
+def _get_calendar_storage_path() -> Path:
+    """Calendar storage must live under PATH_Vault/Calendar."""
+    base = get_active_vault_path()
+    calendar_path = base / "Calendar"
+    # Autocreate if missing
+    calendar_path.mkdir(parents=True, exist_ok=True)
+    return calendar_path
 
 
 def get_frontmatter(content: str):
@@ -94,60 +104,59 @@ def get_ics_feed():
     cal.add("prodid", "-//Digital Brain PIM//ismaelgarcia.net//")
     cal.add("version", "2.0")
 
-    for folder in FOLDERS_TO_INDEX:
-        folder_path = VAULT_PATH / folder
-        if not folder_path.exists():
-            continue
+    calendar_path = _get_calendar_storage_path()
+    if not calendar_path.exists():
+        return Response(content=cal.to_ical(), media_type="text/calendar")
 
-        for file_path in folder_path.rglob("*.md"):
+    for file_path in calendar_path.rglob("*.md"):
+        try:
+            raw_content = file_path.read_text(encoding="utf-8")
+            metadata, body = get_frontmatter(raw_content)
+
+            start_date_str = (
+                metadata.get("date")
+                or metadata.get("start_time")
+                or metadata.get("due_date")
+            )
+            if not start_date_str:
+                continue
+
+            event = Event()
+            event.add("summary", metadata.get("title") or file_path.stem)
+
             try:
-                raw_content = file_path.read_text(encoding="utf-8")
-                metadata, body = get_frontmatter(raw_content)
-
-                start_date_str = (
-                    metadata.get("date")
-                    or metadata.get("start_time")
-                    or metadata.get("due_date")
+                start_date = datetime.fromisoformat(
+                    str(start_date_str).replace("Z", "+00:00")
                 )
-                if not start_date_str:
-                    continue
+                event.add("dtstart", start_date)
+            except ValueError:
+                continue
 
-                event = Event()
-                event.add("summary", metadata.get("title") or file_path.stem)
-
+            end_date_str = metadata.get("end_date") or metadata.get("end_time")
+            if end_date_str:
                 try:
-                    start_date = datetime.fromisoformat(
-                        str(start_date_str).replace("Z", "+00:00")
+                    end_date = datetime.fromisoformat(
+                        str(end_date_str).replace("Z", "+00:00")
                     )
-                    event.add("dtstart", start_date)
+                    event.add("dtend", end_date)
                 except ValueError:
-                    continue
+                    pass
 
-                end_date_str = metadata.get("end_date") or metadata.get("end_time")
-                if end_date_str:
-                    try:
-                        end_date = datetime.fromisoformat(
-                            str(end_date_str).replace("Z", "+00:00")
-                        )
-                        event.add("dtend", end_date)
-                    except ValueError:
-                        pass
-
-                description = metadata.get("description", "")
-                if body.strip():
-                    if description:
-                        description += "\n\n"
-                    description += body[:500] + ("..." if len(body) > 500 else "")
-
+            description = metadata.get("description", "")
+            if body.strip():
                 if description:
-                    event.add("description", description)
+                    description += "\n\n"
+                description += body[:500] + ("..." if len(body) > 500 else "")
 
-                uid = metadata.get("uid") or metadata.get("id") or file_path.stem
-                event.add("uid", uid + "@gnosi.local")
+            if description:
+                event.add("description", description)
 
-                cal.add_component(event)
+            uid = metadata.get("uid") or metadata.get("id") or file_path.stem
+            event.add("uid", uid + "@gnosi.local")
 
-            except Exception as e:
-                pass
+            cal.add_component(event)
+
+        except Exception:
+            continue
 
     return Response(content=cal.to_ical(), media_type="text/calendar")

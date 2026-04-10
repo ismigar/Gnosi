@@ -38,8 +38,8 @@ except ImportError:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from notion_client import Client
-from config.env_config import get_env
-from config.logger_config import setup_logging
+from backend.config.env_config import get_env
+from backend.config.logger_config import setup_logging
 
 # Setup Logging
 setup_logging()

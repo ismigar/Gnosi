@@ -43,7 +43,8 @@ import { withMultiColumn, multiColumnDropCursor } from "@blocknote/xl-multi-colu
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/react/style.css";
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
+import { useApi } from '../../context/ApiContext';
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
@@ -100,11 +101,6 @@ const markdownToPlainText = (markdown) => {
         .trim();
 };
 
-/**
- * Registry for notes currently in the process of being saved.
- * This global Map survives component unmounting, allowing next component
- * instance (or dashboard) to access most recent content before backend reflects it.
- */
 export const inFlightSaves = new Map();
 
 const extractSectionPreview = (markdown, sectionName) => {
@@ -361,7 +357,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                                 className="btn-gnosi btn-gnosi-primary !text-xs !py-2 w-full mt-2"
                             >
                                 <Plus size={14} />
-                                Crear "{searchTerm}"
+                                {t('common.create')} "{searchTerm}"
                             </button>
                         )}
                     </div>
@@ -397,7 +393,7 @@ const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) 
             </div>
             {isOpen && (
                 <div className="absolute z-[100] top-full mt-2 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="text-[10px] font-bold text-[var(--text-tertiary)]/40 px-3 py-2 uppercase tracking-wider">Selecciona Taula</div>
+                    <div className="text-[10px] font-bold text-[var(--text-tertiary)]/40 px-3 py-2 uppercase tracking-wider">{t('editor.select_table')}</div>
                     {(options || []).map(opt => (
                         <div
                             key={opt}
@@ -415,6 +411,7 @@ const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) 
 };
 
 const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
+    const { t } = useTranslation();
     const context = React.useContext(VaultEditorContext);
     const { allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry } = context || {};
     const [activeTableId, setActiveTableId] = useState(block.props.database_table_id);
@@ -430,15 +427,15 @@ const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
             <div className="p-12 border-2 border-dashed border-[var(--border-primary)] rounded-xl flex flex-col items-center justify-center gap-4 bg-[var(--bg-secondary)]/30 group-hover:border-[var(--gnosi-primary)]/30 transition-colors">
                 <div className="p-4 bg-[var(--gnosi-primary)]/10 rounded-2xl"><Database size={32} className="text-[var(--gnosi-primary)]/60" /></div>
                 <div className="text-center">
-                    <h3 className="text-sm font-semibold text-[var(--text-secondary)]">Configura la vista</h3>
-                    <p className="text-xs text-[var(--text-tertiary)]/60 mt-1">Selecciona una base de dades per començar</p>
+                    <h3 className="text-sm font-semibold text-[var(--text-secondary)]">{t('editor.configure_view')}</h3>
+                    <p className="text-xs text-[var(--text-tertiary)]/60 mt-1">{t('editor.select_database_to_start')}</p>
                 </div>
                 <SingleSelectPill 
                     value={activeTableId} 
                     onChange={handleTableChange} 
                     options={(allTables || []).map(t => t.id)} 
                     idToTitle={Object.fromEntries((allTables || []).map(t => [t.id, t.name]))} 
-                    placeholder="Triar taula..." 
+                    placeholder={t('editor.choose_table')} 
                 />
             </div>
         );
@@ -446,7 +443,7 @@ const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
     return (
         <div ref={ref} className="bn-database-container">
             <div className="p-8 text-center text-[var(--text-tertiary)]/60 text-[11px] italic border border-[var(--border-primary)] rounded-lg bg-[var(--bg-primary)] shadow-sm my-6">
-                L'editor de dades en línia estarà disponible en una futura actualització.
+                {t('editor.inline_database_future')}
             </div>
         </div>
     );
@@ -454,11 +451,13 @@ const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
 InlineDatabase.displayName = 'InlineDatabase';
 
 const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
+    const { t } = useTranslation();
     const context = React.useContext(VaultEditorContext);
     const { idToTitle = {}, onOpenParallel = () => {} } = context || {};
     const target = String(block?.props?.target || '').trim();
     const alias = String(block?.props?.alias || '').trim();
     const section = String(block?.props?.section || '').trim();
+    const [error, setError] = useState('');
 
     const resolvedId = useMemo(() => {
         if (!target) return null;
@@ -469,14 +468,14 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
         return byTitle?.[0] || null;
     }, [target, idToTitle]);
 
-    const displayTitle = alias || idToTitle[resolvedId] || target || 'Transclusio';
+    const displayTitle = alias || idToTitle[resolvedId] || target || t('editor.transclusion');
     const [preview, setPreview] = useState('');
 
     useEffect(() => {
         let cancelled = false;
         const loadPreview = async () => {
             if (!resolvedId) {
-                setPreview('No s\'ha trobat la nota de desti.');
+                setError(t('editor.note_not_found'));
                 return;
             }
 
@@ -488,15 +487,15 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
 
                 if (!cancelled) {
                     if (section && !scopedSection) {
-                        setPreview('No s\'ha trobat aquest apartat a la nota de desti.');
+                        setError(t('editor.section_not_found'));
                         return;
                     }
 
-                    setPreview(clean.slice(0, 300) || 'Sense contingut.');
+                    setPreview(clean.slice(0, 300) || t('editor.no_content'));
                 }
             } catch (error) {
                 if (!cancelled) {
-                    setPreview('No s\'ha pogut carregar la previsualitzacio.');
+                    setError(t('editor.preview_load_error'));
                 }
             }
         };
@@ -505,7 +504,7 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
         return () => {
             cancelled = true;
         };
-    }, [resolvedId, section]);
+    }, [resolvedId, section, t]);
 
     return (
         <div
@@ -514,15 +513,25 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
             onClick={() => {
                 if (resolvedId) onOpenParallel(resolvedId);
             }}
-            title={resolvedId ? 'Obrir nota incrustada' : 'Nota no resolta'}
+            title={resolvedId ? t('editor.open_embedded_note') : t('editor.note_unresolved')}
         >
             <div className="flex items-center gap-2 text-[var(--gnosi-primary)] text-xs font-semibold uppercase tracking-wider mb-2">
                 <Maximize2 size={13} />
-                Transclusio
+                {t('editor.transclusion')}
             </div>
             <div className="text-sm font-semibold text-[var(--text-primary)] mb-1">{displayTitle}</div>
             {section ? <div className="text-[11px] text-[var(--gnosi-primary)] mb-1">#{section}</div> : null}
             <div className="text-xs text-[var(--text-tertiary)] leading-relaxed">{preview}</div>
+            <div className="p-4 bg-[var(--bg-secondary)]/20 border border-dashed border-[var(--border-primary)] rounded-lg flex flex-col items-center gap-3 mt-3">
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onOpenParallel(resolvedId); }}
+                    className="text-xs font-semibold text-[var(--gnosi-primary)] hover:underline flex items-center gap-1.5"
+                >
+                    <ExternalLink size={14} />
+                    {resolvedId ? t('editor.open_embedded_note') : t('editor.note_unresolved')}
+                </button>
+                {error && <div className="text-[10px] text-[var(--status-error)] italic">{error}</div>}
+            </div>
         </div>
     );
 });
@@ -541,8 +550,8 @@ class ErrorBoundary extends React.Component {
                 <div className="p-12 border-2 border-dashed border-[var(--status-error)]/30 rounded-xl bg-[var(--status-error)]/5 flex flex-col items-center gap-4 text-center my-10">
                     <div className="p-4 bg-[var(--status-error)]/10 rounded-full text-[var(--status-error)]"><X size={32} /></div>
                     <div className="max-w-md">
-                        <h3 className="text-lg font-bold text-[var(--text-primary)]">S'ha produït un error a l'editor</h3>
-                        <p className="text-sm text-[var(--text-tertiary)] mt-1">El contingut d'aquesta pàgina conté blocs no suportats o mal formatats.</p>
+                        <h3 className="text-lg font-bold text-[var(--text-primary)]">{t('editor.error_occurred')}</h3>
+                        <p className="text-sm text-[var(--text-tertiary)] mt-1">{t('editor.unsupported_blocks_hint')}</p>
                         <div className="bg-[var(--bg-secondary)] p-3 rounded-lg text-left mt-4 overflow-auto max-h-40 border border-[var(--border-primary)] shadow-inner">
                             <code className="text-[10px] text-[var(--text-tertiary)] leading-relaxed whitespace-pre-wrap">
                                 {this.state.error?.toString()}
@@ -569,17 +578,17 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
 
         try {
             const data = {
-                title: metadata?.title || 'Sense títol',
+                title: metadata?.title || t('editor.untitled'),
                 content: nextText,
                 metadata: metadata || {},
             };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
             if (onUpdate) onUpdate(data.content, { metadata: data.metadata, title: data.title });
             if (onRefreshNotes) onRefreshNotes();
-            if (!silent) toast.success('Markdown desat');
+            if (!silent) toast.success(t('editor.markdown_saved'));
             return true;
         } catch (err) {
-            if (!silent) toast.error('Error desant Markdown');
+            if (!silent) toast.error(t('editor.markdown_save_error'));
             return false;
         }
     }, [noteFilename, metadata, onUpdate, onRefreshNotes]);
@@ -602,13 +611,13 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     return (
         <div className="px-10 py-6">
             <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/70">Mode Markdown (codi)</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/70">{t('editor.markdown_mode')}</div>
                 <button
                     onClick={handleForceSave}
                     className="btn btn-gnosi-primary px-3 py-1.5 text-[10px] font-bold"
                     title="Cmd/Ctrl+S"
                 >
-                    Desar
+                    {t('common.save')}
                 </button>
             </div>
 
@@ -626,13 +635,14 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
             />
 
             <div className="mt-2 text-xs text-[var(--text-secondary)]/70">
-                Guardat automàtic activat. Drecera: Cmd/Ctrl+S per desar immediatament.
+                {t('editor.markdown_autosave_hint')}
             </div>
         </div>
     );
 };
 
 const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes, effectiveTheme }) => {
+    const { t } = useTranslation();
     const [jsonText, setJsonText] = useState(String(initialContent || '{\n  \n}'));
     const [jsonError, setJsonError] = useState('');
     const saveTimerRef = useRef(null);
@@ -640,6 +650,8 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
     const highlightRef = useRef(null);
     const gutterRef = useRef(null);
     const isDarkTheme = effectiveTheme === 'dark';
+    const isValidJson = !jsonError;
+    const isStrict = true;
 
     const escapeHtml = useCallback((value) => String(value || '')
         .replace(/&/g, '&amp;')
@@ -719,21 +731,21 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
             setJsonError('');
             return true;
         } catch (err) {
-            setJsonError(err?.message || 'JSON invàlid');
+            setJsonError(err?.message || t('editor.invalid_json'));
             return false;
         }
-    }, []);
+    }, [t]);
 
     const saveJson = useCallback(async (nextText, { silent = true } = {}) => {
         if (!noteFilename) return;
         if (!validateJson(nextText)) {
-            if (!silent) toast.error('JSON invàlid, no es pot desar');
+            if (!silent) toast.error(t('editor.invalid_json_toast'));
             return false;
         }
 
         try {
             const data = {
-                title: metadata?.title || 'Sense títol',
+                title: metadata?.title || t('editor.untitled'),
                 content: nextText,
                 metadata: {
                     ...(metadata || {}),
@@ -744,13 +756,13 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
             if (onUpdate) onUpdate(data.content, { metadata: data.metadata, title: data.title });
             if (onRefreshNotes) onRefreshNotes();
-            if (!silent) toast.success('JSON desat');
+            if (!silent) toast.success(t('editor.json_saved'));
             return true;
         } catch (err) {
-            toast.error('Error desant JSON');
+            toast.error(t('editor.json_save_error'));
             return false;
         }
-    }, [noteFilename, metadata, onUpdate, onRefreshNotes, validateJson]);
+    }, [noteFilename, metadata, onUpdate, onRefreshNotes, validateJson, t]);
 
     useEffect(() => {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -763,16 +775,16 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
         };
     }, [jsonText, saveJson]);
 
-    const handleFormatJson = () => {
+    const formatJson = () => {
         try {
             const parsed = JSON.parse(jsonText);
             const pretty = JSON.stringify(parsed, null, 2);
             setJsonText(pretty);
             setJsonError('');
-            toast.success('JSON formatejat');
+            toast.success(t('editor.json_formatted'));
         } catch (err) {
-            setJsonError(err?.message || 'JSON invàlid');
-            toast.error('JSON invàlid, no es pot formatejar');
+            setJsonError(err?.message || t('editor.invalid_json'));
+            toast.error(t('editor.invalid_json_format_error'));
         }
     };
 
@@ -788,8 +800,8 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
             setJsonError('');
             await saveJson(pretty, { silent: false });
         } catch (err) {
-            setJsonError(err?.message || 'JSON invàlid');
-            toast.error('JSON invàlid, no es pot formatejar');
+            setJsonError(err?.message || t('editor.invalid_json'));
+            toast.error(t('editor.invalid_json_format_error'));
         }
     }, [jsonText, saveJson]);
 
@@ -811,21 +823,24 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
     return (
         <div className="px-10 py-6">
             <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/70">Mode JSON estricte</div>
                 <div className="flex items-center gap-2">
+                    <Code size={14} className="text-[var(--text-secondary)]" />
+                    <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('editor.strict_json_mode')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={formatJson}
+                        className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 rounded-md transition-all active:scale-95"
+                    >
+                        <Layout size={12} />
+                        {t('editor.format_json')}
+                    </button>
                     <button
                         onClick={handleForceSave}
                         className="btn btn-gnosi-primary px-3 py-1.5 text-[10px] font-bold"
                         title="Cmd/Ctrl+S"
                     >
-                        Desar
-                    </button>
-                    <button
-                        onClick={handleFormatJson}
-                        className="btn btn-gnosi-primary px-3 py-1.5 text-[10px] font-bold"
-                        title="Cmd/Ctrl+Shift+S"
-                    >
-                        Formatejar JSON
+                        {t('common.save')}
                     </button>
                 </div>
             </div>
@@ -878,13 +893,27 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
                 .json-punct { color: var(--text-secondary); }
             `}</style>
 
-            {jsonError ? (
-                <div className="mt-2 text-xs text-[var(--status-error)]">
-                    JSON invàlid. No es desa fins que sigui correcte: {jsonError}
+            {isStrict && !isValidJson && (
+                <div className="p-3 bg-[var(--status-error)]/5 border border-[var(--status-error)]/20 rounded-lg animate-in slide-in-from-top-1 mt-2">
+                    <div className="flex items-start gap-2.5">
+                        <AlertCircle size={16} className="text-[var(--status-error)] mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                            <div className="text-xs font-bold text-[var(--status-error)] uppercase tracking-wider mb-1">
+                                {t('editor.invalid_json_warning')}
+                            </div>
+                            <div className="text-[11px] font-mono text-[var(--status-error)]/80 break-all leading-relaxed whitespace-pre-wrap">
+                                {jsonError}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            ) : (
-                <div className="mt-2 text-xs text-[var(--text-secondary)]/70">
-                    JSON vàlid. Guardat automàtic activat. Dreceres: Cmd/Ctrl+S (desar), Cmd/Ctrl+Shift+S (formatejar + desar).
+            )}
+            {isStrict && isValidJson && (
+                <div className="p-3 bg-[var(--status-success)]/5 border border-[var(--status-success)]/10 rounded-lg animate-in fade-in duration-500 mt-2">
+                    <div className="flex items-center gap-2 text-[11px] font-medium text-[var(--status-success)]/70">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)] animate-pulse" />
+                        {t('editor.valid_json_autosave_hint')}
+                    </div>
                 </div>
             )}
         </div>
@@ -983,7 +1012,6 @@ export function EditorInner({
             },
             styleSpecs: defaultStyleSpecs,
         });
-        // Wrap with official multi-column support (adds columnList + column blocks natively)
         return withMultiColumn(baseSchema);
     }, [contextValue]);
 
@@ -992,14 +1020,12 @@ export function EditorInner({
         return blocks.map(block => {
             let sanitizedBlock = { ...block };
 
-            // BlockNote can crash rendering if any block arrives without id.
             if (!sanitizedBlock.id) {
                 sanitizedBlock.id = (typeof crypto !== 'undefined' && crypto?.randomUUID)
                     ? crypto.randomUUID()
                     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
             }
             
-            // 1. Mapatge de tipus llegat (Notion -> Modern BlockNote)
             if (block.type === 'heading1') {
                 sanitizedBlock.type = 'heading';
                 sanitizedBlock.props = { ...sanitizedBlock.props, level: 1 };
@@ -1015,18 +1041,14 @@ export function EditorInner({
                 sanitizedBlock.type = 'numberedListItem';
             }
 
-            // 2. Eliminar content si el bloc és un dels nostres contenidors estrictes
             if (['columnList', 'column', 'database', 'transclusion'].includes(sanitizedBlock.type)) {
                 delete sanitizedBlock.content;
             }
             
-            // 3. Regla de seguretat general per a dades de Notion: 
-            // Si té content com a array buit i té fills, BlockNote prefereix només els fills
             if (Array.isArray(sanitizedBlock.content) && sanitizedBlock.content.length === 0 && sanitizedBlock.children && sanitizedBlock.children.length > 0) {
                 delete sanitizedBlock.content;
             }
 
-            // Recorre recursivament
             if (sanitizedBlock.children) {
                 sanitizedBlock.children = sanitizeBlocks(sanitizedBlock.children);
             }
@@ -1065,7 +1087,7 @@ export function EditorInner({
 
     const formatNoteDisambiguator = useCallback((noteId) => {
         const id = String(noteId || '').trim();
-        if (!id) return 'sense-id';
+        if (!id) return 'no-id';
         if (id.length <= 14) return id;
         return `${id.slice(0, 8)}...${id.slice(-4)}`;
     }, []);
@@ -1096,7 +1118,6 @@ export function EditorInner({
                 ? editor.document.some((block) => ((block?.content?.length ?? 0) > 0) || ((block?.children?.length ?? 0) > 0))
                 : false;
 
-            // Avoid re-initializing while typing in the same note; this can reset scroll/cursor.
             if (alreadyInitializedSameNote && hasEditorContent) {
                 if (!cancelled) setIsParsing(false);
                 return;
@@ -1111,7 +1132,6 @@ export function EditorInner({
                     setBlocks(sanitized);
                     initializedNoteRef.current = currentNoteId;
 
-                    // Si l'editor ja està creat, aprofitem per injectar-los
                     const currentDoc = Array.isArray(editor?.document)
                         ? editor.document.filter((block) => block?.id)
                         : [];
@@ -1123,7 +1143,7 @@ export function EditorInner({
                 }
             } catch (e) {
                 if (!cancelled) {
-                    console.error("Error carregant contingut inicial:", e);
+                    console.error("Error loading initial content:", e);
                 }
             } finally {
                 if (!cancelled) {
@@ -1188,7 +1208,6 @@ export function EditorInner({
             }
         }
 
-        // Also support orphan block IDs in plain paragraphs.
         for (const line of lines) {
             const blockMatch = String(line || '').match(/(?:^|\s)\^([a-zA-Z0-9_-]+)\s*$/);
             if (!blockMatch?.[1]) continue;
@@ -1249,12 +1268,11 @@ export function EditorInner({
             const currentMetadata = metadataRef.current;
             
             const data = { 
-                title: currentMetadata?.title || "Sense títol", 
+                title: currentMetadata?.title || t('editor.untitled'), 
                 content: markdownContent, 
                 metadata: currentMetadata 
             };
 
-            // Register in global in-flight saves before starting request
             const savePromise = axios.patch(`/api/vault/pages/${noteFilename}`, data);
             
             inFlightSaves.set(noteFilename, {
@@ -1266,7 +1284,6 @@ export function EditorInner({
 
             await savePromise;
             
-            // If another save hasn't started for this file, clear from registry
             const currentRecord = inFlightSaves.get(noteFilename);
             if (currentRecord && currentRecord.promise === savePromise) {
                 inFlightSaves.delete(noteFilename);
@@ -1280,28 +1297,25 @@ export function EditorInner({
                 saveTimerRef.current = null;
             }
             
-            // Revert specifically to idle after a while so it doesn't stay "Saved" forever
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
         } catch (err) { 
-            console.error("Error al desar automàticament:", err);
+            console.error("Autosave error:", err);
             setSaveStatus('error');
-            toast.error("Error al desar automàticament");
+            toast.error(t('editor.autosave_error'));
         }
-    }, [noteFilename, editor, isParsing, editorReady, onUpdate]);
+    }, [noteFilename, editor, isParsing, editorReady, onUpdate, t]);
 
     const expandBracketRange = (text, start, end) => {
         const source = String(text || '');
         let safeStart = Math.max(0, Number(start) || 0);
         let safeEnd = Math.max(safeStart, Number(end) || safeStart);
 
-        // Consume up to 2 leading brackets
         let leftExtra = 0;
         while (safeStart > 0 && source[safeStart - 1] === '[' && leftExtra < 2) {
             safeStart -= 1;
             leftExtra += 1;
         }
 
-        // Consume up to 2 trailing brackets
         let rightExtra = 0;
         while (safeEnd < source.length && source[safeEnd] === ']' && rightExtra < 2) {
             safeEnd += 1;
@@ -1320,14 +1334,12 @@ export function EditorInner({
         for (const item of inlineItems) {
             const text = typeof item?.text === 'string' ? item.text : '';
             const itemStart = cursor;
-            const itemEnd = cursor + (text ? text.length : 1); // Generic object placeholder length
+            const itemEnd = cursor + (text ? text.length : 1);
 
             if (!text) {
-                // If the object is outside the range to replace, keep it.
                 if (itemEnd <= rangeStart || itemStart >= rangeEnd) {
                     next.push(item);
                 } else if (!injected) {
-                    // If the object was in the range, replace it with our link
                     next.push(replacementItem);
                     injected = true;
                 }
@@ -1342,7 +1354,6 @@ export function EditorInner({
                 continue;
             }
 
-            // Text overlap logic
             const leftCut = Math.max(0, rangeStart - itemStart);
             const rightCut = Math.max(0, itemEnd - rangeEnd);
             const leftText = text.slice(0, leftCut);
@@ -1388,8 +1399,6 @@ export function EditorInner({
         const plainText = inline.map((item) => item.text || '').join('');
         const cursorIndex = cursor.index;
         
-        // Strategy: find the best match for the query that likely triggered the insertion,
-        // searching backwards from the current cursor position.
         const rawQuery = String(replaceQuery || '').trim();
         const searchTerms = [rawQuery, `[[${rawQuery}`, `[${rawQuery}`].filter(t => t.length > 0);
 
@@ -1404,7 +1413,6 @@ export function EditorInner({
             }
         }
 
-        // Final heuristic for pending links (last [[ or [ before cursor)
         if (matchStart === -1) {
             const lastDouble = plainText.lastIndexOf('[[', cursorIndex);
             const lastSingle = plainText.lastIndexOf('[', cursorIndex);
@@ -1419,13 +1427,11 @@ export function EditorInner({
                 let replaceStart = matchStart;
                 let replaceEnd = matchStart + matchedToken.length;
 
-                // Atomic replacement of query + brackets
                 const expanded = expandBracketRange(plainText, replaceStart, replaceEnd);
                 const inlineReplaced = replaceTokenInInlineArray(inline, expanded.start, expanded.end, wikilinkItem);
                 
                 if (inlineReplaced) {
                     editor.updateBlock(currentBlock, { content: inlineReplaced });
-                    // Ensure save reflects the modification
                     if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
                     return;
                 }
@@ -1434,7 +1440,6 @@ export function EditorInner({
             }
         }
 
-        // Fallback: standard insertion at cursor if replacement logic fails
         editor.insertInlineContent([wikilinkItem]);
         if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
     }, [editor, handleSave]);
@@ -1492,7 +1497,6 @@ export function EditorInner({
                     }
                     return;
                 } catch (error) {
-                    // Fallback to insertion below.
                 }
             }
         }
@@ -1539,23 +1543,24 @@ export function EditorInner({
                 await insertWikiLink(safeTitle, safeSection, createdId);
             }
 
-            // Delay sidebar refresh so editor autosave can persist the newly inserted link first.
             if (onRefreshNotes) {
                 window.setTimeout(() => {
                     try {
                         onRefreshNotes();
                     } catch {
-                        // ignore refresh failures
                     }
                 }, 1400);
             }
 
-            toast.success(`Pagina creada: ${safeTitle}`);
+            if (response.data?.filename) {
+                const safeTitle = response.data.title || String(response.data.filename).replace(/\.md$/, '');
+                toast.success(t('editor.page_created', { title: safeTitle }));
+            }
         } catch (error) {
-            console.error('Error creant pagina des del wikilink:', error);
-            toast.error('No s\'ha pogut crear la pagina');
+            console.error("Page create error:", error);
+            toast.error(t('editor.page_create_error'));
         }
-    }, [insertTransclusion, insertWikiLink, normalizePendingLinkTitle, onRefreshNotes]);
+    }, [insertTransclusion, insertWikiLink, normalizePendingLinkTitle, onRefreshNotes, t]);
 
     useEffect(() => {
         if (!editor || isParsing) return;
@@ -1571,7 +1576,6 @@ export function EditorInner({
                 clearTimeout(saveTimerRef.current);
                 saveTimerRef.current = null;
                 
-                // Flush save on unmount - move to in-flight registry
                 const markdownContent = blocksToRichMarkdown(editor.document);
                 const currentMetadata = metadataRef.current;
                 const data = { 
@@ -1589,12 +1593,9 @@ export function EditorInner({
                     timestamp: Date.now()
                 });
 
-                // Fire and forget, but keep in registry
                 savePromise.finally(() => {
                     const currentRecord = inFlightSaves.get(noteFilename);
                     if (currentRecord && currentRecord.promise === savePromise) {
-                        // Keep the data in registry for a short grace period (1s) to prevent race conditions 
-                        // with concurrent fetch operations in the dashboard
                         setTimeout(() => {
                            if (inFlightSaves.get(noteFilename)?.promise === savePromise) {
                                inFlightSaves.delete(noteFilename);
@@ -1606,12 +1607,11 @@ export function EditorInner({
         };
     }, [editor, isParsing, handleSave]);
 
-    if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> Carregant editor...</div>;
+    if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> {t('editor.loading_editor')}</div>;
 
     return (
         <VaultEditorContext.Provider value={contextValue}>
             <style>{`
-                /* === Editor layout and surface === */
                 .bn-editor {
                     padding-left: 0 !important;
                     padding-right: 0 !important;
@@ -1623,7 +1623,6 @@ export function EditorInner({
                     background: transparent !important;
                 }
 
-                /* === 1. Heading sizes: mai més grans que el títol de la pàgina (text-4xl ≈ 2.25rem) === */
                 .bn-editor [data-content-type="heading"] h1,
                 .bn-editor .bn-block-content[data-content-type="heading"] [data-level="1"] h1,
                 .bn-editor h1.bn-inline-content {
@@ -1649,11 +1648,6 @@ export function EditorInner({
                     margin: 0.4em 0 0.2em !important;
                 }
 
-                /* === 2. Background colors: only on text, not full block === */
-                /* Override BlockNote's 3-selector system:
-                   1. [data-background-color=X] on .bn-block-content
-                   2. .bn-block:has(>.bn-block-content[data-background-color=X]) on parent
-                   3. [data-style-type=backgroundColor][data-value=X] on inline spans */
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) {
                     background-color: transparent !important;
                 }
@@ -1663,7 +1657,6 @@ export function EditorInner({
                 .bn-editor [data-background-color]:not([data-background-color="default"]):not(.bn-block):not(.bn-block-content) {
                     background-color: transparent !important;
                 }
-                /* Apply background only on inline-content (the text element) */
                 .bn-editor .bn-block-content[data-background-color="gray"] .bn-inline-content,
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color="gray"]) .bn-inline-content { background-color: #ebeced !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
                 .bn-editor .bn-block-content[data-background-color="brown"] .bn-inline-content,
@@ -1683,8 +1676,6 @@ export function EditorInner({
                 .bn-editor .bn-block-content[data-background-color="pink"] .bn-inline-content,
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color="pink"]) .bn-inline-content { background-color: #f4dfeb !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
 
-                /* === 3. Column layout (via @blocknote/xl-multi-column) === */
-                /* The package handles flex layout natively. We only add subtle Gnosi styling. */
                 [data-content-type="columnList"] {
                     gap: 1.5rem !important;
                 }
@@ -1693,7 +1684,6 @@ export function EditorInner({
                     padding-left: 1.5rem !important;
                 }
 
-                /* === 4. Links: visible and differentiated by destination === */
                 .bn-editor .bn-inline-content a,
                 .bn-editor .bn-block-content a,
                 .bn-container .bn-inline-content a,
@@ -1711,7 +1701,6 @@ export function EditorInner({
                     text-decoration-thickness: 2px !important;
                 }
 
-                /* Internal app links */
                 .bn-editor .bn-inline-content a[href^="/"],
                 .bn-editor .bn-inline-content a[href^="#"],
                 .bn-editor .bn-inline-content a[href*="localhost:5173"],
@@ -1726,7 +1715,6 @@ export function EditorInner({
                     text-decoration-color: color-mix(in srgb, var(--gnosi-primary) 70%, transparent) !important;
                 }
 
-                /* Vault wiki links: extra visual identity over regular internal links */
                 .bn-editor .bn-inline-content a[href*="/vault/page/"],
                 .bn-editor .bn-inline-content a[href*="localhost:5173/vault/page/"],
                 .bn-editor .bn-inline-content a[href*="127.0.0.1:5173/vault/page/"],
@@ -1741,7 +1729,6 @@ export function EditorInner({
                     text-decoration-color: color-mix(in srgb, #38bdf8 75%, transparent) !important;
                 }
 
-                /* Local bridge links (localhost:4771) */
                 .bn-editor .bn-inline-content a[href*="localhost:4771"],
                 .bn-container .bn-inline-content a[href*="localhost:4771"] {
                     color: #22c55e !important;
@@ -1749,7 +1736,6 @@ export function EditorInner({
                     text-decoration-color: color-mix(in srgb, #22c55e 70%, transparent) !important;
                 }
 
-                /* External web links */
                 .bn-editor .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]),
                 .bn-container .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]) {
                     color: #f59e0b !important;
@@ -1763,10 +1749,13 @@ export function EditorInner({
                     opacity: 0.8;
                 }
 
-                /* === Toggle marker === */
                 .bn-toggle summary::-webkit-details-marker { display: none; }
             `}</style>
-            <BlockNoteView editor={editor} slashMenu={false} theme={effectiveTheme}>
+            <BlockNoteView 
+                editor={editor} 
+                slashMenu={false} 
+                theme={effectiveTheme}
+            >
                 <SuggestionMenuController
                     triggerCharacter="/"
                     getItems={async (query) => {
@@ -1776,7 +1765,7 @@ export function EditorInner({
                             title: item.title,
                             onItemClick: item.onItemClick,
                             aliases: item.aliases,
-                            group: item.group || "Base de dades",
+                            group: item.group || t('editor.database_group'),
                             icon: <Database size={18} />,
                             subtext: item.subtext || item.description,
                         }));
@@ -1785,63 +1774,63 @@ export function EditorInner({
                         }));
                         const quickLinkItems = [
                             {
-                                title: "Enllac extern",
-                                onItemClick: () => editor.insertInlineContent("[Text de l'enllac](https://)"),
+                                title: t('editor.external_link'),
+                                onItemClick: () => editor.insertInlineContent(`[${t('editor.link_text_placeholder')}](https://)`),
                                 aliases: ["link", "url", "web", "external"],
-                                group: "Enllacos",
+                                group: t('editor.links_group'),
                                 icon: <ExternalLink size={18} />,
-                                subtext: "Format markdown [Text](https://)",
+                                subtext: t('editor.markdown_link_format'),
                             },
                             {
-                                title: "Enllac intern (wiki)",
-                                onItemClick: () => insertWikiLink("Nom de nota"),
-                                aliases: ["wiki", "internal", "nota", "[[]]"],
-                                group: "Enllacos",
+                                title: t('editor.internal_link'),
+                                onItemClick: () => insertWikiLink(t('editor.note_name_placeholder')),
+                                aliases: ["wiki", "internal", "note", "[[]]"],
+                                group: t('editor.links_group'),
                                 icon: <MessageSquare size={18} />,
-                                subtext: "Insereix format [[Nota]]",
+                                subtext: t('editor.insert_wiki_link_format'),
                             },
                             {
-                                title: "Enllac a apartat",
-                                onItemClick: () => editor.insertInlineContent("[[Nom de nota#Apartat]]"),
-                                aliases: ["wiki section", "apartat", "anchor", "#"],
-                                group: "Enllacos",
+                                title: t('editor.link_to_section'),
+                                onItemClick: () => editor.insertInlineContent(`[[${t('editor.note_section_placeholder')}]]`),
+                                aliases: ["wiki section", "section", "anchor", "#"],
+                                group: t('editor.links_group'),
                                 icon: <MessageSquare size={18} />,
-                                subtext: "Format [[Nota#Apartat]]",
+                                subtext: t('editor.wiki_section_format'),
                             },
                             {
-                                title: "Enllac wiki amb alias",
-                                onItemClick: () => editor.insertInlineContent("[[Nom de nota#Apartat|Alias]]"),
-                                aliases: ["wiki alias", "display", "etiqueta"],
-                                group: "Enllacos",
+                                title: t('editor.wiki_link_with_alias'),
+                                onItemClick: () => editor.insertInlineContent(`[[${t('editor.note_alias_placeholder')}]]`),
+                                aliases: ["wiki alias", "display", "label"],
+                                group: t('editor.links_group'),
                                 icon: <MessageSquare size={18} />,
-                                subtext: "Format [[Nota#Apartat|Alias]]",
+                                subtext: t('editor.wiki_alias_format'),
                             },
                             {
-                                title: "Transclusio Obsidian",
+                                title: t('editor.obsidian_transclusion'),
                                 onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, {
                                     type: 'transclusion',
                                     props: { target: '', alias: '', section: '' },
                                 }),
                                 aliases: ["transclusion", "embed", "![[", "obsidian"],
-                                group: "Enllacos",
+                                group: t('editor.links_group'),
                                 icon: <Maximize2 size={18} />,
-                                subtext: "Insereix bloc ![[Nota]]",
+                                subtext: t('editor.insert_transclusion_format'),
                             },
                             {
-                                title: "Transclusio d'apartat",
-                                onItemClick: () => editor.insertInlineContent("![[Nom de nota#Apartat]]"),
+                                title: t('editor.section_transclusion'),
+                                onItemClick: () => editor.insertInlineContent(`![[${t('editor.note_section_transclusion_placeholder')}]]`),
                                 aliases: ["transclusion section", "embed section", "![[#"],
-                                group: "Enllacos",
+                                group: t('editor.links_group'),
                                 icon: <Maximize2 size={18} />,
-                                subtext: "Format ![[Nota#Apartat]]",
+                                subtext: t('editor.section_transclusion_format'),
                             },
                             {
-                                title: "Transclusio amb alias",
-                                onItemClick: () => editor.insertInlineContent("![[Nom de nota#Apartat|Alias]]"),
+                                title: t('editor.transclusion_with_alias'),
+                                onItemClick: () => editor.insertInlineContent(`![[${t('editor.transclusion_alias_placeholder')}]]`),
                                 aliases: ["transclusion alias", "embed alias"],
-                                group: "Enllacos",
+                                group: t('editor.links_group'),
                                 icon: <Maximize2 size={18} />,
-                                subtext: "Format ![[Nota#Apartat|Alias]]",
+                                subtext: t('editor.transclusion_alias_format'),
                             },
                         ];
                         const allItems = [...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
@@ -1892,11 +1881,11 @@ export function EditorInner({
                         const createItems = (!hasExactMatch && pendingTitle)
                             ? [
                                 {
-                                    title: `Crear al Wiki: ${pendingTitle}`,
-                                    aliases: [pendingTitle, 'crear', 'wiki', 'nova pagina'],
-                                    group: 'Crear pagina',
+                                    title: t('editor.create_at_wiki', { title: pendingTitle }),
+                                    aliases: [pendingTitle, 'create', 'wiki', 'new page'],
+                                    group: t('editor.create_page'),
                                     icon: <Plus size={18} />,
-                                    subtext: `Crear i enllacar [[${pendingTitle}${sectionQuery ? `#${sectionQuery}` : ''}]]`,
+                                    subtext: t('editor.create_and_link', { title: pendingTitle, section: sectionQuery ? `#${sectionQuery}` : '' }),
                                     onItemClick: () => createMissingPageAndInsertLink({
                                         rawTitle: pendingTitle,
                                         tableId: null,
@@ -1905,11 +1894,11 @@ export function EditorInner({
                                     }),
                                 },
                                 ...tableOptions.map((table) => ({
-                                    title: `Crear a taula ${table.name}: ${pendingTitle}`,
-                                    aliases: [pendingTitle, 'crear', 'taula', table.name || table.id],
-                                    group: 'Crear pagina',
+                                    title: t('editor.create_in_table', { table: table.name, title: pendingTitle }),
+                                    aliases: [pendingTitle, 'create', 'table', table.name || table.id],
+                                    group: t('editor.create_page'),
                                     icon: <Database size={18} />,
-                                    subtext: `Crear registre a ${table.name}`,
+                                    subtext: t('editor.create_record_in', { table: table.name }),
                                     onItemClick: () => createMissingPageAndInsertLink({
                                         rawTitle: pendingTitle,
                                         tableId: table.id,
@@ -1950,7 +1939,7 @@ export function EditorInner({
                                     headingItems.push({
                                         title: `${isBlockRef ? 'B' : `H${level}`} · ${displayTitle}`,
                                         aliases: [note.id, note.title, headingTitle, hierarchy, blockPreview, 'wiki', 'section', 'block'],
-                                        group: 'Enllacos interns',
+                                        group: t('editor.internal_links'),
                                         icon: <MessageSquare size={18} />,
                                         subtext: isBlockRef
                                             ? `[[${note.title}#${headingTitle}]]`
@@ -1968,7 +1957,7 @@ export function EditorInner({
                         const noteItems = filteredNotes.map(note => ({
                             title: titleCount.get(note.title) > 1 ? `${note.title} (${formatNoteDisambiguator(note.id)})` : note.title,
                             aliases: [note.id, "wiki", "internal"],
-                            group: "Enllacos interns",
+                            group: t('editor.internal_links'),
                             icon: <MessageSquare size={18} />,
                             subtext: note.id,
                             onItemClick: () => insertWikiLink(note.title, sectionQuery, note.id, rawQuery),
@@ -1983,7 +1972,6 @@ export function EditorInner({
                         if (!editor) return [];
                         const normalized = String(query || '');
                         
-                        // Si l'usuari escriu ![[, traiem el prefix per cercar només el títol
                         const rawQuery = normalized.replace(/^\[\[/, '').trim();
                         const [noteQuery, sectionQueryRaw = ''] = rawQuery.split('#');
                         const pendingTitle = normalizePendingLinkTitle(noteQuery);
@@ -2017,11 +2005,11 @@ export function EditorInner({
                         const createItems = (!hasExactMatch && pendingTitle)
                             ? [
                                 {
-                                    title: `Crear transclusio al Wiki: ${pendingTitle}`,
-                                    aliases: [pendingTitle, 'crear', 'transclusion', 'wiki'],
-                                    group: 'Crear pagina',
+                                    title: t('editor.create_transclusion_at_wiki', { title: pendingTitle }),
+                                    aliases: [pendingTitle, 'create', 'transclusion', 'wiki'],
+                                    group: t('editor.create_page'),
                                     icon: <Plus size={18} />,
-                                    subtext: `Crear i inserir ![[${pendingTitle}${sectionQuery ? `#${sectionQuery}` : ''}]]`,
+                                    subtext: t('editor.create_and_insert_transclusion', { title: pendingTitle, section: sectionQuery ? `#${sectionQuery}` : '' }),
                                     onItemClick: () => createMissingPageAndInsertLink({
                                         rawTitle: pendingTitle,
                                         tableId: null,
@@ -2030,11 +2018,11 @@ export function EditorInner({
                                     }),
                                 },
                                 ...tableOptions.map((table) => ({
-                                    title: `Crear transclusio a ${table.name}: ${pendingTitle}`,
-                                    aliases: [pendingTitle, 'crear', 'transclusion', table.name || table.id],
-                                    group: 'Crear pagina',
+                                    title: t('editor.create_transclusion_in_table', { table: table.name, title: pendingTitle }),
+                                    aliases: [pendingTitle, 'create', 'transclusion', table.name || table.id],
+                                    group: t('editor.create_page'),
                                     icon: <Database size={18} />,
-                                    subtext: `Crear registre a ${table.name} i inserir transclusio`,
+                                    subtext: t('editor.create_record_and_insert_transclusion', { table: table.name }),
                                     onItemClick: () => createMissingPageAndInsertLink({
                                         rawTitle: pendingTitle,
                                         tableId: table.id,
@@ -2107,11 +2095,15 @@ export function EditorInner({
 
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, historyOpenSignal = 0, isCodeView = false }) {
     const { t } = useTranslation();
-    const { effectiveTheme } = useTheme();
+    const { apiFetch, role } = useApi();
+    const isViewer = role === 'viewer';
+    const isAdmin = role === 'admin' || role === 'owner';
+    const isEditor = role === 'editor' || isAdmin;
+
+    const isEditable = !isViewer;
     const [metadata, setMetadata] = useState(initialMetadata);
     
-    // Save status and metadata reference for stable autosave
-    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
+    const [saveStatus, setSaveStatus] = useState('idle');
     const metadataRef = useRef(metadata);
     useEffect(() => {
         metadataRef.current = metadata;
@@ -2128,7 +2120,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isPropertiesOpen, setIsPropertiesOpen] = useState(false);
     const [isLinksInfoOpen, setIsLinksInfoOpen] = useState(false);
     
-    // Icon and Cover Pickers State
     const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
     const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
     const iconTriggerRef = useRef(null);
@@ -2143,7 +2134,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setSaveStatus('saving');
         try {
             const data = { 
-                title: currentMetadata?.title || "Sense títol", 
+                title: currentMetadata?.title || t('editor.untitled'), 
                 metadata: currentMetadata 
             };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
@@ -2151,7 +2142,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             if (onRefreshNotes) onRefreshNotes();
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
         } catch (err) {
-            console.error("Error al desar metadades:", err);
+            console.error("Error saving metadata:", err);
             setSaveStatus('error');
         }
     }, [noteFilename, onRefreshNotes]);
@@ -2208,7 +2199,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
     const formatIncomingDisambiguator = useCallback((pageId) => {
         const safeId = String(pageId || '').trim();
-        if (!safeId) return 'sense-id';
+        if (!safeId) return 'no-id';
         if (safeId.length <= 14) return safeId;
         return `${safeId.slice(0, 8)}...${safeId.slice(-4)}`;
     }, []);
@@ -2230,7 +2221,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const formatIncomingLinkLabel = useCallback((link) => {
         const title = String(link?.title || '').trim();
         const id = String(link?.id || '').trim();
-        if (!title) return id || 'sense-titol';
+        if (!title) return id || 'untitled';
 
         const normalized = title.toLowerCase();
         const repeatedTitle = (incomingTitleCounts.get(normalized) || 0) > 1;
@@ -2272,7 +2263,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 );
             } catch (error) {
                 if (!cancelled) {
-                    console.error('Error carregant backlinks:', error);
+                    console.error('Error loading backlinks:', error);
                     setIncomingLinks([]);
                 }
             } finally {
@@ -2305,7 +2296,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 setUnlinkedMentions(items);
             } catch (error) {
                 if (!cancelled) {
-                    console.error('Error carregant mencions sense enllac:', error);
+                    console.error('Error loading unlinked mentions:', error);
                     setUnlinkedMentions([]);
                 }
             } finally {
@@ -2334,9 +2325,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             const replacements = Number(response?.data?.total_replacements || 0);
 
             if (changed > 0) {
-                toast.success(`Mencions enllacades: ${replacements} en ${changed} nota(es)`);
+                toast.success(t('editor.mentions_linked', { count: replacements, notes: changed }));
             } else {
-                toast('No hi havia mencions pendents per enllacar.');
+                toast(t('editor.no_pending_mentions'));
             }
 
             const mentionsRes = await axios.get('/api/vault/unlinked-mentions', { params: { id: noteFilename } });
@@ -2356,8 +2347,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
             if (onRefreshNotes) onRefreshNotes();
         } catch (error) {
-            console.error('Error enllacant mencions pendents:', error);
-            toast.error('No s\'han pogut enllacar les mencions pendents');
+            console.error('Error linking pending mentions:', error);
+            toast.error(t('editor.link_mentions_error'));
         } finally {
             setLinkMentionsBusy(false);
         }
@@ -2372,7 +2363,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
             <div className="max-w-4xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
-                {/* 1. Cover Image Header */}
                 <div 
                     className="relative w-full group/cover mt-4"
                     onMouseEnter={() => setIsHeaderHovered(true)}
@@ -2389,7 +2379,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             />
                         )}
                         
-                        {/* Cover Actions Overlay */}
                         <div className={`absolute bottom-4 right-8 flex items-center gap-2 transition-opacity duration-200 ${isHeaderHovered ? 'opacity-100' : 'opacity-0'}`}>
                             {!metadata.icon && (
                                 <button 
@@ -2397,7 +2386,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
                                 >
                                     <Smile size={14} />
-                                    Afegir icona
+                                    {t('editor.add_icon')}
                                 </button>
                             )}
                             <button 
@@ -2406,7 +2395,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
                             >
                                 <LayoutPanelLeft size={14} />
-                                {metadata.cover ? 'Canviar portada' : 'Afegir portada'}
+                                {metadata.cover ? t('editor.change_cover') : t('editor.add_cover')}
                             </button>
                             {metadata.cover && (
                                 <button 
@@ -2419,7 +2408,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>
                     </div>
 
-                    {/* Page Icon (Absolute positioned floating over cover/header) */}
                     <div className="absolute -bottom-10 left-12 group/icon z-10">
                         <div 
                             ref={iconTriggerRef}
@@ -2431,11 +2419,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             ) : (
                                 <div className="flex flex-col items-center gap-1 text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]">
                                     <Plus size={24} />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">Icona</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">{t('common.icon')}</span>
                                 </div>
                             )}
 
-                            {/* Remove Icon Button */}
                             {metadata.icon && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleMetaChange('icon', ''); }}
@@ -2455,26 +2442,26 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 type="text" 
                                 value={metadata.title || ""} 
                                 onChange={handleTitleChange} 
-                                placeholder="Sense títol" 
+                                placeholder={t('editor.untitled')} 
                                 className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent" 
                             />
                             <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 min-w-[80px] justify-end">
                                 {saveStatus === 'saving' && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--gnosi-primary)]/5 text-[var(--gnosi-primary)]/60 text-[10px] font-bold uppercase tracking-wider">
                                         <Loader2 size={12} className="animate-spin" />
-                                        Desant
+                                        {t('editor.saving')}
                                     </div>
                                 )}
                                 {saveStatus === 'saved' && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--status-success)]/5 text-[var(--status-success)]/60 text-[10px] font-bold uppercase tracking-wider">
                                         <CheckSquare size={12} />
-                                        Desat
+                                        {t('editor.saved')}
                                     </div>
                                 )}
                                 {saveStatus === 'error' && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--status-error)]/5 text-[var(--status-error)]/60 text-[10px] font-bold uppercase tracking-wider">
                                         <X size={12} />
-                                        Error
+                                        {t('editor.save_error')}
                                     </div>
                                 )}
                             </div>
@@ -2489,10 +2476,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     <div className="flex items-center gap-2 min-w-0">
                                         <Settings size={14} className="text-[var(--text-secondary)]/80" />
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
-                                            Propietats
+                                            {t('common.properties')}
                                         </div>
                                         <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
-                                            Esquema {properties.length} · Locals {adhocProperties.length}
+                                            {t('common.schema')} {properties.length} · {t('common.local')} {adhocProperties.length}
                                         </div>
                                     </div>
                                     {isPropertiesOpen ? (
@@ -2504,7 +2491,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 {isPropertiesOpen && (
                                 <div className="p-3 border-t border-[var(--border-primary)] bg-[var(--bg-primary)]/35">
                                 <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center">
-                                    {/* 1. Propietats de l'Esquema */}
                                     {properties.map(prop => (
                                         <React.Fragment key={prop.name}>
                                             <div className="flex items-center gap-1.5 group py-1 h-8">
@@ -2515,23 +2501,22 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             </div>
                                             <div className="flex items-center gap-1.5 group h-8">
                                                 {prop.type === 'multi_select' ? (
-                                                    <MultiSelectPills value={metadata[prop.name]} onChange={val => handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder="Afegir opcions..." onCreate={val => { const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(metadata[prop.name]) ? metadata[prop.name] : []), val]); }} />
+                                                    <MultiSelectPills value={metadata[prop.name]} onChange={val => isEditor && handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder={isEditor ? t('editor.add_options') : t('common.empty')} onCreate={val => { if (!isEditor) return; const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(metadata[prop.name]) ? metadata[prop.name] : []), val]); }} />
                                                 ) : prop.type === 'select' ? (
-                                                    <select value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-transparent hover:border-[var(--border-primary)] rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:bg-[var(--bg-primary)] focus:border-[var(--gnosi-primary)]/40 transition-all font-medium h-7">
-                                                        <option value="">Buit</option>
+                                                    <select disabled={!isEditor} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-transparent hover:border-[var(--border-primary)] rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:bg-[var(--bg-primary)] focus:border-[var(--gnosi-primary)]/40 transition-all font-medium h-7 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                        <option value="">{t('common.empty')}</option>
                                                         {(prop.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                                     </select>
                                                 ) : (
-                                                    <input type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder="Buit" className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7" />
+                                                    <input disabled={!isEditor} type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />
                                                 )}
                                                 {!currentTable && (
-                                                    <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title="Eliminar propietat"><X size={14} /></button>
+                                                    <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_property')}><X size={14} /></button>
                                                 )}
                                             </div>
                                         </React.Fragment>
                                     ))}
 
-                                    {/* 2. Propietats Locals (Ad-hoc / Obsidian style) */}
                                     {adhocProperties.map(key => (
                                         <React.Fragment key={key}>
                                             <div className="flex items-center gap-1.5 group py-1 h-8">
@@ -2540,34 +2525,34 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             </div>
                                             <div className="flex items-center gap-1.5 group h-8">
                                                 <input 
+                                                    disabled={!isEditor}
                                                     type="text" 
                                                     value={metadata[key] || ""} 
                                                     onChange={e => handleMetaChange(key, e.target.value)} 
-                                                    placeholder="Buit (local)" 
-                                                    className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7" 
+                                                    placeholder={t('editor.empty_local')} 
+                                                    className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" 
                                                 />
                                                 {!currentTable && (
-                                                    <button onClick={() => handleRemoveProperty(key)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title="Eliminar propietat local"><X size={14} /></button>
+                                                    <button onClick={() => handleRemoveProperty(key)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_local_property')}><X size={14} /></button>
                                                 )}
                                             </div>
                                         </React.Fragment>
                                     ))}
 
-                                    {/* 3. Accions */}
                                     <div className="col-span-2 flex gap-2.5 mt-1.5">
                                         {!currentTable && (!isAddingProp ? (
                                             <button
                                                 onClick={() => setIsAddingProp(true)}
                                                 className="btn btn-gnosi-primary flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold"
                                             >
-                                                <Plus size={14} /> Afegir propietat
+                                                <Plus size={14} /> {t('editor.add_property')}
                                             </button>
                                         ) : (
                                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
                                                 <input
                                                     autoFocus
                                                     className="bg-[var(--bg-secondary)] border border-[var(--gnosi-primary)]/30 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
-                                                    placeholder="Nom de la clau (ex: Autor)"
+                                                    placeholder={t('editor.property_name_placeholder')}
                                                     value={newPropName}
                                                     onChange={e => setNewPropName(e.target.value)}
                                                     onKeyDown={e => e.key === 'Enter' && handleAddAdhocProperty()}
@@ -2577,9 +2562,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 <button onClick={() => { setIsAddingProp(false); setNewPropName(""); }} className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--status-error)] transition-all"><X size={16} /></button>
                                             </div>
                                         ))}
-                                        {currentTable && (
+                                        {currentTable && isEditor && (
                                             <button onClick={() => onEditSchema(currentTable)} className="btn btn-gnosi-primary flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold">
-                                                <Settings size={14} /> Gestionar Camps
+                                                <Settings size={14} /> {t('editor.manage_fields')}
                                             </button>
                                         )}
                                     </div>
@@ -2597,10 +2582,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     <div className="flex items-center gap-2 min-w-0">
                                         <Link2 size={14} className="text-[var(--text-secondary)]/80" />
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
-                                            Enllacos i mencions
+                                            {t('editor.links_and_mentions')}
                                         </div>
                                         <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
-                                            Sortints {outgoingLinks.length} · Entrants {incomingLinks.length} · Pendents {unlinkedMentions.length}
+                                            {t('editor.outgoing')} {outgoingLinks.length} · {t('editor.incoming')} {incomingLinks.length} · {t('editor.pending')} {unlinkedMentions.length}
                                         </div>
                                     </div>
                                     {isLinksInfoOpen ? (
@@ -2616,10 +2601,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 p-3">
                                             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/80 mb-2">
                                                 <Link2 size={13} />
-                                                Enllaca a ({outgoingLinks.length})
+                                                {t('editor.links_to')} ({outgoingLinks.length})
                                             </div>
                                             {outgoingLinks.length === 0 ? (
-                                                <div className="text-xs text-[var(--text-tertiary)]/70">Cap enllac sortint detectat.</div>
+                                                <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_outgoing_links')}</div>
                                             ) : (
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {outgoingLinks.map((link, idx) => (
@@ -2629,7 +2614,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 key={`${link.id}-${idx}`}
                                                                 onClick={() => openLinkedPage(link.id)}
                                                                 className="px-2.5 py-1 text-xs rounded-full border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:brightness-110 transition-all"
-                                                                title="Obrir en panell paral.lel"
+                                                                title={t('editor.open_parallel_tooltip')}
                                                             >
                                                                 {link.title}
                                                             </button>
@@ -2637,7 +2622,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             <span
                                                                 key={`${link.title}-${idx}`}
                                                                 className="px-2.5 py-1 text-xs rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)]/80"
-                                                                title="Enllac no resolt"
+                                                                title={t('editor.unresolved_link')}
                                                             >
                                                                 {link.title}
                                                             </span>
@@ -2650,15 +2635,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 p-3">
                                             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/80 mb-2">
                                                 <Share2 size={13} />
-                                                Enllacat per ({incomingLinks.length})
+                                                {t('editor.linked_by')} ({incomingLinks.length})
                                             </div>
                                             {incomingLinksLoading ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70 flex items-center gap-1.5">
                                                     <Loader2 size={12} className="animate-spin" />
-                                                    Carregant backlinks...
+                                                    {t('editor.loading_backlinks')}
                                                 </div>
                                             ) : incomingLinks.length === 0 ? (
-                                                <div className="text-xs text-[var(--text-tertiary)]/70">Ningu referencia aquesta pagina encara.</div>
+                                                <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_backlinks')}</div>
                                             ) : (
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {incomingLinks.map((link) => (
@@ -2667,7 +2652,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             key={link.id}
                                                             onClick={() => openLinkedPage(link.id)}
                                                             className="px-2.5 py-1 text-xs rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)]/40 hover:text-[var(--gnosi-primary)] transition-all"
-                                                            title="Obrir en panell paral.lel"
+                                                            title={t('editor.open_parallel_tooltip')}
                                                         >
                                                             {formatIncomingLinkLabel(link)}
                                                         </button>
@@ -2680,7 +2665,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             <div className="flex items-center justify-between gap-2 mb-2">
                                                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/80">
                                                     <AtSign size={13} />
-                                                    Mencions sense enllac ({unlinkedMentions.length})
+                                                    {t('editor.unlinked_mentions')} ({unlinkedMentions.length})
                                                 </div>
                                                 <button
                                                     type="button"
@@ -2688,17 +2673,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                     disabled={linkMentionsBusy || unlinkedMentionsLoading || unlinkedMentions.length === 0}
                                                     className="px-2.5 py-1 text-xs rounded-md border border-[var(--gnosi-primary)]/40 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] disabled:opacity-50"
                                                 >
-                                                    {linkMentionsBusy ? 'Enllacant...' : 'Enllacar totes'}
+                                                    {linkMentionsBusy ? t('editor.linking') : t('editor.link_all')}
                                                 </button>
                                             </div>
 
                                             {unlinkedMentionsLoading ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70 flex items-center gap-1.5">
                                                     <Loader2 size={12} className="animate-spin" />
-                                                    Cercant mencions...
+                                                    {t('editor.searching_mentions')}
                                                 </div>
                                             ) : unlinkedMentions.length === 0 ? (
-                                                <div className="text-xs text-[var(--text-tertiary)]/70">No hi ha mencions pendents per convertir a enllac.</div>
+                                                <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_unlinked_mentions')}</div>
                                             ) : (
                                                 <div className="space-y-1.5">
                                                     {unlinkedMentions.slice(0, 12).map((mention) => (
@@ -2707,10 +2692,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 type="button"
                                                                 onClick={() => openLinkedPage(mention.id)}
                                                                 className="text-left flex-1 min-w-0"
-                                                                title="Obrir nota font"
+                                                                title={t('editor.open_source_note')}
                                                             >
                                                                 <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{mention.title}</div>
-                                                                <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">{mention.snippet || 'Sense fragment disponible'}</div>
+                                                                <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">{mention.snippet || t('editor.no_snippet')}</div>
                                                             </button>
                                                             <div className="flex items-center gap-2 shrink-0">
                                                                 <span className="text-[11px] text-[var(--text-secondary)]/80">{mention.count}x</span>
@@ -2720,7 +2705,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                     disabled={linkMentionsBusy}
                                                                     className="px-2 py-1 text-[11px] rounded-md border border-[var(--gnosi-primary)]/30 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 disabled:opacity-50"
                                                                 >
-                                                                    Enllacar
+                                                                    {t('editor.link_action')}
                                                                 </button>
                                                             </div>
                                                         </div>

@@ -109,11 +109,11 @@ La teva feina és coordinar l'equip d'experts per resoldre la petició de l'usua
 
 MEMBRES DE L'EQUIP:
 1. **Coder**: Enginyer de Software Sènior. Expert en Python, Git, Tests i Sistema de Fitxers. 
-2. **Brain**: Gestor de Coneixement i Automatització. Expert en Notion, n8n i Memòria a Llarg Termini.
+2. **Brain**: Gestor de Coneixement i Automatització Sobirà. Expert en Gnosi Vault, fluxos n8n i Memòria a Llarg Termini.
 
 INSTRUCCIONS DE ROUTING:
 - Si l'usuari demana canvis de codi -> `Coder`.
-- Si l'usuari demana informació personal, Notion, n8n o gestionar **Directives/Procediments** -> `Brain`.
+- Si l'usuari demana informació personal, gestionar el Vault de **Gnosi**, n8n o gestionar **Directives/Procediments** -> `Brain`.
 - Si és una xerrada general o una pregunta simple -> `General` (Tu mateix respons).
 - Si un agent ha acabat la feina -> `FINISH`.
 
@@ -146,7 +146,7 @@ def get_llm(
                     base_url=base_url or "http://localhost:11434",
                     timeout=60,
                 )
-            if OPENAI_COMPATIBLE_AVAILABLE:
+            if provider == "ollama" and OPENAI_COMPATIBLE_AVAILABLE:
                 # Fallback for environments without langchain_ollama installed.
                 return ChatOpenAI(
                     model=model or "llama3.2",
@@ -159,7 +159,10 @@ def get_llm(
         if provider == "openai":
             key = api_key or os.environ.get("OPENAI_API_KEY")
             if not key:
-                print(f"❌ Error: OpenAI API Key missing for provider '{provider}'")
+
+                return None
+            if not OPENAI_COMPATIBLE_AVAILABLE:
+                log.error("❌ OpenAI provider requested but langchain_openai is not installed")
                 return None
             return ChatOpenAI(
                 model=model or "gpt-4o",
@@ -171,6 +174,9 @@ def get_llm(
             key = api_key if api_key and api_key.strip() else os.environ.get("GROQ_API_KEY")
             if not key:
                 log.warning(f"⚠️ Groq API Key missing. Provided in config: '{api_key}', Env: '{os.environ.get('GROQ_API_KEY') is not None}'")
+                return None
+            if not OPENAI_COMPATIBLE_AVAILABLE:
+                log.error("❌ Groq provider requested but langchain_openai is not installed")
                 return None
             return ChatOpenAI(
                 model=model or "llama-3.3-70b-versatile",
@@ -189,7 +195,7 @@ def get_llm(
             )
 
         # Generic OpenAI compatible (e.g. Local LLM via LM Studio / vLLM)
-        if provider in {"local", "generic", "lmstudio", "llama-cpp"}:
+        if provider in {"local", "generic", "lmstudio", "llama-cpp"} and OPENAI_COMPATIBLE_AVAILABLE:
             return ChatOpenAI(
                 model=model or "local-model",
                 api_key=api_key or "no-key",
@@ -197,11 +203,11 @@ def get_llm(
             )
 
     except Exception as e:
-        print(f"❌ Exception initializing LLM provider '{provider}': {e}")
+
         return None
 
     # Fallback si no es reconeix el proveïdor
-    print(f"⚠️ Provider '{provider}' not explicitly handled, falling back to hybrid.")
+
     return None
 
 
@@ -248,7 +254,7 @@ async def create_agent_workflow(
         agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
 
     if not agent_data:
-        print(f"❌ Error: Agent '{target_id}' not found and no defaults available.")
+
         return None, {}
 
     # 2. Configurar LLM per l'agent
@@ -285,7 +291,7 @@ async def create_agent_workflow(
             model_name = "llama-3.3-70b-versatile"
 
     if not llm:
-        print(f"❌ CRITICAL: No LLM provider available for agent '{agent_data.get('name')}'.")
+
         return None, {}
 
     # 3. Preparar Prompts (Persona)
@@ -342,7 +348,7 @@ async def create_agent_workflow(
     def brain_node(state: AgentState):
         messages = state["messages"]
         response = brain_llm.invoke(
-            [SystemMessage(content="Ets el Brain Agent (Notion, Vault).")] + messages
+            [SystemMessage(content="Ets el Brain Agent (Gnosi Vault, Memòria Sobirana).")] + messages
         )
         return {"messages": [response], "next": "supervisor"}
 

@@ -14,7 +14,7 @@ from typing import List, Dict, Any
 
 # Adjust path to import pipeline modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
-from pipeline.notion_api import extract_content_and_mentions, create_page, retrieve_page
+from pipeline.legacy_notion_connector import extract_content_and_mentions, create_page, retrieve_page
 
 # --- REPLICATE JS LOGIC IN PYTHON FOR VERIFICATION ---
 # This mirrors what we will put in n8n's TranlationUnpaker
@@ -161,7 +161,7 @@ def verify_fidelity(source_page_id: str):
         # Detect correct Title Property Name from Database
         target_title_key = "Name"
         if parent["type"] == "database_id":
-             from pipeline.notion_api import notion
+             from pipeline.legacy_notion_connector import notion
              db_meta = notion.databases.retrieve(parent["database_id"])
              for pname, pdef in db_meta["properties"].items():
                  if pdef["type"] == "title":

@@ -82,11 +82,10 @@ async def trigger_sync(background_tasks: BackgroundTasks):
                 cwd=str(BASE_DIR)
             )
             if result.returncode == 0:
-                print(f"Zotero sync completed: {result.stdout}")
+
             else:
-                print(f"Zotero sync failed: {result.stderr}")
+
         except Exception as e:
-            print(f"Error running Zotero sync: {e}")
 
     background_tasks.add_task(run_sync)
     return {"status": "started", "message": "Sync started in the background"}

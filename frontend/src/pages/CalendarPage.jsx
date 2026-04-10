@@ -18,7 +18,7 @@ export default function CalendarPage() {
     const [activeView, setActiveView] = useState('dayGridMonth');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCalendars, setSelectedCalendars] = useState(new Set());
-    const [enabledTables, setEnabledTables] = useState([]); // Taules habilitades com a calendaris
+    const [enabledTables, setEnabledTables] = useState([]); // Enabled tables as calendars
     const [integrations, setIntegrations] = useState({});
     const calendarRef = useRef(null);
     const [showRightSidebar, setShowRightSidebar] = useState(true);
@@ -29,7 +29,7 @@ export default function CalendarPage() {
     const [isEditingEvent, setIsEditingEvent] = useState(false); // Si está en modo edición
     const [selectedEvent, setSelectedEvent] = useState(null); // Event complet seleccionat
 
-    // Panel lateral (substitueix popup modal)
+    // Side panel (replaces popup modal)
     const [eventPanel, setEventPanel] = useState(null); // null | { mode, data, date, isEditing }
     // Menú contextual
     const [contextMenu, setContextMenu] = useState({
@@ -114,7 +114,7 @@ export default function CalendarPage() {
             const pagesTimeoutMs = 30000;
             const auxTimeoutMs = 8000;
             const [pagesRes, integrationsRes, tablesRes] = await Promise.allSettled([
-                axios.get('/api/vault/pages', { timeout: pagesTimeoutMs }),
+                axios.get('/api/vault/pages', { params: { only_calendar: true }, timeout: pagesTimeoutMs }),
                 axios.get('/api/integrations', { timeout: auxTimeoutMs }),
                 axios.get('/api/vault/tables', { timeout: auxTimeoutMs }),
             ]);
@@ -161,11 +161,11 @@ export default function CalendarPage() {
             setPages(data);
 
             if (integrationsRes.status !== 'fulfilled' || tablesRes.status !== 'fulfilled') {
-                toast.error('Algunes dades auxiliars no han carregat, però el calendari està disponible.');
+                toast.error(t('calendar.partial_data_warning'));
             }
         } catch (err) {
             console.error(err);
-            toast.error("Error carregant les pàgines del calendari.");
+            toast.error(t('calendar.error_loading_pages'));
         } finally {
             setLoading(false);
         }
@@ -199,7 +199,7 @@ export default function CalendarPage() {
             };
 
             const response = await axios.post('/api/vault/pages', {
-                title: t('new_event', 'Nova cita'),
+                title: t('calendar.new_event'),
                 content: '',
                 metadata,
             });
@@ -213,7 +213,7 @@ export default function CalendarPage() {
                     // Fallback: mantenim una forma mínima compatible fins que arribi un refresh
                     createdEvent = {
                         id: response.data.id,
-                        title: response.data.title || t('new_event', 'Nova cita'),
+                        title: response.data.title || t('calendar.new_event'),
                         content: '',
                         metadata,
                     };
@@ -226,8 +226,8 @@ export default function CalendarPage() {
             setIsEditingEvent(true);
             setEventPanel({ mode: 'edit', data: createdEvent, date: '', isEditing: true });
         } catch (err) {
-            console.error('Error creant event:', err);
-            toast.error(t('event_save_error', 'Error desant la cita.'));
+            console.error('Error creating event:', err);
+            toast.error(t('calendar.event_save_error'));
         }
     }, [t]);
 
@@ -245,10 +245,10 @@ export default function CalendarPage() {
 
             await axios.put('/api/integrations/calendar_aliases', updatedAliases);
             setIntegrations(updatedIntegrations);
-            toast.success(t('calendar_renamed_success', 'Calendari reanomenat'));
+            toast.success(t('calendar.calendar_renamed_success'));
         } catch (err) {
             console.error('Error renaming calendar:', err);
-            toast.error(t('calendar_rename_error', 'Error al reanomenar el calendari'));
+            toast.error(t('calendar.calendar_rename_error'));
         }
     };
 
@@ -290,10 +290,10 @@ export default function CalendarPage() {
             setIsEditingEvent(true);
             setEventPanel({ mode: 'edit', data: res.data, date: '', isEditing: true });
         } catch (err) {
-            console.error('Error carregant event:', err);
-            toast.error("Error carregant les dades de l'event.");
+            console.error('Error loading event:', err);
+            toast.error(t('calendar.error_loading_event_data'));
         }
-    }, [selectedEventId]);
+    }, [selectedEventId, t]);
 
     // Menú contextual (clic dret)
     const handleContextMenu = useCallback(({ x, y, date, eventId = null, instanceStart = '', allDay = false }) => {
@@ -349,13 +349,13 @@ export default function CalendarPage() {
     const handleDeleteFromContext = useCallback(async () => {
         const targetEventId = contextMenu.eventId || selectedEventId;
         if (!targetEventId) {
-            toast.error('No hi ha cap event seleccionat.');
+            toast.error(t('calendar.no_event_selected'));
             return;
         }
 
         const eventData = pages.find(p => p.id === targetEventId) || selectedEvent;
         if (!eventData) {
-            toast.error('No s\'ha pogut carregar l\'event.');
+            toast.error(t('calendar.error_loading_event'));
             return;
         }
 
@@ -363,9 +363,7 @@ export default function CalendarPage() {
 
         try {
             if (isRecurrent) {
-                const choice = window.prompt(
-                    "Aquest event és recurrent.\n1) Esborrar només aquesta\n2) Esborrar totes\n\nEscriu 1 o 2 (cancel per anul·lar)."
-                );
+                const choice = window.prompt(t('calendar.recurrent_delete_prompt'));
 
                 if (!choice) return;
 
@@ -377,7 +375,7 @@ export default function CalendarPage() {
                         eventData.metadata || {}
                     );
                     if (!occurrenceKey) {
-                        toast.error('No s\'ha pogut identificar la instància a eliminar.');
+                        toast.error(t('calendar.error_identifying_instance'));
                         return;
                     }
 
@@ -396,18 +394,18 @@ export default function CalendarPage() {
                             metadata: patchedMetadata,
                         });
                     }
-                    toast.success('Instància eliminada.');
+                    toast.success(t('calendar.instance_deleted'));
                 } else if (choice.trim() === '2') {
-                    if (!window.confirm('Segur que vols eliminar tota la sèrie recurrent?')) return;
+                    if (!window.confirm(t('calendar.confirm_delete_series'))) return;
                     await axios.delete(`/api/vault/pages/${targetEventId}`);
-                    toast.success('Sèrie recurrent eliminada.');
+                    toast.success(t('calendar.series_deleted'));
                 } else {
                     return;
                 }
             } else {
-                if (!window.confirm('Segur que vols eliminar aquesta cita?')) return;
+                if (!window.confirm(t('calendar.confirm_delete_event'))) return;
                 await axios.delete(`/api/vault/pages/${targetEventId}`);
-                toast.success('Cita eliminada.');
+                toast.success(t('calendar.event_deleted'));
             }
 
             setSelectedEventId(null);
@@ -416,8 +414,8 @@ export default function CalendarPage() {
             closeContextMenu();
             await fetchPages();
         } catch (err) {
-            console.error('Error eliminant event:', err);
-            toast.error('Error eliminant la cita.');
+            console.error('Error deleting event:', err);
+            toast.error(t('calendar.error_deleting_event'));
         }
     }, [selectedEventId, selectedEvent, contextMenu, pages, buildOccurrenceKey, closeContextMenu]);
 
@@ -479,17 +477,17 @@ export default function CalendarPage() {
 
     return (
         <div className="h-full bg-slate-50 overflow-hidden flex flex-col">
-            <AppHeader icon={Calendar} title={`Calendari ${currentTitle ? `- ${currentTitle}` : ''}`}>
+            <AppHeader icon={Calendar} title={`${t('calendar.title')} ${currentTitle ? `- ${currentTitle}` : ''}`}>
                 <div className="flex items-center gap-4">
                     {/* Navigation Controls */}
                     <div className="flex items-center gap-1 bg-surface p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                        <button onClick={handlePrev} className="p-1 text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors" title="Anterior">
+                        <button onClick={handlePrev} className="p-1 text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors" title={t('common.previous')}>
                             <ChevronLeft size={16} strokeWidth={2.5} />
                         </button>
                         <button onClick={handleToday} className="px-3 text-[11px] font-bold uppercase tracking-tight text-slate-500 dark:text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors">
-                            {t('today', 'Avui')}
+                            {t('calendar.today')}
                         </button>
-                        <button onClick={handleNext} className="p-1 text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors" title="Següent">
+                        <button onClick={handleNext} className="p-1 text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors" title={t('common.next')}>
                             <ChevronRight size={16} strokeWidth={2.5} />
                         </button>
                     </div>
@@ -497,9 +495,9 @@ export default function CalendarPage() {
                     {/* View Toggles */}
                     <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
                         {[
-                            { id: 'dayGridMonth', label: t('month', 'Mes') },
-                            { id: 'timeGridWeek', label: t('week', 'Set') },
-                            { id: 'timeGridDay', label: t('day', 'Dia') }
+                            { id: 'dayGridMonth', label: t('calendar.view_month') },
+                            { id: 'timeGridWeek', label: t('calendar.view_week') },
+                            { id: 'timeGridDay', label: t('calendar.view_day') }
                         ].map((view) => (
                             <button
                                 key={view.id}
@@ -533,7 +531,7 @@ export default function CalendarPage() {
                 <div className="flex-1 p-4 lg:p-5 overflow-auto">
                     {loading ? (
                         <div className="flex items-center justify-center h-full text-slate-500">
-                            Cargando eventos...
+                            {t('calendar.loading_events')}
                         </div>
                     ) : (
                         <div className="h-full">

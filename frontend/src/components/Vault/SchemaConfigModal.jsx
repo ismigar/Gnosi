@@ -6,6 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
+import { useTranslation } from 'react-i18next';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -23,8 +24,9 @@ const ROLLUP_AGGREGATIONS = [
     { value: 'show_original', label: 'Show original' },
 ];
 
-// Component fill per cada propietat arrossegable
+// Child component for each draggable property
 function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [] }) {
+    const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
     const relationFieldOptions = allFields
@@ -48,7 +50,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
             style={style} 
             className={`flex flex-col bg-[var(--bg-primary)] rounded-xl border shadow-sm transition-all duration-200 overflow-hidden ${isDragging ? 'border-[var(--gnosi-primary)] shadow-lg ring-2 ring-[var(--gnosi-primary)]/10 z-50 scale-[1.02]' : 'border-[var(--border-primary)] hover:border-[var(--text-tertiary)]/40'}`}
         >
-            {/* Fila Superior: Grip, Nom, Tipus i Accions */}
+            {/* Upper Row: Grip, Name, Type and Actions */}
             <div className={`flex items-center gap-3 p-3 ${field.type === 'title' ? 'bg-[var(--bg-secondary)]/50' : ''}`}>
                 <div 
                     {...attributes} 
@@ -63,7 +65,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         type="text"
                         value={field.name}
                         onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
-                        placeholder="Nom de propietar (ex: Data d'entrega)"
+                        placeholder={t('schema.property_name_placeholder')}
                         className="w-full text-sm font-semibold bg-transparent border-none focus:ring-0 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]/40 outline-none"
                     />
                 </div>
@@ -75,23 +77,23 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         className="w-full text-xs font-medium border border-[var(--border-primary)] rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-secondary)] text-[var(--text-primary)] disabled:opacity-50"
                         disabled={field.type === 'title'}
                     >
-                        <option value="text">Text (Curt)</option>
-                        <option value="rich_text">Text Llarg</option>
-                        <option value="number">Nombre</option>
-                        <option value="select">Selecció Única</option>
-                        <option value="multi_select">Selecció Múltiple</option>
-                        <option value="status">Estat</option>
-                        <option value="date">Data</option>
-                        <option value="datetime">Data i Hora</option>
-                        <option value="period">Periode</option>
-                        <option value="checkbox">Casella</option>
-                        <option value="url">Enllaç (URL)</option>
+                        <option value="text">{t('schema.type_text')}</option>
+                        <option value="rich_text">{t('schema.type_rich_text')}</option>
+                        <option value="number">{t('schema.type_number')}</option>
+                        <option value="select">{t('schema.type_select')}</option>
+                        <option value="multi_select">{t('schema.type_multi_select')}</option>
+                        <option value="status">{t('schema.type_status')}</option>
+                        <option value="date">{t('schema.type_date')}</option>
+                        <option value="datetime">{t('schema.type_datetime')}</option>
+                        <option value="period">{t('schema.type_period')}</option>
+                        <option value="checkbox">{t('schema.type_checkbox')}</option>
+                        <option value="url">{t('schema.type_url')}</option>
                         <option value="zotero">Zotero</option>
-                        <option value="files">Arxius</option>
-                        <option value="relation">Relació (Link)</option>
-                        <option value="formula">Fórmula</option>
-                        <option value="rollup">Rollup</option>
-                        <option value="title">Títol (Obligatori)</option>
+                        <option value="files">{t('schema.type_files')}</option>
+                        <option value="relation">{t('schema.type_relation')}</option>
+                        <option value="formula">{t('schema.type_formula')}</option>
+                        <option value="rollup">{t('schema.type_rollup')}</option>
+                        <option value="title">{t('schema.type_title')}</option>
                     </select>
                 </div>
 
@@ -99,29 +101,29 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                     <button
                         onClick={() => handleRemoveField(idx)}
                         className="btn-gnosi-danger !p-1.5"
-                        title="Eliminar propietat"
+                        title={t('schema.remove_property')}
                     >
                         <Trash2 size={18} />
                     </button>
                 )}
             </div>
 
-            {/* Secció de Configuració Específica (Fórmula, Rollup, Relació) */}
+            {/* Specific Configuration Section (Formula, Rollup, Relation) */}
             {(field.type === 'relation' || field.type === 'rollup' || field.type === 'formula') && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner">
                         {field.type === 'formula' && (
                             <div className="space-y-2">
-                                <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">Expressió de la Fórmula</label>
+                                <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.formula_expression')}</label>
                                 <input
                                     type="text"
                                     value={field.formula || ''}
                                     onChange={(e) => handleUpdateField(idx, 'formula', e.target.value)}
-                                    placeholder="Ex: {Cabal} * {Temps}"
+                                    placeholder={t('schema.formula_placeholder')}
                                     className="w-full text-sm border-none focus:ring-0 bg-transparent font-mono text-[var(--text-primary)] outline-none"
                                 />
                                 <p className="text-[10px] text-[var(--text-secondary)]/60 px-1 border-t border-[var(--border-primary)] pt-1">
-                                    Admet camps <span className="font-mono">{'{Nom}'}</span>, <span className="font-mono">prop('X')</span>, <span className="font-mono">lookup(...)</span>.
+                                    {t('schema.formula_hint')}
                                 </p>
                             </div>
                         )}
@@ -129,26 +131,26 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         {field.type === 'rollup' && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">Relació</label>
+                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.relation')}</label>
                                     <select
                                         value={field.relationField || ''}
                                         onChange={(e) => handleUpdateField(idx, 'relationField', e.target.value)}
                                         className="w-full text-xs border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                     >
-                                        <option value="">Camps de relació...</option>
+                                        <option value="">{t('schema.relation_fields_placeholder')}</option>
                                         {relationFieldOptions.map((name) => (
                                             <option key={name} value={name}>{name}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">Propietat Target</label>
+                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.target_property')}</label>
                                     <select
                                         value={field.targetProperty || ''}
                                         onChange={(e) => handleUpdateField(idx, 'targetProperty', e.target.value)}
                                         className="w-full text-xs border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                     >
-                                        <option value="">Selecciona propietat...</option>
+                                        <option value="">{t('schema.select_property_placeholder')}</option>
                                         <option value="title">title</option>
                                         {targetPropertyOptions.map((name) => (
                                             <option key={name} value={name}>{name}</option>
@@ -156,7 +158,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                     </select>
                                 </div>
                                 <div className="space-y-1 text-xs">
-                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">Agregació</label>
+                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.aggregation')}</label>
                                     <select
                                         value={field.aggregation || 'count_values'}
                                         onChange={(e) => handleUpdateField(idx, 'aggregation', e.target.value)}
@@ -173,28 +175,28 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         {field.type === 'relation' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">Taula Relacionada</label>
+                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.related_table')}</label>
                                     <select
                                         value={field.relation_database_id || ''}
                                         onChange={(e) => handleUpdateField(idx, 'relation_database_id', e.target.value)}
                                         className="w-full text-xs border border-[var(--border-primary)] rounded-md px-3 py-2 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                     >
-                                        <option value="">Selecciona una taula...</option>
+                                        <option value="">{t('schema.select_table_placeholder')}</option>
                                         {(allTables || []).map((t) => (
                                             <option key={t.id} value={t.id}>{t.name || t.title || t.id}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">Cardinalitat de Relació</label>
+                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.relation_cardinality')}</label>
                                     <select
                                         value={field.cardinality || 'one-to-many'}
                                         onChange={(e) => handleUpdateField(idx, 'cardinality', e.target.value)}
                                         className="w-full text-xs border border-[var(--border-primary)] rounded-md px-3 py-2 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                     >
-                                        <option value="one-to-one">Un a Un (1:1)</option>
-                                        <option value="one-to-many">Un a Molts (1:N)</option>
-                                        <option value="many-to-many">Molts a Molts (N:N)</option>
+                                        <option value="one-to-one">{t('schema.one_to_one')}</option>
+                                        <option value="one-to-many">{t('schema.one_to_many')}</option>
+                                        <option value="many-to-many">{t('schema.many_to_many')}</option>
                                     </select>
                                 </div>
                             </div>
@@ -203,7 +205,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 </div>
             )}
 
-            {/* Secció de Valor per defecte */}
+            {/* Default Value Section */}
             {field.type !== 'title' && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)]">
                     <div className="flex gap-3 items-center px-1">
@@ -212,11 +214,11 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 type="text"
                                 value={field.defaultFormula || ''}
                                 onChange={(e) => handleUpdateField(idx, 'defaultFormula', e.target.value)}
-                                placeholder="Valor per defecte o fórmula (ex: now())"
+                                placeholder={t('schema.default_formula_placeholder')}
                                 className="w-full text-[11px] font-mono bg-transparent border-none focus:ring-0 text-[var(--text-secondary)]/60 placeholder:text-[var(--text-tertiary)]/20 outline-none"
                             />
                         </div>
-                        <span className="text-[10px] text-[var(--text-tertiary)]/40 italic">Default</span>
+                        <span className="text-[10px] text-[var(--text-tertiary)]/40 italic">{t('schema.default_label')}</span>
                     </div>
                 </div>
             )}
@@ -225,6 +227,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
 }
 
 export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null }) {
+    const { t } = useTranslation();
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
@@ -250,7 +253,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             setFields(fieldsArray);
             setEnableSubitems(initialEnableSubitems);
 
-            // Carregar totes les taules per a les relacions
+            // Load all tables for relations
             const fetchTables = async () => {
                 try {
                     const response = await axios.get('/api/vault/tables');
@@ -327,22 +330,22 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const handleSave = async () => {
         // Validate
         if (fields.some(f => !f.name.trim())) {
-            toast.error("Tots els camps han de tenir un nom");
+            toast.error(t('schema.error_name_required'));
             return;
         }
 
         if (fields.some(f => f.type === 'formula' && !f.formula?.trim())) {
-            toast.error("Les propietats de fórmula han de tenir una expressió");
+            toast.error(t('schema.error_formula_required'));
             return;
         }
 
         if (fields.some(f => f.type === 'rollup' && !f.relationField?.trim())) {
-            toast.error("Les propietats rollup han de tenir un camp de relació");
+            toast.error(t('schema.error_relation_field_required'));
             return;
         }
 
         if (fields.some(f => f.type === 'rollup' && f.aggregation !== 'count_all' && !f.targetProperty?.trim())) {
-            toast.error("Les propietats rollup han de tenir una propietat objectiu");
+            toast.error(t('schema.error_target_property_required'));
             return;
         }
 
@@ -393,12 +396,12 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             } else {
                 await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
             }
-            toast.success("Estructura actualitzada");
+            toast.success(t('schema.success_updated'));
             onSchemaUpdated(newSchemaObj);
             onClose();
         } catch (err) {
             console.error(err);
-            toast.error("Error al desar l'estructura.");
+            toast.error(t('schema.error_saving'));
         }
     };
 
@@ -409,7 +412,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 <div className="px-6 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Settings size={20} className="text-[var(--gnosi-primary)]" />
-                        Gestionar Propietats de: {folder}
+                        {t('schema.manage_properties_of')} {folder}
                     </h2>
                     <button onClick={onClose} className="text-[var(--text-secondary)]/60 hover:text-[var(--text-primary)] transition-colors">
                         <X size={20} />
@@ -420,7 +423,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     <div className="bg-[var(--bg-secondary)] p-4 rounded-lg border border-[var(--border-primary)] shadow-sm mb-6">
                         <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                             <Layers size={16} className="text-[var(--gnosi-primary)]" />
-                            Configuració de la taula
+                            {t('schema.table_config')}
                         </h3>
                         <label className="flex items-center gap-3 cursor-pointer group">
                                 <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableSubitems ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'}`}>
@@ -433,19 +436,19 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                     <div className={`bg-[var(--bg-primary)] w-4 h-4 rounded-full shadow-sm transform transition-transform ${enableSubitems ? 'translate-x-4' : 'translate-x-0'}`} />
                                 </div>
                             <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                                Permetre Subitems (Jerarquia)
+                                {t('schema.allow_subitems')}
                             </span>
                         </label>
                         <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
-                            Quan està activat, les notes que tinguin fills es podran expandir i contraure dins la taula.
+                            {t('schema.subitems_hint')}
                         </p>
                     </div>
 
                     <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2 px-1">
-                        Columnes i Propietats
+                        {t('schema.columns_and_properties')}
                     </h3>
                     <p className="text-xs text-[var(--text-secondary)]/60 mb-4 px-1">
-                        Configura quines propietats apareixen i si són visibles en aquesta taula.
+                        {t('schema.columns_hint')}
                     </p>
 
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -470,16 +473,16 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                         onClick={handleAddField}
                         className="btn-gnosi btn-gnosi-primary !text-xs !py-2 !px-4 mt-5"
                     >
-                        <Plus size={16} /> Afegir Propietat
+                        <Plus size={16} /> {t('schema.add_property')}
                     </button>
                 </div>
 
                 <div className="px-6 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-4 py-2 border border-[var(--border-primary)] rounded-md text-sm font-bold text-[var(--text-secondary)]/60 hover:bg-[var(--bg-primary)] transition-colors">
-                        Cancel·lar
+                        {t('common.cancel')}
                     </button>
                     <button onClick={handleSave} className="btn-gnosi btn-gnosi-primary px-6">
-                        Desar Estructura
+                        {t('schema.save_structure')}
                     </button>
                 </div>
             </div>

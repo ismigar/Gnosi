@@ -1,28 +1,20 @@
-# pipeline/notion_api.py
+# pipeline/legacy_notion_connector.py
 
 """
-Notion Abstraction Layer
---------------------------
+- Legacy read operations.
 
-Provides stable and unified functions for:
-- Querying a DB
-- Getting a page
-- Reading blocks
-- Extracting tags
-- Extracting relations
-- Extracting titles
-
-This avoids direct dependencies on "notion.databases.query"
-(and protects us from future SDK updates).
+Bi-directional sync and live note creation have been moved 
+to local Vault-based operations (Standalone/Sovereign Mode).
 """
 
 import unicodedata
 import time
+import httpx
 from typing import List, Dict, Optional, Tuple
 from notion_client import Client, APIResponseError
-from config.logger_config import get_logger
-from config.app_config import load_params
-from config.env_config import get_env
+from backend.config.logger_config import get_logger
+from backend.config.app_config import load_params
+from backend.config.env_config import get_env
 
 cfg = load_params(strict_env=False)
 log = get_logger(__name__)
@@ -31,17 +23,23 @@ log = get_logger(__name__)
 # 🔧 Load environment variables
 # --------------------------------------------------------------------
 NOTION_TOKEN = get_env("NOTION_TOKEN", required=False)
-DATABASE_ID  = get_env("DATABASE_ID", required=False)
+# Prioritat: DATABASE_ID > NOTION_DB_CERVELL > NOTION_DB_TASQUES
+DATABASE_ID  = get_env("DATABASE_ID", required=False) or get_env("NOTION_DB_CERVELL", required=False) or get_env("NOTION_DB_TASQUES", required=False)
 
-if not NOTION_TOKEN:
-    raise RuntimeError("NOTION_TOKEN is not defined in .env")
-if not DATABASE_ID:
-    raise RuntimeError("DATABASE_ID is not defined in .env")
+NOTION_ENABLED = True
+if not NOTION_TOKEN or not DATABASE_ID:
+    log.warning("⚠️ Notion no configurat completament (falta TOKEN o DB_ID). Mòdul en mode OFF.")
+    NOTION_ENABLED = False
+
+if NOTION_ENABLED:
+    log.info(f"📡 legacy_notion_connector mode: MIGRATION ONLY. DB: {DATABASE_ID[:8]}...")
+else:
+    log.info("📡 legacy_notion_connector mode OFF (Sovereign Mode Active).")
 
 # --------------------------------------------------------------------
 # 🚀 Initialize Notion Client
 # --------------------------------------------------------------------
-notion = Client(auth=NOTION_TOKEN)
+notion = Client(auth=NOTION_TOKEN) if NOTION_ENABLED else None
 
 
 # =============================================================================
@@ -63,20 +61,8 @@ def notion_url(page_id: str) -> str:
 # =============================================================================
 def get_database_properties(database_id: str = DATABASE_ID) -> Dict:
     """Returns DB metadata: properties, types, etc."""
-    return notion.databases.retrieve(database_id=database_id)
-
-
-import httpx
-
-# ... (existing imports)
-
-# ... (existing code)
-
-# =============================================================================
-# 🟩 Notion API Wrappers
-# =============================================================================
-def get_database_properties(database_id: str = DATABASE_ID) -> Dict:
-    """Returns DB metadata: properties, types, etc."""
+    if not NOTION_ENABLED or not notion:
+        return {}
     return notion.databases.retrieve(database_id=database_id)
 
 
@@ -85,6 +71,10 @@ def _raw_query_database(database_id: str, **kwargs) -> Dict:
     Workaround for missing notion.databases.query method.
     Uses direct HTTPX request.
     """
+    if not NOTION_ENABLED:
+        log.warning(f"Aborting _raw_query_database (legacy_notion_connector disabled)")
+        return {"results": [], "has_more": False}
+
     url = f"https://api.notion.com/v1/databases/{database_id}/query"
     headers = {
         "Authorization": f"Bearer {NOTION_TOKEN}",
@@ -130,6 +120,8 @@ def query_all_pages(filter=None) -> List[Dict]:
   return results
 
 def retrieve_page(page_id: str) -> Dict:
+    if not NOTION_ENABLED or not notion:
+        return {}
     return notion.pages.retrieve(page_id=page_id)
 
 
@@ -138,7 +130,9 @@ def get_page_properties(page: Dict) -> Dict:
 
 
 def get_blocks(block_id: str, max_retries=3) -> List[Dict]:
-    """Returns all first-level blocks for a given parent with pagination support and retries."""
+    if not NOTION_ENABLED or not notion:
+        return []
+        
     for attempt in range(max_retries):
         results = []
         try:
@@ -409,10 +403,9 @@ def extract_page_text(page_id: str) -> str:
 
 def update_page_relations(page_id: str, new_relation_ids: List[str], relation_prop_aliases: List[str]) -> None:
     """
-    Updates the relation property (found via aliases) with new IDs.
-    Merges with existing relations.
-    Implements Bulk + Incremental Fallback strategy.
+    [MIGRATION ONLY] Updates the relation property (found via aliases) with new IDs.
     """
+    log.warning(f"⚠️  Calling update_page_relations on {page_id}. This should only happen during migration.")
     if not new_relation_ids:
         return
 
@@ -505,7 +498,7 @@ def update_page_relations(page_id: str, new_relation_ids: List[str], relation_pr
 import json
 import os
 from pathlib import Path
-from config.paths_config import get_paths
+from backend.config.paths_config import get_paths
 
 _paths = get_paths()
 CONTENT_CACHE_FILE = _paths["OUT_DIR"] / "content_cache.json"
@@ -687,9 +680,13 @@ def create_page(
     tags_prop_name: str = "Tags"
 ) -> Dict:
     """
-    Creates a new page in the database.
-    Converts 'content' string into paragraph blocks.
+    [MIGRATION ONLY] Creates a new page in the database.
     """
+    log.warning(f"⚠️  Calling create_page('{title}'). This should only happen during migration.")
+    if not NOTION_ENABLED or not notion:
+        log.warning(f"⚠️ create_page('{title}') ignorat (Notion desactivat)")
+        return {}
+
     if not title:
         raise ValueError("Title is required")
 
@@ -739,7 +736,7 @@ def create_page(
         return new_page
     except Exception as e:
         log.error(f"❌ Failed to create page '{title}': {e}")
-        raise e
+        return {}
 
 def update_page_properties(page_id: str, properties: Dict) -> None:
     """Updates page properties (e.g. title, tags)."""

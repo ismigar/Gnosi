@@ -1,5 +1,5 @@
 """
-Notion Exporter: Sync directives to Notion.
+Vault Legacy Exporter: Sync Gnosi directives to Notion (Backup only).
 """
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -7,10 +7,10 @@ from datetime import datetime
 import asyncio
 
 
-class NotionExporter:
+class VaultLegacyExporter:
     """
-    Exports directives to Notion as pages.
-    Uses MCP to interact with Notion API.
+    Exports Gnosi directives to Notion as pages for historical backup or external sharing.
+    This is a legacy tool. Gnosi remains the sovereign knowledge base.
     """
     
     def __init__(self):
@@ -161,4 +161,4 @@ class NotionExporter:
 
 
 # Singleton
-notion_exporter = NotionExporter()
+legacy_vault_exporter = VaultLegacyExporter()

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon } from 'lucide-react';
+import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users } from 'lucide-react';
 import { GlobalSettingsModal } from './GlobalSettingsModal';
+import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 
 const GIcon = ({ size = 14 }) => (
     <div style={{
@@ -23,6 +24,7 @@ const GIcon = ({ size = 14 }) => (
 const navItems = [
     { to: '/vault', icon: FileText, label: 'Vault' },
     { to: '/graph', icon: Network, label: 'Graf' },
+    { to: '/contacts', icon: Users, label: 'Contacts' },
     { to: '/mail', icon: Inbox, label: 'Mail' },
     { to: '/calendar', icon: Calendar, label: 'Calendari' },
     { to: '/reader', icon: BookOpen, label: 'Lector' },
@@ -34,8 +36,17 @@ export function AppSidebar() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settingsTab, setSettingsTab] = useState('general');
+    const [gnosiMode, setGnosiMode] = useState('personal');
 
     useEffect(() => {
+        // Fetch health to get gnosi_mode
+        fetch(window.location.origin.replace(':5173', ':5002') + '/api/health')
+            .then(res => res.json())
+            .then(data => {
+                if (data.gnosi_mode) setGnosiMode(data.gnosi_mode);
+            })
+            .catch(err => console.error("Error fetching gnosi mode:", err));
+
         const handleOpenSettings = (e) => {
             if (e.detail) {
                 setSettingsTab(e.detail);
@@ -68,6 +79,8 @@ export function AppSidebar() {
 
             {/* Sidebar */}
             <nav className={`app-sidebar ${mobileOpen ? 'app-sidebar--open' : ''}`}>
+                {gnosiMode !== 'personal' && <WorkspaceSwitcher />}
+
                 {/* Logo */}
                 <div className="app-sidebar__logo-wrapper">
                     <Link to="/" className="app-sidebar__logo" title="Gnosi">

@@ -3,10 +3,13 @@ import sys
 import json
 import hashlib
 
-# Afegeix l'arrel del projecte (…/digital-brain)
+# Afegeix l'arrel del projecte (…/gnosi) i el backend
 BASE_DIR = Path(__file__).resolve().parents[1]
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
+BACKEND_DIR = BASE_DIR / "backend"
+
+for p in [str(BASE_DIR), str(BACKEND_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from flask import Flask, jsonify, Response
 from backend.config.logger_config import setup_logging, get_logger
@@ -14,18 +17,44 @@ from backend.config.app_config import load_params
 import threading
 import time
 import os
-from pipeline.skills.suggest_connections.scripts import (
-    suggest_connections_digital_brain,
-)
-from pipeline.skills.json_to_sigma.scripts import json_to_sigma
-from pipeline.private_skills.backup_markdown.scripts.backup_to_markdown import (
-    process_backup,
-)
 
 # ──────────────── Config unificada ────────────────
 setup_logging()
 log = get_logger(__name__)
 
+try:
+    from pipeline.private_skills.backup_markdown.scripts.backup_to_markdown import (
+        start_periodic_backup,
+    )
+except ImportError:
+    log.warning(
+        "⚠️ pipeline.private_skills.backup_markdown no trobat. Backup desactivat."
+    )
+
+    def start_periodic_backup():
+        pass
+
+
+try:
+    from pipeline.skills.suggest_connections.scripts import (
+        suggest_connections_digital_brain,
+    )
+    from pipeline.skills.json_to_sigma.scripts import json_to_sigma
+except ImportError:
+    log.warning("⚠️ pipeline.skills.suggest_connections o json_to_sigma no trobat.")
+
+    def suggest_connections_digital_brain():
+        pass
+
+    class json_to_sigma:
+        @staticmethod
+        def convert_for_sigma():
+            pass
+
+
+from backend.scheduler.manager import scheduler_manager
+
+# ──────────────── Inicialització ────────────────
 cfg = load_params(strict_env=False)
 server_cfg = getattr(cfg, "server", {}) or cfg.get("server", {}) or {}
 
@@ -45,11 +74,13 @@ from backend.api.config_routes import config_bp
 from backend.api.env_routes import env_bp
 from api.input_routes import input_bp
 from backend.api.content_routes import content_bp
+from backend.api.contacts_routes import contacts_bp
 
 app.register_blueprint(config_bp, url_prefix="/api")
 app.register_blueprint(input_bp, url_prefix="/api")
 app.register_blueprint(env_bp, url_prefix="/api")
 app.register_blueprint(content_bp, url_prefix="/api")
+app.register_blueprint(contacts_bp, url_prefix="/api")
 
 
 # Global lock for sync
@@ -162,54 +193,14 @@ def serve_frontend(path):
 
 
 # ──────────────── MAIN ────────────────
-# ─────────────────────────────────────────────────────
-# AUTO-UPDATE SCHEDULER
-# ─────────────────────────────────────────────────────
-def run_scheduler():
-    """Runs the pipeline every X seconds."""
-    # Delay initial run to let server start
-    time.sleep(10)
-
-    interval = 300  # 5 minutes default
-
-    log.info(f"⏰ Scheduler started. Interval: {interval}s")
-
-    while True:
-        try:
-            # Acquire lock to avoid conflict with manual /api/sync
-            if SYNC_LOCK.acquire(blocking=False):
-                try:
-                    global IS_SYNCING
-                    IS_SYNCING = True
-                    log.info("⏰ Running scheduled update (Graph + Backup + Gemini)...")
-                    suggest_connections_digital_brain.process()
-                    json_to_sigma.convert_for_sigma()
-
-                    try:
-                        process_backup()
-                    except Exception as e:
-                        log.error(f"❌ Scheduled backup failed: {e}")
-
-                    log.info("✅ Scheduled update completed.")
-                finally:
-                    IS_SYNCING = False
-                    SYNC_LOCK.release()
-            else:
-                log.info("⏰ Scheduled update skipped (Sync already in progress)")
-
-        except Exception as e:
-            log.error(f"❌ Scheduled update failed: {e}")
-
-        time.sleep(interval)
 
 
 if __name__ == "__main__":
     debug_mode = cfg.get("logging_level", "").lower() == "debug"
 
-    # Start scheduler in background thread (daemon=True so it dies with main app)
-    # We only start it if we are not the reloader (to avoid double threads in debug mode)
+    # Start unified scheduler manager
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not debug_mode:
-        threading.Thread(target=run_scheduler, daemon=True).start()
+        scheduler_manager.start()
 
     log.info(f"Arrencant Flask a {HOST}:{BACKEND_PORT}, debug={debug_mode}")
     app.run(host=HOST, port=BACKEND_PORT, debug=debug_mode)

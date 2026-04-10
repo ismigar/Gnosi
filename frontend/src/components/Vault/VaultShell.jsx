@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, Menu, Trash2, History, Code2 } from 'lucide-react';
 import { AppHeader } from '../AppHeader';
 
-export const NotionShell = ({
+export const VaultShell = ({
     sidebarContent,
     breadcrumbs = [],
     onSearch,
@@ -21,6 +22,7 @@ export const NotionShell = ({
     isCodeView = false,
     children
 }) => {
+    const { t } = useTranslation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isPageMenuOpen, setIsPageMenuOpen] = useState(false);
     const pageMenuRef = useRef(null);
@@ -43,11 +45,11 @@ export const NotionShell = ({
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-indigo-100 italic-none transition-colors duration-300">
-            {/* Sidebar - Estil Notion */}
+            {/* Sidebar - Notion Style */}
             <aside
                 className={`${isSidebarOpen ? 'w-[240px]' : 'w-0'} transition-all duration-300 ease-in-out border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex flex-col shrink-0 overflow-hidden relative group`}
             >
-                {/* Botó tancar sidebar */}
+                {/* Close sidebar button */}
                 <button
                     onClick={() => setIsSidebarOpen(false)}
                     className="absolute top-4 right-2 p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded opacity-0 group-hover:opacity-100 transition-all"
@@ -66,7 +68,7 @@ export const NotionShell = ({
                 <header className="h-12 flex items-center justify-between px-4 shrink-0 z-20 border-b border-[var(--border-primary)]">
                     <div className="flex items-center gap-1 overflow-hidden">
 
-                        {/* Botó obrir sidebar (si està tancada) */}
+                        {/* Open sidebar button (if closed) */}
                         {!isSidebarOpen && (
                             <button
                                 onClick={() => setIsSidebarOpen(true)}
@@ -77,13 +79,13 @@ export const NotionShell = ({
                         )}
 
                         <div className="flex items-center gap-1 overflow-hidden ml-2">
-                            {/* Botons de navegació */}
+                            {/* Navigation buttons */}
                             <div className="flex items-center gap-0.5 mr-2">
                                 <button
                                     onClick={onBack}
                                     disabled={!canGoBack}
                                     className={`p-1 rounded transition-colors ${canGoBack ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
-                                    title="Enrere"
+                                    title={t('shell.go_back')}
                                 >
                                     <ChevronLeft size={18} />
                                 </button>
@@ -91,7 +93,7 @@ export const NotionShell = ({
                                     onClick={onForward}
                                     disabled={!canGoForward}
                                     className={`p-1 rounded transition-colors ${canGoForward ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
-                                    title="Endavant"
+                                    title={t('shell.go_forward')}
                                 >
                                     <ChevronRight size={18} />
                                 </button>
@@ -129,7 +131,7 @@ export const NotionShell = ({
                         <button
                             onClick={() => setIsPageMenuOpen(prev => !prev)}
                             className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
-                            title="Opcions de pàgina"
+                            title={t('shell.page_options')}
                         >
                             <MoreHorizontal size={16} />
                         </button>
@@ -147,7 +149,7 @@ export const NotionShell = ({
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                                 >
                                     <Code2 size={14} />
-                                    <span>{isCodeView ? 'Canviar a vista normal' : 'Canviar a vista codi (md/json)'}</span>
+                                    <span>{isCodeView ? t('shell.switch_normal_view') : t('shell.switch_code_view')}</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -160,7 +162,7 @@ export const NotionShell = ({
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                                 >
                                     <History size={14} />
-                                    <span>Veure històric</span>
+                                    <span>{t('shell.view_history')}</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -173,7 +175,7 @@ export const NotionShell = ({
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-600 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                                 >
                                     <Trash2 size={14} />
-                                    <span>Eliminar pàgina actual</span>
+                                    <span>{t('shell.delete_current_page')}</span>
                                 </button>
                             </div>
                         )}

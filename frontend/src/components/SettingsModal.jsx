@@ -154,7 +154,7 @@ export function SettingsModal({ isOpen, onClose }) {
                     <button className={activeTab === 'general' ? 'active' : ''} onClick={() => setActiveTab('general')}>General</button>
                     <button className={activeTab === 'visual' ? 'active' : ''} onClick={() => setActiveTab('visual')}>Visual</button>
                     <button className={activeTab === 'ai' ? 'active' : ''} onClick={() => setActiveTab('ai')}>AI</button>
-                    <button className={activeTab === 'notion' ? 'active' : ''} onClick={() => setActiveTab('notion')}>Notion</button>
+                    <button className={activeTab === 'migration' ? 'active' : ''} onClick={() => setActiveTab('migration')}>Migration</button>
                     <button className={activeTab === 'schedulers' ? 'active' : ''} onClick={() => setActiveTab('schedulers')}>Schedulers</button>
                     <button className={activeTab === 'credentials' ? 'active' : ''} onClick={() => setActiveTab('credentials')}>Credentials</button>
                 </div>
@@ -333,11 +333,11 @@ export function SettingsModal({ isOpen, onClose }) {
                                 </div>
                             )}
 
-                            {activeTab === 'notion' && envVars && config && config.notion && (
+                             {activeTab === 'migration' && envVars && config && config.notion && (
                                 <div className="settings-section">
-                                    <h3>Notion Credentials</h3>
+                                    <h3>Legacy Notion Migration</h3>
                                     <div className="form-group">
-                                        <label>Notion Token</label>
+                                        <label>Notion Token (Migration only)</label>
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                             <input
                                                 type={showToken ? "text" : "password"}
@@ -365,48 +365,33 @@ export function SettingsModal({ isOpen, onClose }) {
                                         />
                                     </div>
 
-                                    <h3>Notion Properties</h3>
+                                    <h3>Vault Backup (Legacy)</h3>
                                     <div className="form-group">
-                                        <label>Title Property</label>
-                                        <input
-                                            type="text"
-                                            value={config.notion.title_property}
-                                            onChange={(e) => handleChange('notion.title_property', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Links Property</label>
-                                        <input
-                                            type="text"
-                                            value={config.notion.links_property}
-                                            onChange={(e) => handleChange('notion.links_property', e.target.value)}
-                                        />
-                                    </div>
-
-                                    <h3>Sincronització</h3>
-                                    <div className="form-group">
+                                        <p style={{ fontSize: '0.9em', color: '#a0aec0', marginBottom: '15px' }}>
+                                            Gnosi és ara el teu cervell sobirà. Pots fer un backup manual de les teves directives cap a Notion si ho desitges per seguretat externa.
+                                        </p>
                                         <button
                                             type="button"
                                             onClick={async () => {
                                                 setSyncing(true);
                                                 try {
-                                                    const res = await fetch('/api/sync/directives-to-notion', { method: 'POST' });
+                                                    const res = await fetch('/api/sync/legacy-backup-to-notion', { method: 'POST' });
                                                     const data = await res.json();
                                                     setSyncStatus(data);
-                                                    alert(`Sincronitzat: ${data.synced || 0} directives`);
+                                                    alert(`Backup completat: ${data.synced || 0} directives guardades a Notion.`);
                                                 } catch (e) {
-                                                    alert('Error sincronitzant: ' + e.message);
+                                                    alert('Error en el backup: ' + e.message);
                                                 }
                                                 setSyncing(false);
                                             }}
                                             disabled={syncing}
-                                            style={{ padding: '10px 20px', background: '#4a5568', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                                            style={{ padding: '10px 20px', background: '#4a5568', border: 'none', borderRadius: '5px', cursor: 'pointer', color: 'white' }}
                                         >
-                                            {syncing ? 'Sincronitzant...' : '📤 Sincronitzar Directives a Notion'}
+                                            {syncing ? 'Fent backup...' : '📤 Backup de Directives a Notion (Llegat)'}
                                         </button>
                                         {syncStatus && (
                                             <p style={{ marginTop: '10px', fontSize: '0.9em', color: '#a0aec0' }}>
-                                                Última sincronització: {new Date(syncStatus.timestamp).toLocaleString()}
+                                                Últim backup: {new Date(syncStatus.timestamp).toLocaleString()}
                                             </p>
                                         )}
                                     </div>

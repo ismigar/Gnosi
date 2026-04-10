@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon, Sliders, Calendar, Mail, Trash2, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
-import { IconPicker, NOTION_COLORS } from './Vault/IconPicker';
+import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
 import * as LucideIcons from 'lucide-react';
 
@@ -14,9 +14,9 @@ const LANGUAGES = [
 ];
 
 const THEME_OPTIONS = [
-    { id: 'light', label: 'Clar', previewClass: 'settings-theme-preview--light', disabled: false },
-    { id: 'dark', label: 'Fosc', previewClass: 'settings-theme-preview--dark', disabled: false },
-    { id: 'system', label: 'Sistema', icon: Monitor, disabled: false },
+    { id: 'light', label: 'settings.general.theme_light', previewClass: 'settings-theme-preview--light', disabled: false },
+    { id: 'dark', label: 'settings.general.theme_dark', previewClass: 'settings-theme-preview--dark', disabled: false },
+    { id: 'system', label: 'settings.general.theme_system', icon: Monitor, disabled: false },
 ];
 
 function getStoredTheme() {
@@ -803,9 +803,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         justifyContent: 'space-between',
                         alignItems: 'center'
                     }}>
-                        <h2 className="settings-modal__title" style={{ color: 'var(--settings-title)', margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <h2 className="settings-header__title" style={{ color: 'var(--settings-title)', margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <SettingsIcon size={20} />
-                            {t('settings_title')}
+                            {t('settings.title')}
                         </h2>
                         <button className="settings-modal__close" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
                             <X size={20} />
@@ -823,38 +823,43 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             flexDirection: 'column',
                             gap: '6px'
                         }}>
-                            {[
-                                { id: 'general', label: 'General', icon: Globe },
-                                { id: 'integrations', label: 'Integracions', icon: Zap },
-                                { id: 'newsletters', label: 'Subscripcions', icon: Mail },
-                                { id: 'graph', label: 'Graf', icon: Database },
-                                { id: 'ai', label: 'AI', icon: Cpu },
-                                { id: 'notion', label: 'Notion', icon: RefreshCw },
-                                { id: 'zotero', label: 'Zotero', icon: BookOpen }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '10px',
-                                        padding: '12px 14px',
-                                        border: 'none',
-                                        borderRadius: '10px',
-                                        background: activeTab === tab.id ? 'var(--settings-sidebar-active)' : 'transparent',
-                                        color: activeTab === tab.id ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)',
-                                        cursor: 'pointer',
-                                        textAlign: 'left',
-                                        fontWeight: activeTab === tab.id ? '600' : '500',
-                                        fontSize: '0.9rem',
-                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                                    }}
-                                >
-                                    <tab.icon size={18} />
-                                    {tab.label}
-                                </button>
-                            ))}
+                            <button className={`settings-sidebar__item ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'general' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'general' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'general' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Globe size={18} />
+                                <span>{t('settings.tabs.general')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'language' ? 'active' : ''}`} onClick={() => setActiveTab('language')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'language' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'language' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'language' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Globe size={18} />
+                                <span>{t('settings.tabs.language')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'appearance' ? 'active' : ''}`} onClick={() => setActiveTab('appearance')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'appearance' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'appearance' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'appearance' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Palette size={18} />
+                                <span>{t('settings.tabs.appearance')}</span>
+                                <span>{t('settings.sidebar.appearance')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'calendar' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'calendar' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'calendar' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Calendar size={18} />
+                                <span>{t('settings.sidebar.calendar')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'graph' ? 'active' : ''}`} onClick={() => setActiveTab('graph')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'graph' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'graph' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'graph' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Zap size={18} />
+                                <span>{t('settings.sidebar.graph')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'newsletters' ? 'active' : ''}`} onClick={() => setActiveTab('newsletters')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'newsletters' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'newsletters' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'newsletters' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Mail size={18} />
+                                <span>{t('settings.sidebar.newsletters')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'ai' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'ai' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'ai' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Cpu size={18} />
+                                <span>{t('settings.sidebar.ai')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'notion' ? 'active' : ''}`} onClick={() => setActiveTab('notion')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'notion' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'notion' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'notion' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <RefreshCw size={18} />
+                                <span>{t('settings.sidebar.notion')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'zotero' ? 'active' : ''}`} onClick={() => setActiveTab('zotero')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'zotero' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'zotero' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'zotero' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <BookOpen size={18} />
+                                <span>{t('settings.sidebar.zotero')}</span>
+                            </button>
                         </div>
 
                         {/* Content Area */}
@@ -862,144 +867,190 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {activeTab === 'general' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    {/* Language */}
                                     <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Globe size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('language_label')}</h3>
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                            <Monitor size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.general.title')}</h3>
                                         </div>
-                                        <div>
-                                            <select
-                                                value={i18n.language?.split('-')[0] || 'ca'}
-                                                onChange={(e) => handleLanguageChange(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid var(--settings-border)',
-                                                    background: 'var(--settings-input-bg)',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: '0.95rem',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                {LANGUAGES.map(({ code, label, icon }) => (
-                                                    <option key={code} value={code}>
-                                                        {icon} {label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </section>
-
-                                    {/* Theme */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Palette size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('theme_label')}</h3>
-                                        </div>
-                                        <div className="settings-theme-row" style={{ display: 'flex', gap: '15px' }}>
-                                            {THEME_OPTIONS.map(({ id, label, icon: Icon, disabled }) => (
-                                                <button
-                                                    key={id}
-                                                    onClick={() => !disabled && handleThemeChange(id)}
-                                                    disabled={disabled}
-                                                    style={{
-                                                        flex: 1,
-                                                        padding: '15px',
-                                                        borderRadius: '12px',
-                                                        border: '2px solid',
-                                                        borderColor: theme === id ? 'var(--gnosi-blue)' : 'var(--settings-border)',
-                                                        background: theme === id ? 'var(--settings-sidebar-active)' : 'var(--settings-btn-bg)',
-                                                        cursor: disabled ? 'not-allowed' : 'pointer',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        opacity: disabled ? 0.5 : 1,
-                                                        transition: 'all 0.2s',
-                                                        color: theme === id ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)',
-                                                        boxShadow: theme === id ? '0 0 0 1px var(--gnosi-blue)' : 'none'
-                                                    }}
-                                                >
-                                                    {Icon ? <Icon size={24} /> : <div className={`theme-preview ${id}`} style={{ width: '40px', height: '24px', borderRadius: '4px', background: id === 'dark' ? '#1e293b' : '#f8fafc', border: '1px solid var(--settings-border)' }} />}
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: theme === id ? '600' : '400' }}>{label}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </section>
-
-                                    {/* Storage Paths */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <FolderOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('storage_paths_title')}</h3>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            {[
-                                                { id: 'vault', label: t('vault_path_label') }
-                                            ].map(field => (
-                                                <div key={field.id}>
-                                                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                                                        {field.label}
-                                                    </label>
-                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                        <input
-                                                            type="text"
-                                                            value={localPaths[field.id] || ''}
-                                                            onChange={(e) => setLocalPaths(prev => ({ ...prev, [field.id]: e.target.value }))}
-                                                            style={{
-                                                                flex: 1,
-                                                                padding: '10px 12px',
-                                                                borderRadius: '8px',
-                                                                border: '1px solid var(--settings-border)',
-                                                                background: 'var(--settings-input-bg)',
-                                                                color: 'var(--text-primary)',
-                                                                fontSize: '0.9rem'
-                                                            }}
-                                                        />
-                                                        <button
-                                                            onClick={() => { setPickerField(field.id); setPickerOpen(true); }}
-                                                            style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', cursor: 'pointer', color: 'var(--text-primary)' }}
-                                                        >
-                                                            <FolderOpen size={18} />
-                                                        </button>
-                                                    </div>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.general.desc')}</p>
+                                        
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.general.user_name')}</label>
+                                                <input
+                                                    type="text"
+                                                    value={localSettings.user_name || ''}
+                                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, user_name: e.target.value }))}
+                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.general.workspace_name')}</label>
+                                                <input
+                                                    type="text"
+                                                    value={localSettings.workspace_name || ''}
+                                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, workspace_name: e.target.value }))}
+                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.general.vault_path')}</label>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={localPaths.vault || ''}
+                                                        onChange={(e) => setLocalPaths(prev => ({ ...prev, vault: e.target.value }))}
+                                                        style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                                                    />
+                                                    <button
+                                                        onClick={() => { setPickerField('vault'); setPickerOpen(true); }}
+                                                        style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', cursor: 'pointer', color: 'var(--text-primary)' }}
+                                                    >
+                                                        <FolderOpen size={18} />
+                                                    </button>
                                                 </div>
-                                            ))}
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px' }}>{t('settings.general.vault_path_desc')}</p>
+                                            </div>
                                         </div>
                                     </section>
                                 </div>
                             )}
 
-                            {activeTab === 'integrations' && (
+                            {activeTab === 'language' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura aquí de forma segura els comptes externs. Cada compte desa les credencials de forma independent.</p>
-                                    </div>
-
-                                    {/* Email Settings */}
                                     <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Comptes de Correu (IMAP/SMTP)</h3>
-                                            </div>
-                                            {!emailWizard && (
-                                                <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Compte</button>
-                                            )}
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                            <Globe size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.language.title')}</h3>
                                         </div>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.language.desc')}</p>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>{t('settings.language.interface_language')}</label>
+                                                <select
+                                                    value={i18n.language}
+                                                    onChange={(e) => i18n.changeLanguage(e.target.value)}
+                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', cursor: 'pointer' }}
+                                                >
+                                                    {LANGUAGES.map(({ code, label, icon }) => (
+                                                        <option key={code} value={code}>{icon} {label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>{t('settings.language.first_day')}</label>
+                                                <select
+                                                    value={localSettings.week_start || 1}
+                                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, week_start: parseInt(e.target.value) }))}
+                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', cursor: 'pointer' }}
+                                                >
+                                                    <option value={1}>{t('settings.language.monday')}</option>
+                                                    <option value={0}>{t('settings.language.sunday')}</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
+                            )}
+
+                            {activeTab === 'appearance' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                    <section className="settings-section">
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                            <Palette size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.appearance.title')}</h3>
+                                        </div>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.appearance.desc')}</p>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>{t('settings.appearance.theme')}</label>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                                                    {THEME_OPTIONS.map((opt) => {
+                                                        const Icon = opt.icon;
+                                                        return (
+                                                            <button
+                                                                key={opt.id}
+                                                                onClick={() => !opt.disabled && handleThemeChange(opt.id)}
+                                                                className={`settings-theme-option ${theme === opt.id ? 'active' : ''} ${opt.disabled ? 'disabled' : ''}`}
+                                                                style={{
+                                                                    position: 'relative',
+                                                                    flex: 1,
+                                                                    display: 'flex',
+                                                                    flexDirection: 'column',
+                                                                    gap: '12px',
+                                                                    padding: '16px',
+                                                                    borderRadius: '12px',
+                                                                    border: theme === opt.id ? '2px solid var(--gnosi-blue)' : '1px solid var(--settings-border)',
+                                                                    background: theme === opt.id ? 'rgba(59,130,246,0.05)' : 'var(--settings-section-bg)',
+                                                                    cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                                                                    transition: 'all 0.2s ease',
+                                                                    opacity: opt.disabled ? 0.6 : 1
+                                                                }}
+                                                            >
+                                                                <div className={opt.previewClass} style={{ width: '100%', height: '60px', borderRadius: '8px', border: '1px solid var(--settings-border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    {Icon && <Icon size={24} style={{ color: 'var(--text-secondary)' }} />}
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                                                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: theme === opt.id ? 'var(--gnosi-blue)' : 'var(--text-primary)' }}>{t(opt.label)}</span>
+                                                                    <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid', borderColor: theme === opt.id ? 'var(--gnosi-blue)' : 'var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                        {theme === opt.id && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gnosi-blue)' }} />}
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderRadius: '12px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={localSettings.reduce_animations || false}
+                                                        onChange={(e) => setLocalSettings(prev => ({ ...prev, reduce_animations: e.target.checked }))}
+                                                    />
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-primary)' }}>{t('settings.appearance.reduce_animations')}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('settings.appearance.reduce_animations_desc')}</div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
+                            )}
+
+                            {activeTab === 'newsletters' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                    <section className="settings-section">
+                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                            <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.newsletters.title')}</h3>
+                                        </div>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.newsletters.desc')}</p>
+
+                                        <div className="settings-section__content">
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.newsletters.email_wizard.accounts_title')}</h3>
+                                                </div>
+                                                {!emailWizard && (
+                                                    <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>{t('settings.newsletters.email_wizard.add_account')}</button>
+                                                )}
+                                            </div>
 
                                         {emailWizard && (
                                             <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
                                                 {emailWizard.step === 'ask_email' ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu</label>
+                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('settings.newsletters.email_wizard.email_label')}</label>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
                                                                 type="email"
                                                                 autoFocus
-                                                                placeholder="exemple@gmail.com, usuari@pangea.org..."
+                                                                placeholder={t('settings.newsletters.email_wizard.email_placeholder')}
                                                                 value={emailWizard.email}
                                                                 onChange={(e) => setEmailWizard({ ...emailWizard, email: e.target.value })}
                                                                 onKeyDown={(e) => {
@@ -1028,9 +1079,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 disabled={!emailWizard.email}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: emailWizard.email ? 1 : 0.5 }}
                                                             >
-                                                                Continuar
+                                                                {t('settings.newsletters.email_wizard.continue_btn')}
                                                             </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -1040,21 +1091,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 {emailWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
                                                                 {emailWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
                                                                 {emailWizard.provider === 'pangea' && <span style={{ fontSize: '1.2rem' }}>📧</span>}
-                                                                Configurant compte {emailWizard.email}
+                                                                {t('settings.newsletters.email_wizard.configuring_account', { email: emailWizard.email })}
                                                             </span>
-                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
+                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.change_email')}</button>
                                                         </div>
 
                                                         {emailWizard.provider === 'google' && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
                                                                     <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
+                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('settings.newsletters.email_wizard.google_recommended')}
                                                                     </div>
-                                                                    Evita les configuracions manuals i connecta amb Google OAuth2.
+                                                                    {t('settings.newsletters.email_wizard.google_oauth_desc')}
                                                                     {!googleAuthConfigured ? (
                                                                         <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides al fitxer <code>.env_shared</code>. Configura el <code>CLIENT_ID</code> i <code>CLIENT_SECRET</code> per activar-ho.
+                                                                            ⚠️ <strong>{t('settings.newsletters.email_wizard.config_required')}:</strong> {t('settings.newsletters.email_wizard.config_required_desc')}
                                                                         </div>
                                                                     ) : (
                                                                         <div style={{ marginTop: '12px' }}>
@@ -1069,21 +1120,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     )}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — o bé manualment —
+                                                                    {t('settings.newsletters.email_wizard.manual_option')}
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {emailWizard.provider === 'icloud' && (
                                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
-                                                                <strong>Nota:</strong> Has d'utilitzar una <strong>Contrasenya d'Aplicació</strong>.
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
+                                                                <strong>{t('settings.general.note_label')}:</strong> {t('settings.newsletters.email_wizard.icloud_note')}
+                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('settings.newsletters.email_wizard.apple_id_link')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
                                                             </div>
                                                         )}
 
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor IMAP</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.imap_server')}</label>
                                                                 <input
                                                                     type="text"
                                                                     id="email_wizard_imap"
@@ -1092,7 +1143,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor SMTP</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.smtp_server')}</label>
                                                                 <input
                                                                     type="text"
                                                                     id="email_wizard_smtp"
@@ -1101,7 +1152,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </div>
                                                             <div style={{ gridColumn: 'span 2' }}>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.password_label')}</label>
                                                                 <input
                                                                     type="password"
                                                                     id="email_wizard_password"
@@ -1119,7 +1170,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     const password = document.getElementById('email_wizard_password').value;
 
                                                                     if (!imap || !smtp || !password) {
-                                                                        alert('Cal omplir tots els camps');
+                                                                        alert(t('settings.newsletters.email_wizard.error_fill_fields'));
                                                                         return;
                                                                     }
 
@@ -1140,9 +1191,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
                                                             >
-                                                                Afegir Compte
+                                                                {t('settings.newsletters.email_wizard.add_btn')}
                                                             </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
                                                         </div>
                                                     </div>
                                                 )}
@@ -1152,28 +1203,28 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             {(integrations?.emails || []).map((account, index) => (
                                                 <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Compte {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
-                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('settings.newsletters.email_wizard.accounts_title')} {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('settings.calendar.connected_status')}</span>}</span>
+                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('settings.newsletters.delete')}</button>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>IMAP Server</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.imap_server')}</label>
                                                             <input type="text" value={account.imap_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'imap_server', e.target.value)} placeholder="imap.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>SMTP Server</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.smtp_server')}</label>
                                                             <input type="text" value={account.smtp_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'smtp_server', e.target.value)} placeholder="smtp.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Adreça Email</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.email_label')}</label>
                                                             <input type="email" value={account.username || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'username', e.target.value)} placeholder="nom@exemple.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Contrasenya / App Password</label>
-                                                            <input type="password" placeholder={account.password_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.password_label')}</label>
+                                                            <input type="password" placeholder={account.password_status === 'connected' ? `******** (${t('settings.appearance.accent_color')})` : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div style={{ gridColumn: 'span 2' }}>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Signatura (HTML)</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.signature_label')}</label>
                                                             <textarea
                                                                 value={account.html_signature || ''}
                                                                 onChange={(e) => handleUpdateIntegrationItem('emails', index, 'html_signature', e.target.value)}
@@ -1184,19 +1235,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     </div>
                                                 </div>
                                             ))}
-                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap compte de correu configurat. Prem "+ Afegir Compte" per començar.</p>}
+                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('settings.newsletters.no_subscriptions')}</p>}
                                         </div>
-                                    </section>
+                                    </div>
+                                </section>
 
                                     {/* Calendar Settings */}
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Calendar size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Calendaris (Google / CalDAV)</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.calendar.title')}</h3>
                                             </div>
                                             {!calendarWizard && (
-                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Calendari</button>
+                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>{t('settings.calendar.add_btn')}</button>
                                             )}
                                         </div>
 
@@ -1204,12 +1256,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
                                                 {calendarWizard.step === 'ask_email' ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu o identificador</label>
+                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('settings.newsletters.email_wizard.email_label')}</label>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
                                                                 type="email"
                                                                 autoFocus
-                                                                placeholder="exemple@gmail.com, usuari@icloud.com..."
+                                                                placeholder={t('settings.newsletters.email_wizard.email_placeholder')}
                                                                 value={calendarWizard.email}
                                                                 onChange={(e) => setCalendarWizard({ ...calendarWizard, email: e.target.value })}
                                                                 onKeyDown={(e) => {
@@ -1236,9 +1288,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 disabled={!calendarWizard.email}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: calendarWizard.email ? 1 : 0.5 }}
                                                             >
-                                                                Continuar
+                                                                {t('settings.newsletters.email_wizard.continue_btn')}
                                                             </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -1247,21 +1299,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <span style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                 {calendarWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
                                                                 {calendarWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
-                                                                Configurant {calendarWizard.email} ({calendarWizard.provider})
+                                                                {t('settings.newsletters.email_wizard.configuring_account', { email: calendarWizard.email })} ({calendarWizard.provider})
                                                             </span>
-                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
+                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.change_email')}</button>
                                                         </div>
 
                                                         {calendarWizard.provider === 'google' && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
                                                                     <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
+                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('settings.newsletters.email_wizard.google_recommended')}
                                                                     </div>
-                                                                    Per evitar configurar contrasenyes d'aplicació manuals, pots connectar el teu compte de Google directament per sincronitzar calendaris i correu.
+                                                                    {t('settings.calendar.google_oauth_desc')}
                                                                     {!googleAuthConfigured ? (
                                                                         <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides.
+                                                                            ⚠️ <strong>{t('settings.newsletters.email_wizard.config_required')}:</strong> {t('settings.calendar.no_credentials')}
                                                                         </div>
                                                                     ) : (
                                                                         <div style={{ marginTop: '12px' }}>
@@ -1276,30 +1328,30 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     )}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — o bé manualment —
+                                                                    {t('settings.newsletters.email_wizard.manual_option')}
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {calendarWizard.provider === 'icloud' && (
                                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
-                                                                <strong>Nota:</strong> Per a iCloud, necessites una contrasenya específica per a aplicacions.
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>Gestiona el teu ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
+                                                                <strong>{t('settings.general.note_label')}:</strong> {t('settings.calendar.icloud_note')}
+                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('settings.calendar.apple_id_link')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
                                                             </div>
                                                         )}
 
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nom personalitzat (Ex: Feina, Personal...)</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.calendar.custom_name')}</label>
                                                                 <input
                                                                     type="text"
-                                                                    placeholder="Calendari Personal"
+                                                                    placeholder={t('settings.calendar.custom_name_placeholder')}
                                                                     id="wizard_name"
                                                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor / URL CalDAV</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.calendar.server_url')}</label>
                                                                 <input
                                                                     type="text"
                                                                     defaultValue={calendarWizard.provider === 'icloud' ? 'caldav.icloud.com' : (calendarWizard.provider === 'google' ? 'https://apidata.googleusercontent.com/caldav/v1/calendars/primary/events' : '')}
@@ -1309,7 +1361,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.password_label')}</label>
                                                                 <input
                                                                     type="password"
                                                                     placeholder="••••••••"
@@ -1327,7 +1379,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     const token = document.getElementById('wizard_token').value;
 
                                                                     if (!url || !token) {
-                                                                        alert('Cal omplir la URL i la contrasenya');
+                                                                        alert(t('settings.calendar.error_fill_url_pass'));
                                                                         return;
                                                                     }
 
@@ -1349,9 +1401,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }}
                                                                 style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
                                                             >
-                                                                Afegir
+                                                                {t('settings.calendar.add_btn_short')}
                                                             </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
+                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
                                                         </div>
                                                     </div>
                                                 )}
@@ -1361,7 +1413,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             {(integrations?.calendars || []).map((account, index) => (
                                                 <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `Calendari ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `${t('settings.calendar.title').split(' ')[0]} ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('settings.calendar.connected_status')}</span>}</span>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                                                 <input
@@ -1375,7 +1427,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         setIntegrations(prev => ({ ...prev, calendars: updated }));
                                                                     }}
                                                                 />
-                                                                Predeterminat
+                                                                {t('settings.calendar.default_label')}
                                                             </label>
                                                             <input
                                                                 type="color"
@@ -1383,26 +1435,26 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'color', e.target.value)}
                                                                 style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
                                                             />
-                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
+                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('settings.newsletters.delete')}</button>
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Nom / Identificador</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.calendar.name_label')}</label>
                                                             <input type="text" value={account.name || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'name', e.target.value)} placeholder="Ex: Feina, Personal..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Servidor / URL</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.calendar.server_url')}</label>
                                                             <input type="text" value={account.url || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'url', e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Token d'Açcés / Autenticació</label>
+                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.calendar.token_label')}</label>
                                                             <input type="password" placeholder={account.token_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'token', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
-                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap calendari configurat. Prem "+ Afegir Calendari" per començar.</p>}
+                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('settings.calendar.no_calendars')}</p>}
                                         </div>
                                     </section>
 
@@ -1411,10 +1463,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Taules de la Vault al Calendari</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.calendar.vault_tables_title')}</h3>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Color per defecte:</span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('settings.calendar.default_color')}</span>
                                                 <input
                                                     type="color"
                                                     value={integrations?.vault_calendar?.color || '#e57373'}
@@ -1427,7 +1479,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                         </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Selecciona quines taules vols que mostrin els seus registres amb data al calendari.</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('settings.calendar.vault_tables_desc')}</p>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '15px' }}>
                                             {tables.map(table => (
                                                 <label key={table.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
@@ -1457,7 +1509,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Sliders size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visualització</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.visualization')}</h3>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                             <div className="setting-control">
@@ -1467,11 +1519,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         checked={graphConfig.show_arrows}
                                                         onChange={e => setGraphConfig(prev => ({ ...prev, show_arrows: e.target.checked }))}
                                                     />
-                                                    Mostrar fletxes
+                                                    {t('settings.graph.show_arrows')}
                                                 </label>
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Mida dels nodes ({graphConfig.node_size.toFixed(1)})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.node_size')} ({graphConfig.node_size.toFixed(1)})</label>
                                                 <input
                                                     type="range" min="0.1" max="5" step="0.1"
                                                     value={graphConfig.node_size}
@@ -1480,7 +1532,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gruix dels enllaços ({graphConfig.edge_thickness.toFixed(1)})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.edge_thickness')} ({graphConfig.edge_thickness.toFixed(1)})</label>
                                                 <input
                                                     type="range" min="0.1" max="5" step="0.1"
                                                     value={graphConfig.edge_thickness}
@@ -1489,7 +1541,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Llindar d'etiquetes ({graphConfig.label_threshold})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.label_threshold')} ({graphConfig.label_threshold})</label>
                                                 <input
                                                     type="range" min="0" max="50" step="1"
                                                     value={graphConfig.label_threshold}
@@ -1503,11 +1555,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Forces (Física)</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.physics')}</h3>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gravetat ({graphConfig.physics.gravity})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.gravity')} ({graphConfig.physics.gravity})</label>
                                                 <input
                                                     type="range" min="0" max="2" step="0.05"
                                                     value={graphConfig.physics.gravity}
@@ -1516,7 +1568,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Repulsió ({graphConfig.physics.repulsion})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.repulsion')} ({graphConfig.physics.repulsion})</label>
                                                 <input
                                                     type="range" min="0" max="10000" step="100"
                                                     value={graphConfig.physics.repulsion}
@@ -1525,7 +1577,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 />
                                             </div>
                                             <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Fricció ({graphConfig.physics.friction})</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.friction')} ({graphConfig.physics.friction})</label>
                                                 <input
                                                     type="range" min="1" max="20" step="1"
                                                     value={graphConfig.physics.friction}
@@ -1540,7 +1592,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         checked={graphConfig.physics.lin_log_mode}
                                                         onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, lin_log_mode: e.target.checked } }))}
                                                     />
-                                                    Mode Lin-Log
+                                                    {t('settings.graph.lin_log_mode')}
                                                 </label>
                                             </div>
                                         </div>
@@ -1549,11 +1601,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visibilitat</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.visibility')}</h3>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             <div>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Selecció Jeràrquica</h4>
+                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('settings.graph.hierarchical_selection')}</h4>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                     {(databases || []).map(db => {
                                                         const dbTables = (tables || []).filter(t => t.database_id === db.id);
@@ -1654,8 +1706,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
 
                                             <div style={{ marginTop: '10px' }}>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Filtres de Taula (Barra lateral)</h4>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Selecciona quines taules voldràs filtrar individualment des de la barra lateral.</p>
+                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('settings.graph.table_filters_title')}</h4>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>{t('settings.graph.table_filters_desc')}</p>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
                                                     {(tables || []).filter(t => graphConfig.visible_tables.includes(t.id)).map(table => (
                                                         <label key={`filter-${table.id}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-section-border)' }}>
@@ -1686,11 +1738,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Subscripcions de contingut</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.newsletters.subscriptions_title')}</h3>
                                         </div>
 
                                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                                            Gestiona subscripcions RSS, newsletters i canals de YouTube des d'un únic lloc.
+                                            {t('settings.newsletters.subscriptions_desc')}
                                         </p>
 
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 180px auto', gap: '10px', marginBottom: '16px' }}>
@@ -1698,14 +1750,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 type="text"
                                                 value={newsletterName}
                                                 onChange={(e) => setNewsletterName(e.target.value)}
-                                                placeholder="Nom (opcional)"
+                                                placeholder={t('settings.newsletters.name_placeholder')}
                                                 style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
                                             />
                                             <input
                                                 type="text"
                                                 value={newsletterAddress}
                                                 onChange={(e) => setNewsletterAddress(e.target.value)}
-                                                placeholder={newsletterType === 'rss' ? 'URL del feed RSS' : newsletterType === 'youtube' ? 'URL de canal YouTube o feed' : 'Email o identificador'}
+                                                placeholder={newsletterType === 'rss' ? t('settings.newsletters.rss_placeholder') : newsletterType === 'youtube' ? t('settings.newsletters.youtube_placeholder') : t('settings.newsletters.email_placeholder')}
                                                 style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
                                             />
                                             <select
@@ -1722,7 +1774,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 14px', borderRadius: '8px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', cursor: 'pointer', fontWeight: 600 }}
                                             >
                                                 <Plus size={16} />
-                                                Afegir
+                                                {t('settings.newsletters.add_btn')}
                                             </button>
                                         </div>
 
@@ -1740,9 +1792,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', color: 'var(--text-primary)', cursor: newsletterOpmlLoading ? 'not-allowed' : 'pointer', opacity: newsletterOpmlLoading ? 0.7 : 1, fontWeight: 500 }}
                                             >
                                                 <Mail size={14} />
-                                                {newsletterOpmlLoading ? 'Important OPML...' : 'Importar fitxer OPML'}
+                                                {newsletterOpmlLoading ? t('settings.newsletters.importing_opml') : t('settings.newsletters.import_opml')}
                                             </button>
-                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Puja un export OPML de newsletters i feeds.</span>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t('settings.newsletters.opml_desc')}</span>
                                         </div>
 
                                         {newsletterStatus && (
@@ -1751,9 +1803,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {newsletterLoading ? (
-                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Carregant subscripcions...</p>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('settings.newsletters.loading_subscriptions')}</p>
                                             ) : newsletterSources.length === 0 ? (
-                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Encara no tens subscripcions configurades.</p>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>{t('settings.newsletters.no_subscriptions')}</p>
                                             ) : (
                                                 newsletterSources.map((source) => (
                                                     <div
@@ -1774,7 +1826,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #ef444433', background: 'transparent', color: '#ef4444', borderRadius: '8px', padding: '8px 10px', cursor: 'pointer' }}
                                                         >
                                                             <Trash2 size={14} />
-                                                            Eliminar
+                                                            {t('settings.newsletters.delete')}
                                                         </button>
                                                     </div>
                                                 ))
@@ -1788,9 +1840,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <section className="settings-section">
                                     <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                         <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Sincronització de Notion</h3>
+                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.notion.title')}</h3>
                                     </div>
-                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('sync_desc')}</p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.notion.sync_desc')}</p>
                                     <button
                                         onClick={handleSync}
                                         disabled={syncing}
@@ -1811,7 +1863,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         }}
                                     >
                                         <RefreshCw size={18} className={syncing ? 'spin-anim' : ''} />
-                                        {syncing ? t('syncing_label') : t('sync_now_btn')}
+                                        {syncing ? t('settings.notion.syncing_label') : t('settings.notion.sync_now_btn')}
                                     </button>
                                     {syncMessage && <p style={{ fontSize: '0.85rem', marginTop: '10px', textAlign: 'center', color: 'var(--gnosi-blue)', fontWeight: '500' }}>{syncMessage}</p>}
                                 </section>
@@ -1822,18 +1874,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <section className="settings-section">
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                             <BookOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Zotero Sync</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.zotero.title')}</h3>
                                         </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Configura la sincronització de la teva biblioteca local de Zotero.</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('settings.zotero.description')}</p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Taula Destí</label>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.zotero.target_table')}</label>
                                                 <select
                                                     value={zoteroConfig.target_table || ''}
                                                     onChange={e => setZoteroConfig(prev => ({ ...prev, target_table: e.target.value }))}
                                                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
                                                 >
-                                                    <option value="">Selecciona una taula...</option>
+                                                    <option value="">{t('settings.zotero.select_table_placeholder')}</option>
                                                     {zoteroTables.map(t => (
                                                         <option key={t.id} value={t.id}>{t.name}</option>
                                                     ))}
@@ -1841,7 +1893,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
 
                                             <div className="settings-mapping-list" style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)', maxHeight: '300px', overflowY: 'auto' }}>
-                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>Mapeig de Camps</h4>
+                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>{t('settings.zotero.mapping_title')}</h4>
                                                 {(zoteroFields || []).map(field => (
                                                     <div key={field.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '15px' }}>
                                                         <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '500' }}>{field.label}</span>
@@ -1859,7 +1911,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }));
                                                             }}
                                                         >
-                                                            <option value="">-- No mapar --</option>
+                                                            <option value="">-- {t('settings.zotero.no_mapping')} --</option>
                                                             {availableProperties.map(prop => (
                                                                 <option key={prop.name} value={prop.name}>{prop.name}</option>
                                                             ))}
@@ -1874,7 +1926,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: zoteroSyncing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                                                 >
                                                     <RefreshCw size={16} className={zoteroSyncing ? 'spin-anim' : ''} />
-                                                    Sincronitzar
+                                                    {t('settings.zotero.sync_btn')}
                                                 </button>
                                         </div>
                                     </section>
@@ -1884,7 +1936,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'ai' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', flex: 1, overflow: 'auto', paddingRight: '10px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura els teus assistents d'IA i els proveïdors de models (Groq, OpenAI, Ollama, etc).</p>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('settings.ai.description')}</p>
                                     </div>
 
                                     {/* Providers Section */}
@@ -1892,7 +1944,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Proveïdors de LLM</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.ai.providers_title')}</h3>
                                             </div>
                                             <button 
                                                 onClick={openAddProviderModal}
@@ -1910,7 +1962,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     gap: '6px'
                                                 }}
                                             >
-                                                <LucideIcons.Plus size={14} /> Afegir Proveïdor
+                                                <LucideIcons.Plus size={14} /> {t('settings.ai.add_provider_btn')}
                                             </button>
                                         </div>
                                         
@@ -1934,21 +1986,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         </div>
                                                         
                                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                                                            {meta.description}
+                                                            {LLM_PROVIDERS_META[pId] ? t('settings.ai.provider_descriptions.' + pId) : meta.description}
                                                         </div>
 
-                                                                                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
-                                                                                                                    {getProviderRequirementLabels(pId).map((label) => (
-                                                                                                                        <span key={`${pId}-${label}`} style={{ fontSize: '0.7rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '2px 8px', color: 'var(--text-secondary)' }}>
-                                                                                                                            {label}
-                                                                                                                        </span>
-                                                                                                                    ))}
-                                                                                                                </div>
+                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                                            {getProviderRequirementLabels(pId).map((label) => (
+                                                                <span key={`${pId}-${label}`} style={{ fontSize: '0.7rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '2px 8px', color: 'var(--text-secondary)' }}>
+                                                                    {label}
+                                                                </span>
+                                                            ))}
+                                                        </div>
 
                                                         <div className="provider-card__footer">
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                 <div className={`provider-card__indicator ${config.has_api_key ? 'provider-card__indicator--active' : ''}`} />
-                                                                <span>{config.has_api_key ? 'Connectat' : 'Sense configurar'}</span>
+                                                                <span>{config.has_api_key ? t('settings.ai.status_connected') : t('settings.ai.status_not_configured')}</span>
                                                             </div>
                                                             <LucideIcons.ChevronRight size={14} style={{ opacity: 0.5 }} />
                                                         </div>
@@ -1958,7 +2010,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                             {Object.keys(aiProviders).length === 0 && (
                                                 <div style={{ border: '1px dashed var(--settings-border)', borderRadius: '12px', padding: '16px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                                                    Encara no hi ha proveïdors afegits. Prem "Afegir Proveïdor" per configurar-ne un.
+                                                    {t('settings.ai.no_providers_desc')}
                                                 </div>
                                             )}
                                         </div>
@@ -1969,13 +2021,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Cpu size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Perfils d'Agents</h3>
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.ai.agents_title')}</h3>
                                             </div>
                                             <button 
-                                                onClick={() => setEditingAgent({ id: 'agent_' + Date.now(), name: 'Nou Agent', icon: '🤖', persona: '', provider: 'groq', model: '', enabled: true })}
+                                                onClick={() => setEditingAgent({ id: 'agent_' + Date.now(), name: t('settings.ai.new_agent_name'), icon: '🤖', persona: '', provider: 'groq', model: '', enabled: true })}
                                                 style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}
                                             >
-                                                + Nou Agent
+                                                + {t('settings.ai.new_agent_btn')}
                                             </button>
                                         </div>
 
@@ -2003,7 +2055,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             (() => {
                                                                 const [_, name, colorName] = agent.icon.split(':');
                                                                 const IconComp = LucideIcons[name];
-                                                                const color = colorName ? (NOTION_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
+                                                                        const color = colorName ? (VAULT_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
                                                                 return IconComp ? <IconComp size={24} color={color} /> : '🤖';
                                                             })()
                                                         ) : (agent.icon || '🤖')}
@@ -2029,7 +2081,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div onClick={() => setEditingProvider(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
                                             <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
                                                 <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Configura {editingProvider.name}</h3>
+                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>{t('settings.ai.configure_provider', { name: editingProvider.name })}</h3>
                                                     <button onClick={() => setEditingProvider(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
                                                 </div>
                                                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -2046,7 +2098,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
                                                             />
                                                             <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                                {editingProvider.has_api_key ? 'Credencial guardada en almacenamiento seguro.' : 'La clave se guardará en keychain/secret store y no en params.yaml.'}
+                                                                {editingProvider.has_api_key ? t('settings.ai.credential_saved_securely') : t('settings.ai.credential_storage_note')}
                                                             </div>
                                                         </div>
                                                     )}
@@ -2069,7 +2121,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             onClick={() => setEditingProvider(null)}
                                                             style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
                                                         >
-                                                            Cancel·lar
+                                                            {t('settings.newsletters.email_wizard.cancel_btn')}
                                                         </button>
                                                         <button 
                                                             onClick={async () => {
@@ -2083,7 +2135,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         });
                                                                         if (!credentialRes.ok) {
                                                                             const payload = await credentialRes.json().catch(() => ({}));
-                                                                            throw new Error(payload?.detail || 'No s\'ha pogut guardar la credencial');
+                                                                            throw new Error(payload?.detail || t('settings.ai.error_credential_failed'));
                                                                         }
                                                                     }
 
@@ -2100,12 +2152,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     setEditingProvider(null);
                                                                 } catch (error) {
                                                                     console.error('Error saving provider credentials:', error);
-                                                                    alert(error.message || 'Error guardant credencial del proveïdor');
+                                                                    alert(error.message || t('settings.ai.error_save_credential'));
                                                                 }
                                                             }}
                                                             style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer' }}
                                                         >
-                                                            Guardar
+                                                            {t('settings.ai.save_btn')}
                                                         </button>
                                                     </div>
 
@@ -2119,7 +2171,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }}
                                                             style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', marginTop: '5px' }}
                                                         >
-                                                            Eliminar configuració
+                                                            {t('settings.ai.delete_config')}
                                                         </button>
                                                     )}
                                                 </div>
@@ -2133,14 +2185,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
                                             <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
                                                 <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Afegir Proveïdor Personalitzat</h3>
+                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>{t('settings.ai.add_custom_provider')}</h3>
                                                     <button onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
                                                 </div>
                                                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Selecciona el proveïdor i completa només les credencials necessàries.</p>
+                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>{t('settings.ai.add_provider_hint')}</p>
 
                                                     <div style={{ position: 'relative' }}>
-                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Proveïdor</label>
+                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.provider_label')}</label>
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -2172,7 +2224,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <input
                                                                             type="text"
                                                                             autoFocus
-                                                                            placeholder="Buscar proveïdor..."
+                                                                            placeholder={t('settings.ai.search_provider_placeholder')}
                                                                             value={providerSearchQuery}
                                                                             onChange={(e) => setProviderSearchQuery(e.target.value)}
                                                                             onKeyDown={handleProviderDropdownKeyDown}
@@ -2183,7 +2235,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     <div style={{ maxHeight: '260px', overflowY: 'auto', padding: '8px' }}>
                                                                         {groupedProviderOptions.length === 0 && (
                                                                             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '8px' }}>
-                                                                                Sense resultats per aquesta cerca.
+                                                                                {t('settings.ai.no_results')}
                                                                             </div>
                                                                         )}
                                                                         {groupedProviderOptions.map((group) => (
@@ -2218,7 +2270,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                                         {getProviderRequirementLabels(newProviderDraft.providerId).map((label) => (
                                                             <span key={`draft-${newProviderDraft.providerId}-${label}`} style={{ fontSize: '0.72rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '3px 9px', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)' }}>
-                                                                {label} requerit
+                                                                {label} {t('settings.ai.required_suffix')}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -2243,7 +2295,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             </label>
                                                             <input
                                                                 type="password"
-                                                                placeholder="Introdueix el secret"
+                                                                placeholder={t('settings.ai.secret_placeholder')}
                                                                 value={newProviderDraft.secretValue}
                                                                 onChange={(e) => setNewProviderDraft(prev => ({ ...prev, secretValue: e.target.value }))}
                                                                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
@@ -2265,7 +2317,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     )}
 
                                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        Les credencials es guarden en emmagatzematge segur (keychain/secret store).
+                                                        {t('settings.ai.credentials_note')}
                                                     </div>
 
                                                     <button 
@@ -2278,10 +2330,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 const baseUrl = (newProviderDraft.baseUrl || '').trim();
 
                                                                 if (requirements.needsApiKey && !apiKey) {
-                                                                    throw new Error('Aquest proveïdor necessita API key');
+                                                                    throw new Error(t('settings.ai.error_needs_api_key'));
                                                                 }
                                                                 if (requirements.needsSecret && !secretValue) {
-                                                                    throw new Error('Aquest proveïdor necessita secret addicional');
+                                                                    throw new Error(t('settings.ai.error_needs_secret'));
                                                                 }
 
                                                                 const credentialValue = apiKey || secretValue;
@@ -2294,7 +2346,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     });
                                                                     if (!credentialRes.ok) {
                                                                         const payload = await credentialRes.json().catch(() => ({}));
-                                                                        throw new Error(payload?.detail || 'No s\'ha pogut connectar el proveïdor');
+                                                                        throw new Error(payload?.detail || t('settings.ai.error_connect_failed'));
                                                                     }
                                                                 }
 
@@ -2311,19 +2363,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 setIsAddProviderOpen(false);
                                                             } catch (error) {
                                                                 console.error('Error adding AI provider:', error);
-                                                                alert(error.message || 'Error afegint el proveïdor');
+                                                                alert(error.message || t('settings.ai.error_adding_provider'));
                                                             }
                                                         }}
                                                         style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', marginTop: '5px' }}
                                                     >
-                                                        Afegir Proveïdor
+                                                        {t('settings.ai.add_provider_btn')}
                                                     </button>
 
                                                     <button
                                                         onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }}
                                                         style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
                                                     >
-                                                        Cancel·lar
+                                                        {t('settings.newsletters.email_wizard.cancel_btn')}
                                                     </button>
                                                 </div>
                                             </div>
@@ -2334,14 +2386,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div onClick={() => setEditingAgent(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} />
                                             <div style={{ position: 'relative', width: '100%', maxWidth: '600px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                                                 <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>Edita Perfil de l'Agent</h3>
+                                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>{t('settings.ai.edit_agent_profile')}</h3>
                                                     <button onClick={() => setEditingAgent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={20} /></button>
                                                 </div>
                                                 
                                                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', maxHeight: '70vh' }}>
                                                     <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                                                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Icona</label>
+                                                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>{t('settings.ai.icon_label')}</label>
                                                             <button 
                                                                 id="agent-icon-trigger"
                                                                 onClick={() => {
@@ -2363,7 +2415,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         
                                                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                                             <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Nom de l'Assistant</label>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.agent_name')}</label>
                                                                 <input 
                                                                     type="text" 
                                                                     value={editingAgent.name}
@@ -2373,7 +2425,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             </div>
                                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                                 <div>
-                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Proveïdor</label>
+                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.provider_label')}</label>
                                                                     <select 
                                                                         value={editingAgent.provider}
                                                                         onChange={(e) => {
@@ -2392,7 +2444,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     </select>
                                                                 </div>
                                                                 <div>
-                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Model</label>
+                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.model_label')}</label>
                                                                     <input 
                                                                         type="text" 
                                                                         list={`provider-models-${editingAgent.provider}`}
@@ -2412,11 +2464,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     </div>
                                                     
                                                     <div>
-                                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Instruccions / Persona (System Prompt)</label>
+                                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.instructions_persona')}</label>
                                                         <textarea 
                                                             value={editingAgent.persona}
                                                             onChange={(e) => setEditingAgent({...editingAgent, persona: e.target.value})}
-                                                            placeholder="Ets un assistent útil que..."
+                                                            placeholder={t('settings.ai.instructions_placeholder')}
                                                             style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', minHeight: '150px', fontSize: '0.9rem', lineHeight: '1.5' }} 
                                                         />
                                                     </div>
@@ -2428,7 +2480,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             checked={editingAgent.enabled} 
                                                             onChange={(e) => setEditingAgent({...editingAgent, enabled: e.target.checked})} 
                                                         />
-                                                        <label htmlFor="agent_enabled" style={{ fontSize: '0.85rem' }}>Habilitar aquest agent</label>
+                                                        <label htmlFor="agent_enabled" style={{ fontSize: '0.85rem' }}>{t('settings.ai.enable_agent')}</label>
                                                     </div>
                                                 </div>
                                                 
@@ -2441,7 +2493,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         }}
                                                         style={{ padding: '8px 16px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
                                                     >
-                                                        Eliminar Agent
+                                                        {t('settings.ai.delete_agent')}
                                                     </button>
                                                     
                                                     <div style={{ display: 'flex', gap: '12px' }}>
@@ -2451,7 +2503,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }}
                                                             style={{ padding: '8px 16px', borderRadius: '8px', background: activeAgentId === editingAgent.id ? '#10b981' : 'var(--settings-sidebar-bg)', color: activeAgentId === editingAgent.id ? 'white' : 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
                                                         >
-                                                            {activeAgentId === editingAgent.id ? 'Agent Actiu ✅' : 'Fer Actiu'}
+                                                            {activeAgentId === editingAgent.id ? t('settings.ai.active_agent_success') : t('settings.ai.make_active')}
                                                         </button>
                                                         <button 
                                                             onClick={() => {
@@ -2469,7 +2521,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }}
                                                             style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
                                                         >
-                                                            Acceptar
+                                                            {t('settings.newsletters.email_wizard.accept_btn')}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -2522,7 +2574,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 transition: 'all 0.2s'
                             }}
                         >
-                            Tancar
+                            {t('settings.footer.close_btn')}
                         </button>
                         <button
                             onClick={handleSaveGlobal}
@@ -2543,7 +2595,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             }}
                         >
                             {isSaving ? <RefreshCw size={18} className="spin-anim" /> : <Save size={18} />}
-                            Guardar Canvis
+                            {t('settings.footer.save_changes_btn')}
                         </button>
                     </div>
                 </div>

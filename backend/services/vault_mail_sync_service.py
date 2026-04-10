@@ -19,7 +19,6 @@ class VaultMailSyncService:
             try:
                 self.mail_folder.mkdir(parents=True, exist_ok=True)
             except Exception as e:
-                print(f"⚠️ MailSync: Error creating Mail directory: {e}")
 
     def sync_emails(self, email_account: str, limit: int = 20):
         """Syncs recent emails from Gmail to the Vault."""
