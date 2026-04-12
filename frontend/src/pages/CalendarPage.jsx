@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { DigitalBrainCalendar } from '../components/Vault/DigitalBrainCalendar';
 import { CalendarSidebarLeft } from '../components/Vault/CalendarSidebarLeft';
@@ -13,6 +13,7 @@ import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
 export default function CalendarPage() {
     const { t } = useTranslation();
     const [pages, setPages] = useState([]);
+    const [undatedNotes, setUndatedNotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentTitle, setCurrentTitle] = useState('');
     const [activeView, setActiveView] = useState('dayGridMonth');
@@ -21,8 +22,10 @@ export default function CalendarPage() {
     const [enabledTables, setEnabledTables] = useState([]); // Enabled tables as calendars
     const [integrations, setIntegrations] = useState({});
     const calendarRef = useRef(null);
+    const [showLeftSidebar, setShowLeftSidebar] = useState(true);
     const [showRightSidebar, setShowRightSidebar] = useState(true);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+    const [partialData, setPartialData] = useState(false);
 
     // Estado de selección y edición de eventos
     const [selectedEventId, setSelectedEventId] = useState(null); // ID del evento seleccionado
@@ -47,7 +50,6 @@ export default function CalendarPage() {
         // Només afegim les taules habilitades com a fonts
         enabledTables.forEach(t => sources.add(t.name));
 
-        // Afegim calendaris externs configurats (tot i que estiguin buits)
         (integrations?.calendars || []).forEach(c => {
             const src = c.email || c.name || c.url;
             if (src) sources.add(src);
@@ -67,7 +69,7 @@ export default function CalendarPage() {
     const calendarConfigs = useMemo(() => {
         const fallbackColors = ['#64b5f6', '#ffb74d', '#ba68c8', '#4db6ac', '#f06292'];
 
-        return availableCalendars.map((s, index) => {
+        const configs = availableCalendars.map((s, index) => {
             const isGnosi = s === 'Gnosi' || s === 'Gnosi Vault';
             const table = enabledTables.find(t => t.name === s);
             const isTable = !!table;
@@ -77,15 +79,39 @@ export default function CalendarPage() {
             const integration = (isGnosi || isTable)
                 ? { color: integrations?.vault_calendar?.color || (table?.color) || 'var(--gnosi-primary)' }
                 : (integrations?.calendars || []).find(c =>
-                    c.url === s || c.name === s || c.email === s || s.includes(c.email)
+                    c.url === s || c.name === s || c.email === s || (s.includes(' - ') && s.startsWith(c.email))
                 );
+
+            let account = null;
+            let subName = null;
+
+            if (s.includes(' - ')) {
+                const parts = s.split(' - ');
+                account = parts[0];
+                subName = parts.slice(1).join(' - ');
+            } else if (s.includes('@')) {
+                account = s;
+            }
+
+            const customColor = integrations?.calendar_colors?.[s];
+
             return {
                 id: table?.id || s,
                 source: s,
                 kind: isTable ? 'table' : 'external',
-                name: customName || integration?.name || null,
-                color: integration?.color || (isGnosi ? 'var(--gnosi-primary)' : fallbackColors[index % fallbackColors.length])
+                name: customName || subName || integration?.name || s,
+                account: account,
+                color: customColor || integration?.color || (isGnosi ? 'var(--gnosi-primary)' : fallbackColors[index % fallbackColors.length])
             };
+        });
+
+        // Filter out "Base" sources if a more specific "Account - Summary" source exists for the same account
+        const specificAccounts = new Set(configs.filter(c => c.source.includes(' - ')).map(c => c.account));
+        return configs.filter(c => {
+            if (specificAccounts.has(c.source) && !c.source.includes(' - ')) {
+                return false; // Skip the generic email entry if we have specific sub-calendars
+            }
+            return true;
         });
     }, [availableCalendars, integrations, enabledTables]);
 
@@ -103,16 +129,38 @@ export default function CalendarPage() {
 
     // Initial selection
     useEffect(() => {
-        if (availableCalendars.length > 0 && selectedCalendars.size === 0) {
-            setSelectedCalendars(new Set(availableCalendars));
+        if (calendarConfigs.length > 0 && selectedCalendars.size === 0) {
+            // Prioritzar la selecció guardada al backend
+            const savedSelection = integrations?.calendar_selection;
+            
+            // Suportar tant llista directa com {selection: [...]}
+            let finalSelection = null;
+            if (Array.isArray(savedSelection)) {
+                finalSelection = savedSelection;
+            } else if (savedSelection && typeof savedSelection === 'object' && Array.isArray(savedSelection.selection)) {
+                finalSelection = savedSelection.selection;
+            }
+
+            if (finalSelection && finalSelection.length > 0) {
+                // Filtrar per assegurar que les fonts encara són vàlides a les dades actuals
+                const validSelection = finalSelection.filter(s => 
+                    calendarConfigs.some(c => c.source === s)
+                );
+                if (validSelection.length > 0) {
+                    setSelectedCalendars(new Set(validSelection));
+                    return;
+                }
+            }
+            // Fallback: seleccionar-los tots
+            setSelectedCalendars(new Set(calendarConfigs.map(c => c.source)));
         }
-    }, [availableCalendars]);
+    }, [calendarConfigs, integrations]);
 
     const fetchPages = async () => {
         setLoading(true);
         try {
-            const pagesTimeoutMs = 30000;
-            const auxTimeoutMs = 8000;
+            const pagesTimeoutMs = 120000; // Increased to 120s for slow OneDrive scans
+            const auxTimeoutMs = 120000;   // Increased to 120s to match pages timeout during heavy sync
             const [pagesRes, integrationsRes, tablesRes] = await Promise.allSettled([
                 axios.get('/api/vault/pages', { params: { only_calendar: true }, timeout: pagesTimeoutMs }),
                 axios.get('/api/integrations', { timeout: auxTimeoutMs }),
@@ -125,40 +173,54 @@ export default function CalendarPage() {
 
             const integrationsData = integrationsRes.status === 'fulfilled'
                 ? (integrationsRes.value.data || {})
-                : {};
-            setIntegrations(integrationsData);
+                : null; // Use null to detect failure
+            
+            const hasIntegrations = integrationsData !== null;
+            const safeIntegrations = integrationsData || {};
+            setIntegrations(safeIntegrations);
 
-            const enabledTableIds = integrationsData.vault_calendar?.enabled_tables || [];
+            const enabledTableIds = safeIntegrations.vault_calendar?.enabled_tables || [];
             const allTables = tablesRes.status === 'fulfilled' ? (tablesRes.value.data || []) : [];
 
             const tables = allTables
-                .filter(tbl => enabledTableIds.includes(tbl.id))
+                .filter(tbl => !hasIntegrations || enabledTableIds.includes(tbl.id))
                 .map(tbl => ({ id: tbl.id, name: tbl.name, type: 'table' }));
             setEnabledTables(tables);
 
-            let data = pagesRes.value.data || [];
+            let allData = pagesRes.value.data || [];
+            
+            // Separate Dated vs Undated
+            const dated = [];
+            const undated = [];
 
-            data = data.filter(page => {
+            allData.forEach(page => {
                 const tableId = page.resolved_table_id || page.metadata?.table_id || page.metadata?.database_table_id;
-
-                if (tableId) {
-                    return enabledTableIds.includes(tableId);
+                
+                // Filtering by enabled tables
+                if (tableId && hasIntegrations && !enabledTableIds.includes(tableId)) {
+                    return;
                 }
 
                 const hasDate = page.metadata?.date;
-                if (hasDate) {
-                    return true;
-                }
-
                 const source = page.metadata?.source?.trim();
-                if (source && source !== 'Gnosi' && source !== 'Gnosi Vault') {
-                    return true;
-                }
+                const isExternal = source && source !== 'Gnosi' && source !== 'Gnosi Vault';
 
-                return false;
+                if (hasDate || isExternal) {
+                    dated.push(page);
+                } else {
+                    // Only keep in undated if it's explicitly in the Calendar folder
+                    // or has some calendar metadata but missed the date
+                    const path = page.path || page.abs_path || '';
+                    if (path.includes('/Calendar/') || path.includes('\\Calendar\\')) {
+                        undated.push(page);
+                    }
+                }
             });
 
-            setPages(data);
+            setPages(dated);
+            setUndatedNotes(undated);
+            setPartialData(integrationsRes.status !== 'fulfilled' || tablesRes.status !== 'fulfilled');
+
 
             if (integrationsRes.status !== 'fulfilled' || tablesRes.status !== 'fulfilled') {
                 toast.error(t('calendar.partial_data_warning'));
@@ -249,6 +311,22 @@ export default function CalendarPage() {
         } catch (err) {
             console.error('Error renaming calendar:', err);
             toast.error(t('calendar.calendar_rename_error'));
+        }
+    };
+
+    const handleUpdateCalendarColor = async (source, newColor) => {
+        try {
+            const currentColors = integrations?.calendar_colors || {};
+            const updatedColors = { ...currentColors, [source]: newColor };
+
+            const updatedIntegrations = { ...integrations, calendar_colors: updatedColors };
+
+            await axios.put('/api/integrations/calendar_colors', updatedColors);
+            setIntegrations(updatedIntegrations);
+            toast.success(t('calendar.calendar_color_updated_success'));
+        } catch (err) {
+            console.error('Error updating calendar color:', err);
+            toast.error(t('calendar.calendar_color_update_error'));
         }
     };
 
@@ -345,17 +423,33 @@ export default function CalendarPage() {
         return `${y}-${m}-${d}T${h}:${min}:00`;
     }, []);
 
-    // Eliminar evento desde context menu
-    const handleDeleteFromContext = useCallback(async () => {
-        const targetEventId = contextMenu.eventId || selectedEventId;
+    // Eliminar evento desde context menu (reforçat amb ID directe)
+    const handleDeleteFromContext = useCallback(async (forcedId = null) => {
+        const targetEventId = forcedId || contextMenu.eventId || selectedEventId;
+        console.log('handleDeleteFromContext - targetEventId:', targetEventId);
+        
         if (!targetEventId) {
+            console.error('handleDeleteFromContext: No event ID found');
             toast.error(t('calendar.no_event_selected'));
             return;
         }
 
         const eventData = pages.find(p => p.id === targetEventId) || selectedEvent;
+        console.log('handleDeleteFromContext - eventData:', eventData);
+
         if (!eventData) {
+            console.error('handleDeleteFromContext: Event not found in pages or selectedEvent');
             toast.error(t('calendar.error_loading_event'));
+            return;
+        }
+
+        // Guàrdia d'origen: no permetre eliminar cites externes des de Gnosi
+        const isGoogleEvent = eventData?.metadata?.source === 'google' || 
+                             (typeof eventData.id === 'string' && eventData.id.length > 20 && !eventData.id.includes('-'));
+        
+        if (isGoogleEvent) {
+            console.warn('handleDeleteFromContext: Blocking deletion of external (Google) event');
+            toast.error(t('calendar.external_event_delete_warning', 'Les cites externes s\'han d\'eliminar des de la plataforma d\'origen.'));
             return;
         }
 
@@ -476,25 +570,53 @@ export default function CalendarPage() {
     const btnClass = "flex items-center justify-center h-7 px-3 rounded-md text-[11px] font-bold tracking-tight uppercase transition-all border";
 
     return (
-        <div className="h-full bg-slate-50 overflow-hidden flex flex-col">
+        <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
             <AppHeader icon={Calendar} title={`${t('calendar.title')} ${currentTitle ? `- ${currentTitle}` : ''}`}>
                 <div className="flex items-center gap-4">
+                    {/* Toggles de Panells Laterals */}
+                    <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
+                        <button 
+                            onClick={() => {
+                                setShowLeftSidebar(!showLeftSidebar);
+                                setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
+                            }}
+                            className={`p-1.5 rounded transition-all ${showLeftSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
+                            title={showLeftSidebar ? "Amagar barra esquerra" : "Mostrar barra esquerra"}
+                        >
+                            <PanelLeft size={16} strokeWidth={2.5} />
+                        </button>
+                        <div className="w-px h-3 bg-[var(--border-primary)] mx-0.5" />
+                        <button 
+                            onClick={() => {
+                                setShowRightSidebar(!showRightSidebar);
+                                setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
+                            }}
+                            className={`p-1.5 rounded transition-all ${showRightSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
+                            title={showRightSidebar ? "Amagar barra dreta" : "Mostrar barra dreta"}
+                        >
+                            <PanelRight size={16} strokeWidth={2.5} />
+                        </button>
+                    </div>
+
+                    <div className="w-px h-6 bg-[var(--border-primary)]" />
+
                     {/* Navigation Controls */}
-                    <div className="flex items-center gap-1 bg-surface p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                        <button onClick={handlePrev} className="p-1 text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors" title={t('common.previous')}>
+                    <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
+                        <button onClick={handlePrev} className="p-1 text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors" title={t('common.previous')}>
                             <ChevronLeft size={16} strokeWidth={2.5} />
                         </button>
-                        <button onClick={handleToday} className="px-3 text-[11px] font-bold uppercase tracking-tight text-slate-500 dark:text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors">
+                        <button onClick={handleToday} className="px-3 text-[11px] font-bold uppercase tracking-tight text-[var(--text-primary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors">
                             {t('calendar.today')}
                         </button>
-                        <button onClick={handleNext} className="p-1 text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors" title={t('common.next')}>
+                        <button onClick={handleNext} className="p-1 text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors" title={t('common.next')}>
                             <ChevronRight size={16} strokeWidth={2.5} />
                         </button>
                     </div>
 
                     {/* View Toggles */}
-                    <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-primary)] shadow-sm">
                         {[
+                            { id: 'multiMonthYear', label: t('calendar.view_year', 'Any') },
                             { id: 'dayGridMonth', label: t('calendar.view_month') },
                             { id: 'timeGridWeek', label: t('calendar.view_week') },
                             { id: 'timeGridDay', label: t('calendar.view_day') }
@@ -503,8 +625,8 @@ export default function CalendarPage() {
                                 key={view.id}
                                 onClick={() => handleViewChange(view.id)}
                                 className={`${btnClass} ${activeView === view.id
-                                    ? 'bg-slate-100 dark:bg-slate-800 text-gnosi border-slate-200/60 dark:border-slate-700 shadow-sm'
-                                    : 'border-transparent text-slate-400 hover:text-gnosi hover:bg-slate-50 dark:hover:bg-slate-800'
+                                    ? 'bg-[var(--bg-primary)] text-[var(--gnosi-primary)] border-[var(--border-primary)] shadow-sm'
+                                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)]'
                                     }`}
                             >
                                 {view.label}
@@ -514,21 +636,48 @@ export default function CalendarPage() {
                 </div>
             </AppHeader>
 
-            <div className="flex-1 overflow-hidden flex flex-row bg-surface">
-                <CalendarSidebarLeft
-                    calendarRef={calendarRef}
-                    availableCalendars={availableCalendars}
-                    selectedCalendars={selectedCalendars}
-                    onToggleCalendar={(source) => {
-                        const newSet = new Set(selectedCalendars);
-                        if (newSet.has(source)) newSet.delete(source);
-                        else newSet.add(source);
-                        setSelectedCalendars(newSet);
-                    }}
-                    onRenameCalendar={handleRenameCalendar}
-                    calendarConfigs={calendarConfigs}
-                />
-                <div className="flex-1 p-4 lg:p-5 overflow-auto">
+            <div className="flex-1 overflow-hidden flex flex-row bg-[var(--bg-primary)]">
+                {/* Barra Esquerra Col·lapsable */}
+                <div className={`transition-all duration-300 ease-in-out overflow-hidden flex border-r border-[var(--border-primary)] ${showLeftSidebar ? 'w-64 opacity-100' : 'w-0 opacity-0 border-none'}`}>
+                    <div className="min-w-[16rem]">
+<CalendarSidebarLeft
+                            calendarRef={calendarRef}
+                            availableCalendars={calendarConfigs.map(c => c.source)}
+                            selectedCalendars={selectedCalendars}
+                            onToggleCalendar={async (source) => {
+                                setSelectedCalendars(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(source)) next.delete(source);
+                                    else next.add(source);
+                                    
+                                    // Persistir al backend en format objecte 
+                                    axios.put('/api/integrations/calendar_selection', { 
+                                        selection: Array.from(next) 
+                                    })
+                                        .catch(err => console.error('Error desant la selecció de calendaris:', err));
+                                    
+                                    return next;
+                                });
+                            }}
+                            onRenameCalendar={handleRenameCalendar}
+                            onUpdateColor={handleUpdateCalendarColor}
+                            onToggleSidebar={() => setShowLeftSidebar(false)}
+                            onSetDefaultCalendar={async (source) => {
+                                try {
+                                    await axios.put('/api/integrations/default_calendar', { source });
+                                } catch (err) {
+                                    console.error('Error desant calendari predeterminat:', err);
+                                }
+                            }}
+                            defaultCalendar={defaultCalendar}
+                            calendarConfigs={calendarConfigs}
+                            undatedNotes={undatedNotes}
+                            onNoteClick={handleEventClick}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex-1 p-4 lg:p-5 overflow-hidden relative">
                     {loading ? (
                         <div className="flex items-center justify-center h-full text-slate-500">
                             {t('calendar.loading_events')}
@@ -548,38 +697,35 @@ export default function CalendarPage() {
                                 onDateClick={(date) => {
                                     handleCreateEventAtDate(date);
                                 }}
-                                onSelection={(selection) => {
-                                    if (selection?.start) {
-                                        handleCreateEventAtDate(selection.start);
-                                    }
-                                }}
                                 calendarConfigs={calendarConfigs}
                                 colorMap={colorMap}
                             />
                         </div>
                     )}
                 </div>
-                {showRightSidebar && (
-                    <CalendarSidebarRight
-                        searchQuery={searchQuery}
-                        onSearchChange={setSearchQuery}
-                        eventPanel={eventPanel}
-                        onClosePanel={() => {
-                            setEventPanel(null);
-                            setSelectedEventId(null);
-                            setSelectedEvent(null);
-                            setIsEditingEvent(false);
-                            // Refrescar después de cerrar el panel para mostrar cambios
-                            fetchPages();
-                        }}
-                        onSaved={handleEventSaved}
-                        calendars={calendarConfigs}
-                        onToggleSidebar={() => setShowRightSidebar(false)}
-                        onOpenSearch={() => setIsGlobalSearchOpen(true)}
-                        allNotes={pages}
-                        onEventEdit={handleEventClick}
-                    />
-                )}
+
+                {/* Barra Dreta Col·lapsable */}
+                <div className={`transition-all duration-300 ease-in-out overflow-hidden flex border-l border-[var(--border-primary)] ${showRightSidebar ? 'w-80 opacity-100' : 'w-0 opacity-0 border-none'}`}>
+                    <div className="min-w-[20rem]">
+                        <CalendarSidebarRight
+                            searchQuery={searchQuery}
+                            onSearchChange={setSearchQuery}
+                            eventPanel={eventPanel}
+                            onClosePanel={() => {
+                                setEventPanel(null);
+                                setSelectedEventId(null);
+                                setSelectedEvent(null);
+                                setIsEditingEvent(false);
+                            }}
+                            onSaved={handleEventSaved}
+                            calendars={calendarConfigs}
+                            onToggleSidebar={() => setShowRightSidebar(false)}
+                            onOpenSearch={() => setIsGlobalSearchOpen(true)}
+                            allNotes={pages}
+                            onEventEdit={handleEventClick}
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Menú contextual (clic dret) */}
@@ -595,7 +741,7 @@ export default function CalendarPage() {
                 isOpen={isGlobalSearchOpen}
                 onClose={() => setIsGlobalSearchOpen(false)}
                 allNotes={pages}
-                onNoteSelect={(id) => handleEventEdit(id)}
+                onNoteSelect={(id) => handleEventClick(id)}
             />
         </div>
     );

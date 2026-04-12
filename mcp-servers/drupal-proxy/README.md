@@ -28,7 +28,7 @@ Ejemplo de configuración:
 {
   "mcpServers": {
     "drupal-proxy": {
-      "command": "/Users/ismaelgarciafernandez/Projectes/monorepo/apps/digital-brain/mcp-servers/drupal-proxy/start_server.sh",
+      "command": "/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/mcp-servers/drupal-proxy/start_server.sh",
       "args": [],
       "env": {}
     }

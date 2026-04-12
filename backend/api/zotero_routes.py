@@ -82,10 +82,10 @@ async def trigger_sync(background_tasks: BackgroundTasks):
                 cwd=str(BASE_DIR)
             )
             if result.returncode == 0:
-
+                print("Sync completed successfully")
             else:
-
+                print(f"Sync failed: {result.stderr}")
         except Exception as e:
-
+            pass
     background_tasks.add_task(run_sync)
     return {"status": "started", "message": "Sync started in the background"}

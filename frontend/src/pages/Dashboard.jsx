@@ -46,58 +46,82 @@ function Dashboard() {
 
     const activeWorkspaceId = localStorage.getItem('gnosi_workspace_id') || 'personal';
 
+    const [gnosiMode, setGnosiMode] = useState('personal');
+
+    const fetchStats = async () => {
+        try {
+            const data = await apiFetch('/api/system/stats');
+            setStats(data);
+        } catch (e) {
+            console.error("Error fetching stats", e);
+        }
+    };
+
+    const fetchConfig = async () => {
+        try {
+            const config = await apiFetch('/api/config');
+            if (config.settings && config.settings.gnosi_mode) {
+                setGnosiMode(config.settings.gnosi_mode);
+            }
+        } catch (e) {
+            console.error("Error fetching config", e);
+        }
+    };
+
+    const fetchPendingTools = async () => {
+        try {
+            const data = await apiFetch('/api/tools/pending');
+            setPendingTools(data);
+        } catch (e) {
+            console.error("Error fetching pending tools", e);
+        }
+    };
+
+    const fetchAnalytics = async () => {
+        try {
+            const data = await apiFetch('/api/analytics');
+            setAnalytics(data);
+        } catch (e) {
+            console.error("Error fetching analytics", e);
+        }
+    };
+
+    const fetchSchedulers = useCallback(async (silent = false) => {
+        if (!silent) setSchedulerLoading(true);
+        try {
+            const data = await apiFetch('/api/schedulers');
+            setSchedulers(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error("Error fetching schedulers", e);
+        } finally {
+            if (!silent) setSchedulerLoading(false);
+        }
+    }, [apiFetch]);
+
+    const fetchApprovedTools = async () => {
+        setApprovedLoading(true);
+        try {
+            const data = await apiFetch('/api/tools/approved');
+            setApprovedTools(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error("Error fetching approved tools", e);
+        } finally {
+            setApprovedLoading(false);
+        }
+    };
+
+    const handleGlobalRefresh = async () => {
+        // Run all fetches in parallel
+        await Promise.all([
+            fetchStats(),
+            fetchAnalytics(),
+            fetchSchedulers(false),
+            fetchApprovedTools(),
+            fetchPendingTools()
+        ]);
+    };
+
     useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const data = await apiFetch('/api/system/stats');
-                setStats(data);
-            } catch (e) {
-                console.error("Error fetching stats", e);
-            }
-        };
-
-        const fetchPendingTools = async () => {
-            try {
-                const data = await apiFetch('/api/tools/pending');
-                setPendingTools(data);
-            } catch (e) {
-                console.error("Error fetching pending tools", e);
-            }
-        };
-
-        const fetchAnalytics = async () => {
-            try {
-                const data = await apiFetch('/api/analytics');
-                setAnalytics(data);
-            } catch (e) {
-                console.error("Error fetching analytics", e);
-            }
-        };
-
-        const fetchSchedulers = async () => {
-            setSchedulerLoading(true);
-            try {
-                const data = await apiFetch('/api/schedulers');
-                setSchedulers(Array.isArray(data) ? data : []);
-            } catch (e) {
-                console.error("Error fetching schedulers", e);
-            } finally {
-                setSchedulerLoading(false);
-            }
-        };
-
-        const fetchApprovedTools = async () => {
-            setApprovedLoading(true);
-            try {
-                const data = await apiFetch('/api/tools/approved');
-                setApprovedTools(Array.isArray(data) ? data : []);
-            } catch (e) {
-                console.error("Error fetching approved tools", e);
-            } finally {
-                setApprovedLoading(false);
-            }
-        };
-
         const fetchCurrentRole = async () => {
             try {
                 const workspaces = await apiFetch('/api/workspaces');
@@ -112,6 +136,7 @@ function Dashboard() {
         };
 
         fetchStats();
+        fetchConfig();
         fetchPendingTools();
         fetchAnalytics();
         fetchSchedulers();
@@ -120,7 +145,7 @@ function Dashboard() {
         const interval = setInterval(fetchStats, 2000);
         const toolsInterval = setInterval(fetchPendingTools, 5000);
         const analyticsInterval = setInterval(fetchAnalytics, 30000);
-        const schedulersInterval = setInterval(fetchSchedulers, 30000);
+        const schedulersInterval = setInterval(() => fetchSchedulers(true), 30000);
         const approvedToolsInterval = setInterval(fetchApprovedTools, 30000);
         return () => {
             clearInterval(interval);
@@ -129,7 +154,8 @@ function Dashboard() {
             clearInterval(schedulersInterval);
             clearInterval(approvedToolsInterval);
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fetchSchedulers]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
 
     const fetchMembers = useCallback(async () => {
@@ -249,15 +275,15 @@ function Dashboard() {
         }
     };
 
-    const refreshSchedulers = async () => {
-        setSchedulerLoading(true);
+    const refreshSchedulers = async (silent = false) => {
+        if (!silent) setSchedulerLoading(true);
         try {
             const data = await apiFetch('/api/schedulers');
             setSchedulers(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error("Error refreshing schedulers", e);
         } finally {
-            setSchedulerLoading(false);
+            if (!silent) setSchedulerLoading(false);
         }
     };
 
@@ -268,7 +294,7 @@ function Dashboard() {
                 method: 'PUT',
                 body: JSON.stringify(payload)
             });
-            refreshSchedulers();
+            refreshSchedulers(true);
         } catch (e) {
             console.error("Error updating scheduler", e);
         }
@@ -277,7 +303,7 @@ function Dashboard() {
     const runSchedulerNow = async (taskName) => {
         try {
             await fetch(`/api/schedulers/${taskName}/run`, { method: 'POST' });
-            await refreshSchedulers();
+            await refreshSchedulers(true);
         } catch (e) {
             console.error("Error running scheduler", e);
         }
@@ -367,9 +393,15 @@ function Dashboard() {
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         {/* Tools Created */}
-                        <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all">
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.tools_title')}</h3>
-                            <div className="text-4xl font-black text-green-400 tracking-tighter">{analytics.tools?.total_tools || 0}</div>
+                        <div 
+                            onClick={() => setSelectedControlTab('history')}
+                            className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/40 hover:bg-blue-500/5 transition-all group cursor-pointer"
+                        >
+                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
+                                {t('dashboard.tools_title')}
+                                <span className="text-[10px] text-blue-500 group-hover:underline">Veure detalls →</span>
+                            </h3>
+                            <div className="text-4xl font-black text-green-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics.tools?.total_tools || 0}</div>
                             <div className="mt-4 flex gap-3 text-[10px] items-center">
                                 <span className="bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-bold">{analytics.tools?.approved || 0} {t('dashboard.approved')}</span>
                                 <span className="bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold">{analytics.tools?.pending || 0} {t('dashboard.pending')}</span>
@@ -377,17 +409,25 @@ function Dashboard() {
                         </div>
 
                         {/* Errors Prevented */}
-                        <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all">
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.errors_prevented_title')}</h3>
-                            <div className="text-4xl font-black text-red-400 tracking-tighter">{analytics.errors_prevented || 0}</div>
+                        <div 
+                            onClick={() => setSelectedControlTab('history')}
+                            className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-red-500/40 hover:bg-red-500/5 transition-all group cursor-pointer"
+                        >
+                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
+                                {t('dashboard.errors_prevented_title')}
+                                <span className="text-[10px] text-red-500 group-hover:underline">Resum →</span>
+                            </h3>
+                            <div className="text-4xl font-black text-red-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics.errors_prevented || 0}</div>
                             <div className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{t('dashboard.documented_pitfalls')}</div>
                         </div>
 
                         {/* Directives */}
-                        <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all">
+                        <div 
+                            className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-cyan-500/20 transition-all opacity-80"
+                        >
                             <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.directives')}</h3>
                             <div className="text-4xl font-black text-cyan-400 tracking-tighter">{analytics.directives?.total || 0}</div>
-                            <div className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{t('dashboard.active_sops')}</div>
+                            <div className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-cyan-500/60">Gestionat al Vault</div>
                         </div>
 
                         {/* Recent Activity */}
@@ -427,7 +467,7 @@ function Dashboard() {
                             {t('dashboard.tab_history')}
                         </span>
                     </button>
-                    {isAdmin && (
+                    {isAdmin && gnosiMode === 'org' && (
                         <button
                             onClick={() => setSelectedControlTab('admin')}
                             className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${selectedControlTab === 'admin'
@@ -451,11 +491,11 @@ function Dashboard() {
                                 {t('dashboard.tab_schedulers')}
                             </h2>
                             <button
-                                onClick={refreshSchedulers}
-                                className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)]"
+                                onClick={handleGlobalRefresh}
+                                className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all hover:scale-105"
                             >
                                 <RefreshCw size={14} />
-                                {t('common.refresh', 'Refresh')}
+                                {t('common.refresh', 'Refresh All')}
                             </button>
                         </div>
 
@@ -490,7 +530,7 @@ function Dashboard() {
                                                         checked={task.enabled}
                                                         onChange={(e) => updateScheduler(task, { enabled: e.target.checked })}
                                                     />
-                                                    <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                                    <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                                                 </label>
                                                 <span className={`text-[10px] font-bold uppercase tracking-widest ${task.enabled ? 'text-green-400' : 'text-gray-500'}`}>
                                                     {task.enabled ? t('dashboard.active') : t('dashboard.inactive')}
@@ -610,7 +650,7 @@ function Dashboard() {
                     </div>
                 )}
 
-                {selectedControlTab === 'admin' && isAdmin && (
+                {selectedControlTab === 'admin' && isAdmin && gnosiMode === 'org' && (
                     <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
                         <div className="flex items-center justify-between mb-6">
                             <div>

@@ -247,6 +247,38 @@ _TABLE_RECALC_COOLDOWN_SECONDS = 0.5
 _page_index_lock = threading.Lock()
 # Page index also partitioned per vault
 _page_index_entries: Dict[str, Dict[str, Dict[str, Any]]] = {}
+_page_index_initialized: Dict[str, bool] = {}
+
+def get_page_index_cache_path():
+    return get_p("DATA") / "vault_page_index.json"
+
+def _save_page_index_to_disk(v_str: str):
+    """Persists the in-memory cache for a specific vault to disk."""
+    try:
+        cache_path = get_page_index_cache_path()
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        data = _page_index_entries.get(v_str, {})
+        if data:
+            cache_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            log.info(f"💾 Page index cache saved to disk for {v_str}")
+    except Exception as e:
+        log.error(f"❌ Error saving page index cache for {v_str}: {e}")
+
+def _load_page_index_from_disk(v_str: str):
+    """Loads the persistent cache for a specific vault into memory."""
+    try:
+        cache_path = get_page_index_cache_path()
+        if cache_path.exists():
+            data = json.loads(cache_path.read_text(encoding="utf-8"))
+            with _page_index_lock:
+                _page_index_entries[v_str] = data
+                _page_index_initialized[v_str] = True
+            log.info(f"📂 Page index cache loaded from disk for {v_str} ({len(data)} entries)")
+            return True
+    except Exception as e:
+        log.error(f"❌ Error loading page index cache for {v_str}: {e}")
+    return False
+
 _custom_icons_lock = threading.Lock()
 
 def _load_custom_icons() -> List[str]:
@@ -966,7 +998,7 @@ def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
 
 
 def _ensure_table_vault_folder(table: Dict[str, Any], registry_data: Dict[str, Any]):
-    """Creates the physical table folder inside BD/DBName/ (ex: Gnosi/BD/Digital Brain/Articles/).
+    """Creates the physical table folder inside BD/DBName/ (ex: Gnosi/BD/Gnosi/Articles/).
     Includes migration logic: if the folder is in root or BD/, it moves it to the DB folder.
     """
     folder_rel = _normalize_rel_folder(table.get("folder"))
@@ -1275,7 +1307,7 @@ def _build_table_folder_index(registry: dict) -> dict:
         if plain_folder:
             folder_to_table[plain_folder.lower()] = table_id
             
-        # 2. Full path with DB prefix (e.g., "Digital Brain/Areas")
+        # 2. Full path with DB prefix (e.g., "Gnosi/Areas")
         if db_prefix:
             full_path = _normalize_rel_folder(f"{db_prefix}/{raw_folder}")
             if full_path and full_path.lower() != plain_folder.lower():
@@ -1446,14 +1478,52 @@ def _recompute_cross_record_formulas_for_table(
             state["running"] = False
 
 
+def _read_frontmatter_partial(file_path: Path):
+    """Reads only the top part of a markdown file to extract frontmatter.
+    Extremely efficient for large vaults on slow drives (OneDrive).
+    """
+    lines = []
+    frontmatter_started = False
+    frontmatter_count = 0
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                content_line = line.strip()
+                if content_line == '---':
+                    frontmatter_count += 1
+                    if frontmatter_count == 2:
+                        lines.append(line)
+                        break
+                    frontmatter_started = True
+                
+                if frontmatter_started:
+                    lines.append(line)
+                elif content_line != "":
+                    # If we find non-empty text before ---, it's not a valid frontmatter
+                    break
+                
+                # Safety break: frontmatter usually at the very top
+                if len(lines) > 200:
+                    break
+                    
+        content = "".join(lines)
+        return parse_frontmatter(content, file_path)
+    except Exception as e:
+        log.warning(f"Error in partial read of {file_path}: {e}")
+        return {}, ""
+
+
 def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     try:
         if _is_dashworks_file_path(file_path):
             metadata, _ = _read_dashworks_file(file_path)
         else:
-            raw_content = file_path.read_text(encoding="utf-8")
-            metadata, _ = parse_frontmatter(raw_content, file_path)
+            metadata, _ = _read_frontmatter_partial(file_path)
             metadata = _process_metadata_paths(metadata)
+            # Support Catalan 'data' as 'date' alias
+            if "data" in metadata and "date" not in metadata:
+                metadata["date"] = metadata["data"]
     except Exception as e:
         log.warning(f"Error parsing frontmatter for {file_path.name}: {e}")
         metadata = {}
@@ -1477,72 +1547,153 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     }
 
 
-def _get_cached_page_entries() -> List[Dict[str, Any]]:
-    if not get_p("VAULT").exists():
+def _get_cached_page_entries(
+    search_paths: Optional[List[Path]] = None, 
+    force_refresh: bool = False
+) -> List[Dict[str, Any]]:
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path or not v_path.exists():
         return []
+    v_str = str(v_path)
 
+    # 1. Initialize from disk if needed
+    if not _page_index_initialized.get(v_str):
+        _load_page_index_from_disk(v_str)
+
+    # 2. If it's a read-only request (Fast Path), return immediately
+    if not force_refresh:
+        with _page_index_lock:
+            entries = _page_index_entries.get(v_str, {})
+            if search_paths:
+                search_paths_strs = [str(p) for p in search_paths]
+                return [
+                    e for e in entries.values()
+                    if any((e.get("path") or "").startswith(s) for s in search_paths_strs)
+                ]
+            return list(entries.values())
+
+    # 3. Discovery (Slow Path) - Only reached if force_refresh=True
+    candidate_files = []
+    if search_paths:
+        for p in search_paths:
+            if p.exists():
+                candidate_files.extend(list(p.rglob("*.md")))
+    else:
+        candidate_files = list(v_path.rglob("*.md"))
+        dashworks_path = get_p("DASHWORKS")
+        if dashworks_path and dashworks_path.exists():
+            candidate_files.extend(dashworks_path.rglob("*.json"))
+
+    # 4. Prepare updates OUTSIDE lock
+    new_entries = {}
+    current_paths = set()
+
+    # Get a snapshot of existing entries to avoid constant locking
     with _page_index_lock:
-        current_paths = set()
+        if v_str not in _page_index_entries:
+            _page_index_entries[v_str] = {}
+        cached_snapshot = dict(_page_index_entries[v_str])
 
-        candidate_files = list(get_p("VAULT").rglob("*.md"))
-        if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
-            candidate_files.extend(get_p("DASHWORKS").rglob("*.json"))
-
-        for file_path in candidate_files:
-            is_dashworks_file = _is_dashworks_file_path(file_path)
-            if not is_dashworks_file and any(part.startswith('.') for part in file_path.relative_to(get_p("VAULT")).parts):
+    for file_path in candidate_files:
+        is_dashworks_file = _is_dashworks_file_path(file_path)
+        try:
+            rel_path = file_path.relative_to(v_path)
+            if not is_dashworks_file and any(part.startswith('.') for part in rel_path.parts):
                 continue
+        except ValueError:
+            continue
 
-            path_str = str(file_path)
-            current_paths.add(path_str)
+        path_str = str(file_path)
+        current_paths.add(path_str)
 
-            try:
-                stat_result = file_path.stat()
-            except FileNotFoundError:
-                continue
+        try:
+            stat_result = file_path.stat()
+        except (FileNotFoundError, PermissionError):
+            continue
 
-            cached = _page_index_entries.get(path_str)
-            if (
-                cached
-                and cached.get("mtime_ns") == stat_result.st_mtime_ns
-                and cached.get("size") == stat_result.st_size
-            ):
-                continue
+        cached = cached_snapshot.get(path_str)
+        if (
+            cached
+            and cached.get("mtime_ns") == stat_result.st_mtime_ns
+            and cached.get("size") == stat_result.st_size
+        ):
+            new_entries[path_str] = cached
+            continue
 
-            _page_index_entries[path_str] = _build_page_cache_entry(
-                file_path, stat_result
-            )
+        # Heavy part: parsing frontmatter
+        new_entries[path_str] = _build_page_cache_entry(file_path, stat_result)
 
-        stale_paths = [
-            path for path in _page_index_entries.keys() if path not in current_paths
+    # 5. Merge and persist inside lock (Briefly)
+    with _page_index_lock:
+        if not search_paths:
+             _page_index_entries[v_str] = new_entries
+        else:
+             _page_index_entries[v_str].update(new_entries)
+        
+        _page_index_initialized[v_str] = True
+
+    _save_page_index_to_disk(v_str)
+
+    if search_paths:
+        search_paths_strs = [str(p) for p in search_paths]
+        return [
+            e for e in new_entries.values()
+            if any((e.get("path") or "").startswith(s) for s in search_paths_strs)
         ]
-        for stale in stale_paths:
-            _page_index_entries.pop(stale, None)
 
-        return list(_page_index_entries.values())
+    return list(new_entries.values())
 
 
-def _get_pages_snapshot(only_calendar: bool = False) -> List[PageInfo]:
-    entries = _get_cached_page_entries()
-    if not entries:
-        return []
-
-    registry = load_registry()
-    folder_to_table = _build_table_folder_index(registry)
-    # Pre-calculate sorted folders for performance (O(N * M) -> O(N * M log M) optimization)
-    sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
-
+def _get_pages_snapshot(
+    only_calendar: bool = False, 
+    background_tasks: Optional[BackgroundTasks] = None
+) -> List[PageInfo]:
+    search_paths = None
     enabled_calendar_tables = []
+    registry = load_registry()
+
     if only_calendar:
         try:
             from backend.services.integration_manager import integration_manager
             integrations = integration_manager.get_all_safe()
             enabled_calendar_tables = integrations.get("vault_calendar", {}).get("enabled_tables", [])
+            
+            search_paths = [get_p("CALENDAR")]
+            # Find folders for enabled tables
+            for table in registry.get("tables", []):
+                if table.get("id") in enabled_calendar_tables:
+                    folder_rel = table.get("folder")
+                    if folder_rel:
+                        search_paths.append(get_p("VAULT") / folder_rel)
         except Exception as e:
-            log.warning(f"Could not load integrations for calendar filtering: {e}")
+            log.warning(f"Could not prepare selective search paths for calendar: {e}")
+
+    # Trigger background sync if background_tasks provided
+    if background_tasks:
+        background_tasks.add_task(_get_cached_page_entries, search_paths, True)
+        log.info("📡 Background sync triggered for page index.")
+
+    entries = _get_cached_page_entries(search_paths=search_paths, force_refresh=False)
+    if not entries:
+        return []
+
+    folder_to_table = _build_table_folder_index(registry)
+    sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
 
     pages_by_id: Dict[str, PageInfo] = {}
     duplicate_ids = set()
+
+    # If we did a selective scan, we should only process the entries relevant to those paths
+    if search_paths:
+        search_paths_strs = [str(p) for p in search_paths]
+        relevant_entries = []
+        for entry in entries:
+            entry_path = entry.get("path") or ""
+            # Check if this entry belongs to one of our requested folders
+            if any(entry_path.startswith(s) for s in search_paths_strs):
+                relevant_entries.append(entry)
+        entries = relevant_entries
 
     for entry in entries:
         metadata = entry.get("metadata", {})
@@ -1604,9 +1755,14 @@ def _get_pages_snapshot(only_calendar: bool = False) -> List[PageInfo]:
 
 
 @router.get("/pages", response_model=List[PageInfo])
-async def list_pages(only_calendar: bool = Query(False)):
-    """Lists all pages in the root flatly by iterating through UUID.md files."""
-    return _get_pages_snapshot(only_calendar=only_calendar)
+async def list_pages(
+    background_tasks: BackgroundTasks, 
+    only_calendar: bool = Query(False)
+):
+    """Lists all pages in the root flatly by iterating through UUID.md files.
+    Returns cached data instantly and triggers a background refresh.
+    """
+    return _get_pages_snapshot(only_calendar=only_calendar, background_tasks=background_tasks)
 
 
 @router.get("/pages/by-table/{table_id}", response_model=List[PageInfo])
@@ -2801,19 +2957,32 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
     }
 
 
-# --------------------------------------------------------------------------
-# DATABASE REGISTRY ROUTES (4-Layer Architecture)
-# --------------------------------------------------------------------------
+_registry_cache = None
+_registry_cache_mtime = 0
+
 
 
 def load_registry():
     """Reads the central registry and ensures it. 
     Cleanup: Deletes default taula_1 and normalizes paths to relative.
+    Uses an in-memory cache to avoid redundant I/O.
     """
-    if not get_p("REGISTRY") or not get_p("REGISTRY").exists():
+    global _registry_cache, _registry_cache_mtime
+    
+    registry_path = get_p("REGISTRY")
+    if not registry_path or not registry_path.exists():
         return {"databases": [], "tables": [], "views": []}
+    
+    # Check cache
     try:
-        data = json.loads(get_p("REGISTRY").read_text(encoding="utf-8"))
+        mtime = registry_path.stat().st_mtime
+        if _registry_cache is not None and mtime <= _registry_cache_mtime:
+            return _registry_cache
+    except Exception:
+        pass
+
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
         
         changed = False
         tables = data.get("tables", [])
@@ -2857,6 +3026,13 @@ def load_registry():
         
         if changed:
             save_registry(data)
+        
+        # Sync cache
+        _registry_cache = data
+        try:
+            _registry_cache_mtime = registry_path.stat().st_mtime
+        except Exception:
+            _registry_cache_mtime = 0
             
         return data
     except Exception as e:
@@ -2865,7 +3041,8 @@ def load_registry():
 
 
 def save_registry(data):
-    """Saves the current state to the registry file."""
+    """Saves the current state to the registry file and updates cache."""
+    global _registry_cache, _registry_cache_mtime
     reg_path = get_p('REGISTRY')
     if not reg_path:
         log.warning("⚠️ Registry save attempt without configured path.")

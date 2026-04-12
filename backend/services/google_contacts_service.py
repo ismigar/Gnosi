@@ -1,5 +1,6 @@
 import logging
 import json
+import requests
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
@@ -8,32 +9,26 @@ from backend.config.app_config import load_params
 log = logging.getLogger(__name__)
 
 
+from backend.services.integration_manager import integration_manager
+
 def get_google_contacts_service(email: str):
     """Helper to get a Google People service for a given email."""
     try:
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
+        from google.auth.transport.requests import Request
     except ImportError:
         log.error("Falten dependències: google-api-python-client, google-auth-oauthlib")
         return None, None
 
-    cfg = load_params(strict_env=False)
-    integrations_file = cfg.paths["SECRETS"] / "integrations.json"
-
-    if not integrations_file.exists():
-        log.error("No es troba integrations.json.")
-        return None, None
-
-    try:
-        data = json.loads(integrations_file.read_text(encoding="utf-8"))
-    except Exception as e:
-        log.error(f"Failed to read integrations.json: {e}")
-        return None, None
-
     from backend.config.env_config import get_env
 
+    # Use integration_manager to get the raw data
+    all_contacts = integration_manager.get_raw("contacts")
     contacts_config = None
-    for contact in data.get("contacts", []):
+    source_type = "contacts"
+    
+    for contact in all_contacts:
         if contact.get("provider") == "google" and contact.get("auth_type") == "oauth2":
             contact_email = contact.get("email", contact.get("username", ""))
             if contact_email == email:
@@ -41,11 +36,14 @@ def get_google_contacts_service(email: str):
                 break
 
     if not contacts_config:
-        for cal in data.get("calendars", []):
+        source_type = "calendars"
+        all_calendars = integration_manager.get_raw("calendars")
+        for cal in all_calendars:
             if cal.get("provider") == "google" and cal.get("auth_type") == "oauth2":
                 cal_email = cal.get("email", cal.get("username", ""))
                 if cal_email == email:
                     contacts_config = {
+                        "id": cal.get("id"),
                         "token": cal.get("token"),
                         "refresh_token": cal.get("refresh_token"),
                         "token_uri": cal.get(
@@ -84,7 +82,26 @@ def get_google_contacts_service(email: str):
             "client_secret": client_secret,
         }
         creds = Credentials(**creds_dict)
-        service = build("peopleService", "v1", credentials=creds)
+        
+        # Refresh token if expired
+        if creds.expired and creds.refresh_token:
+            log.info(f"Refrescant token de Google per a {email}")
+            try:
+                creds.refresh(Request())
+                # Save updated token back via integration_manager
+                integration_manager.update(source_type, [{
+                    "id": contacts_config.get("id"),
+                    "token": creds.token
+                }])
+                log.info(f"Token de Google actualitzat via integration_manager")
+            except Exception as e:
+                log.error(f"Error refrescant token per a {email}: {e}")
+                return None, None
+        elif creds.expired and not creds.refresh_token:
+            log.error(f"Token caducat i no hi ha refresh_token per a {email}")
+            return None, None
+
+        service = build("people", "v1", credentials=creds, static_discovery=False)
         return service, creds
     except Exception as e:
         log.error(f"Error building contacts service for {email}: {e}")
@@ -95,7 +112,7 @@ def list_google_contacts(email: str, page_size: int = 200):
     """Lists all contacts from Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
-        return []
+        raise Exception(f"No s'ha pogut inicialitzar el servei de Google per a {email}")
 
     try:
         results = (
@@ -104,14 +121,14 @@ def list_google_contacts(email: str, page_size: int = 200):
             .list(
                 resourceName="people/me",
                 pageSize=page_size,
-                personFields="names,emailAddresses,phoneNumbers,organizations,addresses,notes,metadata",
+                personFields="names,emailAddresses,phoneNumbers,organizations,addresses,biographies,metadata,photos",
             )
             .execute()
         )
         return results.get("connections", [])
     except Exception as e:
         log.error(f"Error listing Google contacts for {email}: {e}")
-        return []
+        raise e
 
 
 def get_google_contact_by_resource(email: str, resource_name: str):
@@ -125,7 +142,7 @@ def get_google_contact_by_resource(email: str, resource_name: str):
             service.people()
             .get(
                 resourceName=resource_name,
-                personFields="names,emailAddresses,phoneNumbers,organizations,addresses,notes,metadata",
+                personFields="names,emailAddresses,phoneNumbers,organizations,addresses,biographies,metadata,photos",
             )
             .execute()
         )
@@ -139,7 +156,7 @@ def create_google_contact(email: str, contact_data: dict):
     """Creates a new contact in Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
-        return None
+        raise Exception("No s'ha pogut inicialitzar el servei de Google")
 
     try:
         body = {
@@ -160,6 +177,11 @@ def create_google_contact(email: str, contact_data: dict):
                 }
             ]
 
+        if contact_data.get("notes"):
+            body["biographies"] = [
+                {"value": contact_data["notes"], "contentType": "TEXT_PLAIN"}
+            ]
+
         if contact_data.get("address"):
             body["addresses"] = [{"streetAddress": contact_data["address"]}]
 
@@ -170,17 +192,27 @@ def create_google_contact(email: str, contact_data: dict):
         return created
     except Exception as e:
         log.error(f"Error creating Google contact: {e}")
-        return None
+        raise e
 
 
 def update_google_contact(email: str, resource_name: str, contact_data: dict):
     """Updates an existing contact in Google People API."""
-    service, _ = get_google_contacts_service(email)
-    if not service:
-        return None
+    service, creds = get_google_contacts_service(email)
+    if not service or not creds:
+        raise Exception("No s'ha pogut inicialitzar el servei de Google")
 
     try:
-        body = {"names": [{"displayName": contact_data.get("name", "")}]}
+        # Recuperar el contacte primer per obtenir l'ETAG actual (necessari per a l'update)
+        current_person = get_google_contact_by_resource(email, resource_name)
+        if not current_person:
+            raise Exception(f"Contacte {resource_name} no trobat a Google per obtenir l'ETAG")
+
+        etag = current_person.get("etag")
+        
+        body = {
+            "etag": etag,
+            "names": [{"displayName": contact_data.get("name", "")}]
+        }
 
         if "email" in contact_data:
             body["emailAddresses"] = [{"value": contact_data["email"]}]
@@ -200,31 +232,50 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
             body["addresses"] = [{"streetAddress": contact_data["address"]}]
 
         if "notes" in contact_data:
-            body["notes"] = {"notes": [{"content": contact_data["notes"]}]}
+            body["biographies"] = [
+                {"value": contact_data["notes"], "contentType": "TEXT_PLAIN"}
+            ]
 
-        updated = (
-            service.people()
-            .updateContact(resourceName=resource_name, body=body)
-            .execute()
-        )
-        return updated
+        # Assegurar que el token està fresc
+        from google.auth.transport.requests import Request as AuthRequest
+        if creds.expired and creds.refresh_token:
+            log.info(f"Refrescant token de Google per a {email} abans del PATCH")
+            creds.refresh(AuthRequest())
+            # Opcionalment persistir el token (ja ho farà la propera crida de list)
+        
+        # Use direct requests to avoid library syntax issues with updateMask
+        update_mask = "names,emailAddresses,phoneNumbers,organizations,addresses,biographies"
+        url = f"https://people.googleapis.com/v1/{resource_name}:updateContact?updateMask={update_mask}"
+        
+        headers = {
+            "Authorization": f"Bearer {creds.token}",
+            "Content-Type": "application/json",
+        }
+        
+        response = requests.patch(url, headers=headers, json=body)
+        
+        if response.status_code != 200:
+            log.error(f"Error direct patching Google contact: {response.text}")
+            response.raise_for_status()
+            
+        return response.json()
     except Exception as e:
         log.error(f"Error updating Google contact {resource_name}: {e}")
-        return None
+        raise e
 
 
 def delete_google_contact(email: str, resource_name: str) -> bool:
     """Deletes a contact from Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
-        return False
+        raise Exception("No s'ha pogut inicialitzar el servei de Google")
 
     try:
         service.people().deleteContact(resourceName=resource_name).execute()
         return True
     except Exception as e:
         log.error(f"Error deleting Google contact {resource_name}: {e}")
-        return False
+        raise e
 
 
 def parse_google_contact_to_dict(person: dict) -> dict:
@@ -237,6 +288,7 @@ def parse_google_contact_to_dict(person: dict) -> dict:
         "job_title": "",
         "address": "",
         "notes": "",
+        "photo_url": "",
         "resource_name": person.get("resourceName", ""),
     }
 
@@ -257,13 +309,20 @@ def parse_google_contact_to_dict(person: dict) -> dict:
         parsed["company"] = orgs[0].get("name", "")
         parsed["job_title"] = orgs[0].get("title", "")
 
+    biographies = person.get("biographies", [])
+    if biographies:
+        parsed["notes"] = biographies[0].get("value", "")
+
     addrs = person.get("addresses", [])
     if addrs:
         parsed["address"] = addrs[0].get("streetAddress", "")
 
-    notes_list = person.get("notes", {}).get("notes", [])
-    if notes_list:
-        parsed["notes"] = notes_list[0].get("content", "")
+    photos = person.get("photos", [])
+    if photos:
+        # Get the primary photo or the first one available
+        primary_photo = next((p for p in photos if p.get("metadata", {}).get("primary")), photos[0])
+        parsed["photo_url"] = primary_photo.get("url", "")
+
 
     metadata = person.get("metadata", {})
     sources = metadata.get("sources", [])

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, FileText, Hash, FolderClosed } from 'lucide-react';
+import { isCalendarPage } from './schemaUtils';
 
 export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const [query, setQuery] = useState('');
@@ -12,6 +13,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
         if (!query.trim()) return [];
         const lowerQuery = query.toLowerCase();
         return allNotes.filter(note => {
+            if (isCalendarPage(note)) return false;
             const titleMatch = (note.title || '').toLowerCase().includes(lowerQuery);
             const contentMatch = (note.content || '').toLowerCase().includes(lowerQuery); // If we add content search later
             return titleMatch || contentMatch;

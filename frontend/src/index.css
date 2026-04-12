@@ -3,7 +3,7 @@
 @source "../src";
 
 @theme {
-  --color-background: #09090b;
+  --color-background: #000000;
   --color-surface: #18181b;
   --color-surfaceHighlight: #27272a;
   --color-primary: #3b82f6;
@@ -81,7 +81,7 @@
 
 /* Dark Mode Overrides */
 .dark {
-  --bg-primary: #09090b;
+  --bg-primary: #000000;
   --bg-secondary: #18181b;
   --bg-tertiary: #27272a;
   --text-primary: #f4f4f5;
@@ -89,7 +89,7 @@
   --border-primary: #27272a;
 
   /* Sidebar Dark */
-  --sidebar-bg: #0f0f12;
+  --sidebar-bg: #000000;
   --sidebar-border: #1c1c1f;
   --sidebar-item-hover: rgba(255, 255, 255, 0.05);
   --sidebar-item-active: rgba(0, 102, 255, 0.15);
@@ -97,18 +97,18 @@
   --sidebar-text: #939393;
 
   /* Settings Dark */
-  --settings-bg: #18181b;
+  --settings-bg: #000000;
   --settings-header-bg: #1c1c1f;
-  --settings-sidebar-bg: #141417;
+  --settings-sidebar-bg: #000000;
   --settings-border: #27272a;
   --settings-title: #f4f4f5;
   --settings-sidebar-active: rgba(59, 130, 246, 0.1);
   --settings-sidebar-active-text: #60a5fa;
-  --settings-input-bg: #09090b;
+  --settings-input-bg: #000000;
   --settings-btn-bg: #27272a;
 
   /* Home Page Dark */
-  --home-bg: #0a0a0c;
+  --home-bg: #000000;
   --home-card-bg: rgba(255, 255, 255, 0.03);
   --home-card-border: rgba(255, 255, 255, 0.05);
 
@@ -171,6 +171,14 @@ body {
     animation: slideUp 0.3s ease-out;
 }
 
+.settings-theme-preview--light {
+    background-color: #ffffff !important;
+}
+
+.settings-theme-preview--dark {
+    background-color: #000000 !important;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -179,6 +187,36 @@ body {
 @keyframes slideUp {
     from { transform: translateY(20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
+}
+
+/* Settings Sidebar Items */
+.settings-sidebar__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.9rem;
+    background: transparent;
+    color: var(--text-primary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.8;
+}
+
+.settings-sidebar__item:hover {
+    background: var(--sidebar-item-hover) !important;
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+.settings-sidebar__item.active {
+    background: var(--settings-sidebar-active) !important;
+    color: var(--settings-sidebar-active-text) !important;
+    opacity: 1;
+    font-weight: 600;
 }
 
 /* Custom Scrollbar */

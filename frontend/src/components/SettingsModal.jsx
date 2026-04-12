@@ -9,21 +9,17 @@ export function SettingsModal({ isOpen, onClose }) {
     const [activeTab, setActiveTab] = useState('general');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [showToken, setShowToken] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
     const [credentials, setCredentials] = useState([]);
     const [editingCredential, setEditingCredential] = useState(null);
     const [credentialValue, setCredentialValue] = useState('');
     const [schedulers, setSchedulers] = useState([]);
-    const [syncing, setSyncing] = useState(false);
-    const [syncStatus, setSyncStatus] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
             loadConfig();
             loadEnvVars();
             loadSchedulers();
-            loadSyncStatus();
             loadCredentials();
         }
     }, [isOpen]);
@@ -35,16 +31,6 @@ export function SettingsModal({ isOpen, onClose }) {
             setSchedulers(data);
         } catch (err) {
             console.error("Error loading schedulers:", err);
-        }
-    };
-
-    const loadSyncStatus = async () => {
-        try {
-            const res = await fetch('/api/sync/status');
-            const data = await res.json();
-            setSyncStatus(data.last_sync);
-        } catch (err) {
-            console.error("Error loading sync status:", err);
         }
     };
 
@@ -154,7 +140,6 @@ export function SettingsModal({ isOpen, onClose }) {
                     <button className={activeTab === 'general' ? 'active' : ''} onClick={() => setActiveTab('general')}>General</button>
                     <button className={activeTab === 'visual' ? 'active' : ''} onClick={() => setActiveTab('visual')}>Visual</button>
                     <button className={activeTab === 'ai' ? 'active' : ''} onClick={() => setActiveTab('ai')}>AI</button>
-                    <button className={activeTab === 'migration' ? 'active' : ''} onClick={() => setActiveTab('migration')}>Migration</button>
                     <button className={activeTab === 'schedulers' ? 'active' : ''} onClick={() => setActiveTab('schedulers')}>Schedulers</button>
                     <button className={activeTab === 'credentials' ? 'active' : ''} onClick={() => setActiveTab('credentials')}>Credentials</button>
                 </div>
@@ -329,71 +314,6 @@ export function SettingsModal({ isOpen, onClose }) {
                                             value={config.ai.timeout}
                                             onChange={(e) => handleChange('ai.timeout', parseInt(e.target.value))}
                                         />
-                                    </div>
-                                </div>
-                            )}
-
-                             {activeTab === 'migration' && envVars && config && config.notion && (
-                                <div className="settings-section">
-                                    <h3>Legacy Notion Migration</h3>
-                                    <div className="form-group">
-                                        <label>Notion Token (Migration only)</label>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            <input
-                                                type={showToken ? "text" : "password"}
-                                                value={envVars.NOTION_TOKEN || ''}
-                                                onChange={(e) => handleEnvChange('NOTION_TOKEN', e.target.value)}
-                                                placeholder="ntn_..."
-                                                style={{ flex: 1 }}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowToken(!showToken)}
-                                                style={{ padding: '8px 12px' }}
-                                            >
-                                                {showToken ? '👁️' : '👁️‍🗨️'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Database ID</label>
-                                        <input
-                                            type="text"
-                                            value={envVars.DATABASE_ID || ''}
-                                            onChange={(e) => handleEnvChange('DATABASE_ID', e.target.value)}
-                                            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                        />
-                                    </div>
-
-                                    <h3>Vault Backup (Legacy)</h3>
-                                    <div className="form-group">
-                                        <p style={{ fontSize: '0.9em', color: '#a0aec0', marginBottom: '15px' }}>
-                                            Gnosi és ara el teu cervell sobirà. Pots fer un backup manual de les teves directives cap a Notion si ho desitges per seguretat externa.
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={async () => {
-                                                setSyncing(true);
-                                                try {
-                                                    const res = await fetch('/api/sync/legacy-backup-to-notion', { method: 'POST' });
-                                                    const data = await res.json();
-                                                    setSyncStatus(data);
-                                                    alert(`Backup completat: ${data.synced || 0} directives guardades a Notion.`);
-                                                } catch (e) {
-                                                    alert('Error en el backup: ' + e.message);
-                                                }
-                                                setSyncing(false);
-                                            }}
-                                            disabled={syncing}
-                                            style={{ padding: '10px 20px', background: '#4a5568', border: 'none', borderRadius: '5px', cursor: 'pointer', color: 'white' }}
-                                        >
-                                            {syncing ? 'Fent backup...' : '📤 Backup de Directives a Notion (Llegat)'}
-                                        </button>
-                                        {syncStatus && (
-                                            <p style={{ marginTop: '10px', fontSize: '0.9em', color: '#a0aec0' }}>
-                                                Últim backup: {new Date(syncStatus.timestamp).toLocaleString()}
-                                            </p>
-                                        )}
                                     </div>
                                 </div>
                             )}

@@ -21,6 +21,7 @@ def setup_logging(level=logging.INFO):
             handlers.append(logging.FileHandler(LOG_FILE, encoding="utf-8"))
         except Exception as e:
             # We don't use log.error here because logging isn't fully setup yet
+            print(f"Error initializing file logging: {e}")
 
     logging.basicConfig(
         level=level,

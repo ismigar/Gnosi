@@ -37,7 +37,8 @@ from backend.config.app_config import load_params
 from backend.security.ai_credentials import resolve_provider_api_key
 
 cfg = load_params(strict_env=False)
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parent.parent.parent
+INSTRUCTIONS_DIR = cfg.paths.get("AGENT_INSTRUCTIONS") or (Path(__file__).resolve().parent / "instructions")
 log = logging.getLogger(__name__)
 
 
@@ -104,7 +105,7 @@ class AgentState(TypedDict):
 
 
 # --- 2. Prompts dels Agents (Base) ---
-DEFAULT_SUPERVISOR_PROMPT = """Ets el Supervisor del "Digital Brain".
+DEFAULT_SUPERVISOR_PROMPT = """Ets el Supervisor del "Gnosi".
 La teva feina és coordinar l'equip d'experts per resoldre la petició de l'usuari.
 
 MEMBRES DE L'EQUIP:
@@ -203,7 +204,7 @@ def get_llm(
             )
 
     except Exception as e:
-
+        pass
         return None
 
     # Fallback si no es reconeix el proveïdor
@@ -298,9 +299,20 @@ async def create_agent_workflow(
     persona = agent_data.get("persona", "")
     agent_name = agent_data.get("name", "Gnosy")
     
+    # Load detailed persona from markdown if exists
+    persona_file = INSTRUCTIONS_DIR / f"{target_id}.md"
+    detailed_persona = ""
+    if persona_file.exists():
+        try:
+            detailed_persona = persona_file.read_text(encoding="utf-8")
+        except Exception as e:
+            log.warning(f"Could not read persona file {persona_file}: {e}")
+    
+    combined_persona = f"{persona}\n\n{detailed_persona}" if detailed_persona else persona
+
     supervisor_prompt = (
-        f"Ets {agent_name}.\n{persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
-        if persona
+        f"Ets {agent_name}.\n{combined_persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
+        if combined_persona
         else f"Ets {agent_name}.\n{DEFAULT_SUPERVISOR_PROMPT}"
     )
 

@@ -5,8 +5,8 @@ const SchedulerPage = () => {
     const [schedulers, setSchedulers] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const loadSchedulers = async () => {
-        setLoading(true);
+    const loadSchedulers = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await fetch('/api/schedulers');
             if (res.ok) {
@@ -16,7 +16,7 @@ const SchedulerPage = () => {
         } catch (e) {
             console.error("Error loading schedulers", e);
         }
-        setLoading(false);
+        if (!silent) setLoading(false);
     };
 
     useEffect(() => {
@@ -31,7 +31,8 @@ const SchedulerPage = () => {
                 body: JSON.stringify({ ...task, enabled: !task.enabled })
             });
             if (res.ok) {
-                loadSchedulers();
+                // Actualització silenciosa per no perdre el scroll
+                loadSchedulers(true);
             }
         } catch (e) {
             console.error("Error toggling task", e);

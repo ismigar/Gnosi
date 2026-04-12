@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { User, Mail, Phone, MapPin, Building2, Briefcase, Tag, X, Save, ArrowLeft, Plus, Trash2, Globe, ChevronLeft, Star } from 'lucide-react';
 
-export default function ContactForm({ contact, onSave, onCancel }) {
+export default function ContactForm({ contact, onSave, onCancel, onBack, contactAccounts = [], defaultAccount }) {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -11,11 +14,25 @@ export default function ContactForm({ contact, onSave, onCancel }) {
         address: '',
         notes: '',
         tags: [],
+        emails: [],
+        phones: [],
+        addresses: [],
+        source: 'local',
+        photo_url: ''
     });
     const [tagInput, setTagInput] = useState('');
 
     useEffect(() => {
         if (contact) {
+            // Try to find the matching account email if source is just a provider name
+            let initialSource = contact.source || 'local';
+            if (initialSource !== 'local' && !initialSource.includes('@')) {
+                const matchingAccount = contactAccounts.find(acc => acc.provider === initialSource);
+                if (matchingAccount) {
+                    initialSource = matchingAccount.email || matchingAccount.provider;
+                }
+            }
+
             setFormData({
                 name: contact.name || '',
                 email: contact.email || '',
@@ -26,7 +43,20 @@ export default function ContactForm({ contact, onSave, onCancel }) {
                 address: contact.address || '',
                 notes: contact.notes || '',
                 tags: contact.tags || [],
+                emails: contact.emails && contact.emails.length > 0 ? contact.emails : [{ label: 'home', value: contact.email || '' }],
+                phones: contact.phones && contact.phones.length > 0 ? contact.phones : [{ label: 'mobile', value: contact.phone || '' }],
+                addresses: contact.addresses && contact.addresses.length > 0 ? contact.addresses : [{ label: 'home', value: contact.address || '' }],
+                source: initialSource,
+                photo_url: contact.photo_url || ''
             });
+        } else {
+            // Default empty fields for new contact
+            setFormData(prev => ({
+                ...prev,
+                emails: [{ label: 'home', value: '' }],
+                phones: [{ label: 'mobile', value: '' }],
+                addresses: [{ label: 'home', value: '' }],
+            }));
         }
     }, [contact]);
 
@@ -35,15 +65,36 @@ export default function ContactForm({ contact, onSave, onCancel }) {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleTypeChange = (e) => {
-        setFormData((prev) => ({ ...prev, type: e.target.value }));
+    const handleTypeChange = (value) => {
+        setFormData((prev) => ({ ...prev, type: value }));
+    };
+
+    const handleAddField = (field) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: [...prev[field], { label: 'home', value: '' }]
+        }));
+    };
+
+    const handleRemoveField = (field, index) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: prev[field].filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleFieldChange = (field, index, key, value) => {
+        const newList = [...formData[field]];
+        newList[index] = { ...newList[index], [key]: value };
+        setFormData(prev => ({ ...prev, [field]: newList }));
     };
 
     const handleAddTag = () => {
-        if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+        const trimmed = tagInput.trim();
+        if (trimmed && !formData.tags.includes(trimmed)) {
             setFormData((prev) => ({
                 ...prev,
-                tags: [...prev.tags, tagInput.trim()],
+                tags: [...prev.tags, trimmed],
             }));
             setTagInput('');
         }
@@ -58,164 +109,470 @@ export default function ContactForm({ contact, onSave, onCancel }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!formData.name || !formData.email) {
-            alert('Name and email are required');
+        if (!formData.name) {
             return;
         }
-        onSave(formData);
+
+        // Extract primary values from lists for backward compatibility and backend indexing
+        const finalData = {
+            ...formData,
+            email: formData.emails[0]?.value || formData.email,
+            phone: formData.phones[0]?.value || formData.phone,
+            address: formData.addresses[0]?.value || formData.address
+        };
+
+        if (!finalData.email && finalData.emails.length > 0) {
+            finalData.email = finalData.emails[0].value;
+        }
+
+        onSave(finalData);
     };
 
+    const inputStyle = {
+        width: '100%',
+        padding: '10px 14px',
+        borderRadius: '8px',
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border-primary)',
+        color: 'var(--text-primary)',
+        fontSize: '14px',
+        outline: 'none',
+        transition: 'all 0.2s',
+        marginTop: '6px'
+    };
+
+    const selectStyle = {
+        ...inputStyle,
+        width: 'auto',
+        minWidth: '100px',
+        cursor: 'pointer'
+    };
+
+    const labelStyle = {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '12px',
+        fontWeight: '600',
+        color: 'var(--text-tertiary)',
+        opacity: 0.8
+    };
+
+    const sectionTitleStyle = {
+        fontSize: '11px',
+        fontWeight: '700',
+        color: 'var(--text-tertiary)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        marginBottom: '16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    };
+
+    const emailLabels = [
+        { value: 'home', label: t('contacts.label_home', 'Casa') },
+        { value: 'work', label: t('contacts.label_work', 'Feina') },
+        { value: 'other', label: t('contacts.label_other', 'Altres') },
+    ];
+
+    const phoneLabels = [
+        { value: 'mobile', label: t('contacts.label_mobile', 'Mòbil') },
+        { value: 'home', label: t('contacts.label_home', 'Casa') },
+        { value: 'work', label: t('contacts.label_work', 'Feina') },
+        { value: 'other', label: t('contacts.label_other', 'Altres') },
+    ];
+
+    const addressLabels = [
+        { value: 'home', label: t('contacts.label_home', 'Casa') },
+        { value: 'work', label: t('contacts.label_work', 'Feina') },
+        { value: 'other', label: t('contacts.label_other', 'Altres') },
+    ];
+
+    const renderMultiFieldSection = (title, field, icon, placeholder, labels, type = "text") => (
+        <div style={{ background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
+            <div style={sectionTitleStyle}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {icon} {title}
+                </span>
+                <button 
+                    type="button" 
+                    onClick={() => handleAddField(field)}
+                    style={{
+                        padding: '4px 8px',
+                        background: 'rgba(59,130,246,0.1)',
+                        color: 'var(--gnosi-blue)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}
+                >
+                    <Plus size={12} /> {t('common.btn.add', 'Afegir')}
+                </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Unified Field List */}
+                {formData[field].map((item, index) => (
+                    <div key={index} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                        <select
+                            value={item.label}
+                            onChange={(e) => handleFieldChange(field, index, 'label', e.target.value)}
+                            style={{ ...selectStyle, marginTop: 0 }}
+                        >
+                            {labels.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                        
+                        {item.label === 'other' && (
+                            <input
+                                type="text"
+                                value={item.customLabel || ''}
+                                onChange={(e) => handleFieldChange(field, index, 'customLabel', e.target.value)}
+                                placeholder={t('contacts.label_custom_placeholder', 'Especifiqueu...')}
+                                style={{ ...inputStyle, marginTop: 0, width: '120px', flex: 'none' }}
+                            />
+                        )}
+
+                        <input
+                            type={type}
+                            value={item.value}
+                            onChange={(e) => handleFieldChange(field, index, 'value', e.target.value)}
+                            placeholder={placeholder}
+                            style={{ ...inputStyle, marginTop: 0, flex: 1, minWidth: '150px' }}
+                            required={index === 0 && field === 'emails'}
+                        />
+                        {formData[field].length > 1 && (
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveField(field, index)}
+                                style={{
+                                    padding: '8px',
+                                    background: 'transparent',
+                                    color: 'var(--text-tertiary)',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    opacity: 0.6
+                                }}
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
     return (
-        <div className="p-6 max-w-2xl">
-            <h2 className="text-xl font-bold mb-6">{contact ? 'Edit Contact' : 'New Contact'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex gap-4">
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">Name *</label>
+        <div className="contact-form" style={{ 
+            padding: '40px', 
+            maxWidth: '800px', 
+            margin: '0 auto',
+            color: 'var(--text-primary)'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {onBack && (
+                        <button
+                            onClick={onBack}
+                            style={{
+                                padding: '8px',
+                                background: 'transparent',
+                                color: 'var(--text-secondary)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                            title={t('common.back', 'Tornar')}
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                    )}
+                    <h2 style={{ 
+                        margin: 0, 
+                        fontSize: '24px', 
+                        fontWeight: '700', 
+                        color: 'var(--text-primary)', 
+                        letterSpacing: '-0.02em' 
+                    }}>
+                        {contact ? t('contacts.edit_title', 'Editar Contacte') : t('contacts.new_title', 'Nou Contacte')}
+                    </h2>
+                </div>
+                <button
+                    onClick={onCancel}
+                    style={{
+                        padding: '8px 16px',
+                        background: 'transparent',
+                        color: 'var(--text-tertiary)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <ArrowLeft size={16} /> {t('common.btn.cancel', 'Cancel·lar')}
+                </button>
+            </div>
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                {/* Basic Info Group */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    <div style={{ gridColumn: 'span 2' }}>
+                        <label style={labelStyle}><User size={14} /> {t('contacts.name_label', 'Nom')} *</label>
                         <input
                             type="text"
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
                             required
-                            className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ex: Joan Sala"
+                            style={inputStyle}
                         />
                     </div>
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">Email *</label>
-                        <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            required
-                            className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                    <div style={{ gridColumn: 'span 2' }}>
+                        <label style={labelStyle}><Globe size={14} /> {t('contacts.photo_url_label', 'URL de la foto')}</label>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <div style={{ 
+                                width: '40px', 
+                                height: '40px', 
+                                borderRadius: '8px', 
+                                background: 'var(--bg-secondary)', 
+                                border: '1px solid var(--border-primary)',
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                marginTop: '6px'
+                            }}>
+                                {formData.photo_url ? (
+                                    <img 
+                                        src={formData.photo_url} 
+                                        alt="Preview" 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                ) : (
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)', opacity: 0.5 }}>
+                                        <User size={20} />
+                                    </div>
+                                )}
+                            </div>
+                            <input
+                                type="text"
+                                name="photo_url"
+                                value={formData.photo_url}
+                                onChange={handleChange}
+                                placeholder="https://exemple.com/foto.jpg"
+                                style={{ ...inputStyle, flex: 1 }}
+                            />
+                        </div>
                     </div>
                 </div>
 
+                {/* Type Selection */}
                 <div>
-                    <label className="block text-sm font-medium mb-1">Type</label>
-                    <select
-                        name="type"
-                        value={formData.type}
-                        onChange={handleTypeChange}
-                        className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="personal">Personal</option>
-                        <option value="b2b">Business (B2B)</option>
-                    </select>
+                    <label style={labelStyle}><Tag size={14} /> {t('contacts.type_label', 'Tipus de contacte')}</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
+                        <button
+                            type="button"
+                            onClick={() => handleTypeChange('personal')}
+                            style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                background: formData.type === 'personal' ? 'rgba(16,185,129,0.08)' : 'var(--bg-secondary)',
+                                color: formData.type === 'personal' ? '#10b981' : 'var(--text-tertiary)',
+                                border: '1px solid',
+                                borderColor: formData.type === 'personal' ? '#10b981' : 'var(--border-primary)',
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {t('contacts.type_personal', 'Personal')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleTypeChange('b2b')}
+                            style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                background: formData.type === 'b2b' ? 'rgba(59,130,246,0.08)' : 'var(--bg-secondary)',
+                                color: formData.type === 'b2b' ? 'var(--gnosi-blue)' : 'var(--text-tertiary)',
+                                border: '1px solid',
+                                borderColor: formData.type === 'b2b' ? 'var(--gnosi-blue)' : 'var(--border-primary)',
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {t('contacts.type_business', 'Empresa')}
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex gap-4">
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">Phone</label>
-                        <input
-                            type="tel"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">Company</label>
+                {/* Company Info row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    <div>
+                        <label style={labelStyle}><Building2 size={14} /> {t('contacts.company_label', 'Empresa')}</label>
                         <input
                             type="text"
                             name="company"
                             value={formData.company}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Opcional"
+                            style={inputStyle}
                         />
                     </div>
-                </div>
-
-                {formData.type === 'b2b' && (
                     <div>
-                        <label className="block text-sm font-medium mb-1">Job Title</label>
+                        <label style={labelStyle}><Briefcase size={14} /> {t('contacts.job_label', 'Càrrec')}</label>
                         <input
                             type="text"
                             name="job_title"
                             value={formData.job_title}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ex: Director IT"
+                            style={inputStyle}
+                            disabled={formData.type !== 'b2b'}
                         />
                     </div>
-                )}
-
-                <div>
-                    <label className="block text-sm font-medium mb-1">Address</label>
-                    <input
-                        type="text"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
                 </div>
 
+                {/* Account Selection (Source) */}
                 <div>
-                    <label className="block text-sm font-medium mb-1">Notes</label>
+                    <label style={labelStyle}><Globe size={14} /> {t('contacts.sync_with_account', 'Sincronització amb')}</label>
+                    <select
+                        name="source"
+                        value={formData.source}
+                        onChange={handleChange}
+                        style={{ ...inputStyle, cursor: 'pointer' }}
+                    >
+                        <option value="local">{t('contacts.source_local', 'Gnosi (Només local)')}</option>
+                        {contactAccounts.map((account) => {
+                            const displayName = account.name || (account.provider === 'google' ? 'Google' : account.provider.toUpperCase());
+                            return (
+                                <option key={account.id} value={account.email || account.provider}>
+                                    {displayName} ({account.email})
+                                </option>
+                            );
+                        })}
+                    </select>
+                </div>
+
+                {/* Multi-field Sections */}
+                {renderMultiFieldSection(t('contacts.email_label', 'Emails'), 'emails', <Mail size={14} />, "email@exemple.com", emailLabels, "email")}
+                {renderMultiFieldSection(t('contacts.phone_label', 'Telèfons'), 'phones', <Phone size={14} />, "+34 600 000 000", phoneLabels, "tel")}
+                {renderMultiFieldSection(t('contacts.address_label', 'Adreces'), 'addresses', <MapPin size={14} />, "Carrer, Número, Ciutat...", addressLabels)}
+
+                <div>
+                    <label style={labelStyle}><Tag size={14} /> {t('contacts.notes_label', 'Notes / Comentaris')}</label>
                     <textarea
                         name="notes"
                         value={formData.notes}
                         onChange={handleChange}
                         rows={4}
-                        className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Notes addicionals sobre el contacte..."
+                        style={{ ...inputStyle, resize: 'vertical', minHeight: '120px' }}
                     />
                 </div>
 
+                {/* Tags Management */}
                 <div>
-                    <label className="block text-sm font-medium mb-1">Tags</label>
-                    <div className="flex gap-2 mb-2">
+                    <label style={labelStyle}><Tag size={14} /> {t('contacts.tags_label', 'Etiquetes')}</label>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                         <input
                             type="text"
                             value={tagInput}
                             onChange={(e) => setTagInput(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                            placeholder="Add a tag..."
-                            className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={t('contacts.tag_placeholder', 'Afegeix una etiqueta...')}
+                            style={{ ...inputStyle, marginTop: 0, flex: 1 }}
                         />
                         <button
                             type="button"
                             onClick={handleAddTag}
-                            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                            style={{
+                                padding: '0 24px',
+                                borderRadius: '8px',
+                                background: 'rgba(255,255,255,0.04)',
+                                color: 'var(--text-primary)',
+                                border: '1px solid var(--border-primary)',
+                                fontWeight: '600',
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
                         >
-                            Add
+                            {t('common.btn.add', 'Afegir')}
                         </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {formData.tags.map((tag, index) => (
-                            <span
-                                key={index}
-                                className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-sm flex items-center gap-1"
-                            >
-                                {tag}
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveTag(tag)}
-                                    className="hover:text-red-600"
+                    {formData.tags.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
+                            {formData.tags.map((tag, index) => (
+                                <span
+                                    key={index}
+                                    style={{
+                                        padding: '4px 10px 4px 12px',
+                                        background: 'rgba(59,130,246,0.08)',
+                                        color: 'var(--gnosi-blue)',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        border: '1px solid rgba(59,130,246,0.1)'
+                                    }}
                                 >
-                                    &times;
-                                </button>
-                            </span>
-                        ))}
-                    </div>
+                                    {tag}
+                                    <X
+                                        size={12}
+                                        onClick={() => handleRemoveTag(tag)}
+                                        style={{ cursor: 'pointer', opacity: 0.6 }}
+                                    />
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                <div className="flex gap-4 pt-4">
+                <div style={{ display: 'flex', gap: '16px', marginTop: '24px', paddingTop: '32px', borderTop: '1px solid var(--border-primary)' }}>
                     <button
                         type="submit"
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        style={{
+                            flex: 1,
+                            padding: '14px',
+                            background: 'var(--gnosi-blue)',
+                            color: 'white',
+                            borderRadius: '10px',
+                            border: 'none',
+                            fontWeight: '700',
+                            fontSize: '15px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '10px',
+                            boxShadow: '0 4px 20px rgba(59, 130, 246, 0.25)',
+                            transition: 'all 0.2s'
+                        }}
                     >
-                        Save Contact
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="px-6 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                    >
-                        Cancel
+                        <Save size={18} />
+                        {contact ? t('common.btn.save_changes', 'Guardar Canvis') : t('contacts.btn_create', 'Crear Contacte')}
                     </button>
                 </div>
             </form>

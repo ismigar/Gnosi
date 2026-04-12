@@ -29,19 +29,29 @@ def get_google_calendar_service(email: str):
         log.error(f"Failed to read integrations.json: {e}")
         return None
 
+    from backend.config.env_config import get_env
+
     for cal in data.get("calendars", []):
         if cal.get("provider") == "google" and cal.get("auth_type") == "oauth2":
             cal_email = cal.get("email", cal.get("username", ""))
             if cal_email == email:
                 try:
+                    # Resolve client credentials with environment fallback
+                    client_id = cal.get("client_id") or get_env("GOOGLE_OAUTH_CLIENT_ID")
+                    client_secret = cal.get("client_secret") or get_env("GOOGLE_OAUTH_CLIENT_SECRET")
+                    
+                    if not client_id or not client_secret:
+                        log.error(f"❌ Missing OAuth client credentials for {email}. Sync will fail.")
+                        continue
+
                     creds_dict = {
                         "token": cal.get("token"),
                         "refresh_token": cal.get("refresh_token"),
                         "token_uri": cal.get(
                             "token_uri", "https://oauth2.googleapis.com/token"
                         ),
-                        "client_id": cal.get("client_id"),
-                        "client_secret": cal.get("client_secret"),
+                        "client_id": client_id,
+                        "client_secret": client_secret,
                     }
                     creds = Credentials(**creds_dict)
                     return build("calendar", "v3", credentials=creds)

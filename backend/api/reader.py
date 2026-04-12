@@ -83,12 +83,16 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
 # -- Articles --
 
 @router.get("/articles", response_model=List[models.ArticleResponse])
-def get_articles(unread_only: bool = True, limit: int = 100, db: Session = Depends(get_db)):
-    """List articles (options: unread only)"""
+def get_articles(unread_only: bool = True, source_id: int = None, limit: int = 500, db: Session = Depends(get_db)):
+    """List articles (options: unread only, filter by source)"""
     from sqlalchemy.orm import joinedload
     query = db.query(models.Article).options(joinedload(models.Article.source))
+    
     if unread_only:
         query = query.filter(models.Article.is_read == False)
+    
+    if source_id:
+        query = query.filter(models.Article.source_id == source_id)
     
     articles = query.order_by(models.Article.published_at.desc()).limit(limit).all()
     

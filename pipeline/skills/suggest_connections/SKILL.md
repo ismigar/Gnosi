@@ -1,53 +1,51 @@
-# Directive: Executar Pipeline de Connexions
+# SKILL: Graph Management
 
-## Objectiu
-Executar el pipeline que analitza notes de Notion i suggereix connexions usant tags i AI.
+This skill manages the Digital Brain knowledge graph, including the generation of connections, their acceptance, and the hybrid AI system.
 
-## Procediment
+> ID: GRAPH-MGMT-20260408
+> Status: ACTIVE
 
-### 1. Prerequisits
-```bash
-# Verificar Ollama està corrent
-ollama list
+---
 
-# Verificar variables d'entorn
-cat .env_shared | grep HF_API_KEY
-```
+## 1. Module A: Generation (Suggest Connections)
+Analyzes Vault notes and suggests relationships based on tags and semantic content.
 
-### 2. Execució
-```bash
-cd monorepo/apps/digital-brain
-python3 -c "from pipeline.skills.suggest_connections_digital_brain import process; process()"
-```
+- **Config**: `config/params.yaml` (Thresholds, graph colors).
+- **Outputs**: `out/suggestions.json`, `out/sigma_graph.json`, AI caches.
+- **CLI**: `python3 -c "from pipeline.skills.suggest_connections.scripts.suggest_connections_digital_brain import process; process()"`
 
-### 3. Monitoritzar Progrés
-El pipeline mostra:
-- `[n/218] 📖 Títol de la nota...` - Progrés
-- `✓ Found X valid connections [ollama|groq|cache]` - Font de l'anàlisi
-- `⏱️ ollama timeout (60s), will try groq` - Fallback activat
+---
 
-## Restriccions / Edge Cases
+## 2. Module B: Persistence (Acceptance Protocol)
+Protocol for writing accepted connections back to `.md` files.
 
-### ⚠️ Rate Limit Groq
-- **Error**: `AI error 429: Rate limit reached`
-- **Causa**: S'ha arribat al límit diari de 100k tokens
-- **Solució**: Esperar fins demà. Les notes processades estan al cache i no es tornaran a processar.
+### Writing Requirements
+- **Frontmatter Field**: `📀 Connections` (or as per language in `params.yaml`).
+- **Data Integrity**: Use `yaml.safe_dump` to avoid corruption.
+- **Atomicity**: Write to a temporary file + rename to prevent data loss if the process fails.
 
-### ⚠️ Notes al Cache vs Notes Noves
-- Notes ja analitzades mostren `[cache]` - instantànies
-- Notes noves usen `[ollama]` o `[groq]` - més lentes
+### Validation
+- No duplicates allowed.
+- No connections allowed to non-existent nodes (verify against the registry).
 
-### ⚠️ Invalid IDs Skipped
-- **Warning**: `Invalid ID skipped: xxx`
-- **Causa**: IDs de Notion que ja no existeixen o estan mal formats
-- **Acció**: No cal fer res, el pipeline continua
+---
 
-## Outputs
-- `out/suggestions.json` - Connexions trobades
-- `out/sigma_graph.json` - Graf per a visualització
-- `out/ai_cache.json` - Cache de respostes AI
-- `out/ai_analysis_cache.json` - Cache de notes analitzades
+## 3. Hybrid AI System (Ollama + Groq)
+Infrastructure management for artificial intelligence.
 
-## Fitxers Relacionats
-- `pipeline/skills/suggest_connections_digital_brain.py` - Script principal
-- `config/params.yaml` - Configuració AI i colors
+- **Preference**: Ollama (local) → Groq (Cloud) → OpenAI.
+- **Fallback**: If Ollama times out (60s) or the note is too long, automatically switch to Groq.
+- **Rate Limits**: Groq has a limit of 100k tokens/day (Free Tier). If error 429 is received, wait 24h.
+
+---
+
+## 4. History and Learning (Learning Cycle)
+
+| Date | Error / Learning | Root Cause | Solution / Refinement |
+| --- | --- | --- | --- |
+| 2026-03-08 | YAML Corruption | Manual writing | Mandatory use of YAML parsing libraries. |
+| 2026-04-07 | Groq 429 Error | Token excess | Implementation of analyzed notes cache to avoid repetitions. |
+| 2026-04-08 | Fragmentation | Divided memory | Union of Generation, Persistence, and AI into `SKILL.md`. |
+
+---
+*Maintenance: If new models are added to Ollama, update `params.yaml` to reflect the correct `model_name`.*

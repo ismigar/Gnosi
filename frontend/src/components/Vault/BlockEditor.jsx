@@ -44,7 +44,7 @@ import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/react/style.css";
 import { useTranslation, Trans } from 'react-i18next';
-import { useApi } from '../../context/ApiContext';
+import { useApi } from '../../hooks/use-api';
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
@@ -2099,6 +2099,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const isViewer = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
     const isEditor = role === 'editor' || isAdmin;
+    const { effectiveTheme } = useTheme();
 
     const isEditable = !isViewer;
     const [metadata, setMetadata] = useState(initialMetadata);

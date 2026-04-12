@@ -5,7 +5,8 @@ from bs4 import BeautifulSoup
 import logging
 from sqlalchemy.orm import Session
 
-from backend.data.db import SessionLocal
+from backend.data.db import get_engine_for_path
+from backend.services.context_vars import get_active_vault_path
 from backend.models.reader import FeedSource, Article
 
 log = logging.getLogger(__name__)
@@ -31,6 +32,8 @@ def fetch_and_store_feeds():
     Downloads all active RSS/YouTube feeds from the database, parses them,
     and saves new articles from the last 24 hours into the database.
     """
+    v_path = get_active_vault_path()
+    _, SessionLocal = get_engine_for_path(v_path)
     db: Session = SessionLocal()
     try:
         sources = db.query(FeedSource).filter(FeedSource.type.in_(["rss", "youtube"])).all()
@@ -63,8 +66,8 @@ def fetch_and_store_feeds():
                     if not pub_date:
                         pub_date = datetime.now(timezone.utc) # fallback
                         
-                    # Process only recent articles
-                    if pub_date > target_time:
+                    # Process only recent articles (removed 24h filter to allow full history ingestion)
+                    if True: # pub_date > target_time:
                         # Extract URL and check uniqueness
                         article_link = entry.get('link', '')
                         existing = db.query(Article).filter(Article.url == article_link).first()

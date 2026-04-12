@@ -25,5 +25,43 @@
     "vault_welcome_title": "Bienvenue",
     "vault_welcome_subtitle": "Sélectionne une page du vault ou",
     "vault_welcome_create_page": "Crée une page",
-    "vault_welcome_create_db": "Crée une BD"
+    "vault_welcome_create_db": "Crée une BD",
+    "settings": {
+        "tabs": {
+            "mail_accounts": "Comptes de Messagerie",
+            "contacts": "Contacts"
+        },
+        "mail_accounts": {
+            "title": "Comptes de Messagerie",
+            "desc": "Gérez vos comptes de messagerie IMAP/SMTP pour recevoir des newsletters et des communications."
+        },
+        "newsletters": {
+            "email_wizard": {
+                "mail_account": "Compte de messagerie"
+            }
+        },
+        "language": {
+            "title": "Langue et Région",
+            "desc": "Sélectionne la langue de l'interface et le format de date.",
+            "interface_language": "Langue de l'interface",
+            "first_day": "Premier jour de la semaine",
+            "monday": "Lundi",
+            "sunday": "Dimanche",
+            "currency": "Monnaie",
+            "decimal_separator": "Signe décimal",
+            "decimal_point": "Point (.)",
+            "decimal_comma": "Virgule (,)"
+        },
+        "contacts": {
+            "title": "Configuration des Contacts",
+            "desc": "Gérez votre liste de contacts et la synchronisation avec des services externes.",
+            "google_sync_title": "Google Contacts",
+            "google_sync_desc": "Synchronisez vos contacts Google avec Gnosi.",
+            "sync_status": "État de la synchronisation",
+            "last_sync": "Dernière synchronisation",
+            "contacts_count": "Total des contacts",
+            "sync_btn": "Synchroniser",
+            "sync_errors_occurred": "Des erreurs se sont produites pendant la synchronisation"
+        }
+    }
 }

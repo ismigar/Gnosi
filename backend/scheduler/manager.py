@@ -43,25 +43,25 @@ class SchedulerManager:
             "description": "Generate daily podcast from unread articles",
             "default_interval": 1440,  # 24 hours
         },
-        "sync_directives": {
-            "description": "Sync directives to Notion",
-            "default_interval": 1440,  # 24 hours
-        },
-        "backup_tools": {
-            "description": "Backup approved tools",
-            "default_interval": 720,  # 12 hours
-        },
-        "cleanup_rejected": {
-            "description": "Cleanup old rejected tools",
-            "default_interval": 10080,  # 7 days
-        },
-        "purge_logs": {
-            "description": "Purge backend and pipeline log files",
+        "system_maintenance": {
+            "description": "Manteniment del sistema (Logs, Mailbox, Sandbox)",
             "default_interval": 1440,  # 24 hours
         },
         "update_analytics": {
             "description": "Update statistics",
             "default_interval": 60,  # 1 hour
+        },
+        "suggest_connections": {
+            "description": "Analyze connections between notes",
+            "default_interval": 300,  # 5 hours
+        },
+        "fetch_calendar": {
+            "description": "Sync Google Calendar to Vault",
+            "default_interval": 60,  # 1 hour
+        },
+        "fetch_contacts": {
+            "description": "Sync comptes (Google, CardDAV)",
+            "default_interval": 1440,  # 24 hours
         },
     }
 
@@ -88,14 +88,20 @@ class SchedulerManager:
             return
             
         try:
+            updated = False
             with open(self.config_path) as f:
                 data = json.load(f)
                 for name, task_data in data.get("tasks", {}).items():
                     self._tasks[name] = ScheduledTask(**task_data)
 
-                # Backward-compatible migration: ensure new default tasks exist
-                # even if the saved config predates them.
-                updated = False
+                # Filter out tasks that are no longer in AVAILABLE_TASKS
+                current_task_names = list(self._tasks.keys())
+                for task_name in current_task_names:
+                    if task_name not in self.AVAILABLE_TASKS:
+                        del self._tasks[task_name]
+                        updated = True
+
+                # Ensure all available tasks exist
                 for name, config in self.AVAILABLE_TASKS.items():
                     if name not in self._tasks:
                         self._tasks[name] = ScheduledTask(
@@ -109,9 +115,11 @@ class SchedulerManager:
                 if updated:
                     self._save_config()
         except Exception as e:
-            pass
-
-            self._init_default_tasks()
+            from backend.config.logger_config import get_logger
+            log = get_logger(__name__)
+            log.error(f"❌ Error loading scheduler config: {e}")
+            if not self._tasks:
+                self._init_default_tasks()
 
     def _init_default_tasks(self):
         """Initialize with default tasks."""
@@ -145,6 +153,53 @@ class SchedulerManager:
         task = self._tasks.get(name)
         return asdict(task) if task else None
 
+    def start(self):
+        """Start the background scheduler thread."""
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+
+        if self._running:
+            log.info("⏰ SchedulerManager is already running.")
+            return
+
+        log.info("⏰ Starting SchedulerManager background loop...")
+        
+        self._running = True
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+        log.info("✅ SchedulerManager thread started.")
+
+    def _run_loop(self):
+        """Main scheduler loop."""
+        import time
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+
+        while self._running:
+            try:
+                now = datetime.now()
+                for name, task in self._tasks.items():
+                    if not task.enabled:
+                        continue
+
+                    should_run = False
+                    if not task.last_run:
+                        should_run = True
+                    else:
+                        last_run_dt = datetime.fromisoformat(task.last_run)
+                        elapsed = (now - last_run_dt).total_seconds() / 60
+                        if elapsed >= task.interval_minutes:
+                            should_run = True
+
+                    if should_run:
+                        log.info(f"⏰ Scheduler: Triggering task '{name}'")
+                        self.run_task_now(name)
+
+            except Exception as e:
+                log.error(f"❌ Error in scheduler loop: {e}")
+
+            time.sleep(60)  # Check every minute
+
     def update_task(
         self, name: str, interval_minutes: int, enabled: bool
     ) -> Dict[str, Any]:
@@ -167,7 +222,7 @@ class SchedulerManager:
 
         task = self._tasks[name]
         task.status = "running"
-        task.last_run = datetime.utcnow().isoformat()
+        task.last_run = datetime.now().isoformat()
 
         try:
             # Execute the task
@@ -188,30 +243,49 @@ class SchedulerManager:
             return self._task_fetch_newsletters()
         elif name == "generate_podcast":
             return self._task_generate_podcast()
-        elif name == "sync_directives":
-            return self._task_sync_directives()
-        elif name == "backup_tools":
-            return self._task_backup_tools()
-        elif name == "cleanup_rejected":
-            return self._task_cleanup_rejected()
-        elif name == "purge_logs":
-            return self._task_purge_logs()
+        elif name == "system_maintenance":
+            return self._task_system_maintenance()
         elif name == "update_analytics":
             return self._task_update_analytics()
-        else:
-            return {"error": f"Unknown task: {name}"}
+        elif name == "suggest_connections":
+            return self._task_suggest_connections()
+        elif name == "fetch_calendar":
+            return self._task_fetch_calendar()
+        elif name == "fetch_contacts":
+            return self._task_fetch_contacts()
 
-    def _task_sync_directives(self) -> Dict[str, Any]:
-        """Sync directives to Notion (Legacy Backup)."""
-        from backend.sync.legacy_exporter import legacy_vault_exporter
-        import asyncio
+        return {"error": f"Unknown task: {name}"}
 
-        loop = asyncio.new_event_loop()
-        try:
-            result = loop.run_until_complete(legacy_vault_exporter.export_all_directives())
-            return result
-        finally:
-            loop.close()
+    def _task_fetch_contacts(self) -> Dict[str, Any]:
+        """Fetch Contacts from all configured accounts."""
+        from backend.services.integration_manager import integration_manager
+        from backend.services.contacts_sync_engine import ContactsSyncEngine
+        from backend.data.management_db import db_manager
+        
+        results = {"success": True, "details": []}
+        integrations = integration_manager.get_all_safe()
+        contact_accounts = integrations.get("contacts", [])
+        
+        if not contact_accounts:
+            return {"success": True, "message": "No contact accounts configured"}
+
+        for account in contact_accounts:
+            try:
+                with db_manager.mgmt_session() as db:
+                    engine = ContactsSyncEngine(db, account, workspace_id="personal") # Defaulting to personal for background sync
+                    sync_res = engine.sync_full_bidirectional()
+                    results["details"].append({
+                        "id": account.get("id"),
+                        "email": account.get("email"),
+                        "result": sync_res
+                    })
+            except Exception as e:
+                results["details"].append({
+                    "id": account.get("id"),
+                    "error": str(e)
+                })
+        
+        return results
 
     def _task_fetch_feeds(self) -> Dict[str, Any]:
         """Fetch RSS/YouTube feeds and store new articles."""
@@ -234,74 +308,124 @@ class SchedulerManager:
         filename = generate_daily_podcast()
         return {"filename": filename, "generated": bool(filename)}
 
-    def _task_backup_tools(self) -> Dict[str, Any]:
-        """Backup approved tools."""
-        from backend.agent.generated_tools.registry import registry
 
-        approved = registry.list_approved()
-        cfg = load_params(strict_env=False)
-        backup_base = cfg.paths.get("BACKUPS")
-        if not backup_base:
-            return {"error": "Backup path not structurally configured in the Vault."}
-            
-        backup_dir = backup_base / "tools"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-
-        for tool in approved:
-            backup_file = backup_dir / f"{tool.name}_{timestamp}.py"
-            backup_file.write_text(tool.code)
-
-        return {"backed_up": len(approved), "directory": str(backup_dir)}
-
-    def _task_cleanup_rejected(self) -> Dict[str, Any]:
-        """Cleanup old rejected tools."""
-        # For now, just count rejected - could delete old ones
-        from backend.agent.generated_tools.registry import registry
-
-        # This is a placeholder - in production would delete old rejected tools
-        return {"message": "Cleanup simulated", "rejected_count": 0}
-
-    def _task_purge_logs(self) -> Dict[str, Any]:
-        """Purge system logs to avoid accumulating garbage."""
+    def _task_system_maintenance(self) -> Dict[str, Any]:
+        """Comprehensive system cleanup: logs, mailbox, sandbox, and caches."""
         import glob
         import os
+        import shutil
         from backend.config.logger_config import get_logger
         
         log = get_logger(__name__)
         purged_count = 0
         freed_bytes = 0
+        details = {}
         
-        # Define log search paths (relative to repo root theoretically, 
-        # but let's use absolute if possible via env, or generic relative search)
         cfg = load_params(strict_env=False)
-        base_dir = cfg.paths.get("ROOT", Path(__file__).parent.parent.parent.parent)
         
-        # Standard locations to clear
-        log_patterns = [
-            str(base_dir / "monorepo" / "apps" / "gnosi" / "backend" / "data" / "logs" / "*.log"),
-            str(base_dir / "monorepo" / "apps" / "gnosi" / "backend" / "*.log"),
-            str(base_dir / "monorepo" / "apps" / "gnosi" / "pipeline" / "sandbox" / "*.log"),
-            str(base_dir / "monorepo" / "apps" / "gnosi" / "pipeline" / ".tmp" / "*.log"),
-        ]
-        
-        for pattern in log_patterns:
-            for filepath in glob.glob(pattern):
+        # 1. Purge Logs
+        log_dir = cfg.paths.get("LOG_DIR")
+        if log_dir and log_dir.exists():
+            log_patterns = [str(log_dir / "*.log"), str(log_dir.parent / "*.log")]
+            
+            project_root = cfg.paths.get("PROJECT_DIR")
+            if project_root:
+                pipeline_base = project_root / "monorepo" / "apps" / "gnosi" / "pipeline"
+                log_patterns.append(str(pipeline_base / "sandbox" / "*.log"))
+                log_patterns.append(str(pipeline_base / ".tmp" / "*.log"))
+
+            for pattern in log_patterns:
+                for filepath in glob.glob(pattern):
+                    try:
+                        size = os.path.getsize(filepath)
+                        if size > 0:
+                            with open(filepath, 'w') as f:
+                                f.write(f"# Log purged at {datetime.now().isoformat()}\n")
+                            purged_count += 1
+                            freed_bytes += size
+                    except Exception as e:
+                        log.warning(f"Failed to purge log {filepath}: {e}")
+        details["logs_cleared"] = purged_count
+
+        # 2. Clear Agent Mailbox Archive
+        mailbox_archive = Path("/Users/ismaelgarciafernandez/Projectes/monorepo/.antigravity/team/mailbox/archive")
+        msg_purged = 0
+        if mailbox_archive.exists():
+            for msg_file in glob.glob(str(mailbox_archive / "*")):
                 try:
-                    size = os.path.getsize(filepath)
-                    # Instead of deleting, we truncate to keep file permissions/handlers intact
-                    open(filepath, 'w').close()
-                    purged_count += 1
-                    freed_bytes += size
+                    freed_bytes += os.path.getsize(msg_file)
+                    os.remove(msg_file)
+                    msg_purged += 1
                 except Exception as e:
-                    log.warning(f"Failed to purge log {filepath}: {e}")
+                    log.warning(f"Failed to delete message {msg_file}: {e}")
+        details["mailbox_archive_purged"] = msg_purged
+
+        # 3. Cleanup Pipeline Sandbox & .tmp
+        pipeline_dirs = []
+        if project_root:
+             p_base = project_root / "monorepo" / "apps" / "gnosi" / "pipeline"
+             pipeline_dirs = [p_base / "sandbox", p_base / ".tmp"]
+
+        sandbox_deleted = 0
+        for d in pipeline_dirs:
+            if d.exists():
+                for item in d.iterdir():
+                    if item.name == "__init__.py": continue
+                    try:
+                        if item.is_file():
+                            freed_bytes += os.path.getsize(item)
+                            os.remove(item)
+                            sandbox_deleted += 1
+                        elif item.is_dir():
+                            shutil.rmtree(item)
+                            sandbox_deleted += 1
+                    except Exception as e:
+                        log.warning(f"Failed to delete {item}: {e}")
+        details["temporary_files_deleted"] = sandbox_deleted
+
+        # 4. Cleanup Pycache
+        pycache_count = 0
+        if project_root:
+            for root, dirs, files in os.walk(project_root / "monorepo" / "apps" / "gnosi"):
+                for d in dirs:
+                    if d == "__pycache__":
+                        try:
+                            shutil.rmtree(os.path.join(root, d))
+                            pycache_count += 1
+                        except Exception:
+                            pass
+        details["pycache_dirs_removed"] = pycache_count
                     
         return {
-            "message": "Logs purged successfully",
-            "files_cleared": purged_count,
-            "freed_bytes": freed_bytes
+            "message": "System maintenance completed successfully",
+            "freed_bytes": freed_bytes,
+            "details": details
         }
+
+    def _task_suggest_connections(self) -> Dict[str, Any]:
+        """Analyze connections between notes."""
+        try:
+            from pipeline.skills.suggest_connections.scripts import (
+                suggest_connections_digital_brain,
+            )
+            from pipeline.skills.json_to_sigma.scripts import json_to_sigma
+            suggest_connections_digital_brain.process()
+            json_to_sigma.convert_for_sigma()
+        except ImportError:
+            return {"error": "Pipeline skills not found"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+
+
+
+
+    def _task_fetch_calendar(self) -> Dict[str, Any]:
+        """Fetch Google Calendar events and store in Vault."""
+        from backend.services.vault_calendar_sync_service import calendar_sync_service
+
+        count = calendar_sync_service.sync_all_calendars()
+        return {"new_events": int(count or 0)}
 
     def _task_update_analytics(self) -> Dict[str, Any]:
         """Update cached analytics."""

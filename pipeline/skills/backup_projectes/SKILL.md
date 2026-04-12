@@ -1,63 +1,75 @@
-# DIRECTIVE: PROJECT_BACKUP_SOP
+# SKILL: Projectes Daily Backup
 
-> ID: 2026-02-09
-> Associated Script: monorepo/apps/digital-brain/pipeline/sandbox/backup_projectes.py 
-> Last Update: 2026-02-09
-> Status: DRAFT
+> ID: 2026-04-08
+> Associated Script: monorepo/apps/gnosi/pipeline/skills/backup_projectes/scripts/backup_projectes.py
+> Status: ACTIVE
+> Version: 2.0 (Consolidated)
 
 ---
 
 ## 1. Objectives and Scope
 
-*Mantenir una còpia de seguretat actualitzada i eficient de tot l'ecosistema de desenvolupament.*
+*Maintain an up-to-date and efficient backup of the entire local development ecosystem to the cloud.*
 
-- **Main Objective:** Realitzar un backup diari incremental de la carpeta `/Users/ismaelgarciafernandez/Projectes` cap a `/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes`.
-- **Success Criteria:** La carpeta de destinació és una rèplica exacta (excloent temporals) i l'script genera un log d'èxit.
+- **Main Objective:** Perform a daily incremental backup of the `/Users/ismaelgarciafernandez/Projectes` folder to `/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes`.
+- **Success Criteria:** 
+    - The destination folder is an exact replica (excluding temporary files).
+    - The script generates a success log.
+    - The OneDrive system correctly synchronizes changes to the cloud.
+
+---
 
 ## 2. Input/Output (I/O) Specifications
 
 ### Inputs
-
 - **Source Path:** `/Users/ismaelgarciafernandez/Projectes/`
 - **Destination Path:** `/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/`
 - **Exclusion List:**
     - `node_modules/`
-    - `.git/` (opcional, però recomanat mantenir-lo per seguretat extra si hi ha canvis no pushejats)
     - `.venv/`
     - `__pycache__/`
     - `.DS_Store`
+    - `.tmp/` (System temporary files)
 
 ### Outputs
+- **Generated Artifacts:** Incremental replica in OneDrive (Local mirror).
+- **Logs:** rsync registry and transfer statistics.
 
-- **Generated Artifacts:** Rèplica incremental en OneDrive.
-- **Console Output:** Resum de fitxers transferits i temps total.
+---
 
 ## 3. Logical Flow (Algorithm)
+1. **Initialization:** Validate availability of the source and destination unit (OneDrive).
+2. **Setup:** Ensure the folder structure at the destination exists.
+3. **Execution:** Run `rsync` with archive parameters, deletion of orphaned files (`--delete`), and exclusions.
+4. **Post-processing:** Record time and volume metrics in the log mailbox.
 
-1. **Initialization:** Validar que tant la carpeta origen com la de destinació (OneDrive) estiguin muntades/disponibles.
-2. **Setup:** Crear la carpeta de destinació si no existeix.
-3. **Execution:** Executar `rsync -av --delete --exclude-from=[list]` per sincronitzar els canvis.
-4. **Logging:** Registrar la data, hora i volum de dades sincronitzat.
-5. **Notification:** (Opcional) Notificar si el backup falla.
+---
 
 ## 4. Tools and Libraries
+- **System:** `rsync` (v3.x recommended for performance).
+- **Python Wrapper:** The Python script manages pre-check logic and structured logging.
 
-- **System:** `rsync` (v3.x recomanat).
-- **Python:** `subprocess`, `datetime`, `os`.
+---
 
 ## 5. Restrictions and Edge Cases
+- **File Locks:** Caution with open databases (sqlite). The script is designed to skip or retry locked files to avoid corruption in the backup.
+- **OneDrive Sync:** The backup writes to the local FS. Uploading to the cloud depends on the macOS OneDrive application state.
+- **Permissions:** Read access to the entire Projectes tree is required.
 
-- **File Locks:** Si algun fitxer està obert (com `database.sqlite` d'n8n), rsync podria fallar o copiar un estat inconsistent. El backup s'hauria de fer quan els serveis estiguin en idle o aturar-los breument (per a fitxers crítics).
-- **Network:** OneDrive ha d'estar actiu per sincronitzar el backup al núvol després de la còpia local.
+---
 
 ## 6. Error Protocol and Learning (Live Memory)
 
 | Date | Error Detected | Root Cause | Solution/Patch Applied |
 | --- | --- | --- | --- |
-| 09/02 | UnicodeDecodeError | output de `rsync` amb caràcters no UTF-8 | No usar `text=True` per a captures grans; usar `capture_output=False`. |
+| 2026-02-09 | UnicodeDecodeError | `rsync` output with non-UTF-8 characters | Binary output capture and safe decoding. |
+| 2026-04-08 | .sh vs .py Divergence | Duplicate memory in `docs/` | Consolidation of all logic into the skill's `SKILL.md`. |
 
-## 7. Examples of Use
+---
+
+## 7. Usage Examples
 
 ```bash
-python backup_projectes.py
+# Execution via pipeline
+python monorepo/apps/gnosi/pipeline/skills/backup_projectes/scripts/backup_projectes.py
 ```

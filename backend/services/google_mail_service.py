@@ -50,19 +50,29 @@ def get_gmail_service(email: str):
         log.error(f"Failed to read integrations.json: {e}")
         return None
 
+    from backend.config.env_config import get_env
+
     for account in data.get("emails", []):
         if account.get("provider") == "google" and account.get("auth_type") == "oauth2":
             acc_email = account.get("email", "")
             if acc_email == email:
                 try:
+                    # Resolve client credentials with environment fallback
+                    client_id = account.get("client_id") or get_env("GOOGLE_OAUTH_CLIENT_ID")
+                    client_secret = account.get("client_secret") or get_env("GOOGLE_OAUTH_CLIENT_SECRET")
+                    
+                    if not client_id or not client_secret:
+                        log.error(f"❌ Missing OAuth client credentials for {email}. Sync will fail.")
+                        continue
+
                     creds_dict = {
                         "token": account.get("token"),
                         "refresh_token": account.get("refresh_token"),
                         "token_uri": account.get(
                             "token_uri", "https://oauth2.googleapis.com/token"
                         ),
-                        "client_id": account.get("client_id"),
-                        "client_secret": account.get("client_secret"),
+                        "client_id": client_id,
+                        "client_secret": client_secret,
                     }
                     creds = Credentials(**creds_dict)
                     return build("gmail", "v1", credentials=creds)

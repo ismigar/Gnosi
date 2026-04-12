@@ -5,7 +5,7 @@
 Gnosi is a powerful, **standalone** knowledge management and visualization tool. It transforms your local Markdown vault into an interactive knowledge graph using a hybrid approach of **tag-based analysis** and **AI semantic analysis**.
 
 > [!IMPORTANT]
-> **Data Sovereignty Active**: This system is now "Local-First". While it supports importing from Notion, all daily operations, note creation, and connection management happen directly in your local filesystem.
+> **Data Sovereignty Active**: This system is "Local-First" and operates directly on your local filesystem. Connector importació Notion is only supported as a historical data migration source.
 
 ## ✨ Features
 
@@ -21,24 +21,18 @@ Gnosi is a powerful, **standalone** knowledge management and visualization tool.
 
 ## 🤖 Agentic Architecture
 
-The Digital Brain now powers a multi-agent system built with **LangGraph**:
+The Gnosi now powers a multi-agent system built with **LangGraph**:
 
 1.  **Supervisor**: The orchestrator (powered by GPT-4o) that plans tasks and delegates them to specialized workers.
 2.  **Coder Agent**: An expert engineer capable of manipulating the local filesystem, running git commands, and executing code edits.
-3.  **Brain Agent**: The knowledge manager. It connects to **Notion**, executes **n8n** workflows, and manages long-term memory (RAG).
+3.  **Brain Agent**: The knowledge manager. It executes **n8n** workflows and manages long-term memory (RAG).
 4.  **MCP Integration**: Uses the Model Context Protocol to standardize tool usage across services.
-
-## 🧠 Notion Template
-
-For the viewer to work correctly, you need a Notion database with a specific structure. You can duplicate the official template that includes the complete knowledge management system and the necessary "Digital Brain" configuration:
-
-👉 **[Knowledge Management System (Notion Template)](https://www.notion.com/templates/sistema-de-gesti-n-del-conocimiento)**.
 
 ## 🚀 Prerequisites
 
 -   **Python 3.10+**
 -   **Node.js** & **npm**
--   **Notion Integration**: You need a Notion Integration Token and the ID of the database you want to visualize.
+-   **Notion Integration (Optional)**: If you want to migrate data from Notion, you will need an Integration Token and the Database ID.
 -   **(Optional) Local AI**: [Ollama](https://ollama.com/) or any OpenAI-compatible API for semantic analysis.
 
 ## 🛠️ Installation
@@ -46,7 +40,7 @@ For the viewer to work correctly, you need a Notion database with a specific str
 1.  **Clone the repository:**
     ```bash
     git clone <repository-url>
-    cd digital-brain
+    cd gnosi
     ```
 
 2.  **Install Backend Dependencies:**
@@ -98,10 +92,6 @@ python migrate_to_keychain.py            # Execute migration
 Create a `.env` file in the root directory (copy from a template if available, or set the following):
 
     ```env
-    # Notion Configuration
-    NOTION_TOKEN=secret_...
-    NOTION_DATABASE=...
-
     # AI Configuration (Example for Ollama)
     AI_MODEL_URL=http://localhost:11434/v1/chat/completions
     AI_MODEL_NAME=qwen2.5
@@ -118,9 +108,7 @@ Create a `.env` file in the root directory (copy from a template if available, o
     ```
 
 1.  **Configure your Vault path** in `params.yaml`.
-2.  **(Optional) Notion Migration**: If you are coming from Notion, use the migration scripts to seed your local vault.
-
-3.  **Understanding the Similarity Filter**: The graph viewer includes a similarity filter (default: 70%) that controls which AI-inferred connections are displayed. You can adjust this in the sidebar:
+2.  **Understanding the Similarity Filter**: The graph viewer includes a similarity filter (default: 70%) that controls which AI-inferred connections are displayed. You can adjust this in the sidebar:
     - **70-100%**: Only strong AI connections (recommended for beginners).
     - **30-70%**: Include moderate AI connections.
     - **0-30%**: Show all AI connections (may include noise).
@@ -150,7 +138,7 @@ Running with Docker isolates the application and avoids installing dependencies 
 ## 🏃 Runs Locally (Alternative)
 
 ### 1. Run the Analysis Pipeline
-This script fetches data from Notion, runs the AI/Tag analysis, and generates the graph JSON.
+This script runs the AI/Tag analysis on the local vault and generates the graph JSON.
 
 ```bash
 python pipeline/skills/suggest_connections/scripts/suggest_connections_digital_brain.py
@@ -182,17 +170,7 @@ cd frontend
 npm run dev
 ```
 
-Access your Digital Brain at `http://localhost:5002` (or the port shown in the console).
-
-## 📦 Backup to Markdown
-
-You can create a local backup of your Notion notes as Markdown files. This pipeline convers your notes to standard Markdown, resolves internal Notion links to relative file links, and adds frontmatter metadata.
-
-```bash
-python3 -m pipeline.backup_to_markdown
-```
-
-The backup files will be generated in `out/markdown_backup/`. This process utilizes the shared cache, so subsequent runs are incremental and fast.
+Access your Gnosi at `http://localhost:5002` (or the port shown in the console).
 
 ## 📂 Project Structure
 
@@ -201,7 +179,6 @@ The backup files will be generated in `out/markdown_backup/`. This process utili
 -   `pipeline/`: Python scripts for data fetching, AI analysis, and graph generation.
     -   `suggest_connections_digital_brain.py`: Main pipeline script.
     -   `ai_client.py`: AI model interaction.
-    -   `legacy_notion_connector.py`: Legacy Notion API client.
 -   `config/`: Configuration files and schemas.
 
 ## 🤝 Contributing

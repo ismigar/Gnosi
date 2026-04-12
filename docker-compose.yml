@@ -22,6 +22,7 @@ services:
       - PYTHONPATH=/app
       # Variables calculades dinàmicament o especials
       - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
+      - TZ=Europe/Madrid
     restart: unless-stopped
   frontend:
     build:
@@ -37,6 +38,7 @@ services:
       - VITE_BACKEND_HOST=backend
       - VITE_BACKEND_PORT=5002
       - CHOKIDAR_USEPOLLING=true
+      - TZ=Europe/Madrid
     depends_on:
       - backend
     restart: unless-stopped

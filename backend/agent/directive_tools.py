@@ -3,7 +3,7 @@ from pathlib import Path
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-INSTRUCTIONS_DIR = BASE_DIR / "backend" / "instructions"
+INSTRUCTIONS_DIR = Path(__file__).resolve().parent / "instructions"
 
 # Ensure instructions directory exists
 INSTRUCTIONS_DIR.mkdir(parents=True, exist_ok=True)

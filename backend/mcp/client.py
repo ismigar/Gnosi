@@ -42,7 +42,7 @@ class DockerMCPClient:
             response = await asyncio.wait_for(self.send_request("initialize", {
                 "protocolVersion": "0.1.0",
                 "capabilities": {},
-                "clientInfo": {"name": "digital-brain-host", "version": "1.0"}
+                "clientInfo": {"name": "gnosi-host", "version": "1.0"}
             }), timeout=2.0)
             log.info(f"✅ MCP Initialized ({self.server_name}): {response}")
             # Notificar que estem llestos

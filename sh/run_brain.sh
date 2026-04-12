@@ -7,7 +7,7 @@ VENV="$BASE_DIR/.venv"
 BACKEND_DIR="$BASE_DIR/backend"
 FRONTEND_DIR="$BASE_DIR/frontend"
 
-echo "📦 Starting Digital Brain (Flask + Vite)…"
+echo "📦 Starting Gnosi (Flask + Vite)…"
 echo "Base directory: $BASE_DIR"
 echo
 

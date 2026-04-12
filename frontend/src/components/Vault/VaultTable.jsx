@@ -17,7 +17,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
 export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const safeNotes = notes || [];
     const ROWS_BATCH_SIZE = 200;
 
@@ -91,7 +91,6 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     if (enableSubitems) {
         sortedAndFilteredNotes.forEach(note => {
-            // Support for multiple parent_id sources for compatibility with Notion and migrations
             const pid = note.metadata?.parent_id || note.parent_id || note.metadata?.source_parent_id;
             if (pid && allNoteIds.has(pid)) {
                 if (!childrenMap[pid]) childrenMap[pid] = [];

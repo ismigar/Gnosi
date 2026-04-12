@@ -56,10 +56,16 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     out_graph = db_path / "vault_graph.json"
     registry = db_path / "vault_db_registry.json"
 
+    # ── Persistent App Data (Vault-first) ──
+    # This stores configs and agent states inside the Vault for backups.
+    persistent_base = safe_base / ".gnosi"
+    agent_instructions = persistent_base / "agent" / "instructions"
+    agent_tools = persistent_base / "agent" / "generated_tools"
+
     # ── Ensure foundational directories exist (Safe mode) ──
     if vault_path:
         out_dir = data_path / "out"
-        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashworks_path, data_path, out_dir]:
+        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashworks_path, data_path, out_dir, persistent_base, agent_instructions, agent_tools]:
             if p:
                 try:
                     if not p.exists():
@@ -89,11 +95,14 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "AUDIO": data_path / "audio",
         "SCHEDULER": data_path / "scheduler_config.json",
         "CACHE": data_path / "content_cache.json",
-        "TOOLS": safe_base / "Tools",
+        "TOOLS": agent_tools,
+        "AGENT_INSTRUCTIONS": agent_instructions,
+        "AGENT_TOOLS": agent_tools,
         "CHECKPOINTS": data_path / "checkpoints",
         "BACKUPS": data_path / "backups",
         "OUT_DIR": data_path / "out",
         "STOPWORDS_PATH": project_root / "config" / "stopwords.json",
         "SECRETS": project_root / "pipeline" / "private_skills" / "secrets",
         "MGMT_DB": safe_base / ".system" / "management.sqlite",
+        "CONTACTS": safe_base / "Contacts",
     }

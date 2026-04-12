@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from fastapi.responses import RedirectResponse
 import os
 import logging
 from google_auth_oauthlib.flow import Flow
 from backend.services.integration_manager import integration_manager
+from backend.services.vault_calendar_sync_service import calendar_sync_service
 from pathlib import Path
 
 router = APIRouter(prefix="/api/auth/google", tags=["auth"])
@@ -16,6 +17,7 @@ pending_auths = {}
 SCOPES = [
     'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/contacts',
     'openid',
     'https://www.googleapis.com/auth/userinfo.email'
 ]
@@ -27,7 +29,10 @@ def get_google_config():
     client_secret = get_env("GOOGLE_OAUTH_CLIENT_SECRET")
     redirect_uri = get_env("GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:5002/api/auth/google/callback")
     
+    log.debug(f"Checking Google Config: ID={client_id[:5] if client_id else 'None'}, Secret={'Present' if client_secret else 'None'}")
+    
     if not client_id or not client_secret or client_id == "your_client_id_here":
+        log.warning(f"Google OAuth not fully configured: ID found? {bool(client_id)}, Secret found? {bool(client_secret)}")
         return None
         
     return {
@@ -45,7 +50,7 @@ async def status():
     config = get_google_config()
     return {
         "configured": config is not None,
-        "client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID") if config else None
+        "client_id": get_env("GOOGLE_OAUTH_CLIENT_ID") if config else None
     }
 
 @router.get("/login")
@@ -73,7 +78,7 @@ async def login():
     return RedirectResponse(url=authorization_url)
 
 @router.get("/callback")
-async def callback(request: Request):
+async def callback(request: Request, background_tasks: BackgroundTasks):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     
@@ -118,6 +123,10 @@ async def callback(request: Request):
         # The integration_manager.update handles merging/adding by ID
         integration_manager.update("emails", [account_data])
         integration_manager.update("calendars", [account_data])
+        integration_manager.update("contacts", [account_data])
+        
+        # Trigger immediate sync in background
+        background_tasks.add_task(calendar_sync_service.sync_all_calendars)
         
         # Redirect back to the frontend
         # TODO: Detect the frontend URL dynamically if necessary
