@@ -6,7 +6,7 @@ import logging
 # Configuació
 SOURCE_DIR = "/Users/ismaelgarciafernandez/Projectes/"
 DEST_DIR = "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
-LOG_FILE = os.path.join(SOURCE_DIR, "monorepo/apps/digital-brain/pipeline/sandbox/backup.log")
+LOG_FILE = os.path.join(SOURCE_DIR, "monorepo/apps/gnosi/pipeline/sandbox/backup.log")
 
 # Exclusions
 EXCLUDES = [

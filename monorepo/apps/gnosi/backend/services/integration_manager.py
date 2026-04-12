@@ -12,24 +12,44 @@ class IntegrationManager:
         self.secrets_dir = cfg.paths["SECRETS"]
         self.secrets_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = self.secrets_dir / "integrations.json"
+        self._cache = None
+        self._cache_mtime = 0
 
     def _load(self) -> dict:
-        log.info(
-            f"Loading integrations from: {self.config_file}, exists: {self.config_file.exists()}"
-        )
+        """Loads from disk only if needed."""
         if not self.config_file.exists():
             return {}
+        
+        try:
+            mtime = self.config_file.stat().st_mtime
+            if self._cache is not None and mtime <= self._cache_mtime:
+                return self._cache
+        except Exception:
+            pass
+
         try:
             with open(self.config_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                self._cache = data
+                try:
+                    self._cache_mtime = self.config_file.stat().st_mtime
+                except Exception:
+                    self._cache_mtime = 0
+                return data
         except Exception as e:
-            log.error(f"Error loading integrations: {e}")
+            log.error(f"Error loading integrations from {self.config_file}: {e}")
             return {}
 
     def _save(self, data: dict):
         try:
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
+            # Update cache immediately
+            self._cache = data
+            try:
+                self._cache_mtime = self.config_file.stat().st_mtime
+            except Exception:
+                self._cache_mtime = 0
         except Exception as e:
             log.error(f"Error saving integrations: {e}")
             raise e
@@ -42,15 +62,21 @@ class IntegrationManager:
                 or "token" in k.lower()
                 or "key" in k.lower()
                 or "secret" in k.lower()
-            ):
+            ) and not k.endswith("_status"):
                 if v:
                     safe_d[k] = (
                         "********" + str(v)[-4:] if len(str(v)) > 8 else "********"
                     )
-                    safe_d[f"{k}_status"] = "connected"
+                    if not k.endswith("_status"):
+                        status_key = f"{k}_status"
+                        if status_key not in d: # Only add if not already there to avoid recursion
+                            safe_d[status_key] = "connected"
                 else:
                     safe_d[k] = ""
-                    safe_d[f"{k}_status"] = "disconnected"
+                    if not k.endswith("_status"):
+                        status_key = f"{k}_status"
+                        if status_key not in d:
+                            safe_d[status_key] = "disconnected"
             else:
                 safe_d[k] = v
         return safe_d
@@ -87,6 +113,11 @@ class IntegrationManager:
     def _update_single_key(self, config: dict, key: str, data):
         """Internal helper to update a single key in the dictionary without saving."""
         if isinstance(data, list):
+            # If the list contains non-dict items, replace entirely
+            if any(not isinstance(item, dict) for item in data):
+                config[key] = data
+                return
+
             # Expecting a list of dicts with 'id'. Merge by ID.
             old_list = config.get(key, [])
             if not isinstance(old_list, list):
@@ -105,7 +136,6 @@ class IntegrationManager:
                 item_id = item.get("id")
                 if not item_id:
                     import uuid
-
                     item["id"] = str(uuid.uuid4())
                     new_list.append(item)
                 elif item_id in old_dict:
@@ -115,10 +145,12 @@ class IntegrationManager:
 
             config[key] = new_list
         else:
-            old_d = config.get(key, {})
-            if not isinstance(old_d, dict):
-                old_d = {}
-            config[key] = self._merge_dict(old_d, data)
+            old_val = config.get(key)
+            if isinstance(data, dict) and (isinstance(old_val, dict) or old_val is None):
+                config[key] = self._merge_dict(old_val or {}, data)
+            else:
+                # Direct replacement for primitive types (strings, bools, etc.)
+                config[key] = data
 
     def update(self, key: str, data):
         """Updates a specific integration configuration."""

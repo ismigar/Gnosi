@@ -10,8 +10,10 @@ log = get_logger(__name__)
 
 # — Load color palette from params.yaml —
 COLOR_BY_TYPE = C["node_types"]
-COLOR_DEFAULT = COLOR_BY_TYPE.get("default", {"bg": "#ccc", "border": "#999", "font": "#111"})
-NOTION_COLOR_MAP = C["notion_color_map"]
+COLOR_DEFAULT = COLOR_BY_TYPE.get(
+    "default", {"bg": "#ccc", "border": "#999", "font": "#111"}
+)
+GNOSI_COLOR_MAP = C["gnosi_color_map"]
 
 SIM_BUCKETS = C["edges"]["similarity_buckets"]
 EXPLICIT_EDGE_COLOR = C["edges"]["explicit_color"]
@@ -20,10 +22,10 @@ DEFAULT_INFERRED_EDGE_COLOR = C["edges"]["default_inferred_color"]
 INFERRED_EDGE_DASHED = C["edges"]["inferred_dashed"]
 
 
-def notion_color_to_hex(color_name: str) -> str:
+def gnosi_color_to_hex(color_name: str) -> str:
     if not color_name:
         return "#999999"
-    return NOTION_COLOR_MAP.get(color_name.lower().replace("_background", ""), "#999999")
+    return GNOSI_COLOR_MAP.get(color_name.lower().replace("_background", ""), "#999999")
 
 
 def node_colors(ntype: str):

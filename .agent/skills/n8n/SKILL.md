@@ -9,7 +9,7 @@ description: Interacción programática y gestión de n8n (Listar, Backup, Test)
 > **Associated Scripts:** `scripts/*.py`
 
 ## 1. Objetivo
-Establecer un estándar para interactuar programáticamente con la instancia de n8n del Digital Brain.
+Establecer un estándar para interactuar programáticamente con la instancia de n8n del Gnosi.
 
 ## 2. Prerrequisitos
 Las siguientes variables de entorno deben estar definidas (preferiblemente en `.env.shared`):
@@ -69,8 +69,8 @@ Los scripts deben cargar las variables de entorno siguiendo la jerarquía del pr
         - Value: `Basic <Base64_User_Pass>`
     - Esto fuerza el envío del header (Preemptive Auth) de forma segura desde el Credential Store, sin hardcodearlo en el workflow.
 
-### Notion a HTML (Parsing)
-- **Rich Text Handling**: Al procesar bloques de Notion, no basta con leer `.plain_text` o `.content`.
+### Connector importació Notion a HTML (Parsing)
+- **Rich Text Handling**: Al procesar bloques de Connector importació Notion, no basta con leer `.plain_text` o `.content`.
 - **Lógica Requerida**: Se debe iterar sobre el array `rich_text` y aplicar tags HTML según las `annotations`:
     - `bold` -> `<b>`
     - `italic` -> `<i>`
@@ -80,9 +80,9 @@ Los scripts deben cargar las variables de entorno siguiendo la jerarquía del pr
     - `href` (link) -> `<a href="...">`
 - **Blocks**: Los bloques deben envolverse en sus tags semánticos (`<p>`, `<h2>`, etc.) antes de enviarse a Drupal.
 - **Doble Rendering**: 
-    - `PreparerBlocks` emite DOS campos: `content` (Texto plano para Notion) y `content_html` (HTML para Drupal).
+    - `PreparerBlocks` emite DOS campos: `content` (Texto plano para Connector importació Notion) y `content_html` (HTML para Drupal).
     - `DrupalPayloadPreparer` debe agregar todos los `content_html` de los items de entrada para formar el `body.value` de Drupal.
-    - Esto evita ver tags HTML en Notion y perder formato en Drupal.
+    - Esto evita ver tags HTML en Connector importació Notion y perder formato en Drupal.
 - **Markdown Parsing**: `notionBlocksToHtml` ahora incluye un parser básico de Markdown en el helper `parseMarkdown` para soportar bloques que solo tengan campo `content` (sin `rich_text`).
 - **URL Consistency**: Usar siempre el dominio canónico sin `www` (o con, pero consistente) en todos los nodos HTTP para evitar redirecciones que pierdan cabeceras de Auth (Error 401). En este caso: `https://temenosismael.org`.
 

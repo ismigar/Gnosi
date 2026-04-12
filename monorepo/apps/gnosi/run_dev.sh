@@ -10,6 +10,6 @@ if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
 
-echo "🚀 Starting Digital Brain Backend (Dev Mode with --reload)..."
+echo "🚀 Starting Gnosi Backend (Dev Mode with --reload)..."
 # Executar uvicorn amb reload actiu
 uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload

@@ -4,16 +4,16 @@ from dotenv import load_dotenv
 import pathlib
 import sys
 
-# Ruta: monorepo/apps/digital-brain/pipeline/skills/n8n/list_workflows.py
+# Ruta: monorepo/apps/gnosi/pipeline/skills/n8n/list_workflows.py
 
 def load_envs():
     # Ajuste de ruta para profundidad: skills/n8n
     current_dir = pathlib.Path(__file__).parent.absolute()
-    # n8n -> skills -> pipeline -> digital-brain -> apps -> monorepo -> Projectes (Raíz)
+    # n8n -> skills -> pipeline -> gnosi -> apps -> monorepo -> Projectes (Raíz)
     project_root = current_dir.parent.parent.parent.parent.parent.parent
     
     env_shared = project_root / ".env.shared"
-    env_local = current_dir.parent.parent.parent / ".env" # apps/digital-brain/.env
+    env_local = current_dir.parent.parent.parent / ".env" # apps/gnosi/.env
     
     if env_shared.exists():
         load_dotenv(env_shared)

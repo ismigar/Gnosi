@@ -22,7 +22,7 @@ export default function MailPage() {
     };
 
     return (
-        <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
+        <div className="h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden">
             <div className="flex-1 flex overflow-hidden">
                 {/* 1. Sidebar (Carpetes i Etiquetes) */}
                 <MailSidebar

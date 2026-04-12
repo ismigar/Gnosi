@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Añadir root del proyecto al path para importar pipeline
 current_file = Path(__file__).resolve()
-project_root = current_file.parents[3] # monorepo/apps/digital-brain
+project_root = current_file.parents[3] # monorepo/apps/gnosi
 if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 

@@ -8,23 +8,26 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 def get_active_vault_path() -> Optional[Path]:
     """Resolves the absolute path to the Gnosi Vault."""
     # 1. Check environment variable (Docker/CLI override)
     # Prefer GNOSI_VAULT_PATH, fallback to DIGITAL_BRAIN_VAULT_PATH (LEGACY)
-    env_vault = os.environ.get("GNOSI_VAULT_PATH") or os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
+    env_vault = os.environ.get("GNOSI_VAULT_PATH") or os.environ.get(
+        "DIGITAL_BRAIN_VAULT_PATH"
+    )
     if env_vault:
         return Path(env_vault).resolve()
 
     # 2. Check params.yaml (Default for local dev)
     # Finding params.yaml relative to project root
     this_file = Path(__file__).resolve()
-    project_root = this_file.parents[2] # pipeline/utils -> gnosi
+    project_root = this_file.parents[2]  # pipeline/utils -> gnosi
     params_path = project_root / "params.yaml"
 
     if params_path.exists():
         try:
-            with open(params_path, 'r') as f:
+            with open(params_path, "r") as f:
                 params = yaml.safe_load(f)
                 vault_raw = params.get("vault_path") or params.get("vault")
                 if vault_raw:
@@ -37,23 +40,23 @@ def get_active_vault_path() -> Optional[Path]:
 
     return None
 
+
 def extract_links(content: str) -> List[str]:
     """Extracts page IDs or titles from [[wiki-links]] or [title](local://id)."""
     links = []
     # Match [[id]] or [[id|alias]]
-    wiki_links = re.findall(r'\[\[([^\]|]+)(?:\|[^\]]+)?\]\]', content)
+    wiki_links = re.findall(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", content)
     links.extend(wiki_links)
-    
+
     # Match [title](local://id)
-    local_links = re.findall(r'\[[^\]]+\]\(local://([^)]+)\)', content)
+    local_links = re.findall(r"\[[^\]]+\]\(local://([^)]+)\)", content)
     links.extend(local_links)
-    
+
     return list(set(links))
 
+
 def load_local_notes(table_name: Optional[str] = None) -> List[Dict[str, Any]]:
-    """
-    Loads notes from the local vault, mimicking the Notion API format for compatibility.
-    """
+    """Load notes from the local vault."""
     vault_path = get_active_vault_path()
     if not vault_path or not vault_path.exists():
         log.error("Vault path not found or not configured.")
@@ -74,7 +77,7 @@ def load_local_notes(table_name: Optional[str] = None) -> List[Dict[str, Any]]:
 
     notes = []
     for md_file in search_path.rglob("*.md"):
-        if any(part.startswith('.') for part in md_file.parts):
+        if any(part.startswith(".") for part in md_file.parts):
             continue
 
         try:
@@ -96,7 +99,7 @@ def load_local_notes(table_name: Optional[str] = None) -> List[Dict[str, Any]]:
                 "url": f"local://{md_file.name}",
                 "path": str(md_file),
                 "mentions": mentions,
-                "metadata": metadata
+                "metadata": metadata,
             }
             notes.append(note)
         except Exception as e:

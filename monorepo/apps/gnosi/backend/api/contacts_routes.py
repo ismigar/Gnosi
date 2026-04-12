@@ -1,36 +1,39 @@
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Header, HTTPException, Depends, BackgroundTasks
 from backend.config.logger_config import get_logger
 from backend.data.management_db import get_mgmt_session
 from backend.services.contacts_service import ContactsService
 from backend.services.contacts_sync_engine import ContactsSyncEngine
-from backend.models.contact import (
-    ContactCreate,
-    ContactUpdate,
-    ContactResponse,
-    ContactSyncStatus,
-)
-from typing import Optional
+from typing import Optional, List
 import json
+from sqlalchemy.orm import Session
 
-contacts_bp = Blueprint("contacts", __name__)
+router = APIRouter()
 log = get_logger(__name__)
 
-
-def get_workspace_id():
-    return request.headers.get("X-Workspace-ID", "default")
-
-
-def get_user_email():
-    return request.headers.get("X-User-Email", "")
-
+def background_sync_contact(db: Session, workspace_id: str, source: str):
+    """Executa la sincronització cap a fora per a un compte específic."""
+    try:
+        # Busquem si hi ha una integració configurada per a aquest email de font
+        # Per simplificar, creem una integració temporal basada en la font si és un email
+        if "@" in source:
+            integration = {"provider": "google", "email": source}
+            # Nota: El SyncEngine ja s'encarrega d'obtenir el token del Vault
+            sync_engine = ContactsSyncEngine(db, workspace_id, integration)
+            sync_engine.sync_gnosi_to_remote()
+            log.info(f"Sincronització de fons completada per a {source}")
+    except Exception as e:
+        log.error(f"Error en la sincronització de fons per a {source}: {e}")
 
 def contacts_response(contact) -> dict:
-    tags = contact.tags
-    if isinstance(tags, str):
+    def parse_json(field_data):
+        if not field_data:
+            return []
+        if isinstance(field_data, (list, dict)):
+            return field_data
         try:
-            tags = json.loads(tags)
+            return json.loads(field_data)
         except:
-            tags = []
+            return []
 
     return {
         "id": contact.id,
@@ -49,143 +52,178 @@ def contacts_response(contact) -> dict:
         if contact.last_synced_at
         else None,
         "source": contact.source,
-        "tags": tags,
+        "photo_url": contact.photo_url,
+        "tags": parse_json(contact.tags),
+        "emails": parse_json(contact.emails),
+        "phones": parse_json(contact.phones),
+        "addresses": parse_json(contact.addresses),
         "created_at": contact.created_at.isoformat(),
         "updated_at": contact.updated_at.isoformat(),
     }
 
-
-@contacts_bp.route("/contacts", methods=["GET"])
-def list_contacts():
+@router.get("/contacts")
+async def list_contacts(
+    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    type: Optional[str] = None,
+    search: Optional[str] = None,
+    source: Optional[str] = None,
+    db: Session = Depends(get_mgmt_session)
+):
     try:
-        db = get_mgmt_session()
-        workspace_id = get_workspace_id()
-        service = ContactsService(db, workspace_id)
-
-        contact_type = request.args.get("type")
-        search = request.args.get("search")
-        source = request.args.get("source")
-
-        contacts = service.list_contacts(contact_type, search, source)
-        return jsonify([contacts_response(c) for c in contacts])
+        service = ContactsService(db, x_workspace_id)
+        contacts = service.list_contacts(type, search, source)
+        return [contacts_response(c) for c in contacts]
     except Exception as e:
         log.error(f"Error listing contacts: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@contacts_bp.route("/contacts/<contact_id>", methods=["GET"])
-def get_contact(contact_id):
+@router.get("/contacts/{contact_id}")
+async def get_contact(
+    contact_id: str,
+    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    db: Session = Depends(get_mgmt_session)
+):
     try:
-        db = get_mgmt_session()
-        workspace_id = get_workspace_id()
-        service = ContactsService(db, workspace_id)
-
+        service = ContactsService(db, x_workspace_id)
         contact = service.get_contact(contact_id)
         if not contact:
-            return jsonify({"error": "Contact not found"}), 404
-
-        return jsonify(contacts_response(contact))
+            raise HTTPException(status_code=404, detail="Contact not found")
+        return contacts_response(contact)
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"Error getting contact: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@contacts_bp.route("/contacts", methods=["POST"])
-def create_contact():
+@router.post("/contacts", status_code=201)
+async def create_contact(
+    data: dict,
+    background_tasks: BackgroundTasks,
+    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    db: Session = Depends(get_mgmt_session)
+):
     try:
-        db = get_mgmt_session()
-        workspace_id = get_workspace_id()
-        service = ContactsService(db, workspace_id)
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
         if not data.get("name") or not data.get("email"):
-            return jsonify({"error": "Name and email are required"}), 400
+            raise HTTPException(status_code=400, detail="Name and email are required")
 
+        service = ContactsService(db, x_workspace_id)
         contact = service.create_contact(data)
-        return jsonify(contacts_response(contact)), 201
+        
+        # Disparar sincronització si cal
+        if contact.source and contact.source != "local":
+            background_tasks.add_task(background_sync_contact, db, x_workspace_id, contact.source)
+            
+        return contacts_response(contact)
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"Error creating contact: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@contacts_bp.route("/contacts/<contact_id>", methods=["PUT"])
-def update_contact(contact_id):
+@router.put("/contacts/{contact_id}")
+async def update_contact(
+    contact_id: str,
+    data: dict,
+    background_tasks: BackgroundTasks,
+    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    db: Session = Depends(get_mgmt_session)
+):
     try:
-        db = get_mgmt_session()
-        workspace_id = get_workspace_id()
-        service = ContactsService(db, workspace_id)
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
+        service = ContactsService(db, x_workspace_id)
         contact = service.update_contact(contact_id, data)
         if not contact:
-            return jsonify({"error": "Contact not found"}), 404
-
-        return jsonify(contacts_response(contact))
+            raise HTTPException(status_code=404, detail="Contact not found")
+            
+        # Disparar sincronització si cal
+        if contact.source and contact.source != "local":
+            background_tasks.add_task(background_sync_contact, db, x_workspace_id, contact.source)
+            
+        return contacts_response(contact)
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"Error updating contact: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@contacts_bp.route("/contacts/<contact_id>", methods=["DELETE"])
-def delete_contact(contact_id):
+@router.delete("/contacts/{contact_id}")
+async def delete_contact(
+    contact_id: str,
+    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    x_user_email: str = Header("", alias="X-User-Email"),
+    db: Session = Depends(get_mgmt_session)
+):
     try:
-        db = get_mgmt_session()
-        workspace_id = get_workspace_id()
-        user_email = get_user_email()
-        service = ContactsService(db, workspace_id)
-
+        service = ContactsService(db, x_workspace_id)
         contact = service.get_contact(contact_id)
         if not contact:
-            return jsonify({"error": "Contact not found"}), 404
+            raise HTTPException(status_code=404, detail="Contact not found")
 
-        if contact.google_resource_name and user_email:
-            sync_engine = ContactsSyncEngine(db, workspace_id, user_email)
-            sync_engine.delete_contact_from_google(contact_id)
+        if contact.google_resource_name and x_user_email:
+            sync_engine = ContactsSyncEngine(db, x_workspace_id, {"provider": "google", "email": x_user_email})
+            sync_engine.delete_contact_from_remote(contact_id)
 
         success = service.delete_contact(contact_id)
         if not success:
-            return jsonify({"error": "Failed to delete contact"}), 500
+            raise HTTPException(status_code=500, detail="Failed to delete contact")
 
-        return jsonify({"status": "ok", "message": "Contact deleted"})
+        return {"status": "ok", "message": "Contact deleted"}
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"Error deleting contact: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@contacts_bp.route("/contacts/sync", methods=["POST"])
-def sync_contacts():
+@router.post("/contacts/sync")
+async def sync_contacts(
+    data: Optional[dict] = None,
+    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    x_user_email: str = Header("", alias="X-User-Email"),
+    db: Session = Depends(get_mgmt_session)
+):
     try:
-        db = get_mgmt_session()
-        workspace_id = get_workspace_id()
-        user_email = get_user_email()
+        # 1. Prepare integration data
+        integration = data or {}
+        
+        # If no specific account info in body, try to use X-User-Email to find a Google account
+        if not integration.get("provider") and x_user_email:
+            integration = {
+                "provider": "google",
+                "email": x_user_email
+            }
+        
+        if not integration.get("provider"):
+            log.warning("Intent de sincronització sense proveïdor ni email d'usuari")
+            raise HTTPException(status_code=400, detail="Provider or User email required for sync")
 
-        if not user_email:
-            return jsonify({"error": "User email required for sync"}), 400
+        log.info(f"Iniciant sincronització de contactes per a {integration.get('email')} ({integration.get('provider')})")
 
-        sync_engine = ContactsSyncEngine(db, workspace_id, user_email)
+        # 2. Initialize engine with integration details
+        sync_engine = ContactsSyncEngine(db, x_workspace_id, integration)
         result = sync_engine.sync_full_bidirectional()
 
-        return jsonify({"status": "ok", "result": result})
+        # Check for errors in the individual sync processes
+        has_errors = len(result.get("gnosi_to_remote", {}).get("errors", [])) > 0 or \
+                     len(result.get("remote_to_gnosi", {}).get("errors", [])) > 0
+        
+        if has_errors:
+            log.warning(f"Sincronització completada amb errors per a {integration.get('email')}")
+
+        return {"status": "ok", "result": result}
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"Error syncing contacts: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@contacts_bp.route("/contacts/sync/status", methods=["GET"])
-def sync_status():
+@router.get("/contacts/sync/status")
+async def sync_status(
+    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    db: Session = Depends(get_mgmt_session)
+):
     try:
-        db = get_mgmt_session()
-        workspace_id = get_workspace_id()
-        service = ContactsService(db, workspace_id)
-
+        service = ContactsService(db, x_workspace_id)
         status = service.get_sync_status()
-        return jsonify(status)
+        return status
     except Exception as e:
         log.error(f"Error getting sync status: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

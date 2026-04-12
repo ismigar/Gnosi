@@ -113,7 +113,6 @@ def load_env_file(path: Path) -> dict:
 def format_key_for_keychain(key: str) -> str:
     """Format key name for keychain storage."""
     key_map = {
-        "NOTION_TOKEN": "notion_token",
         "HF_API_KEY": "huggingface_api_key",
         "GROQ_API_KEY": "groq_api_key",
         "OPENROUTER_API_KEY": "openrouter_api_key",

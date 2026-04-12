@@ -62,6 +62,51 @@ class ContactsService:
             .first()
         )
 
+    def get_contact_by_email(self, email: str) -> Optional[Contact]:
+        if not email or "@" not in email:
+            return None
+        
+        # 1. Exact match on main email
+        existing = (
+            self.db.query(Contact)
+            .filter(
+                Contact.email == email,
+                Contact.workspace_id == self.workspace_id,
+            )
+            .first()
+        )
+        if existing:
+            return existing
+            
+        # 2. Search in extended emails (JSON field)
+        all_contacts = self.db.query(Contact).filter(Contact.workspace_id == self.workspace_id).all()
+        for contact in all_contacts:
+            if contact.emails:
+                try:
+                    emails_list = json.loads(contact.emails)
+                    if isinstance(emails_list, list):
+                        # The list can be of strings or dicts {"address": "...", "label": "..."}
+                        for e in emails_list:
+                            addr = e.get("address") if isinstance(e, dict) else e
+                            if addr and addr.lower() == email.lower():
+                                return contact
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        return None
+
+    def get_contact_by_name(self, name: str) -> Optional[Contact]:
+        """Search for a contact by exact name match (case insensitive)."""
+        if not name:
+            return None
+        return (
+            self.db.query(Contact)
+            .filter(
+                Contact.name.ilike(name),
+                Contact.workspace_id == self.workspace_id,
+            )
+            .first()
+        )
+
     def create_contact(self, data: dict) -> Contact:
         contact = Contact(
             id=data.get("id"),
@@ -75,7 +120,12 @@ class ContactsService:
             address=data.get("address"),
             notes=data.get("notes"),
             tags=json.dumps(data.get("tags", [])),
-            source=ContactSource.LOCAL.value,
+            emails=json.dumps(data.get("emails", [])),
+            phones=json.dumps(data.get("phones", [])),
+            addresses=json.dumps(data.get("addresses", [])),
+            google_resource_name=data.get("google_resource_name"),
+            source=data.get("source", ContactSource.LOCAL.value),
+            photo_url=data.get("photo_url"),
         )
         self.db.add(contact)
         self.db.commit()
@@ -96,12 +146,23 @@ class ContactsService:
             "job_title",
             "address",
             "notes",
+            "source",
+            "photo_url",
         ]:
             if field in data:
                 setattr(contact, field, data[field])
 
         if "tags" in data:
             contact.tags = json.dumps(data["tags"])
+        
+        if "emails" in data:
+            contact.emails = json.dumps(data["emails"])
+        
+        if "phones" in data:
+            contact.phones = json.dumps(data["phones"])
+        
+        if "addresses" in data:
+            contact.addresses = json.dumps(data["addresses"])
 
         contact.updated_at = datetime.now(timezone.utc)
         self.db.commit()
@@ -147,4 +208,5 @@ class ContactsService:
             "google_synced_count": synced,
             "pending_sync_count": total - synced,
             "last_sync_at": last_sync.last_synced_at if last_sync else None,
+            "last_sync": last_sync.last_synced_at.isoformat() if last_sync and last_sync.last_synced_at else None,
         }

@@ -36,7 +36,6 @@ def _load_keychain():
         keychain = get_keychain()
 
         key_mapping = {
-            "NOTION_TOKEN": "notion_token",
             "HF_API_KEY": "huggingface_api_key",
             "GROQ_API_KEY": "groq_api_key",
             "OPENROUTER_API_KEY": "openrouter_api_key",
@@ -53,6 +52,9 @@ def _load_keychain():
             "TEMENOS_MASTODON_BEARER": "mastodon_bearer",
             "TEMENOS_BLUESKY_APP_PASSWORD": "bluesky_app_password",
         }
+
+        # Notion references removed for Standalone Sovereignty
+
 
         for env_name, keychain_key in key_mapping.items():
             if env_name not in os.environ or not os.environ.get(env_name):

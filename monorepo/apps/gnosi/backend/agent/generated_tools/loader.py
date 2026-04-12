@@ -21,9 +21,17 @@ class ToolLoader:
     """
     
     def __init__(self):
-        self.base_dir = Path(__file__).parent
-        self.approved_dir = self.base_dir / "approved"
-        self.approved_dir.mkdir(exist_ok=True)
+        from backend.config.app_config import load_params
+        cfg = load_params(strict_env=False)
+        
+        # Priority: Vault-based approved tools > Local approved tools
+        tools_base = cfg.paths.get("AGENT_TOOLS")
+        if tools_base:
+            self.approved_dir = tools_base / "approved"
+        else:
+            self.approved_dir = Path(__file__).parent / "approved"
+            
+        self.approved_dir.mkdir(parents=True, exist_ok=True)
         self._loaded_tools: dict = {}
     
     def load_all_approved(self) -> List[BaseTool]:
@@ -83,7 +91,7 @@ class ToolLoader:
             return None
             
         except Exception as e:
-
+            pass
             return None
     
     def is_loaded(self, name: str) -> bool:

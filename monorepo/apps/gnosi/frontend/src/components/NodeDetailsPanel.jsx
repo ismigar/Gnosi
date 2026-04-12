@@ -65,24 +65,8 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
             borderLeft: '1px solid var(--border-color, #eee)',
             color: 'var(--text-color, #333)'
         }}>
-            {/* Top Actions: Close and Notion Button */}
+            {/* Top Actions: Close */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '10px', gap: '10px' }}>
-                {data?.url && (
-                    <a
-                        href={data.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                            textDecoration: 'none',
-                            fontSize: '1.2rem',
-                            cursor: 'pointer',
-                            opacity: 0.7
-                        }}
-                        title="Obrir a Notion"
-                    >
-                        ↗
-                    </a>
-                )}
                 <button
                     onClick={onClose}
                     style={{

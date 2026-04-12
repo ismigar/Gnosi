@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon, Sliders, Calendar, Mail, Trash2, Plus } from 'lucide-react';
+import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon, Sliders, Calendar, Mail, Trash2, Plus, Users, ChevronRight, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
@@ -35,7 +35,7 @@ const LLM_PROVIDERS_META = {
     'azure-cognitive-services': { name: 'Azure Cognitive Services', icon: '🧩', color: '#1d4ed8', description: 'Models servits des de Cognitive Services.', baseUrl: '' },
     baseten: { name: 'Baseten', icon: '📦', color: '#7c3aed', description: 'Inferència i hosting de models.', baseUrl: '' },
     cerebras: { name: 'Cerebras', icon: '🧮', color: '#ea580c', description: 'Inferència d’alta velocitat.', baseUrl: '' },
-    'cloudflare-ai-gateway': { name: 'Cloudflare AI Gateway', icon: '🛡️', color: '#f97316', description: 'Gateway unificat multi-proveïdor.', baseUrl: '' },
+    'cloudflare-ai-gateway': { name: 'Cloudflare AI Gateway', icon: '🛡️', color: '#f97316', description: 'Gateway unificat multi-proveïdor.', baseUrl: 'https://ai-gateway.helicone.ai' },
     'cloudflare-workers-ai': { name: 'Cloudflare Workers AI', icon: '🌩️', color: '#fb923c', description: 'Models al edge de Cloudflare.', baseUrl: '' },
     cortecs: { name: 'Cortecs', icon: '🧪', color: '#db2777', description: 'Provider de models fundacionals.', baseUrl: '' },
     deepseek: { name: 'DeepSeek', icon: '🔍', color: '#0f766e', description: 'Models DeepSeek API.', baseUrl: '' },
@@ -191,13 +191,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [fullConfig, setFullConfig] = useState(null);
     const [localSettings, setLocalSettings] = useState({
         language: '',
+        user_name: '',
+        password: '',
+        reduce_animations: false,
         timezone: '',
         currency: '',
         week_start: 1,
         use_system_defaults: true
     });
-    const [calendarWizard, setCalendarWizard] = useState(null); // { step: 'ask_email' | 'configure', email: '', provider: 'google' | 'icloud' | 'custom' }
-    const [emailWizard, setEmailWizard] = useState(null); // { step: 'ask_email' | 'configure', email: '', provider: 'google' | 'icloud' | 'pangea' | 'custom' }
+    const [calendarWizard, setCalendarWizard] = useState(null);
+    const [emailWizard, setEmailWizard] = useState(null);
     const [newsletterSources, setNewsletterSources] = useState([]);
     const [newsletterLoading, setNewsletterLoading] = useState(false);
     const [newsletterName, setNewsletterName] = useState('');
@@ -230,6 +233,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     });
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
+    const [hasUnappliedChanges, setHasUnappliedChanges] = useState(false);
+    const initialLoadDone = useRef(false);
+    const autoSaveTimerRef = useRef(null);
 
     const [aiAgents, setAiAgents] = useState([]);
     const [aiProviders, setAiProviders] = useState({});
@@ -238,15 +244,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [editingAgent, setEditingAgent] = useState(null);
 
     const [pickerOpen, setPickerOpen] = useState(false);
-    const [pickerField, setPickerField] = useState(null); // 'vault', 'databases', 'newsletters'
-    const [editingProvider, setEditingProvider] = useState(null); // { id, name, api_key, base_url, source, ... }
+    const [pickerField, setPickerField] = useState(null);
+    const [editingProvider, setEditingProvider] = useState(null);
     const [isAddProviderOpen, setIsAddProviderOpen] = useState(false);
     const [newProviderDraft, setNewProviderDraft] = useState({ providerId: 'groq', apiKey: '', secretValue: '', baseUrl: '' });
     const [providerSearchQuery, setProviderSearchQuery] = useState('');
     const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
     const [highlightedProviderId, setHighlightedProviderId] = useState('');
 
-    // Theme application is now handled globally in App.jsx via db-theme-changed event
     const handleThemeChange = (newTheme) => {
         setTheme(newTheme);
         localStorage.setItem('db-theme', newTheme);
@@ -261,7 +266,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             loadIntegrations();
             loadNewsletterSources();
 
-            // Check Google Auth Status
             fetch('/api/auth/google/status')
                 .then(res => res.json())
                 .then(data => setGoogleAuthConfigured(data.configured))
@@ -272,11 +276,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     useEffect(() => {
         setActiveTab(initialTab);
     }, [initialTab]);
-
-    useEffect(() => {
-        if (!isOpen || activeTab !== 'newsletters') return;
-        loadNewsletterSources();
-    }, [isOpen, activeTab]);
 
     const loadIntegrations = async () => {
         try {
@@ -298,12 +297,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 if (cfg.settings) setLocalSettings(prev => ({ ...prev, ...cfg.settings }));
                 if (cfg.paths) setLocalPaths(prev => ({ ...prev, ...cfg.paths }));
                 if (cfg.graph) setGraphConfig(prev => ({ ...prev, ...cfg.graph }));
-                
-                // AI Config
                 if (cfg.ai) {
                     setAiAgents(cfg.ai.agents || []);
                     setActiveAgentId(cfg.ai.active_agent_id || '');
                 }
+                setTimeout(() => {
+                    initialLoadDone.current = true;
+                }, 500);
             }
         } catch (err) {
             console.error("Error loading config:", err);
@@ -324,9 +324,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
             if (payload?.config?.providers) {
                 const persistedProviders = Object.entries(payload.config.providers).reduce((acc, [providerId, providerCfg]) => {
-                    if (!providerCfg || providerCfg.source !== 'user') {
-                        return acc;
-                    }
+                    if (!providerCfg || providerCfg.source !== 'user') return acc;
                     acc[providerId] = providerCfg;
                     return acc;
                 }, {});
@@ -359,7 +357,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const handleAddNewsletter = async () => {
         const sourceAddress = newsletterAddress.trim();
         const sourceName = newsletterName.trim() || sourceAddress;
-
         if (!sourceAddress) {
             setNewsletterStatus('Cal indicar l\'adreça o identificador de la subscripció.');
             return;
@@ -370,33 +367,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             if (!value) return value;
             if (value.includes('feeds/videos.xml?channel_id=')) return value;
             const channelMatch = value.match(/youtube\.com\/channel\/(UC[\w-]+)/i);
-            if (channelMatch?.[1]) {
-                return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
-            }
+            if (channelMatch?.[1]) return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
             return value;
         };
 
-        const normalizedAddress = newsletterType === 'youtube'
-            ? normalizeYoutubeUrl(sourceAddress)
-            : sourceAddress;
-
-        const normalizedCategory = newsletterType === 'rss'
-            ? 'RSS'
-            : newsletterType === 'youtube'
-                ? 'YouTube'
-                : 'Newsletters';
+        const normalizedAddress = newsletterType === 'youtube' ? normalizeYoutubeUrl(sourceAddress) : sourceAddress;
+        const normalizedCategory = newsletterType === 'rss' ? 'RSS' : newsletterType === 'youtube' ? 'YouTube' : 'Newsletters';
 
         setNewsletterStatus('Afegint subscripció...');
         try {
             const res = await fetch('/api/reader/sources', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: sourceName,
-                    url: normalizedAddress,
-                    category: normalizedCategory,
-                    type: newsletterType
-                })
+                body: JSON.stringify({ name: sourceName, url: normalizedAddress, category: normalizedCategory, type: newsletterType })
             });
 
             if (!res.ok) {
@@ -433,26 +416,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const handleNewsletterOpmlUpload = async (file) => {
         if (!file) return;
-
         setNewsletterOpmlLoading(true);
         setNewsletterStatus('Important subscripcions OPML...');
-
         try {
             const formData = new FormData();
             formData.append('file', file);
-
-            const res = await fetch('/api/reader/sources/opml', {
-                method: 'POST',
-                body: formData,
-            });
-
+            const res = await fetch('/api/reader/sources/opml', { method: 'POST', body: formData });
             const data = await res.json().catch(() => ({}));
-
             if (!res.ok) {
                 setNewsletterStatus(data?.detail || 'No s\'ha pogut importar l\'OPML.');
                 return;
             }
-
             setNewsletterStatus(data?.message || 'Importació OPML completada.');
             await loadNewsletterSources();
         } catch (err) {
@@ -460,9 +434,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setNewsletterStatus('Error de connexió important l\'OPML.');
         } finally {
             setNewsletterOpmlLoading(false);
-            if (newsletterOpmlRef.current) {
-                newsletterOpmlRef.current.value = '';
-            }
+            if (newsletterOpmlRef.current) newsletterOpmlRef.current.value = '';
         }
     };
 
@@ -483,7 +455,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             if (fRes.ok) setZoteroFields(await fRes.json());
             if (dRes.ok) setDatabases(await dRes.json());
 
-            // Fetch all vault tables for calendar selection
             const vtRes = await fetch('/api/vault/tables');
             if (vtRes.ok) setTables(await vtRes.json());
         } catch (err) {
@@ -491,12 +462,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-    const handleLanguageChange = (code) => {
-        i18n.changeLanguage(code);
-        setLocalSettings(prev => ({ ...prev, language: code }));
-    };
-
-    const handleSaveGlobal = async () => {
+    const handleSaveGlobal = async (forceReload = false) => {
         setIsSaving(true);
         setSaveStatus('Guardant...');
         try {
@@ -522,13 +488,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             };
 
             const savePromises = [
-                // Save main config
                 axios.post('/api/config', updatedConfig),
-                // Save all integrations (bulk)
                 axios.post('/api/integrations/bulk', integrations)
             ];
 
-            // Save Zotero config if available
             if (zoteroConfig) {
                 savePromises.push(axios.post('/api/zotero/config', zoteroConfig));
             }
@@ -537,13 +500,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const allOk = results.every(res => res.status >= 200 && res.status < 300);
 
             if (allOk) {
-                setSaveStatus('✅ Guardat!');
+                setSaveStatus('✅ ' + t('common.status.saved'));
+                setHasUnappliedChanges(true);
                 setTimeout(() => {
                     setSaveStatus('');
-                    window.location.reload();
-                }, 1000);
+                    if (forceReload) window.location.reload();
+                }, 2000);
             } else {
-                setSaveStatus('❌ Error al guardar');
+                setSaveStatus('❌ ' + t('common.status.error_saving'));
             }
         } catch (err) {
             console.error("Error saving global config:", err);
@@ -553,39 +517,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-
-
-    const handleSync = async () => {
-        if (syncing) return;
-        setSyncing(true);
-        setSyncMessage('');
-        try {
-            const res = await fetch('/api/sync', { method: 'POST' });
-            if (res.status === 429) {
-                setSyncMessage('⏳ Ja en curs...');
-            } else if (res.ok) {
-                setSyncMessage('✅ Sincronització completada!');
-            } else {
-                setSyncMessage('❌ Error al sincronitzar');
-            }
-        } catch {
-            setSyncMessage('❌ No s\'ha pogut connectar');
-        } finally {
-            setSyncing(false);
-        }
-    };
-
+    useEffect(() => {
+        if (!initialLoadDone.current || !isOpen) return;
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        setSaveStatus(t('common.status.unsaved_changes'));
+        autoSaveTimerRef.current = setTimeout(() => {
+            handleSaveGlobal();
+        }, 1500);
+        return () => {
+            if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        };
+    }, [localSettings, localPaths, graphConfig, integrations, aiAgents, activeAgentId, aiProviders]);
 
     const handleZoteroSync = async () => {
         if (zoteroSyncing) return;
         setZoteroSyncing(true);
         try {
             const res = await fetch('/api/zotero/sync', { method: 'POST' });
-            if (res.ok) {
-                alert('Sincronització de Zotero iniciada!');
-            } else {
-                alert('Error al iniciar la sincronització');
-            }
+            if (res.ok) alert('Sincronització de Zotero iniciada!');
+            else alert('Error al iniciar la sincronització');
         } catch {
             alert('Error de connexió');
         } finally {
@@ -593,25 +543,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-
-    const handleRemoveIntegrationItem = (type, index) => {
-        setIntegrations(prev => {
-            const currentList = Array.isArray(prev[type]) ? prev[type] : [];
-            const newList = [...currentList];
-            newList.splice(index, 1);
-            return { ...prev, [type]: newList };
-        });
-    };
-
-    const handleUpdateIntegrationItem = (type, index, field, value) => {
-        setIntegrations(prev => {
-            const list = [...(prev[type] || [])];
-            list[index] = { ...list[index], [field]: value };
-            return { ...prev, [type]: list };
-        });
-    };
-
-    // Helper to get properties for the current selected table
     const getAvailableProperties = () => {
         if (!zoteroConfig?.target_table || !zoteroTables?.length) return [];
         const selectedTable = zoteroTables.find(t => t.id === zoteroConfig.target_table);
@@ -639,13 +570,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         return labels;
     };
 
-    const getProviderName = (providerId) => {
-        return LLM_PROVIDERS_META[providerId]?.name || providerId;
-    };
-
-    const getProviderCategory = (providerId) => {
-        return PROVIDER_CATEGORY_MAP[providerId] || 'Specialized APIs';
-    };
+    const getProviderName = (providerId) => LLM_PROVIDERS_META[providerId]?.name || providerId;
+    const getProviderCategory = (providerId) => PROVIDER_CATEGORY_MAP[providerId] || 'Specialized APIs';
 
     const getFilteredProviderIds = (query) => {
         const q = (query || '').trim().toLowerCase();
@@ -653,75 +579,47 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         if (!q) return ids;
         return ids.filter((providerId) => {
             const meta = LLM_PROVIDERS_META[providerId] || {};
-            return [providerId, meta.name, meta.description]
-                .filter(Boolean)
-                .some(value => String(value).toLowerCase().includes(q));
+            return [providerId, meta.name, meta.description].filter(Boolean).some(value => String(value).toLowerCase().includes(q));
         });
     };
 
     const getGroupedProviderOptions = (query) => {
         const filteredIds = getFilteredProviderIds(query);
-        const grouped = PROVIDER_CATEGORY_ORDER.map((category) => {
+        return PROVIDER_CATEGORY_ORDER.map((category) => {
             const options = filteredIds
                 .filter(providerId => getProviderCategory(providerId) === category)
                 .sort((a, b) => getProviderName(a).localeCompare(getProviderName(b)));
             return { category, options };
         }).filter(group => group.options.length > 0);
-        return grouped;
     };
 
-    const groupedProviderOptions = useMemo(
-        () => getGroupedProviderOptions(providerSearchQuery),
-        [providerSearchQuery]
-    );
-
-    const flatProviderOptionIds = useMemo(
-        () => groupedProviderOptions.flatMap(group => group.options),
-        [groupedProviderOptions]
-    );
+    const groupedProviderOptions = useMemo(() => getGroupedProviderOptions(providerSearchQuery), [providerSearchQuery]);
+    const flatProviderOptionIds = useMemo(() => groupedProviderOptions.flatMap(group => group.options), [groupedProviderOptions]);
 
     const selectProviderFromDropdown = (providerId) => {
-        setNewProviderDraft(prev => ({
-            ...prev,
-            providerId,
-            apiKey: '',
-            secretValue: '',
-            baseUrl: LLM_PROVIDERS_META[providerId]?.baseUrl || ''
-        }));
+        setNewProviderDraft(prev => ({ ...prev, providerId, apiKey: '', secretValue: '', baseUrl: LLM_PROVIDERS_META[providerId]?.baseUrl || '' }));
         setProviderSearchQuery('');
         setIsProviderDropdownOpen(false);
     };
 
     const handleProviderDropdownKeyDown = (event) => {
         if (!isProviderDropdownOpen) return;
-
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             if (!flatProviderOptionIds.length) return;
             const currentIndex = flatProviderOptionIds.indexOf(highlightedProviderId);
             const nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, flatProviderOptionIds.length - 1);
             setHighlightedProviderId(flatProviderOptionIds[nextIndex]);
-            return;
-        }
-
-        if (event.key === 'ArrowUp') {
+        } else if (event.key === 'ArrowUp') {
             event.preventDefault();
             if (!flatProviderOptionIds.length) return;
             const currentIndex = flatProviderOptionIds.indexOf(highlightedProviderId);
             const nextIndex = currentIndex <= 0 ? 0 : currentIndex - 1;
             setHighlightedProviderId(flatProviderOptionIds[nextIndex]);
-            return;
-        }
-
-        if (event.key === 'Enter') {
+        } else if (event.key === 'Enter') {
             event.preventDefault();
-            if (highlightedProviderId) {
-                selectProviderFromDropdown(highlightedProviderId);
-            }
-            return;
-        }
-
-        if (event.key === 'Escape') {
+            if (highlightedProviderId) selectProviderFromDropdown(highlightedProviderId);
+        } else if (event.key === 'Escape') {
             event.preventDefault();
             setIsProviderDropdownOpen(false);
         }
@@ -729,31 +627,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     useEffect(() => {
         if (!isProviderDropdownOpen) return;
-
-        if (!flatProviderOptionIds.length) {
-            setHighlightedProviderId('');
-            return;
-        }
-
-        setHighlightedProviderId((prev) => {
-            if (prev && flatProviderOptionIds.includes(prev)) {
-                return prev;
-            }
-            if (flatProviderOptionIds.includes(newProviderDraft.providerId)) {
-                return newProviderDraft.providerId;
-            }
-            return flatProviderOptionIds[0];
-        });
+        if (!flatProviderOptionIds.length) { setHighlightedProviderId(''); return; }
+        setHighlightedProviderId(prev => (prev && flatProviderOptionIds.includes(prev)) ? prev : (flatProviderOptionIds.includes(newProviderDraft.providerId) ? newProviderDraft.providerId : flatProviderOptionIds[0]));
     }, [isProviderDropdownOpen, flatProviderOptionIds, newProviderDraft.providerId]);
-
-    useEffect(() => {
-        if (!isProviderDropdownOpen || !highlightedProviderId) return;
-
-        const optionElement = document.getElementById(`provider-option-${highlightedProviderId}`);
-        if (optionElement) {
-            optionElement.scrollIntoView({ block: 'nearest' });
-        }
-    }, [isProviderDropdownOpen, highlightedProviderId]);
 
     const renderHighlightedText = (text, query) => {
         const value = String(text || '');
@@ -764,25 +640,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         const start = lowerValue.indexOf(lowerQuery);
         if (start < 0) return value;
         const end = start + q.length;
-        return (
-            <>
-                {value.slice(0, start)}
-                <mark style={{ background: 'rgba(59,130,246,0.2)', color: 'var(--text-primary)', borderRadius: '4px', padding: '0 2px' }}>
-                    {value.slice(start, end)}
-                </mark>
-                {value.slice(end)}
-            </>
-        );
+        return <>{value.slice(0, start)}<mark style={{ background: 'rgba(59,130,246,0.2)', color: 'var(--text-primary)', borderRadius: '4px', padding: '0 2px' }}>{value.slice(start, end)}</mark>{value.slice(end)}</>;
     };
 
     const openAddProviderModal = () => {
         const firstProvider = Object.keys(LLM_PROVIDERS_META).find(p => p !== 'custom') || 'groq';
-        setNewProviderDraft({
-            providerId: firstProvider,
-            apiKey: '',
-            secretValue: '',
-            baseUrl: LLM_PROVIDERS_META[firstProvider]?.baseUrl || ''
-        });
+        setNewProviderDraft({ providerId: firstProvider, apiKey: '', secretValue: '', baseUrl: LLM_PROVIDERS_META[firstProvider]?.baseUrl || '' });
         setProviderSearchQuery('');
         setIsProviderDropdownOpen(false);
         setIsAddProviderOpen(true);
@@ -794,15 +657,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         <>
             <div className="settings-overlay" onClick={onClose}>
                 <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-                    {/* Header */}
-                    <div className="settings-modal__header" style={{
-                        background: 'var(--settings-header-bg)',
-                        borderBottom: '1px solid var(--settings-border)',
-                        padding: '16px 20px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
+                    <div className="settings-modal__header" style={{ background: 'var(--settings-header-bg)', borderBottom: '1px solid var(--settings-border)', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h2 className="settings-header__title" style={{ color: 'var(--settings-title)', margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <SettingsIcon size={20} />
                             {t('settings.title')}
@@ -813,1793 +668,454 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     </div>
 
                     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                        {/* Sidebar Tabs */}
-                        <div className="settings-sidebar" style={{
-                            width: '220px',
-                            borderRight: '1px solid var(--settings-border)',
-                            padding: '20px 12px',
-                            background: 'var(--settings-sidebar-bg)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '6px'
-                        }}>
+                        <div className="settings-sidebar" style={{ width: '220px', borderRight: '1px solid var(--settings-border)', padding: '20px 12px', background: 'var(--settings-sidebar-bg)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <button className={`settings-sidebar__item ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'general' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'general' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'general' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <Globe size={18} />
-                                <span>{t('settings.tabs.general')}</span>
+                                <Globe size={18} /> <span>{t('settings.tabs.general')}</span>
                             </button>
                             <button className={`settings-sidebar__item ${activeTab === 'language' ? 'active' : ''}`} onClick={() => setActiveTab('language')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'language' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'language' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'language' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <Globe size={18} />
-                                <span>{t('settings.tabs.language')}</span>
+                                <Globe size={18} /> <span>{t('settings.tabs.language')}</span>
                             </button>
                             <button className={`settings-sidebar__item ${activeTab === 'appearance' ? 'active' : ''}`} onClick={() => setActiveTab('appearance')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'appearance' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'appearance' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'appearance' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <Palette size={18} />
-                                <span>{t('settings.tabs.appearance')}</span>
-                                <span>{t('settings.sidebar.appearance')}</span>
+                                <Palette size={18} /> <span>{t('settings.tabs.appearance')}</span>
                             </button>
                             <button className={`settings-sidebar__item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'calendar' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'calendar' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'calendar' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <Calendar size={18} />
-                                <span>{t('settings.sidebar.calendar')}</span>
+                                <Calendar size={18} /> <span>{t('settings.tabs.calendar')}</span>
                             </button>
                             <button className={`settings-sidebar__item ${activeTab === 'graph' ? 'active' : ''}`} onClick={() => setActiveTab('graph')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'graph' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'graph' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'graph' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <Zap size={18} />
-                                <span>{t('settings.sidebar.graph')}</span>
+                                <Zap size={18} /> <span>{t('settings.tabs.graph')}</span>
                             </button>
                             <button className={`settings-sidebar__item ${activeTab === 'newsletters' ? 'active' : ''}`} onClick={() => setActiveTab('newsletters')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'newsletters' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'newsletters' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'newsletters' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <Mail size={18} />
-                                <span>{t('settings.sidebar.newsletters')}</span>
+                                <Mail size={18} /> <span>{t('settings.tabs.newsletters')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => setActiveTab('contacts')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'contacts' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'contacts' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'contacts' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Users size={18} /> <span>{t('settings.tabs.contacts')}</span>
+                            </button>
+                            <button className={`settings-sidebar__item ${activeTab === 'mail_accounts' ? 'active' : ''}`} onClick={() => setActiveTab('mail_accounts')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'mail_accounts' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'mail_accounts' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'mail_accounts' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <Mail size={18} /> <span>{t('settings.tabs.mail_accounts')}</span>
                             </button>
                             <button className={`settings-sidebar__item ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'ai' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'ai' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'ai' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <Cpu size={18} />
-                                <span>{t('settings.sidebar.ai')}</span>
-                            </button>
-                            <button className={`settings-sidebar__item ${activeTab === 'notion' ? 'active' : ''}`} onClick={() => setActiveTab('notion')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'notion' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'notion' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'notion' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <RefreshCw size={18} />
-                                <span>{t('settings.sidebar.notion')}</span>
+                                <Cpu size={18} /> <span>{t('settings.tabs.ai')}</span>
                             </button>
                             <button className={`settings-sidebar__item ${activeTab === 'zotero' ? 'active' : ''}`} onClick={() => setActiveTab('zotero')} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: 'none', borderRadius: '10px', background: activeTab === 'zotero' ? 'var(--settings-sidebar-active)' : 'transparent', color: activeTab === 'zotero' ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'zotero' ? '600' : '500', fontSize: '0.9rem', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <BookOpen size={18} />
-                                <span>{t('settings.sidebar.zotero')}</span>
+                                <BookOpen size={18} /> <span>{t('settings.tabs.zotero')}</span>
                             </button>
                         </div>
 
-                        {/* Content Area */}
                         <div className="settings-modal__content" style={{ flex: 1, overflowY: 'auto', padding: '25px', background: 'var(--settings-bg)' }}>
-
-                            {activeTab === 'general' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                            <Monitor size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.general.title')}</h3>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.general.desc')}</p>
-                                        
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.general.user_name')}</label>
-                                                <input
-                                                    type="text"
-                                                    value={localSettings.user_name || ''}
-                                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, user_name: e.target.value }))}
-                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                                />
+                            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                                
+                                {activeTab === 'general' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header">
+                                                <Globe size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.general.title')}</h3>
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.general.workspace_name')}</label>
-                                                <input
-                                                    type="text"
-                                                    value={localSettings.workspace_name || ''}
-                                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, workspace_name: e.target.value }))}
-                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.general.vault_path')}</label>
-                                                <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <input
-                                                        type="text"
-                                                        value={localPaths.vault || ''}
-                                                        onChange={(e) => setLocalPaths(prev => ({ ...prev, vault: e.target.value }))}
-                                                        style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                                    />
-                                                    <button
-                                                        onClick={() => { setPickerField('vault'); setPickerOpen(true); }}
-                                                        style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', cursor: 'pointer', color: 'var(--text-primary)' }}
-                                                    >
-                                                        <FolderOpen size={18} />
-                                                    </button>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.general.desc')}</p>
+                                            <div className="settings-section__content" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                <div className="setting-control">
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>{t('settings.general.user_name')}</label>
+                                                    <input type="text" value={localSettings.user_name || ''} onChange={(e) => setLocalSettings(prev => ({ ...prev, user_name: e.target.value }))} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} />
                                                 </div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px' }}>{t('settings.general.vault_path_desc')}</p>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'language' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                            <Globe size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.language.title')}</h3>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.language.desc')}</p>
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>{t('settings.language.interface_language')}</label>
-                                                <select
-                                                    value={i18n.language}
-                                                    onChange={(e) => i18n.changeLanguage(e.target.value)}
-                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', cursor: 'pointer' }}
-                                                >
-                                                    {LANGUAGES.map(({ code, label, icon }) => (
-                                                        <option key={code} value={code}>{icon} {label}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>{t('settings.language.first_day')}</label>
-                                                <select
-                                                    value={localSettings.week_start || 1}
-                                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, week_start: parseInt(e.target.value) }))}
-                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', cursor: 'pointer' }}
-                                                >
-                                                    <option value={1}>{t('settings.language.monday')}</option>
-                                                    <option value={0}>{t('settings.language.sunday')}</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'appearance' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                            <Palette size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.appearance.title')}</h3>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.appearance.desc')}</p>
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>{t('settings.appearance.theme')}</label>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                                                    {THEME_OPTIONS.map((opt) => {
-                                                        const Icon = opt.icon;
-                                                        return (
-                                                            <button
-                                                                key={opt.id}
-                                                                onClick={() => !opt.disabled && handleThemeChange(opt.id)}
-                                                                className={`settings-theme-option ${theme === opt.id ? 'active' : ''} ${opt.disabled ? 'disabled' : ''}`}
-                                                                style={{
-                                                                    position: 'relative',
-                                                                    flex: 1,
-                                                                    display: 'flex',
-                                                                    flexDirection: 'column',
-                                                                    gap: '12px',
-                                                                    padding: '16px',
-                                                                    borderRadius: '12px',
-                                                                    border: theme === opt.id ? '2px solid var(--gnosi-blue)' : '1px solid var(--settings-border)',
-                                                                    background: theme === opt.id ? 'rgba(59,130,246,0.05)' : 'var(--settings-section-bg)',
-                                                                    cursor: opt.disabled ? 'not-allowed' : 'pointer',
-                                                                    transition: 'all 0.2s ease',
-                                                                    opacity: opt.disabled ? 0.6 : 1
-                                                                }}
-                                                            >
-                                                                <div className={opt.previewClass} style={{ width: '100%', height: '60px', borderRadius: '8px', border: '1px solid var(--settings-border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    {Icon && <Icon size={24} style={{ color: 'var(--text-secondary)' }} />}
-                                                                </div>
-                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                                                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: theme === opt.id ? 'var(--gnosi-blue)' : 'var(--text-primary)' }}>{t(opt.label)}</span>
-                                                                    <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid', borderColor: theme === opt.id ? 'var(--gnosi-blue)' : 'var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                        {theme === opt.id && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gnosi-blue)' }} />}
-                                                                    </div>
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })}
+                                                <div className="setting-control">
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>{t('settings.general.password')}</label>
+                                                    <input type="password" value={localSettings.password || ''} onChange={(e) => setLocalSettings(prev => ({ ...prev, password: e.target.value }))} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} placeholder="••••••••" />
+                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{t('settings.general.password_desc')}</p>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderRadius: '12px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={localSettings.reduce_animations || false}
-                                                        onChange={(e) => setLocalSettings(prev => ({ ...prev, reduce_animations: e.target.checked }))}
-                                                    />
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-primary)' }}>{t('settings.appearance.reduce_animations')}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('settings.appearance.reduce_animations_desc')}</div>
-                                                    </div>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'newsletters' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                            <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.newsletters.title')}</h3>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.newsletters.desc')}</p>
-
-                                        <div className="settings-section__content">
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.newsletters.email_wizard.accounts_title')}</h3>
-                                                </div>
-                                                {!emailWizard && (
-                                                    <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>{t('settings.newsletters.email_wizard.add_account')}</button>
-                                                )}
-                                            </div>
-
-                                        {emailWizard && (
-                                            <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
-                                                {emailWizard.step === 'ask_email' ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('settings.newsletters.email_wizard.email_label')}</label>
-                                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                                            <input
-                                                                type="email"
-                                                                autoFocus
-                                                                placeholder={t('settings.newsletters.email_wizard.email_placeholder')}
-                                                                value={emailWizard.email}
-                                                                onChange={(e) => setEmailWizard({ ...emailWizard, email: e.target.value })}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        const email = emailWizard.email.toLowerCase();
-                                                                        let provider = 'custom';
-                                                                        if (email.includes('gmail.com')) provider = 'google';
-                                                                        else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-                                                                        else if (email.includes('pangea.org') || email.includes('temenosismael.org')) provider = 'pangea';
-
-                                                                        setEmailWizard({ ...emailWizard, step: 'configure', provider });
-                                                                    }
-                                                                }}
-                                                                style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    const email = emailWizard.email.toLowerCase();
-                                                                    let provider = 'custom';
-                                                                    if (email.includes('gmail.com')) provider = 'google';
-                                                                    else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-                                                                    else if (email.includes('pangea.org') || email.includes('temenosismael.org')) provider = 'pangea';
-
-                                                                    setEmailWizard({ ...emailWizard, step: 'configure', provider });
-                                                                }}
-                                                                disabled={!emailWizard.email}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: emailWizard.email ? 1 : 0.5 }}
-                                                            >
-                                                                {t('settings.newsletters.email_wizard.continue_btn')}
-                                                            </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <span style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                {emailWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
-                                                                {emailWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
-                                                                {emailWizard.provider === 'pangea' && <span style={{ fontSize: '1.2rem' }}>📧</span>}
-                                                                {t('settings.newsletters.email_wizard.configuring_account', { email: emailWizard.email })}
-                                                            </span>
-                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.change_email')}</button>
-                                                        </div>
-
-                                                        {emailWizard.provider === 'google' && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
-                                                                    <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('settings.newsletters.email_wizard.google_recommended')}
-                                                                    </div>
-                                                                    {t('settings.newsletters.email_wizard.google_oauth_desc')}
-                                                                    {!googleAuthConfigured ? (
-                                                                        <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>{t('settings.newsletters.email_wizard.config_required')}:</strong> {t('settings.newsletters.email_wizard.config_required_desc')}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div style={{ marginTop: '12px' }}>
-                                                                            <button
-                                                                                onClick={() => window.location.href = '/api/auth/google/login'}
-                                                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'white', color: '#3c4043', border: '1px solid #dadce0', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}
-                                                                            >
-                                                                                <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.49h4.84c-.21 1.12-.84 2.07-1.79 2.71v2.25h2.91c1.71-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4" /><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.25c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.92v2.33C2.41 16.03 5.46 18 9 18z" fill="#34A853" /><path d="M3.96 10.71c-.18-.54-.28-1.12-.28-1.71s.1-1.17.28-1.71V4.96H.92C.33 6.13 0 7.53 0 9s.33 2.87.92 4.04l3.04-2.33z" fill="#FBBC05" /><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.8 11.43 0 9 0 5.46 0 2.41 1.97.92 4.96l3.04 2.33C4.67 5.16 6.66 3.58 9 3.58z" fill="#EA4335" /></svg>
-                                                                                Sign in with Google
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    {t('settings.newsletters.email_wizard.manual_option')}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {emailWizard.provider === 'icloud' && (
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
-                                                                <strong>{t('settings.general.note_label')}:</strong> {t('settings.newsletters.email_wizard.icloud_note')}
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('settings.newsletters.email_wizard.apple_id_link')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
-                                                            </div>
-                                                        )}
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.imap_server')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    id="email_wizard_imap"
-                                                                    defaultValue={emailWizard.provider === 'google' ? 'imap.gmail.com' : (emailWizard.provider === 'icloud' ? 'imap.mail.me.com' : (emailWizard.provider === 'pangea' ? 'mail.pangea.org' : ''))}
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.smtp_server')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    id="email_wizard_smtp"
-                                                                    defaultValue={emailWizard.provider === 'google' ? 'smtp.gmail.com' : (emailWizard.provider === 'icloud' ? 'smtp.mail.me.com' : (emailWizard.provider === 'pangea' ? 'smtp.pangea.org' : ''))}
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div style={{ gridColumn: 'span 2' }}>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.password_label')}</label>
-                                                                <input
-                                                                    type="password"
-                                                                    id="email_wizard_password"
-                                                                    placeholder="••••••••"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                                                            <button
-                                                                onClick={() => {
-                                                                    const imap = document.getElementById('email_wizard_imap').value;
-                                                                    const smtp = document.getElementById('email_wizard_smtp').value;
-                                                                    const password = document.getElementById('email_wizard_password').value;
-
-                                                                    if (!imap || !smtp || !password) {
-                                                                        alert(t('settings.newsletters.email_wizard.error_fill_fields'));
-                                                                        return;
-                                                                    }
-
-                                                                    const newEmail = {
-                                                                        id: 'new_mail_' + Date.now().toString(),
-                                                                        username: emailWizard.email,
-                                                                        imap_server: imap,
-                                                                        smtp_server: smtp,
-                                                                        password: password,
-                                                                        provider: emailWizard.provider
-                                                                    };
-
-                                                                    setIntegrations(prev => ({
-                                                                        ...prev,
-                                                                        emails: [...(Array.isArray(prev.emails) ? prev.emails : []), newEmail]
-                                                                    }));
-                                                                    setEmailWizard(null);
-                                                                }}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
-                                                            >
-                                                                {t('settings.newsletters.email_wizard.add_btn')}
-                                                            </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {(integrations?.emails || []).map((account, index) => (
-                                                <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('settings.newsletters.email_wizard.accounts_title')} {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('settings.calendar.connected_status')}</span>}</span>
-                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('settings.newsletters.delete')}</button>
-                                                    </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.imap_server')}</label>
-                                                            <input type="text" value={account.imap_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'imap_server', e.target.value)} placeholder="imap.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.smtp_server')}</label>
-                                                            <input type="text" value={account.smtp_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'smtp_server', e.target.value)} placeholder="smtp.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.email_label')}</label>
-                                                            <input type="email" value={account.username || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'username', e.target.value)} placeholder="nom@exemple.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.password_label')}</label>
-                                                            <input type="password" placeholder={account.password_status === 'connected' ? `******** (${t('settings.appearance.accent_color')})` : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div style={{ gridColumn: 'span 2' }}>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.newsletters.email_wizard.signature_label')}</label>
-                                                            <textarea
-                                                                value={account.html_signature || ''}
-                                                                onChange={(e) => handleUpdateIntegrationItem('emails', index, 'html_signature', e.target.value)}
-                                                                placeholder="<p>Atentament, <b>Ismael</b></p>"
-                                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'monospace' }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('settings.newsletters.no_subscriptions')}</p>}
-                                        </div>
+                                        </section>
                                     </div>
-                                </section>
+                                )}
 
-                                    {/* Calendar Settings */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Calendar size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.calendar.title')}</h3>
+                                {activeTab === 'language' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header">
+                                                <Globe size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.tabs.language')}</h3>
                                             </div>
-                                            {!calendarWizard && (
-                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>{t('settings.calendar.add_btn')}</button>
-                                            )}
-                                        </div>
-
-                                        {calendarWizard && (
-                                            <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
-                                                {calendarWizard.step === 'ask_email' ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>{t('settings.newsletters.email_wizard.email_label')}</label>
-                                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                                            <input
-                                                                type="email"
-                                                                autoFocus
-                                                                placeholder={t('settings.newsletters.email_wizard.email_placeholder')}
-                                                                value={calendarWizard.email}
-                                                                onChange={(e) => setCalendarWizard({ ...calendarWizard, email: e.target.value })}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        const email = calendarWizard.email.toLowerCase();
-                                                                        let provider = 'custom';
-                                                                        if (email.includes('gmail.com')) provider = 'google';
-                                                                        else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-
-                                                                        setCalendarWizard({ ...calendarWizard, step: 'configure', provider });
-                                                                    }
-                                                                }}
-                                                                style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    const email = calendarWizard.email.toLowerCase();
-                                                                    let provider = 'custom';
-                                                                    if (email.includes('gmail.com')) provider = 'google';
-                                                                    else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-
-                                                                    setCalendarWizard({ ...calendarWizard, step: 'configure', provider });
-                                                                }}
-                                                                disabled={!calendarWizard.email}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: calendarWizard.email ? 1 : 0.5 }}
-                                                            >
-                                                                {t('settings.newsletters.email_wizard.continue_btn')}
-                                                            </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <span style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                {calendarWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
-                                                                {calendarWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
-                                                                {t('settings.newsletters.email_wizard.configuring_account', { email: calendarWizard.email })} ({calendarWizard.provider})
-                                                            </span>
-                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.change_email')}</button>
-                                                        </div>
-
-                                                        {calendarWizard.provider === 'google' && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
-                                                                    <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> {t('settings.newsletters.email_wizard.google_recommended')}
-                                                                    </div>
-                                                                    {t('settings.calendar.google_oauth_desc')}
-                                                                    {!googleAuthConfigured ? (
-                                                                        <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>{t('settings.newsletters.email_wizard.config_required')}:</strong> {t('settings.calendar.no_credentials')}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div style={{ marginTop: '12px' }}>
-                                                                            <button
-                                                                                onClick={() => window.location.href = '/api/auth/google/login'}
-                                                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'white', color: '#3c4043', border: '1px solid #dadce0', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}
-                                                                            >
-                                                                                <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.49h4.84c-.21 1.12-.84 2.07-1.79 2.71v2.25h2.91c1.71-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4" /><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.25c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.92v2.33C2.41 16.03 5.46 18 9 18z" fill="#34A853" /><path d="M3.96 10.71c-.18-.54-.28-1.12-.28-1.71s.1-1.17.28-1.71V4.96H.92C.33 6.13 0 7.53 0 9s.33 2.87.92 4.04l3.04-2.33z" fill="#FBBC05" /><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.8 11.43 0 9 0 5.46 0 2.41 1.97.92 4.96l3.04 2.33C4.67 5.16 6.66 3.58 9 3.58z" fill="#EA4335" /></svg>
-                                                                                Sign in with Google
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    {t('settings.newsletters.email_wizard.manual_option')}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {calendarWizard.provider === 'icloud' && (
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
-                                                                <strong>{t('settings.general.note_label')}:</strong> {t('settings.calendar.icloud_note')}
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>{t('settings.calendar.apple_id_link')} <ExternalLink size={12} style={{ display: 'inline' }} /></a>
-                                                            </div>
-                                                        )}
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.calendar.custom_name')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder={t('settings.calendar.custom_name_placeholder')}
-                                                                    id="wizard_name"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.calendar.server_url')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    defaultValue={calendarWizard.provider === 'icloud' ? 'caldav.icloud.com' : (calendarWizard.provider === 'google' ? 'https://apidata.googleusercontent.com/caldav/v1/calendars/primary/events' : '')}
-                                                                    placeholder="https://servidor.com/caldav"
-                                                                    id="wizard_url"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('settings.newsletters.email_wizard.password_label')}</label>
-                                                                <input
-                                                                    type="password"
-                                                                    placeholder="••••••••"
-                                                                    id="wizard_token"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                                                            <button
-                                                                onClick={() => {
-                                                                    const name = document.getElementById('wizard_name').value || calendarWizard.email;
-                                                                    const url = document.getElementById('wizard_url').value;
-                                                                    const token = document.getElementById('wizard_token').value;
-
-                                                                    if (!url || !token) {
-                                                                        alert(t('settings.calendar.error_fill_url_pass'));
-                                                                        return;
-                                                                    }
-
-                                                                    const newCalendar = {
-                                                                        id: 'new_' + Date.now().toString(),
-                                                                        name,
-                                                                        url,
-                                                                        token,
-                                                                        username: calendarWizard.email,
-                                                                        provider: calendarWizard.provider
-                                                                    };
-
-                                                                    const updatedCalendars = [...(Array.isArray(integrations.calendars) ? integrations.calendars : []), newCalendar];
-                                                                    setIntegrations(prev => ({
-                                                                        ...prev,
-                                                                        calendars: updatedCalendars
-                                                                    }));
-                                                                    setCalendarWizard(null);
-                                                                }}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
-                                                            >
-                                                                {t('settings.calendar.add_btn_short')}
-                                                            </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('settings.newsletters.email_wizard.cancel_btn')}</button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {(integrations?.calendars || []).map((account, index) => (
-                                                <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `${t('settings.calendar.title').split(' ')[0]} ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>{t('settings.calendar.connected_status')}</span>}</span>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={account.is_default || false}
-                                                                    onChange={(e) => {
-                                                                        const updated = (integrations?.calendars || []).map((c, i) => ({
-                                                                            ...c,
-                                                                            is_default: i === index ? e.target.checked : false
-                                                                        }));
-                                                                        setIntegrations(prev => ({ ...prev, calendars: updated }));
-                                                                    }}
-                                                                />
-                                                                {t('settings.calendar.default_label')}
-                                                            </label>
-                                                            <input
-                                                                type="color"
-                                                                value={account.color || '#e5e7eb'}
-                                                                onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'color', e.target.value)}
-                                                                style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
-                                                            />
-                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>{t('settings.newsletters.delete')}</button>
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.calendar.name_label')}</label>
-                                                            <input type="text" value={account.name || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'name', e.target.value)} placeholder="Ex: Feina, Personal..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.calendar.server_url')}</label>
-                                                            <input type="text" value={account.url || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'url', e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.calendar.token_label')}</label>
-                                                            <input type="password" placeholder={account.token_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'token', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>{t('settings.calendar.no_calendars')}</p>}
-                                        </div>
-                                    </section>
-
-                                    {/* Vault Tables for Calendar */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.calendar.vault_tables_title')}</h3>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('settings.calendar.default_color')}</span>
-                                                <input
-                                                    type="color"
-                                                    value={integrations?.vault_calendar?.color || '#e57373'}
-                                                    onChange={(e) => {
-                                                        const newVal = e.target.value;
-                                                        const updated = { ...integrations.vault_calendar, color: newVal };
-                                                        setIntegrations(prev => ({ ...prev, vault_calendar: updated }));
-                                                    }}
-                                                    style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('settings.calendar.vault_tables_desc')}</p>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '15px' }}>
-                                            {tables.map(table => (
-                                                <label key={table.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={(integrations?.vault_calendar?.enabled_tables || []).includes(table.id)}
-                                                        onChange={(e) => {
-                                                            const enabled = integrations?.vault_calendar?.enabled_tables || [];
-                                                            const newList = e.target.checked
-                                                                ? [...enabled, table.id]
-                                                                : enabled.filter(id => id !== table.id);
-                                                            setIntegrations(prev => ({
-                                                                ...prev,
-                                                                vault_calendar: { ...prev.vault_calendar, enabled_tables: newList }
-                                                            }));
-                                                        }}
-                                                    />
-                                                    <span style={{ fontSize: '0.9rem' }}>{table.name}</span>
-                                                </label>
-                                            ))}                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'graph' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Sliders size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.visualization')}</h3>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={graphConfig.show_arrows}
-                                                        onChange={e => setGraphConfig(prev => ({ ...prev, show_arrows: e.target.checked }))}
-                                                    />
-                                                    {t('settings.graph.show_arrows')}
-                                                </label>
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.node_size')} ({graphConfig.node_size.toFixed(1)})</label>
-                                                <input
-                                                    type="range" min="0.1" max="5" step="0.1"
-                                                    value={graphConfig.node_size}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, node_size: parseFloat(e.target.value) }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.edge_thickness')} ({graphConfig.edge_thickness.toFixed(1)})</label>
-                                                <input
-                                                    type="range" min="0.1" max="5" step="0.1"
-                                                    value={graphConfig.edge_thickness}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, edge_thickness: parseFloat(e.target.value) }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.label_threshold')} ({graphConfig.label_threshold})</label>
-                                                <input
-                                                    type="range" min="0" max="50" step="1"
-                                                    value={graphConfig.label_threshold}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, label_threshold: parseInt(e.target.value) }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.physics')}</h3>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.gravity')} ({graphConfig.physics.gravity})</label>
-                                                <input
-                                                    type="range" min="0" max="2" step="0.05"
-                                                    value={graphConfig.physics.gravity}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, gravity: parseFloat(e.target.value) } }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.repulsion')} ({graphConfig.physics.repulsion})</label>
-                                                <input
-                                                    type="range" min="0" max="10000" step="100"
-                                                    value={graphConfig.physics.repulsion}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, repulsion: parseInt(e.target.value) } }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.friction')} ({graphConfig.physics.friction})</label>
-                                                <input
-                                                    type="range" min="1" max="20" step="1"
-                                                    value={graphConfig.physics.friction}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, friction: parseInt(e.target.value) } }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', marginTop: '25px' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={graphConfig.physics.lin_log_mode}
-                                                        onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, lin_log_mode: e.target.checked } }))}
-                                                    />
-                                                    {t('settings.graph.lin_log_mode')}
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.visibility')}</h3>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            <div>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('settings.graph.hierarchical_selection')}</h4>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    {(databases || []).map(db => {
-                                                        const dbTables = (tables || []).filter(t => t.database_id === db.id);
-                                                        const isDbChecked = graphConfig.visible_databases.includes(db.id);
-
-                                                        return (
-                                                            <div key={db.id} className="hierarchical-db" style={{ border: '1px solid var(--settings-section-border)', borderRadius: '10px', padding: '10px', background: 'var(--settings-section-bg)' }}>
-                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', cursor: 'pointer', fontWeight: 'bold', marginBottom: dbTables.length > 0 && isDbChecked ? '10px' : 0 }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={isDbChecked}
-                                                                        onChange={e => {
-                                                                            const checked = e.target.checked;
-                                                                            setGraphConfig(prev => {
-                                                                                let newDbs = checked ? [...prev.visible_databases, db.id] : prev.visible_databases.filter(id => id !== db.id);
-                                                                                let newTables = [...prev.visible_tables];
-                                                                                let newFields = [...prev.visible_fields];
-
-                                                                                if (!checked) {
-                                                                                    // Uncheck all tables and fields of this DB
-                                                                                    const tableIds = dbTables.map(t => t.id);
-                                                                                    newTables = newTables.filter(id => !tableIds.includes(id));
-                                                                                    newFields = newFields.filter(f => !tableIds.some(tid => f.startsWith(`${tid}:`)));
-                                                                                }
-
-                                                                                return { ...prev, visible_databases: newDbs, visible_tables: newTables, visible_fields: newFields };
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                    <Database size={16} />
-                                                                    <span>{db.name}</span>
-                                                                </label>
-
-                                                                {isDbChecked && dbTables.length > 0 && (
-                                                                    <div style={{ marginLeft: '25px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                                        {dbTables.map(table => {
-                                                                            const isTableChecked = graphConfig.visible_tables.includes(table.id);
-                                                                            const properties = table.properties || [];
-
-                                                                            return (
-                                                                                <div key={table.id} className="hierarchical-table">
-                                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', marginBottom: isTableChecked && properties.length > 0 ? '5px' : 0 }}>
-                                                                                        <input
-                                                                                            type="checkbox"
-                                                                                            checked={isTableChecked}
-                                                                                            onChange={e => {
-                                                                                                const checked = e.target.checked;
-                                                                                                setGraphConfig(prev => {
-                                                                                                    let newTables = checked ? [...prev.visible_tables, table.id] : prev.visible_tables.filter(id => id !== table.id);
-                                                                                                    let newFields = [...prev.visible_fields];
-
-                                                                                                    if (!checked) {
-                                                                                                        // Uncheck all fields of this table
-                                                                                                        newFields = newFields.filter(f => !f.startsWith(`${table.id}:`));
-                                                                                                    }
-
-                                                                                                    return { ...prev, visible_tables: newTables, visible_fields: newFields };
-                                                                                                });
-                                                                                            }}
-                                                                                        />
-                                                                                        <span>{table.name}</span>
-                                                                                    </label>
-
-                                                                                    {isTableChecked && properties.length > 0 && (
-                                                                                        <div style={{ marginLeft: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '5px' }}>
-                                                                                            {properties.map(prop => {
-                                                                                                const fieldKey = `${table.id}:${prop.name}`;
-                                                                                                const isFieldChecked = graphConfig.visible_fields.includes(fieldKey);
-
-                                                                                                return (
-                                                                                                    <label key={prop.name} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', background: 'var(--settings-btn-bg)', opacity: 0.9 }}>
-                                                                                                        <input
-                                                                                                            type="checkbox"
-                                                                                                            checked={isFieldChecked}
-                                                                                                            onChange={e => {
-                                                                                                                const checked = e.target.checked;
-                                                                                                                setGraphConfig(prev => ({
-                                                                                                                    ...prev,
-                                                                                                                    visible_fields: checked ? [...prev.visible_fields, fieldKey] : prev.visible_fields.filter(f => f !== fieldKey)
-                                                                                                                }));
-                                                                                                            }}
-                                                                                                        />
-                                                                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prop.name}</span>
-                                                                                                    </label>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            <div style={{ marginTop: '10px' }}>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>{t('settings.graph.table_filters_title')}</h4>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>{t('settings.graph.table_filters_desc')}</p>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
-                                                    {(tables || []).filter(t => graphConfig.visible_tables.includes(t.id)).map(table => (
-                                                        <label key={`filter-${table.id}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-section-border)' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={graphConfig.graph_table_filters?.includes(table.id)}
-                                                                onChange={e => {
-                                                                    const checked = e.target.checked;
-                                                                    const current = graphConfig.graph_table_filters || [];
-                                                                    setGraphConfig(prev => ({
-                                                                        ...prev,
-                                                                        graph_table_filters: checked ? [...current, table.id] : current.filter(id => id !== table.id)
-                                                                    }));
-                                                                }}
-                                                            />
-                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{table.name}</span>
-                                                        </label>
+                                            <div className="settings-section__content">
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
+                                                    {['ca', 'es', 'en', 'fr'].map(lang => (
+                                                        <button key={lang} onClick={() => i18n.changeLanguage(lang)} className={`settings-lang-option ${i18n.language === lang ? 'active' : ''}`} style={{ padding: '12px', borderRadius: '10px', border: i18n.language === lang ? '2px solid var(--gnosi-blue)' : '1px solid var(--settings-border)', background: i18n.language === lang ? 'rgba(59,130,246,0.05)' : 'var(--settings-section-bg)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
+                                                            {lang === 'ca' ? 'Català' : lang === 'es' ? 'Español' : lang === 'en' ? 'English' : 'Français'}
+                                                        </button>
                                                     ))}
                                                 </div>
                                             </div>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
+                                        </section>
+                                    </div>
+                                )}
 
-                            {activeTab === 'newsletters' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.newsletters.subscriptions_title')}</h3>
-                                        </div>
+                                {activeTab === 'appearance' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                                <Palette size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.appearance.title')}</h3>
+                                            </div>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.appearance.desc')}</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>{t('settings.appearance.theme')}</label>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                                                        {THEME_OPTIONS.map((opt) => {
+                                                            const Icon = opt.icon;
+                                                            return (
+                                                                <button key={opt.id} onClick={() => !opt.disabled && handleThemeChange(opt.id)} className={`settings-theme-option ${theme === opt.id ? 'active' : ''} ${opt.disabled ? 'disabled' : ''}`} style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '12px', border: theme === opt.id ? '2px solid var(--gnosi-blue)' : '1px solid var(--settings-border)', background: theme === opt.id ? 'rgba(59,130,246,0.05)' : 'var(--settings-section-bg)', cursor: opt.disabled ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease', opacity: opt.disabled ? 0.6 : 1 }}>
+                                                                    <div className={opt.previewClass} style={{ width: '100%', height: '60px', borderRadius: '8px', border: '1px solid var(--settings-border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                        {Icon && <Icon size={24} style={{ color: 'var(--text-secondary)' }} />}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                                                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: theme === opt.id ? 'var(--gnosi-blue)' : 'var(--text-primary)' }}>{t(opt.label)}</span>
+                                                                        <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid', borderColor: theme === opt.id ? 'var(--gnosi-blue)' : 'var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                            {theme === opt.id && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gnosi-blue)' }} />}
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderRadius: '12px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
+                                                    <input type="checkbox" checked={localSettings.reduce_animations || false} onChange={e => setLocalSettings(prev => ({ ...prev, reduce_animations: e.target.checked }))} />
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{t('settings.appearance.reduce_animations')}</span>
+                                                </label>
+                                            </div>
+                                        </section>
+                                    </div>
+                                )}
 
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                                            {t('settings.newsletters.subscriptions_desc')}
-                                        </p>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 180px auto', gap: '10px', marginBottom: '16px' }}>
-                                            <input
-                                                type="text"
-                                                value={newsletterName}
-                                                onChange={(e) => setNewsletterName(e.target.value)}
-                                                placeholder={t('settings.newsletters.name_placeholder')}
-                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={newsletterAddress}
-                                                onChange={(e) => setNewsletterAddress(e.target.value)}
-                                                placeholder={newsletterType === 'rss' ? t('settings.newsletters.rss_placeholder') : newsletterType === 'youtube' ? t('settings.newsletters.youtube_placeholder') : t('settings.newsletters.email_placeholder')}
-                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                            />
-                                            <select
-                                                value={newsletterType}
-                                                onChange={(e) => setNewsletterType(e.target.value)}
-                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                            >
-                                                <option value="rss">RSS</option>
-                                                <option value="newsletter">Newsletter</option>
-                                                <option value="youtube">YouTube</option>
-                                            </select>
-                                            <button
-                                                onClick={handleAddNewsletter}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 14px', borderRadius: '8px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', cursor: 'pointer', fontWeight: 600 }}
-                                            >
-                                                <Plus size={16} />
-                                                {t('settings.newsletters.add_btn')}
-                                            </button>
-                                        </div>
-
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                                            <input
-                                                ref={newsletterOpmlRef}
-                                                type="file"
-                                                accept=".opml,.xml"
-                                                onChange={(e) => handleNewsletterOpmlUpload(e.target.files?.[0])}
-                                                style={{ display: 'none' }}
-                                            />
-                                            <button
-                                                onClick={() => newsletterOpmlRef.current?.click()}
-                                                disabled={newsletterOpmlLoading}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', color: 'var(--text-primary)', cursor: newsletterOpmlLoading ? 'not-allowed' : 'pointer', opacity: newsletterOpmlLoading ? 0.7 : 1, fontWeight: 500 }}
-                                            >
-                                                <Mail size={14} />
-                                                {newsletterOpmlLoading ? t('settings.newsletters.importing_opml') : t('settings.newsletters.import_opml')}
-                                            </button>
-                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t('settings.newsletters.opml_desc')}</span>
-                                        </div>
-
-                                        {newsletterStatus && (
-                                            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>{newsletterStatus}</p>
-                                        )}
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            {newsletterLoading ? (
-                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('settings.newsletters.loading_subscriptions')}</p>
-                                            ) : newsletterSources.length === 0 ? (
-                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>{t('settings.newsletters.no_subscriptions')}</p>
-                                            ) : (
-                                                newsletterSources.map((source) => (
-                                                    <div
-                                                        key={source.id}
-                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--settings-border)', borderRadius: '10px', padding: '12px' }}
-                                                    >
-                                                        <div style={{ minWidth: 0 }}>
-                                                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                {source.name}
-                                                                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em', borderRadius: '999px', padding: '2px 8px', background: source.type === 'youtube' ? '#ef444422' : source.type === 'newsletter' ? '#0ea5e922' : '#22c55e22', color: source.type === 'youtube' ? '#b91c1c' : source.type === 'newsletter' ? '#0369a1' : '#166534' }}>
-                                                                    {source.type || 'rss'}
-                                                                </span>
-                                                            </div>
-                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source.url}</div>
+                                {activeTab === 'calendar' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header">
+                                                <Calendar size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.calendar.title')}</h3>
+                                            </div>
+                                            <div className="settings-section__content" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                <div className="setting-control">
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>{t('settings.calendar.account_title')}</label>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', background: 'var(--settings-section-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: googleAuthConfigured ? '#10b981' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                                            {googleAuthConfigured ? <Check size={20} /> : <Mail size={20} />}
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleDeleteNewsletter(source.id)}
-                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #ef444433', background: 'transparent', color: '#ef4444', borderRadius: '8px', padding: '8px 10px', cursor: 'pointer' }}
-                                                        >
-                                                            <Trash2 size={14} />
-                                                            {t('settings.newsletters.delete')}
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{googleAuthConfigured ? 'Google Calendar' : t('settings.calendar.not_connected')}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{googleAuthConfigured ? t('settings.calendar.connected_status') : t('settings.calendar.connect_desc')}</div>
+                                                        </div>
+                                                        <button onClick={() => window.location.href = '/api/auth/google/login'} className="btn-gnosi-primary" style={{ padding: '8px 16px' }}>
+                                                            {googleAuthConfigured ? t('common.reconnect') : t('common.connect')}
                                                         </button>
                                                     </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'notion' && (
-                                <section className="settings-section">
-                                    <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                        <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.notion.title')}</h3>
-                                    </div>
-                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('settings.notion.sync_desc')}</p>
-                                    <button
-                                        onClick={handleSync}
-                                        disabled={syncing}
-                                        style={{
-                                            width: '100%',
-                                            padding: '12px',
-                                            borderRadius: '10px',
-                                            border: '1px solid var(--settings-border)',
-                                            background: 'var(--settings-btn-bg)',
-                                            color: 'var(--text-primary)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '10px',
-                                            cursor: syncing ? 'not-allowed' : 'pointer',
-                                            fontWeight: '600',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        <RefreshCw size={18} className={syncing ? 'spin-anim' : ''} />
-                                        {syncing ? t('settings.notion.syncing_label') : t('settings.notion.sync_now_btn')}
-                                    </button>
-                                    {syncMessage && <p style={{ fontSize: '0.85rem', marginTop: '10px', textAlign: 'center', color: 'var(--gnosi-blue)', fontWeight: '500' }}>{syncMessage}</p>}
-                                </section>
-                            )}
-
-                            {activeTab === 'zotero' && zoteroConfig && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <BookOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.zotero.title')}</h3>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{t('settings.zotero.description')}</p>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('settings.zotero.target_table')}</label>
-                                                <select
-                                                    value={zoteroConfig.target_table || ''}
-                                                    onChange={e => setZoteroConfig(prev => ({ ...prev, target_table: e.target.value }))}
-                                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                                >
-                                                    <option value="">{t('settings.zotero.select_table_placeholder')}</option>
-                                                    {zoteroTables.map(t => (
-                                                        <option key={t.id} value={t.id}>{t.name}</option>
-                                                    ))}
-                                                </select>
+                                                </div>
                                             </div>
+                                        </section>
+                                    </div>
+                                )}
 
-                                            <div className="settings-mapping-list" style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)', maxHeight: '300px', overflowY: 'auto' }}>
-                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>{t('settings.zotero.mapping_title')}</h4>
-                                                {(zoteroFields || []).map(field => (
-                                                    <div key={field.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '15px' }}>
-                                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '500' }}>{field.label}</span>
-                                                        <select
-                                                            style={{ background: 'var(--settings-input-bg)', border: '1px solid var(--settings-border)', borderRadius: '6px', padding: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', width: '180px' }}
-                                                            value={zoteroConfig.mapping?.[field.id] || ''}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                setZoteroConfig(prev => ({
-                                                                    ...prev,
-                                                                    mapping: {
-                                                                        ...(prev.mapping || {}),
-                                                                        [field.id]: val
-                                                                    }
-                                                                }));
-                                                            }}
-                                                        >
-                                                            <option value="">-- {t('settings.zotero.no_mapping')} --</option>
-                                                            {availableProperties.map(prop => (
-                                                                <option key={prop.name} value={prop.name}>{prop.name}</option>
-                                                            ))}
-                                                        </select>
+                                {activeTab === 'graph' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                                                <Sliders size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.visualization')}</h3>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                <div className="setting-control">
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                                        <input type="checkbox" checked={graphConfig.show_arrows} onChange={e => setGraphConfig(prev => ({ ...prev, show_arrows: e.target.checked }))} />
+                                                        {t('settings.graph.show_arrows')}
+                                                    </label>
+                                                </div>
+                                                <div className="setting-control">
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.node_size')} ({parseFloat(graphConfig.node_size || 1).toFixed(1)})</label>
+                                                    <input type="range" min="0.1" max="5" step="0.1" value={graphConfig.node_size || 1} onChange={e => setGraphConfig(prev => ({ ...prev, node_size: parseFloat(e.target.value) }))} style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }} />
+                                                </div>
+                                            </div>
+                                        </section>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                                                <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.graph.physics')}</h3>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                <div className="setting-control">
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.gravity')} ({graphConfig.physics?.gravity || 0.1})</label>
+                                                    <input type="range" min="0" max="2" step="0.05" value={graphConfig.physics?.gravity || 0.1} onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, gravity: parseFloat(e.target.value) } }))} style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }} />
+                                                </div>
+                                                <div className="setting-control">
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>{t('settings.graph.repulsion')} ({graphConfig.physics?.repulsion || 1000})</label>
+                                                    <input type="range" min="0" max="10000" step="100" value={graphConfig.physics?.repulsion || 1000} onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, repulsion: parseInt(e.target.value) } }))} style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }} />
+                                                </div>
+                                            </div>
+                                        </section>
+                                    </div>
+                                )}
+
+                                {activeTab === 'newsletters' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                                                <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.newsletters.subscriptions_title')}</h3>
+                                            </div>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>{t('settings.newsletters.subscriptions_desc')}</p>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 180px auto', gap: '10px', marginBottom: '16px' }}>
+                                                <input type="text" value={newsletterName} onChange={(e) => setNewsletterName(e.target.value)} placeholder={t('settings.newsletters.name_placeholder')} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                <input type="text" value={newsletterAddress} onChange={(e) => setNewsletterAddress(e.target.value)} placeholder={newsletterType === 'rss' ? t('settings.newsletters.rss_placeholder') : newsletterType === 'youtube' ? t('settings.newsletters.youtube_placeholder') : t('settings.newsletters.email_placeholder')} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                                <select value={newsletterType} onChange={(e) => setNewsletterType(e.target.value)} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                                                    <option value="rss">RSS</option>
+                                                    <option value="newsletter">Newsletter</option>
+                                                    <option value="youtube">YouTube</option>
+                                                </select>
+                                                <button onClick={handleAddNewsletter} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 14px', borderRadius: '8px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', cursor: 'pointer', fontWeight: 600 }}>
+                                                    <Plus size={16} /> {t('settings.newsletters.add_btn')}
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                                <input ref={newsletterOpmlRef} type="file" accept=".opml,.xml" onChange={(e) => handleNewsletterOpmlUpload(e.target.files?.[0])} style={{ display: 'none' }} />
+                                                <button onClick={() => newsletterOpmlRef.current?.click()} disabled={newsletterOpmlLoading} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', color: 'var(--text-primary)', cursor: newsletterOpmlLoading ? 'not-allowed' : 'pointer', opacity: newsletterOpmlLoading ? 0.7 : 1, fontWeight: 500 }}>
+                                                    <Mail size={14} /> {newsletterOpmlLoading ? t('settings.newsletters.importing_opml') : t('settings.newsletters.import_opml')}
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                {newsletterLoading ? <p>{t('settings.newsletters.loading_subscriptions')}</p> : newsletterSources.length === 0 ? <p>{t('settings.newsletters.no_subscriptions')}</p> : newsletterSources.map(source => (
+                                                    <div key={source.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--settings-border)', borderRadius: '10px' }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>{source.name} <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(59,130,246,0.1)', color: 'var(--gnosi-blue)', borderRadius: '10px' }}>{source.type}</span></div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{source.url}</div>
+                                                        </div>
+                                                        <button onClick={() => handleDeleteNewsletter(source.id)} style={{ color: '#ef4444' }}><Trash2 size={16} /></button>
                                                     </div>
                                                 ))}
                                             </div>
-
-                                                <button
-                                                    onClick={handleZoteroSync}
-                                                    disabled={zoteroSyncing}
-                                                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: zoteroSyncing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                                >
-                                                    <RefreshCw size={16} className={zoteroSyncing ? 'spin-anim' : ''} />
-                                                    {t('settings.zotero.sync_btn')}
-                                                </button>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'ai' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', flex: 1, overflow: 'auto', paddingRight: '10px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('settings.ai.description')}</p>
+                                        </section>
                                     </div>
+                                )}
 
-                                    {/* Providers Section */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.ai.providers_title')}</h3>
+                                {activeTab === 'contacts' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header">
+                                                <Users size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.contacts.title') || 'Contactes'}</h3>
                                             </div>
-                                            <button 
-                                                onClick={openAddProviderModal}
-                                                style={{ 
-                                                    padding: '6px 12px', 
-                                                    borderRadius: '8px', 
-                                                    background: 'var(--gnosi-blue)', 
-                                                    color: 'white', 
-                                                    border: 'none', 
-                                                    cursor: 'pointer', 
-                                                    fontSize: '0.8rem', 
-                                                    fontWeight: '600',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px'
-                                                }}
-                                            >
-                                                <LucideIcons.Plus size={14} /> {t('settings.ai.add_provider_btn')}
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="ai-provider-grid">
-                                            {Object.entries(aiProviders).map(([pId, config]) => {
-                                                const meta = LLM_PROVIDERS_META[pId] || LLM_PROVIDERS_META.custom;
-                                                
-                                                return (
-                                                    <div 
-                                                        key={pId} 
-                                                        className="provider-card"
-                                                        onClick={() => setEditingProvider({ id: pId, ...config, name: meta.name, pending_api_key: '' })}
-                                                    >
-                                                        <div className="provider-card__header">
-                                                            <div className="provider-card__identity">
-                                                                <div className="provider-card__logo" style={{ color: meta.color }}>
-                                                                    {meta.icon}
-                                                                </div>
-                                                                <div className="provider-card__name">{meta.name}</div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                                                            {LLM_PROVIDERS_META[pId] ? t('settings.ai.provider_descriptions.' + pId) : meta.description}
-                                                        </div>
-
-                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
-                                                            {getProviderRequirementLabels(pId).map((label) => (
-                                                                <span key={`${pId}-${label}`} style={{ fontSize: '0.7rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '2px 8px', color: 'var(--text-secondary)' }}>
-                                                                    {label}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-
-                                                        <div className="provider-card__footer">
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <div className={`provider-card__indicator ${config.has_api_key ? 'provider-card__indicator--active' : ''}`} />
-                                                                <span>{config.has_api_key ? t('settings.ai.status_connected') : t('settings.ai.status_not_configured')}</span>
-                                                            </div>
-                                                            <LucideIcons.ChevronRight size={14} style={{ opacity: 0.5 }} />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-
-                                            {Object.keys(aiProviders).length === 0 && (
-                                                <div style={{ border: '1px dashed var(--settings-border)', borderRadius: '12px', padding: '16px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                                                    {t('settings.ai.no_providers_desc')}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </section>
-
-                                    {/* Agents Section */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Cpu size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.ai.agents_title')}</h3>
-                                            </div>
-                                            <button 
-                                                onClick={() => setEditingAgent({ id: 'agent_' + Date.now(), name: t('settings.ai.new_agent_name'), icon: '🤖', persona: '', provider: 'groq', model: '', enabled: true })}
-                                                style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}
-                                            >
-                                                + {t('settings.ai.new_agent_btn')}
-                                            </button>
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
-                                            {aiAgents.map((agent, idx) => (
-                                                <div 
-                                                    key={agent.id || idx} 
-                                                    onClick={() => setEditingAgent({...agent})}
-                                                    style={{ 
-                                                        background: activeAgentId === agent.id ? 'var(--settings-sidebar-active)' : 'var(--settings-sidebar-bg)', 
-                                                        padding: '15px', 
-                                                        borderRadius: '12px', 
-                                                        border: '1.5px solid',
-                                                        borderColor: activeAgentId === agent.id ? 'var(--gnosi-blue)' : 'var(--settings-border)',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s',
-                                                        position: 'relative',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '12px'
-                                                    }}
-                                                >
-                                                    <div style={{ fontSize: '2rem', minWidth: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}>
-                                                        {agent.icon?.startsWith('lucide:') ? (
-                                                            (() => {
-                                                                const [_, name, colorName] = agent.icon.split(':');
-                                                                const IconComp = LucideIcons[name];
-                                                                        const color = colorName ? (VAULT_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
-                                                                return IconComp ? <IconComp size={24} color={color} /> : '🤖';
-                                                            })()
-                                                        ) : (agent.icon || '🤖')}
-                                                    </div>
-                                                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                        <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{agent.provider} • {agent.model || 'Auto'}</div>
-                                                    </div>
-                                                    {activeAgentId === agent.id && (
-                                                        <div style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--gnosi-blue)', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Check size={12} strokeWidth={3} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                    </section>
-
-                                    {/* Provider Editor Modal */}
-                                    {editingProvider && (
-                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                                            <div onClick={() => setEditingProvider(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
-                                            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>{t('settings.ai.configure_provider', { name: editingProvider.name })}</h3>
-                                                    <button onClick={() => setEditingProvider(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
-                                                </div>
-                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    {(getProviderRequirements(editingProvider.id).needsApiKey || getProviderRequirements(editingProvider.id).needsSecret) && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
+                                                <div style={{ padding: '15px', background: 'var(--settings-section-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <Globe size={20} />
                                                         <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>
-                                                                {getProviderRequirements(editingProvider.id).needsSecret ? (getProviderRequirements(editingProvider.id).secretLabel || 'Secret') : 'API Key'}
-                                                            </label>
-                                                            <input 
-                                                                type="password" 
-                                                                placeholder="sk-..."
-                                                                value={editingProvider.pending_api_key || ''}
-                                                                onChange={(e) => setEditingProvider({...editingProvider, pending_api_key: e.target.value})}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                            <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                                {editingProvider.has_api_key ? t('settings.ai.credential_saved_securely') : t('settings.ai.credential_storage_note')}
-                                                            </div>
+                                                            <div style={{ fontWeight: 600 }}>Sincronització Global</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Sincronitza tots els comptes de contactes configurats.</div>
                                                         </div>
-                                                    )}
-
-                                                    {getProviderRequirements(editingProvider.id).needsBaseUrl && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
-                                                            <input 
-                                                                type="text" 
-                                                                placeholder={LLM_PROVIDERS_META[editingProvider.id]?.baseUrl || 'https://api...'}
-                                                                value={editingProvider.base_url || ''}
-                                                                onChange={(e) => setEditingProvider({...editingProvider, base_url: e.target.value})}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                                                        <button 
-                                                            onClick={() => setEditingProvider(null)}
-                                                            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
-                                                        >
-                                                            {t('settings.newsletters.email_wizard.cancel_btn')}
-                                                        </button>
-                                                        <button 
-                                                            onClick={async () => {
-                                                                try {
-                                                                    const pendingApiKey = (editingProvider.pending_api_key || '').trim();
-                                                                        if (editingProvider.id !== 'ollama' && pendingApiKey) {
-                                                                        const credentialRes = await fetch(`/api/ai/providers/${editingProvider.id}/credentials`, {
-                                                                            method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json' },
-                                                                            body: JSON.stringify({ api_key: pendingApiKey, base_url: editingProvider.base_url || '' })
-                                                                        });
-                                                                        if (!credentialRes.ok) {
-                                                                            const payload = await credentialRes.json().catch(() => ({}));
-                                                                            throw new Error(payload?.detail || t('settings.ai.error_credential_failed'));
-                                                                        }
-                                                                    }
-
-                                                                    setAiProviders(prev => ({
-                                                                        ...prev,
-                                                                        [editingProvider.id]: {
-                                                                            ...prev[editingProvider.id],
-                                                                            source: 'user',
-                                                                            base_url: editingProvider.base_url,
-                                                                            credential_ref: editingProvider.credential_ref || prev[editingProvider.id]?.credential_ref,
-                                                                            has_api_key: pendingApiKey ? true : Boolean(prev[editingProvider.id]?.has_api_key)
-                                                                        }
-                                                                    }));
-                                                                    setEditingProvider(null);
-                                                                } catch (error) {
-                                                                    console.error('Error saving provider credentials:', error);
-                                                                    alert(error.message || t('settings.ai.error_save_credential'));
-                                                                }
-                                                            }}
-                                                            style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer' }}
-                                                        >
-                                                            {t('settings.ai.save_btn')}
-                                                        </button>
                                                     </div>
-
-                                                    {aiProviders[editingProvider.id] && (
-                                                        <button 
-                                                            onClick={() => {
-                                                                const newProviders = { ...aiProviders };
-                                                                delete newProviders[editingProvider.id];
-                                                                setAiProviders(newProviders);
-                                                                setEditingProvider(null);
-                                                            }}
-                                                            style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', marginTop: '5px' }}
-                                                        >
-                                                            {t('settings.ai.delete_config')}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Add Provider Modal */}
-                                    {isAddProviderOpen && (
-                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                                            <div onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
-                                            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>{t('settings.ai.add_custom_provider')}</h3>
-                                                    <button onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
-                                                </div>
-                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>{t('settings.ai.add_provider_hint')}</p>
-
-                                                    <div style={{ position: 'relative' }}>
-                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.provider_label')}</label>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setIsProviderDropdownOpen(prev => {
-                                                                    const nextState = !prev;
-                                                                    if (nextState) {
-                                                                        setProviderSearchQuery('');
-                                                                    }
-                                                                    return nextState;
-                                                                });
-                                                            }}
-                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
-                                                        >
-                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                <span>{LLM_PROVIDERS_META[newProviderDraft.providerId]?.icon || '⚙️'}</span>
-                                                                <span>{getProviderName(newProviderDraft.providerId)}</span>
-                                                            </span>
-                                                            <LucideIcons.ChevronDown size={16} style={{ color: 'var(--text-secondary)', transform: isProviderDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
-                                                        </button>
-
-                                                        {isProviderDropdownOpen && (
-                                                            <>
-                                                                <div
-                                                                    onClick={() => setIsProviderDropdownOpen(false)}
-                                                                    style={{ position: 'fixed', inset: 0, zIndex: 1 }}
-                                                                />
-                                                                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 2, border: '1px solid var(--settings-border)', borderRadius: '10px', background: 'var(--settings-bg)', boxShadow: '0 14px 30px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
-                                                                    <div style={{ padding: '10px', borderBottom: '1px solid var(--settings-border)' }}>
-                                                                        <input
-                                                                            type="text"
-                                                                            autoFocus
-                                                                            placeholder={t('settings.ai.search_provider_placeholder')}
-                                                                            value={providerSearchQuery}
-                                                                            onChange={(e) => setProviderSearchQuery(e.target.value)}
-                                                                            onKeyDown={handleProviderDropdownKeyDown}
-                                                                            style={{ width: '100%', padding: '9px 10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                        />
-                                                                    </div>
-
-                                                                    <div style={{ maxHeight: '260px', overflowY: 'auto', padding: '8px' }}>
-                                                                        {groupedProviderOptions.length === 0 && (
-                                                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '8px' }}>
-                                                                                {t('settings.ai.no_results')}
-                                                                            </div>
-                                                                        )}
-                                                                        {groupedProviderOptions.map((group) => (
-                                                                            <div key={group.category} style={{ marginBottom: '8px' }}>
-                                                                                <div style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', padding: '6px 8px' }}>
-                                                                                    {group.category}
-                                                                                </div>
-                                                                                {group.options.map((providerId) => (
-                                                                                    <button
-                                                                                        id={`provider-option-${providerId}`}
-                                                                                        key={providerId}
-                                                                                        type="button"
-                                                                                        onMouseEnter={() => setHighlightedProviderId(providerId)}
-                                                                                        onClick={() => selectProviderFromDropdown(providerId)}
-                                                                                        style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '7px 8px', borderRadius: '8px', border: 'none', background: highlightedProviderId === providerId ? 'var(--settings-sidebar-active)' : (newProviderDraft.providerId === providerId ? 'rgba(59,130,246,0.12)' : 'transparent'), color: 'var(--text-primary)', cursor: 'pointer' }}
-                                                                                    >
-                                                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                                            <span>{LLM_PROVIDERS_META[providerId]?.icon || '⚙️'}</span>
-                                                                                            <span>{renderHighlightedText(getProviderName(providerId), providerSearchQuery)}</span>
-                                                                                        </span>
-                                                                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{getProviderCategory(providerId)}</span>
-                                                                                    </button>
-                                                                                ))}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                        {getProviderRequirementLabels(newProviderDraft.providerId).map((label) => (
-                                                            <span key={`draft-${newProviderDraft.providerId}-${label}`} style={{ fontSize: '0.72rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '3px 9px', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)' }}>
-                                                                {label} {t('settings.ai.required_suffix')}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-
-                                                    {getProviderRequirements(newProviderDraft.providerId).needsApiKey && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>API Key</label>
-                                                            <input 
-                                                                type="password" 
-                                                                placeholder="sk-..."
-                                                                value={newProviderDraft.apiKey}
-                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, apiKey: e.target.value }))}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    {getProviderRequirements(newProviderDraft.providerId).needsSecret && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>
-                                                                {getProviderRequirements(newProviderDraft.providerId).secretLabel || 'Secret'}
-                                                            </label>
-                                                            <input
-                                                                type="password"
-                                                                placeholder={t('settings.ai.secret_placeholder')}
-                                                                value={newProviderDraft.secretValue}
-                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, secretValue: e.target.value }))}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    {getProviderRequirements(newProviderDraft.providerId).needsBaseUrl && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
-                                                            <input 
-                                                                type="text" 
-                                                                placeholder="https://api..."
-                                                                value={newProviderDraft.baseUrl}
-                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, baseUrl: e.target.value }))}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        {t('settings.ai.credentials_note')}
-                                                    </div>
-
-                                                    <button 
-                                                        onClick={async () => {
-                                                            try {
-                                                                const providerId = newProviderDraft.providerId;
-                                                                const requirements = getProviderRequirements(providerId);
-                                                                const apiKey = (newProviderDraft.apiKey || '').trim();
-                                                                const secretValue = (newProviderDraft.secretValue || '').trim();
-                                                                const baseUrl = (newProviderDraft.baseUrl || '').trim();
-
-                                                                if (requirements.needsApiKey && !apiKey) {
-                                                                    throw new Error(t('settings.ai.error_needs_api_key'));
-                                                                }
-                                                                if (requirements.needsSecret && !secretValue) {
-                                                                    throw new Error(t('settings.ai.error_needs_secret'));
-                                                                }
-
-                                                                const credentialValue = apiKey || secretValue;
-
-                                                                if (credentialValue) {
-                                                                    const credentialRes = await fetch(`/api/ai/providers/${providerId}/credentials`, {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ api_key: credentialValue, base_url: baseUrl })
-                                                                    });
-                                                                    if (!credentialRes.ok) {
-                                                                        const payload = await credentialRes.json().catch(() => ({}));
-                                                                        throw new Error(payload?.detail || t('settings.ai.error_connect_failed'));
-                                                                    }
-                                                                }
-
-                                                                setAiProviders(prev => ({
-                                                                    ...prev,
-                                                                    [providerId]: {
-                                                                        ...prev[providerId],
-                                                                        source: 'user',
-                                                                        base_url: baseUrl,
-                                                                        has_api_key: Boolean(credentialValue)
-                                                                    }
-                                                                }));
-                                                                setIsProviderDropdownOpen(false);
-                                                                setIsAddProviderOpen(false);
-                                                            } catch (error) {
-                                                                console.error('Error adding AI provider:', error);
-                                                                alert(error.message || t('settings.ai.error_adding_provider'));
-                                                            }
-                                                        }}
-                                                        style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', marginTop: '5px' }}
-                                                    >
-                                                        {t('settings.ai.add_provider_btn')}
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }}
-                                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
-                                                    >
-                                                        {t('settings.newsletters.email_wizard.cancel_btn')}
+                                                    <button onClick={() => axios.post('/api/contacts/sync')} className="btn-gnosi-primary" style={{ padding: '8px 16px' }}>
+                                                        Sincronitza comptes
                                                     </button>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                    {editingAgent && (
-                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                                            <div onClick={() => setEditingAgent(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} />
-                                            <div style={{ position: 'relative', width: '100%', maxWidth: '600px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>{t('settings.ai.edit_agent_profile')}</h3>
-                                                    <button onClick={() => setEditingAgent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={20} /></button>
-                                                </div>
-                                                
-                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', maxHeight: '70vh' }}>
-                                                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                                                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>{t('settings.ai.icon_label')}</label>
-                                                            <button 
-                                                                id="agent-icon-trigger"
-                                                                onClick={() => {
-                                                                    setPickerField('agent_icon');
-                                                                    setPickerOpen(true);
-                                                                }}
-                                                                style={{ width: '80px', height: '80px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '2px solid var(--settings-border)', fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                                            >
-                                                                {editingAgent.icon?.startsWith('lucide:') ? (
-                                                                    (() => {
-                                                                        const [_, name, colorName] = editingAgent.icon.split(':');
-                                                                        const IconComp = LucideIcons[name];
-                                                                        const color = colorName ? (NOTION_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
-                                                                        return IconComp ? <IconComp size={40} color={color} /> : editingAgent.icon;
-                                                                    })()
-                                                                ) : editingAgent.icon}
-                                                            </button>
-                                                        </div>
-                                                        
-                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.agent_name')}</label>
-                                                                <input 
-                                                                    type="text" 
-                                                                    value={editingAgent.name}
-                                                                    onChange={(e) => setEditingAgent({...editingAgent, name: e.target.value})}
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                                />
-                                                            </div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                                                <div>
-                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.provider_label')}</label>
-                                                                    <select 
-                                                                        value={editingAgent.provider}
-                                                                        onChange={(e) => {
-                                                                            const nextProvider = e.target.value;
-                                                                            const models = getProviderModels(nextProvider);
-                                                                            const nextModel = models.includes(editingAgent.model) ? editingAgent.model : (models[0] || '');
-                                                                            setEditingAgent({...editingAgent, provider: nextProvider, model: nextModel});
-                                                                        }}
-                                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                    >
-                                                                        {Object.keys(aiProviders).map(pId => (
-                                                                            <option key={pId} value={pId}>
-                                                                                {LLM_PROVIDERS_META[pId]?.name || pId}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
-                                                                </div>
-                                                                <div>
-                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.model_label')}</label>
-                                                                    <input 
-                                                                        type="text" 
-                                                                        list={`provider-models-${editingAgent.provider}`}
-                                                                        placeholder="llama-3.3-70b-versatile"
-                                                                        value={editingAgent.model}
-                                                                        onChange={(e) => setEditingAgent({...editingAgent, model: e.target.value})}
-                                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                                    />
-                                                                    <datalist id={`provider-models-${editingAgent.provider}`}>
-                                                                        {getProviderModels(editingAgent.provider).map(modelId => (
-                                                                            <option key={modelId} value={modelId} />
-                                                                        ))}
-                                                                    </datalist>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>{t('settings.ai.instructions_persona')}</label>
-                                                        <textarea 
-                                                            value={editingAgent.persona}
-                                                            onChange={(e) => setEditingAgent({...editingAgent, persona: e.target.value})}
-                                                            placeholder={t('settings.ai.instructions_placeholder')}
-                                                            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', minHeight: '150px', fontSize: '0.9rem', lineHeight: '1.5' }} 
-                                                        />
-                                                    </div>
+                                        </section>
+                                    </div>
+                                )}
 
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <input 
-                                                            type="checkbox" 
-                                                            id="agent_enabled" 
-                                                            checked={editingAgent.enabled} 
-                                                            onChange={(e) => setEditingAgent({...editingAgent, enabled: e.target.checked})} 
-                                                        />
-                                                        <label htmlFor="agent_enabled" style={{ fontSize: '0.85rem' }}>{t('settings.ai.enable_agent')}</label>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div style={{ padding: '16px 20px', borderTop: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <button 
-                                                        onClick={() => {
-                                                            setAiAgents(prev => prev.filter(a => a.id !== editingAgent.id));
-                                                            if (activeAgentId === editingAgent.id) setActiveAgentId(aiAgents[0]?.id || '');
-                                                            setEditingAgent(null);
-                                                        }}
-                                                        style={{ padding: '8px 16px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                                                    >
-                                                        {t('settings.ai.delete_agent')}
-                                                    </button>
-                                                    
-                                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                                        <button 
-                                                            onClick={() => {
-                                                                setActiveAgentId(editingAgent.id);
-                                                            }}
-                                                            style={{ padding: '8px 16px', borderRadius: '8px', background: activeAgentId === editingAgent.id ? '#10b981' : 'var(--settings-sidebar-bg)', color: activeAgentId === editingAgent.id ? 'white' : 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                                                        >
-                                                            {activeAgentId === editingAgent.id ? t('settings.ai.active_agent_success') : t('settings.ai.make_active')}
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => {
-                                                                setAiAgents(prev => {
-                                                                    const idx = prev.findIndex(a => a.id === editingAgent.id);
-                                                                    if (idx > -1) {
-                                                                        const newList = [...prev];
-                                                                        newList[idx] = editingAgent;
-                                                                        return newList;
-                                                                    } else {
-                                                                        return [...prev, editingAgent];
-                                                                    }
-                                                                });
-                                                                setEditingAgent(null);
-                                                            }}
-                                                            style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
-                                                        >
-                                                            {t('settings.newsletters.email_wizard.accept_btn')}
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                {activeTab === 'mail_accounts' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header">
+                                                <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.tabs.mail_accounts')}</h3>
                                             </div>
-                                        </div>
-                                    )}
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Configura els teus comptes de correu IMAP/SMTP.</p>
+                                            <button className="btn-gnosi-secondary" style={{ width: '100%', padding: '12px' }}>Pròximament</button>
+                                        </section>
+                                    </div>
+                                )}
 
-                                    <IconPicker 
-                                        isOpen={pickerOpen && pickerField === 'agent_icon'} 
-                                        onClose={() => setPickerOpen(false)} 
-                                        onSelectIcon={(icon) => {
-                                            setEditingAgent(prev => ({ ...prev, icon }));
-                                            setPickerOpen(false);
-                                        }} 
-                                        currentIcon={editingAgent?.icon || ''}
-                                        triggerRef={{ current: document.getElementById('agent-icon-trigger') }} 
-                                    />
-                                </div>
-                            )}
+                                {activeTab === 'ai' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.ai.providers_title')}</h3>
+                                                </div>
+                                                <button onClick={openAddProviderModal} className="btn-gnosi-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>+ {t('settings.ai.add_provider_btn')}</button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+                                                {Object.entries(aiProviders).map(([pId, config]) => (
+                                                    <div key={pId} className="provider-card" onClick={() => setEditingProvider({ id: pId, ...config, name: getProviderName(pId), pending_api_key: '' })} style={{ padding: '15px', background: 'var(--settings-section-bg)', border: '1px solid var(--settings-border)', borderRadius: '12px', cursor: 'pointer' }}>
+                                                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>{LLM_PROVIDERS_META[pId]?.icon} {getProviderName(pId)}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{config.has_api_key ? '✅ Connectat' : '❌ No configurat'}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <Cpu size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('settings.ai.agents_title')}</h3>
+                                                </div>
+                                                <button onClick={() => setEditingAgent({ id: 'agent_' + Date.now(), name: 'Nou Agent', icon: '🤖', persona: '', provider: 'groq', model: '', enabled: true })} className="btn-gnosi-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>+ Nou Agent</button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
+                                                {aiAgents.map(agent => (
+                                                    <div key={agent.id} onClick={() => setEditingAgent({ ...agent })} style={{ padding: '15px', background: activeAgentId === agent.id ? 'rgba(59,130,246,0.1)' : 'var(--settings-section-bg)', border: '1.5px solid', borderColor: activeAgentId === agent.id ? 'var(--gnosi-blue)' : 'var(--settings-border)', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <span style={{ fontSize: '1.5rem' }}>{agent.icon || '🤖'}</span>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{agent.name}</div>
+                                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{agent.provider} • {agent.model || 'Auto'}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    </div>
+                                )}
 
+                                {activeTab === 'zotero' && zoteroConfig && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <section className="settings-section">
+                                            <div className="settings-section__header">
+                                                <BookOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{t('settings.zotero.title')}</h3>
+                                            </div>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('settings.zotero.description')}</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px' }}>{t('settings.zotero.target_table')}</label>
+                                                    <select value={zoteroConfig.target_table || ''} onChange={e => setZoteroConfig(prev => ({ ...prev, target_table: e.target.value }))} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}>
+                                                        <option value="">{t('settings.zotero.select_table_placeholder')}</option>
+                                                        {zoteroTables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <button onClick={handleZoteroSync} disabled={zoteroSyncing} className="btn-gnosi-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}>
+                                                    <RefreshCw size={16} className={zoteroSyncing ? 'spin-anim' : ''} /> {t('settings.zotero.sync_btn')}
+                                                </button>
+                                            </div>
+                                        </section>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="settings-modal__footer" style={{
-                        padding: '16px 20px',
-                        borderTop: '1px solid var(--settings-border)',
-                        background: 'var(--settings-header-bg)',
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}>
-                        {saveStatus && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: saveStatus.includes('✅') ? '#10b981' : '#ef4444', fontSize: '0.9rem', marginRight: 'auto' }}>
-                                {saveStatus.includes('✅') ? <Check size={16} /> : <Info size={16} />}
-                                {saveStatus}
-                            </div>
+                    <div className="settings-modal__footer" style={{ padding: '16px 20px', borderTop: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {saveStatus && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: saveStatus.includes('✅') ? '#10b981' : 'var(--text-secondary)', fontSize: '0.9rem', background: 'var(--settings-sidebar-bg)', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                    {isSaving ? <RefreshCw size={14} className="spin-anim" /> : (saveStatus.includes('✅') ? <Check size={14} /> : <Info size={14} />)}
+                                    {saveStatus}
+                                </div>
+                            )}
+                        </div>
+                        {hasUnappliedChanges && (
+                            <button onClick={() => window.location.reload()} className="btn-gnosi-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <RefreshCw size={16} /> {t('common.refresh')} per aplicar
+                            </button>
                         )}
-                        <button
-                            onClick={onClose}
-                            style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--settings-border)',
-                                background: 'transparent',
-                                cursor: 'pointer',
-                                color: 'var(--text-primary)',
-                                fontWeight: '500',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            {t('settings.footer.close_btn')}
-                        </button>
-                        <button
-                            onClick={handleSaveGlobal}
-                            disabled={isSaving}
-                            style={{
-                                padding: '10px 24px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: 'var(--gnosi-blue)',
-                                color: 'white',
-                                fontWeight: '600',
-                                cursor: isSaving ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                            }}
-                        >
-                            {isSaving ? <RefreshCw size={18} className="spin-anim" /> : <Save size={18} />}
-                            {t('settings.footer.save_changes_btn')}
-                        </button>
+                        <button onClick={onClose} className="btn-gnosi-secondary" style={{ padding: '10px 20px' }}>{t('settings.footer.close')}</button>
                     </div>
                 </div>
             </div>
+
+            {/* Overlays for Editors */}
+            {editingProvider && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div onClick={() => setEditingProvider(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}></div>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', padding: '20px' }}>
+                        <h3 style={{ margin: '0 0 20px 0' }}>Sincronitzant {editingProvider.name}</h3>
+                        <label style={{ display: 'block', marginBottom: '8px' }}>API Key</label>
+                        <input type="password" value={editingProvider.pending_api_key} onChange={(e) => setEditingProvider({ ...editingProvider, pending_api_key: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} />
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <button onClick={() => setEditingProvider(null)} className="btn-gnosi-secondary" style={{ flex: 1 }}>Cancellar</button>
+                            <button onClick={async () => {
+                                if (editingProvider.pending_api_key) {
+                                    await fetch(`/api/ai/providers/${editingProvider.id}/credentials`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: editingProvider.pending_api_key }) });
+                                }
+                                setAiProviders(prev => ({ ...prev, [editingProvider.id]: { ...prev[editingProvider.id], has_api_key: true } }));
+                                setEditingProvider(null);
+                            }} className="btn-gnosi-primary" style={{ flex: 1 }}>Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isAddProviderOpen && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div onClick={() => setIsAddProviderOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}></div>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', padding: '20px' }}>
+                        <h3 style={{ margin: '0 0 20px 0' }}>Afegir Proveïdor</h3>
+                        <div style={{ position: 'relative' }}>
+                            <button onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', textAlign: 'left' }}>
+                                {getProviderName(newProviderDraft.providerId)}
+                            </button>
+                            {isProviderDropdownOpen && (
+                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                                    {Object.keys(LLM_PROVIDERS_META).map(id => (
+                                        <div key={id} onClick={() => selectProviderFromDropdown(id)} style={{ padding: '10px', cursor: 'pointer', borderBottom: '1px solid var(--settings-border)' }}>{LLM_PROVIDERS_META[id].name}</div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <input type="password" placeholder="API Key" value={newProviderDraft.apiKey} onChange={e => setNewProviderDraft(prev => ({ ...prev, apiKey: e.target.value }))} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', marginTop: '15px' }} />
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <button onClick={() => setIsAddProviderOpen(false)} className="btn-gnosi-secondary" style={{ flex: 1 }}>Cancellar</button>
+                            <button onClick={async () => {
+                                if (newProviderDraft.apiKey) {
+                                    await fetch(`/api/ai/providers/${newProviderDraft.providerId}/credentials`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: newProviderDraft.apiKey }) });
+                                }
+                                setAiProviders(prev => ({ ...prev, [newProviderDraft.providerId]: { source: 'user', has_api_key: true } }));
+                                setIsAddProviderOpen(false);
+                            }} className="btn-gnosi-primary" style={{ flex: 1 }}>Afegir</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {editingAgent && (
+                 <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div onClick={() => setEditingAgent(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}></div>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '500px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', padding: '20px' }}>
+                        <h3 style={{ margin: '0 0 15px 0' }}>Editor d'Agent</h3>
+                        <label style={{ display: 'block', marginBottom: '5px' }}>Nom</label>
+                        <input type="text" value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', marginBottom: '15px' }} />
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px' }}>Proveïdor</label>
+                                <select value={editingAgent.provider} onChange={e => setEditingAgent({ ...editingAgent, provider: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}>
+                                    {Object.keys(aiProviders).map(id => <option key={id} value={id}>{getProviderName(id)}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px' }}>Model</label>
+                                <input type="text" value={editingAgent.model} onChange={e => setEditingAgent({ ...editingAgent, model: e.target.value })} list="agent-models" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} />
+                                <datalist id="agent-models">
+                                    {getProviderModels(editingAgent.provider).map(m => <option key={m} value={m} />)}
+                                </datalist>
+                            </div>
+                        </div>
+
+                        <label style={{ display: 'block', marginBottom: '5px' }}>Instruccions / Persona</label>
+                        <textarea value={editingAgent.persona} onChange={e => setEditingAgent({ ...editingAgent, persona: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', minHeight: '100px', marginBottom: '20px' }} />
+
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={() => setEditingAgent(null)} className="btn-gnosi-secondary" style={{ flex: 1 }}>Cancellar</button>
+                            <button onClick={() => {
+                                setAiAgents(prev => {
+                                    const idx = prev.findIndex(a => a.id === editingAgent.id);
+                                    if (idx > -1) { const n = [...prev]; n[idx] = editingAgent; return n; }
+                                    return [...prev, editingAgent];
+                                });
+                                setEditingAgent(null);
+                            }} className="btn-gnosi-primary" style={{ flex: 1 }}>Guardar Agent</button>
+                        </div>
+                    </div>
+                 </div>
+            )}
+
             <FolderPickerModal
                 isOpen={pickerOpen && pickerField !== 'agent_icon'}
                 onClose={() => setPickerOpen(false)}

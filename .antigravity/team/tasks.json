@@ -43,7 +43,32 @@
           "by": "Reviewer"
         }
       ]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Gnosi Architecture Consolidation (5 Waves)",
+      "description": "Massive audit and memory consolidation from docs/directives into pipeline/skills. Deletion of redundant documentation and archival of task logs.",
+      "assigned_to": "Director",
+      "status": "DONE",
+      "dependencies": ["TASK-001"],
+      "history": [
+        {
+          "timestamp": "2026-04-08T09:12:00Z",
+          "action": "Project Started",
+          "by": "Director"
+        },
+        {
+          "timestamp": "2026-04-08T10:25:00Z",
+          "action": "Consolidation Completed",
+          "by": "Specialist"
+        },
+        {
+          "timestamp": "2026-04-08T10:28:00Z",
+          "action": "Final Archiving and Verification",
+          "by": "Reviewer"
+        }
+      ]
     }
   ],
-  "last_updated": "2026-03-30T18:54:00Z"
+  "last_updated": "2026-04-08T10:28:00Z"
 }

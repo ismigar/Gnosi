@@ -1,64 +1,63 @@
-# Directive: Protocol de Desenvolupament
+# Directive: Development Protocol
 
-## Objectiu
-Workflow que combina artefactes interns (ràpids) amb directives persistents (coneixement permanent).
+## Objective
+A workflow that combines internal artifacts (fast tracking) with persistent directives (permanent knowledge).
 
-## El Loop Central
+## The Central Loop
 
-### FASE 1: PLANNING
+### PHASE 1: PLANNING
 ```
-1. Consultar directives existents
+1. Consult existing directives
    → ls docs/dev_memory/directives/
-   → Si n'hi ha de rellevant, llegir-la
+   → If a relevant one exists, read it
 
-2. Crear implementation_plan.md (artefacte intern)
-   → Ubicació: ~/.gemini/antigravity/brain/<id>/
-   → Conté: canvis proposats, fitxers afectats
+2. Create implementation_plan.md (internal artifact)
+   → Location: ~/.gemini/antigravity/brain/<id>/
+   → Content: proposed changes, affected files
 
-3. Sol·licitar aprovació de l'usuari
+3. Request user approval
 ```
 
-### FASE 2: EXECUTION
+### PHASE 2: EXECUTION
 ```
-4. Actualitzar task.md (artefacte intern)
-   → Tracking en temps real amb checkboxes
+4. Update task.md (internal artifact)
+   → Real-time tracking with checkboxes
 
-5. Anotar errors/edge cases trobats
-   → Per incloure'ls a la directiva final
-```
-
-### FASE 3: COMPLETION
-```
-6. Crear walkthrough.md (artefacte intern)
-   → Resum del que s'ha fet
-   → Screenshots si aplica
-
-7. ⭐ CONVERTIR WALKTHROUGH A DIRECTIVA
-   → Ubicació: docs/dev_memory/directives/<nom_tasca>.md
-   → Format: Procediment + Edge Cases + Verificació
+5. Note errors/edge cases found
+   → To include them in the final directive
 ```
 
-## Regla Clau
+### PHASE 3: COMPLETION
+```
+6. Create walkthrough.md (internal artifact)
+   → Summary of what was done
+   → Screenshots if applicable
 
-> **Al final de cada tasca complexa, SEMPRE generar/actualitzar una directiva a `docs/dev_memory/directives/`**
+7. ⭐ CONVERT WALKTHROUGH TO DIRECTIVE
+   → Location: docs/dev_memory/directives/<task_name>.md
+   → Format: Procedure + Edge Cases + Verification
+```
 
-## Checklist Final de Tasca
-- [ ] Codi funcionant i verificat
-- [ ] Artefactes interns actualitzats (task.md, walkthrough.md)
-- [ ] **Directiva creada/actualitzada a docs/dev_memory/directives/**
-- [ ] Edge cases documentats a la directiva
+## Key Rule
+> **At the end of each complex task, ALWAYS generate/update a directive in `docs/dev_memory/directives/`**
 
-## Quan NO cal crear directiva
-- Preguntes simples o conversa casual
-- Edicions trivials (1-2 línies)
-- Tasques que no aporten coneixement reutilitzable
+## Task Final Checklist
+- [ ] Code working and verified
+- [ ] Internal artifacts updated (task.md, walkthrough.md)
+- [ ] **Directive created/updated in docs/dev_memory/directives/**
+- [ ] Edge cases documented in the directive
 
-## Annex: Conversió Walkthrough → Directiva
+## When NOT to create a directive
+- Simple questions or casual conversation
+- Trivial edits (1-2 lines)
+- Tasks that do not provide reusable knowledge
 
-| Secció Walkthrough | Secció Directiva |
+## Annex: Walkthrough → Directive Conversion
+
+| Walkthrough Section | Directive Section |
 |-------------------|------------------|
-| Summary | Objectiu |
-| Changes Made | Procediment |
-| What was tested | Verificació |
-| Errors encountered | Restriccions / Edge Cases |
-| Files modified | Fitxers Relacionats |
+| Summary | Objective |
+| Changes Made | Procedure |
+| What was tested | Verification |
+| Errors encountered | Restrictions / Edge Cases |
+| Files modified | Related Files |

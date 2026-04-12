@@ -7,7 +7,7 @@ export function AppHeader({ icon: Icon, title, children }) {
                 {Icon && <Icon size={18} className="text-slate-400" strokeWidth={2} />}
                 <span>{title}</span>
             </div>
-            <div className="app-header__custom">
+            <div className="app-header__custom" style={{ marginLeft: 'auto', marginTop: '15px' }}>
                 {children}
             </div>
         </header>

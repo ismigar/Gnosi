@@ -6,7 +6,7 @@ import sys
 import json
 import datetime
 
-# Ruta: monorepo/apps/digital-brain/pipeline/sandbox/backup_workflow.py
+# Ruta: monorepo/apps/gnosi/pipeline/sandbox/backup_workflow.py
 
 def load_envs():
     current_dir = pathlib.Path(__file__).parent.absolute()

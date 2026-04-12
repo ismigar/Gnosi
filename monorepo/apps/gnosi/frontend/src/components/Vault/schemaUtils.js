@@ -95,3 +95,23 @@ export function getSchemaFieldEntries(schema = {}) {
     return getSchemaFieldNames(schema).map(name => [name, getFieldType(schema, name)]);
 }
 
+
+/**
+ * Determina si una pàgina s'ha de considerar una cita del calendari.
+ * @param {Object} page 
+ * @returns {boolean}
+ */
+export function isCalendarPage(page) {
+    if (!page) return false;
+    const metadata = page.metadata || {};
+    const source = String(metadata.source || '').trim().toLowerCase();
+    const hasDate = !!metadata.date;
+    const tableId = page.resolved_table_id || metadata.table_id || metadata.database_table_id;
+    const folder = String(page.folder || '');
+    
+    // Match backend logic in is_calendar_entry
+    const isEntry = hasDate && (source.includes('gnosi') || !tableId);
+    const isInFolder = folder === 'Calendar' || folder.startsWith('Calendar/');
+    
+    return isEntry || isInFolder;
+}

@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+import { User, Briefcase, ChevronDown, Plus } from 'lucide-react';
 import { useApi } from '../../hooks/use-api';
 
 export function WorkspaceSwitcher() {
@@ -9,10 +11,15 @@ export function WorkspaceSwitcher() {
     useEffect(() => {
         const fetchWorkspaces = async () => {
             try {
-                const data = await apiFetch('/api/workspaces/');
+                const data = await apiFetch('/api/workspaces');
                 
+                // Eliminar duplicats per ID (per si el backend retorna repetits)
+                const uniqueData = Array.isArray(data) ? data.filter((ws, index, self) =>
+                    index === self.findIndex((t) => t.id === ws.id)
+                ) : [];
+
                 // Si no hi ha cap workspace (cas extrem d'error), forçar el personal
-                const wsList = data.length > 0 ? data : [
+                const wsList = uniqueData.length > 0 ? uniqueData : [
                     { id: 'personal', name: 'Personal', icon: <User size={16} />, role: 'owner' }
                 ];
                 

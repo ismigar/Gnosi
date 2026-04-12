@@ -9,11 +9,13 @@
 
 ## 1. Objectives and Scope
 
-- **Main Objective:** Eliminar tots els logs de depuració no essencials (`console.log` i `print`) i substituir-los per un sistema de logging estructurat on sigui necessari.
+- **Main Objective:** Eliminate all non-essential debug logs (`console.log` and `print`) and replace them with a structured logging system where necessary.
 - **Success Criteria:** 
-    - Zero `console.log` al codi de producció del frontend.
-    - Zero `print()` al codi de la API/Backend (substituïts per `logger.info`, `error`, etc.).
-    - Mantenir els `print()` només en scripts de terminal estrictament d'usuari (`scripts/`).
+    - Zero `console.log` in frontend production code.
+    - Zero `print()` in API/Backend code (replaced by `logger.info`, `error`, etc.).
+    - Maintain `print()` only in strictly user-facing terminal scripts (`scripts/`).
+
+---
 
 ## 2. Input/Output (I/O) Specifications
 
@@ -22,23 +24,29 @@
     - `monorepo/apps/gnosi/frontend/src/**/*`
     - `monorepo/apps/gnosi/backend/**/*.py`
 
+---
+
 ## 3. Logical Flow (Algorithm)
 
-1. **Audit:** Escanejar el monorepo buscant patrons de logs.
+1. **Audit:** Scan the monorepo for log patterns.
 2. **Classification:**
-    - **Trivial Logs:** Eliminar completament.
-    - **Error Logs:** Convertir a `console.error` (frontend) o `logger.exception/error` (backend).
-    - **Data Debugging:** Eliminar o convertir a `logger.debug`.
-3. **Refactor:** Executar scripts de Python al `sandbox` per aplicar els canvis de forma massiva i segura.
-4. **Verification:** Executar linter i build per assegurar que no hi ha regressions.
+    - **Trivial Logs:** Delete completely.
+    - **Error Logs:** Convert to `console.error` (frontend) or `logger.exception/error` (backend).
+    - **Data Debugging:** Delete or convert to `logger.debug`.
+3. **Refactor:** Run Python scripts in the `sandbox` to apply changes massively and safely.
+4. **Verification:** Run linter and build to ensure no regressions.
+
+---
 
 ## 5. Restrictions and Edge Cases
 
-- **CLI Tools:** Els scripts que estan pensats per ser executats manualment per consola poden mantenir `print` per a feedback d'usuari a temps real.
-- **Production Build:** El build de Vite ja hauria de tenir regles per eliminar `console.log`, però els eliminarem de la font per netejar l'entorn de desenvolupament.
+- **CLI Tools:** Scripts intended to be run manually in the console can keep `print` for real-time user feedback.
+- **Production Build:** The Vite build should already have rules to remove `console.log`, but we will remove them from the source to clean up the development environment.
+
+---
 
 ## 6. Error Protocol and Learning (Live Memory)
 
 | Date | Error Detected | Root Cause | Solution/Patch Applied |
 | --- | --- | --- | --- |
-| 07/04 | N/A | Inicialització | N/A |
+| 2026-04-07 | N/A | Initialization | N/A |

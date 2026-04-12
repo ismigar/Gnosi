@@ -340,7 +340,7 @@ class GraphService:
                 
             metadata = attrs.get("metadata", {})
             
-            # Explicit notion parent
+            # Vault structural parent
             parent_id = metadata.get("parent_id")
             if parent_id and G.has_node(parent_id):
                 G.add_edge(parent_id, node_id, kind="structural", color="#94a3b8", size=1)

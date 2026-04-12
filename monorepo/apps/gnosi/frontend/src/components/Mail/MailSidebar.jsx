@@ -58,7 +58,6 @@ export default function MailSidebar({
 
     return (
         <div className="w-64 flex flex-col h-full bg-[#fbfbfa] border-r border-slate-200/60 font-sans">
-            {/* Account Selector Section - Notion Style Popover placeholder */}
             <div className="p-4 flex flex-col gap-2">
                 <div className="flex items-center justify-between px-2 mb-2">
                     <div className="flex items-center gap-2 group cursor-pointer hover:bg-slate-200/50 p-1 rounded-md transition-colors">

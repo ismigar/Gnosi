@@ -32,12 +32,14 @@ from backend.agent.factory import create_agent_workflow
 # Import routes
 from backend.api import (
     agent_routes, system_routes, tools_routes,
-    analytics_routes, sync_routes, scheduler_routes, social_routes,
+    analytics_routes,
+    scheduler_routes, social_routes,
     vault_routes, vault_graph_routes, calendar_routes, mail_routes,
     reader, google_auth_routes, integrations_routes, zotero_routes,
     config_routes, env_routes, credentials_routes, ai_routes,
-    workspace_routes
+    workspace_routes, contacts_routes
 )
+from backend.scheduler.manager import scheduler_manager
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +47,9 @@ log = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # STARTUP
     log.info("🚀 Starting Gnosi Agent (FastAPI Port)...")
+
+    # 0. Start Scheduler
+    scheduler_manager.start()
 
     # 1. Init MCP Client
     mcp_client = MultiServerMCPClient(MCP_SERVERS)
@@ -113,8 +118,9 @@ app.include_router(mail_routes.router, tags=["Mail"])
 app.include_router(reader.router, tags=["Reader"])
 app.include_router(tools_routes.router, tags=["Tools"])
 app.include_router(analytics_routes.router, tags=["Analytics"])
-app.include_router(sync_routes.router, tags=["Sync"])
+# app.include_router(sync_routes.router, tags=["Sync"])
 app.include_router(scheduler_routes.router, tags=["Scheduler"])
+app.include_router(contacts_routes.router, prefix="/api", tags=["Contacts"])
 
 # Integrations and Config
 app.include_router(google_auth_routes.router, tags=["Auth"])

@@ -16,7 +16,7 @@ from backend.security.ai_credentials import (
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
 
-PARAMS_PATH = Path(__file__).resolve().parents[2] / "config" / "params.yaml"
+# Note: We now fetch the dynamic path from app_config at runtime
 
 
 class ProviderCredentialPayload(BaseModel):
@@ -46,9 +46,11 @@ async def set_provider_credentials(provider_id: str, payload: ProviderCredential
     if not ok or not credential_ref:
         raise HTTPException(status_code=500, detail="Could not save provider credential")
 
+    cfg = load_params(strict_env=False)
+    params_path = cfg.params_source
     current_config = {}
-    if PARAMS_PATH.exists():
-        with open(PARAMS_PATH, "r", encoding="utf-8") as f:
+    if params_path.exists():
+        with open(params_path, "r", encoding="utf-8") as f:
             current_config = yaml.safe_load(f) or {}
 
     ai_cfg = dict(current_config.get("ai") or {})
@@ -64,7 +66,7 @@ async def set_provider_credentials(provider_id: str, payload: ProviderCredential
     migrated_ai_cfg, _ = migrate_ai_provider_secrets(ai_cfg)
     current_config["ai"] = migrated_ai_cfg
 
-    with open(PARAMS_PATH, "w", encoding="utf-8") as f:
+    with open(params_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(
             current_config,
             f,

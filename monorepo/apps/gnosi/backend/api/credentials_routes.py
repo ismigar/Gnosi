@@ -12,10 +12,6 @@ from backend.config.env_config import reload_keychain
 router = APIRouter(prefix="/credentials", tags=["Credentials"])
 
 CREDENTIAL_INFO = {
-    "notion_token": {
-        "name": "Notion",
-        "description": "API token for Notion integration",
-    },
     "huggingface_api_key": {
         "name": "Hugging Face",
         "description": "API key for Hugging Face",

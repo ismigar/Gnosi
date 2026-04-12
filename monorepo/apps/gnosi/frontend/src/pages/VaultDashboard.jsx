@@ -24,7 +24,7 @@ import { VaultViewsHeader } from '../components/Vault/VaultViewsHeader';
 import VaultDrawings from '../components/Vault/VaultDrawings';
 import { VaultGraph } from '../components/Vault/VaultGraph';
 import { MAIN_VIEW_NAME, isMainView } from '../components/Vault/viewConstants';
-import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames } from '../components/Vault/schemaUtils';
+import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
@@ -232,9 +232,13 @@ export default function VaultDashboard() {
         return null;
     }, [pages]);
 
+
     const shouldIncludeTableRecord = useCallback((page, tableId, currentPages = pages) => {
         if (!page || resolvePageTableId(page, currentPages) !== tableId) return false;
         if (page.metadata?.is_template) return false;
+
+        // Wiki (null tableId) should not include calendar entries
+        if (!tableId && isCalendarPage(page)) return false;
 
         // Resources also contains technical/imported annotations that are not primary records.
         if (tableId === 'resources') {
@@ -247,7 +251,7 @@ export default function VaultDashboard() {
         }
 
         return true;
-    }, [resolvePageTableId, pages]);
+    }, [resolvePageTableId, pages, isCalendarPage]);
 
     const getVisibleTableRecords = useCallback((records, tableId, currentPages = pages) => {
         const filtered = (records || []).filter(page => shouldIncludeTableRecord(page, tableId, currentPages));
@@ -1959,7 +1963,7 @@ export default function VaultDashboard() {
                         {(() => {
                             if (cv.type === 'board') {
                                 return (
-                                    <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-slate-50">
+                                    <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]">
                                         <VaultKanban
                                             notes={paneNotes}
                                             onNoteSelect={loadPage}
@@ -2148,7 +2152,7 @@ export default function VaultDashboard() {
                     {(() => {
                         if (cv.type === 'board') {
                             return (
-                                <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-slate-50">
+                                <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]">
                                     <VaultKanban
                                         notes={paneNotes}
                                         onNoteSelect={loadPage}

@@ -101,7 +101,7 @@ async def post_freebusy(
 def get_ics_feed():
     """Generates an .ics representation of vault notes with dates dynamically."""
     cal = Calendar()
-    cal.add("prodid", "-//Digital Brain PIM//ismaelgarcia.net//")
+    cal.add("prodid", "-//Gnosi PIM//ismaelgarcia.net//")
     cal.add("version", "2.0")
 
     calendar_path = _get_calendar_storage_path()

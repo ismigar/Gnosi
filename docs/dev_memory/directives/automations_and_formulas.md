@@ -1,40 +1,38 @@
-# Directiva: Automatitzacions i Fòrmules al Vault (Gnosi)
+# Directive: Automations and Formulas in the Vault
 
-Aquesta directiva defineix el sistema d'automatitzacions i fòrmules per completar la potència de les bases de dades del Digital Brain, permetent comportaments dinàmics i càlculs automàtics entre propietats.
+This directive defines the system of automations and formulas to complete the power of the Gnosi databases, allowing dynamic behaviors and automatic calculations between properties.
 
-## 1. Fòrmules (Spreadsheet-like)
+## 1. Formulas (Spreadsheet-like)
+Formulas allow calculating the value of a property based on other properties of the same record or related records.
 
-Les fòrmules permeten calcular el valor d'una propietat basant-se en altres propietats del mateix registre o de registres relacionats.
-
-### Definició al Registry (`vault_db_registry.json`)
-S'afegeix el tipus `formula` a les propietats d'una taula.
+### Definition in the Registry (`vault_db_registry.json`)
+The `formula` type is added to a table's properties.
 ```json
 {
-  "name": "Total amb IVA",
+  "name": "Total with VAT",
   "type": "formula",
   "formula_config": {
-    "expression": "Import * 1.21"
+    "expression": "Amount * 1.21"
   }
 }
 ```
 
-### Motor de Càlcul
-- Les fòrmules s'avaluen al **Backend** durant l'operació de `save` o `patch`.
-- El resultat es guarda físicament al Frontmatter per permetre cerques i filtrat indexat.
-- Opcionalment, es poden avaluar al **Frontend** per a feedback en temps real (sense persistència fins a desar).
+### Calculation Engine
+- Formulas are evaluated on the **Backend** during `save` or `patch` operations.
+- The result is physically saved in the Frontmatter to allow indexed searches and filtering.
+- Optionally, they can be evaluated on the **Frontend** for real-time feedback (without persistence until saved).
 
-## 2. Automatitzacions (Triggers & Actions)
+## 2. Automations (Triggers & Actions)
+Automations execute actions when certain data change conditions are met.
 
-Les automatitzacions executen accions quan es compleixen certes condicions de canvi en les dades.
-
-### Definició a la Taula
-Cada taula pot tenir una llista d'automatitzacions.
+### Table Definition
+Each table can have a list of automations.
 ```json
 {
   "id": "notes",
   "automations": [
     {
-      "name": "Actualitzar Projecte des de Tasca",
+      "name": "Update Project from Task",
       "trigger": {
         "type": "property_change",
         "property": "task_ids"
@@ -49,31 +47,29 @@ Cada taula pot tenir una llista d'automatitzacions.
 }
 ```
 
-### Conceptes Clau:
+### Key Concepts:
 - **Trigger**: `property_change`, `on_create`, `on_delete`.
 - **Action**: `update_property`, `notify`, `trigger_webhook`.
-- **Lookup**: Capacitat de viatjar per les relacions per obtenir dades d'altres taules.
+- **Lookup**: Ability to travel through relations to obtain data from other tables.
 
-## 3. Pseudollenguatge de fòrmules
+## 3. Pseudo-formula Language
+A syntax based on simplified Python or a safe expression library will be used.
 
-S'utilitzarà una sintaxi basada en Python simplificat o una llibreria d'expressió segura.
+### Supported Functions:
+- `prop('name')`: Gets the value of a property.
+- `lookup(table, id, property)`: Gets the value of a property from a record in another table.
+- `first(list)` / `last(list)`: List operations (especially for relations).
+- Standard mathematical and string operators.
 
-### Funcions suportades:
-- `prop('nom')`: Obté el valor d'una propietat.
-- `lookup(taula, id, propietat)`: Obté el valor d'una propietat d'un registre d'una altra taula.
-- `first(llista)` / `last(llista)`: Operacions amb llistes (especialment per a relacions).
-- Operadors matemàtics i de strings estàndard.
+## 4. Execution Protocol
+1. User sends a `PATCH` or `PUT` to `/api/vault/pages/{id}`.
+2. Server loads the current metadata.
+3. The `RuleEngine` identifies active triggers based on the data difference (`diff`).
+4. Pending formulas are evaluated.
+5. Automation actions are executed.
+6. The final result is saved to the `.md` file.
 
-## 4. Protocol d'Execució
-
-1. L'usuari envia un `PATCH` o `PUT` a `/api/vault/pages/{id}`.
-2. El servidor carrega la metadata actual.
-3. El `RuleEngine` identifica els trigger actius basant-se en la diferència (`diff`) de dades.
-4. S'avaluen les fòrmules pendents.
-5. S'executen les accions de les automatitzacions.
-6. Es desa el resultat final al fitxer `.md`.
-
-## 5. Restriccions i Seguretat
-- **Recursivitat**: Cal limitar la profunditat de les automatitzacions per evitar bucles infinits (ex: A actualitza B, B actualitza A).
-- **Seguretat**: No s'ha de permetre l'execució de codi Python arbitrari (`eval` perillós). Usar un entorn controlat.
-- **Performance**: Les lookups pesades han d'estar cachejades o ser optimitzades.
+## 5. Restrictions and Security
+- **Recursion**: Limit automation depth to avoid infinite loops (e.g., A updates B, B updates A).
+- **Security**: Arbitrary Python code execution must not be allowed (danger of `eval`). Use a controlled environment.
+- **Performance**: Heavy lookups must be cached or optimized.

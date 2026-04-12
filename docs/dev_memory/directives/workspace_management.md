@@ -1,37 +1,37 @@
-# Directiva: Gestión de Workspaces y Permisos en Gnosi
+# Directive: Workspace and Permission Management in Gnosi
 
-## Contexto
-Gnosi evoluciona de un sistema de un solo repositorio/vault a un sistema multi-inquilino organizado por espacios de trabajo (Workspaces). Esta directiva establece las bases arquitectónicas para el acceso y la seguridad.
+## Context
+Gnosi is evolving from a single repo/vault system to a multi-tenant system organized by workspaces. This directive establishes the architectural foundations for access and security.
 
-## Objetivos
-1.  Permitir la coexistencia de múltiples workspaces independientes.
-2.  Implementar un sistema de Roles (RBAC) para usuarios.
-3.  Asegurar que los vaults de diferentes workspaces no compartan datos.
+## Objectives
+1. Allow the coexistence of multiple independent workspaces.
+2. Implement a Role-Based Access Control (RBAC) system for users.
+3. Ensure that vaults from different workspaces do not share data.
 
-## Protocolo de Implementación
+## Implementation Protocol
 
-### 1. Estructura de Directorios
-Los datos de cada workspace deben estar aislados físicamente:
+### 1. Directory Structure
+Each workspace's data must be physically isolated:
 *   `workspaces/<workspace_id>/vault/`
 *   `workspaces/<workspace_id>/assets/`
 *   `workspaces/<workspace_id>/config/`
 
-### 2. Gestión de Identidad y Sesión
-*   Utilizar un proveedor de identidad (LDAP, Google OAuth o login propio) que devuelva un `user_id`.
-*   El backend debe validar que el `user_id` pertenece al `workspace_id` solicitado en cada petición.
+### 2. Identity and Session Management
+*   Use an identity provider (LDAP, Google OAuth, or custom login) that returns a `user_id`.
+*   The backend must validate that the `user_id` belongs to the requested `workspace_id` in every request.
 
-### 3. Matriz de Permisos (Roles)
-| Rol | Ver | Editar | Borrar | Administrar Miembros |
+### 3. Permission Matrix (Roles)
+| Role | View | Edit | Delete | Manage Members |
 | :--- | :---: | :---: | :---: | :---: |
 | **OWNER** | ✅ | ✅ | ✅ | ✅ |
 | **ADMIN** | ✅ | ✅ | ✅ | ✅ |
 | **EDITOR** | ✅ | ✅ | ❌ | ❌ |
 | **VIEWER** | ✅ | ❌ | ❌ | ❌ |
 
-## Restricciones y Advertencias
-*   **Idempotencia**: Todas las operaciones de cambio de workspace deben ser atómicas.
-*   **Migración**: El sistema debe soportar un workspace por defecto para instalaciones legacy.
-*   **Seguridad**: Nunca confiar en el `workspace_id` enviado por el cliente sin validar los permisos en el servidor.
+## Restrictions and Warnings
+*   **Idempotency**: All workspace changing operations must be atomic.
+*   **Migration**: The system must support a default workspace for legacy installations.
+*   **Security**: Never trust the `workspace_id` sent by the client without validating permissions on the server.
 
 ---
-*Creado por Antigravity - Abril 2026*
+*Created by Antigravity - April 2026*

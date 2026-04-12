@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This script creates a LaunchAgent to start the Digital Brain automatically at login.
+# This script creates a LaunchAgent to start the Gnosi automatically at login.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"

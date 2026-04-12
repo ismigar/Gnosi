@@ -119,7 +119,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                 <Search size={14} className="text-[var(--text-tertiary)]" />
                 <input
                     type="text"
-                    placeholder={t('search_events', 'Buscar eventos')}
+                    placeholder={t('calendar.search_events', 'Buscar eventos')}
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
                     className="flex-1 bg-transparent border-none outline-none text-[13px] placeholder:text-[var(--text-tertiary)] text-[var(--text-primary)]"
@@ -154,7 +154,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
 
             <div className="mt-8">
                 <h3 className="text-[13px] font-bold text-[var(--text-primary)] flex items-center justify-between mb-5">
-                    {t('useful_shortcuts', 'Atajos útiles')}
+                    {t('calendar.useful_shortcuts', 'Atajos útiles')}
                 </h3>
 
                 <div className="flex flex-col gap-2">
@@ -162,7 +162,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                         onClick={onOpenSearch}
                         className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-all group text-[12px] text-[var(--text-secondary)] font-medium"
                     >
-                        <span>{t('command_menu', 'Menú de comandos')}</span>
+                        <span>{t('calendar.command_menu', 'Menú de comandos')}</span>
                         <div className="flex gap-1 opacity-60 group-hover:opacity-100">
                             <kbd className="border border-[var(--border-primary)] rounded px-1.5 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">⌘</kbd>
                             <kbd className="border border-[var(--border-primary)] rounded px-1.5 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">K</kbd>
@@ -173,7 +173,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                         onClick={onToggleSidebar}
                         className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-all group text-[12px] text-[var(--text-secondary)] font-medium"
                     >
-                        <span>{t('toggle_sidebar', 'Amagar barra lateral')}</span>
+                        <span>{t('calendar.toggle_sidebar', 'Amagar barra lateral')}</span>
                         <kbd className="opacity-60 group-hover:opacity-100 border border-[var(--border-primary)] rounded px-2 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">.</kbd>
                     </button>
 
@@ -181,7 +181,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                         onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: ',' }))}
                         className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-all group text-[12px] text-[var(--text-secondary)] font-medium"
                     >
-                        <span>{t('go_to_today', 'Anar a avui')}</span>
+                        <span>{t('calendar.go_to_today', 'Anar a avui')}</span>
                         <kbd className="opacity-60 group-hover:opacity-100 border border-[var(--border-primary)] rounded px-2 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">,</kbd>
                     </button>
 
@@ -377,7 +377,12 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 const active = document.activeElement;
                 const isInput = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA';
                 if (!isInput && mode === 'edit' && eventData?.id) {
-                    if (window.confirm(t('confirm_delete', 'Segur que vols eliminar aquesta cita?'))) {
+                    const isGoogleEvent = eventData?.metadata?.source === 'google' || (eventData?.id && eventData.id.length > 20 && !eventData.id.includes('-'));
+                    if (isGoogleEvent) {
+                        toast.error(t('calendar.external_event_delete_warning', 'No es poden eliminar cites de Google Calendar des de Gnosi.'));
+                        return;
+                    }
+                    if (window.confirm(t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?'))) {
                         handleDelete();
                     }
                 }
@@ -461,7 +466,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 }
                 
                 if (!silent) {
-                    toast.success(t('event_updated', 'Cita actualitzada!'));
+                    toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
                     onSaved?.(updatedEvent);
                     onClose?.();
                 } else {
@@ -493,7 +498,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                         };
                     }
                 }
-                if (!silent) toast.success(t('event_created', 'Cita creada!'));
+                if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
                 onSaved?.(createdEvent);
                 if (!silent) onClose?.();
                 lastSavedData.current = snapshot || JSON.stringify({
@@ -504,7 +509,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             }
         } catch (err) {
             console.error('Error desant event:', err);
-            toast.error(t('event_save_error', 'Error desant la cita.'));
+            toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
         } finally {
             setSaving(false);
         }
@@ -512,15 +517,24 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
 
     const handleDelete = async () => {
         if (!eventData?.id) return;
+
+        // Validació addicional d'origen abans de cridar a l'API
+        const isGoogleEvent = eventData?.metadata?.source === 'google' || (eventData?.id && eventData.id.length > 20 && !eventData.id.includes('-'));
+        if (isGoogleEvent) {
+            toast.error(t('calendar.external_event_delete_warning', 'Les cites externes s\'han d\'eliminar des de la plataforma d\'origen.'));
+            return;
+        }
+
         setDeleting(true);
         try {
             await axios.delete(`/api/vault/pages/${eventData.id}`);
-            toast.success(t('event_deleted', 'Cita eliminada.'));
+            toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
             onSaved?.();
             onClose?.();
         } catch (err) {
             console.error('Error eliminant event:', err);
-            toast.error(t('event_delete_error', 'Error eliminant la cita.'));
+            const errorMsg = err.response?.data?.detail || err.message || '';
+            toast.error(`${t('calendar.event_delete_error', 'Error eliminant la cita.')} ${errorMsg}`);
         } finally {
             setDeleting(false);
         }
@@ -535,28 +549,40 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-tertiary)]">
                 <div className="flex items-center gap-2">
-                    <CalendarPlus size={16} className="text-[var(--gnosi-primary)]" />
+                    <button onClick={onClose} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] p-1 rounded-lg transition-colors">
+                        <X size={16} />
+                    </button>
                     <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-                        {mode === 'create' ? t('new_event', 'Nova cita') : t('edit_event', 'Editar cita')}
+                        {mode === 'create' ? t('calendar.new_event', 'Nova cita') : t('calendar.edit_event', 'Editar cita')}
                     </span>
                 </div>
-                <button onClick={onClose} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] p-1 rounded-lg transition-colors">
-                    <X size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                    {mode === 'edit' && eventData?.id && (
+                        <button 
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-all"
+                            title={t('calendar.delete', 'Eliminar')}
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3">
                 {/* Títol */}
                 <div>
-                    <label className={labelClass}>{t('title', 'Títol')}</label>
+                    <label className={labelClass}>{t('calendar.event_title', 'Títol')}</label>
                     <input
                         ref={titleRef}
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         onBlur={handleFieldBlur}
-                        placeholder={t('event_title_placeholder', "Reunió, Cita mèdica...")}
+                        placeholder={t('calendar.event_title_placeholder', "Reunió, Cita mèdica...")}
                         className={inputClass}
                         required
                     />
@@ -566,7 +592,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 <div className="flex items-center justify-between py-1">
                     <label className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--text-secondary)]">
                         <Sun size={14} className="text-amber-500" />
-                        {t('all_day', 'Tot el dia')}
+                        {t('calendar.all_day', 'Tot el dia')}
                     </label>
                     <button
                         type="button"
@@ -585,14 +611,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                     <div>
                         <label className={labelClass}>
                             <CalendarPlus size={10} />
-                            {t('start', 'Inici')}
+                            {t('calendar.start', 'Inici')}
                         </label>
                         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} onBlur={handleFieldBlur} className={inputClass} required />
                     </div>
                     <div>
                         <label className={labelClass}>
                             <CalendarPlus size={10} />
-                            {t('end', 'Fi')} <span className="text-[var(--text-tertiary)] font-normal normal-case">{t('opt', '(opc.)')}</span>
+                            {t('calendar.end', 'Fi')} <span className="text-[var(--text-tertiary)] font-normal normal-case">{t('calendar.opt', '(opc.)')}</span>
                         </label>
                         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} onBlur={handleFieldBlur} className={inputClass} min={startDate} />
                     </div>
@@ -604,14 +630,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                         <div>
                             <label className={labelClass}>
                                 <Clock size={10} />
-                                {t('start_time', 'Hora inici')}
+                                {t('calendar.start_time', 'Hora inici')}
                             </label>
                             <input type="time" value={startTime} onChange={(e) => setStartTime(padTime(e.target.value))} onBlur={handleFieldBlur} className={inputClass} />
                         </div>
                         <div>
                             <label className={labelClass}>
                                 <Clock size={10} />
-                                {t('end_time', 'Hora fi')}
+                                {t('calendar.end_time', 'Hora fi')}
                             </label>
                             <input type="time" value={endTime} onChange={(e) => setEndTime(padTime(e.target.value))} onBlur={handleFieldBlur} className={inputClass} />
                         </div>
@@ -622,7 +648,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 <div>
                     <label className={labelClass}>
                         <CalendarPlus size={10} />
-                        {t('calendar', 'Calendari')}
+                        {t('calendar.label', 'Calendari')}
                     </label>
                     <select value={calendarId} onChange={(e) => setCalendarId(e.target.value)} onBlur={handleFieldBlur} className={inputClass}>
                         {calendars.map(cal => (
@@ -635,14 +661,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 <div>
                     <label className={labelClass}>
                         <MapPin size={10} />
-                        {t('location', 'Ubicació / URL')}
+                        {t('calendar.location', 'Ubicació / URL')}
                     </label>
                     <input
                         type="text"
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
                         onBlur={handleFieldBlur}
-                        placeholder={t('location_placeholder', "Sala 3, https://meet.google...")}
+                        placeholder={t('calendar.location_placeholder', "Sala 3, https://meet.google...")}
                         className={inputClass}
                     />
                 </div>
@@ -651,7 +677,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 <div>
                     <label className={labelClass}>
                         <Bell size={10} />
-                        {t('reminder', 'Recordatori')}
+                        {t('calendar.reminder', 'Recordatori')}
                     </label>
                     <select value={reminder} onChange={(e) => setReminder(e.target.value)} onBlur={handleFieldBlur} className={inputClass}>
                         {REMINDER_OPTIONS.map(opt => (
@@ -664,7 +690,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 <div className="space-y-2">
                     <label className={labelClass}>
                         <CalendarPlus size={10} />
-                        {t('recurrence', 'Repetició')}
+                        {t('calendar.recurrence', 'Repetició')}
                     </label>
                     <select value={recurrence} onChange={(e) => {
                         setRecurrence(e.target.value);
@@ -701,7 +727,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
 
                     {recurrence && (
                         <div className="mt-2 p-2.5 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] space-y-2">
-                            <label className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tight">{t('ends', 'Finalitza')}</label>
+                            <label className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tight">{t('calendar.ends', 'Finalitza')}</label>
 
                             <div className="flex flex-col gap-1.5">
                                 <label className="flex items-center gap-2 cursor-pointer group">
@@ -781,13 +807,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 <div className="pb-4">
                     <label className={labelClass}>
                         <AlignLeft size={10} />
-                        {t('description', 'Descripció')}
+                        {t('calendar.description', 'Descripció')}
                     </label>
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         onBlur={handleFieldBlur}
-                        placeholder={t('event_description_placeholder', "Afegeix detalls...")}
+                        placeholder={t('calendar.event_description_placeholder', "Afegeix detalls...")}
                         rows={2}
                         className={`${inputClass} resize-none`}
                     />
@@ -797,7 +823,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             {/* Footer Status Indicators */}
             <div className="px-4 py-2 border-t border-[var(--border-primary)] bg-[var(--bg-tertiary)] flex items-center justify-between">
                 <div className="text-[10px] text-[var(--text-tertiary)] italic">
-                    {saving ? t('saving', 'Desant...') : (deleting ? t('deleting', 'Eliminant...') : t('saved', 'Guardado'))}
+                    {saving ? t('calendar.saving', 'Desant...') : (deleting ? t('calendar.deleting', 'Eliminant...') : t('calendar.saved', 'Guardat'))}
                 </div>
                 <div className="flex gap-2">
                     <span className="text-[10px] text-slate-300 font-mono">ESC: Deselecciona</span>
@@ -875,12 +901,12 @@ const AvailabilityTool = ({ calendars }) => {
         <div className="p-5 space-y-6">
             <div className="space-y-4">
                 <div>
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Dia</label>
+                    <label className="text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2 block">{t('calendar.availability.date_label')}</label>
                     <input
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none transition-all"
                     />
                 </div>
 
@@ -888,9 +914,9 @@ const AvailabilityTool = ({ calendars }) => {
                     <button
                         onClick={checkAvailability}
                         disabled={loading}
-                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2"
+                        className="btn btn-gnosi-primary w-full"
                     >
-                        {loading ? 'Consultant...' : 'Cercar Forats Lliures'}
+                        {loading ? t('calendar.availability.searching') : t('calendar.availability.search_btn')}
                     </button>
                 </div>
             </div>
@@ -898,12 +924,12 @@ const AvailabilityTool = ({ calendars }) => {
             {freeSlots.length > 0 && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center justify-between">
-                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Forats lliures</h4>
-                        <button onClick={copySlotsAsText} className="text-[10px] text-indigo-600 hover:underline font-bold uppercase">Copiar text</button>
+                        <h4 className="text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">{t('calendar.availability.free_slots')}</h4>
+                        <button onClick={copySlotsAsText} className="text-[10px] text-[var(--gnosi-primary)] hover:underline font-bold uppercase transition-all">{t('calendar.availability.copy_text')}</button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         {freeSlots.map((s, i) => (
-                            <div key={i} className="px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded text-[11px] text-indigo-700 dark:text-indigo-300 font-medium text-center">
+                            <div key={i} className="px-2 py-1.5 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded text-[11px] text-[var(--text-primary)] font-medium text-center shadow-sm">
                                 {s.start} - {s.end}
                             </div>
                         ))}
@@ -911,8 +937,8 @@ const AvailabilityTool = ({ calendars }) => {
                 </div>
             )}
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-[10px] text-slate-400 italic">L'eina sincronitza en temps real amb els teus calendaris externs i taules de Gnosi.</p>
+            <div className="pt-4 border-t border-[var(--border-primary)]">
+                <p className="text-[10px] text-[var(--text-tertiary)] italic">{t('calendar.availability.sync_info')}</p>
             </div>
         </div>
     );

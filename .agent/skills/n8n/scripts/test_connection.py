@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import pathlib
 import sys
 
-# Ruta: monorepo/apps/digital-brain/pipeline/skills/n8n/test_connection.py
+# Ruta: monorepo/apps/gnosi/pipeline/skills/n8n/test_connection.py
 
 def load_envs():
     current_dir = pathlib.Path(__file__).parent.absolute()

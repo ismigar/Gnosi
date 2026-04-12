@@ -1,6 +1,6 @@
-# Directiva: Protocol de Migració de Dades (Esquema Digital Brain)
+# Directiva: Protocol de Migració de Dades (Esquema Gnosi)
 
-Aquesta directiva regula el procés de migració de dades des de sistemes d'origen externs cap a l'arquitectura descentralitzada del Digital Brain (Vault/Drupal).
+Aquesta directiva regula el procés de migració de dades des de sistemes d'origen externs cap a l'arquitectura descentralitzada del Gnosi (Vault/Drupal).
 
 ## Protocol de Migració
 
@@ -10,7 +10,7 @@ Aquesta directiva regula el procés de migració de dades des de sistemes d'orig
 
 ## Mapeig de Tipus de Dada
 
-| Sistema Origen | Digital Brain Type | Notes |
+| Sistema Origen | Gnosi Type | Notes |
 |----------------|--------------------|-------|
 | title          | text (primary)     | Nom de la pàgina/fitxer |
 | select         | select             | Mantenir opcions |

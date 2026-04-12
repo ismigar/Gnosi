@@ -1,6 +1,6 @@
 name: Vault Bridge
 type: module
-description: 'Connector de llegat per a la migració de dades de Vault cap a Gnosi. [LEGACY] Migra i sincronitza dades històriques de Vault cap al graf de coneixement de Gnosi (Digital Brain).'
+description: 'Connector de llegat per a la migració de dades de Vault cap a Gnosi. [LEGACY] Migra i sincronitza dades històriques de Vault cap al graf de coneixement de Gnosi (Gnosi).'
 core_version_requirement: ^9.4 || ^10
 package: Content import
 version: 1.0.0

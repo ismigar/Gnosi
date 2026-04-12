@@ -4,13 +4,66 @@ from backend.data.management_db import get_mgmt_db
 from backend.models.management import (
     Workspace, Membership, User, Vault, VaultAccess,
     WorkspaceResponse, MemberResponse, RoleUpdateRequest, 
-    AddMemberRequest, VaultAccessRequest, VaultAccessResponse
+    AddMemberRequest, VaultAccessRequest, VaultAccessResponse,
+    WorkspaceBase, UserRole
 )
 from backend.services.workspace_service import require_role, get_workspace_context, WorkspaceContext, require_capability
 from typing import List
 import json
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
+
+@router.post("", response_model=WorkspaceResponse)
+async def create_workspace(
+    request: WorkspaceBase,
+    x_user_id: str = Header("ismael-legacy"),
+    db: Session = Depends(get_mgmt_db)
+):
+    # 1. Trobar o crear usuari
+    user = db.query(User).filter(User.id == x_user_id).first()
+    if not user:
+        # Si no existeix, el creem amb dades mínimes
+        user = User(id=x_user_id, name="User", email=f"{x_user_id}@example.com")
+        db.add(user)
+        db.flush()
+
+    # 2. Generar slug si no ve especificat
+    slug = request.slug
+    if not slug:
+        import re
+        slug = re.sub(r'[^a-z0-9]', '-', request.name.lower()).strip('-')
+        # Evitar duplicats de slug (simple appending de suffix si cal)
+        original_slug = slug
+        counter = 1
+        while db.query(Workspace).filter(Workspace.slug == slug).first():
+            slug = f"{original_slug}-{counter}"
+            counter += 1
+
+    # 3. Crear Workspace
+    new_ws = Workspace(
+        name=request.name,
+        slug=slug
+    )
+    db.add(new_ws)
+    db.flush() # Per obtenir l'ID
+
+    # 4. Assignar creador com a OWNER
+    membership = Membership(
+        user_id=x_user_id,
+        workspace_id=new_ws.id,
+        role=UserRole.OWNER.value
+    )
+    db.add(membership)
+    
+    # 5. Crear un Vault per defecte si no existeix? 
+    # Per ara, creem el workspace buit i deixem que el frontend o altres fluxos gestionin el vault.
+    
+    db.commit()
+    db.refresh(new_ws)
+    
+    ws_response = WorkspaceResponse.from_orm(new_ws)
+    ws_response.role = UserRole.OWNER.value
+    return ws_response
 
 @router.get("", response_model=List[WorkspaceResponse])
 async def list_workspaces(

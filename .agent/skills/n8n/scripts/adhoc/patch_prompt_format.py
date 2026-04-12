@@ -6,7 +6,7 @@ import sys
 import re
 import json
 
-# Ruta: monorepo/apps/digital-brain/pipeline/sandbox/patch_translation_prompt.py
+# Ruta: monorepo/apps/gnosi/pipeline/sandbox/patch_translation_prompt.py
 
 def load_envs():
     current_dir = pathlib.Path(__file__).parent.absolute()

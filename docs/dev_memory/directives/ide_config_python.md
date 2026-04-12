@@ -18,7 +18,7 @@ Mantener una configuración de VS Code coherente y funcional para el monorepo, a
 ### Inputs
 - **Ficheros de Configuración:** `.vscode/settings.json`.
 - **Rutas Esperadas:**
-    - Python: `${workspaceFolder}/monorepo/apps/digital-brain/.venv/bin/python` (v3.11+ recomendado)
+    - Python: `${workspaceFolder}/monorepo/apps/gnosi/.venv/bin/python` (v3.11+ recomendado)
     - PHP: `/opt/homebrew/opt/php@8.1/bin/php` (v8.1.0+ requerido para soporte `readonly`)
 
 ## 3. Configuration Steps

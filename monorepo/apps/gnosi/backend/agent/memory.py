@@ -51,7 +51,7 @@ def _get_embeddings():
 
         return LocalEmbeddings()
     except ImportError:
-
+        pass
     # 2. Fallback to OpenAI (if API key exists)
     api_key = os.environ.get("OPENAI_API_KEY")
     if api_key:

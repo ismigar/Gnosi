@@ -9,10 +9,10 @@
 
 ## 1. Objectius i Abast
 
-Aquesta directiva estableix el marc de referència per a la transició de Gnosi de ser un visualitzador de Notion a una aplicació totalment independent.
+Aquesta directiva estableix el marc de referència per a la transició de Gnosi de ser un visualitzador de Connector importació Notion a una aplicació totalment independent.
 
-- **Objectiu Principal:** Eliminar totes les referències actives a Notion en interfícies, comunicacions i lògica de negoci que no estiguin estrictament relacionades amb la migració de dades històriques.
-- **Criteris d'Èxit:** Tota menció de "Notion" en READMEs principals, interfícies d'usuari i noms de components actius ha de ser substituïda per "Gnosi" o "Vault".
+- **Objectiu Principal:** Eliminar totes les referències actives a Connector importació Notion en interfícies, comunicacions i lògica de negoci que no estiguin estrictament relacionades amb la migració de dades històriques.
+- **Criteris d'Èxit:** Tota menció de "Connector importació Notion" en READMEs principals, interfícies d'usuari i noms de components actius ha de ser substituïda per "Gnosi" o "Vault".
 
 ## 2. Especificacions d'I/O
 
@@ -39,17 +39,17 @@ Aquesta directiva estableix el marc de referència per a la transició de Gnosi 
 
 ## 5. Restriccions i Casos de Cantonada
 
-- **Migració:** NO s'han de rebatejar les classes o mètodes que realment parlen amb l'API de Notion (`notion_api.py`).
-- **Secrets:** Les variables d'entorn a `.env_shared` que contenen tokens de Notion han de mantenir el seu nom fins que es disposi d'una alternativa (si n'hi ha).
+- **Migració:** NO s'han de rebatejar les classes o mètodes que realment parlen amb l'API de Connector importació Notion (`notion_api.py`).
+- **Secrets:** Les variables d'entorn a `.env_shared` que contenen tokens de Connector importació Notion han de mantenir el seu nom fins que es disposi d'una alternativa (si n'hi ha).
 
 ## 6. Protocols de l'Observador (Antigravity)
 
-- Sempre que es trobi una nova menció de Notion, s'ha de preguntar si és "Identitat" o "Integració".
+- Sempre que es trobi una nova menció de Connector importació Notion, s'ha de preguntar si és "Identitat" o "Integració".
 - Si es canvia un nom de component a React, s'ha de verificar la importació en tots els fitxers afectats.
 
 ## 7. Exemples d'Ús
 
 ```bash
 # Exemple de cerca de mencions pendents
-grep -r "Notion" . --exclude-dir=node_modules
+grep -r "Connector importació Notion" . --exclude-dir=node_modules
 ```

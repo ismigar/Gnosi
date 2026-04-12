@@ -45,7 +45,6 @@ export const VaultShell = ({
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-indigo-100 italic-none transition-colors duration-300">
-            {/* Sidebar - Notion Style */}
             <aside
                 className={`${isSidebarOpen ? 'w-[240px]' : 'w-0'} transition-all duration-300 ease-in-out border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex flex-col shrink-0 overflow-hidden relative group`}
             >

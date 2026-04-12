@@ -1,14 +1,14 @@
-# Directive: Configurar Agent Digital Brain
+# Directive: Configure Gnosi Agent
 
-## Objectiu
-Configurar i verificar l'agent multi-agent del Digital Brain.
+## Objective
+Configure and verify the Gnosi multi-agent system.
 
-## Arquitectura
+## Architecture
 
 ```
 ┌─────────────────────────────────────────┐
 │              SUPERVISOR                  │
-│  (Ruta a l'agent apropiat)              │
+│     (Routes to the appropriate agent)    │
 └────────────┬────────────────────────────┘
              │
     ┌────────┼────────┬────────────┐
@@ -18,50 +18,50 @@ Configurar i verificar l'agent multi-agent del Digital Brain.
 └──────┘ └──────┘ └─────────┘ └──────┘
 ```
 
-- **Coder**: Gestió de codi, git, sistema de fitxers
-- **Brain**: Notion, n8n, memòria vectorial, directives
-- **General**: Conversa casual
+- **Coder**: Code management, git, filesystem.
+- **Brain**: Notion import connector, n8n, vector memory, directives.
+- **General**: Casual conversation.
 
-## Procediment
+## Procedure
 
-### 1. Iniciar Backend
+### 1. Start Backend
 ```bash
-cd monorepo/apps/digital-brain
-./run_dev.sh  # o docker-compose up -d
+cd monorepo/apps/gnosi
+./run_dev.sh  # or docker-compose up -d
 ```
 
-### 2. Verificar Agent
+### 2. Verify Agent
 ```python
 from backend.agent.factory import _get_hybrid_llm, build_graph
-llm = _get_hybrid_llm()  # Hauria de dir "✅ Agent using Ollama (local)"
+llm = _get_hybrid_llm()  # Should say "✅ Agent using Ollama (local)"
 ```
 
-### 3. Verificar Memòria
+### 3. Verify Memory
 ```python
 from backend.agent.memory import MemoryStore
 store = MemoryStore()
 store.add_memory("Test")
-store.search_memory("Test")  # Hauria de retornar ["Test"]
+store.search_memory("Test")  # Should return ["Test"]
 ```
 
-## Restriccions / Edge Cases
+## Restrictions / Edge Cases
 
-### ⚠️ Ollama no disponible
+### ⚠️ Ollama not available
 - **Error**: "⚠️ Ollama not available"
-- **Causa**: Ollama no està corrent
-- **Solució**: `ollama serve` o verificar que l'app Ollama està oberta
+- **Cause**: Ollama is not running.
+- **Solution**: Run `ollama serve` or verify that the Ollama app is open.
 
 ### ⚠️ Memory not initialized
 - **Error**: "Memory not initialized (No embeddings available)"
-- **Causa**: sentence-transformers no instal·lat
-- **Solució**: `pip install sentence-transformers`
+- **Cause**: `sentence-transformers` not installed.
+- **Solution**: `pip install sentence-transformers`.
 
-### ⚠️ Tool calling limitat amb Ollama
-- Models locals (llama3.2) tenen suport limitat de tool-calling
-- Per tasques complexes amb moltes eines, pot ser millor usar Groq
+### ⚠️ Limited Tool Calling with Ollama
+- Local models (llama3.2) have limited tool-calling support.
+- For complex tasks with many tools, using Groq may be preferred.
 
-## Fitxers Relacionats
-- `backend/agent/factory.py` - Construcció del graf d'agents
-- `backend/agent/memory.py` - Memòria vectorial
-- `backend/agent/system_tools.py` - Eines del Coder
-- `backend/agent/tools.py` - Eines MCP per Brain
+## Related Files
+- `backend/agent/factory.py` - Construction of the agent graph.
+- `backend/agent/memory.py` - Vector memory.
+- `backend/agent/system_tools.py` - Coder tools.
+- `backend/agent/tools.py` - MCP tools for Brain.

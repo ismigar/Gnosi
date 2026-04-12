@@ -1,62 +1,204 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { Search, Filter, Building2, User, CheckCircle2 } from 'lucide-react';
 
 export default function ContactList({ contacts, selectedId, onSelect, filter, onFilterChange, loading }) {
+    const { t } = useTranslation();
+
     return (
-        <div className="w-80 border-r border-[var(--border-color)] flex flex-col bg-[var(--bg-secondary)]">
-            <div className="p-4 border-b border-[var(--border-color)] space-y-3">
-                <input
-                    type="text"
-                    placeholder="Search contacts..."
-                    value={filter.search}
-                    onChange={(e) => onFilterChange({ ...filter, search: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <select
-                    value={filter.type}
-                    onChange={(e) => onFilterChange({ ...filter, type: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="">All types</option>
-                    <option value="personal">Personal</option>
-                    <option value="b2b">Business</option>
-                </select>
+        <div className="contact-list" style={{ 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            background: 'var(--bg-primary)', 
+            borderRight: '1px solid var(--border-primary)' 
+        }}>
+            {/* Filter Area - more compact and consistent */}
+            <div className="contact-list__filters" style={{ 
+                padding: '12px 16px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '8px', 
+                borderBottom: '1px solid var(--border-primary)',
+                background: 'var(--bg-primary)'
+            }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Search size={14} style={{ 
+                        position: 'absolute', 
+                        left: '10px', 
+                        color: 'var(--text-tertiary)',
+                        opacity: 0.6
+                    }} />
+                    <input
+                        type="text"
+                        placeholder={t('contacts.search_placeholder', 'Cerca...')}
+                        value={filter.search}
+                        onChange={(e) => onFilterChange({ ...filter, search: e.target.value })}
+                        style={{
+                            width: '100%',
+                            padding: '6px 10px 6px 32px',
+                            borderRadius: '6px',
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '13px',
+                            outline: 'none',
+                            transition: 'all 0.2s',
+                        }}
+                    />
+                </div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Filter size={12} style={{ 
+                        position: 'absolute', 
+                        left: '10px', 
+                        color: 'var(--text-tertiary)',
+                        opacity: 0.6
+                    }} />
+                    <select
+                        value={filter.type}
+                        onChange={(e) => onFilterChange({ ...filter, type: e.target.value })}
+                        style={{
+                            width: '100%',
+                            padding: '6px 10px 6px 32px',
+                            borderRadius: '6px',
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '12px',
+                            appearance: 'none',
+                            outline: 'none',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <option value="">{t('contacts.filter_all', 'Tots els tipus')}</option>
+                        <option value="personal">{t('contacts.type_personal', 'Personal')}</option>
+                        <option value="b2b">{t('contacts.type_business', 'Empresa')}</option>
+                    </select>
+                </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="contact-list__items" style={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+            }}>
                 {loading ? (
-                    <div className="p-4 text-center text-[var(--text-secondary)]">Loading...</div>
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                        <div className="animate-spin" style={{ display: 'inline-block', marginBottom: '8px' }}>
+                            <Filter size={20} opacity={0.3} />
+                        </div>
+                        <p style={{ fontSize: '12px' }}>{t('common.status.loading')}</p>
+                    </div>
                 ) : contacts.length === 0 ? (
-                    <div className="p-4 text-center text-[var(--text-secondary)]">No contacts found</div>
+                    <div style={{ padding: '48px 16px', textAlign: 'center', opacity: 0.4 }}>
+                        <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('contacts.no_contacts', 'Cap contacte')}</p>
+                    </div>
                 ) : (
-                    <ul className="divide-y divide-[var(--border-color)]">
-                        {contacts.map((contact) => (
-                            <li
-                                key={contact.id}
-                                onClick={() => onSelect(contact)}
-                                className={`p-4 cursor-pointer hover:bg-[var(--bg-primary)] transition-colors ${
-                                    selectedId === contact.id ? 'bg-[var(--bg-primary)]' : ''
-                                }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                                        {contact.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium truncate">{contact.name}</p>
-                                        <p className="text-sm text-[var(--text-secondary)] truncate">{contact.email}</p>
-                                        {contact.company && (
-                                            <p className="text-xs text-[var(--text-secondary)] truncate">{contact.company}</p>
-                                        )}
-                                    </div>
+                    contacts.map((contact) => (
+                        <div
+                            key={contact.id}
+                            onClick={() => onSelect(contact)}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.1s ease',
+                                background: selectedId === contact.id ? 'var(--bg-secondary)' : 'transparent',
+                                border: '1px solid',
+                                borderColor: selectedId === contact.id ? 'var(--border-primary)' : 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                position: 'relative'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (selectedId !== contact.id) {
+                                    e.currentTarget.style.background = 'var(--bg-secondary)';
+                                    e.currentTarget.style.opacity = '0.8';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (selectedId !== contact.id) {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.opacity = '1';
+                                }
+                            }}
+                        >
+                            <div style={{ 
+                                width: '32px', 
+                                height: '32px', 
+                                borderRadius: '8px', 
+                                background: contact.photo_url ? 'transparent' : (contact.type === 'b2b' ? 'rgba(59,130,246,0.08)' : 'rgba(16,185,129,0.08)'), 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                color: contact.type === 'b2b' ? 'var(--gnosi-blue)' : '#10b981',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                flexShrink: 0,
+                                overflow: 'hidden'
+                            }}>
+                                {contact.photo_url ? (
+                                    <img 
+                                        src={contact.photo_url} 
+                                        alt={contact.name} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                                    />
+                                ) : null}
+                                <div style={{ width: '100%', textAlign: 'center', display: contact.photo_url ? 'none' : 'block' }}>
+                                    {contact.name.charAt(0).toUpperCase()}
+                                </div>
+                            </div>
+                            
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <p style={{ 
+                                        margin: 0, 
+                                        fontSize: '13px', 
+                                        fontWeight: selectedId === contact.id ? '600' : '500', 
+                                        color: selectedId === contact.id ? 'var(--text-primary)' : 'var(--text-primary)', 
+                                        whiteSpace: 'nowrap', 
+                                        overflow: 'hidden', 
+                                        textOverflow: 'ellipsis' 
+                                    }}>
+                                        {contact.name}
+                                    </p>
                                     {contact.google_resource_name && (
-                                        <span className="w-2 h-2 rounded-full bg-green-500" title="Synced with Google" />
+                                        <CheckCircle2 size={10} style={{ color: '#4285f4', opacity: 0.8 }} />
                                     )}
                                 </div>
-                            </li>
-                        ))}
-                    </ul>
+                                <p style={{ 
+                                    margin: 0, 
+                                    fontSize: '11px', 
+                                    color: 'var(--text-tertiary)', 
+                                    whiteSpace: 'nowrap', 
+                                    overflow: 'hidden', 
+                                    textOverflow: 'ellipsis',
+                                    opacity: 0.7
+                                }}>
+                                    {contact.company || contact.email}
+                                </p>
+                            </div>
+                            
+                            {selectedId === contact.id && (
+                                <div style={{ 
+                                    width: '2px', 
+                                    height: '16px', 
+                                    background: 'var(--gnosi-blue)', 
+                                    borderRadius: '1px', 
+                                    position: 'absolute', 
+                                    left: '0px' 
+                                }} />
+                            )}
+                        </div>
+                    ))
                 )}
             </div>
         </div>
     );
+
 }

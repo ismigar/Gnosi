@@ -1,27 +1,27 @@
-# Directive: Controls de Visualització del Graf
+# Directive: Graph Visualization Controls
 
-## Objectiu
-Implementar i mantenir controls d'interfície per modificar l'aparença del graf (Sigma.js) dinàmicament.
+## Objective
+Implement and maintain interface controls to dynamically modify the appearance of the graph (Sigma.js).
 
-## Arquitectura
+## Architecture
 
-### Flux de Dades
+### Data Flow
 ```
 VisualizationSection (UI) -> GraphPage (State) -> GraphViewer (Renderer)
 ```
 
-### Components Clau
+### Key Components
 
 1. **UI (`VisualizationSection.jsx`)**
-   - Sliders i toggles dins d'una `CollapsibleSection`.
+   - Sliders and toggles inside a `CollapsibleSection`.
    - Props: `showArrows`, `nodeSize`, etc.
 
-2. **Renderitzat (`GraphViewer.jsx`)**
-   - **Sigma Settings**: Per atributs globals com `labelRenderedSizeThreshold`.
+2. **Rendering (`GraphViewer.jsx`)**
+   - **Sigma Settings**: For global attributes like `labelRenderedSizeThreshold`.
      ```javascript
      rendererRef.current.setSetting('labelRenderedSizeThreshold', value);
      ```
-   - **Reducers**: Per atributs per element (node/edge).
+   - **Reducers**: For per-element attributes (node/edge).
      ```javascript
      // nodeReducer
      res.size = (data.size || 5) * nodeSizeRef.current;
@@ -29,31 +29,37 @@ VisualizationSection (UI) -> GraphPage (State) -> GraphViewer (Renderer)
      // edgeReducer
      if (!showArrowsRef.current) result.type = 'line';
      ```
-   - **Ref Sync**: Cal usar `useRef` per accedir als valors actuals dins dels reducers sense reinicialitzar Sigma.
+   - **Ref Sync**: Use `useRef` to access current values within reducers without reinitializing Sigma.
 
-## Procediment per Afegir un Nou Control
+---
 
-1. **Crear l'estat**: A `GraphPage.jsx`.
-2. **Afegir UI**: A `VisualizationSection.jsx`.
-3. **Passar prop**: A `GraphViewer`.
-4. **Sincronitzar Ref**: A `GraphViewer` (`const propRef = useRef(prop)` + `useEffect` per actualitzar).
-5. **Implementar Lògica**:
-   - Si és global: `useEffect` que crida `setSetting`.
-   - Si és per element: Modificar `nodeReducer` o `edgeReducer` usant el `ref`.
-6. **Refresh**: Sempre cridar `rendererRef.current.refresh()` després de canvis.
+## Procedure for Adding a New Control
 
-## Restriccions / Edge Cases
+1. **Create the state**: In `GraphPage.jsx`.
+2. **Add UI**: In `VisualizationSection.jsx`.
+3. **Pass prop**: To `GraphViewer`.
+4. **Sync Ref**: In `GraphViewer` (`const propRef = useRef(prop)` + `useEffect` to update).
+5. **Implement Logic**:
+   - If global: `useEffect` that calls `setSetting`.
+   - If per-element: Modify `nodeReducer` or `edgeReducer` using the `ref`.
+6. **Refresh**: Always call `rendererRef.current.refresh()` after changes.
 
-### ⚠️ Reinicialització vs Refresh
-- **Refresh**: Actualitza posicions/colors/mides (ràpid).
-- **Kill/New Sigma**: Reinicia tot el graf (lent, perd estat).
-- **Regla**: Evitar reinicialitzar si només canvia aparença. Usar `refs` dins dels reducers.
+---
 
-### ⚠️ Reactivitat dels Reducers
-Sigma no reactiva els reducers automàticament si canvien variables externes (closure).
-**Solució**: Usar `useRef` mutable que els reducers llegeixen a cada frame.
+## Restrictions / Edge Cases
 
-## Fitxers Relacionats
+### ⚠️ Reinitialization vs Refresh
+- **Refresh**: Updates positions/colors/sizes (fast).
+- **Kill/New Sigma**: Restarts the entire graph (slow, loses state).
+- **Rule**: Avoid reinitializing if only appearance changes. Use `refs` inside reducers.
+
+### ⚠️ Reducer Reactivity
+Sigma does not automatically reactivate reducers if external variables change (closure).
+**Solution**: Use a mutable `useRef` that reducers read in every frame.
+
+---
+
+## Related Files
 - `frontend/src/components/VisualizationSection.jsx`
 - `frontend/src/components/GraphViewer.jsx`
 - `frontend/src/pages/GraphPage.jsx`

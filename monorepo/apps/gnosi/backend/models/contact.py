@@ -45,11 +45,16 @@ class Contact(Base):
     address = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
 
+    emails = Column(Text, default="[]")
+    phones = Column(Text, default="[]")
+    addresses = Column(Text, default="[]")
+
     google_resource_name = Column(String, nullable=True, index=True)
     apple_resource_id = Column(String, nullable=True)
 
     last_synced_at = Column(DateTime, nullable=True)
     source = Column(String, default=ContactSource.LOCAL.value, nullable=False)
+    photo_url = Column(String, nullable=True)
 
     tags = Column(String, default="[]")
 
@@ -73,6 +78,10 @@ class ContactBase(BaseModel):
     address: Optional[str] = None
     notes: Optional[str] = None
     tags: Optional[List[str]] = []
+    emails: Optional[List[dict]] = []
+    phones: Optional[List[dict]] = []
+    addresses: Optional[List[dict]] = []
+    photo_url: Optional[str] = None
 
 
 class ContactCreate(ContactBase):
@@ -89,6 +98,10 @@ class ContactUpdate(BaseModel):
     address: Optional[str] = None
     notes: Optional[str] = None
     tags: Optional[List[str]] = None
+    emails: Optional[List[dict]] = None
+    phones: Optional[List[dict]] = None
+    addresses: Optional[List[dict]] = None
+    photo_url: Optional[str] = None
 
 
 class ContactResponse(ContactBase):
@@ -99,6 +112,10 @@ class ContactResponse(ContactBase):
     last_synced_at: Optional[datetime] = None
     source: ContactSource
     tags: List[str]
+    emails: List[dict]
+    phones: List[dict]
+    addresses: List[dict]
+    photo_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
