@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { DigitalBrainCalendar } from '../components/Vault/DigitalBrainCalendar';
 import { CalendarSidebarLeft } from '../components/Vault/CalendarSidebarLeft';
@@ -9,9 +10,11 @@ import { CalendarSidebarRight } from '../components/Vault/CalendarSidebarRight';
 import { CalendarContextMenu } from '../components/Vault/CalendarContextMenu';
 import { useTranslation } from 'react-i18next';
 import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export default function CalendarPage() {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [pages, setPages] = useState([]);
     const [undatedNotes, setUndatedNotes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -34,6 +37,7 @@ export default function CalendarPage() {
 
     // Side panel (replaces popup modal)
     const [eventPanel, setEventPanel] = useState(null); // null | { mode, data, date, isEditing }
+
     // Menú contextual
     const [contextMenu, setContextMenu] = useState({
         open: false,
@@ -42,8 +46,13 @@ export default function CalendarPage() {
         date: '',
         eventId: null,
         instanceStart: '',
-        allDay: false,
+        allDay: false
     });
+
+    // Estats de supressió
+    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [isRecurrenceChoiceOpen, setIsRecurrenceChoiceOpen] = useState(false);
+    const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
     const availableCalendars = useMemo(() => {
         const sources = new Set();
@@ -424,94 +433,85 @@ export default function CalendarPage() {
     }, []);
 
     // Eliminar evento desde context menu (reforçat amb ID directe)
-    const handleDeleteFromContext = useCallback(async (forcedId = null) => {
+    const handleDeleteFromContext = useCallback((forcedId = null) => {
         const targetEventId = forcedId || contextMenu.eventId || selectedEventId;
-        console.log('handleDeleteFromContext - targetEventId:', targetEventId);
-        
-        if (!targetEventId) {
-            console.error('handleDeleteFromContext: No event ID found');
-            toast.error(t('calendar.no_event_selected'));
-            return;
-        }
+        if (!targetEventId) return;
 
         const eventData = pages.find(p => p.id === targetEventId) || selectedEvent;
-        console.log('handleDeleteFromContext - eventData:', eventData);
+        if (!eventData) return;
 
-        if (!eventData) {
-            console.error('handleDeleteFromContext: Event not found in pages or selectedEvent');
-            toast.error(t('calendar.error_loading_event'));
-            return;
-        }
-
-        // Guàrdia d'origen: no permetre eliminar cites externes des de Gnosi
+        // Guàrdia d'origen
         const isGoogleEvent = eventData?.metadata?.source === 'google' || 
                              (typeof eventData.id === 'string' && eventData.id.length > 20 && !eventData.id.includes('-'));
         
         if (isGoogleEvent) {
-            console.warn('handleDeleteFromContext: Blocking deletion of external (Google) event');
-            toast.error(t('calendar.external_event_delete_warning', 'Les cites externes s\'han d\'eliminar des de la plataforma d\'origen.'));
+            toast.error(t('calendar.external_event_delete_warning'));
             return;
         }
 
+        setPendingDeleteId(targetEventId);
         const isRecurrent = !!(eventData.metadata?.rrule || eventData.metadata?.recurrence);
+        
+        if (isRecurrent) {
+            setIsRecurrenceChoiceOpen(true);
+        } else {
+            setIsConfirmDeleteOpen(true);
+        }
+        closeContextMenu();
+    }, [contextMenu.eventId, selectedEventId, pages, selectedEvent, t, closeContextMenu]);
+
+    const executeDelete = async (isSeries = false, isInstanceOnly = false) => {
+        const targetEventId = pendingDeleteId;
+        if (!targetEventId) return;
+
+        const eventData = pages.find(p => p.id === targetEventId) || selectedEvent;
+        if (!eventData) return;
 
         try {
-            if (isRecurrent) {
-                const choice = window.prompt(t('calendar.recurrent_delete_prompt'));
-
-                if (!choice) return;
-
-                if (choice.trim() === '1') {
-                    const occurrenceKey = buildOccurrenceKey(
-                        contextMenu.instanceStart,
-                        contextMenu.date,
-                        contextMenu.allDay,
-                        eventData.metadata || {}
-                    );
-                    if (!occurrenceKey) {
-                        toast.error(t('calendar.error_identifying_instance'));
-                        return;
-                    }
-
-                    const existingExdates = Array.isArray(eventData.metadata?.exdates)
-                        ? eventData.metadata.exdates
-                        : (typeof eventData.metadata?.exdates === 'string'
-                            ? eventData.metadata.exdates.split(',').filter(Boolean)
-                            : []);
-
-                    if (!existingExdates.includes(occurrenceKey)) {
-                        const patchedMetadata = {
-                            ...(eventData.metadata || {}),
-                            exdates: [...existingExdates, occurrenceKey],
-                        };
-                        await axios.patch(`/api/vault/pages/${targetEventId}`, {
-                            metadata: patchedMetadata,
-                        });
-                    }
-                    toast.success(t('calendar.instance_deleted'));
-                } else if (choice.trim() === '2') {
-                    if (!window.confirm(t('calendar.confirm_delete_series'))) return;
-                    await axios.delete(`/api/vault/pages/${targetEventId}`);
-                    toast.success(t('calendar.series_deleted'));
-                } else {
+            if (isInstanceOnly) {
+                const occurrenceKey = buildOccurrenceKey(
+                    contextMenu.instanceStart,
+                    contextMenu.date,
+                    contextMenu.allDay,
+                    eventData.metadata || {}
+                );
+                if (!occurrenceKey) {
+                    toast.error(t('calendar.error_identifying_instance'));
                     return;
                 }
+
+                const existingExdates = Array.isArray(eventData.metadata?.exdates)
+                    ? eventData.metadata.exdates
+                    : (typeof eventData.metadata?.exdates === 'string'
+                        ? eventData.metadata.exdates.split(',').filter(Boolean)
+                        : []);
+
+                const patchedMetadata = {
+                    ...(eventData.metadata || {}),
+                    exdates: [...new Set([...existingExdates, occurrenceKey])],
+                };
+                await axios.patch(`/api/vault/pages/${targetEventId}`, {
+                    metadata: patchedMetadata,
+                });
+                toast.success(t('calendar.instance_deleted'));
             } else {
-                if (!window.confirm(t('calendar.confirm_delete_event'))) return;
+                // Delete event or full series
                 await axios.delete(`/api/vault/pages/${targetEventId}`);
-                toast.success(t('calendar.event_deleted'));
+                toast.success(isSeries ? t('calendar.series_deleted') : t('calendar.event_deleted'));
             }
 
             setSelectedEventId(null);
             setSelectedEvent(null);
             setEventPanel(null);
-            closeContextMenu();
+            setIsConfirmDeleteOpen(false);
+            setIsRecurrenceChoiceOpen(false);
+            setPendingDeleteId(null);
             await fetchPages();
         } catch (err) {
             console.error('Error deleting event:', err);
             toast.error(t('calendar.error_deleting_event'));
         }
-    }, [selectedEventId, selectedEvent, contextMenu, pages, buildOccurrenceKey, closeContextMenu]);
+    };
 
     // Callback quan es desa un event - actualizar solo ese evento en el estado local
     const handleEventSaved = useCallback((updatedEvent) => {
@@ -665,11 +665,12 @@ export default function CalendarPage() {
                             onSetDefaultCalendar={async (source) => {
                                 try {
                                     await axios.put('/api/integrations/default_calendar', { source });
+                                    setIntegrations(prev => ({ ...prev, default_calendar: source }));
                                 } catch (err) {
                                     console.error('Error desant calendari predeterminat:', err);
                                 }
                             }}
-                            defaultCalendar={defaultCalendar}
+                            defaultCalendar={integrations?.default_calendar}
                             calendarConfigs={calendarConfigs}
                             undatedNotes={undatedNotes}
                             onNoteClick={handleEventClick}
@@ -737,11 +738,61 @@ export default function CalendarPage() {
                 onDeleteEvent={contextMenu.eventId ? handleDeleteFromContext : null}
             />
 
-            <GlobalSearchModal
+            <ConfirmModal 
+                isOpen={isConfirmDeleteOpen}
+                onClose={() => setIsConfirmDeleteOpen(false)}
+                onConfirm={() => executeDelete()}
+                title={t('calendar.confirm_delete_event_title', 'Eliminar cita')}
+                message={t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?')}
+                confirmText={t('common.delete', 'Eliminar')}
+                isDestructive={true}
+            />
+
+            {/* MODAL DE TRIA DE RECURRÈNCIA */}
+            {isRecurrenceChoiceOpen && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsRecurrenceChoiceOpen(false)} />
+                    <div className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-4 mb-6 text-red-500">
+                            <div className="p-3 bg-red-500/10 rounded-2xl"><Trash2 size={24} /></div>
+                            <h3 className="text-xl font-black tracking-tight">{t('calendar.recurrent_delete_title', 'Esborrar cita recurrent')}</h3>
+                        </div>
+                        <p className="text-[var(--text-secondary)] mb-8 leading-relaxed">
+                            {t('calendar.recurrent_delete_msg', 'Aquesta és una cita repetitiva. Què vols eliminar?')}
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                onClick={() => executeDelete(false, true)}
+                                className="w-full p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] hover:border-[var(--gnosi-primary)] text-left transition-all group"
+                            >
+                                <div className="font-bold text-[var(--text-primary)] group-hover:text-[var(--gnosi-primary)]">{t('calendar.delete_instance', 'Només aquesta instància')}</div>
+                                <div className="text-xs text-[var(--text-tertiary)] mt-1">{t('calendar.delete_instance_desc', 'Elimina només la cita d\'avui de la sèrie.')}</div>
+                            </button>
+                            <button 
+                                onClick={() => executeDelete(true, false)}
+                                className="w-full p-4 rounded-2xl bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 text-left transition-all"
+                            >
+                                <div className="font-bold text-red-500">{t('calendar.delete_series', 'Tota la sèrie')}</div>
+                                <div className="text-xs text-red-500/60 mt-1">{t('calendar.delete_series_desc', 'Elimina permanentment totes les repeticions.')}</div>
+                            </button>
+                        </div>
+                        <button 
+                            onClick={() => setIsRecurrenceChoiceOpen(false)}
+                            className="w-full mt-6 p-4 rounded-2xl font-bold text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] transition-all"
+                        >
+                            {t('common.cancel', 'Cancel·lar')}
+                        </button>
+                    </div>
+                </div>
+            )}
+            <GlobalSearchModal 
                 isOpen={isGlobalSearchOpen}
                 onClose={() => setIsGlobalSearchOpen(false)}
                 allNotes={pages}
-                onNoteSelect={(id) => handleEventClick(id)}
+                onNoteSelect={(id) => {
+                    navigate(`/vault?id=${id}`);
+                    setIsGlobalSearchOpen(false);
+                }}
             />
         </div>
     );

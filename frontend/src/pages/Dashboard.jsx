@@ -18,7 +18,9 @@ function Dashboard() {
     const [approvedLoading, setApprovedLoading] = useState(true);
     const [analytics, setAnalytics] = useState(null);
     const [schedulers, setSchedulers] = useState([]);
+    const [notifications, setNotifications] = useState([]);
     const [schedulerLoading, setSchedulerLoading] = useState(true);
+    const [notificationsLoading, setNotificationsLoading] = useState(false);
     const [selectedControlTab, setSelectedControlTab] = useState('schedulers');
     
     // Admin state
@@ -110,6 +112,18 @@ function Dashboard() {
         }
     };
 
+    const fetchNotifications = async (silent = false) => {
+        if (!silent) setNotificationsLoading(true);
+        try {
+            const data = await apiFetch('/api/system/notifications?limit=30');
+            setNotifications(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error("Error fetching notifications", e);
+        } finally {
+            if (!silent) setNotificationsLoading(false);
+        }
+    };
+
     const handleGlobalRefresh = async () => {
         // Run all fetches in parallel
         await Promise.all([
@@ -117,7 +131,8 @@ function Dashboard() {
             fetchAnalytics(),
             fetchSchedulers(false),
             fetchApprovedTools(),
-            fetchPendingTools()
+            fetchPendingTools(),
+            fetchNotifications(false)
         ]);
     };
 
@@ -141,18 +156,21 @@ function Dashboard() {
         fetchAnalytics();
         fetchSchedulers();
         fetchApprovedTools();
+        fetchNotifications();
         fetchCurrentRole();
         const interval = setInterval(fetchStats, 2000);
         const toolsInterval = setInterval(fetchPendingTools, 5000);
         const analyticsInterval = setInterval(fetchAnalytics, 30000);
         const schedulersInterval = setInterval(() => fetchSchedulers(true), 30000);
         const approvedToolsInterval = setInterval(fetchApprovedTools, 30000);
+        const notificationsInterval = setInterval(() => fetchNotifications(true), 15000);
         return () => {
             clearInterval(interval);
             clearInterval(toolsInterval);
             clearInterval(analyticsInterval);
             clearInterval(schedulersInterval);
             clearInterval(approvedToolsInterval);
+            clearInterval(notificationsInterval);
         };
     }, [fetchSchedulers]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -569,85 +587,135 @@ function Dashboard() {
                 )}
 
                 {selectedControlTab === 'history' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.activity_summary')}</h3>
-                            <div className="space-y-3 text-sm">
-                                <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                    <p className="text-gray-400">{t('dashboard.errors_prevented_sops')}</p>
-                                    <p className="font-bold text-red-400">{analytics.errors_prevented || 0}</p>
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
+                                <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.activity_summary')}</h3>
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
+                                        <p className="text-gray-400">{t('dashboard.errors_prevented_sops')}</p>
+                                        <p className="font-bold text-red-400">{analytics.errors_prevented || 0}</p>
+                                    </div>
+                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
+                                        <p className="text-gray-400">{t('dashboard.active_processes')}</p>
+                                        <p className="font-bold text-blue-400">{schedulers.filter(s => s.status === 'active').length}</p>
+                                    </div>
+                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
+                                        <p className="text-gray-400">{t('dashboard.total_memories')}</p>
+                                        <p className="font-bold text-cyan-400">{stats.memory_items}</p>
+                                    </div>
+                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
+                                        <span className="text-gray-300">{t('dashboard.tools_pending_approval')}</span>
+                                        <span className="font-bold text-yellow-300">{pendingTools.length}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
+                                        <span className="text-gray-300">{t('dashboard.total_approved_tools')}</span>
+                                        <span className="font-bold text-green-300">{analytics?.tools?.approved ?? 0}</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                    <p className="text-gray-400">{t('dashboard.active_processes')}</p>
-                                    <p className="font-bold text-blue-400">{schedulers.filter(s => s.status === 'active').length}</p>
-                                </div>
-                                <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                    <p className="text-gray-400">{t('dashboard.total_memories')}</p>
-                                    <p className="font-bold text-cyan-400">{stats.memory_items}</p>
-                                </div>
-                                <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                    <span className="text-gray-300">{t('dashboard.tools_pending_approval')}</span>
-                                    <span className="font-bold text-yellow-300">{pendingTools.length}</span>
-                                </div>
-                                <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                    <span className="text-gray-300">{t('dashboard.total_approved_tools')}</span>
-                                    <span className="font-bold text-green-300">{analytics?.tools?.approved ?? 0}</span>
+
+                                <h4 className="text-gray-500 text-xs uppercase font-bold tracking-widest mt-7 mb-4">{t('dashboard.latest_scheduled_runs')}</h4>
+                                <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                                    {schedulers
+                                        .filter(task => task.last_run)
+                                        .sort((a, b) => new Date(b.last_run) - new Date(a.last_run))
+                                        .slice(0, 10)
+                                        .map(task => (
+                                            <div key={`${task.name}-last`} className="border border-white/10 rounded-lg p-3 bg-white/5">
+                                                <p className="text-sm font-semibold text-white">{task.name.replace(/_/g, ' ')}</p>
+                                                <p className="text-xs text-gray-400">{new Date(task.last_run).toLocaleString()}</p>
+                                            </div>
+                                        ))}
+                                    {schedulers.filter(task => task.last_run).length === 0 && (
+                                        <p className="text-sm text-gray-500">{t('dashboard.no_runs_recorded')}</p>
+                                    )}
                                 </div>
                             </div>
 
-                            <h4 className="text-gray-500 text-xs uppercase font-bold tracking-widest mt-7 mb-4">{t('dashboard.latest_scheduled_runs')}</h4>
-                            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-                                {schedulers
-                                    .filter(task => task.last_run)
-                                    .sort((a, b) => new Date(b.last_run) - new Date(a.last_run))
-                                    .slice(0, 10)
-                                    .map(task => (
-                                        <div key={`${task.name}-last`} className="border border-white/10 rounded-lg p-3 bg-white/5">
-                                            <p className="text-sm font-semibold text-white">{task.name.replace(/_/g, ' ')}</p>
-                                            <p className="text-xs text-gray-400">{new Date(task.last_run).toLocaleString()}</p>
-                                        </div>
-                                    ))}
-                                {schedulers.filter(task => task.last_run).length === 0 && (
-                                    <p className="text-sm text-gray-500">{t('dashboard.no_runs_recorded')}</p>
+                            <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
+                                <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.approved_tools_history')}</h3>
+                                {approvedLoading ? (
+                                    <p className="text-gray-400">{t('dashboard.loading_history')}</p>
+                                ) : approvedTools.length === 0 ? (
+                                    <p className="text-gray-500">{t('dashboard.no_approved_tools')}</p>
+                                ) : (
+                                    <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                                        {approvedTools
+                                            .slice()
+                                            .sort((a, b) => {
+                                                const aTs = a.approved_at ? new Date(a.approved_at).getTime() : 0;
+                                                const bTs = b.approved_at ? new Date(b.approved_at).getTime() : 0;
+                                                return bTs - aTs;
+                                            })
+                                            .slice(0, 30)
+                                            .map(tool => (
+                                                <div key={tool.name} className="border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <p className="text-sm font-semibold text-blue-300 truncate">{tool.name}</p>
+                                                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${tool.risk_level === 'EXTERNAL_WRITE'
+                                                            ? 'bg-red-500/20 text-red-400'
+                                                            : 'bg-yellow-500/20 text-yellow-400'
+                                                            }`}>
+                                                            {tool.risk_level.replace(/_/g, ' ')}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 mt-1">{tool.approved_at ? new Date(tool.approved_at).toLocaleString() : t('dashboard.no_approval_date')}</p>
+                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{tool.description}</p>
+                                                </div>
+                                            ))}
+                                    </div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.approved_tools_history')}</h3>
-                            {approvedLoading ? (
-                                <p className="text-gray-400">{t('dashboard.loading_history')}</p>
-                            ) : approvedTools.length === 0 ? (
-                                <p className="text-gray-500">{t('dashboard.no_approved_tools')}</p>
+                        <div className="mt-8 glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
+                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex items-center justify-between">
+                                {t('dashboard.system_logs', 'Logs de Sistema')}
+                                <span className="text-[10px] text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">{notifications.length} {t('common.entries', 'entrades')}</span>
+                            </h3>
+                            
+                            {notificationsLoading && notifications.length === 0 ? (
+                                <p className="text-gray-400">{t('dashboard.loading_logs', 'Carregant logs...')}</p>
+                            ) : notifications.length === 0 ? (
+                                <p className="text-gray-500 italic">{t('dashboard.no_logs', 'Sense activitat recent registrada.')}</p>
                             ) : (
-                                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                                    {approvedTools
-                                        .slice()
-                                        .sort((a, b) => {
-                                            const aTs = a.approved_at ? new Date(a.approved_at).getTime() : 0;
-                                            const bTs = b.approved_at ? new Date(b.approved_at).getTime() : 0;
-                                            return bTs - aTs;
-                                        })
-                                        .slice(0, 30)
-                                        .map(tool => (
-                                            <div key={tool.name} className="border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <p className="text-sm font-semibold text-blue-300 truncate">{tool.name}</p>
-                                                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${tool.risk_level === 'EXTERNAL_WRITE'
-                                                        ? 'bg-red-500/20 text-red-400'
-                                                        : 'bg-yellow-500/20 text-yellow-400'
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-xs">
+                                        <thead>
+                                            <tr className="border-b border-white/5 text-gray-500 font-bold">
+                                                <th className="pb-2 w-32">{t('common.time', 'Hora')}</th>
+                                                <th className="pb-2 w-20">{t('common.level', 'Nivell')}</th>
+                                                <th className="pb-2">{t('common.event', 'Esdeveniment')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5">
+                                            {notifications.map(notif => (
+                                                <tr key={notif.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="py-2 text-gray-400 font-mono">
+                                                        {new Date(notif.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                    </td>
+                                                    <td className="py-2">
+                                                        <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
+                                                            notif.level === 'ERROR' ? 'bg-red-500/20 text-red-400' :
+                                                            notif.level === 'WARNING' ? 'bg-yellow-500/20 text-yellow-500' :
+                                                            notif.level === 'SUCCESS' ? 'bg-green-500/20 text-green-400' :
+                                                            'bg-blue-500/20 text-blue-400'
                                                         }`}>
-                                                        {tool.risk_level.replace(/_/g, ' ')}
-                                                    </span>
-                                                </div>
-                                                <p className="text-xs text-gray-400 mt-1">{tool.approved_at ? new Date(tool.approved_at).toLocaleString() : t('dashboard.no_approval_date')}</p>
-                                                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{tool.description}</p>
-                                            </div>
-                                        ))}
+                                                            {notif.level}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2">
+                                                        <div className="font-bold text-gray-200">{notif.title}</div>
+                                                        <div className="text-gray-400 mt-0.5">{notif.message}</div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </>
                 )}
 
                 {selectedControlTab === 'admin' && isAdmin && gnosiMode === 'org' && (

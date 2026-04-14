@@ -1,6 +1,7 @@
 {
-  "zotero_db": "~/Zotero/zotero.sqlite",
-  "target_db": "",
+  "user": "",
+  "pwd": "",
+  "workspace": "",
   "target_table": "",
   "mapping": {}
 }

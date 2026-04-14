@@ -23,7 +23,7 @@
     "vault_add_local_property": "Add local property",
     "vault_manage_fields": "Manage fields",
     "vault_welcome_title": "Welcome",
-    "vault_welcome_subtitle": "Select a vault page or",
+    "vault_welcome_subtitle": "Select a knowledge page or",
     "vault_welcome_create_page": "Create a page",
     "vault_welcome_create_db": "Create a DB",
     "vault": {
@@ -223,7 +223,7 @@
         }
     },
     "sidebar": {
-        "my_vault": "My Vault",
+        "my_vault": "My Knowledge",
         "search": "Search",
         "recent": "Recent",
         "drawings": "Drawings",
@@ -294,7 +294,7 @@
         "none": "None",
         "earliest": "Earliest",
         "latest": "Latest",
-        "no_notes": "There are no notes in the Vault yet.",
+        "no_notes": "There are no notes in Knowledge yet.",
         "showing_records": "Showing {{count}} of {{total}} records",
         "show_more_count": "Show {{count}} more"
     },
@@ -580,12 +580,12 @@
         "default_badge": "Def."
     },
     "settings": {
-        "title": "Global Settings",
+        "title": "Settings",
         "tabs": {
             "general": "General",
             "language": "Language & Region",
             "appearance": "Appearance",
-            "calendar": "Local Calendar",
+            "calendar": "Calendars",
             "graph": "Graph Config",
             "newsletters": "Subscriptions",
             "mail_accounts": "Mail Accounts",
@@ -596,7 +596,13 @@
         "general": {
             "title": "General Configuration",
             "desc": "Configure the basic options of the application and your workspace.",
+            "subtitle": "Sovereign Knowledge",
             "user_name": "User Name",
+            "name_placeholder": "Enter your name...",
+            "paths": "System Paths",
+            "vault": "Vault",
+            "databases": "Databases",
+            "newsletters": "Newsletters",
             "password": "Password",
             "password_desc": "Protect access to configuration.",
             "operation_mode": "Operation Mode",
@@ -636,7 +642,7 @@
             "reduce_animations_desc": "Improve performance on older computers."
         },
         "calendar": {
-            "title": "Local Calendar",
+            "title": "Calendars",
             "directory": "Calendar Directory (.ics)",
             "directory_desc": "Indicate the folder where your .ics calendar files are located for indexing.",
             "ics_path": "Where ICS files are saved",
@@ -658,8 +664,8 @@
             "connected_status": "Connected ✅",
             "add_btn": "Add calendar",
             "no_calendars": "No calendars configured yet.",
-            "vault_tables_title": "Vault Tables",
-            "vault_tables_desc": "Select which vault tables to show in the calendar.",
+            "vault_tables_title": "Knowledge Tables",
+            "vault_tables_desc": "Select which knowledge tables to show in the calendar.",
             "default_color": "Default color",
             "custom_name_placeholder": "Work, Personal...",
             "error_fill_url_pass": "Please fill in the URL and password",

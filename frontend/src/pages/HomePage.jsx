@@ -6,7 +6,7 @@ const modules = [
     {
         to: '/vault',
         icon: FileText,
-        title: 'Vault',
+        title: 'Knowledge',
         description: 'Escriu i organitza les teves notes i documents.',
         gradient: 'home-card--graph',
     },

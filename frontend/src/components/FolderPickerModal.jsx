@@ -5,7 +5,7 @@ import { X, Folder, ChevronRight, ArrowLeft, Home, Search } from 'lucide-react';
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
 export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' }) {
-    const [currentPath, setCurrentPath] = useState(initialPath || '/vault');
+    const [currentPath, setCurrentPath] = useState(initialPath || '/');
     const [displayPath, setDisplayPath] = useState('');
     const [directories, setDirectories] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -14,9 +14,14 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
 
     useEffect(() => {
         if (isOpen) {
-            browse(currentPath);
+            browserInit();
         }
-    }, [isOpen]);
+    }, [isOpen, initialPath]);
+
+    const browserInit = async () => {
+        const startPath = initialPath || currentPath || '/';
+        await browse(startPath);
+    };
 
     const browse = async (path) => {
         setLoading(true);
@@ -96,7 +101,14 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#a78bfa', fontSize: '0.85rem' }}
                             className="hover:underline"
                         >
-                            <Folder size={14} /> Mac Home
+                            <Folder size={14} /> Home
+                        </button>
+                        <button
+                            onClick={() => browse('/')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#f43f5e', fontSize: '0.85rem' }}
+                            className="hover:underline"
+                        >
+                            <Folder size={14} /> Root (/)
                         </button>
                     </div>
 

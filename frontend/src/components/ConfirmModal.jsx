@@ -52,7 +52,7 @@ export const ConfirmModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+        <div className="fixed inset-0 z-[var(--z-confirm-modal)] flex items-center justify-center">
             {/* Backdrop amb blur effect unificat de l'app */}
             <div
                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"

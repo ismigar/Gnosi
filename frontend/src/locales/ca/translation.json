@@ -151,7 +151,7 @@
         }
     },
     "sidebar": {
-        "my_vault": "El meu Vault",
+        "my_vault": "El meu Coneixement",
         "search": "Cerca",
         "recent": "Recent",
         "drawings": "Dibuixos",
@@ -222,7 +222,7 @@
         "none": "Cap",
         "earliest": "Més antic",
         "latest": "Més recent",
-        "no_notes": "Encara no hi ha notes al Vault.",
+        "no_notes": "Encara no hi ha notes al Coneixement.",
         "showing_records": "Mostrant {{count}} de {{total}} registres",
         "show_more_count": "Mostrar {{count}} més"
     },
@@ -547,7 +547,7 @@
         "search_placeholder": "Cercar a Unsplash...",
         "no_results": "Sense resultats",
         "delete_button": "Eliminar",
-        "upload_instruction": "Puja una imatge des del teu ordinador per usar com a portada del fitxer. Els arxius s'emmagatzemaran localment al teu Vault.",
+        "upload_instruction": "Puja una imatge des del teu ordinador per usar com a portada del fitxer. Els arxius s'emmagatzemaran localment al teu Coneixement.",
         "uploading": "Pujant...",
         "choose_image": "Triar Imatge",
         "link_instruction": "Enganxa l'enllaç d'una imatge. Funciona amb qualsevol imatge d'internet.",
@@ -561,12 +561,12 @@
         }
     },
     "settings": {
-        "title": "Configuració Global",
+        "title": "Configuració",
         "tabs": {
             "general": "General",
             "language": "Idioma i Regió",
             "appearance": "Aparença",
-            "calendar": "Calendari Local",
+            "calendar": "Calendaris",
             "graph": "Configuració del Graf",
             "newsletters": "Subscripcions",
             "mail_accounts": "Comptes de Correu",
@@ -577,13 +577,17 @@
         "general": {
             "title": "Configuració General",
             "desc": "Configura les opcions bàsiques de l'aplicació i el teu espai de treball.",
+            "subtitle": "Soberania del Coneixement",
             "user_name": "Nom de l'Usuari",
+            "name_placeholder": "Introdueix el teu nom...",
+            "paths": "Rutes del Sistema",
             "password": "Contrasenya",
             "password_desc": "Protegeix l'accés a la configuració.",
             "operation_mode": "Mode de funcionament",
             "mode_personal": "Personal",
             "mode_collective": "Col·lectiu",
             "workspace_name": "Nom del Workspace",
+            "workspace_placeholder": "Gnosi, El meu Cervell...",
             "workspace_create": "Crear Workspace",
             "ws_created": "Workspace creat correctament",
             "error_ws_name_required": "Cal un nom per al workspace",
@@ -617,7 +621,7 @@
             "reduce_animations_desc": "Millora el rendiment en equips antics."
         },
         "calendar": {
-            "title": "Calendari Local",
+            "title": "Calendaris",
             "directory": "Directori de Calendari (.ics)",
             "directory_desc": "Indica la carpeta on es troben els teus fitxers de calendari .ics per indexar-los.",
             "ics_path": "On es guarden els fitxers ICS",
@@ -629,9 +633,10 @@
             "sync_success": "Sincronització completada amb èxit",
             "sync_error": "Error en la sincronització",
             "add_btn": "Afegeix calendari",
+            "add_account_btn": "+ Afegir Compte / Calendari",
             "no_calendars": "Encara no hi ha calendaris configurats.",
-            "vault_tables_title": "Taules del Vault",
-            "vault_tables_desc": "Selecciona quines taules del vault vols mostrar al calendari.",
+            "vault_tables_title": "Taules del Coneixement",
+            "vault_tables_desc": "Selecciona quines taules del coneixement vols mostrar al calendari.",
             "default_color": "Color Base / Per defecte",
             "individual_colors_hint": "Els colors es poden personalitzar per a cada calendari individualment des de la barra lateral de la vista de Calendari.",
             "custom_name": "Nom personalitzat",
@@ -692,6 +697,7 @@
             "opml_desc": "Puja una exportació OPML de newsletters i feeds.",
             "loading": "Carregant subscripcions...",
             "no_subscriptions": "Encara no hi ha subscripcions configurades.",
+            "no_sources": "Encara no hi ha fonts configurades.",
             "delete": "Eliminar",
             "email_wizard": {
                 "mail_account": "Compte de correu",
@@ -715,7 +721,9 @@
                 "password_label": "Contrasenya / App Password",
                 "error_fill_fields": "Si us plau, omple tots els camps",
                 "signature_label": "Signatura HTML",
-                "add_btn": "Afegir compte"
+                "add_btn": "Afegir compte",
+                "accept_btn": "Acceptar",
+                "cancel_btn": "Cancel·lar"
             }
         },
         "zotero": {
@@ -723,6 +731,12 @@
             "desc": "Configura la sincronització de la teva biblioteca local de Zotero.",
             "target_table": "Taula Destí",
             "select_table": "Selecciona una taula...",
+            "acc_type": "Tipus de Compte",
+            "acc_type_personal": "Personal",
+            "acc_type_organization": "Organització",
+            "user": "Usuari",
+            "pwd": "Contrasenya / API Key",
+            "workspace": "ProjectID / Workspace (Library ID)",
             "field_mapping": "Mapeig de Camps",
             "no_map": "-- No mapar --",
             "sync_btn": "Sincronitzar"
@@ -809,9 +823,34 @@
                 "zenmux": "Router multi-model compatible.",
                 "custom": "Qualsevol endpoint compatible amb OpenAI."
             },
+            "add_provider_title": "Afegir Proveïdor d'IA",
+            "search_provider_placeholder": "Buscar proveïdor per nom o categoria...",
+            "create_agent": "Crear Nou Perfil d'IA",
+            "edit_agent_profile": "Editar Perfil de l'Agent",
+            "icon_label": "Icona",
+            "agent_name": "Nom de l'Agent",
+            "provider_label": "Proveïdor",
+            "model_label": "Model",
+            "instructions_persona": "Instruccions / Persona (System Prompt)",
+            "delete_agent": "Eliminar Agent",
+            "save_btn": "Guardar",
+            "confirm_delete_agent": "Estàs segur que vols eliminar aquest agent?",
+            "confirm_remove_provider": "Estàs segur que vols eliminar la configuració d'aquest proveïdor?",
+            "remove_provider": "Eliminar Proveïdor",
             "agents_title": "Perfils d'Agents",
             "new_agent": "Nou Agent",
+            "new_agent_name": "Nom de l'Agent",
+            "new_agent_btn": "+ Nou Agent",
             "edit_agent": "Edita Perfil de l'Agent",
+            "categories": {
+                "OpenCode": "OpenCode",
+                "Major LLMs": "Models Principals",
+                "Cloud Platforms": "Plataformes Cloud",
+                "Gateways & Routing": "Gateways i Rutes",
+                "Specialized APIs": "APIs Especialitzades",
+                "Enterprise": "Empresa",
+                "Local": "Local"
+            },
             "agent_icon": "Icona",
             "assistant_name": "Nom de l'Assistant",
             "provider": "Proveïdor",

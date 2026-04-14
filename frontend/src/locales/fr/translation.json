@@ -23,13 +23,32 @@
     "vault_add_local_property": "Ajouter une propriété locale",
     "vault_manage_fields": "Gérer les champs",
     "vault_welcome_title": "Bienvenue",
-    "vault_welcome_subtitle": "Sélectionne une page du vault ou",
+    "vault_welcome_subtitle": "Sélectionne une page de connaissance ou",
     "vault_welcome_create_page": "Crée une page",
     "vault_welcome_create_db": "Crée une BD",
     "settings": {
         "tabs": {
+            "general": "Général",
+            "language": "Langue et Région",
+            "appearance": "Apparence",
+            "calendar": "Calendrier Local",
+            "graph": "Graphique",
+            "newsletters": "Abonnements",
             "mail_accounts": "Comptes de Messagerie",
-            "contacts": "Contacts"
+            "contacts": "Contacts",
+            "ai": "Intelligence Artificielle",
+            "zotero": "Zotero"
+        },
+        "general": {
+            "title": "Configuration Générale",
+            "desc": "Configurez les options de base de l'application.",
+            "subtitle": "Souveraineté de la Connaissance",
+            "user_name": "Nom d'utilisateur",
+            "name_placeholder": "Entrez votre nom...",
+            "paths": "Chemins Système",
+            "vault": "Connaissance",
+            "databases": "Bases de données",
+            "newsletters": "Newsletters"
         },
         "mail_accounts": {
             "title": "Comptes de Messagerie",

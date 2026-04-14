@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { History, RotateCcw, X, Loader2, FileText, Clock, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-hot-toast';
+import { ConfirmModal } from '../ConfirmModal';
 
 const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const { t } = useTranslation();
@@ -10,6 +12,9 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const [previewContent, setPreviewContent] = useState(null);
   const [previewVersion, setPreviewVersion] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [isRestoreOpen, setIsRestoreOpen] = useState(false);
+  const [isPurgeOpen, setIsPurgeOpen] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null);
 
   useEffect(() => {
     if (open && pageId) {
@@ -42,30 +47,41 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     }
   };
 
-  const handleRestore = async (version) => {
-    if (window.confirm(t('vault.history.confirm_restore', { timestamp: version.timestamp }))) {
-      try {
-        await axios.post(`/api/vault/pages/${pageId}/history/restore/${version.id}`);
-        onRestore();
-        onClose();
-      } catch (error) {
-        console.error('Error restoring version:', error);
-        alert(t('vault.history.error_restore'));
-      }
+  const handleRestore = (version) => {
+    setRestoreTarget(version);
+    setIsRestoreOpen(true);
+  };
+
+  const executeRestore = async () => {
+    if (!restoreTarget) return;
+    try {
+      await axios.post(`/api/vault/pages/${pageId}/history/restore/${restoreTarget.id}`);
+      onRestore();
+      onClose();
+    } catch (error) {
+      console.error('Error restoring version:', error);
+      toast.error(t('vault.history.error_restore'));
+    } finally {
+      setIsRestoreOpen(false);
     }
   };
 
-  const handlePurge = async () => {
-    if (window.confirm(t('vault.history.confirm_purge'))) {
-      try {
-        await axios.delete(`/api/vault/pages/${pageId}/history`);
-        setHistory([]);
-        setPreviewContent(null);
-        setPreviewVersion(null);
-      } catch (error) {
-        console.error('Error purging history:', error);
-        alert(t('vault.history.error_purge'));
-      }
+  const handlePurge = () => {
+    setIsPurgeOpen(true);
+  };
+
+  const executePurge = async () => {
+    try {
+      await axios.delete(`/api/vault/pages/${pageId}/history`);
+      setHistory([]);
+      setPreviewContent(null);
+      setPreviewVersion(null);
+      toast.success(t('vault.history.purge_success', 'Historial purgat correctament'));
+    } catch (error) {
+      console.error('Error purging history:', error);
+      toast.error(t('vault.history.error_purge'));
+    } finally {
+      setIsPurgeOpen(false);
     }
   };
 
@@ -222,6 +238,26 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
           </div>
         </div>
       </div>
+
+      <ConfirmModal 
+        isOpen={isRestoreOpen}
+        onClose={() => setIsRestoreOpen(false)}
+        onConfirm={executeRestore}
+        title={t('vault.history.confirm_restore_title', 'Restaurar versió')}
+        message={t('vault.history.confirm_restore', { timestamp: restoreTarget?.timestamp })}
+        confirmText={t('common.restore', 'Restaurar')}
+        isDestructive={false}
+      />
+
+      <ConfirmModal 
+        isOpen={isPurgeOpen}
+        onClose={() => setIsPurgeOpen(false)}
+        onConfirm={executePurge}
+        title={t('vault.history.confirm_purge_title', 'Purgar historial')}
+        message={t('vault.history.confirm_purge')}
+        confirmText={t('common.purge', 'Purgar')}
+        isDestructive={true}
+      />
     </div>
   );
 };

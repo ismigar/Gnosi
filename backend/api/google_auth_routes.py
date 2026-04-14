@@ -54,7 +54,7 @@ async def status():
     }
 
 @router.get("/login")
-async def login():
+async def login(type: str = None):
     config = get_google_config()
     if not config:
         raise HTTPException(status_code=400, detail="Google OAuth credentials not configured in .env_shared")
@@ -71,9 +71,12 @@ async def login():
         prompt='consent'
     )
     
-    # Save the generated code_verifier associated with the state
+    # Save the generated code_verifier and context associated with the state
     if hasattr(flow, "code_verifier"):
-        pending_auths[state] = flow.code_verifier
+        pending_auths[state] = {
+            "code_verifier": flow.code_verifier,
+            "type": type or "calendar"
+        }
         
     return RedirectResponse(url=authorization_url)
 
@@ -93,8 +96,14 @@ async def callback(request: Request, background_tasks: BackgroundTasks):
     )
     
     # Retrieve the code_verifier if it exists
+    auth_type = "calendar"
     if state and state in pending_auths:
-        flow.code_verifier = pending_auths.pop(state)
+        auth_info = pending_auths.pop(state)
+        if isinstance(auth_info, dict):
+            flow.code_verifier = auth_info.get("code_verifier")
+            auth_type = auth_info.get("type", "calendar")
+        else:
+            flow.code_verifier = auth_info
     
     try:
         flow.fetch_token(code=code)
@@ -128,9 +137,9 @@ async def callback(request: Request, background_tasks: BackgroundTasks):
         # Trigger immediate sync in background
         background_tasks.add_task(calendar_sync_service.sync_all_calendars)
         
-        # Redirect back to the frontend
-        # TODO: Detect the frontend URL dynamically if necessary
-        frontend_url = "http://localhost:5173/calendar?auth=success"
+        # Redirect back to the frontend with context
+        # Tab management: activeTab in frontend should react to this
+        frontend_url = f"http://localhost:5173/calendar?auth=success&tab={auth_type}"
         return RedirectResponse(url=frontend_url)
         
     except Exception as e:
