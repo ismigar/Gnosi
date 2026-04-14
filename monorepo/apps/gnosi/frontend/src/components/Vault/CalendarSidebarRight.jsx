@@ -3,6 +3,7 @@ import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun } 
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../ConfirmModal';
 
 const REMINDER_OPTIONS = [
     { value: '', label: 'Cap' },
@@ -227,6 +228,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
     const isInitializing = useRef(true);
     const lastSavedData = useRef(null);
     const autoSaveTimeoutRef = useRef(null);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     // Poblar camps
     useEffect(() => {
@@ -382,9 +384,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                         toast.error(t('calendar.external_event_delete_warning', 'No es poden eliminar cites de Google Calendar des de Gnosi.'));
                         return;
                     }
-                    if (window.confirm(t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?'))) {
-                        handleDelete();
-                    }
+                    setIsDeleteConfirmOpen(true);
                 }
             }
         };
@@ -560,7 +560,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                     {mode === 'edit' && eventData?.id && (
                         <button 
                             type="button"
-                            onClick={handleDelete}
+                            onClick={() => setIsDeleteConfirmOpen(true)}
                             disabled={deleting}
                             className="text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-all"
                             title={t('calendar.delete', 'Eliminar')}
@@ -829,6 +829,16 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                     <span className="text-[10px] text-slate-300 font-mono">ESC: Deselecciona</span>
                 </div>
             </div>
+
+            <ConfirmModal 
+                isOpen={isDeleteConfirmOpen}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                onConfirm={handleDelete}
+                title={t('calendar.confirm_delete_event_title', 'Eliminar cita')}
+                message={t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?')}
+                confirmText={t('common.delete', 'Eliminar')}
+                isDestructive={true}
+            />
         </div>
     );
 };

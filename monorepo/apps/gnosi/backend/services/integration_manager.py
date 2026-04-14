@@ -39,6 +39,8 @@ class IntegrationManager:
         except Exception as e:
             log.error(f"Error loading integrations from {self.config_file}: {e}")
             return {}
+        
+        return data if isinstance(data, dict) else {}
 
     def _save(self, data: dict):
         try:

@@ -16,6 +16,50 @@ from backend.security.ai_credentials import (
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
 
+from backend.agent.factory import get_llm
+
+class ValidatePayload(BaseModel):
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    model: Optional[str] = None
+
+@router.post("/providers/{provider_id}/validate")
+async def validate_provider(provider_id: str, payload: ValidatePayload):
+    """
+    Attempts to validate the provider by making a simple 'ping' request.
+    If api_key is provided in payload, it uses it. Otherwise, it uses the saved one.
+    """
+    provider = provider_id.lower().strip()
+    
+    # Resolve API Key
+    api_key = payload.api_key
+    if not api_key:
+        api_key = resolve_provider_api_key(provider, {})
+    
+    if not api_key and provider not in ["ollama", "local", "generic"]:
+        return {"success": False, "error": "Falta la clau API per validar."}
+
+    try:
+        llm = get_llm(
+            provider=provider,
+            model=payload.model or ("gpt-4o-mini" if provider == "openai" else None),
+            api_key=api_key,
+            base_url=payload.base_url
+        )
+        
+        if not llm:
+            return {"success": False, "error": f"No s'ha pogut instanciar el proveïdor {provider}"}
+            
+        # Intent d'invocació mínima
+        from langchain_core.messages import HumanMessage
+        response = llm.invoke([HumanMessage(content="Digues 'ok'")], config={"timeout": 10})
+        
+        return {"success": True, "response": response.content}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+
 # Note: We now fetch the dynamic path from app_config at runtime
 
 

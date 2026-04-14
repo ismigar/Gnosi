@@ -28,17 +28,22 @@ Compiling is not enough. You must test it:
     - **Verify No Native Dialogs**: Ensure that no action triggers `window.confirm` or `window.alert`. Use custom modals instead.
 - **Screenshot**: Take a screenshot of port 5173 to visually confirm that the UI is present and functions without native dialog interference.
 
-### 3. Memory Consolidation (Crucial)
-Before closing the task, ensure that technical knowledge has traveled to the correct place:
+### 3. Visual Conflict & Z-index Verification
+- **Layer Mapping**: Check `docs/dev_memory/directives/gnosi_ui_layers.md` (if exists) or common variables in `index.css`.
+- **Visibility Test**: For every new modal/popup, you MUST verify it is not hidden by other layers.
+- **Shadow Testing**: Perform a manual "smoke test" clicking around the new element to ensure it doesn't trap focus or hide existing features.
+
+### 4. Memory Consolidation (Crucial)
 - **Staging Cleanup**: Has the temporary directive in `docs/dev_memory/directives/` been deleted if the task is stable?
 - **Skill Update**: Has all information (UUIDs, mappings, CLI) been integrated into the `SKILL.md` of the corresponding `pipeline/skills/` folder?
 - **Pointers**: If the directive in `docs/` is kept for architectural reasons, does it clearly point to the `Skill` for technical details?
 - **Language Standard**: Are All new `SKILL.md` and `directives/*.md` files written in **English**? This is mandatory for technical standardization.
 
-### 4. Tracking in `task.md`
+### 5. Tracking in `task.md`
 All development tasks must include:
 - `[ ] Verify integrity with npm run build`
-- `[ ] Visual and functionality validation in the browser`
+- `[ ] Visual and functionality validation in the browser (Browser Subagent)`
+- `[ ] Check for Z-index conflicts and visual overlapping`
 - `[ ] Consolidate staging memory into the corresponding Skill`
 
 ## Mandatory Self-Criticism

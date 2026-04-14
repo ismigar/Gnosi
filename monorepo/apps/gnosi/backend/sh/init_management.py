@@ -6,14 +6,15 @@ _this_file = Path(__file__).resolve()
 PROJECT_ROOT = _this_file.parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
-from backend.data.management_db import engine, Base, SessionLocal
+from backend.data.management_db import Base, get_mgmt_session, _get_or_init_mgmt_engine
 from backend.models.management import User, Workspace, Membership, Vault, UserRole
+from backend.models.notification import Notification
 
 def init_mgmt_db():
-
-    Base.metadata.create_all(bind=engine)
+    # Assegurar el motor i les taules
+    _get_or_init_mgmt_engine()
     
-    db = SessionLocal()
+    db = get_mgmt_session()
     try:
         # 1. Verificar si ja tenim el workspace "Personal"
         personal_ws = db.query(Workspace).filter(Workspace.slug == "personal").first()
@@ -58,7 +59,7 @@ def init_mgmt_db():
             db.add(default_vault)
             db.commit()
 
-        else:
+        pass
 
     finally:
         db.close()

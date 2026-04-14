@@ -151,7 +151,7 @@
         }
     },
     "sidebar": {
-        "my_vault": "Mi Vault",
+        "my_vault": "Mi Conocimiento",
         "search": "Buscar",
         "recent": "Reciente",
         "drawings": "Dibujos",
@@ -222,7 +222,7 @@
         "none": "Ninguno",
         "earliest": "Más antiguo",
         "latest": "Más reciente",
-        "no_notes": "Aún no hay notas en el Vault.",
+        "no_notes": "Aún no hay notas en el Conocimiento.",
         "showing_records": "Mostrando {{count}} de {{total}} registros",
         "show_more_count": "Mostrar {{count}} más"
     },
@@ -514,12 +514,12 @@
         "default_badge": "Pred."
     },
     "settings": {
-        "title": "Ajustes Globales",
+        "title": "Ajustes",
         "tabs": {
             "general": "General",
             "language": "Idioma y Región",
             "appearance": "Apariencia",
-            "calendar": "Calendario Local",
+            "calendar": "Calendarios",
             "graph": "Configuración del Grafo",
             "newsletters": "Suscripciones",
             "mail_accounts": "Cuentas de Correo",
@@ -530,7 +530,13 @@
         "general": {
             "title": "Configuración General",
             "desc": "Configura las opciones básicas de la aplicación y tu espacio de trabajo.",
+            "subtitle": "Soberanía del Conocimiento",
             "user_name": "Nombre de Usuario",
+            "name_placeholder": "Introduce tu nombre...",
+            "paths": "Rutas del Sistema",
+            "vault": "Conocimiento",
+            "databases": "Bases de Datos",
+            "newsletters": "Suscripciones",
             "workspace_name": "Nombre del Workspace",
             "vault_path": "Ruta del Vault",
             "select_folder": "Seleccionar carpeta",
@@ -561,7 +567,7 @@
             "reduce_animations_desc": "Mejora el rendimiento en equipos antiguos."
         },
         "calendar": {
-            "title": "Calendario Local",
+            "title": "Calendarios",
             "directory": "Directorio de Calendario (.ics)",
             "directory_desc": "Indica el directorio donde se guardan tus calendarios (.ics) para ser indexados.",
             "ics_path": "Dónde se guardan los archivos ICS",
@@ -583,8 +589,8 @@
             "connected_status": "Conectado ✅",
             "add_btn": "Añadir calendario",
             "no_calendars": "Aún no hay calendarios configurados.",
-            "vault_tables_title": "Tablas del Vault",
-            "vault_tables_desc": "Selecciona qué tablas del vault quieres mostrar en el calendario.",
+            "vault_tables_title": "Tablas de Conocimiento",
+            "vault_tables_desc": "Selecciona qué tablas de conocimiento quieres mostrar en el calendario.",
             "default_color": "Color por defecto",
             "custom_name_placeholder": "Trabajo, Personal...",
             "error_fill_url_pass": "Por favor, rellena la URL y la contraseña",

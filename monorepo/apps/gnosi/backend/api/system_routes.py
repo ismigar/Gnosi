@@ -1,9 +1,19 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel
+from typing import List
+from sqlalchemy.orm import Session
 import os
 from pathlib import Path
+from backend.data.management_db import get_mgmt_db
+from backend.models.notification import Notification, NotificationResponse
 
 router = APIRouter()
+
+
+@router.get("/notifications", response_model=List[NotificationResponse])
+async def get_notifications(limit: int = 50, db: Session = Depends(get_mgmt_db)):
+    """Returns the latest system notifications."""
+    return db.query(Notification).order_by(Notification.created_at.desc()).limit(limit).all()
 
 
 class BrowseRequest(BaseModel):

@@ -22,7 +22,7 @@ const GIcon = ({ size = 14 }) => (
 );
 
 const navItems = [
-    { to: '/vault', icon: FileText, label: 'Vault' },
+    { to: '/vault', icon: FileText, label: 'Knowledge' },
     { to: '/graph', icon: Network, label: 'Graf' },
     { to: '/contacts', icon: Users, label: 'Contacts' },
     { to: '/mail', icon: Inbox, label: 'Mail' },
@@ -46,6 +46,18 @@ export function AppSidebar() {
                 if (data.gnosi_mode) setGnosiMode(data.gnosi_mode);
             })
             .catch(err => console.error("Error fetching gnosi mode:", err));
+
+        // Detect OAuth return params
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('auth')) {
+            const tab = params.get('tab');
+            if (tab) setSettingsTab(tab);
+            setSettingsOpen(true);
+            
+            // Clean up URL params without refreshing
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
 
         const handleOpenSettings = (e) => {
             if (e.detail) {
@@ -132,11 +144,13 @@ export function AppSidebar() {
             </nav>
 
             {/* Global Settings Modal */}
-            <GlobalSettingsModal
-                isOpen={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                initialTab={settingsTab}
-            />
+            {settingsOpen && (
+                <GlobalSettingsModal
+                    isOpen={settingsOpen}
+                    onClose={() => setSettingsOpen(false)}
+                    initialTab={settingsTab}
+                />
+            )}
         </>
     );
 }

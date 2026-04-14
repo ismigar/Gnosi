@@ -16,10 +16,8 @@ Maintain the stability of key user interface (UI) components of the Gnosi projec
 - **Dimensions**: Fixed width of `60px`.
 - **Consistency**: The order of buttons must exactly match the Home Page.
 
-### 3. Native Dialogs (FORBIDDEN)
-- **Problem**: Native dialogs (`window.confirm`, `window.alert`) are unreliable, can be blocked by browsers, and do not match the application's premium aesthetic. Their failure leads to "silent" crashes in event handlers.
 - **Rule**: NEVER use `window.confirm`, `window.alert`, or `window.prompt`.
-- **Solution**: Use the custom `ConfirmModal.jsx` component.
+- **Solution**: Use the custom `ConfirmModal.jsx` component for binary choices, or a custom state-based modal for multiple choices.
 - **Implementation Pattern**:
     1. Import `ConfirmModal`.
     2. Manage modal state (`isOpen`, `data`) in the parent component.
@@ -32,4 +30,9 @@ Maintain the stability of key user interface (UI) components of the Gnosi projec
 3. **Check for Existing Components**: Before implementing a basic UI feature (dialogs, buttons, toggles), verify if a custom component already exists in `frontend/src/components`.
 
 ---
-*Note: This directive was updated after a recurring failure where `window.confirm` was used in the Contacts module, causing it to fail in the user's environment.*
+## Lessons Learned & Regressions
+1. **Recursion Prompt**: Using `window.prompt` for recurrent event deletion was a failure. Specialized modals with explicit choice buttons are required.
+2. **Brace Mismatch (Syntax Integrity)**: When editing large components like `GlobalSettingsModal.jsx` (>800 lines), always verify that the `multi_replace_file_content` chunks maintain the correct closing brace balance (`}`). A previous error left an unclosed fragment that broke the build.
+
+---
+*Note: This directive was updated after a recurring failure where `window.confirm` was used in the Contacts module, and `window.prompt` was erroneously introduced in the Calendar module.*
