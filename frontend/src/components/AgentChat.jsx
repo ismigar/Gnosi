@@ -542,9 +542,7 @@ const AgentChat = () => {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let aiMsg = { role: 'assistant', content: '' };
-
-            setMessages(prev => [...prev, aiMsg]);
+            let aiMsgAdded = false;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -557,8 +555,16 @@ const AgentChat = () => {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
+                        
                         setMessages(prev => {
                             const newMsgs = [...prev];
+                            
+                            // Si encara no hem afegit el missatge de l'IA, l'afegim ara
+                            if (!aiMsgAdded) {
+                                aiMsgAdded = true;
+                                newMsgs.push({ role: 'assistant', content: '' });
+                            }
+
                             const lastIdx = newMsgs.length - 1;
                             const lastMsg = { ...newMsgs[lastIdx] };
 
@@ -577,7 +583,12 @@ const AgentChat = () => {
                                 setLastUsedLlm(llmInfo);
                                 lastMsg.llm = llmInfo;
                             } else if (data.type === 'error') {
-                                lastMsg.content = `❌ Error: ${data.content}`;
+                                // Traducció i millora de missatges comuns
+                                let errorContent = data.content || 'Error desconegut';
+                                if (errorContent.includes('rate_limit_exceeded')) {
+                                    errorContent = "Has superat la quota del model actual. Prova d'utilitzar un altre model (com gpt-4o-mini) o espera uns minuts.";
+                                }
+                                lastMsg.content = `❌ Error: ${errorContent}`;
                             }
 
                             newMsgs[lastIdx] = lastMsg;

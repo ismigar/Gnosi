@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Filter, Building2, User, CheckCircle2 } from 'lucide-react';
+import { isGmail, getGoogleAvatarUrl } from '../../utils/avatar-utils';
 
 export default function ContactList({ contacts, selectedId, onSelect, filter, onFilterChange, loading }) {
     const { t } = useTranslation();
@@ -127,29 +128,34 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                                 }
                             }}
                         >
-                            <div style={{ 
+                        <div style={{ 
                                 width: '32px', 
                                 height: '32px', 
                                 borderRadius: '8px', 
-                                background: contact.photo_url ? 'transparent' : (contact.type === 'b2b' ? 'rgba(59,130,246,0.08)' : 'rgba(16,185,129,0.08)'), 
+                                background: (contact.photo_url || (isGmail(contact.email) ? getGoogleAvatarUrl(contact.email) : '')) ? 'transparent' : 'var(--gnosi-blue)', 
                                 display: 'flex', 
                                 alignItems: 'center', 
                                 justifyContent: 'center', 
-                                color: contact.type === 'b2b' ? 'var(--gnosi-blue)' : '#10b981',
+                                color: (contact.photo_url || (isGmail(contact.email) ? getGoogleAvatarUrl(contact.email) : '')) ? 'inherit' : 'white',
                                 fontSize: '14px',
                                 fontWeight: '700',
                                 flexShrink: 0,
                                 overflow: 'hidden'
                             }}>
-                                {contact.photo_url ? (
+                                {contact.photo_url || (isGmail(contact.email) ? getGoogleAvatarUrl(contact.email) : '') ? (
                                     <img 
-                                        src={contact.photo_url} 
+                                        src={contact.photo_url || getGoogleAvatarUrl(contact.email)} 
                                         alt={contact.name} 
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                                        onError={(e) => { 
+                                            e.target.style.display = 'none'; 
+                                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
+                                            e.target.parentNode.style.background = 'var(--gnosi-blue)';
+                                            e.target.parentNode.style.color = 'white';
+                                        }}
                                     />
                                 ) : null}
-                                <div style={{ width: '100%', textAlign: 'center', display: contact.photo_url ? 'none' : 'block' }}>
+                                <div style={{ width: '100%', textAlign: 'center', display: (contact.photo_url || (isGmail(contact.email) ? getGoogleAvatarUrl(contact.email) : '')) ? 'none' : 'block' }}>
                                     {contact.name.charAt(0).toUpperCase()}
                                 </div>
                             </div>

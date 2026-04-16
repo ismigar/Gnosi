@@ -3,7 +3,8 @@ import {
     X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, 
     Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon, 
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox, 
-    ChevronRight, Search, FileUp, Shield, Activity
+    ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText, 
+    PenTool, Image, Paperclip
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
@@ -11,6 +12,7 @@ import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
 import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
+import MailBlockEditor from './Mail/MailBlockEditor';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -70,34 +72,43 @@ const FormGroup = ({ label, children, description, horizontal = false }) => (
     </div>
 );
 
-const AccountRow = ({ name, description, status, type, provider, onEdit, onDelete, color = '#3b82f6' }) => (
+const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, color = '#3b82f6', isSyncing = false }) => (
     <div className="account-row hover-scale" style={{ 
         padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)', 
         background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between', 
         alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
     }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: color }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: `var(--gnosi-blue)15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)' }}>
                 {type === 'calendar' ? <Calendar size={22} /> : (type === 'mail' ? <Mail size={22} /> : <Users size={22} />)}
             </div>
             <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>{name || description}</div>
-                    {provider === 'manual' && (
-                        <span style={{ fontSize: '0.6rem', padding: '2px 8px', borderRadius: '6px', background: 'var(--settings-border)', color: 'var(--text-secondary)', fontWeight: '900', textTransform: 'uppercase' }}>Manual</span>
-                    )}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8 }}>{(name && name !== description) ? description : (provider === 'manual' ? 'Configuració manual' : 'Compte connectat')}</div>
             </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <span style={{ 
-                fontSize: '0.68rem', padding: '5px 14px', borderRadius: '20px', 
-                background: status === 'connected' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)', 
-                color: status === 'connected' ? '#10b981' : '#f59e0b', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
-            }}>
-                {status === 'connected' ? 'Connectat' : 'Pendent'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
+                <span style={{ 
+                    fontSize: '0.68rem', padding: '5px 14px', borderRadius: '20px', 
+                    background: status === 'connected' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)', 
+                    color: status === 'connected' ? '#10b981' : '#f59e0b', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
+                }}>
+                    {status === 'connected' ? 'Connectat' : 'Pendent'}
+                </span>
+                
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onSync && onSync(); }} 
+                    disabled={isSyncing}
+                    className="icon-btn hover-bg" 
+                    title="Sincronitzar aquest compte"
+                    style={{ padding: '8px', borderRadius: '10px', color: 'var(--gnosi-blue)' }}
+                >
+                    <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+                </button>
+            </div>
             <button onClick={onEdit} className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
             <button onClick={onDelete} className="icon-btn hover-bg-danger" style={{ color: '#ef4444', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
         </div>
@@ -147,6 +158,96 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [aiCatalog, setAiCatalog] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
+
+    const language = draft.settings.language || 'ca';
+
+    const translations = useMemo(() => ({
+        ca: {
+            databases: "Bases de dades",
+            systemEntities: "Entitats del Sistema",
+            filter_exposed: "Filtre exposat"
+        },
+        es: {
+            databases: "Bases de datos",
+            systemEntities: "Entidades del Sistema",
+            filter_exposed: "Filtro expuesto"
+        },
+        en: {
+            databases: "Databases",
+            systemEntities: "System Entities",
+            filter_exposed: "Exposed Filter"
+        }
+    }), []);
+
+    const systemEntities = useMemo(() => [
+        { 
+            id: 'attachments', 
+            name: 'Adjunts', 
+            icon: Paperclip, 
+            color: '#6366f1', 
+            fields: [
+                { name: 'mimetype', type: 'select' }, 
+                { name: 'extension', type: 'text' }
+            ] 
+        },
+        { 
+            id: 'calendars', 
+            name: 'Calendaris', 
+            icon: LucideIcons.Calendar, 
+            color: '#ef4444', 
+            subItems: (integrations.calendars || []).map(c => ({ id: c.id, name: c.name })), 
+            fields: [
+                { name: 'status', type: 'select' }, 
+                { name: 'location', type: 'text' }
+            ] 
+        },
+        { 
+            id: 'contacts', 
+            name: 'Contactes', 
+            icon: LucideIcons.Users, 
+            color: '#10b981', 
+            subItems: (integrations.contacts || []).map(c => ({ id: c.id, name: c.name })), 
+            fields: [
+                { name: 'company', type: 'text' }, 
+                { name: 'job_title', type: 'text' }
+            ] 
+        },
+        { 
+            id: 'drawings', 
+            name: 'Dibuixos', 
+            icon: PenTool, 
+            color: '#f59e0b', 
+            fields: [{ name: 'tool', type: 'select' }] 
+        },
+        { 
+            id: 'images', 
+            name: 'Imatges', 
+            icon: Image, 
+            color: '#ec4899', 
+            fields: [{ name: 'dimensions', type: 'text' }] 
+        },
+        { 
+            id: 'mails', 
+            name: 'Mails', 
+            icon: LucideIcons.Mail, 
+            color: '#3b82f6', 
+            subItems: (integrations.mail_accounts || []).map(m => ({ id: m.id, name: m.email })), 
+            fields: [
+                { name: 'subject', type: 'text' }, 
+                { name: 'is_read', type: 'checkbox' }
+            ] 
+        },
+        { 
+            id: 'wiki', 
+            name: 'Wiki', 
+            icon: FileText, 
+            color: '#8b5cf6', 
+            fields: [
+                { name: 'category', type: 'text' }, 
+                { name: 'priority', type: 'number' }
+            ] 
+        }
+    ], [integrations]);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerField, setPickerField] = useState(null);
     const [aiValidationStatus, setAiValidationStatus] = useState({});
@@ -154,8 +255,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     // AI Editing Modals
     const [editingAgent, setEditingAgent] = useState(null);
-    const [editingProvider, setEditingProvider] = useState(null);
-    const [isAddProviderOpen, setIsAddProviderOpen] = useState(false);
+    const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+    const [providerToEdit, setProviderToEdit] = useState(null);
 
     // Newsletter State
     const [newsletterSources, setNewsletterSources] = useState([]);
@@ -172,6 +273,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [manualServer, setManualServer] = useState('');
     const [manualPassword, setManualPassword] = useState('');
     const [editingAccountId, setEditingAccountId] = useState(null); // ID del compte en edició
+    const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
     
     // Mail Specialized State
     const [mailImapHost, setMailImapHost] = useState('');
@@ -194,6 +296,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
     const [isAddingTable, setIsAddingTable] = useState(false);
     const [editingTableColor, setEditingTableColor] = useState(null); // { id, name, color }
+    const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
+    const [isSystemEntitiesExpanded, setIsSystemEntitiesExpanded] = useState(true);
 
     useEffect(() => {
         if (isOpen) {
@@ -273,16 +377,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const loadZoteroData = async () => {
         try {
-            const [cRes, tRes, dRes] = await Promise.all([
-                fetch('/api/zotero/config'), fetch('/api/vault/tables'), fetch('/api/vault/databases')
-            ]);
-            if (cRes.ok) {
-                const cfg = await cRes.json();
-                setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, ...cfg } }));
-            }
-            if (tRes.ok) setTables(await tRes.json());
-            if (dRes.ok) setDatabases(await dRes.json());
-        } catch (err) { console.error("Error loading Zotero/Vault data:", err); }
+            // Fetch Zotero configuració de manera independent
+            fetch('/api/zotero/config').then(async res => {
+                if (res.ok) {
+                    const cfg = await res.json();
+                    setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, ...cfg } }));
+                }
+            }).catch(e => console.error("Zotero fetch error:", e));
+
+            // Fetch Tables de manera independent
+            fetch('/api/vault/tables').then(async res => {
+                if (res.ok) setTables(await res.json());
+            }).catch(e => console.error("Tables fetch error:", e));
+
+            // Fetch Databases de manera independent
+            fetch('/api/vault/databases').then(async res => {
+                if (res.ok) setDatabases(await res.json());
+            }).catch(e => console.error("Databases fetch error:", e));
+
+        } catch (err) { console.error("General loading error:", err); }
     };
 
     const loadNewsletterSources = async () => {
@@ -294,6 +407,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             }
         } catch (err) { console.error("Error loading newsletters:", err); }
     };
+
 
     // -- UNIFIED SAVE LOGIC --
     const triggerAutoSave = async (silent = true) => {
@@ -417,13 +531,89 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-    const validateAIProvider = async (id) => {
+    const handleSyncAccount = async (category, accountId) => {
+        if (!accountId) return;
+        setSyncingAccounts(prev => ({ ...prev, [accountId]: true }));
+        setSavingStatus('saving');
+        try {
+            // Mapping category to correct sync endpoint
+            const base = category === 'calendar' ? 'calendar' : (category === 'contacts' ? 'contacts' : 'mail');
+            const res = await axios.post(`/api/${base}/sync`, { account_id: accountId });
+            
+            if (res.data.success) {
+                setSavingStatus('saved');
+                loadIntegrations(); // Refresh status if needed
+            } else {
+                setSavingStatus('error');
+                alert(`Error en la sincronització: ${res.data.error || 'Error desconegut'}`);
+            }
+        } catch (e) {
+            console.error("Sync error:", e);
+            setSavingStatus('error');
+        } finally {
+            setSyncingAccounts(prev => ({ ...prev, [accountId]: false }));
+            setTimeout(() => setSavingStatus('idle'), 3000);
+        }
+    };
+
+    const validateAIProvider = async (id, manualKey = null) => {
         setAiValidationStatus(prev => ({ ...prev, [id]: 'validating' }));
         try {
-            const res = await fetch(`/api/ai/providers/${id}/validate`, { method: 'POST' });
-            setAiValidationStatus(prev => ({ ...prev, [id]: res.ok ? 'success' : 'error' }));
-            if (res.ok) setTimeout(() => setAiValidationStatus(prev => ({ ...prev, [id]: 'idle' })), 3000);
-        } catch (err) { setAiValidationStatus(prev => ({ ...prev, [id]: 'error' })); }
+            const providerCfg = draft.ai.providers[id] || {};
+            const res = await axios.post(`/api/ai/providers/${id}/validate`, {
+                api_key: manualKey || '',
+                base_url: providerCfg.base_url || ''
+            });
+            setAiValidationStatus(prev => ({ ...prev, [id]: res.data.success ? 'success' : 'error' }));
+            if (!res.data.success) {
+                console.warn(`Validation failed for ${id}:`, res.data.error);
+            }
+        } catch (e) {
+            console.error("AI Validation error:", e);
+            setAiValidationStatus(prev => ({ ...prev, [id]: 'error' }));
+        }
+    };
+
+    const handleToggleAIProvider = async (pId, enabled) => {
+        try {
+            await axios.patch(`/api/ai/providers/${pId}/status`, { enabled });
+            setDraft(prev => ({
+                ...prev,
+                ai: {
+                    ...prev.ai,
+                    providers: {
+                        ...prev.ai.providers,
+                        [pId]: { ...prev.ai.providers[pId], enabled }
+                    }
+                }
+            }));
+        } catch (e) {
+            console.error("Error toggling provider:", e);
+        }
+    };
+
+    const handleDeleteAIProvider = async (pId) => {
+        setConfirmConfig({
+            isOpen: true,
+            title: "Eliminar Proveïdor",
+            message: `Estàs segur que vols eliminar la configuració de ${pId.toUpperCase()}? Aquesta acció no es pot desfer.`,
+            onConfirm: async () => {
+                try {
+                    await axios.delete(`/api/ai/providers/${pId}`);
+                    setDraft(prev => {
+                        const newProviders = { ...prev.ai.providers };
+                        delete newProviders[pId];
+                        return {
+                            ...prev,
+                            ai: { ...prev.ai, providers: newProviders }
+                        };
+                    });
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                } catch (e) {
+                    console.error("Error deleting provider:", e);
+                }
+            }
+        });
     };
 
     const handleAddNewsletter = async () => {
@@ -464,6 +654,28 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </div>
                                 <h2 className="settings-sidebar-title">{t('settings.title') || 'Configuració'}</h2>
                             </div>
+                            
+                            {/* INDICADOR DE SAVING (Mogut aquí per visibilitat) */}
+                            <div style={{ 
+                                marginTop: '15px', padding: '10px 14px', borderRadius: '14px', 
+                                background: 'var(--settings-sidebar-active)', border: '1px solid var(--settings-border)', 
+                                display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.3s'
+                            }}>
+                                {savingStatus === 'saving' ? (
+                                    <RefreshCw size={14} className="animate-spin text-[var(--gnosi-blue)]" />
+                                ) : (
+                                    <Check size={14} style={{ color: savingStatus === 'error' ? '#ef4444' : '#10b981', opacity: savingStatus === 'idle' ? 0.4 : 1 }} />
+                                )}
+                                <span style={{ 
+                                    fontSize: '0.72rem', fontWeight: '800', 
+                                    color: savingStatus === 'error' ? '#ef4444' : 'var(--text-secondary)',
+                                    opacity: savingStatus === 'idle' ? 0.6 : 1
+                                }}>
+                                    {savingStatus === 'saving' ? 'Desant...' : 
+                                     (savingStatus === 'error' ? 'Error' : 
+                                     (savingStatus === 'saved' ? 'Desat' : 'Al dia'))}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="settings-sidebar-nav">
@@ -485,28 +697,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <SidebarItem id="zotero" icon={BookOpen} label={t('settings.tabs.zotero') || 'Zotero'} active={activeTab === 'zotero'} onClick={() => { setActiveTab('zotero'); setAddAccountType(null); }} />
                         </div>
 
-                        <div style={{ marginTop: 'auto', paddingTop: '40px' }}>
-                            <div style={{ 
-                                padding: '14px 18px', borderRadius: '18px', background: 'var(--settings-bg)', 
-                                border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px',
-                                transition: 'all 0.3s'
-                            }}>
-                                {savingStatus === 'saving' ? (
-                                    <div className="spinner-small" style={{ borderTopColor: 'var(--gnosi-blue)', width: '14px', height: '14px' }} />
-                                ) : (
-                                    <Check size={14} style={{ color: savingStatus === 'error' ? '#ef4444' : '#10b981', opacity: savingStatus === 'idle' ? 0.3 : 1 }} />
-                                )}
-                                <span style={{ 
-                                    fontSize: '0.78rem', fontWeight: '800', 
-                                    color: savingStatus === 'error' ? '#ef4444' : 'var(--text-secondary)',
-                                    opacity: savingStatus === 'idle' ? 0.5 : 1
-                                }}>
-                                    {savingStatus === 'saving' ? 'Desant canvis...' : 
-                                     (savingStatus === 'error' ? 'Error al desar' : 
-                                     (savingStatus === 'saved' ? 'Tots els canvis desats' : 'Sistema actualitzat'))}
-                                </span>
-                            </div>
-                        </div>
                     </aside>
 
                     {/* CONTENT AREA */}
@@ -642,24 +832,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     icon={activeTab === 'calendar' ? Calendar : (activeTab === 'contacts' ? Users : Mail)}
                                     extra={
                                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                            <button 
-                                                onClick={async () => {
-                                                    setSavingStatus('saving');
-                                                    try {
-                                                        await axios.post('/api/sync');
-                                                        setSavingStatus('saved');
-                                                        loadIntegrations();
-                                                        setTimeout(() => setSavingStatus('idle'), 2000);
-                                                    } catch (e) {
-                                                        setSavingStatus('error');
-                                                    }
-                                                }}
-                                                className="btn-gnosi-secondary" 
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', border: '1px solid var(--gnosi-blue)30' }}
-                                            >
-                                                <RefreshCw size={16} className={savingStatus === 'saving' ? 'animate-spin' : ''} />
-                                                Sincronitza ara
-                                            </button>
                                             <div style={{ position: 'relative' }}>
                                                 <button 
                                                     onClick={() => {
@@ -882,10 +1054,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 </FormGroup>
                                                             </div>
 
-                                                            <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                                                <FormGroup label="Signatura HTML (Opcional)">
-                                                                    <textarea className="gnosi-input" style={{ minHeight: '80px', fontFamily: 'monospace', fontSize: '0.8rem' }} value={mailSignature} onChange={e => setMailSignature(e.target.value)} placeholder="<p>Salutacions,</p>" />
+                                                            <div style={{ gridColumn: 'span 2' }}>
+                                                                <FormGroup label="Signatura HTML (Opcional)" description="Aquesta signatura s'afegirà automàticament als correus que enviïs.">
+                                                                    <div style={{ marginTop: '8px' }}>
+                                                                        <MailBlockEditor 
+                                                                            initialContent={mailSignature} 
+                                                                            onChange={setMailSignature} 
+                                                                            minHeight="120px" 
+                                                                        />
+                                                                    </div>
                                                                 </FormGroup>
+                                                            </div>
+                                                            <div style={{ gridColumn: 'span 2' }}>
                                                                 <FormGroup label="Certificat / Ruta Clau (Opcional)">
                                                                     <input type="text" className="gnosi-input" value={mailCertificate} onChange={e => setMailCertificate(e.target.value)} placeholder="/ruta/al/certificat.crt" />
                                                                 </FormGroup>
@@ -978,7 +1158,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     </button>
                                                                 )}
                                                             </div>
-                                                        </div>
+                                                        </form>
                                                     )}
                                                 </div>
                                             </div>
@@ -1019,6 +1199,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 status="connected" 
                                                                 type={activeTab} 
                                                                 provider={acc.provider}
+                                                                onSync={() => handleSyncAccount(activeTab, acc.id)}
+                                                                isSyncing={syncingAccounts[acc.id]}
                                                                 onEdit={() => handleEditAccount(activeTab, acc)}
                                                                 onDelete={() => handleDeleteAccount(activeTab, acc.id)}
                                                                 color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')} 
@@ -1202,26 +1384,348 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </FormGroup>
                                         </div>
                                     </div>
-                                    
+
                                     <Section title="Estructures Visibles" icon={Database}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
-                                            {databases.map(db => (
-                                                <div key={db.id} className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
-                                                    <div className={`gnosi-toggle ${draft.graph.visible_databases.includes(db.id) ? 'active' : ''}`} onClick={() => {
-                                                        const checked = !draft.graph.visible_databases.includes(db.id);
-                                                        setDraft(prev => ({
-                                                            ...prev,
-                                                            graph: { ...prev.graph, visible_databases: checked ? [...prev.graph.visible_databases, db.id] : prev.graph.visible_databases.filter(id => id !== db.id) }
-                                                        }));
-                                                    }} style={{ transform: 'scale(0.8)' }}>
-                                                        <div className="gnosi-toggle-handle" />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                                            {/* Bases de dades i Taules */}
+                                            <div style={{ background: 'var(--settings-bg)', borderRadius: '24px', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
+                                                <div 
+                                                    onClick={() => setIsDatabasesExpanded(!isDatabasesExpanded)}
+                                                    className="hover-bg"
+                                                    style={{ 
+                                                        padding: '16px 24px', 
+                                                        cursor: 'pointer', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'space-between',
+                                                        borderBottom: isDatabasesExpanded ? '1px solid var(--settings-border)' : 'none',
+                                                        transition: 'all 0.3s ease',
+                                                        background: isDatabasesExpanded ? 'var(--settings-sidebar-bg)' : 'transparent'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <Database size={18} color="var(--gnosi-blue)" />
+                                                        <h5 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>
+                                                            {translations[language].databases || "Bases de dades"}
+                                                        </h5>
                                                     </div>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${db.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Database size={16} color={db.color || '#3b82f6'} />
-                                                    </div>
-                                                    <span style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{db.name}</span>
+                                                    <ChevronRight 
+                                                        size={18} 
+                                                        color="var(--text-secondary)" 
+                                                        style={{ 
+                                                            transform: isDatabasesExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                            opacity: 0.6
+                                                        }} 
+                                                    />
                                                 </div>
-                                            ))}
+
+                                                {isDatabasesExpanded && (
+                                                    <div className="animate-in" style={{ padding: '24px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            {/* Render formal databases */}
+                                                            {databases.map(db => {
+                                                                const isDbVisible = draft.graph.visible_databases?.includes(db.id);
+                                                                const dbTables = tables.filter(t => t.database_id === db.id);
+                                                                
+                                                                return (
+                                                                <div key={db.id} style={{ marginBottom: isDbVisible ? '12px' : '0' }}>
+                                                                    <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
+                                                                        <div className={`gnosi-toggle ${isDbVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const checked = !isDbVisible;
+                                                                            setDraft(prev => ({
+                                                                                ...prev,
+                                                                                graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), db.id] : (prev.graph.visible_databases||[]).filter(id => id !== db.id) }
+                                                                            }));
+                                                                        }} style={{ transform: 'scale(0.8)' }}>
+                                                                            <div className="gnosi-toggle-handle" />
+                                                                        </div>
+                                                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${db.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                            <Database size={16} color={db.color || '#3b82f6'} />
+                                                                        </div>
+                                                                        <span style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{db.name}</span>
+                                                                    </div>
+
+                                                                    {isDbVisible && dbTables.length > 0 && (
+                                                                        <div style={{ marginLeft: '40px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                            {dbTables.map(table => {
+                                                                                const isTableVisible = draft.graph.visible_tables?.includes(table.id);
+                                                                                const tableFields = table.properties || [];
+                                                                                
+                                                                                return (
+                                                                                    <div key={table.id}>
+                                                                                        <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
+                                                                                            <div className={`gnosi-toggle ${isTableVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                const checked = !isTableVisible;
+                                                                                                setDraft(prev => ({
+                                                                                                    ...prev,
+                                                                                                    graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), table.id] : (prev.graph.visible_tables||[]).filter(id => id !== table.id) }
+                                                                                                }));
+                                                                                            }} style={{ transform: 'scale(0.7)' }}>
+                                                                                                <div className="gnosi-toggle-handle" />
+                                                                                            </div>
+                                                                                            <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{table.name}</span>
+                                                                                        </div>
+
+                                                                                        {isTableVisible && tableFields.length > 0 && (
+                                                                                            <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                {tableFields.map(field => {
+                                                                                                    const fieldKey = `${table.id}:${field.name}`;
+                                                                                                    const isExposed = draft.graph.visible_fields?.includes(fieldKey);
+                                                                                                    const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
+                                                                                                    return (
+                                                                                                        <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                                                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
+                                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
+                                                                                                                    const checked = !isExposed;
+                                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: checked ? [...(p.graph.visible_fields||[]), fieldKey] : (p.graph.visible_fields||[]).filter(f => f !== fieldKey) } }));
+                                                                                                                }}>
+                                                                                                                    <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                                </div>
+                                                                                                                <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor fix / defecte" value={defaultVal} onChange={e => {
+                                                                                                                    const v = e.target.value;
+                                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, field_defaults: { ...(p.graph.field_defaults||{}), [fieldKey]: v } } }));
+                                                                                                                }} />
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                );
+                                                            })}
+
+                                                            {/* Orphan Tables / Altres Estructures */}
+                                                            {(() => {
+                                                                const orphanTables = (tables || []).filter(t => !databases.some(db => db.id === t.database_id));
+                                                                if (orphanTables.length === 0) return null;
+                                                                
+                                                                return (
+                                                                    <div style={{ marginTop: '24px', borderTop: '1px dashed var(--settings-border)', paddingTop: '24px' }}>
+                                                                        <h6 style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                                                                            {translations[language].other_structures || "Altres Taules i Estructures"}
+                                                                        </h6>
+                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr)', gap: '14px' }}>
+                                                                            {orphanTables.map(table => {
+                                                                                const isTableVisible = draft.graph.visible_tables?.includes(table.id);
+                                                                                const tableFields = table.properties || [];
+                                                                                return (
+                                                                                    <div key={table.id}>
+                                                                                        <div className="hover-scale" style={{ padding: '14px 18px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                                            <div className={`gnosi-toggle ${isTableVisible ? 'active' : ''}`} onClick={() => {
+                                                                                                const checked = !isTableVisible;
+                                                                                                setDraft(p => ({ ...p, graph: { ...p.graph, visible_tables: checked ? [...(p.graph.visible_tables||[]), table.id] : (p.graph.visible_tables||[]).filter(id => id !== table.id) } }));
+                                                                                            }} style={{ transform: 'scale(0.75)' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                            <div style={{ flex: 1 }}>
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                                    <Database size={14} color="var(--text-secondary)" opacity={0.5} />
+                                                                                                    <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{table.name}</span>
+                                                                                                </div>
+                                                                                                {table.folder && <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', opacity: 0.6, marginLeft: '22px' }}>{table.folder}</span>}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        {isTableVisible && tableFields.length > 0 && (
+                                                                                            <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                {tableFields.map(field => {
+                                                                                                    const key = `${table.id}:${field.name}`;
+                                                                                                    const exposed = draft.graph.visible_fields?.includes(key);
+                                                                                                    return (
+                                                                                                        <div key={field.name} style={{ padding: '8px 12px', borderRadius: '10px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{field.name}</span>
+                                                                                                            <div onClick={() => {
+                                                                                                                const chk = !exposed;
+                                                                                                                setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: chk ? [...(p.graph.visible_fields||[]), key] : (p.graph.visible_fields||[]).filter(f => f !== key) } }));
+                                                                                                            }} className={`gnosi-toggle ${exposed ? 'active' : ''}`} style={{ transform: 'scale(0.5)' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Entitats del Sistema */}
+                                            <div style={{ background: 'var(--settings-bg)', borderRadius: '24px', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
+                                                <div 
+                                                    onClick={() => setIsSystemEntitiesExpanded(!isSystemEntitiesExpanded)}
+                                                    className="hover-bg"
+                                                    style={{ 
+                                                        padding: '16px 24px', 
+                                                        cursor: 'pointer', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'space-between',
+                                                        borderBottom: isSystemEntitiesExpanded ? '1px solid var(--settings-border)' : 'none',
+                                                        transition: 'all 0.3s ease',
+                                                        background: isSystemEntitiesExpanded ? 'var(--settings-sidebar-bg)' : 'transparent'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <PenTool size={18} color="var(--gnosi-blue)" />
+                                                        <h5 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>
+                                                            {translations[language].systemEntities || "Entitats del Sistema"}
+                                                        </h5>
+                                                    </div>
+                                                    <ChevronRight 
+                                                        size={18} 
+                                                        color="var(--text-secondary)" 
+                                                        style={{ 
+                                                            transform: isSystemEntitiesExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                            opacity: 0.6
+                                                        }} 
+                                                    />
+                                                </div>
+
+                                                {isSystemEntitiesExpanded && (
+                                                    <div className="animate-in" style={{ padding: '24px' }}>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr)', gap: '14px' }}>
+                                                            {systemEntities.map(entity => {
+                                                                const isEntityVisible = draft.graph.visible_databases?.includes(entity.id);
+                                                                const subItems = entity.subItems || [];
+                                                                const entityFields = entity.fields || [];
+
+                                                                return (
+                                                                    <div key={entity.id} style={{ marginBottom: isEntityVisible ? '12px' : '0' }}>
+                                                                        <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
+                                                                            <div className={`gnosi-toggle ${isEntityVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const checked = !isEntityVisible;
+                                                                                setDraft(prev => ({
+                                                                                    ...prev,
+                                                                                    graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), entity.id] : (prev.graph.visible_databases||[]).filter(id => id !== entity.id) }
+                                                                                }));
+                                                                            }} style={{ transform: 'scale(0.8)' }}>
+                                                                                <div className="gnosi-toggle-handle" />
+                                                                            </div>
+                                                                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${entity.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                <entity.icon size={16} color={entity.color || '#3b82f6'} />
+                                                                            </div>
+                                                                            <span style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{entity.name}</span>
+                                                                        </div>
+
+                                                                        {/* Sub-items (like Calendars or Mail accounts) */}
+                                                                        {isEntityVisible && (subItems.length > 0 || entityFields.length > 0) && (
+                                                                            <div style={{ marginLeft: '40px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                                {subItems.map(item => {
+                                                                                    const isItemVisible = draft.graph.visible_tables?.includes(item.id);
+                                                                                    
+                                                                                    return (
+                                                                                        <div key={item.id}>
+                                                                                            <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
+                                                                                                <div className={`gnosi-toggle ${isItemVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    const checked = !isItemVisible;
+                                                                                                    setDraft(prev => ({
+                                                                                                        ...prev,
+                                                                                                        graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), item.id] : (prev.graph.visible_tables||[]).filter(id => id !== item.id) }
+                                                                                                    }));
+                                                                                                }} style={{ transform: 'scale(0.7)' }}>
+                                                                                                    <div className="gnosi-toggle-handle" />
+                                                                                                </div>
+                                                                                                <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{item.name}</span>
+                                                                                            </div>
+                                                                                            
+                                                                                            {/* Nested Fields for sub-item */}
+                                                                                            {isItemVisible && entityFields.length > 0 && (
+                                                                                                <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                    {entityFields.map(field => {
+                                                                                                        const fieldKey = `${item.id}:${field.name}`;
+                                                                                                        const isExposed = draft.graph.visible_fields?.includes(fieldKey);
+                                                                                                        const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
+
+                                                                                                        return (
+                                                                                                            <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                                                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
+                                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
+                                                                                                                        const checked = !isExposed;
+                                                                                                                        setDraft(prev => ({
+                                                                                                                            ...prev,
+                                                                                                                            graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
+                                                                                                                        }));
+                                                                                                                    }}>
+                                                                                                                        <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}>
+                                                                                                                            <div className="gnosi-toggle-handle" />
+                                                                                                                        </div>
+                                                                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                                    </div>
+                                                                                                                    <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor defecte" value={defaultVal} onChange={(e) => {
+                                                                                                                        const val = e.target.value;
+                                                                                                                        setDraft(prev => ({ ...prev, graph: { ...prev.graph, field_defaults: { ...(prev.graph.field_defaults || {}), [fieldKey]: val } } }));
+                                                                                                                    }} />
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        );
+                                                                                                    })}
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+
+                                                                                {/* Fields for categories without sub-items (like Wiki) */}
+                                                                                {subItems.length === 0 && entityFields.length > 0 && (
+                                                                                    <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                        {entityFields.map(field => {
+                                                                                            const fieldKey = `${entity.id}:${field.name}`;
+                                                                                            const isExposed = draft.graph.visible_fields?.includes(fieldKey);
+                                                                                            const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
+
+                                                                                            return (
+                                                                                                <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
+                                                                                                            const checked = !isExposed;
+                                                                                                            setDraft(prev => ({
+                                                                                                                ...prev,
+                                                                                                                graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
+                                                                                                            }));
+                                                                                                        }}>
+                                                                                                            <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}>
+                                                                                                                <div className="gnosi-toggle-handle" />
+                                                                                                            </div>
+                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                        </div>
+                                                                                                        <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor defecte" value={defaultVal} onChange={(e) => {
+                                                                                                            const val = e.target.value;
+                                                                                                            setDraft(prev => ({ ...prev, graph: { ...prev.graph, field_defaults: { ...(prev.graph.field_defaults || {}), [fieldKey]: val } } }));
+                                                                                                        }} />
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </Section>
                                 </Section>
@@ -1229,48 +1733,119 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* IA */}
                             {activeTab === 'ai' && (
-                                <Section title="Cervell Cognitiu (IA)" icon={Cpu} extra={<button className="btn-gnosi-primary" onClick={() => setIsAddProviderOpen(true)} style={{ padding: '10px 20px', fontSize: '0.9rem', borderRadius: '14px' }}><Plus size={18} /> Connectar Model</button>}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        {Object.entries(draft.ai.providers).map(([pId, pCfg]) => (
-                                            <div key={pId} className="account-row hover-scale" style={{ padding: '28px', borderRadius: '28px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                                                    <div style={{ width: '64px', height: '64px', background: 'white', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.06)' }}>
-                                                        <img src={`https://logo.clearbit.com/${pId.split('_')[0]}.com`} onError={(e) => e.target.src = 'https://cdn-icons-png.flaticon.com/512/2103/2103633.png'} style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
-                                                    </div>
-                                                    <div>
-                                                        <div style={{ fontWeight: '1000', color: 'var(--text-primary)', fontSize: '1.25rem', letterSpacing: '-0.02em' }}>{aiCatalog[pId]?.name || pId.toUpperCase()}</div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8 }}><Activity size={14} style={{ display: 'inline', marginRight: '4px' }} /> {Object.keys(pCfg.models || {}).length || 0} models actius</div>
-                                                            <div style={{ width: '4px', height: '4px', background: 'var(--settings-border)', borderRadius: '50%' }} />
-                                                            <div style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', fontWeight: '800' }}>Endpoint actiu</div>
+                                <>
+                                    <Section 
+                                        title="Proveïdors de Models" 
+                                        icon={Database} 
+                                        extra={
+                                            <button 
+                                                className="btn-gnosi-primary" 
+                                                onClick={() => { setProviderToEdit(null); setIsConnectModalOpen(true); }} 
+                                                style={{ 
+                                                    padding: '10px 20px', fontSize: '0.9rem', borderRadius: '14px',
+                                                    display: 'flex', alignItems: 'center', gap: '10px'
+                                                }}
+                                            >
+                                                <Plus size={18} /> Connectar Model
+                                            </button>
+                                        }
+                                    >
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            {Object.entries(draft.ai.providers).map(([pId, p]) => {
+                                                const catalogItem = aiCatalog[pId] || {};
+                                                const pName = catalogItem.name || pId.toUpperCase();
+                                                const pIcon = catalogItem.icon || p.icon;
+                                                return (
+                                                    <div key={pId} className="hover-scale" style={{ 
+                                                        padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', 
+                                                        background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between', 
+                                                        alignItems: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        opacity: p.enabled === false ? 0.6 : 1
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                                            <div 
+                                                                className={`gnosi-toggle ${p.enabled !== false ? 'active' : ''}`} 
+                                                                onClick={() => handleToggleAIProvider(pId, p.enabled === false)}
+                                                                style={{ transform: 'scale(1.1)', marginRight: '10px' }}
+                                                            >
+                                                                <div className="gnosi-toggle-handle" />
+                                                            </div>
+                                                            <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'var(--settings-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)', boxShadow: '0 5px 15px rgba(0,0,0,0.05)' }}>
+                                                                {pIcon ? <img src={pIcon} style={{ width: '28px', height: '28px' }} alt="" /> : <Cpu size={28} />}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <div style={{ fontWeight: '900', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{pName}</div>
+                                                                    {p.enabled === false && <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--settings-border)', color: 'var(--text-secondary)', fontWeight: '800' }}>INACTIU</span>}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', opacity: 0.8 }}>
+                                                                    {p.has_api_key ? '✓ Credencials configurades' : '⚠ Falta clau API'} 
+                                                                    {p.base_url && ` • ${p.base_url}`}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '14px' }}>
+                                                            <button 
+                                                                onClick={() => validateAIProvider(pId)} 
+                                                                disabled={aiValidationStatus[pId] === 'validating' || p.enabled === false}
+                                                                className={`btn-gnosi-secondary ${aiValidationStatus[pId] || ''}`} 
+                                                                style={{ 
+                                                                    padding: '14px 28px', borderRadius: '18px', fontWeight: '900', border: 'none',
+                                                                    background: aiValidationStatus[pId] === 'success' ? '#10b98120' : (aiValidationStatus[pId] === 'error' ? '#ef444420' : 'var(--settings-border)'),
+                                                                    color: aiValidationStatus[pId] === 'success' ? '#10b981' : (aiValidationStatus[pId] === 'error' ? '#ef4444' : 'var(--text-primary)'),
+                                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                    opacity: p.enabled === false ? 0.5 : 1,
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                            >
+                                                                {aiValidationStatus[pId] === 'validating' ? <div className="spinner-small" style={{ borderTopColor: 'var(--gnosi-blue)' }} /> : (aiValidationStatus[pId] === 'success' ? 'Vàlid!' : (aiValidationStatus[pId] === 'error' ? 'Error' : 'Test Ping'))}
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setProviderToEdit(catalogItem);
+                                                                    setIsConnectModalOpen(true);
+                                                                }}
+                                                                className="icon-btn hover-bg-strong" 
+                                                                style={{ padding: '14px', borderRadius: '16px' }}
+                                                            >
+                                                                <SettingsIcon size={22} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteAIProvider(pId);
+                                                                }}
+                                                                className="icon-btn hover-bg-strong" 
+                                                                style={{ padding: '14px', borderRadius: '16px', color: '#ef4444' }}
+                                                            >
+                                                                <Trash2 size={22} />
+                                                            </button>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div style={{ display: 'flex', gap: '14px' }}>
-                                                    <button 
-                                                        onClick={() => validateAIProvider(pId)} 
-                                                        disabled={aiValidationStatus[pId] === 'validating'}
-                                                        className={`btn-gnosi-secondary ${aiValidationStatus[pId]}`} 
-                                                        style={{ 
-                                                            padding: '14px 28px', borderRadius: '18px', fontWeight: '900', border: 'none',
-                                                            background: aiValidationStatus[pId] === 'success' ? '#10b98120' : (aiValidationStatus[pId] === 'error' ? '#ef444420' : 'var(--settings-border)'),
-                                                            color: aiValidationStatus[pId] === 'success' ? '#10b981' : (aiValidationStatus[pId] === 'error' ? '#ef4444' : 'var(--text-primary)'),
-                                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                                                        }}
-                                                    >
-                                                        {aiValidationStatus[pId] === 'validating' ? <div className="spinner-small" style={{ borderTopColor: 'var(--gnosi-blue)' }} /> : (aiValidationStatus[pId] === 'success' ? 'Vàlid!' : (aiValidationStatus[pId] === 'error' ? 'Error' : 'Test Ping'))}
-                                                    </button>
-                                                    <button className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}><SettingsIcon size={22} /></button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    
-                                    <div style={{ marginTop: '60px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                                            <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Agents de Cognició</h4>
-                                            <button className="btn-gnosi-secondary" style={{ fontSize: '0.8rem', padding: '6px 14px' }}><Plus size={14} /> Creart Agent</button>
+                                                );
+                                            })}
                                         </div>
+                                    </Section>
+
+                                    <div style={{ height: '30px' }} />
+
+                                    <Section 
+                                        title="Agents de Cognició" 
+                                        icon={Bot} 
+                                        extra={
+                                            <button 
+                                                className="btn-gnosi-primary" 
+                                                onClick={() => setEditingAgent({})} 
+                                                style={{ 
+                                                    padding: '10px 20px', fontSize: '0.85rem', borderRadius: '14px',
+                                                    display: 'flex', alignItems: 'center', gap: '10px'
+                                                }}
+                                            >
+                                                <Plus size={16} /> Crear Agent
+                                            </button>
+                                        }
+                                    >
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                                             {draft.ai.agents.map(agent => (
                                                 <div key={agent.id} className="hover-scale" style={{ padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', gap: '20px', transition: 'all 0.2s' }}>
@@ -1288,8 +1863,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </div>
                                             ))}
                                         </div>
-                                    </div>
-                                </Section>
+                                    </Section>
+                                </>
                             )}
 
                             {/* ZOTERO */}
@@ -1345,6 +1920,258 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 message={confirmConfig.message}
                 isDestructive={true}
             />
+
+
+            {/* AI AGENT MODAL */}
+            {editingAgent && (
+                <AIAgentModal 
+                    isOpen={!!editingAgent}
+                    onClose={() => setEditingAgent(null)}
+                    agent={editingAgent}
+                    onSave={(newAgent) => {
+                        const isNew = !newAgent.id;
+                        const id = isNew ? `agent_${Date.now()}` : newAgent.id;
+                        const agentToSave = { ...newAgent, id };
+                        
+                        let newList;
+                        if (isNew) {
+                            newList = [...draft.ai.agents, agentToSave];
+                        } else {
+                            newList = draft.ai.agents.map(a => a.id === id ? agentToSave : a);
+                        }
+                        
+                        setDraft(prev => ({
+                            ...prev,
+                            ai: { ...prev.ai, agents: newList }
+                        }));
+                    }}
+                    aiCatalog={aiCatalog}
+                />
+            )}
+            <UnifiedAIProviderModal 
+                isOpen={isConnectModalOpen}
+                onClose={() => setIsConnectModalOpen(false)}
+                aiCatalog={aiCatalog}
+                editingProvider={providerToEdit}
+                aiValidationStatus={aiValidationStatus}
+                onValidate={validateAIProvider}
+                onSave={(pId, data) => {
+                    setDraft(prev => ({
+                        ...prev,
+                        ai: {
+                            ...prev.ai,
+                            providers: {
+                                ...prev.ai.providers,
+                                [pId]: { ...data, enabled: true }
+                            }
+                        }
+                    }));
+                    triggerAutoSave(false);
+                    setIsConnectModalOpen(false);
+                }}
+            />
         </>
+    );
+}
+
+// --- SUB-COMPONENTS FOR AI ---
+
+function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate, aiValidationStatus, editingProvider = null }) {
+    const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
+    const [apiKey, setApiKey] = useState('');
+    const [baseUrl, setBaseUrl] = useState(editingProvider?.base_url || '');
+    
+    useEffect(() => {
+        if (selectedId && aiCatalog[selectedId]) {
+            setBaseUrl(aiCatalog[selectedId].base_url || '');
+        }
+    }, [selectedId]);
+
+    const provider = aiCatalog[selectedId];
+    const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
+
+    if (!isOpen) return null;
+
+    return (
+        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} style={{ 
+            zIndex: 99999, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh'
+        }}>
+            <div className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{ 
+                width: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '40px', 
+                borderRadius: '32px', boxShadow: '0 30px 80px rgba(0,0,0,0.15)', border: '1px solid var(--settings-border)',
+                background: 'var(--settings-bg)', overflow: 'hidden', position: 'relative'
+            }}>
+                <button onClick={onClose} className="icon-btn hover-bg" style={{ 
+                    position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%', 
+                    color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
+                    width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}><X size={18} /></button>
+
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
+                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>
+                        {editingProvider ? `Configurar ${editingProvider.name}` : 'Connectar Proveïdor d\'IA'}
+                    </h3>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <FormGroup label="Proveïdor d'IA" description="Selecciona el servei que vols utilitzar.">
+                            <select 
+                                className="gnosi-select" 
+                                value={selectedId} 
+                                onChange={e => setSelectedId(e.target.value)}
+                                disabled={!!editingProvider}
+                            >
+                                <option value="">Tria un proveïdor...</option>
+                                {Object.values(aiCatalog).map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        </FormGroup>
+
+                        {selectedId && (
+                            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px', borderRadius: '20px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--settings-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {provider.icon ? <img src={provider.icon} style={{ width: '24px', height: '24px' }} alt="" /> : <Cpu size={20} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: '800', fontSize: '1rem' }}>{provider.name}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{provider.models?.length || 0} models disponibles</div>
+                                    </div>
+                                </div>
+
+                                <FormGroup label="API Key / Token" description="La teva clau secreta d'accés.">
+                                    <input type="password" className="gnosi-input" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
+                                </FormGroup>
+
+                                <FormGroup label="Base URL (Opcional)" description="Només si cal sobrescriure l'endpoint per defecte.">
+                                    <input type="text" className="gnosi-input" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder={provider.base_url || "https://api.openai.com/v1"} />
+                                </FormGroup>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '40px', display: 'flex', gap: '14px', flexShrink: 0 }}>
+                    <button 
+                        className="btn-gnosi-secondary" 
+                        onClick={() => onValidate(selectedId, apiKey)} 
+                        disabled={isValidating || !selectedId}
+                        style={{ flex: 1, padding: '14px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}
+                    >
+                        {isValidating ? <div className="spinner-small" /> : <Activity size={18} />} Test Ping
+                    </button>
+                    <button 
+                        className="btn-gnosi-primary" 
+                        disabled={!selectedId || (!apiKey && !editingProvider)}
+                        onClick={() => onSave(selectedId, { api_key: apiKey, base_url: baseUrl })} 
+                        style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
+                    >Desar</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
+    const [name, setName] = useState(agent.name || '');
+    const [provider, setProvider] = useState(agent.provider || '');
+    const [model, setModel] = useState(agent.model || '');
+    const [icon, setIcon] = useState(agent.icon || '🤖');
+
+    const availableModels = aiCatalog[provider]?.models || [];
+
+    if (!isOpen) return null;
+
+    return (
+        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} style={{ 
+            zIndex: 99999, 
+            backdropFilter: 'blur(8px)', 
+            background: 'rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh'
+        }}>
+            <div className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{ 
+                width: '500px', 
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '40px', 
+                borderRadius: '32px', 
+                boxShadow: '0 30px 80px rgba(0,0,0,0.15)', 
+                border: '1px solid var(--settings-border)',
+                background: 'var(--settings-bg)',
+                overflow: 'hidden',
+                position: 'relative'
+            }}>
+                <button 
+                    onClick={onClose} 
+                    className="icon-btn hover-bg" 
+                    style={{ 
+                        position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%', 
+                        color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
+                        width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <X size={18} />
+                </button>
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
+                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? 'Editar Agent' : 'Nou Agent de Cognició'}</h3>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1 }}>
+                                <FormGroup label="Nom de l'Agent">
+                                    <input type="text" className="gnosi-input" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Analista de Dades" />
+                                </FormGroup>
+                            </div>
+                            <div style={{ width: '80px' }}>
+                                <FormGroup label="Icona">
+                                    <input type="text" className="gnosi-input" value={icon} onChange={e => setIcon(e.target.value)} style={{ textAlign: 'center', fontSize: '1.5rem' }} />
+                                </FormGroup>
+                            </div>
+                        </div>
+
+                        <FormGroup label="Proveïdor d'IA">
+                            <select className="gnosi-select" value={provider} onChange={e => { setProvider(e.target.value); setModel(''); }}>
+                                <option value="">Selecciona un proveïdor...</option>
+                                {Object.values(aiCatalog).map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        </FormGroup>
+
+                        <FormGroup label="Model Específic">
+                            <select className="gnosi-select" value={model} onChange={e => setModel(e.target.value)} disabled={!provider}>
+                                <option value="">Selecciona un model...</option>
+                                {availableModels.map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                ))}
+                            </select>
+                        </FormGroup>
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '40px', display: 'flex', gap: '14px' }}>
+                    <button className="btn-gnosi-secondary" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '18px' }}>Cancel·lar</button>
+                    <button 
+                        className="btn-gnosi-primary" 
+                        disabled={!name || !provider || !model}
+                        onClick={() => {
+                            onSave({ ...agent, name, provider, model, icon });
+                            onClose();
+                        }} 
+                        style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
+                    >Desar Agent</button>
+                </div>
+            </div>
+        </div>
     );
 }

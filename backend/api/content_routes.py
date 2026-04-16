@@ -11,8 +11,13 @@ cfg = load_params()
 CACHE_PATH = cfg.paths["CACHE"]
 
 
+# Global Cache for Content
+_CONTENT_CACHE = None
+_LAST_CONTENT_MTIME = 0
+
 @content_bp.route("/node/<node_id>", methods=["GET"])
 def get_node_content(node_id):
+    global _CONTENT_CACHE, _LAST_CONTENT_MTIME
     try:
         # Handle Media Nodes Direct (New)
         if node_id.startswith("media_"):
@@ -41,12 +46,18 @@ def get_node_content(node_id):
         if not CACHE_PATH.exists():
             return jsonify({"error": "Cache not found"}), 404
 
-        # In a high-traffic app we would cache this in memory.
-        # For a personal brain, reading the file is fine and ensures data freshness after sync.
-        with CACHE_PATH.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+        mtime = os.path.getmtime(CACHE_PATH)
+        
+        # Servir des de caché si el fitxer no ha canviat
+        if _CONTENT_CACHE is None or mtime != _LAST_CONTENT_MTIME:
+            log.info(f"Carregant caché de continguts des de disc: {CACHE_PATH}")
+            with CACHE_PATH.open("r", encoding="utf-8") as f:
+                _CONTENT_CACHE = json.load(f)
+                _LAST_CONTENT_MTIME = mtime
+        else:
+            log.debug("Servint contingut des de la caché en memòria")
 
-        node_data = data.get(node_id)
+        node_data = _CONTENT_CACHE.get(node_id)
         if not node_data:
             return jsonify({"error": "Node not found"}), 404
 

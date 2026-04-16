@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Mail, Phone, MapPin, Building2, Briefcase, Tag, X, Save, ArrowLeft, Plus, Trash2, Globe, ChevronLeft, Star } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Building2, Briefcase, Tag, X, Save, ArrowLeft, Plus, Trash2, Globe, ChevronLeft, Star, Search } from 'lucide-react';
+import { isGmail, getGoogleAvatarUrl } from '../../utils/avatar-utils';
 
 export default function ContactForm({ contact, onSave, onCancel, onBack, contactAccounts = [], defaultAccount }) {
     const { t } = useTranslation();
@@ -105,6 +106,14 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
             ...prev,
             tags: prev.tags.filter((tag) => tag !== tagToRemove),
         }));
+    };
+
+    const handleFetchGmailAvatar = () => {
+        const primaryEmail = formData.emails[0]?.value || formData.email;
+        if (isGmail(primaryEmail)) {
+            const avatarUrl = getGoogleAvatarUrl(primaryEmail);
+            setFormData(prev => ({ ...prev, photo_url: avatarUrl }));
+        }
     };
 
     const handleSubmit = (e) => {
@@ -346,38 +355,78 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                         />
                     </div>
                     <div style={{ gridColumn: 'span 2' }}>
-                        <label style={labelStyle}><Globe size={14} /> {t('contacts.photo_url_label', 'URL de la foto')}</label>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <label style={labelStyle}><Globe size={14} /> {t('contacts.photo_url_label', 'Foto de perfil')}</label>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '10px' }}>
                             <div style={{ 
-                                width: '40px', 
-                                height: '40px', 
-                                borderRadius: '8px', 
-                                background: 'var(--bg-secondary)', 
+                                width: '64px', 
+                                height: '64px', 
+                                borderRadius: '12px', 
+                                background: formData.photo_url ? 'transparent' : 'var(--gnosi-blue)', 
                                 border: '1px solid var(--border-primary)',
                                 overflow: 'hidden',
                                 flexShrink: 0,
-                                marginTop: '6px'
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                             }}>
                                 {formData.photo_url ? (
                                     <img 
                                         src={formData.photo_url} 
                                         alt="Preview" 
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.parentNode.style.background = 'var(--gnosi-blue)';
+                                            e.target.parentNode.style.color = 'white';
+                                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
+                                        }}
                                     />
-                                ) : (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)', opacity: 0.5 }}>
-                                        <User size={20} />
-                                    </div>
-                                )}
+                                ) : null}
+                                <div style={{ display: formData.photo_url ? 'none' : 'block' }}>
+                                    <User size={32} />
+                                </div>
                             </div>
-                            <input
-                                type="text"
-                                name="photo_url"
-                                value={formData.photo_url}
-                                onChange={handleChange}
-                                placeholder="https://exemple.com/foto.jpg"
-                                style={{ ...inputStyle, flex: 1 }}
-                            />
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input
+                                        type="text"
+                                        name="photo_url"
+                                        value={formData.photo_url}
+                                        onChange={handleChange}
+                                        placeholder="https://exemple.com/foto.jpg"
+                                        style={{ ...inputStyle, marginTop: 0, flex: 1 }}
+                                    />
+                                    {isGmail(formData.emails[0]?.value || formData.email) && (
+                                        <button
+                                            type="button"
+                                            onClick={handleFetchGmailAvatar}
+                                            style={{
+                                                padding: '0 12px',
+                                                background: 'rgba(59,130,246,0.1)',
+                                                color: 'var(--gnosi-blue)',
+                                                border: '1px solid rgba(59,130,246,0.2)',
+                                                borderRadius: '8px',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                            title={t('contacts.fetch_gmail_avatar', 'Obtenir avatar de Gmail')}
+                                        >
+                                            <Search size={14} />
+                                            Gmail
+                                        </button>
+                                    )}
+                                </div>
+                                <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-tertiary)', opacity: 0.7 }}>
+                                    {t('contacts.photo_url_hint', 'Posa una URL directa a una imatge o fes servir el botó de Gmail si és possible.')}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>

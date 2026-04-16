@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge } from 'lucide-react';
+import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge, X, Bug, FileText, AlertTriangle, Activity, Cpu, Layers, Database, ShieldCheck, Clock, Book, ExternalLink, ShieldAlert, Check, Search, Loader2, Eye, Edit2, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { AppHeader } from '../components/AppHeader';
 import { useApi } from '../hooks/use-api';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 
 function Dashboard() {
+    const navigate = useNavigate();
     const { role: initialRole, apiFetch } = useApi();
     const { t } = useTranslation();
     const { isDark } = useTheme();
@@ -22,6 +25,7 @@ function Dashboard() {
     const [schedulerLoading, setSchedulerLoading] = useState(true);
     const [notificationsLoading, setNotificationsLoading] = useState(false);
     const [selectedControlTab, setSelectedControlTab] = useState('schedulers');
+    const [executingTasks, setExecutingTasks] = useState(new Set());
     
     // Admin state
     const [members, setMembers] = useState([]);
@@ -43,8 +47,26 @@ function Dashboard() {
     const [memberVaultAccess, setMemberVaultAccess] = useState([]);
     const [vaultAccessLoading, setVaultAccessLoading] = useState(false);
     
-    // Suprimir advertència d'unused variable si realment no s'usa
-    // setUpdatingUserId(null); 
+    // Traps drilldown state
+    const [isTrapsModalOpen, setIsTrapsModalOpen] = useState(false);
+    const [memorySearchTerm, setMemorySearchTerm] = useState("");
+    const [traps, setTraps] = useState([]);
+    const [isTrapsLoading, setIsTrapsLoading] = useState(false);
+    const [isDirectivesModalOpen, setIsDirectivesModalOpen] = useState(false);
+    const [directives, setDirectives] = useState([]);
+    const [isDirectivesLoading, setIsDirectivesLoading] = useState(false);
+    const [editingDirective, setEditingDirective] = useState(null);
+    const [isEditorSaving, setIsEditorSaving] = useState(false);
+    const [editorContent, setEditorContent] = useState('');
+    
+    // Nous estats per a modals de drill-down
+    const [isToolsModalOpen, setIsToolsModalOpen] = useState(false);
+    const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
+    const [graphNodes, setGraphNodes] = useState([]);
+    const [isGraphLoading, setIsGraphLoading] = useState(false);
+    
+    // Suprimir advertència d'unused variable
+    const [selectedHardwareType, setSelectedHardwareType] = useState('summary');
 
     const activeWorkspaceId = localStorage.getItem('gnosi_workspace_id') || 'personal';
 
@@ -124,6 +146,22 @@ function Dashboard() {
         }
     };
 
+    const fetchGraphNodes = async () => {
+        setIsGraphLoading(true);
+        setIsMemoryModalOpen(true);
+        try {
+            const data = await apiFetch('/api/graph');
+            if (data && data.nodes) {
+                // Sort by label or id for now, as we don't have a reliable date on all nodes yet
+                setGraphNodes(data.nodes);
+            }
+        } catch (e) {
+            console.error("Error fetching graph nodes", e);
+        } finally {
+            setIsGraphLoading(false);
+        }
+    };
+
     const handleGlobalRefresh = async () => {
         // Run all fetches in parallel
         await Promise.all([
@@ -134,6 +172,80 @@ function Dashboard() {
             fetchPendingTools(),
             fetchNotifications(false)
         ]);
+    };
+
+    const fetchTraps = async () => {
+        setIsTrapsLoading(true);
+        setIsTrapsModalOpen(true);
+        try {
+            const data = await apiFetch('/api/analytics/traps');
+            setTraps(data.traps || []);
+        } catch (e) {
+            console.error("Error fetching traps", e);
+        } finally {
+            setIsTrapsLoading(false);
+        }
+    };
+
+    const fetchDirectives = async () => {
+        setIsDirectivesLoading(true);
+        setIsDirectivesModalOpen(true);
+        try {
+            const data = await apiFetch('/api/analytics/directives');
+            setDirectives(data.directives || []);
+        } catch (e) {
+            console.error("Error fetching directives", e);
+        } finally {
+            setIsDirectivesLoading(false);
+        }
+    };
+
+    const handleEditDirective = async (directive) => {
+        try {
+            const data = await apiFetch(`/api/analytics/directives/content?path=${encodeURIComponent(directive.path)}`);
+            setEditorContent(data.content);
+            setEditingDirective(directive);
+        } catch (e) {
+            toast.error("Error al carregar la directiva");
+        }
+    };
+
+    const handleSaveDirective = async () => {
+        if (!editingDirective) return;
+        setIsEditorSaving(true);
+        try {
+            await apiFetch('/api/analytics/directives/content', {
+                method: 'POST',
+                body: JSON.stringify({
+                    path: editingDirective.path,
+                    content: editorContent
+                })
+            });
+            toast.success("Directiva desada correctament");
+            setEditingDirective(null);
+            fetchDirectives();
+            fetchApprovedTools();
+            fetchAnalytics();
+        } catch (e) {
+            toast.error("Error al desar la directiva");
+        } finally {
+            setIsEditorSaving(false);
+        }
+    };
+
+    const handleDeleteDirective = async (directive) => {
+        if (!window.confirm(`Estàs segur que vols eliminar la directiva "${directive.name}"? Aquesta acció no es pot desfer.`)) {
+            return;
+        }
+        try {
+            await apiFetch(`/api/analytics/directives?path=${encodeURIComponent(directive.path)}`, {
+                method: 'DELETE'
+            });
+            toast.success("Directiva eliminada");
+            fetchDirectives();
+        } catch (e) {
+            toast.error("Error al eliminar la directiva");
+        }
     };
 
     useEffect(() => {
@@ -319,11 +431,29 @@ function Dashboard() {
     };
 
     const runSchedulerNow = async (taskName) => {
+        if (executingTasks.has(taskName)) return;
+        
+        setExecutingTasks(prev => new Set(prev).add(taskName));
+        const t_id = toast.loading(`${t('dashboard.running_task', 'Executant tasca')} ${taskName.replace(/_/g, ' ')}...`);
+        
         try {
-            await fetch(`/api/schedulers/${taskName}/run`, { method: 'POST' });
-            await refreshSchedulers(true);
+            const data = await apiFetch(`/api/schedulers/${taskName}/run`, { method: 'POST' });
+            if (data.success) {
+                toast.success(t('dashboard.task_started', 'Tasca iniciada correctament'), { id: t_id });
+            } else {
+                toast.error(data.error || 'Error desconegut', { id: t_id });
+            }
+            // Refresquem després d'un petit delay perquè el backend hagi processat el canvi d'estat a "running"
+            setTimeout(() => refreshSchedulers(true), 500);
         } catch (e) {
             console.error("Error running scheduler", e);
+            toast.error(`${t('dashboard.run_error', 'Error en l\'execució')}: ${e.message}`, { id: t_id });
+        } finally {
+            setExecutingTasks(prev => {
+                const next = new Set(prev);
+                next.delete(taskName);
+                return next;
+            });
         }
     };
 
@@ -362,101 +492,140 @@ function Dashboard() {
                     <div className="w-full">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
                 {/* Status Card */}
-                <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all group">
-                    <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.status_title')}</h3>
+                <div className="glass-panel p-6 rounded-2xl shadow-xl transition-all hover:bg-white/[0.02]">
+                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4">
+                        {t('dashboard.status_title')}
+                    </h3>
                     <div className="flex items-center">
-                        <div className={`w-3 h-3 rounded-full mr-3 animate-pulse ${stats.status === 'online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`}></div>
-                        <span className="text-2xl font-bold capitalize tracking-tight group-hover:text-blue-400 transition-colors">{stats.status}</span>
+                        <div className={`w-2.5 h-2.5 rounded-full mr-3 ${stats.status === 'online' ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'}`}></div>
+                        <span className="text-2xl font-bold capitalize tracking-tight text-[var(--text-primary)]">{stats.status}</span>
                     </div>
                 </div>
 
                 {/* Memory Card */}
-                <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all group">
-                    <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.memory_title')}</h3>
+                <div 
+                    onClick={fetchGraphNodes}
+                    className="glass-panel p-6 rounded-2xl hover:border-cyan-500/30 transition-all group cursor-pointer hover:bg-cyan-500/[0.02] shadow-xl"
+                >
+                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between">
+                        {t('dashboard.memory_title')}
+                        <span className="text-[10px] text-cyan-500 group-hover:underline">Detalls →</span>
+                    </h3>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black text-blue-400 tracking-tighter group-hover:scale-110 transition-transform origin-left duration-300">{stats.memory_items}</span>
-                        <span className="text-gray-500 text-sm font-medium">{t('dashboard.memories_stored')}</span>
+                        <span className="text-4xl font-black text-cyan-400 tracking-tighter group-hover:scale-110 transition-transform origin-left duration-300">{stats.memory_items}</span>
+                        <span className="text-[var(--text-secondary)] text-sm font-medium">{t('dashboard.memories_stored')}</span>
                     </div>
                 </div>
 
                 {/* CPU Card */}
-                <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all">
-                    <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.cpu_usage')}</h3>
-                    <div className="mt-2">
-                        <span className="text-4xl font-black text-purple-400 tracking-tighter">{stats.cpu}%</span>
-                    </div>
+                <div className="glass-panel p-6 rounded-2xl shadow-xl transition-all hover:bg-white/[0.02]">
+                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4">
+                        {t('dashboard.cpu_usage')}
+                    </h3>
+                    <div className="mt-2 text-4xl font-black text-purple-400 tracking-tighter">{stats.cpu}%</div>
                     <div className="w-full bg-[var(--bg-tertiary)] h-1.5 mt-4 rounded-full overflow-hidden">
                         <div className="bg-gradient-to-r from-purple-600 to-purple-400 h-full transition-all duration-1000" style={{ width: `${stats.cpu}%` }}></div>
                     </div>
                 </div>
 
                 {/* RAM Card */}
-                <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all">
-                    <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.ram_usage')}</h3>
-                    <div className="mt-2">
-                        <span className="text-4xl font-black text-pink-400 tracking-tighter">{stats.ram_percent}%</span>
-                    </div>
+                <div className="glass-panel p-6 rounded-2xl shadow-xl transition-all hover:bg-white/[0.02]">
+                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4">
+                        {t('dashboard.ram_usage')}
+                    </h3>
+                    <div className="mt-2 text-4xl font-black text-pink-400 tracking-tighter">{stats.ram_percent}%</div>
                     <div className="w-full bg-[var(--bg-tertiary)] h-1.5 mt-4 rounded-full overflow-hidden">
                         <div className="bg-gradient-to-r from-pink-600 to-pink-400 h-full transition-all duration-1000" style={{ width: `${stats.ram_percent}%` }}></div>
                     </div>
                 </div>
             </div>
 
-            {/* Analytics Section */}
-            {analytics && (
-                <div className="mt-12 relative z-10">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-                        Analytics Overview
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        {/* Tools Created */}
-                        <div 
-                            onClick={() => setSelectedControlTab('history')}
-                            className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/40 hover:bg-blue-500/5 transition-all group cursor-pointer"
-                        >
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
-                                {t('dashboard.tools_title')}
-                                <span className="text-[10px] text-blue-500 group-hover:underline">Veure detalls →</span>
-                            </h3>
-                            <div className="text-4xl font-black text-green-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics.tools?.total_tools || 0}</div>
-                            <div className="mt-4 flex gap-3 text-[10px] items-center">
-                                <span className="bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-bold">{analytics.tools?.approved || 0} {t('dashboard.approved')}</span>
-                                <span className="bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold">{analytics.tools?.pending || 0} {t('dashboard.pending')}</span>
-                            </div>
-                        </div>
+            {/* Analytics Section - Always visible to prevent layout shift */}
+            <div className="mt-12 relative z-10 w-full">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+                    {t('dashboard.analytics_overview', 'Analytics Overview')}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* Directives (Now first) */}
+                    <div 
+                        onClick={fetchDirectives}
+                        className="glass-panel p-6 rounded-2xl hover:border-cyan-500/30 hover:bg-cyan-500/[0.02] shadow-xl transition-all group cursor-pointer"
+                    >
+                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
+                            {t('dashboard.directives')}
+                            <span className="text-[10px] text-cyan-500 group-hover:underline">Detalls →</span>
+                        </h3>
+                        <div className="text-4xl font-black text-cyan-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics?.directives?.total || 0}</div>
+                        <div className="mt-4 text-[10px] font-bold text-cyan-500/60 uppercase tracking-widest font-bold">Gestionat al Vault</div>
+                    </div>
 
-                        {/* Errors Prevented */}
-                        <div 
-                            onClick={() => setSelectedControlTab('history')}
-                            className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-red-500/40 hover:bg-red-500/5 transition-all group cursor-pointer"
-                        >
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
-                                {t('dashboard.errors_prevented_title')}
-                                <span className="text-[10px] text-red-500 group-hover:underline">Resum →</span>
-                            </h3>
-                            <div className="text-4xl font-black text-red-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics.errors_prevented || 0}</div>
-                            <div className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{t('dashboard.documented_pitfalls')}</div>
+                    {/* Tools Created (Intelligence) */}
+                    <div 
+                        onClick={() => {
+                            fetchApprovedTools();
+                            fetchPendingTools();
+                            fetchAnalytics();
+                            setIsToolsModalOpen(true);
+                        }}
+                        className="glass-panel p-6 rounded-2xl hover:border-green-500/30 hover:bg-green-500/[0.02] shadow-xl transition-all group cursor-pointer"
+                    >
+                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
+                            {t('dashboard.tools_title')}
+                            <span className="text-[10px] text-green-500 group-hover:underline">Detalls →</span>
+                        </h3>
+                        <div className="text-4xl font-black text-green-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">
+                            {Math.max(analytics?.tools?.total_tools || 0, approvedTools.length + pendingTools.length)}
                         </div>
-
-                        {/* Directives */}
-                        <div 
-                            className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-cyan-500/20 transition-all opacity-80"
-                        >
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.directives')}</h3>
-                            <div className="text-4xl font-black text-cyan-400 tracking-tighter">{analytics.directives?.total || 0}</div>
-                            <div className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-cyan-500/60">Gestionat al Vault</div>
-                        </div>
-
-                        {/* Recent Activity */}
-                        <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)] hover:border-blue-500/20 transition-all">
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.last_7_days')}</h3>
-                            <div className="text-4xl font-black text-orange-400 tracking-tighter">{analytics.tools?.created_last_7_days || 0}</div>
-                            <div className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{t('dashboard.new_tools')}</div>
+                        <div className="mt-4 flex gap-3 text-[10px] items-center">
+                            <span className="bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
+                                {Math.max(analytics?.tools?.approved || 0, approvedTools.length)} {t('dashboard.approved')}
+                            </span>
+                            <span className="bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
+                                {Math.max(analytics?.tools?.pending || 0, pendingTools.length)} {t('dashboard.pending')}
+                            </span>
                         </div>
                     </div>
+
+                    {/* Errors Prevented */}
+                    <div 
+                        onClick={fetchTraps}
+                        className="glass-panel p-6 rounded-2xl hover:border-red-500/30 hover:bg-red-500/[0.02] shadow-xl transition-all group cursor-pointer"
+                    >
+                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
+                            {t('dashboard.errors_prevented_title')}
+                            <span className="text-[10px] text-red-500 group-hover:underline">Resum →</span>
+                        </h3>
+                        <div className="text-4xl font-black text-red-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics?.errors_prevented || 0}</div>
+                        <div className="mt-4 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">{t('dashboard.documented_pitfalls')}</div>
+                    </div>
+
+                    {/* Recent Activity */}
+                    <div 
+                        onClick={() => {
+                            fetchApprovedTools();
+                            fetchPendingTools();
+                            fetchAnalytics();
+                            setIsToolsModalOpen(true);
+                        }}
+                        className="glass-panel p-6 rounded-2xl hover:border-orange-500/30 hover:bg-orange-500/[0.02] shadow-xl transition-all group cursor-pointer"
+                    >
+                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
+                            {t('dashboard.last_7_days')}
+                            <span className="text-[10px] text-orange-500 group-hover:underline">Historial →</span>
+                        </h3>
+                        <div className="text-4xl font-black text-orange-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">
+                            {Math.max(analytics?.tools?.created_last_7_days || 0, approvedTools.filter(t => {
+                                const d = new Date(t.approved_at || t.created_at);
+                                const weekAgo = new Date();
+                                weekAgo.setDate(weekAgo.getDate() - 7);
+                                return d >= weekAgo;
+                            }).length)}
+                        </div>
+                        <div className="mt-4 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">{t('dashboard.new_tools')}</div>
+                    </div>
                 </div>
-            )}
+            </div>
 
             {/* Control Center Tabs */}
             <div className="mt-16">
@@ -573,9 +742,16 @@ function Dashboard() {
 
                                             <button
                                                 onClick={() => runSchedulerNow(task.name)}
-                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold"
+                                                disabled={executingTasks.has(task.name)}
+                                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all ${
+                                                    executingTasks.has(task.name) ? 'opacity-50 cursor-not-allowed' : ''
+                                                }`}
                                             >
-                                                <Play size={12} />
+                                                {executingTasks.has(task.name) ? (
+                                                    <Loader2 size={12} className="animate-spin" />
+                                                ) : (
+                                                    <Play size={12} />
+                                                )}
                                                 {t('dashboard.run_now')}
                                             </button>
                                         </div>
@@ -590,40 +766,19 @@ function Dashboard() {
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                                <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.activity_summary')}</h3>
-                                <div className="space-y-3 text-sm">
-                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                        <p className="text-gray-400">{t('dashboard.errors_prevented_sops')}</p>
-                                        <p className="font-bold text-red-400">{analytics.errors_prevented || 0}</p>
-                                    </div>
-                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                        <p className="text-gray-400">{t('dashboard.active_processes')}</p>
-                                        <p className="font-bold text-blue-400">{schedulers.filter(s => s.status === 'active').length}</p>
-                                    </div>
-                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                        <p className="text-gray-400">{t('dashboard.total_memories')}</p>
-                                        <p className="font-bold text-cyan-400">{stats.memory_items}</p>
-                                    </div>
-                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                        <span className="text-gray-300">{t('dashboard.tools_pending_approval')}</span>
-                                        <span className="font-bold text-yellow-300">{pendingTools.length}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                        <span className="text-gray-300">{t('dashboard.total_approved_tools')}</span>
-                                        <span className="font-bold text-green-300">{analytics?.tools?.approved ?? 0}</span>
-                                    </div>
-                                </div>
-
-                                <h4 className="text-gray-500 text-xs uppercase font-bold tracking-widest mt-7 mb-4">{t('dashboard.latest_scheduled_runs')}</h4>
+                                <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex items-center gap-2">
+                                    <Clock size={14} className="text-blue-500" />
+                                    {t('dashboard.latest_scheduled_runs')}
+                                </h3>
                                 <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
                                     {schedulers
                                         .filter(task => task.last_run)
                                         .sort((a, b) => new Date(b.last_run) - new Date(a.last_run))
                                         .slice(0, 10)
                                         .map(task => (
-                                            <div key={`${task.name}-last`} className="border border-white/10 rounded-lg p-3 bg-white/5">
-                                                <p className="text-sm font-semibold text-white">{task.name.replace(/_/g, ' ')}</p>
-                                                <p className="text-xs text-gray-400">{new Date(task.last_run).toLocaleString()}</p>
+                                            <div key={`${task.name}-last`} className="border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
+                                                <p className="text-sm font-semibold text-[var(--text-primary)]">{task.name.replace(/_/g, ' ')}</p>
+                                                <p className="text-xs text-[var(--text-secondary)]">{new Date(task.last_run).toLocaleString()}</p>
                                             </div>
                                         ))}
                                     {schedulers.filter(task => task.last_run).length === 0 && (
@@ -651,7 +806,7 @@ function Dashboard() {
                                             .map(tool => (
                                                 <div key={tool.name} className="border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
                                                     <div className="flex items-center justify-between gap-3">
-                                                        <p className="text-sm font-semibold text-blue-300 truncate">{tool.name}</p>
+                                                        <p className="text-sm font-semibold text-blue-500 dark:text-blue-300 truncate">{tool.name}</p>
                                                         <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${tool.risk_level === 'EXTERNAL_WRITE'
                                                             ? 'bg-red-500/20 text-red-400'
                                                             : 'bg-yellow-500/20 text-yellow-400'
@@ -682,15 +837,15 @@ function Dashboard() {
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left text-xs">
                                         <thead>
-                                            <tr className="border-b border-white/5 text-gray-500 font-bold">
+                                            <tr className="border-b border-[var(--border-primary)] text-[var(--text-secondary)] font-bold">
                                                 <th className="pb-2 w-32">{t('common.time', 'Hora')}</th>
                                                 <th className="pb-2 w-20">{t('common.level', 'Nivell')}</th>
                                                 <th className="pb-2">{t('common.event', 'Esdeveniment')}</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-white/5">
+                                        <tbody className="divide-y divide-[var(--border-primary)]">
                                             {notifications.map(notif => (
-                                                <tr key={notif.id} className="hover:bg-white/5 transition-colors">
+                                                <tr key={notif.id} className="hover:bg-[var(--bg-tertiary)] transition-colors">
                                                     <td className="py-2 text-gray-400 font-mono">
                                                         {new Date(notif.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                                     </td>
@@ -705,8 +860,8 @@ function Dashboard() {
                                                         </span>
                                                     </td>
                                                     <td className="py-2">
-                                                        <div className="font-bold text-gray-200">{notif.title}</div>
-                                                        <div className="text-gray-400 mt-0.5">{notif.message}</div>
+                                                        <div className="font-bold text-[var(--text-primary)]">{notif.title}</div>
+                                                        <div className="text-[var(--text-secondary)] mt-0.5">{notif.message}</div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -810,210 +965,629 @@ function Dashboard() {
                     </div>
                 )}
             </div>
+        </div>
+    </div>
 
-
-                {/* Modal Afegir Membre */}
-                {isAddMemberModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="w-full max-w-md bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-primary)] shadow-2xl p-6 shadow-blue-500/10 zoom-in animate-in duration-200">
-                            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-4">{t('dashboard.add_new_member')}</h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('dashboard.user_email')}</label>
-                                    <input 
-                                        type="email"
-                                        value={newMemberEmail}
-                                        onChange={(e) => setNewMemberEmail(e.target.value)}
-                                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                        placeholder="exemple@correu.com"
-                                    />
+            {/* Modals moved outside animated container for better positioning */}
+            {/* Memory Detail Modal */}
+            {isMemoryModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-primary)]/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                                    <Database size={20} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('dashboard.initial_role')}</label>
-                                    <select 
-                                        value={newMemberRole}
-                                        onChange={(e) => setNewMemberRole(e.target.value)}
-                                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                    >
-                                        <option value="viewer">{t('dashboard.role_viewer_full')}</option>
-                                        <option value="editor">{t('dashboard.role_editor_full')}</option>
-                                        <option value="admin">{t('dashboard.role_admin_full')}</option>
-                                    </select>
-                                </div>
-                                <div className="flex gap-3 mt-8">
-                                    <button 
-                                        onClick={() => setIsAddMemberModalOpen(false)}
-                                        className="flex-1 px-4 py-3 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border-primary)] rounded-xl transition-all font-medium"
-                                    >
-                                        {t('common.cancel')}
-                                    </button>
-                                    <button 
-                                        onClick={handleAddMember}
-                                        className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-medium shadow-lg shadow-blue-900/20"
-                                    >
-                                        {t('dashboard.send_invitation')}
-                                    </button>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.memory_details', 'Detall de la Memòria')}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.memories_stored_desc', 'Llistat de records guardats al Graf de Coneixement.')}</p>
                                 </div>
                             </div>
+                            <button 
+                                onClick={() => setIsMemoryModalOpen(false)}
+                                className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors text-[var(--text-secondary)]"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
-                    </div>
-                )}
-
-                {/* Modal Permisos Granulars */}
-                {isPermissionsModalOpen && selectedMember && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className="w-full max-w-xl bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-primary)] shadow-2xl p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold text-[var(--text-primary)]">{t('dashboard.configure_permissions')}: {selectedMember.name || selectedMember.email}</h3>
-                                <button onClick={() => setIsPermissionsModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">
-                                    <i className="pi pi-times"></i>
-                                </button>
-                            </div>
-
-                            <div className="space-y-6">
-                                <div>
-                                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">{t('dashboard.member_role')}</h4>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {[
-                                            { id: 'viewer', label: t('dashboard.role_viewer'), desc: t('dashboard.role_viewer_desc') },
-                                            { id: 'editor', label: t('dashboard.role_editor'), desc: t('dashboard.role_editor_desc') },
-                                            { id: 'admin', label: t('dashboard.role_admin'), desc: t('dashboard.role_admin_desc') },
-                                            { id: 'owner', label: t('dashboard.role_owner'), desc: t('dashboard.role_owner_desc') }
-                                        ].map(role => (
-                                            <button 
-                                                key={role.id}
-                                                onClick={() => {
-                                                    const newCaps = ROLE_CAPABILITIES[role.id] || [];
-                                                    setSelectedMember({ 
-                                                        ...selectedMember, 
-                                                        role: role.id,
-                                                        permissions: { 
-                                                            ...selectedMember.permissions, 
-                                                            capabilities: newCaps 
-                                                        }
-                                                    });
-                                                }}
-                                                className={`p-3 rounded-xl border text-left transition-all ${
-                                                    selectedMember.role === role.id 
-                                                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
-                                                        : 'bg-[var(--bg-primary)] border-[var(--border-primary)] text-[var(--text-secondary)] hover:border-blue-500/20'
-                                                }`}
-                                            >
-                                                <div className="font-bold text-sm uppercase">{role.label}</div>
-                                                <div className="text-[10px] opacity-70">{role.desc}</div>
-                                            </button>
-                                        ))}
-                                    </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {isGraphLoading ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <RefreshCw className="animate-spin text-cyan-500" size={32} />
+                                    <p className="text-[var(--text-secondary)] font-medium">Carregant memòries...</p>
                                 </div>
+                            ) : graphNodes.length === 0 ? (
+                                <div className="text-center py-20 text-[var(--text-secondary)]">
+                                    <Database className="mx-auto mb-4 opacity-20" size={48} />
+                                    <p>No s'han trobat records al graf encara.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)] tracking-widest">{graphNodes.length} RECORDS TROBATS</div>
+                                        <div className="relative flex-1 max-w-xs">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
+                                            <input 
+                                                type="text"
+                                                placeholder="Cerca memòria..."
+                                                className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-xl py-1.5 pl-9 pr-4 text-xs text-[var(--text-primary)] focus:outline-none focus:border-cyan-500/50 transition-all font-gnosi"
+                                                value={memorySearchTerm}
+                                                onChange={(e) => setMemorySearchTerm(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
 
-                                <div>
-                                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Capacitats del Sistema</h4>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {[
-                                            { id: 'read', label: 'Llegir Documents', icon: 'pi-eye' },
-                                            { id: 'write', label: 'Editar Documents', icon: 'pi-pencil' },
-                                            { id: 'delete', label: 'Eliminar Documents', icon: 'pi-trash' },
-                                            { id: 'admin', label: 'Administrar Membres', icon: 'pi-users' },
-                                            { id: 'analytics', label: 'Veure Analítics', icon: 'pi-chart-bar' },
-                                            { id: 'tools', label: 'Executar Eines AI', icon: 'pi-bolt' }
-                                        ].map(cap => {
-                                            const hasCap = selectedMember.permissions?.capabilities?.includes(cap.id);
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {graphNodes
+                                            .filter(node => 
+                                                node.label.toLowerCase().includes(memorySearchTerm.toLowerCase()) || 
+                                                node.kind?.toLowerCase().includes(memorySearchTerm.toLowerCase()) ||
+                                                node.id.toLowerCase().includes(memorySearchTerm.toLowerCase())
+                                            )
+                                            .slice(0, 100) 
+                                            .map((node) => {
+                                            const getIcon = (kind) => {
+                                                switch(kind?.toLowerCase()) {
+                                                    case 'contact': return <Users size={14} className="text-blue-400" />;
+                                                    case 'event': return <Clock size={14} className="text-orange-400" />;
+                                                    case 'page': return <FileText size={14} className="text-yellow-400" />;
+                                                    case 'media': return <Layers size={14} className="text-pink-400" />;
+                                                    case 'wiki': return <Book size={14} className="text-purple-400" />;
+                                                    case 'database': return <Database size={14} className="text-emerald-400" />;
+                                                    case 'table': return <Database size={14} className="text-blue-500" />;
+                                                    case 'view': return <Database size={14} className="text-indigo-400" />;
+                                                    default: return <Database size={14} className="text-[var(--text-secondary)]" />;
+                                                }
+                                            };
+
                                             return (
-                                                <button 
-                                                    key={cap.id}
-                                                    onClick={() => {
-                                                        const currentCaps = selectedMember.permissions?.capabilities || [];
-                                                        const newCaps = hasCap 
-                                                            ? currentCaps.filter(c => c !== cap.id)
-                                                            : [...currentCaps, cap.id];
-                                                        
-                                                        const newMember = {
-                                                            ...selectedMember,
-                                                            permissions: { ...selectedMember.permissions, capabilities: newCaps }
-                                                        };
-                                                        setSelectedMember(newMember);
-                                                    }}
-                                                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
-                                                        hasCap 
-                                                            ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
-                                                            : 'bg-[var(--bg-primary)] border-[var(--border-primary)] text-[var(--text-secondary)] hover:border-blue-500/20'
-                                                    }`}
+                                                <div 
+                                                    key={node.id} 
+                                                    onClick={() => navigate(`/graph?node=${node.id}`)}
+                                                    className="p-3 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-tertiary)]/30 hover:bg-[var(--bg-tertiary)] hover:border-cyan-500/30 transition-all flex items-center justify-between group cursor-pointer"
                                                 >
-                                                    <i className={`pi ${cap.icon} text-sm`}></i>
-                                                    <span className="text-sm font-medium">{cap.label}</span>
-                                                    {hasCap && <i className="pi pi-check text-[10px] ml-auto"></i>}
-                                                </button>
+                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                        <div className="p-2 rounded-lg bg-[var(--bg-primary)]/50 group-hover:bg-cyan-500/10 transition-colors">
+                                                            {getIcon(node.kind || node.type)}
+                                                        </div>
+                                                        <div className="overflow-hidden">
+                                                            <div className="text-sm font-bold text-[var(--text-primary)] truncate group-hover:text-cyan-400 transition-colors">{node.label}</div>
+                                                            <div className="text-[10px] text-[var(--text-secondary)] capitalize tracking-wider flex items-center gap-2">
+                                                                {node.kind || node.type || 'node'}
+                                                                {node.id && <span className="text-[8px] font-mono opacity-50">ID: {node.id.substring(0, 8)}</span>}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-tighter">Veure Graf</span>
+                                                        <ExternalLink size={14} className="text-cyan-500" />
+                                                    </div>
+                                                </div>
                                             );
                                         })}
                                     </div>
                                 </div>
+                            )}
+                        </div>
+                        
+                        <div className="p-4 border-t border-[var(--border-primary)] bg-[var(--bg-primary)]/50 flex items-center justify-between">
+                            <button 
+                                onClick={() => navigate('/graph')}
+                                className="flex items-center gap-2 px-4 py-2 text-cyan-500 hover:text-cyan-300 text-xs font-bold transition-all"
+                            >
+                                <Activity size={16} />
+                                VEURE GRAF COMPLET
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                                <div>
-                                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Accés a Dades Específiques</h4>
-                                    <p className="text-xs text-gray-500 mb-4 italic">Limita l'accés a carpetes (Vaults) específiques dins d'aquest workspace.</p>
-                                    
-                                    {vaultAccessLoading ? (
-                                        <div className="text-gray-500 text-xs animate-pulse">Carregant accessos...</div>
-                                    ) : allVaults.length === 0 ? (
-                                        <p className="text-xs text-gray-500">No hi ha vaults configurats en aquest workspace.</p>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {allVaults.map(v => {
-                                                const hasAccess = memberVaultAccess.some(acc => acc.vault_id === v.id);
-                                                return (
-                                                    <div key={v.id} className="flex items-center justify-between p-3 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl hover:border-white/10 transition-colors">
-                                                        <div className="flex items-center gap-3">
-                                                            <i className="pi pi-folder text-blue-400/50"></i>
-                                                            <span className="text-sm font-medium text-gray-300">{v.name}</span>
-                                                        </div>
-                                                        <button 
-                                                            onClick={() => toggleVaultAccess(selectedMember.user_id, v.id)}
-                                                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                                                                hasAccess 
-                                                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                                                                    : 'bg-white/5 text-gray-500 border border-white/10 hover:bg-white/10'
-                                                            }`}
-                                                        >
-                                                            {hasAccess ? 'Amb Accés' : 'Sense Accés'}
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
-                                            {memberVaultAccess.length === 0 && (
-                                                <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl flex items-start gap-3">
-                                                    <i className="pi pi-info-circle text-blue-500/50 mt-1"></i>
-                                                    <p className="text-[10px] text-blue-500/70 leading-relaxed">
-                                                        Si no se selecciona cap Vault, l'usuari tindrà accés total a tots els Vaults per defecte.
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+            {/* Traps Detail Modal */}
+            {isTrapsModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl w-full max-w-6xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-primary)]/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-400 flex items-center justify-center">
+                                    <Bug size={24} />
                                 </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.documented_pitfalls_modal', 'Trampes Documentades')}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.errors_prevented_desc', 'Lliçons apreses i errors evitats automàticament.')}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setIsTrapsModalOpen(false)}
+                                className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors text-[var(--text-secondary)]"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {isTrapsLoading ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <RefreshCw className="animate-spin text-blue-500" size={32} />
+                                    <p className="text-[var(--text-secondary)] font-medium">Carregant detalls...</p>
+                                </div>
+                            ) : traps.length === 0 ? (
+                                <div className="text-center py-20 text-[var(--text-secondary)]">
+                                    <AlertTriangle className="mx-auto mb-4 opacity-20" size={48} />
+                                    <p>No s'han trobat trampes documentades encara.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left table-fixed">
+                                        <thead>
+                                            <tr className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--border-primary)]">
+                                                <th className="px-4 py-3 w-32">{t('common.date', 'Data')}</th>
+                                                <th className="px-4 py-3 w-40">{t('common.source', 'Font')}</th>
+                                                <th className="px-4 py-3 w-1/3">{t('common.trap', 'Trampa / Error')}</th>
+                                                <th className="px-4 py-3">{t('common.solution', 'Solució Aplicada')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[var(--border-primary)]">
+                                            {traps.map((t, i) => (
+                                                <tr key={i} className="hover:bg-[var(--bg-tertiary)] transition-all group">
+                                                    <td className="px-4 py-4 text-[11px] font-mono text-[var(--text-secondary)] whitespace-nowrap">{t.date}</td>
+                                                    <td className="px-4 py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className={`text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded w-fit ${
+                                                                t.category === 'Agent' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                                t.category === 'Skill' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                                'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                            }`}>
+                                                                {t.category || 'Memory'}
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-[var(--text-secondary)] truncate max-w-[120px]" title={t.source}>
+                                                                {t.source}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        <div className="text-sm font-semibold text-[var(--text-primary)] leading-tight break-words overflow-hidden">
+                                                            {t.trap}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        <div className="text-xs text-green-500 italic leading-relaxed bg-green-500/5 p-3 rounded-xl border border-green-500/10 break-words overflow-hidden">
+                                                            {t.solution}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                                <div className="flex gap-3 mt-8">
-                                    <button 
-                                        onClick={() => setIsPermissionsModalOpen(false)}
-                                        className="px-4 py-3 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border-primary)] rounded-xl transition-all font-medium flex-1"
-                                    >
-                                        Cancel·lar
-                                    </button>
-                                    <button 
-                                        onClick={() => handleUpdatePermissions(selectedMember.user_id, selectedMember.permissions, selectedMember.role)}
-                                        className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-medium flex-1 shadow-lg shadow-blue-900/20"
-                                    >
-                                        Guardar Canvis
-                                    </button>
+            {/* Directives Detail Modal */}
+            {isDirectivesModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-primary)]/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                                    <FileText size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.directives_modal', 'Directives')}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.directives_desc', 'Protocols i limitacions del sistema.')}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setIsDirectivesModalOpen(false)}
+                                className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors text-[var(--text-secondary)]"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {isDirectivesLoading ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <RefreshCw className="animate-spin text-blue-500" size={32} />
+                                    <p className="text-[var(--text-secondary)] font-medium">Carregant detalls...</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-3">
+                                    {directives.map((d, i) => (
+                                        <div key={i} className="p-4 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-2xl flex items-center justify-between hover:border-cyan-500/30 transition-all cursor-default group">
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-cyan-500/50 group-hover:text-cyan-400 transition-colors">
+                                                    <Shield size={24} />
+                                                </div>
+                                                <div>
+                                                    <span className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wide block">{d.name.replace(/_/g, ' ')}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-[var(--text-secondary)] font-mono">{(d.size_bytes / 1024).toFixed(1)} KB</span>
+                                                        <span className="text-[10px] text-cyan-500/60 font-medium px-1.5 py-0.5 bg-cyan-500/5 rounded uppercase">{d.category}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-md">
+                                                    {d.trap_count} {t('dashboard.traps', 'traps')}
+                                                </span>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button 
+                                                        onClick={() => handleEditDirective(d)}
+                                                        className="p-1.5 hover:bg-cyan-500/10 text-cyan-400 rounded-lg transition-colors"
+                                                        title="Editar directiva"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteDirective(d)}
+                                                        className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors"
+                                                        title="Eliminar directiva"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Directive Editor Modal */}
+            {editingDirective && (
+                <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in zoom-in duration-300">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl w-full max-w-4xl h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-primary)]/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                                    <Edit2 size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">Editant: {editingDirective.name}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)] font-mono opacity-60">{editingDirective.path}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={handleSaveDirective}
+                                    disabled={isEditorSaving}
+                                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-xl transition-all shadow-lg active:scale-95 text-sm font-bold"
+                                >
+                                    {isEditorSaving ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                                    Desar canvis
+                                </button>
+                                <button 
+                                    onClick={() => setEditingDirective(null)}
+                                    className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors text-[var(--text-secondary)]"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden bg-[var(--bg-primary)]">
+                            <textarea
+                                value={editorContent}
+                                onChange={(e) => setEditorContent(e.target.value)}
+                                className="flex-1 w-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-mono text-sm p-6 rounded-2xl border border-[var(--border-primary)] focus:border-cyan-500/50 outline-none resize-none shadow-inner"
+                                placeholder="# Títol de la directiva..."
+                                spellCheck="false"
+                            />
+                            
+                            <div className="flex items-center justify-between text-[10px] text-[var(--text-secondary)] px-2">
+                                <p>Consell: Afegeix files a la taula de Trampes per documentar nous lliçons apresa.</p>
+                                <p>{editorContent.length} caràcters | {editorContent.split('\n').length} línies</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Tools Detail Modal */}
+            {isToolsModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-primary)]/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-green-500/10 text-green-400 flex items-center justify-center">
+                                    <ShieldCheck size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.intelligence_details', 'Detall d\'Intel·ligència')}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.tools_and_capabilities', 'Eines generades i capacitats de l\'agent.')}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setIsToolsModalOpen(false)}
+                                className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors text-[var(--text-secondary)]"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                <div className="bg-green-500/5 border border-green-500/20 p-4 rounded-2xl text-center">
+                                    <span className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest block mb-1">{t('dashboard.approved')}</span>
+                                    <span className="text-3xl font-black text-green-400">{Math.max(analytics?.tools?.approved || 0, approvedTools.length)}</span>
+                                </div>
+                                <div className="bg-yellow-500/5 border border-yellow-500/20 p-4 rounded-2xl text-center">
+                                    <span className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest block mb-1">{t('dashboard.pending')}</span>
+                                    <span className="text-3xl font-black text-yellow-400">{Math.max(analytics?.tools?.pending || 0, pendingTools.length)}</span>
+                                </div>
+                                <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-2xl text-center">
+                                    <span className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest block mb-1">{t('dashboard.last_7_days')}</span>
+                                    <span className="text-3xl font-black text-blue-400">
+                                        {Math.max(analytics?.tools?.created_last_7_days || 0, approvedTools.filter(t => {
+                                            const d = new Date(t.approved_at || t.created_at);
+                                            const weekAgo = new Date();
+                                            weekAgo.setDate(weekAgo.getDate() - 7);
+                                            return d >= weekAgo;
+                                        }).length)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <ShieldAlert size={14} className="text-yellow-500" />
+                                        {t('dashboard.pending_approval')}
+                                    </h4>
+                                    <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                                        {pendingTools.length === 0 ? (
+                                            <p className="text-xs text-[var(--text-secondary)] italic py-4">Sense eines pendents.</p>
+                                        ) : (
+                                            pendingTools.map(tool => (
+                                                <div key={tool.name} className="p-3 rounded-xl border border-yellow-500/10 bg-[var(--bg-tertiary)]/50">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-sm font-bold text-yellow-400 font-gnosi">{tool.name}</span>
+                                                        <span className="text-[8px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">PENDENT</span>
+                                                    </div>
+                                                    <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1 italic">{tool.description}</p>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <ShieldCheck size={14} className="text-green-500" />
+                                        {t('dashboard.recent_approved', 'Darreres Aprovades')}
+                                    </h4>
+                                    <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                                        {approvedTools.length === 0 ? (
+                                            <p className="text-xs text-[var(--text-secondary)] italic py-4">No hi ha eines aprovades encara.</p>
+                                        ) : (
+                                            approvedTools.slice(0, 10).map(tool => (
+                                                <div key={tool.name} className="p-3 rounded-xl border border-blue-500/10 bg-[var(--bg-tertiary)]/50 hover:border-blue-500/30 transition-all flex items-center justify-between group">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-sm font-bold text-blue-300 font-gnosi">{tool.name}</span>
+                                                            <span className="text-[8px] italic text-[var(--text-secondary)]">{tool.approved_at ? new Date(tool.approved_at).toLocaleDateString() : 'Recent'}</span>
+                                                        </div>
+                                                        <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1">{tool.description}</p>
+                                                    </div>
+                                                    {tool.path && (
+                                                        <button 
+                                                            onClick={() => handleEditDirective(tool)}
+                                                            className="ml-3 p-2 hover:bg-blue-500/10 text-blue-400 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                            title="Editar Skill"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
-           </div>
-          </div>
+                </div>
+            )}
+
+            {/* Modal Afegir Membre */}
+            {isAddMemberModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="w-full max-w-md bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl p-6 zoom-in animate-in duration-300">
+                        <h3 className="text-xl font-bold text-[var(--text-primary)] mb-4">{t('dashboard.add_new_member')}</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">{t('dashboard.user_email')}</label>
+                                <input 
+                                    type="email"
+                                    value={newMemberEmail}
+                                    onChange={(e) => setNewMemberEmail(e.target.value)}
+                                    className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-lg px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                    placeholder="exemple@correu.com"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">{t('dashboard.initial_role')}</label>
+                                <select 
+                                    value={newMemberRole}
+                                    onChange={(e) => setNewMemberRole(e.target.value)}
+                                    className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-lg px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                >
+                                    <option value="viewer">{t('dashboard.role_viewer_full')}</option>
+                                    <option value="editor">{t('dashboard.role_editor_full')}</option>
+                                    <option value="admin">{t('dashboard.role_admin_full')}</option>
+                                </select>
+                            </div>
+                            <div className="flex gap-3 mt-8">
+                                <button 
+                                    onClick={() => setIsAddMemberModalOpen(false)}
+                                    className="flex-1 px-4 py-3 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border-primary)] rounded-xl transition-all font-medium"
+                                >
+                                    {t('common.cancel')}
+                                </button>
+                                <button 
+                                    onClick={handleAddMember}
+                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-medium shadow-lg shadow-blue-900/20"
+                                >
+                                    {t('dashboard.send_invitation')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Permisos Granulars */}
+            {isPermissionsModalOpen && selectedMember && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="w-full max-w-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-[var(--text-primary)]">{t('dashboard.configure_permissions')}: {selectedMember.name || selectedMember.email}</h3>
+                            <button onClick={() => setIsPermissionsModalOpen(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t('dashboard.member_role')}</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        { id: 'viewer', label: t('dashboard.role_viewer'), desc: t('dashboard.role_viewer_desc') },
+                                        { id: 'editor', label: t('dashboard.role_editor'), desc: t('dashboard.role_editor_desc') },
+                                        { id: 'admin', label: t('dashboard.role_admin'), desc: t('dashboard.role_admin_desc') },
+                                        { id: 'owner', label: t('dashboard.role_owner'), desc: t('dashboard.role_owner_desc') }
+                                    ].map(role => (
+                                        <button 
+                                            key={role.id}
+                                            onClick={() => {
+                                                const newCaps = ROLE_CAPABILITIES[role.id] || [];
+                                                setSelectedMember({ 
+                                                    ...selectedMember, 
+                                                    role: role.id,
+                                                    permissions: { 
+                                                        ...selectedMember.permissions, 
+                                                        capabilities: newCaps 
+                                                    }
+                                                });
+                                            }}
+                                            className={`p-3 rounded-xl border text-left transition-all ${
+                                                selectedMember.role === role.id 
+                                                    ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
+                                                    : 'bg-[var(--bg-tertiary)] border-[var(--border-primary)] text-[var(--text-secondary)] hover:border-blue-500/20'
+                                            }`}
+                                        >
+                                            <div className="font-bold text-sm uppercase">{role.label}</div>
+                                            <div className="text-[10px] opacity-70">{role.desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Capacitats del Sistema</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {[
+                                        { id: 'read', label: 'Llegir Documents', icon: <FileText size={16} /> },
+                                        { id: 'write', label: 'Editar Documents', icon: <FileText size={16} /> },
+                                        { id: 'delete', label: 'Eliminar Documents', icon: <Bug size={16} /> },
+                                        { id: 'admin', label: 'Administrar Membres', icon: <Users size={16} /> },
+                                        { id: 'analytics', label: 'Veure Analítics', icon: <Database size={16} /> },
+                                        { id: 'tools', label: 'Executar Eines AI', icon: <Layers size={16} /> }
+                                    ].map(cap => {
+                                        const hasCap = selectedMember.permissions?.capabilities?.includes(cap.id);
+                                        return (
+                                            <button 
+                                                key={cap.id}
+                                                onClick={() => {
+                                                    const currentCaps = selectedMember.permissions?.capabilities || [];
+                                                    const newCaps = hasCap 
+                                                        ? currentCaps.filter(c => c !== cap.id)
+                                                        : [...currentCaps, cap.id];
+                                                    
+                                                    const newMember = {
+                                                        ...selectedMember,
+                                                        permissions: { ...selectedMember.permissions, capabilities: newCaps }
+                                                    };
+                                                    setSelectedMember(newMember);
+                                                }}
+                                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                                                    hasCap 
+                                                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
+                                                        : 'bg-[var(--bg-tertiary)] border-[var(--border-primary)] text-[var(--text-secondary)] hover:border-blue-500/20'
+                                                }`}
+                                            >
+                                                {cap.icon}
+                                                <span className="text-sm font-medium">{cap.label}</span>
+                                                {hasCap && <Check size={14} className="ml-auto" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Accés a Dades Específiques</h4>
+                                <p className="text-xs text-[var(--text-secondary)] mb-4 italic">Limita l'accés a carpetes (Vaults) específiques dins d'aquest workspace.</p>
+                                
+                                {vaultAccessLoading ? (
+                                    <div className="text-[var(--text-secondary)] text-xs animate-pulse">Carregant accessos...</div>
+                                ) : allVaults.length === 0 ? (
+                                    <p className="text-xs text-[var(--text-secondary)]">No hi ha vaults configurats en aquest workspace.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {allVaults.map(v => {
+                                            const hasAccess = memberVaultAccess.some(acc => acc.vault_id === v.id);
+                                            return (
+                                                <div key={v.id} className="flex items-center justify-between p-3 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-xl hover:border-[var(--border-primary)] transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <Layers size={16} className="text-blue-400/50" />
+                                                        <span className="text-sm font-medium text-[var(--text-primary)]">{v.name}</span>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => toggleVaultAccess(selectedMember.user_id, v.id)}
+                                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                                                            hasAccess 
+                                                                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                                                                : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-primary)] hover:bg-[var(--bg-primary)]'
+                                                        }`}
+                                                    >
+                                                        {hasAccess ? 'Amb Accés' : 'Sense Accés'}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 mt-8">
+                                <button 
+                                    onClick={() => setIsPermissionsModalOpen(false)}
+                                    className="px-4 py-3 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border-primary)] rounded-xl transition-all font-medium flex-1"
+                                >
+                                    Cancel·lar
+                                </button>
+                                <button 
+                                    onClick={() => handleUpdatePermissions(selectedMember.user_id, selectedMember.permissions, selectedMember.role)}
+                                    className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-medium flex-1 shadow-lg shadow-blue-900/20"
+                                >
+                                    Guardar Canvis
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-    );
+    </div>
+);
 };
 
 export default Dashboard;

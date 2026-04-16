@@ -78,15 +78,48 @@ export function applyFilters(graph, filters) {
         graph.forEachNode((node, attrs) => {
             // 🔍 Categorization logic
             const nodeDb = attrs.database_id;
-            const nodeTable = attrs.table_id || attrs.database_table_id;
+            const nodeTableRaw = attrs.table_id || attrs.database_table_id;
+            const nodeKind = (attrs.kind || "").toLowerCase();
+            const nodePath = attrs.path || "";
+
             // A node is only considered a Wiki node if explicitly marked as such OR lacks DB/Table info
-            const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTable || nodeTable === '__wiki__'));
+            const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
+
+            // ──────── SYSTEM ENTITY CATEGORIZATION ────────
+            let systemCategory = null;
+            let systemTableId = null;
+
+            if (isWikiNode) {
+                systemCategory = 'wiki';
+                systemTableId = 'wiki';
+            } else if (nodeKind === 'calendar' || nodePath.startsWith('Calendar/')) {
+                systemCategory = 'calendar';
+                systemTableId = attrs.metadata?.calendar_id ? `calendar:${attrs.metadata.calendar_id}` : (attrs.metadata?.source || 'calendar:local');
+            } else if (nodeKind === 'contact' || nodePath.startsWith('Contacts/') || nodePath.startsWith('Contactes/')) {
+                systemCategory = 'contacts';
+                systemTableId = attrs.metadata?.account_id ? `contact:${attrs.metadata.account_id}` : (attrs.metadata?.source || 'contact:local');
+            } else if (nodeKind === 'mail') {
+                systemCategory = 'mail';
+                systemTableId = attrs.metadata?.account_id ? `mail:${attrs.metadata.account_id}` : 'mail:unknown';
+            } else if (nodeKind === 'drawing' || nodePath.startsWith('Drawings/') || nodePath.startsWith('Dibuixos/')) {
+                systemCategory = 'drawings';
+                systemTableId = 'drawings';
+            } else if (nodeKind === 'image' || nodeKind === 'media' || nodePath.startsWith('Assets/Images/') || nodePath.startsWith('Imatges/')) {
+                systemCategory = 'images';
+                systemTableId = 'images';
+            } else if (nodeKind === 'asset' || nodeKind === 'adjunt') {
+                systemCategory = 'assets';
+                systemTableId = 'assets';
+            }
+
+            const isSystemNode = !!systemCategory;
+            const effectiveTableId = isSystemNode ? systemTableId : nodeTableRaw;
 
             // ──────── ESTAT DEL VAULT (NOU) ────────
             if (isVaultMode) {
                 // En mode Vault, primer filtrem per la taula activa
                 if (activeTableId && activeTableId !== 'wiki') {
-                    if (nodeTable !== activeTableId) return;
+                    if (nodeTableRaw !== activeTableId) return;
                 } else if (activeTableId === 'wiki') {
                     if (!isWikiNode) return;
                 }
@@ -102,12 +135,24 @@ export function applyFilters(graph, filters) {
 
             // ──────── FILTRES ESTÀNDARD DEL GRAF ────────
 
-            // 1. Database & Table Visibility (Global Settings)
-            if (!isWikiNode) {
+            // 1. Database/Category & Table/SubItem Visibility (Global Settings)
+            if (isSystemNode) {
+                // If visibility settings exist, check them
+                if (hasDbVisibility && !visibleDbSet.has(systemCategory)) {
+                    return;
+                }
+                // Check sub-item visibility (if it has sub-items that can be toggled)
+                if (hasTableVisibility && !visibleTableSet.has(systemTableId)) {
+                    // Special case: for wiki/drawings/images/assets, if category is visible, sub-item (itself) is visible
+                    if (!['wiki', 'drawings', 'images', 'assets'].includes(systemCategory)) {
+                        return;
+                    }
+                }
+            } else {
                 if (hasDbVisibility && (!nodeDb || !visibleDbSet.has(nodeDb))) {
                     return;
                 }
-                if (hasTableVisibility && (!nodeTable || !visibleTableSet.has(nodeTable))) {
+                if (hasTableVisibility && (!nodeTableRaw || !visibleTableSet.has(nodeTableRaw))) {
                     return;
                 }
             }
@@ -116,12 +161,10 @@ export function applyFilters(graph, filters) {
             if (filters.activeTableFilters && filters.activeTableFilters.size > 0) {
                 if (isWikiNode) {
                     if (!filters.activeTableFilters.has('__wiki__')) {
-                        // console.debug(`[Filter] Hiding Wiki node: ${attrs.label}`);
                         return;
                     }
                 } else {
-                    if (!filters.activeTableFilters.has(nodeTable)) {
-                        // console.debug(`[Filter] Hiding Record node: ${attrs.label} (Table: ${nodeTable})`);
+                    if (!filters.activeTableFilters.has(nodeTableRaw)) {
                         return;
                     }
                 }
@@ -135,7 +178,7 @@ export function applyFilters(graph, filters) {
                     if (!activeValues || activeValues.size === 0) continue;
                     
                     const [tableId, fieldName] = fieldKey.split(':');
-                    if (nodeTable === tableId) {
+                    if (effectiveTableId === tableId) {
                         const val = attrs[fieldName] || attrs.metadata?.[fieldName];
                         if (!activeValues.has(val)) {
                             matchFields = false;
@@ -155,7 +198,6 @@ export function applyFilters(graph, filters) {
                 matchCluster = allTagsLower.some(t => clusterFiltersLower.has(t));
             }
 
-            const nodeKind = (attrs.kind || "").toLowerCase();
             const matchKind = kindFiltersLower.size === 0 || kindFiltersLower.has(nodeKind);
 
             const nodeProject = (attrs.project || "").toLowerCase();

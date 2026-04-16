@@ -1,12 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings } from 'lucide-react';
+import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon } from 'lucide-react';
 
 const modules = [
     {
         to: '/vault',
         icon: FileText,
-        title: 'Knowledge',
+        title: 'Coneixement',
         description: 'Escriu i organitza les teves notes i documents.',
         gradient: 'home-card--graph',
     },
@@ -16,6 +16,13 @@ const modules = [
         title: 'Graf de Coneixement',
         description: 'Explora les connexions entre les teves idees i recursos.',
         gradient: 'home-card--graph',
+    },
+    {
+        to: '/contacts',
+        icon: Users,
+        title: 'Contactes',
+        description: 'Gestiona els teus contactes i perfils.',
+        gradient: 'home-card--social',
     },
     {
         to: '/mail',
@@ -44,6 +51,13 @@ const modules = [
         title: 'Social Media',
         description: 'Gestiona les teves xarxes socials des d\'un sol lloc.',
         gradient: 'home-card--social',
+    },
+    {
+        to: '/media',
+        icon: ImageIcon,
+        title: 'Fotos i Media',
+        description: 'Explora la teva biblioteca de mitjans.',
+        gradient: 'home-card--reader',
     },
     {
         to: '/dashboard',

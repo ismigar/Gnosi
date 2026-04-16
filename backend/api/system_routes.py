@@ -3,9 +3,11 @@ from pydantic import BaseModel
 from typing import List
 from sqlalchemy.orm import Session
 import os
+import psutil
 from pathlib import Path
 from backend.data.management_db import get_mgmt_db
 from backend.models.notification import Notification, NotificationResponse
+from backend.services.graph_service import GraphService
 
 router = APIRouter()
 
@@ -22,8 +24,30 @@ class BrowseRequest(BaseModel):
 
 @router.get("/stats")
 async def get_system_stats():
-    """Returns basic system statistics."""
-    return {"cpu": 10.0, "ram_percent": 50.0, "memory_items": 42, "status": "online"}
+    """Returns real system statistics."""
+    try:
+        cpu = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory().percent
+        
+        # Get real node count from GraphService
+        service = GraphService()
+        memory_items = service.get_node_count()
+        
+        return {
+            "cpu": cpu,
+            "ram_percent": ram,
+            "memory_items": memory_items,
+            "status": "online"
+        }
+    except Exception as e:
+        # Fallback to defaults or partial data if psutil fails
+        return {
+            "cpu": 0.0,
+            "ram_percent": 0.0,
+            "memory_items": 0,
+            "status": "degraded",
+            "error": str(e)
+        }
 
 
 @router.get("/suggestions")
