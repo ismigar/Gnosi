@@ -23,6 +23,12 @@ try:
 except ImportError:
     OPENAI_COMPATIBLE_AVAILABLE = False
 
+try:
+    from langchain_groq import ChatGroq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from pydantic import BaseModel
 import sqlite3
@@ -56,9 +62,15 @@ LOCAL_PROVIDERS = {"ollama", "llama-cpp", "lmstudio", "local", "generic"}
 
 def _provider_is_available(provider_name: str, provider_cfg: Optional[dict]) -> bool:
     normalized = (provider_name or "").strip().lower()
+    cfg = provider_cfg or {}
+    
+    # Check if disabled by user
+    if not cfg.get("enabled", True):
+        return False
+
     if normalized in LOCAL_PROVIDERS:
         return True
-    return bool(resolve_provider_api_key(normalized, provider_cfg or {}))
+    return bool(resolve_provider_api_key(normalized, cfg))
 
 
 def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str, fallback_model: Optional[str]) -> tuple[str, Optional[str]]:
@@ -141,44 +153,48 @@ def get_llm(
 
     try:
         if provider == "ollama":
-            if OLLAMA_AVAILABLE:
-                return ChatOllama(
-                    model=model or "llama3.2",
-                    base_url=base_url or "http://localhost:11434",
-                    timeout=60,
-                )
-            if provider == "ollama" and OPENAI_COMPATIBLE_AVAILABLE:
-                # Fallback for environments without langchain_ollama installed.
-                return ChatOpenAI(
-                    model=model or "llama3.2",
-                    api_key=api_key or "ollama-local",
-                    base_url=base_url or "http://localhost:11434/v1",
-                )
-            log.warning("⚠️ Ollama provider requested but no compatible client is available")
-            return None
+            from langchain_ollama import ChatOllama
+            print(f"DEBUG: Instantiating ChatOllama with model {model or 'llama3.2'}")
+            return ChatOllama(
+                model=model or "llama3.2",
+                base_url=base_url or "http://localhost:11434",
+                timeout=60,
+            )
 
-        if provider == "openai":
-            key = api_key or os.environ.get("OPENAI_API_KEY")
-            if not key:
-
+        if provider in {"openai", "deepseek", "mistral", "openrouter"}:
+            from langchain_openai import ChatOpenAI
+            key = api_key or os.environ.get(f"{provider.upper()}_API_KEY")
+            if not key and provider == "openai":
+                print("DEBUG: OpenAI API Key missing")
                 return None
-            if not OPENAI_COMPATIBLE_AVAILABLE:
-                log.error("❌ OpenAI provider requested but langchain_openai is not installed")
-                return None
+            
+            default_urls = {
+                "openai": "https://api.openai.com/v1",
+                "deepseek": "https://api.deepseek.com",
+                "mistral": "https://api.mistral.ai/v1",
+                "openrouter": "https://openrouter.ai/api/v1"
+            }
+            
+            print(f"DEBUG: Instantiating {provider} via OpenAI interface with model {model}")
             return ChatOpenAI(
-                model=model or "gpt-4o",
-                api_key=key,
-                base_url=base_url or "https://api.openai.com/v1",
+                model=model or (
+                    "gpt-4o" if provider == "openai" else 
+                    "deepseek-chat" if provider == "deepseek" else 
+                    "mistral-large-latest" if provider == "mistral" else
+                    "openai/gpt-4o-mini"
+                ),
+                api_key=key or "no-key",
+                base_url=base_url or default_urls.get(provider),
             )
 
         if provider == "groq":
             key = api_key if api_key and api_key.strip() else os.environ.get("GROQ_API_KEY")
             if not key:
-                log.warning(f"⚠️ Groq API Key missing. Provided in config: '{api_key}', Env: '{os.environ.get('GROQ_API_KEY') is not None}'")
+                print(f"DEBUG: Groq API Key missing.")
                 return None
-            if not OPENAI_COMPATIBLE_AVAILABLE:
-                log.error("❌ Groq provider requested but langchain_openai is not installed")
-                return None
+            
+            from langchain_openai import ChatOpenAI
+            print(f"DEBUG: Instantiating Groq via OpenAI shim with model {model or 'llama-3.3-70b-versatile'}")
             return ChatOpenAI(
                 model=model or "llama-3.3-70b-versatile",
                 api_key=key,
@@ -186,17 +202,21 @@ def get_llm(
             )
 
         if provider == "anthropic":
+            from langchain_anthropic import ChatAnthropic
             key = api_key if api_key and api_key.strip() else os.environ.get("ANTHROPIC_API_KEY")
             if not key:
-                log.warning(f"⚠️ Anthropic API Key missing. Provider: '{provider}'")
+                print(f"DEBUG: Anthropic API Key missing.")
                 return None
+            print(f"DEBUG: Instantiating ChatAnthropic with model {model or 'claude-3-5-sonnet-latest'}")
             return ChatAnthropic(
                 model=model or "claude-3-5-sonnet-latest",
                 api_key=key,
             )
 
-        # Generic OpenAI compatible (e.g. Local LLM via LM Studio / vLLM)
-        if provider in {"local", "generic", "lmstudio", "llama-cpp"} and OPENAI_COMPATIBLE_AVAILABLE:
+        # Generic OpenAI compatible (Local, LM Studio, etc.) or unknown provider with base_url
+        if provider in {"local", "generic", "lmstudio", "llama-cpp"} or base_url:
+            from langchain_openai import ChatOpenAI
+            print(f"DEBUG: Instantiating Generic/Universal ChatOpenAI (Provider: {provider})")
             return ChatOpenAI(
                 model=model or "local-model",
                 api_key=api_key or "no-key",
@@ -204,23 +224,40 @@ def get_llm(
             )
 
     except Exception as e:
-        pass
+        log.error(f"❌ Error instantiating LLM for provider '{provider}': {e}")
         return None
 
-    # Fallback si no es reconeix el proveïdor
-
+    # Fallback si no es reconeix el proveïdor i no hi ha URL
     return None
 
 
 def _get_hybrid_llm():
-    """Fallback logic for legacy support or missing config."""
-    groq_key = os.environ.get("HF_API_KEY") or os.environ.get("GROQ_API_KEY")
-    if OPENAI_COMPATIBLE_AVAILABLE and groq_key:
-        return ChatOpenAI(
-            model="llama-3.3-70b-versatile",
-            api_key=groq_key,
-            base_url="https://api.groq.com/openai/v1",
-        )
+    """Fallback logic looking for any available provider beyond the primary choice."""
+    # List of fallback providers to check in order of quality/availability
+    fallbacks = [
+        ("openai", "gpt-4o-mini"),
+        ("anthropic", "claude-3-5-haiku-latest"),
+        ("openrouter", "openai/gpt-4o-mini"),
+        ("groq", "llama-3.1-8b-instant"), # Smaller model might have higher limits
+    ]
+    
+    from backend.security.ai_credentials import resolve_provider_api_key
+    from backend.config.app_config import load_params
+    
+    # We need a fresh check of providers from config
+    p_cfg = load_params(strict_env=False).ai.get("providers", {})
+
+    for p_name, m_name in fallbacks:
+        key = resolve_provider_api_key(p_name, p_cfg.get(p_name))
+        if key:
+            log.info(f"Using emergency fallback LLM: {p_name} / {m_name}")
+            return get_llm(
+                provider=p_name,
+                model=m_name,
+                api_key=key,
+                base_url=p_cfg.get(p_name, {}).get("base_url")
+            )
+    
     return None
 
 

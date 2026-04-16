@@ -81,6 +81,15 @@
             "contacts_count": "Total des contacts",
             "sync_btn": "Synchroniser",
             "sync_errors_occurred": "Des erreurs se sont produites pendant la synchronisation"
+        },
+        "dashboard": {
+            "status_title": "État du Système",
+            "intelligence_details": "Détails de l'Intelligence",
+            "tools_pending_approval": "Outils en attente d'approbation",
+            "pending_approval": "En attente d'approbation",
+            "approved": "APPROUVÉS",
+            "pending": "EN ATTENTE",
+            "last_7_days": "Dernière Semaine"
         }
     }
 }

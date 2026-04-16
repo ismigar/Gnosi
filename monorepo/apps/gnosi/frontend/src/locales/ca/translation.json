@@ -232,8 +232,10 @@
         "memories_stored": "memòries emmagatzemades",
         "cpu_usage": "Ús de CPU",
         "ram_usage": "Ús de RAM",
-        "tools_title": "Eines Creades",
+        "analytics_overview": "Resum d'Analítica",
+        "tools_title": "Intel·ligència (Skills)",
         "approved": "APROVADES",
+        "pending_approval": "Pendent d'aprovació",
         "pending": "PENDENTS",
         "errors_prevented_title": "Errors Evitats",
         "documented_pitfalls": "Trampes documentades",
@@ -675,7 +677,8 @@
             "table_filters_desc": "Selecciona quines taules voldràs filtrar individualment des de la barra lateral.",
             "visible_attributes": "Atributs Visibles al Graf",
             "visible_attributes_desc": "Selecciona quines propietats i taules vols que siguin visibles com a nodes o etiquetes al graf.",
-            "table_filters": "Filtres de Taula (Barra lateral)"
+            "table_filters": "Filtres de Taula (Barra lateral)",
+            "exposed_filter": "Filtre exposat"
         },
         "mail_accounts": {
             "title": "Comptes de Correu",

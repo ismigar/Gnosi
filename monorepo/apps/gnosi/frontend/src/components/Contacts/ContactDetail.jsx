@@ -1,12 +1,16 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mail, Phone, MapPin, Building2, Briefcase, Tag, Calendar, Globe, Edit3, Trash2, CheckCircle2, RefreshCw } from 'lucide-react';
+import { isGmail, getGoogleAvatarUrl } from '../../utils/avatar-utils';
 
 export default function ContactDetail({ contact, onEdit, onDelete }) {
     const { t } = useTranslation();
     if (!contact) return null;
 
     const initials = contact.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    
+    // Check if we should try a Gmail avatar fallback
+    const effectivePhotoUrl = contact.photo_url || (isGmail(contact.email) ? getGoogleAvatarUrl(contact.email) : '');
 
     const getLabelText = (item) => {
         if (item.label === 'other' && item.customLabel) {
@@ -35,26 +39,33 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                         width: '72px', 
                         height: '72px', 
                         borderRadius: '16px', 
-                        background: contact.photo_url ? 'transparent' : (contact.type === 'b2b' ? 'rgba(59,130,246,0.06)' : 'rgba(16,185,129,0.06)'), 
+                        background: effectivePhotoUrl ? 'transparent' : 'var(--gnosi-blue)', 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center', 
-                        color: contact.type === 'b2b' ? 'var(--gnosi-blue)' : '#10b981',
+                        color: effectivePhotoUrl ? 'inherit' : 'white',
                         fontSize: '28px',
                         fontWeight: '700',
                         border: '1px solid var(--border-primary)',
-                        textShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                        textShadow: effectivePhotoUrl ? 'none' : '0 2px 4px rgba(0,0,0,0.2)',
                         overflow: 'hidden'
                     }}>
-                        {contact.photo_url ? (
+                        {effectivePhotoUrl ? (
                             <img 
-                                src={contact.photo_url} 
+                                src={effectivePhotoUrl} 
                                 alt={contact.name} 
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                                onError={(e) => { 
+                                    e.target.style.display = 'none'; 
+                                    const next = e.target.nextSibling;
+                                    if (next) next.style.display = 'block';
+                                    // If even the effective URL fails, we fall back to placeholders
+                                    e.target.parentNode.style.background = 'var(--gnosi-blue)';
+                                    e.target.parentNode.style.color = 'white';
+                                }}
                             />
                         ) : null}
-                        <div style={{ width: '100%', textAlign: 'center', display: contact.photo_url ? 'none' : 'block' }}>
+                        <div style={{ width: '100%', textAlign: 'center', display: effectivePhotoUrl ? 'none' : 'block' }}>
                             {initials}
                         </div>
                     </div>
@@ -196,7 +207,17 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                         
                         {/* Phones */}
                         <div style={{ display: 'flex', gap: '14px' }}>
-                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                            <div style={{ 
+                                width: '36px', 
+                                height: '36px', 
+                                borderRadius: '10px', 
+                                background: 'var(--bg-tertiary)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-primary)'
+                            }}>
                                 <Phone size={16} />
                             </div>
                             <div style={{ flex: 1 }}>

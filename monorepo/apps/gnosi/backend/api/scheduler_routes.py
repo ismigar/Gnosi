@@ -1,7 +1,4 @@
-"""
-Scheduler Routes: API endpoints for managing scheduled tasks.
-"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Dict, Any, List
 
@@ -44,11 +41,23 @@ async def update_task(name: str, update: TaskUpdate) -> Dict[str, Any]:
 
 
 @router.post("/{name}/run")
-async def run_task(name: str) -> Dict[str, Any]:
-    """Run a task immediately."""
+async def run_task(name: str, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Run a task immediately in the background."""
     try:
-        return scheduler_manager.run_task_now(name)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # Check if task exists
+        if not scheduler_manager.get_task(name):
+            raise HTTPException(status_code=404, detail=f"Task '{name}' not found")
+            
+        # Iniciem el procés asíncronament utilitzant BackgroundTasks de FastAPI
+        # La resposta serà immediata, evitant el timeout del navegador.
+        background_tasks.add_task(scheduler_manager.run_task_now, name)
+        
+        return {
+            "success": True, 
+            "message": f"Tasca '{name}' enviada a execució en segon pla",
+            "status": "running"
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

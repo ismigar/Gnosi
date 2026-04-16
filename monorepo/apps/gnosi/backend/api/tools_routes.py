@@ -22,6 +22,7 @@ class ToolResponse(BaseModel):
     approved_at: Optional[str] = None
     rejected_at: Optional[str] = None
     rejection_reason: Optional[str] = None
+    path: Optional[str] = None
 
 
 class ApproveRequest(BaseModel):
@@ -47,7 +48,8 @@ async def get_pending_tools():
             created_at=t.created_at,
             approved_at=t.approved_at,
             rejected_at=t.rejected_at,
-            rejection_reason=t.rejection_reason
+            rejection_reason=t.rejection_reason,
+            path=t.path
         )
         for t in pending
     ]
@@ -67,7 +69,8 @@ async def get_approved_tools():
             created_at=t.created_at,
             approved_at=t.approved_at,
             rejected_at=t.rejected_at,
-            rejection_reason=t.rejection_reason
+            rejection_reason=t.rejection_reason,
+            path=t.path
         )
         for t in approved
     ]
@@ -145,5 +148,6 @@ async def get_tool(name: str):
         created_at=tool.created_at,
         approved_at=tool.approved_at,
         rejected_at=tool.rejected_at,
-        rejection_reason=tool.rejection_reason
+        rejection_reason=tool.rejection_reason,
+        path=tool.path
     )

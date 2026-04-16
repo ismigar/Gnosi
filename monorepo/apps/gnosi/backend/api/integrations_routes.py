@@ -96,6 +96,48 @@ async def test_contacts_connection(payload: dict = Body(...)):
         return {"success": False, "error": str(e)}
 
 
+@router.post("/test-calendar")
+async def test_calendar_connection(payload: dict = Body(...)):
+    """Tests CalDAV connection for a calendar account."""
+    try:
+        url = payload.get("url")
+        username = payload.get("username")
+        password = payload.get("password")
+
+        if not all([url, username, password]):
+            return {"success": False, "error": "Falten credencials"}
+
+        import requests
+        from requests.auth import HTTPBasicAuth
+
+        try:
+            # CalDAV usually responds to PROPFIND on the URL or just standard auth GET
+            # We use a simple GET request with Basic Auth which is usually enough to verify credentials
+            response = requests.request(
+                "PROPFIND",
+                url,
+                auth=HTTPBasicAuth(username, password),
+                timeout=10,
+                headers={"Depth": "0"},
+            )
+
+            if response.status_code in (200, 207, 405): # 405 Method Not Allowed implies successful auth but wrong method, which means credentials work
+                return {"success": True}
+            else:
+                # Fallback to GET just in case PROPFIND fails
+                response = requests.get(url, auth=HTTPBasicAuth(username, password), timeout=10)
+                if response.status_code in (200, 207):
+                    return {"success": True}
+                return {"success": False, "error": f"Status: {response.status_code}"}
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Timeout de connexió"}
+        except requests.exceptions.RequestException as e:
+            return {"success": False, "error": str(e)}
+    except Exception as e:
+        log.error(f"Error testing calendar connection: {e}")
+        return {"success": False, "error": str(e)}
+
+
 @router.put("/{integration_id}")
 async def update_integration(integration_id: str, payload: dict = Body(...)):
     """Updates a specific integration (e.g. 'email', 'ai')"""

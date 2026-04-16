@@ -169,7 +169,17 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                                         yield json.dumps(payload) + "\n"
 
             except Exception as e:
-                yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+                error_str = str(e)
+                log.error(f"Error in event_generator: {error_str}")
+                
+                # Check for common AI errors
+                friendly_error = error_str
+                if "rate_limit_exceeded" in error_str.lower():
+                    friendly_error = "Rate limit exceeded (Quota exhaurida). Prova més tard o canvia el model."
+                elif not error_str:
+                    friendly_error = "S'ha produït un error inesperat a l'agent."
+                
+                yield json.dumps({"type": "error", "content": friendly_error}) + "\n"
 
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 

@@ -110,7 +110,8 @@ class LearningLoop:
         tool_name: str,
         error_message: str,
         error_type: str,
-        solution: str
+        solution: str,
+        topic: Optional[str] = None
     ) -> Tuple[bool, str]:
         """
         Learn from an error and update the directive.
@@ -120,10 +121,13 @@ class LearningLoop:
             error_message: The error message
             error_type: Type of error (validation, runtime, etc.)
             solution: How to fix it
+            topic: Optional topic/filename to update. Defaults to tool_development.
         
         Returns:
             Tuple of (success, message)
         """
+        target_topic = topic or self.TOOL_DIRECTIVE
+        
         # Create new lesson
         lesson = LessonLearned(
             date=datetime.now().strftime("%Y-%m-%d"),
@@ -133,10 +137,10 @@ class LearningLoop:
         )
         
         # Load current directive
-        content = read_directive.invoke({"topic": self.TOOL_DIRECTIVE})
+        content = read_directive.invoke({"topic": target_topic})
         
         if "Error:" in content:
-            return (False, "No es pot actualitzar: directiva no trobada")
+            return (False, f"No es pot actualitzar: directiva '{target_topic}' no trobada")
         
         # Find the traps table and add new row
         table_pattern = r'(\| Data \| Trampa \| Solució \|\n\|------|--------|---------|)'
@@ -161,7 +165,7 @@ class LearningLoop:
         )
         
         # Save
-        result = update_directive.invoke({"topic": self.TOOL_DIRECTIVE, "content": updated})
+        result = update_directive.invoke({"topic": target_topic, "content": updated})
         
         if "Successfully" in result:
             self.lessons_cache.append(lesson)

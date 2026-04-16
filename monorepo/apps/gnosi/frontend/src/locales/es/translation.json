@@ -234,6 +234,7 @@
         "ram_usage": "Uso de RAM",
         "tools_title": "Herramientas Creadas",
         "approved": "APROBADAS",
+        "pending_approval": "Pendiente de aprobación",
         "pending": "PENDIENTES",
         "errors_prevented_title": "Errores Evitados",
         "documented_pitfalls": "Trampas documentadas",
@@ -622,7 +623,8 @@
             "table_filters_desc": "Selecciona qué tablas querrás filtrar individualmente desde la barra lateral.",
             "visible_attributes": "Atributos Visibles en el Grafo",
             "visible_attributes_desc": "Selecciona qué propiedades y tablas quieres que sean visibles como nodos o etiquetas en el grafo.",
-            "table_filters": "Filtros de Tabla (Barra lateral)"
+            "table_filters": "Filtros de Tabla (Barra lateral)",
+            "exposed_filter": "Filtro expuesto"
         },
         "mail_accounts": {
             "title": "Cuentas de Correo",

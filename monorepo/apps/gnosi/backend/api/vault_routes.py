@@ -1930,13 +1930,26 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 def find_page_path(page_id: str) -> Optional[Path]:
     """Seeks the path of an .md file by ID recursively."""
     # 1. Direct intent UUID/ID format (as before)
-    direct_path = get_p("VAULT") / f"{page_id}.md"
+    vault_root = get_p("VAULT")
+    direct_path = vault_root / f"{page_id}.md"
     if direct_path.exists():
         return direct_path
 
     dashworks_direct_path = get_p("DASHWORKS") / f"{page_id}.json" if get_p("DASHWORKS") else None
     if dashworks_direct_path and dashworks_direct_path.exists():
         return dashworks_direct_path
+
+    # 1.b FAST INDEX LOOKUP (New performance optimization)
+    # This uses the global ID -> Path map populated by GraphService
+    from backend.services.graph_service import GraphService
+    
+    # If cache is empty, we might want to trigger a single scan if it's not too heavy
+    # but usually the Graph handles this on dashboard load.
+    rel_path = GraphService._ID_TO_PATH_CACHE.get(page_id)
+    if rel_path:
+        cached_path = vault_root / rel_path
+        if cached_path.exists():
+            return cached_path
 
     # 2. Cercar a l'arrel si el fitxer es diu directament id.md (ja cobert per rglob però útil)
 

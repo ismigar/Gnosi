@@ -5,6 +5,7 @@ import re
 import yaml
 import logging
 from datetime import datetime
+from typing import Optional
 from icalendar import Calendar, Event
 
 from dotenv import load_dotenv
@@ -160,3 +161,46 @@ def get_ics_feed():
             continue
 
     return Response(content=cal.to_ical(), media_type="text/calendar")
+
+
+@router.post("/sync")
+async def sync_calendar_accounts(
+    email: Optional[str] = Query(None),
+    days_back: int = 30,
+    days_forward: int = 90
+):
+    """Triggers a manual synchronization for one or all Google Calendar accounts to the Vault."""
+    try:
+        from backend.services.vault_calendar_sync_service import calendar_sync_service
+        from backend.services.integration_manager import integration_manager
+        integrations = integration_manager.get_all_safe()
+        
+        # If email is provided, sync only that one. Otherwise, sync all.
+        accounts_to_sync = []
+        if email:
+            accounts_to_sync.append(email)
+        else:
+            # Get all gmail/google accounts from integrations
+            for acc in integrations.get("calendars", []):
+                acc_email = acc.get("email") or acc.get("username")
+                if acc_email:
+                    accounts_to_sync.append(acc_email)
+            
+            # Also check generic emails list if any (might have calendars)
+            for acc in integrations.get("emails", []):
+                if acc.get("email"):
+                    accounts_to_sync.append(acc["email"])
+
+        # Deduplicate
+        accounts_to_sync = list(set(accounts_to_sync))
+        
+        total_synced = 0
+        for acc_email in accounts_to_sync:
+            log.info(f"Triggering manual calendar sync for {acc_email}...")
+            count = calendar_sync_service.sync_calendar(acc_email, days_back=days_back, days_forward=days_forward)
+            total_synced += count
+            
+        return {"status": "success", "synced_count": total_synced, "accounts": accounts_to_sync}
+    except Exception as e:
+        log.error(f"Error in POST /api/calendar/sync: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

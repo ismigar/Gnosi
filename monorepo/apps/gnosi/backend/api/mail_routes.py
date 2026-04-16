@@ -217,6 +217,47 @@ async def get_message(message_id: str):
         "category": metadata.get("category", "Main")
     }
 
+@router.post("/sync")
+async def sync_mail_accounts(
+    email: Optional[str] = Query(None),
+    limit: int = 50
+):
+    """Triggers a manual synchronization for one or all mail accounts."""
+    try:
+        from backend.services.integration_manager import integration_manager
+        integrations = integration_manager.get_all_safe()
+        
+        # If email is provided, sync only that one. Otherwise, sync all.
+        accounts_to_sync = []
+        if email:
+            accounts_to_sync.append(email)
+        else:
+            # Get all gmail/google accounts from integrations
+            for acc in integrations.get("mail_accounts", []):
+                acc_email = acc.get("email") or acc.get("username")
+                if acc_email:
+                    accounts_to_sync.append(acc_email)
+            
+            # Also check generic emails list if any
+            for acc in integrations.get("emails", []):
+                if acc.get("email"):
+                    accounts_to_sync.append(acc["email"])
+
+        # Deduplicate
+        accounts_to_sync = list(set(accounts_to_sync))
+        
+        total_synced = 0
+        for acc_email in accounts_to_sync:
+            log.info(f"Triggering manual sync for {acc_email}...")
+            count = sync_service.sync_emails(acc_email, limit=limit)
+            total_synced += count
+            
+        return {"status": "success", "synced_count": total_synced, "accounts": accounts_to_sync}
+    except Exception as e:
+        log.error(f"Error in POST /api/mail/sync: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.patch("/messages/{message_id}")
 async def update_message(message_id: str, update: dict):
     return {"status": "success"}

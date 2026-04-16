@@ -63,6 +63,10 @@ class SchedulerManager:
             "description": "Sync comptes (Google, CardDAV)",
             "default_interval": 1440,  # 24 hours
         },
+        "update_memories": {
+            "description": "Actualització General de Memòria (Graf i Connexions)",
+            "default_interval": 1440,  # 24 hours
+        },
     }
 
     def __init__(self):
@@ -223,6 +227,9 @@ class SchedulerManager:
         task = self._tasks[name]
         task.status = "running"
         task.last_run = datetime.now().isoformat()
+        
+        # Save state immediately so UI sees "running"
+        self._save_config()
 
         try:
             # Execute the task
@@ -231,6 +238,9 @@ class SchedulerManager:
             self._save_config()
             return {"success": True, "result": result}
         except Exception as e:
+            from backend.config.logger_config import get_logger
+            log = get_logger(__name__)
+            log.error(f"❌ Error executing task {name}: {e}")
             task.status = "error"
             self._save_config()
             return {"success": False, "error": str(e)}
@@ -253,6 +263,8 @@ class SchedulerManager:
             return self._task_fetch_calendar()
         elif name == "fetch_contacts":
             return self._task_fetch_contacts()
+        elif name == "update_memories":
+            return self._task_update_memories()
 
         return {"error": f"Unknown task: {name}"}
 
@@ -433,6 +445,37 @@ class SchedulerManager:
 
         stats = registry.get_stats()
         return {"stats": stats}
+
+    def _task_update_memories(self) -> Dict[str, Any]:
+        """Performs a general update of the memory system (Graph + Connections)."""
+        from backend.services.graph_service import GraphService
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+        
+        results = {"success": True, "steps": []}
+        
+        try:
+            # 1. Clear Graph Cache and Force Rebuild
+            log.info("⏰ Scheduler: Force rebuilding Unified Graph...")
+            GraphService._graph_cache = None
+            service = GraphService()
+            graph = service.build_unified_graph()
+            results["steps"].append(f"Graph rebuilt with {len(graph.get('nodes', []))} nodes")
+            
+            # 2. Update semantic connections (reuse suggest_connections logic)
+            log.info("⏰ Scheduler: Updating semantic connections...")
+            conn_res = self._task_suggest_connections()
+            results["steps"].append({"suggest_connections": conn_res})
+            
+            # 3. Update analytics to reflect new state
+            self._task_update_analytics()
+            results["steps"].append("Analytics updated")
+            
+        except Exception as e:
+            log.error(f"❌ Error in update_memories task: {e}")
+            return {"success": False, "error": str(e)}
+            
+        return results
 
 
 # Singleton

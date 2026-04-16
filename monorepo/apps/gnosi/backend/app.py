@@ -145,31 +145,57 @@ def api_sync():
         ), 429
 
 
+# Global Cache for Graph
+_GRAPH_CACHE = None
+_GRAPH_HASH_CACHE = None
+_LAST_GRAPH_MTIME = 0
+
 def _get_graph_hash() -> str:
-    """Calculate MD5 hash of the graph file for versioning."""
+    """Calculate MD5 hash of the graph file for versioning (with cache)."""
+    global _GRAPH_HASH_CACHE, _LAST_GRAPH_MTIME
+    
     path = Path(OUT_GRAPH)
     if not path.exists():
         return "NOT_FOUND"
+        
+    mtime = os.path.getmtime(path)
+    if _GRAPH_HASH_CACHE and mtime == _LAST_GRAPH_MTIME:
+        return _GRAPH_HASH_CACHE
+        
     with path.open("rb") as f:
-        return hashlib.md5(f.read()).hexdigest()
+        _GRAPH_HASH_CACHE = hashlib.md5(f.read()).hexdigest()
+        _LAST_GRAPH_MTIME = mtime
+        
+    return _GRAPH_HASH_CACHE
 
 
 # ──────────────── ÚNICA RUTA /api/graph ────────────────
 @app.get("/api/graph")
 def api_graph():
+    global _GRAPH_CACHE, _LAST_GRAPH_MTIME
     try:
-        log.info(f"Demana /api/graph, OUT_GRAPH_SIGMA={OUT_GRAPH}")
         path = Path(OUT_GRAPH)
 
         if not path.exists():
             log.error(f"FITXER NO TROBAT: {path}")
             return jsonify({"error": "NOT_FOUND", "path": str(path)}), 404
 
+        mtime = os.path.getmtime(path)
+        
+        # Servir des de caché si el fitxer no ha canviat
+        if _GRAPH_CACHE is not None and mtime == _LAST_GRAPH_MTIME:
+            log.debug("Servint graf des de la caché en memòria")
+            response = jsonify(_GRAPH_CACHE)
+            response.headers["X-Graph-Version"] = _get_graph_hash()
+            return response
+
+        log.info(f"Carregant graf des de disc (mtime ha canviat): {path}")
         with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+            _GRAPH_CACHE = json.load(f)
+            _LAST_GRAPH_MTIME = mtime
 
         # Create response with version header
-        response = jsonify(data)
+        response = jsonify(_GRAPH_CACHE)
         response.headers["X-Graph-Version"] = _get_graph_hash()
         return response
 

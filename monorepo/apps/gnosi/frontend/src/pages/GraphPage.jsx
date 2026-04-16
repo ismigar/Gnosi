@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { RefreshCw, Check } from 'lucide-react';
 import { Layout } from '../components/Layout';
@@ -29,6 +30,7 @@ function GraphPage() {
     const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(true);
 
     // Filter State
+    const location = useLocation();
     const [searchTerm, setSearchTerm] = useState("");
     const [similarity, setSimilarity] = useState(100);
     const [hideIsolated, setHideIsolated] = useState(false);
@@ -215,6 +217,20 @@ function GraphPage() {
         const matcher = window.matchMedia('(prefers-color-scheme: dark)');
         const onChange = (e) => setIsDarkMode(e.matches);
         matcher.addEventListener('change', onChange);
+
+        // Deep linking support
+        const params = new URLSearchParams(location.search);
+        const nodeToSelect = params.get('node');
+        if (nodeToSelect) {
+            // We set a small delay to wait for graph layout or data to be ready in the DOM
+            setTimeout(() => {
+                setSelectedNode(String(nodeToSelect));
+                if (graphViewerRef.current) {
+                    graphViewerRef.current.panToNode(String(nodeToSelect), 2.5);
+                }
+            }, 1500);
+        }
+
         return () => matcher.removeEventListener('change', onChange);
     }, []);
 
@@ -225,6 +241,17 @@ function GraphPage() {
         if (g.visible_databases) setVisibleDatabases(g.visible_databases);
         if (g.visible_tables) setVisibleTables(g.visible_tables);
         if (g.visible_fields) setVisibleFields(g.visible_fields);
+        
+        if (g.field_defaults) {
+            const initialFilters = {};
+            Object.entries(g.field_defaults).forEach(([fieldKey, defaultVal]) => {
+                if (defaultVal) {
+                    initialFilters[fieldKey] = new Set([defaultVal]);
+                }
+            });
+            setFieldFilters(initialFilters);
+        }
+
         if (g.graph_table_filters) {
             setGraphTableFiltersSettings(g.graph_table_filters);
             setActiveTableFilters(new Set(['__wiki__', ...g.graph_table_filters]));
@@ -478,7 +505,7 @@ function GraphPage() {
                             </div>
                             {/* Configured table filters */}
                             {graphTableFiltersSettings.map(tableId => {
-                                const table = availableTables.find(t => t.id === tableId) || { name: tableId };
+                                const table = (availableTables || []).find(t => t?.id === tableId) || { name: tableId };
                                 return (
                                     <div key={tableId} className="filter-item-advanced">
                                         <input
@@ -543,18 +570,57 @@ function GraphPage() {
                         <CollapsibleSection title="Filtre de Camps" badge={visibleFields.length} defaultOpen={true}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                                 {visibleFields.map(fieldKey => {
+                                    if (!fieldKey || !fieldKey.includes(':')) return null;
                                     const [tableId, fieldName] = fieldKey.split(':');
-                                    const table = availableTables.find(t => t.id === tableId) || { name: tableId };
-                                    const fieldDef = (table.properties || table.fields || []).find(f => f.name === fieldName);
+                                    let tableName = tableId;
+                                    const table = (availableTables || []).find(t => t?.id === tableId);
+                                    
+                                    if (table && table.name) {
+                                        tableName = table.name;
+                                    } else {
+                                        // Specific system entity labels
+                                        if (tableId === 'wiki') tableName = 'Wiki';
+                                        else if (tableId === 'drawings') tableName = 'Dibuixos';
+                                        else if (tableId === 'images') tableName = 'Imatges';
+                                        else if (tableId === 'assets') tableName = 'Adjunts';
+                                        else if (tableId.startsWith('calendar:')) tableName = 'Calendari';
+                                        else if (tableId.startsWith('contact:')) tableName = 'Contacte';
+                                        else if (tableId.startsWith('mail:')) tableName = 'Mail';
+                                    }
+
+                                    const fieldDef = (table?.properties || table?.fields || []).filter(Boolean).find(f => f?.name === fieldName);
 
                                     // Calculate available values for this field
                                     const valuesMap = new Map();
 
-                                    // 1. Try from graph data (current nodes)
+                                    // 1. Try from graph data (current nodes) using categorization logic
                                     if (graphInstance) {
                                         graphInstance.forEachNode((node, attrs) => {
-                                            const nodeTable = attrs.table_id || attrs.database_table_id;
-                                            if (nodeTable === tableId) {
+                                            const nodeDb = attrs.database_id;
+                                            const nodeTableRaw = attrs.table_id || attrs.database_table_id;
+                                            const nodeKind = (attrs.kind || "").toLowerCase();
+                                            const nodePath = attrs.path || "";
+                                            const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
+
+                                            let effectiveTableId = nodeTableRaw;
+
+                                            // Mirror logic from graphFilters.js
+                                            if (isWikiNode) effectiveTableId = 'wiki';
+                                            else if (nodeKind === 'calendar' || nodePath.startsWith('Calendar/')) {
+                                                effectiveTableId = attrs.metadata?.calendar_id ? `calendar:${attrs.metadata.calendar_id}` : (attrs.metadata?.source || 'calendar:local');
+                                            } else if (nodeKind === 'contact' || nodePath.startsWith('Contacts/') || nodePath.startsWith('Contactes/')) {
+                                                effectiveTableId = attrs.metadata?.account_id ? `contact:${attrs.metadata.account_id}` : (attrs.metadata?.source || 'contact:local');
+                                            } else if (nodeKind === 'mail') {
+                                                effectiveTableId = attrs.metadata?.account_id ? `mail:${attrs.metadata.account_id}` : 'mail:unknown';
+                                            } else if (nodeKind === 'drawing' || nodePath.startsWith('Drawings/') || nodePath.startsWith('Dibuixos/')) {
+                                                effectiveTableId = 'drawings';
+                                            } else if (nodeKind === 'image' || nodeKind === 'media' || nodePath.startsWith('Assets/Images/') || nodePath.startsWith('Imatges/')) {
+                                                effectiveTableId = 'images';
+                                            } else if (nodeKind === 'asset' || nodeKind === 'adjunt') {
+                                                effectiveTableId = 'assets';
+                                            }
+
+                                            if (effectiveTableId === tableId) {
                                                 const val = attrs[fieldName] || attrs.metadata?.[fieldName];
                                                 if (val !== undefined && val !== null && val !== "") {
                                                     valuesMap.set(val, (valuesMap.get(val) || 0) + 1);
@@ -568,7 +634,8 @@ function GraphPage() {
                                         const options = fieldDef.settings?.options || fieldDef.select?.options || fieldDef.multi_select?.options || fieldDef.options;
                                         if (options) {
                                             options.forEach(opt => {
-                                                const val = typeof opt === 'string' ? opt : (opt.name || opt.value);
+                                                if (!opt) return;
+                                                const val = typeof opt === 'string' ? opt : (opt.name || opt.value || opt.id);
                                                 if (val) valuesMap.set(val, 0);
                                             });
                                         }
@@ -581,7 +648,7 @@ function GraphPage() {
                                         <div key={fieldKey} style={{ background: 'var(--bg-secondary)', padding: '10px', borderRadius: '8px' }}>
                                             <h5 style={{ fontSize: '0.8rem', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                 <span style={{ fontSize: '12px' }}>⚙</span>
-                                                {table.name}: {fieldName}
+                                                {tableName}: {fieldName}
                                             </h5>
                                             {sortedValues.length === 0 ? (
                                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>

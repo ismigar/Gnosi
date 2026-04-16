@@ -34,6 +34,7 @@ class ToolRecord:
     approved_at: Optional[str] = None
     rejected_at: Optional[str] = None
     rejection_reason: Optional[str] = None
+    path: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -149,8 +150,10 @@ class ToolRegistry:
 
     def list_approved(self) -> List[ToolRecord]:
         self._ensure_init()
-        """List all approved tools."""
-        return self._list_by_status(ToolStatus.APPROVED)
+        """List all approved tools, including those from filesystem."""
+        db_approved = self._list_by_status(ToolStatus.APPROVED)
+        fs_skills = self._get_filesystem_skills()
+        return db_approved + fs_skills
 
     def _list_by_status(self, status: ToolStatus) -> List[ToolRecord]:
         self._ensure_init()
@@ -219,6 +222,58 @@ class ToolRegistry:
             conn.commit()
             return cursor.rowcount > 0
 
+    def _get_filesystem_skills(self) -> List[ToolRecord]:
+        """Scan filesystem for consolidated skills."""
+        cfg = load_params(strict_env=False)
+        project_dir = cfg.paths.get("PROJECT_DIR")
+        if not project_dir:
+            return []
+            
+        # Standard locations for skills (inside the gnosi app)
+        skill_dirs = [
+            project_dir / "pipeline" / "skills",
+            project_dir / "pipeline" / "private_skills"
+        ]
+        
+        records = []
+        for s_dir in skill_dirs:
+            if not s_dir.exists():
+                continue
+                
+            for item in s_dir.iterdir():
+                if item.is_dir() and not item.name.startswith("__"):
+                    # Basic metadata
+                    name = item.name.replace("_", " ").capitalize()
+                    description = "Consolidated System Skill"
+                    created_at = datetime.fromtimestamp(item.stat().st_mtime).isoformat()
+                    
+                    # Try to extract better metadata from SKILL.md
+                    skill_md = item / "SKILL.md"
+                    if skill_md.exists():
+                        try:
+                            content = skill_md.read_text(encoding='utf-8')
+                            lines = [l.strip() for l in content.split('\n') if l.strip()]
+                            if lines:
+                                if lines[0].startswith("# SKILL:"):
+                                    name = lines[0].replace("# SKILL:", "").strip()
+                                if len(lines) > 1:
+                                    description = lines[1]
+                            created_at = datetime.fromtimestamp(skill_md.stat().st_mtime).isoformat()
+                        except Exception:
+                            pass
+                            
+                    records.append(ToolRecord(
+                        name=name,
+                        description=description,
+                        code=f"# Consolidated skill in {item.name}",
+                        status=ToolStatus.APPROVED,
+                        risk_level="low",
+                        created_at=created_at,
+                        approved_at=created_at,
+                        path=str(skill_md.resolve()) if skill_md.exists() else str(item.resolve())
+                    ))
+        return records
+
     def _row_to_record(self, row: sqlite3.Row) -> ToolRecord:
         return ToolRecord(
             name=row["name"],
@@ -230,11 +285,14 @@ class ToolRegistry:
             approved_at=row["approved_at"],
             rejected_at=row["rejected_at"],
             rejection_reason=row["rejection_reason"],
+            path=row["path"] if "path" in row.keys() else None
         )
 
     def get_stats(self) -> Dict[str, Any]:
         self._ensure_init()
-        """Get statistics for analytics."""
+        """Get statistics for analytics, unifiying DB and Filesystem."""
+        fs_skills = self._get_filesystem_skills()
+        
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute("""
                 SELECT 
@@ -254,20 +312,29 @@ class ToolRegistry:
             """)
             by_risk = {row[0]: row[1] for row in cursor_risk}
 
-            # Get recent tools (last 7 days)
+            # Get recent tools (last 7 days) from DB
             cursor_recent = conn.execute("""
                 SELECT COUNT(*) FROM tools
-                WHERE created_at >= datetime('now', '-7 days')
+                WHERE datetime(created_at) >= datetime('now', '-7 days')
             """)
-            recent_count = cursor_recent.fetchone()[0]
+            db_recent_count = cursor_recent.fetchone()[0] or 0
+            
+            # Count recent skills from filesystem
+            from datetime import timedelta
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            fs_recent_count = sum(1 for s in fs_skills if datetime.fromisoformat(s.created_at) >= seven_days_ago)
+
+            total_approved = (row[2] or 0) + len(fs_skills)
+            total_tools = (row[0] or 0) + len(fs_skills)
 
             return {
-                "total_tools": row[0] or 0,
+                "total_tools": total_tools,
                 "pending": row[1] or 0,
-                "approved": row[2] or 0,
+                "approved": total_approved,
                 "rejected": row[3] or 0,
                 "by_risk_level": by_risk,
-                "created_last_7_days": recent_count,
+                "created_last_7_days": db_recent_count + fs_recent_count,
+                "internal_skills": len(fs_skills)
             }
 
 

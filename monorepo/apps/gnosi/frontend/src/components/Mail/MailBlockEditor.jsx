@@ -1,39 +1,38 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 import { useTheme } from '../../hooks/useTheme';
 
-export default function MailBlockEditor({ initialContent, onChange, editorRef }) {
+export default function MailBlockEditor({ initialContent, onChange, editorRef, minHeight = "200px" }) {
     const { effectiveTheme } = useTheme();
-    // Initialize BlockNote editor
     const editor = useCreateBlockNote();
+    const lastContentRef = useRef(initialContent);
 
-    // Use useMemo for the content or handle it via ref to avoid unnecessary re-renders
+    // Load initial content only once or when it changes significantly
     useEffect(() => {
-        if (initialContent && editor) {
-            // If it's HTML or text, we might need to convert it, 
-            // but for simplicity let's assume it starts empty or we use markdown/blocks.
-            // Gmail replies usually start with original content.
-            // For now, if initialContent is provided, we can try to insert it.
-            async function load() {
+        if (editor && initialContent !== undefined) {
+             async function load() {
                 try {
-                    // BlockNote expects an array of blocks or HTML. 
-                    // Let's try to convert HTML if possible, otherwise treat as text.
-                    const blocks = await editor.tryParseHTMLToBlocks(initialContent);
-                    if (blocks && blocks.length > 0) {
+                    // Convert HTML to blocks
+                    const blocks = await editor.tryParseHTMLToBlocks(initialContent || "");
+                    if (blocks) {
                         editor.replaceBlocks(editor.topLevelBlocks, blocks);
+                        lastContentRef.current = initialContent;
                     }
                 } catch (e) {
                     console.error("Error parsing initial content for MailBlockEditor:", e);
                 }
             }
-            load();
+            // Only load if the editor is empty and we have content, or if we want to force a reset
+            if (editor.topLevelBlocks.length <= 1 && editor.topLevelBlocks[0]?.content?.length === 0) {
+                load();
+            }
         }
-    }, [initialContent, editor]);
+    }, [editor]); // Only run on mount or when editor is created
 
-    // Expose editor through ref if needed by parent (e.g. for inserting availability)
+    // Expose editor through ref
     useEffect(() => {
         if (editorRef) {
             editorRef.current = editor;
@@ -41,22 +40,25 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef })
     }, [editor, editorRef]);
 
     return (
-        <div className="mail-block-editor border border-[var(--border-primary)] rounded-2xl bg-[var(--bg-primary)] min-h-[200px] overflow-hidden transition-colors duration-300">
+        <div className="mail-block-editor border border-[var(--border-primary)] rounded-2xl bg-[var(--bg-primary)] overflow-hidden transition-all duration-300" style={{ minHeight }}>
             <BlockNoteView
                 editor={editor}
                 onChange={() => {
-                    // Notify parent of changes
                     if (onChange) {
-                        // We translate to HTML for sending
-                        editor.blocksToHTML(editor.topLevelBlocks).then(onChange);
+                        editor.blocksToHTML(editor.topLevelBlocks).then(html => {
+                            if (html !== lastContentRef.current) {
+                                lastContentRef.current = html;
+                                onChange(html);
+                            }
+                        });
                     }
                 }}
                 theme={effectiveTheme}
             />
             <style>{`
                 .mail-block-editor .bn-editor {
-                    padding: 1rem !important;
-                    min-height: 200px;
+                    padding: 0.75rem 1rem !important;
+                    min-height: ${minHeight};
                     background: transparent !important;
                 }
                 .mail-block-editor .bn-container {
@@ -64,11 +66,18 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef })
                 }
                 .mail-block-editor .bn-main-content {
                     color: var(--text-primary) !important;
+                    font-size: 0.9rem;
+                    line-height: 1.5;
                 }
                 .mail-block-editor .bn-toolbar {
                     background: var(--bg-secondary) !important;
                     border-bottom: 1px solid var(--border-primary) !important;
                     color: var(--text-primary) !important;
+                    padding: 4px !important;
+                }
+                /* Hide the side menu button for a cleaner signature experience if needed */
+                .mail-block-editor .bn-side-menu {
+                   /* opacity: 0.5; */
                 }
             `}</style>
         </div>

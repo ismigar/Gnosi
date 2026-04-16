@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import './SettingsModal.css'; // We'll create this for basic styling
+import { useApi } from '../hooks/use-api';
+import toast from 'react-hot-toast';
+import './SettingsModal.css';
 
 export function SettingsModal({ isOpen, onClose }) {
     const { t, i18n } = useTranslation();
+    const { apiFetch } = useApi();
     const [config, setConfig] = useState(null);
     const [envVars, setEnvVars] = useState(null);
     const [activeTab, setActiveTab] = useState('general');
@@ -398,12 +401,16 @@ export function SettingsModal({ isOpen, onClose }) {
                                                         </select>
                                                         <button
                                                             onClick={async () => {
-                                                                const res = await fetch(`/api/schedulers/${task.name}/run`, { method: 'POST' });
-                                                                const data = await res.json();
-                                                                if (data.success) {
-                                                                    alert('Tasca executada correctament!');
-                                                                } else {
-                                                                    alert('Error: ' + (data.error || 'desconegut'));
+                                                                const t_id = toast.loading(`${t('dashboard.running_task', 'Executant tasca')} ${task.name}...`);
+                                                                try {
+                                                                    const data = await apiFetch(`/api/schedulers/${task.name}/run`, { method: 'POST' });
+                                                                    if (data.success) {
+                                                                        toast.success(t('dashboard.task_started', 'Tasca iniciada correctament'), { id: t_id });
+                                                                    } else {
+                                                                        toast.error(data.error || 'Error', { id: t_id });
+                                                                    }
+                                                                } catch (err) {
+                                                                    toast.error('Error: ' + err.message, { id: t_id });
                                                                 }
                                                             }}
                                                             style={{ padding: '5px 10px', background: '#4a5568', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
