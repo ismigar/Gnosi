@@ -9,6 +9,8 @@ from collections import deque
 from typing import Dict, Any, List, Optional, Set, Tuple
 from simpleeval import SimpleEval, NameNotDefined
 
+from backend.services.path_resolver import path_resolver
+
 log = logging.getLogger(__name__)
 
 class RuleEngine:
@@ -597,9 +599,10 @@ class RuleEngine:
             return self._query_cache[cache_key]
 
         results = []
-        # Find all files belonging to this table
-        # Optimization: We could use a cache or the registry's knowledge of where tables live
-        for p in self.vault_path.rglob("*.md"):
+        # Optimization: Use PathResolver instead of slow rglob
+        all_files = path_resolver.list_all_files(self.vault_path)
+        
+        for p in all_files:
             try:
                 metadata = self._parse_metadata(p)
                 if metadata.get("database_table_id") == table_id:
@@ -643,12 +646,15 @@ class RuleEngine:
             return []
 
         values: List[Any] = []
-        for p in self.vault_path.rglob("*.md"):
+        # Optimization: Use PathResolver instead of slow rglob
+        all_files = path_resolver.list_all_files(self.vault_path)
+        
+        for p in all_files:
             try:
                 metadata = self._parse_metadata(p)
                 if metadata.get("database_table_id") != effective_table_id:
                     continue
-
+                
                 row_id = str(metadata.get("id") or p.stem)
                 if self._current_note_id and row_id == self._current_note_id:
                     # Avoid using stale on-disk values for the row currently being updated.
@@ -714,17 +720,20 @@ class RuleEngine:
         return max(nums) if nums else None
 
     def _find_record_path(self, record_id: str) -> Optional[Path]:
-        """Search for a markdown file by ID."""
+        """Search for a markdown file by ID using PathResolver."""
         if not self.vault_path:
             return None
             
-        # Check root first
+        # 1. Use PathResolver (O(1))
+        p = path_resolver.find_path(record_id, self.vault_path)
+        if p:
+            return p
+
+        # 2. Check root as last resort
         direct = self.vault_path / f"{record_id}.md"
         if direct.exists():
             return direct
-        # Recursive search
-        for p in self.vault_path.rglob(f"{record_id}.md"):
-            return p
+            
         return None
 
     def _parse_metadata(self, path: Path) -> Dict[str, Any]:

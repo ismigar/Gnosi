@@ -3,9 +3,12 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 import re
 import os
+import shutil
 from datetime import datetime
 
 from backend.agent.generated_tools.registry import registry
+from backend.config.app_config import load_params
+from backend.utils.cache import global_cache
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -37,6 +40,9 @@ def _get_base_dir() -> Path:
 def _get_trap_sources(base_dir: Path) -> List[Dict[str, Any]]:
     """Return list of directories to scan for traps and directives."""
     current_path = Path(__file__).resolve()
+    cfg = load_params(strict_env=False)
+    project_dir = cfg.paths.get("PROJECT_DIR")
+    
     return [
         # 1. Agent Instructions
         {
@@ -52,7 +58,7 @@ def _get_trap_sources(base_dir: Path) -> List[Dict[str, Any]]:
         },
         # 3. Consolidated Skills
         {
-            "dir": base_dir / "monorepo" / "apps" / "gnosi" / "pipeline" / "skills",
+            "dir": project_dir / "pipeline" / "skills" if project_dir else base_dir / "monorepo" / "apps" / "gnosi" / "pipeline" / "skills",
             "category": "Skill",
             "pattern": "**/SKILL.md"
         }
@@ -127,35 +133,38 @@ def _extract_traps_from_file(md_file: Path, category: str) -> List[Dict[str, Any
 
 @router.get("/")
 async def get_analytics() -> Dict[str, Any]:
-    """Get complete analytics overview."""
-    # 1. Tool statistics (Consolidated internally in registry)
-    tool_stats = registry.get_stats()
-    
-    # 2. Trap & Directive statistics
-    base_dir = _get_base_dir()
-    sources = _get_trap_sources(base_dir)
-    
-    total_traps = 0
-    directive_count = 0
-    
-    for src in sources:
-        target_dir = src["dir"]
-        if not target_dir or not target_dir.exists():
-            continue
-            
-        for md_file in target_dir.glob(src["pattern"]):
-            directive_count += 1
-            traps = _extract_traps_from_file(md_file, src["category"])
-            total_traps += len(traps)
-    
-    return {
-        "tools": tool_stats,
-        "directives": {
-            "total": directive_count,
-            "traps_documented": total_traps
-        },
-        "errors_prevented": total_traps,
-    }
+    """Get complete analytics overview (with cache)."""
+    def _fetch():
+        # 1. Tool statistics (Consolidated internally in registry)
+        tool_stats = registry.get_stats()
+        
+        # 2. Trap & Directive statistics
+        base_dir = _get_base_dir()
+        sources = _get_trap_sources(base_dir)
+        
+        total_traps = 0
+        directive_count = 0
+        
+        for src in sources:
+            target_dir = src["dir"]
+            if not target_dir or not target_dir.exists():
+                continue
+                
+            for md_file in target_dir.glob(src["pattern"]):
+                directive_count += 1
+                traps = _extract_traps_from_file(md_file, src["category"])
+                total_traps += len(traps)
+        
+        return {
+            "tools": tool_stats,
+            "directives": {
+                "total": directive_count,
+                "traps_documented": total_traps
+            },
+            "errors_prevented": total_traps,
+        }
+
+    return global_cache.get_or_set("analytics_overview", _fetch, ttl=300)
 
 @router.get("/tools")
 async def get_tool_analytics() -> Dict[str, Any]:
@@ -163,95 +172,139 @@ async def get_tool_analytics() -> Dict[str, Any]:
     return registry.get_stats()
 
 @router.get("/directives")
-async def get_directive_analytics() -> Dict[str, Any]:
-    """Get directive analytics from all sources."""
-    base_dir = _get_base_dir()
-    sources = _get_trap_sources(base_dir)
-    
-    directives = []
-    for src in sources:
-        target_dir = src["dir"]
-        if not target_dir or not target_dir.exists():
-            continue
-            
-        for md_file in target_dir.glob(src["pattern"]):
-            content = md_file.read_text(encoding='utf-8', errors='ignore')
-            traps = _extract_traps_from_file(md_file, src["category"])
-            
-            # Use folder name for Skills, filename for others
-            name = md_file.parent.name if src["category"] == "Skill" else md_file.stem
-            
-            directives.append({
-                "name": name.replace("_", " ").capitalize(),
-                "category": src["category"],
-                "size_bytes": len(content),
-                "trap_count": len(traps),
-                "path": str(md_file.resolve())
-            })
-    
-    # Sort by trap count descending
-    directives.sort(key=lambda x: x["trap_count"], reverse=True)
+async def get_directive_analytics(
+    limit: int = 50,
+    offset: int = 0
+) -> Dict[str, Any]:
+    """Get directive analytics from all sources (with cache)."""
+    def _fetch():
+        base_dir = _get_base_dir()
+        sources = _get_trap_sources(base_dir)
+        
+        directives = []
+        for src in sources:
+            target_dir = src["dir"]
+            if not target_dir or not target_dir.exists():
+                continue
+                
+            for md_file in target_dir.glob(src["pattern"]):
+                content = md_file.read_text(encoding='utf-8', errors='ignore')
+                traps = _extract_traps_from_file(md_file, src["category"])
+                
+                # Use folder name for Skills, filename for others
+                name = md_file.parent.name if src["category"] == "Skill" else md_file.stem
+                
+                directives.append({
+                    "name": name.replace("_", " ").capitalize(),
+                    "category": src["category"],
+                    "size_bytes": len(content),
+                    "trap_count": len(traps),
+                    "path": str(md_file.resolve())
+                })
+        
+        # Sort by trap count descending
+        directives.sort(key=lambda x: x["trap_count"], reverse=True)
+        return directives
+
+    all_directives = global_cache.get_or_set("analytics_directives", _fetch, ttl=600)
+    total = len(all_directives)
+    items = all_directives[offset : offset + limit]
     
     return {
-        "directives": directives,
-        "total": len(directives)
+        "directives": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": total > offset + limit
     }
 
 @router.get("/traps")
-async def get_traps() -> Dict[str, Any]:
-    """Get all documented traps sorted by date."""
-    base_dir = _get_base_dir()
-    sources = _get_trap_sources(base_dir)
-    
-    all_traps = []
-    for src in sources:
-        target_dir = src["dir"]
-        if not target_dir or not target_dir.exists():
-            continue
-            
-        for md_file in target_dir.glob(src["pattern"]):
-            file_traps = _extract_traps_from_file(md_file, src["category"])
-            
-            # Enhacing source name if it's a SKILL.md
-            if src["category"] == "Skill":
-                skill_name = md_file.parent.name.replace("_", " ").capitalize()
-                for t in file_traps:
-                    t["source"] = skill_name
-                    
-            all_traps.extend(file_traps)
+async def get_traps(
+    limit: int = 50,
+    offset: int = 0
+) -> Dict[str, Any]:
+    """Get all documented traps sorted by date (with cache)."""
+    def _fetch():
+        base_dir = _get_base_dir()
+        sources = _get_trap_sources(base_dir)
+        
+        all_traps = []
+        for src in sources:
+            target_dir = src["dir"]
+            if not target_dir or not target_dir.exists():
+                continue
                 
-    # Sort by date descending
-    all_traps.sort(key=lambda x: _parse_date(x["date"]), reverse=True)
+            for md_file in target_dir.glob(src["pattern"]):
+                file_traps = _extract_traps_from_file(md_file, src["category"])
+                
+                # Enhacing source name if it's a SKILL.md
+                if src["category"] == "Skill":
+                    skill_name = md_file.parent.name.replace("_", " ").capitalize()
+                    for t in file_traps:
+                        t["source"] = skill_name
+                        
+                all_traps.extend(file_traps)
+                    
+        # Sort by date descending
+        all_traps.sort(key=lambda x: _parse_date(x["date"]), reverse=True)
+        return all_traps
+
+    all_data = global_cache.get_or_set("analytics_traps", _fetch, ttl=600)
+    total = len(all_data)
+    items = all_data[offset : offset + limit]
+    
+    return {
+        "traps": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": total > offset + limit
+    }
     
 # --- Directive Management ---
 
-def _validate_path(path_str: str) -> Path:
+def _validate_path(path_str: str, allow_missing: bool = False) -> Path:
     """Validate that the given path is within one of the approved directive sources."""
-    path = Path(path_str).resolve()
+    # Ensure path is a Path object and resolve it
+    try:
+        path = Path(path_str).resolve()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid path format: {str(e)}")
+        
     base_dir = _get_base_dir()
     sources = _get_trap_sources(base_dir)
     
     is_valid = False
+    valid_dirs = []
+    
     for src in sources:
         src_dir = src["dir"].resolve()
+        valid_dirs.append(str(src_dir))
         # Check if the path is a child of the source directory
-        if path.is_relative_to(src_dir):
+        if path.is_relative_to(src_dir) or str(path).startswith(str(src_dir)):
             is_valid = True
             break
             
     if not is_valid:
-        raise HTTPException(status_code=403, detail="Access denied: Path outside of allowed directive directories.")
+        print(f"PATH VALIDATION FAILED: {path} is not in {valid_dirs}")
+        raise HTTPException(status_code=403, detail=f"Access denied: Path outside of allowed directories.")
         
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="Directive file not found.")
+    if not allow_missing and not path.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
         
     return path
 
 @router.get("/directives/content")
 async def get_directive_content(path: str = Query(...)) -> Dict[str, Any]:
-    """Read directive content."""
-    file_path = _validate_path(path)
+    """Read directive content. Returns empty if it's a new SKILL.md."""
+    # Allow missing SKILL.md files to support creating documentation for existing skills
+    allow_missing = path.endswith("SKILL.md")
+    file_path = _validate_path(path, allow_missing=allow_missing)
+    
     try:
+        if not file_path.exists():
+            return {"path": path, "content": ""}
+            
         content = file_path.read_text(encoding='utf-8')
         return {
             "path": path,
@@ -266,21 +319,37 @@ async def save_directive_content(
     content: str = Body(...)
 ) -> Dict[str, Any]:
     """Update directive content."""
-    file_path = _validate_path(path)
+    file_path = _validate_path(path, allow_missing=True)
     try:
         file_path.write_text(content, encoding='utf-8')
-        return {"message": "Directive updated successfully", "path": path}
+        return {"message": "Updated successfully", "path": path}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving directive: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving: {str(e)}")
 
 @router.delete("/directives")
 async def delete_directive(path: str = Query(...)) -> Dict[str, Any]:
-    """Delete a directive file."""
-    file_path = _validate_path(path)
+    """Delete a directive file or an entire skill folder."""
+    # Allow missing to support deleting skill folders even if SKILL.md isn't there yet
+    file_path = _validate_path(path, allow_missing=True)
     try:
-        # Prevent deleting critical SKILL.md files entirely if possible?
-        # For now, allow it but maybe the user will be careful.
-        file_path.unlink()
-        return {"message": "Directive deleted successfully"}
+        # If it's a SKILL.md targeting a skill folder
+        if path.endswith("SKILL.md") and file_path.parent.name != "directives":
+            skill_dir = file_path.parent
+            if skill_dir.exists() and skill_dir.is_dir():
+                shutil.rmtree(skill_dir)
+                from backend.agent.generated_tools.loader import loader
+                loader.refresh()
+                return {"message": "Skill folder deleted successfully"}
+        
+        # Standard directive file deletion (must exist to be unlinked)
+        if file_path.exists():
+            file_path.unlink()
+        
+        # Generic refresh if it looks like a skill-related path
+        if "pipeline/skills" in path or "pipeline/private_skills" in path:
+            from backend.agent.generated_tools.loader import loader
+            loader.refresh()
+            
+        return {"message": "Deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting directive: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting: {str(e)}")

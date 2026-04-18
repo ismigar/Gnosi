@@ -4,10 +4,16 @@ import yaml
 import re
 import time
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
 from email.utils import parsedate_to_datetime
-from backend.services.google_mail_service import send_reply, update_thread_labels
+from backend.services.google_mail_service import (
+    send_reply, 
+    update_thread_labels, 
+    trash_thread, 
+    untrash_thread, 
+    send_new_message
+)
 from backend.services.vault_mail_sync_service import sync_service
 from backend.config.app_config import load_params
 
@@ -260,7 +266,69 @@ async def sync_mail_accounts(
 
 @router.patch("/messages/{message_id}")
 async def update_message(message_id: str, update: dict):
+    # This remains as a stub for now as we prefer explicit actions (trash/archive)
     return {"status": "success"}
+
+@router.post("/messages/{message_id}/trash")
+async def trash_msg(message_id: str, email: str = Query(...)):
+    if trash_thread(email, message_id):
+        return {"status": "success"}
+    raise HTTPException(status_code=500, detail="Error trashing message")
+
+@router.post("/messages/{message_id}/archive")
+async def archive_msg(message_id: str, email: str = Query(...)):
+    # Archive is removing 'INBOX' label
+    if update_thread_labels(email, message_id, remove_labels=['INBOX']):
+        return {"status": "success"}
+    raise HTTPException(status_code=500, detail="Error archiving message")
+
+@router.post("/messages/{message_id}/star")
+async def star_msg(message_id: str, email: str = Query(...), starred: bool = Body(..., embed=True)):
+    if starred:
+        success = update_thread_labels(email, message_id, add_labels=['STARRED'])
+    else:
+        success = update_thread_labels(email, message_id, remove_labels=['STARRED'])
+    
+    if success:
+        return {"status": "success"}
+    raise HTTPException(status_code=500, detail="Error updating star")
+
+@router.post("/send")
+async def send_mail(email: str = Query(...), payload: dict = Body(...)):
+    to = payload.get("to")
+    subject = payload.get("subject", "")
+    body = payload.get("body", "")
+    cc = payload.get("cc")
+    bcc = payload.get("bcc")
+    
+    if not to or not body:
+        raise HTTPException(status_code=400, detail="Missing TO or BODY")
+        
+    if send_new_message(email, to, subject, body, cc, bcc):
+        return {"status": "success"}
+    raise HTTPException(status_code=500, detail="Error sending email")
+
+@router.post("/batch")
+async def batch_action(email: str = Query(...), payload: dict = Body(...)):
+    action = payload.get("action") # 'trash', 'archive', 'read', 'star'
+    ids = payload.get("ids", [])
+    
+    if not action or not ids:
+         raise HTTPException(status_code=400, detail="Missing ACTION or IDS")
+         
+    success_count = 0
+    for msg_id in ids:
+        if action == 'trash':
+            if trash_thread(email, msg_id): success_count += 1
+        elif action == 'archive':
+            if update_thread_labels(email, msg_id, remove_labels=['INBOX']): success_count += 1
+        elif action == 'star':
+            if update_thread_labels(email, msg_id, add_labels=['STARRED']): success_count += 1
+        elif action == 'read':
+            # Marking as read is removing 'UNREAD' label
+            if update_thread_labels(email, msg_id, remove_labels=['UNREAD']): success_count += 1
+            
+    return {"status": "success", "processed": success_count}
 
 @router.post("/messages/{message_id}/reply")
 async def reply_message(

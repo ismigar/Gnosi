@@ -38,9 +38,9 @@ except Exception:
     Image = None
 from backend.config.app_config import load_params
 from backend.services.rule_engine import RuleEngine
-from backend.services.media_service import media_service
-
 log = logging.getLogger(__name__)
+
+from backend.services.path_resolver import path_resolver
 
 from backend.services.workspace_service import get_workspace_context, require_role
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
@@ -67,7 +67,8 @@ def get_p(key: str) -> Path:
         "WIKI": base / "Wiki",
         "DASHWORKS": base / ".Dashworks",
         "NEWSLETTERS": base / "Newsletters",
-        "DATA": base / "data"
+        "DATA": base / "data",
+        "CUSTOM_ICONS": base / "data" / "vault_custom_icons.json"
     }
     return mapping.get(key, base / key.lower())
 
@@ -227,7 +228,7 @@ _rule_engine_lock = threading.Lock()
 
 def get_rule_engine():
     from backend.services.context_vars import get_active_vault_path
-    from pipeline.utils.rule_engine import RuleEngine
+    from backend.services.rule_engine import RuleEngine
     v_path = get_active_vault_path()
     v_str = str(v_path)
     
@@ -248,6 +249,13 @@ _page_index_lock = threading.Lock()
 # Page index also partitioned per vault
 _page_index_entries: Dict[str, Dict[str, Dict[str, Any]]] = {}
 _page_index_initialized: Dict[str, bool] = {}
+_page_id_to_path: Dict[str, Dict[str, str]] = {} # Cache for fast ID -> Path lookups per vault
+_VAULT_SYNC_COOLDOWN_SECONDS = 60
+_last_vault_sync_time = 0.0
+
+# Google Calendar sync cooldown (5 minutes)
+_GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
+_last_google_calendar_sync_time = 0.0
 
 def get_page_index_cache_path():
     return get_p("DATA") / "vault_page_index.json"
@@ -299,8 +307,9 @@ def _save_custom_icons(values: List[str]) -> List[str]:
 
     with _custom_icons_lock:
         try:
-            get_p("CUSTOM_ICONS").parent.mkdir(parents=True, exist_ok=True)
-            get_p("CUSTOM_ICONS").write_text(
+            path = get_custom_icons_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
                 json.dumps(normalized, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
@@ -374,7 +383,8 @@ def _store_icon_bytes(
     if not icon_path.exists():
         icon_path.write_bytes(payload)
 
-    thumbnail_rel = _maybe_create_icon_thumbnail(icon_path, digest)
+    # Thumbnail generation moved to background task in the route
+    
     icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
 
     response = {
@@ -1486,32 +1496,47 @@ def _read_frontmatter_partial(file_path: Path):
     frontmatter_started = False
     frontmatter_count = 0
     
-    try:
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                content_line = line.strip()
-                if content_line == '---':
-                    frontmatter_count += 1
-                    if frontmatter_count == 2:
-                        lines.append(line)
-                        break
-                    frontmatter_started = True
-                
-                if frontmatter_started:
-                    lines.append(line)
-                elif content_line != "":
-                    # If we find non-empty text before ---, it's not a valid frontmatter
-                    break
-                
-                # Safety break: frontmatter usually at the very top
-                if len(lines) > 200:
-                    break
+    retries = 2
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    content_line = line.strip()
+                    if content_line == '---':
+                        frontmatter_count += 1
+                        if frontmatter_count == 2:
+                            lines.append(line)
+                            break
+                        frontmatter_started = True
                     
-        content = "".join(lines)
-        return parse_frontmatter(content, file_path)
-    except Exception as e:
-        log.warning(f"Error in partial read of {file_path}: {e}")
-        return {}, ""
+                    if frontmatter_started:
+                        lines.append(line)
+                    elif content_line != "":
+                        # If we find non-empty text before ---, it's not a valid frontmatter
+                        break
+                    
+                    # Safety break: frontmatter usually at the very top
+                    if len(lines) > 200:
+                        break
+                        
+            content = "".join(lines)
+            return parse_frontmatter(content, file_path)
+        except OSError as e:
+            if e.errno == 35: # Resource deadlock
+                last_error = e
+                if attempt < retries:
+                    time.sleep(0.05) # Small wait
+                    continue
+            log.warning(f"Error in partial read of {file_path}: {e}")
+            return {}, ""
+        except Exception as e:
+            log.warning(f"Error in partial read of {file_path}: {e}")
+            return {}, ""
+    
+    if last_error:
+        log.warning(f"Final error reading {file_path} after retries: {last_error}")
+    return {}, ""
 
 
 def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
@@ -1533,13 +1558,18 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     if rel_folder == ".":
         rel_folder = ""
 
+    # Better title handling: metadata > filename stem > "Untitled"
+    title = metadata.get("title")
+    if not title:
+        title = file_path.stem
+
     return {
         "path": str(file_path),
         "mtime_ns": stat_result.st_mtime_ns,
         "mtime": stat_result.st_mtime,
         "size": stat_result.st_size,
         "id": file_id,
-        "title": metadata.get("title", "Untitled"),
+        "title": title,
         "parent_id": metadata.get("parent_id"),
         "is_database": metadata.get("is_database", False),
         "metadata": metadata,
@@ -1574,16 +1604,42 @@ def _get_cached_page_entries(
             return list(entries.values())
 
     # 3. Discovery (Slow Path) - Only reached if force_refresh=True
+    # 3. Discovery (Slow Path) - Efficient walk skipping known heavy/redundant folders
     candidate_files = []
-    if search_paths:
-        for p in search_paths:
-            if p.exists():
-                candidate_files.extend(list(p.rglob("*.md")))
-    else:
-        candidate_files = list(v_path.rglob("*.md"))
-        dashworks_path = get_p("DASHWORKS")
-        if dashworks_path and dashworks_path.exists():
-            candidate_files.extend(dashworks_path.rglob("*.json"))
+    
+    # Folders to skip entirely
+    SKIP_DIRS = {
+        'assets', 'drawings', 'mail', 
+        '.history', '.trash'
+    }
+    
+    root_paths = search_paths if search_paths else [v_path]
+    dashworks_path = get_p("DASHWORKS")
+    
+    for root in root_paths:
+        if not root.exists(): continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            # Skip hidden and excluded folders
+            dirnames[:] = [d for d in dirnames if not d.startswith('.') and d.lower() not in SKIP_DIRS]
+            
+            # Additional nested redundancy check: skipping duplicates like folder/folder
+            rel_to_vault = Path(dirpath).relative_to(v_path)
+            parts = rel_to_vault.parts
+            if len(parts) >= 2:
+                p_parent = parts[-2].lower().replace('_', '').replace('.', '')
+                p_current = parts[-1].lower().replace('_', '').replace('.', '')
+                if p_parent == p_current and len(p_parent) > 3:
+                    dirnames[:] = [] # Stop recursion
+                    continue
+
+            for f in filenames:
+                if f.startswith('.'): continue
+                if f.endswith(".md"):
+                    candidate_files.append(Path(dirpath) / f)
+                elif f.endswith(".json") and dashworks_path and str(dirpath).startswith(str(dashworks_path)):
+                    candidate_files.append(Path(dirpath) / f)
+
+    log.info(f"🔍 Indexer found {len(candidate_files)} candidate files.")
 
     # 4. Prepare updates OUTSIDE lock
     new_entries = {}
@@ -1599,8 +1655,34 @@ def _get_cached_page_entries(
         is_dashworks_file = _is_dashworks_file_path(file_path)
         try:
             rel_path = file_path.relative_to(v_path)
-            if not is_dashworks_file and any(part.startswith('.') for part in rel_path.parts):
+            parts = rel_path.parts
+            # Ignore hidden folders and specifically .history or .trash
+            if any(part.startswith('.') for part in parts):
                 continue
+            
+            # Detect nested redundancy: [a, b, b, c] -> skip
+            # Often caused by sync glitches: ismigar_gmail_com/ismigargmailcom/
+            if len(parts) >= 2:
+                is_redundant = False
+                for i in range(len(parts) - 1):
+                    # We only flag redundancy if the directory name matches exactly 
+                    # its parent (ignoring case/underscores/dots)
+                    p_parent = parts[i].lower().replace('_', '').replace('.', '')
+                    p_current = parts[i+1].lower().replace('_', '').replace('.', '')
+                    
+                    # Safety check: p_current must be a directory (not the final file) to be a sync artifact folder
+                    # Since parts includes the filename at the end, the last loop iteration
+                    # compares the last folder with the filename. We want to avoid that for Wiki pages.
+                    if i < len(parts) - 2: # Stop before the last part (filename)
+                        if p_parent == p_current and len(p_parent) > 3:
+                            # EXCEPTION: Allow similar names within the Calendar folder
+                            # (e.g. ismigar_gmail_com/ismigargmailcom)
+                            if "calendar" in [p.lower() for p in parts]:
+                                continue
+                            is_redundant = True
+                            break
+                if is_redundant:
+                    continue
         except ValueError:
             continue
 
@@ -1628,8 +1710,30 @@ def _get_cached_page_entries(
     with _page_index_lock:
         if not search_paths:
              _page_index_entries[v_str] = new_entries
+             # Rebuild reverse ID map
+             new_id_map = {}
+             all_files_ordered = []
+             for p_str, entry in new_entries.items():
+                 all_files_ordered.append(Path(p_str))
+                 pid = entry.get("id")
+                 if pid:
+                     # Keep most recent if duplicate ID exists in filesystem
+                     existing_path = new_id_map.get(pid)
+                     if not existing_path or entry.get("mtime", 0) > new_entries.get(existing_path, {}).get("mtime", 0):
+                        new_id_map[pid] = p_str
+             _page_id_to_path[v_str] = new_id_map
+             # UPDATE GLOBAL RESOLVER
+             path_resolver.update_index(v_path, new_id_map, all_files_ordered)
         else:
-             _page_index_entries[v_str].update(new_entries)
+             _page_index_entries.setdefault(v_str, {}).update(new_entries)
+             # Incremental update of ID map
+             id_map = _page_id_to_path.setdefault(v_str, {})
+             for p_str, entry in new_entries.items():
+                 pid = entry.get("id")
+                 if pid:
+                     id_map[pid] = p_str
+             # UPDATE GLOBAL RESOLVER INCREMENTALLY
+             path_resolver.update_index(v_path, id_map, [Path(p) for p in _page_index_entries[v_str].keys()])
         
         _page_index_initialized[v_str] = True
 
@@ -1669,10 +1773,27 @@ def _get_pages_snapshot(
         except Exception as e:
             log.warning(f"Could not prepare selective search paths for calendar: {e}")
 
-    # Trigger background sync if background_tasks provided
+    # Trigger background sync if background_tasks provided AND cooldown passed
     if background_tasks:
-        background_tasks.add_task(_get_cached_page_entries, search_paths, True)
-        log.info("📡 Background sync triggered for page index.")
+        global _last_vault_sync_time, _last_google_calendar_sync_time
+        now = time.monotonic()
+        
+        # 1. Disk Index Sync (Vault)
+        if now - _last_vault_sync_time > _VAULT_SYNC_COOLDOWN_SECONDS:
+            _last_vault_sync_time = now
+            background_tasks.add_task(_get_cached_page_entries, search_paths, True)
+            log.info("📡 Background sync triggered for page index.")
+        
+        # 2. Google Calendar Sync (Remote)
+        # Triggered ONLY if specifically looking at calendar and cooldown passed
+        if only_calendar and (now - _last_google_calendar_sync_time > _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS):
+            _last_google_calendar_sync_time = now
+            try:
+                from backend.services.vault_calendar_sync_service import calendar_sync_service
+                background_tasks.add_task(calendar_sync_service.sync_all_calendars)
+                log.info("📅 Background Google Calendar sync triggered.")
+            except Exception as e:
+                log.error(f"Could not trigger background Google Calendar sync: {e}")
 
     entries = _get_cached_page_entries(search_paths=search_paths, force_refresh=False)
     if not entries:
@@ -1928,8 +2049,32 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
 
 def find_page_path(page_id: str) -> Optional[Path]:
-    """Seeks the path of an .md file by ID recursively."""
-    # 1. Direct intent UUID/ID format (as before)
+    """Seeks the path of an .md file by ID recursively using an optimized in-memory index."""
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path: return None
+    v_str = str(v_path)
+    
+    # 1. High Performance Cache Lookup (O(1))
+    # This is populated during list_pages (vault sync)
+    with _page_index_lock:
+        id_map = _page_id_to_path.get(v_str, {})
+        path_str = id_map.get(page_id)
+        if path_str:
+            p = Path(path_str)
+            if p.exists():
+                return p
+
+    # 2. Fallback: Search using the full entries cache
+    with _page_index_lock:
+        entries = _page_index_entries.get(v_str, {})
+        for p_str, entry in entries.items():
+            if entry.get("id") == page_id:
+                # Update map for next time
+                _page_id_to_path.setdefault(v_str, {})[page_id] = p_str
+                return Path(p_str)
+
+    # 3. Last Resort Fallback: Direct file lookups (Avoid if possible)
     vault_root = get_p("VAULT")
     direct_path = vault_root / f"{page_id}.md"
     if direct_path.exists():
@@ -1938,50 +2083,6 @@ def find_page_path(page_id: str) -> Optional[Path]:
     dashworks_direct_path = get_p("DASHWORKS") / f"{page_id}.json" if get_p("DASHWORKS") else None
     if dashworks_direct_path and dashworks_direct_path.exists():
         return dashworks_direct_path
-
-    # 1.b FAST INDEX LOOKUP (New performance optimization)
-    # This uses the global ID -> Path map populated by GraphService
-    from backend.services.graph_service import GraphService
-    
-    # If cache is empty, we might want to trigger a single scan if it's not too heavy
-    # but usually the Graph handles this on dashboard load.
-    rel_path = GraphService._ID_TO_PATH_CACHE.get(page_id)
-    if rel_path:
-        cached_path = vault_root / rel_path
-        if cached_path.exists():
-            return cached_path
-
-    # 2. Cercar a l'arrel si el fitxer es diu directament id.md (ja cobert per rglob però útil)
-
-    # 3. Fast recursive search by filename (UUID.md)
-    for p in get_p("VAULT").rglob(f"{page_id}.md"):
-        return p
-
-    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
-        for p in get_p("DASHWORKS").rglob(f"{page_id}.json"):
-            return p
-
-    # 4. Fallback: Search within .md files if the 'id' in frontmatter matches
-    # Since this is slow, it's only done if the ID doesn't match any filename.
-    # We could maintain an in-memory index if performance becomes an issue.
-    for p in get_p("VAULT").rglob("*.md"):
-        try:
-            # We only read the first bytes for speed if possible, but parse_frontmatter needs context
-            content = p.read_text(encoding="utf-8")
-            metadata, _ = parse_frontmatter(content, p)
-            if metadata.get("id") == page_id:
-                return p
-        except Exception:
-            continue
-
-    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
-        for p in get_p("DASHWORKS").rglob("*.json"):
-            try:
-                metadata, _ = _read_dashworks_file(p)
-                if metadata.get("id") == page_id:
-                    return p
-            except Exception:
-                continue
 
     return None
 
@@ -2277,16 +2378,58 @@ async def upload_cover(file: UploadFile = File(...)):
 
 
 @router.post("/upload-icon", dependencies=[Depends(require_role("editor"))])
-async def upload_icon(file: UploadFile = File(...)):
+async def upload_icon(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...)
+):
     """Uploads an image to the Assets/Icons folder and returns the URL."""
     if not _is_image_upload(file):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image")
 
-    payload = await file.read()
-    if len(payload) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Icon is too large (max 10MB)")
+    def debug_log(msg):
+        with open("/tmp/gnosi_upload_debug.log", "a") as f:
+            f.write(f"{datetime.now().isoformat()} | {msg}\n")
+            f.flush()
 
-    return _store_icon_bytes(payload, file.filename or "icon", file.content_type or "")
+    debug_log(f"START: upload_icon {file.filename} ({file.content_type})")
+    try:
+        payload = await file.read()
+        debug_log(f"READ: {len(payload)} bytes")
+        
+        if len(payload) > 10 * 1024 * 1024:
+            debug_log("ERROR: File too large")
+            raise HTTPException(status_code=413, detail="Icon is too large (max 10MB)")
+
+        icons_dir = get_p("ASSETS") / "Icons"
+        icons_dir.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256(payload).hexdigest()[:12]
+        ext = _normalize_icon_extension(file.filename or "", file.content_type or "")
+        filename = f"icon-{digest}{ext}"
+        icon_path = icons_dir / filename
+        
+        if not icon_path.exists():
+            icon_path.write_bytes(payload)
+            debug_log(f"SAVED: {icon_path}")
+        else:
+            debug_log(f"EXISTS: {icon_path}")
+
+        # Schedule thumbnail creation in the background
+        background_tasks.add_task(_maybe_create_icon_thumbnail, icon_path, digest)
+        debug_log("SCHEDULED: thumbnail generation")
+
+        icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
+        result = {
+            "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
+            "path": icon_rel,
+            "thumbnail_url": None,
+            "thumbnail_path": None,
+        }
+        
+        debug_log(f"FINISH: result URL {result.get('url')}")
+        return result
+    except Exception as e:
+        debug_log(f"FATAL ERROR: {str(e)}")
+        raise e
 
 
 @router.post("/import-icon-url")
@@ -2391,19 +2534,59 @@ async def update_media_metadata(
 @router.get("/images/{image_path:path}")
 async def serve_vault_image(image_path: str):
     """Serveix imatges directament des de VAULT/Images."""
-    if not get_p("VAULT"):
+    v_path = get_p("VAULT")
+    if not v_path:
         raise HTTPException(status_code=500, detail="Vault not configured")
         
-    img_root = (get_p("VAULT") / "Images").resolve()
-    requested = (img_root / image_path).resolve()
+    img_root = (v_path / "Images").resolve()
     
-    if not str(requested).startswith(str(img_root)):
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Decodificar el path per si ve amb caràcters escapats extra
+    from starlette.concurrency import run_in_threadpool
+    from backend.services.path_resolver import path_resolver
+    from urllib.parse import unquote
+    decoded_path = unquote(image_path)
+    
+    requested = (img_root / decoded_path).resolve()
+    
+    # Validació de seguretat robusta
+    try:
+        # is_relative_to està disponible a Python 3.9+
+        if not requested.is_relative_to(img_root):
+            log.warning(f"⛔ Intent d'accés fora del root de media: {requested} (root: {img_root})")
+            raise HTTPException(status_code=403, detail="Access denied")
+    except (ValueError, AttributeError):
+        # Fallback per a versions anteriors o errors de resolució
+        if not str(requested).startswith(str(img_root)):
+            log.warning(f"⛔ Fallback startswith: Accés denegat per a {requested}")
+            raise HTTPException(status_code=403, detail="Access denied")
 
     if not requested.exists() or not requested.is_file():
+        log.error(f"❌ Imatge no trobada al disc: {requested}")
         raise HTTPException(status_code=404, detail="Image not found")
 
+    # Detecció de fitxers placeholder de OneDrive (mida 0 bytes)
+    try:
+        if requested.stat().st_size == 0:
+            log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
+            # Retornem 404 o un error que el frontend pugui identificar si calgués, 
+            # però per ara amb el log n'hi ha prou per a depuració.
+            raise HTTPException(status_code=404, detail="Image is an empty placeholder (OneDrive)")
+    except Exception as e:
+        log.error(f"Error comprovant mida del fitxer: {e}")
+
     media_type, _ = mimetypes.guess_type(str(requested))
+    if not media_type:
+        # Fallback segons extensió
+        ext = requested.suffix.lower()
+        media_type = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml"
+        }.get(ext, "application/octet-stream")
+        
     return FileResponse(path=str(requested), media_type=media_type)
 
 

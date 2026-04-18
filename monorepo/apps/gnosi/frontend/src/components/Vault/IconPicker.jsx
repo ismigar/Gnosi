@@ -173,9 +173,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         formData.append('file', file);
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-icon', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await axios.post('/api/vault/upload-icon', formData, { timeout: 30000 });
             const uploadedUrl = res.data?.url;
             if (typeof uploadedUrl !== 'string' || !uploadedUrl.trim()) {
                 throw new Error('Upload did not return a valid URL');
@@ -186,7 +184,8 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             toast.success(t('icon_picker.toast.upload_success'));
         } catch (error) {
             console.error(error);
-            toast.error(t('icon_picker.toast.upload_error'));
+            const errorMessage = error.code === 'ECONNABORTED' ? 'Temps d\'espera esgotat (Timeout)' : t('icon_picker.toast.upload_error');
+            toast.error(errorMessage);
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

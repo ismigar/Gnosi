@@ -28,6 +28,17 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     async function fetchSources() {
@@ -175,7 +186,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     const newsletterSources = sources.filter(s => s.type === 'newsletter');
 
     return (
-        <div className="settings-overlay" onClick={onClose}>
+        <div className="settings-overlay">
             <div className="feed-modal" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div className="settings-modal__header">

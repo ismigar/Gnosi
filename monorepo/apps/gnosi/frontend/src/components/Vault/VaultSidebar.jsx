@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2 } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
-import { isCalendarPage } from './schemaUtils';
+import { isCalendarPage, isAppContent } from './schemaUtils';
 
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement }) => (
     <button
@@ -439,7 +439,7 @@ export const VaultSidebar = ({
 
 
         (pages || []).forEach(p => {
-            if (p.metadata?.is_template || isCalendarPage(p)) return;
+            if (p.metadata?.is_template || isCalendarPage(p) || isAppContent(p)) return;
 
             if (isDashworksPage(p)) {
                 const parent = p.parent_id ? pagesById[p.parent_id] : null;

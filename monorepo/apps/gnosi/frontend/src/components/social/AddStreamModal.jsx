@@ -22,16 +22,10 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
     const [selectedType, setSelectedType] = useState(STREAM_TYPES[0]);
     const [streamName, setStreamName] = useState('');
 
-    if (!isOpen) return null;
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-
-        // Construct the stream object
-        // ID format: network-type[-extra]
-        // Example: mastodon-home, bluesky-tag-python
+    const handleSubmitRef = React.useRef(null);
+    handleSubmitRef.current = (e) => {
+        if (e) e.preventDefault();
         const streamId = `${selectedNetwork.id}-${selectedType.id}` + (streamName ? `-${streamName.toLowerCase().replace(/\s+/g, '-')}` : '');
-
         const newStream = {
             id: streamId,
             title: streamName || `${selectedNetwork.name} ${selectedType.label}`,
@@ -39,9 +33,27 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
             network: selectedNetwork.id,
             type: selectedType.id
         };
-
         onAdd(newStream);
         onClose();
+    };
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                handleSubmitRef.current();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        handleSubmitRef.current(e);
     };
 
     return (
@@ -49,7 +61,6 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
             />
 
             {/* Modal Content */}

@@ -4,7 +4,7 @@ import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Clock, Book
 import { FeedManagerModal } from '../components/FeedManagerModal';
 import { AppHeader } from '../components/AppHeader';
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || '/api';
+const API_BASE = '/api';
 
 const ReaderDashboard = () => {
     const [articles, setArticles] = useState([]);

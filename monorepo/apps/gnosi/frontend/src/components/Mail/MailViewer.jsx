@@ -11,7 +11,7 @@ import axios from 'axios';
 import MailBlockEditor from './MailBlockEditor';
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
 
-export default function MailViewer({ account, mail: selectedMail }) {
+export default function MailViewer({ account, mail: selectedMail, onClose }) {
     const [mailData, setMailData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [replyBody, setReplyBody] = useState('');
@@ -148,6 +148,15 @@ export default function MailViewer({ account, mail: selectedMail }) {
         }
     };
 
+    useEffect(() => {
+        if (!showAvailability) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setShowAvailability(false);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showAvailability]);
+
     const handleSlotSelection = (selection) => {
         if (!editorRef.current) return;
 
@@ -273,6 +282,10 @@ export default function MailViewer({ account, mail: selectedMail }) {
                     <button onClick={handleDelete} title="Eliminar" className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 hover:text-red-500 transition-all">
                         <Trash2 size={18} />
                     </button>
+                    <div className="w-px h-6 bg-slate-100 mx-2"></div>
+                    <button onClick={onClose} title="Tancar" className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 transition-all active:scale-90">
+                        <CloseIcon size={18} />
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -291,7 +304,7 @@ export default function MailViewer({ account, mail: selectedMail }) {
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                <div className="max-w-[700px] mx-auto py-12 px-8 space-y-10">
+                <div className="w-full max-w-[800px] mx-auto py-12 px-6 lg:px-12 space-y-10">
                     <div>
                         <h1 className="text-3xl font-extrabold text-slate-900 leading-tight mb-8 tracking-tight">
                             {mailData?.subject}

@@ -74,6 +74,19 @@ export function ViewConfigModal({
         }
     }, [isOpen, initialTab, initialVisibleProperties, initialCardSize, initialGalleryPreview, initialFilters, initialSorts, viewType]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, handleSave]);
+
     if (!isOpen) return null;
 
     const toggleProperty = (field) => {

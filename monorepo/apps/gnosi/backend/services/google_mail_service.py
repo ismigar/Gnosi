@@ -245,3 +245,52 @@ def update_thread_labels(
     except Exception as e:
         log.error(f"Error updating labels for thread {thread_id}: {e}")
         return False
+
+
+def trash_thread(email: str, thread_id: str):
+    """Moves a thread to trash."""
+    service = get_gmail_service(email)
+    if not service:
+        return False
+    try:
+        service.users().threads().trash(userId="me", id=thread_id).execute()
+        return True
+    except Exception as e:
+        log.error(f"Error trashing thread {thread_id}: {e}")
+        return False
+
+
+def untrash_thread(email: str, thread_id: str):
+    """Untrashes a thread."""
+    service = get_gmail_service(email)
+    if not service:
+        return False
+    try:
+        service.users().threads().untrash(userId="me", id=thread_id).execute()
+        return True
+    except Exception as e:
+        log.error(f"Error untrashing thread {thread_id}: {e}")
+        return False
+
+
+def send_new_message(email: str, to: str, subject: str, body: str, cc: str = None, bcc: str = None):
+    """Sends a brand new email message."""
+    service = get_gmail_service(email)
+    if not service:
+        return False
+    try:
+        message = MIMEText(body)
+        message["To"] = to
+        message["From"] = email
+        message["Subject"] = subject
+        if cc:
+            message["Cc"] = cc
+        if bcc:
+            message["Bcc"] = bcc
+
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        service.users().messages().send(userId="me", body={"raw": raw_message}).execute()
+        return True
+    except Exception as e:
+        log.error(f"Error sending new message from {email}: {e}")
+        return False

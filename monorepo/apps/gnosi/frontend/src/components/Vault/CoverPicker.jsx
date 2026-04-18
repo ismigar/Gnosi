@@ -96,9 +96,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
 
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-cover', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await axios.post('/api/vault/upload-cover', formData);
             onSelectCover(res.data.url);
             onClose();
             toast.success(t('cover_picker.toast.upload_success'));

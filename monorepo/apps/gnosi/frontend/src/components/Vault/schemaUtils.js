@@ -115,3 +115,28 @@ export function isCalendarPage(page) {
     
     return isEntry || isInFolder;
 }
+
+/**
+ * Determina si una pàgina pertany a contingut d'una aplicació del sistema
+ * (com Contactes, Mail, etc.) que ha d'estar exclòs de la Wiki general.
+ * @param {Object} page
+ * @returns {boolean}
+ */
+export function isAppContent(page) {
+    if (!page) return false;
+    const folder = String(page.folder || '');
+    const systemFolders = [
+        'Contacts',
+        'Mail',
+        'Calendar',
+        'Newsletters',
+        'Tools',
+        'system',
+        'data',
+        'Assets',
+        'Images',
+        'BD'
+    ];
+    
+    return systemFolders.some(sys => folder === sys || folder.startsWith(sys + '/'));
+}

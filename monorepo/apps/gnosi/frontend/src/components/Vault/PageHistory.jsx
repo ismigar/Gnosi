@@ -22,6 +22,15 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     }
   }, [open, pageId]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   const fetchHistory = async () => {
     setLoading(true);
     try {

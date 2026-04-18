@@ -153,6 +153,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const [activeTab, setActiveTab] = useState(initialTab);
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
+    const integrationsLoadedRef = useRef(false); // Evita que auto-save dispari amb dades buides
     const [databases, setDatabases] = useState([]);
     const [tables, setTables] = useState([]);
     const [aiCatalog, setAiCatalog] = useState({});
@@ -301,6 +302,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     useEffect(() => {
         if (isOpen) {
+            integrationsLoadedRef.current = false; // Reset al obrir el modal
+            lastSavedData.current = null; // Reset baseline per evitar saves espuris
             loadConfig();
             loadAiCatalog();
             loadZoteroData();
@@ -310,10 +313,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     }, [isOpen]);
 
-    // Keyboard support - Escape to close
+    // Keyboard support - Escape/Enter to close
     useEffect(() => {
         const handleKeyPress = (e) => {
-            if (e.key === 'Escape' && isOpen) {
+            if (!isOpen) return;
+            
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                // Si estem en un textarea no tanquem per Enter
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                
+                // També evitem si estem en un input de tipus "search" o similar que ja s'encarrega d'ell mateix?
+                // Per GlobalSettings habitualment Enter significa tancar.
                 onClose();
             }
         };
@@ -354,7 +366,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const loadIntegrations = async () => {
         try {
             const res = await fetch('/api/integrations');
-            if (res.ok) setIntegrations(await res.json());
+            if (res.ok) {
+                setIntegrations(await res.json());
+                integrationsLoadedRef.current = true;
+            }
         } catch (err) { console.error("Error loading integrations:", err); }
     };
 
@@ -429,6 +444,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         // Initialize baseline on first load
         if (lastSavedData.current === null) {
             lastSavedData.current = currentData;
+            return;
+        }
+
+        // Protecció crítica: no desar integrations si encara no s'han carregat del servidor
+        if (!integrationsLoadedRef.current) {
+            console.warn('[AutoSave] Ignorant desa: integrations encara no carregades.');
             return;
         }
 
@@ -636,7 +657,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     return (
         <>
-            <div className={`settings-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} />
+            <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
             <div className={`settings-modal ${isOpen ? 'active' : ''}`}>
                 {!draft.settings ? (
                     <div className="flex items-center justify-center h-full">
@@ -1990,10 +2011,23 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     const provider = aiCatalog[selectedId];
     const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+            else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                onSave(selectedId, { api_key: apiKey, base_url: baseUrl });
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, onSave, selectedId, apiKey, baseUrl]);
+
     if (!isOpen) return null;
 
     return (
-        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} style={{ 
+        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{ 
             zIndex: 99999, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh'
         }}>
@@ -2081,10 +2115,24 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
 
     const availableModels = aiCatalog[provider]?.models || [];
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+            else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                onSave({ ...agent, name, provider, model, icon });
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, onSave, agent, name, provider, model, icon]);
+
     if (!isOpen) return null;
 
     return (
-        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} style={{ 
+        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{ 
             zIndex: 99999, 
             backdropFilter: 'blur(8px)', 
             background: 'rgba(0,0,0,0.3)',

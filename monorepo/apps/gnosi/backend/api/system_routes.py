@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 import os
 import psutil
@@ -12,10 +12,36 @@ from backend.services.graph_service import GraphService
 router = APIRouter()
 
 
-@router.get("/notifications", response_model=List[NotificationResponse])
-async def get_notifications(limit: int = 50, db: Session = Depends(get_mgmt_db)):
-    """Returns the latest system notifications."""
-    return db.query(Notification).order_by(Notification.created_at.desc()).limit(limit).all()
+@router.get("/notifications", response_model=Dict[str, Any])
+async def get_notifications(
+    limit: int = 50, 
+    offset: int = 0,
+    db: Session = Depends(get_mgmt_db)
+):
+    """Returns system notifications with pagination."""
+    query = db.query(Notification)
+    total = query.count()
+    items = query.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
+    
+    return {
+        "items": [NotificationResponse.from_orm(i) for i in items],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": total > offset + limit
+    }
+
+
+@router.delete("/notifications")
+async def clear_notifications(db: Session = Depends(get_mgmt_db)):
+    """Deletes all system notifications."""
+    try:
+        db.query(Notification).delete()
+        db.commit()
+        return {"success": True, "message": "All notifications deleted"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
 
 
 class BrowseRequest(BaseModel):

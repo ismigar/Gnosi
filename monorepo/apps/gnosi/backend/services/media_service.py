@@ -34,23 +34,39 @@ class MediaService:
             log.warning(f"No es pot crear el directori de media a {m_dir}: {e}")
         return m_dir
 
-    def get_all_media(self, album: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Llista tots els fitxers de mitjans, opcionalment filtrats per àlbum."""
-        media_list = []
+    def get_all_media(self, album: Optional[str] = None, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        """Llista fitxers de mitjans amb paginació i optimització."""
         m_dir = self.media_dir
         target_dir = m_dir / album if album else m_dir
         
         if not target_dir.exists():
-            return []
+            return {"items": [], "total": 0}
 
-        # Recórrer subdirectoris (àlbums)
+        # 1. Obtenir tots els camins vàlids (operació ràpida de llistat)
+        all_paths = []
+        valid_extensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".JPG", ".JPEG"]
         for path in target_dir.rglob("*.*"):
-            if path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"]:
-                media_list.append(self._get_file_info(path))
-                    
-        # Ordenar per data de modificació (més recents primer)
-        media_list.sort(key=lambda x: x.get("date_taken") or x["last_modified"], reverse=True)
-        return media_list
+            if path.suffix.lower() in valid_extensions:
+                all_paths.append(path)
+        
+        total = len(all_paths)
+        
+        # 2. Ordenar per data de modificació (més recents primer)
+        # Millora: només fem stat() una vegada per fitxer i ho fem servir per ordenar
+        all_paths.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
+        
+        # 3. Aplicar paginació
+        paged_paths = all_paths[offset : offset + limit]
+        
+        # 4. Generar la informació només dels fitxers del bloc actual (mode fast=True per evitar EXIF)
+        items = [self._get_file_info(p, fast=True) for p in paged_paths]
+        
+        return {
+            "items": items,
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        }
 
     def get_albums(self) -> List[str]:
         """Retorna la llista de carpetes (àlbums) a Images."""
@@ -110,26 +126,36 @@ class MediaService:
         s = float(value[2].numerator) / float(value[2].denominator)
         return d + (m / 60.0) + (s / 3600.0)
 
-    def _get_file_info(self, path: Path) -> Dict[str, Any]:
+    def _get_file_info(self, path: Path, fast: bool = False) -> Dict[str, Any]:
         v_path = get_active_vault_path()
         rel_path = path.relative_to(v_path)
         album = path.parent.name
         m_dir = self.media_dir
-        url = f"/api/vault/images/{path.relative_to(m_dir).as_posix()}"
-        exif = self._get_exif_data(path)
         
+        # Rumb relatiu des de /vault/Images
+        try:
+            url_rel = path.relative_to(m_dir).as_posix()
+            url = f"/api/vault/images/{url_rel}"
+        except ValueError:
+            url = f"/api/vault/images/{path.name}"
+
+        # Si estem en mode ràpid, no mirem EXIF (que obre el fitxer)
+        exif = {}
+        if not fast:
+            exif = self._get_exif_data(path)
+        
+        st = path.stat()
         return {
             "id": path.stem,
             "filename": path.name,
             "url": url,
             "path": str(rel_path),
             "album": album,
-            "size": path.stat().st_size,
-            "last_modified": datetime.fromtimestamp(path.stat().st_mtime).isoformat(),
+            "size": st.st_size,
+            "last_modified": datetime.fromtimestamp(st.st_mtime).isoformat(),
             "extension": path.suffix.lower(),
             "date_taken": exif.get("date_taken"),
-            "lat": exif.get("lat"),
-            "lng": exif.get("lng")
+            "location": {"lat": exif.get("lat"), "lng": exif.get("lng")} if not fast else None
         }
 
 # Instància global segueix sent vàlida ja que el constructor és segur ara

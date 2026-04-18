@@ -267,6 +267,24 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         }
     }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                // Evitem si estem en un input o similar per no guardar per error si l'usuari vol fer una altra cosa
+                // però en aquest modal el comportament és habitualment Save.
+                if (document.activeElement.tagName === 'INPUT') {
+                   // Permetem Enter en inputs de nom de propietat etc.
+                }
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, handleSave]);
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })

@@ -11,6 +11,16 @@ from dataclasses import dataclass, asdict
 import asyncio
 import threading
 from backend.config.app_config import load_params
+from backend.data.management_db import get_mgmt_session
+from backend.models.scheduler import TaskExecutionHistory
+
+# Try to import notification service from skills
+try:
+    from pipeline.skills.notification_service.scripts.notification_service import notify
+except ImportError:
+    # Fallback if skill is not available or path issues
+    def notify(title, message, level="INFO", workspace_id="default"):
+        pass
 
 
 @dataclass
@@ -219,6 +229,23 @@ class SchedulerManager:
 
         return {"success": True, "task": asdict(task)}
 
+    def clear_all_history(self) -> Dict[str, Any]:
+        """Clear the execution history of all tasks."""
+        for task in self._tasks.values():
+            task.last_run = None
+            task.status = "idle"
+        
+        self._save_config()
+        
+        # Also clear DB history
+        try:
+            with get_mgmt_session() as db:
+                db.query(TaskExecutionHistory).delete()
+                db.commit()
+        except Exception: pass
+
+        return {"success": True, "message": "Scheduler history cleared"}
+
     def run_task_now(self, name: str) -> Dict[str, Any]:
         """Run a task immediately."""
         if name not in self._tasks:
@@ -228,22 +255,99 @@ class SchedulerManager:
         task.status = "running"
         task.last_run = datetime.now().isoformat()
         
+        # Log task start
+        notify(
+            f"Tasca Iniciada: {name.replace('_', ' ').title()}", 
+            f"S'ha iniciat el procés de {task.description.lower()}.",
+            level="INFO"
+        )
+        
         # Save state immediately so UI sees "running"
         self._save_config()
 
+        # Database record for history
+        execution_id = None
+        try:
+            with get_mgmt_session() as db:
+                history = TaskExecutionHistory(
+                    task_name=name,
+                    description=task.description,
+                    status="running"
+                )
+                db.add(history)
+                db.commit()
+                db.refresh(history)
+                execution_id = history.id
+        except Exception as e:
+            from backend.config.logger_config import get_logger
+            get_logger(__name__).error(f"Failed to create task history record: {e}")
+
         try:
             # Execute the task
+            start_time = datetime.now()
             result = self._execute_task(name)
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            
             task.status = "success"
+            
+            # Extract meaningful message from result if possible
+            msg = result.get("message") or f"La tasca {name} s'ha completat correctament."
+            if "details" in result and isinstance(result["details"], list):
+                # Add summary of details if available
+                success_count = sum(1 for d in result["details"] if d.get("success"))
+                total_count = len(result["details"])
+                if total_count > 0:
+                    msg = f"Completat: {success_count}/{total_count} sub-tasques amb èxit."
+
+            # Update DB history
+            if execution_id:
+                try:
+                    with get_mgmt_session() as db:
+                        history = db.query(TaskExecutionHistory).filter(TaskExecutionHistory.id == execution_id).first()
+                        if history:
+                            history.status = "success"
+                            history.message = msg
+                            history.finished_at = datetime.now(timezone.utc)
+                            history.duration_seconds = duration
+                            db.commit()
+                except Exception: pass
+
+            notify(
+                f"Tasca Finalitzada: {name.replace('_', ' ').title()}", 
+                msg,
+                level="SUCCESS"
+            )
+            
             self._save_config()
             return {"success": True, "result": result}
         except Exception as e:
             from backend.config.logger_config import get_logger
             log = get_logger(__name__)
-            log.error(f"❌ Error executing task {name}: {e}")
+            error_msg = str(e)
+            log.error(f"❌ Error executing task {name}: {error_msg}")
+            
+            # Update DB history on error
+            if execution_id:
+                try:
+                    with get_mgmt_session() as db:
+                        history = db.query(TaskExecutionHistory).filter(TaskExecutionHistory.id == execution_id).first()
+                        if history:
+                            history.status = "error"
+                            history.message = error_msg
+                            history.finished_at = datetime.now(timezone.utc)
+                            db.commit()
+                except Exception: pass
+
+            notify(
+                f"Error en Tasca: {name.replace('_', ' ').title()}", 
+                f"S'ha produït un error en l'execució: {error_msg}",
+                level="ERROR"
+            )
+            
             task.status = "error"
             self._save_config()
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": error_msg}
 
     def _execute_task(self, name: str) -> Dict[str, Any]:
         """Execute a specific task."""
@@ -407,6 +511,11 @@ class SchedulerManager:
                         except Exception:
                             pass
         details["pycache_dirs_removed"] = pycache_count
+                    
+        # 5. Cleanup In-Memory Cache
+        from backend.utils.cache import global_cache
+        global_cache.clear()
+        details["global_cache_cleared"] = True
                     
         return {
             "message": "System maintenance completed successfully",

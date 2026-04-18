@@ -56,7 +56,6 @@ export const ConfirmModal = ({
             {/* Backdrop amb blur effect unificat de l'app */}
             <div
                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
             ></div>
 
             {/* Modal Box */}

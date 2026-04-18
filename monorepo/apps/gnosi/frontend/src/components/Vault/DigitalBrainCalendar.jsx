@@ -17,26 +17,24 @@ import './CalendarStyles.css';
 
 // Utilitat per crear colors pastís i manejar variables CSS
 const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
-    if (!color) return { bg: 'rgba(59, 130, 246, 0.15)', border: '#3b82f6', text: '#1e40af' };
+    const finalColor = color || 'var(--gnosi-primary)';
     
     // Si és una variable CSS
-    if (color.startsWith('var(')) {
-        const varName = color.match(/\(([^)]+)\)/)?.[1] || '--gnosi-primary';
+    if (finalColor.startsWith('var(')) {
+        const varName = finalColor.match(/\(([^)]+)\)/)?.[1] || '--gnosi-primary';
         return { 
             bg: `rgba(var(${varName}-rgb, 59, 130, 246), ${opacity})`, 
             border: `var(${varName})`,
-            text: `var(${varName})` // En mode CSS variables és més difícil enfosquir-lo dinàmicament aquí, 
-                                    // però les barres laterals ja donen la pista de color.
+            text: `var(${varName})`
         };
     }
     
     // Si és Hex
-    if (color.startsWith('#')) {
-        const r = parseInt(color.slice(1, 3), 16);
-        const g = parseInt(color.slice(3, 5), 16);
-        const b = parseInt(color.slice(5, 7), 16);
+    if (finalColor.startsWith('#')) {
+        const r = parseInt(finalColor.slice(1, 3), 16);
+        const g = parseInt(finalColor.slice(3, 5), 16);
+        const b = parseInt(finalColor.slice(5, 7), 16);
         
-        // Enfosquir el color per al text (multiplicar per 0.6 per a un 40% més fosc)
         const tr = Math.floor(r * 0.6);
         const tg = Math.floor(g * 0.6);
         const tb = Math.floor(b * 0.6);
@@ -44,12 +42,12 @@ const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
 
         return { 
             bg: `rgba(${r}, ${g}, ${b}, ${opacity})`, 
-            border: color,
+            border: finalColor,
             text: textColor
         };
     }
     
-    return { bg: color, border: color, text: color };
+    return { bg: finalColor, border: finalColor, text: finalColor };
 };
 
 export const DigitalBrainCalendar = ({
@@ -350,6 +348,7 @@ export const DigitalBrainCalendar = ({
                     ref={calendarRef}
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, rrulePlugin, multiMonthPlugin]}
                     initialView="dayGridMonth"
+                    eventDisplay="block"
                     fixedWeekCount={false}
                     multiMonthMaxColumns={4}
                     views={{
@@ -390,61 +389,70 @@ export const DigitalBrainCalendar = ({
                     }}
                     eventClassNames={(arg) => {
                         const isAllDay = arg.event.allDay || arg.event.extendedProps.metadata?.all_day || !arg.event.startStr.includes('T');
-                        let classes = `cursor-pointer transition-all hover:brightness-95 ${!isAllDay ? 'timed-event-minimal' : 'all-day-event-minimal'}`;
+                        let classes = `cursor-pointer transition-all duration-300 hover:brightness-110 ${!isAllDay ? 'timed-event-minimal' : 'all-day-event-minimal'}`;
                         
-                        // Detect past events with precise logic
+                        // Detect past events
                         const now = new Date();
-                        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
                         const eventDate = arg.event.start || new Date(arg.event.startStr);
+                        const eventDateStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()).getTime();
                         
                         let isPast = false;
                         if (isAllDay) {
-                            // All day events are past only if the day has ended
-                            isPast = eventDate < todayStart;
+                            isPast = eventDateStart < todayStart;
                         } else {
-                            // Timed events are past if the end time (or start) has passed now
-                            const comparisonTime = arg.event.end || eventDate;
-                            isPast = comparisonTime < now;
+                            const endTime = (arg.event.end || eventDate).getTime();
+                            isPast = endTime < now.getTime();
                         }
 
                         if (isPast) {
-                            classes += ' opacity-40 grayscale-[0.2]';
+                            classes += ' gnosi-event-past opacity-60 grayscale-[0.3]';
+                        } else {
+                            classes += ' gnosi-event-future font-bold shadow-md';
                         }
 
                         if (isSelected(arg.event.id)) {
                             classes += ' ring-2 ring-[var(--gnosi-primary)] z-20';
                         }
-                        if (arg.event.id && arg.event.id === selectedEventId) {
-                            classes += ' ring-1 ring-[var(--gnosi-primary)] z-20';
-                        }
                         return classes;
                     }}
                     eventContent={(arg) => {
                         const isAllDay = arg.event.allDay || arg.event.extendedProps.metadata?.all_day || !arg.event.startStr.includes('T');
-                        const color = arg.event.backgroundColor || arg.event.borderColor;
-                        const pastel = getPastelColor(color, 0.2); // Pujat a 0.2 per a una mica més de presència de fons
-
+                        
+                        const now = new Date();
+                        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                        const eventDate = arg.event.start || new Date(arg.event.startStr);
+                        const eventDateStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()).getTime();
+                        
+                        let isPast = false;
                         if (isAllDay) {
-                            return (
-                                <div className="fc-event-main-frame flex items-center px-2 overflow-hidden h-full rounded border-l-[3px]"
-                                    style={{ 
-                                        backgroundColor: pastel.bg, 
-                                        color: pastel.text,
-                                        borderColor: pastel.border,
-                                        minHeight: '1.4rem' 
-                                    }}>
-                                    <div className="fc-event-title flex-grow truncate text-[0.725rem] font-bold py-0.5 tracking-tight">
-                                        {arg.event.title}
-                                    </div>
-                                </div>
-                            );
+                            isPast = eventDateStart < todayStart;
+                        } else {
+                            const endTime = (arg.event.end || eventDate).getTime();
+                            isPast = endTime < now.getTime();
                         }
 
+                        const color = arg.event.backgroundColor || arg.event.borderColor;
+                        // Intensitat doble: 1.0 per a futur (sòlid), 0.45 per a passat (abans 0.15)
+                        const bgOpacity = isPast ? 0.45 : 1.0;
+                        const pastel = getPastelColor(color, bgOpacity);
+
                         return (
-                            <div className="fc-event-main-frame flex items-center gap-1.5 px-1 overflow-hidden" style={{ color: pastel.text }}>
-                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: pastel.border }}></div>
-                                <div className="fc-event-time flex-shrink-0 text-[0.65rem] opacity-70 font-semibold">{arg.timeText}</div>
-                                <div className="fc-event-title flex-grow truncate text-[0.725rem] font-bold tracking-tight">
+                            <div className="fc-event-main-frame flex items-center px-1.5 overflow-hidden h-full rounded border-l-[4px] border-l-current shadow-sm"
+                                style={{ 
+                                    backgroundColor: pastel.bg, 
+                                    color: (bgOpacity > 0.4 ? '#ffffff' : pastel.text),
+                                    borderLeftColor: pastel.border,
+                                    minHeight: '1.4rem',
+                                    fontWeight: isPast ? '600' : '800'
+                                }}>
+                                {!isAllDay && (
+                                    <div className="fc-event-time flex-shrink-0 text-[0.65rem] opacity-90 font-black mr-1.5"
+                                         style={{ color: '#ffffff' }}>
+                                        {arg.timeText}
+                                    </div>
+                                )}
+                                <div className="fc-event-title flex-grow truncate text-[0.725rem] py-0.5 tracking-tight">
                                     {arg.event.title}
                                 </div>
                             </div>

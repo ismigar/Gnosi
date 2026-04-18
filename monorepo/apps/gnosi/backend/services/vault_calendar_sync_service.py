@@ -4,6 +4,7 @@ import json
 import yaml
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any, Set
 from backend.services.google_calendar_service import get_google_calendar_service
 from backend.config.app_config import load_params
 
@@ -66,9 +67,11 @@ class VaultCalendarSyncService:
                 summary = calendar_entry.get('summary', 'Unknown')
                 
                 # Create subfolder for this specific calendar
-                # Slugify common names but keep it readable
-                calendar_slug = "".join([c for c in summary if c.isalnum() or c in (' ', '-', '_')]).strip().replace(" ", "_").lower()
-                if not calendar_slug: calendar_slug = calendar_id.replace("@", "_").replace(".", "_")
+                if calendar_id == 'primary' or calendar_id == email:
+                    calendar_slug = "primary_calendar"
+                else:
+                    calendar_slug = "".join([c for c in summary if c.isalnum() or c in (' ', '-', '_')]).strip().replace(" ", "_").lower()
+                    if not calendar_slug: calendar_slug = calendar_id.replace("@", "_").replace(".", "_")
                 
                 calendar_folder = account_base_folder / calendar_slug
                 calendar_folder.mkdir(parents=True, exist_ok=True)
@@ -84,19 +87,45 @@ class VaultCalendarSyncService:
                 ).execute()
                 
                 events = events_result.get('items', [])
+                synced_filenames = set()
+
                 for event in events:
                     # Provide a descriptive source: "email - Calendar Name"
-                    source_label = f"{email} - {summary}" if calendar_id != 'primary' else email
-                    if self._sync_single_event(calendar_folder, event, source_label):
+                    # If it's the primary calendar (ID matches email or is 'primary'), use only email
+                    is_primary = (calendar_id == 'primary' or calendar_id == email)
+                    source_label = f"{email} - {summary}" if not is_primary else email
+                    
+                    file_path = self._sync_single_event(calendar_folder, event, source_label)
+                    if file_path:
                         synced_total += 1
-            
+                        synced_filenames.add(file_path.name)
+                
+                # Cleanup: Delete files in this folder that are NOT in synced_filenames
+                # This handles both deleted events and migration from old filename format
+                for existing_file in calendar_folder.glob("*.md"):
+                    if existing_file.name not in synced_filenames:
+                        try:
+                            existing_file.unlink()
+                            log.info(f"Cleanup: Deleted old/removed calendar event file: {existing_file.name}")
+                        except Exception as e:
+                            log.error(f"Failed to delete old file {existing_file}: {e}")
+
+            # Cleanup Level 2: Delete ANY .md files directly in the account_base_folder 
+            # (In previous versions, events might have been placed here incorrectly)
+            for loose_file in account_base_folder.glob("*.md"):
+                try:
+                    loose_file.unlink()
+                    log.info(f"Cleanup: Deleted loose file from account root: {loose_file.name}")
+                except Exception as e:
+                    log.error(f"Failed to delete loose file {loose_file}: {e}")
+
             return synced_total
         except Exception as e:
             log.error(f"Error during vault calendar sync for {email}: {e}")
             return 0
 
-    def _sync_single_event(self, target_folder: Path, event: dict, email: str):
-        """Syncs a single Google Calendar event to a .md file in the Vault."""
+    def _sync_single_event(self, target_folder: Path, event: dict, source_label: str) -> Optional[Path]:
+        """Syncs a single Google Calendar event to a .md file in the Vault using a stable ID filename."""
         try:
             event_id = event.get('id')
             summary = event.get('summary', 'Untitled Event')
@@ -110,40 +139,38 @@ class VaultCalendarSyncService:
             description = event.get('description', '')
             location = event.get('location', '')
             
-            # Use original ID in filename but make it safe
-            # Filename pattern: YYYYMMDD_ID_Summary.md
-            date_prefix = (start_val[:10].replace("-", "")) if start_val else "nodate"
-            clean_summary = "".join([c for c in summary if c.isalnum() or c in (' ', '-', '_')]).strip()[:50]
-            filename = f"{date_prefix}_{event_id}_{clean_summary}.md"
+            # STABLE FILENAME: Use only the event_id to ensure updates overwrite the same file
+            # Sanitize ID just in case (Google IDs are usually URL-safe base64-like)
+            safe_id = "".join([c for c in event_id if c.isalnum() or c in ('-', '_')]).strip()
+            filename = f"{safe_id}.md"
             file_path = target_folder / filename
 
-            # metadata is basically what Gnosi expects for calendar items
             metadata = {
                 "title": summary,
                 "id": event_id,
                 "date": start_val,
                 "end_date": end_val,
                 "location": location,
-                "source": email,
+                "source": source_label,
                 "uid": event_id,
                 "all_day": 'dateTime' not in start,
                 "status": event.get('status', 'confirmed'),
                 "link": event.get('htmlLink', '')
             }
             
-            # Check if exists and compare
-            if file_path.exists():
-                # We could check updated time, but for now let's overwrite if changed or just skip if exists
-                # Google events have an 'updated' field
-                pass
+            # Additional detail for recurring events or updated timestamps
+            updated = event.get('updated')
+            if updated:
+                metadata["updated_at"] = updated
 
             full_content = f"---\n{yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n\n{description}\n"
             
+            # Only write if changed? (Optimistic overwrite for now for simplicity)
             file_path.write_text(full_content, encoding="utf-8")
-            return True
+            return file_path
 
         except Exception as e:
             log.error(f"Error syncing event {event.get('id')}: {e}")
-            return False
+            return None
 
 calendar_sync_service = VaultCalendarSyncService()

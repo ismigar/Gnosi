@@ -59,26 +59,31 @@ class IntegrationManager:
     def _mask_dict(self, d: dict) -> dict:
         safe_d = {}
         for k, v in d.items():
-            if (
+            # Camps de tipus _status no son sensibles (son metadades de connexió)
+            if k.endswith("_status"):
+                safe_d[k] = v
+                continue
+
+            is_sensitive = (
                 "password" in k.lower()
                 or "token" in k.lower()
                 or "key" in k.lower()
                 or "secret" in k.lower()
-            ) and not k.endswith("_status"):
+            )
+
+            if is_sensitive:
                 if v:
                     safe_d[k] = (
                         "********" + str(v)[-4:] if len(str(v)) > 8 else "********"
                     )
-                    if not k.endswith("_status"):
-                        status_key = f"{k}_status"
-                        if status_key not in d: # Only add if not already there to avoid recursion
-                            safe_d[status_key] = "connected"
+                    status_key = f"{k}_status"
+                    if status_key not in d:
+                        safe_d[status_key] = "connected"
                 else:
                     safe_d[k] = ""
-                    if not k.endswith("_status"):
-                        status_key = f"{k}_status"
-                        if status_key not in d:
-                            safe_d[status_key] = "disconnected"
+                    status_key = f"{k}_status"
+                    if status_key not in d:
+                        safe_d[status_key] = "disconnected"
             else:
                 safe_d[k] = v
         return safe_d
