@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Star, Paperclip, MoreVertical, RefreshCw, CheckCircle2, Circle } from 'lucide-react';
+import { Search, Star, Paperclip, MoreVertical, RefreshCw, CheckCircle2, Circle, ChevronDown, Archive, Trash2 } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, parseISO } from 'date-fns';
 import { ca } from 'date-fns/locale';
 
-export default function MailList({ account, onSelectMail, folder, category }) {
+export default function MailList({ account, onSelectMail, folder, category, selectedMailId }) {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedMsgId, setSelectedMsgId] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [hoveredMailId, setHoveredMailId] = useState(null);
+    const [contextMenu, setContextMenu] = useState(null); // { x, y, msgId }
 
     const fetchMessages = () => {
         if (!account?.email) return;
@@ -35,15 +37,24 @@ export default function MailList({ account, onSelectMail, folder, category }) {
     // Group messages by date categories
     const groupedMessages = useMemo(() => {
         const groups = {};
+        const now = new Date();
+        
         messages.forEach(msg => {
             if (!msg) return;
             const timestamp = msg.timestamp || (Date.now() / 1000);
             const date = parseISO(msg.date_obj || new Date(timestamp * 1000).toISOString());
-            let groupTitle = format(date, 'MMMM yyyy', { locale: ca });
+            
+            let groupTitle = format(date, 'MMMM', { locale: ca }); // Default to Month Name
+            
+            const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
 
             if (isToday(date)) groupTitle = 'Avui';
             else if (isYesterday(date)) groupTitle = 'Ahir';
-            else if (isThisWeek(date)) groupTitle = 'Aquesta setmana';
+            else if (diffDays <= 7) groupTitle = 'Últimos 7 días';
+            else if (diffDays <= 30) groupTitle = 'Últimos 30 días';
+            else if (date.getFullYear() < now.getFullYear()) {
+                groupTitle = format(date, 'MMMM yyyy', { locale: ca });
+            }
 
             if (!groups[groupTitle]) groups[groupTitle] = [];
             groups[groupTitle].push(msg);
@@ -52,108 +63,183 @@ export default function MailList({ account, onSelectMail, folder, category }) {
     }, [messages]);
 
     const handleSelect = (msg) => {
-        setSelectedMsgId(msg.id);
         onSelectMail(msg);
     };
 
-    return (
-        <div className="w-[450px] flex flex-col h-full border-r border-slate-200 bg-white">
-            <div className="p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Safata d'entrada</h2>
-                    <button
-                        onClick={fetchMessages}
-                        className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-indigo-600 transition-all active:scale-95"
-                        disabled={loading}
-                    >
-                        <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                    </button>
-                </div>
+    const toggleSelect = (e, id) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) newSelected.delete(id);
+        else newSelected.add(id);
+        setSelectedIds(newSelected);
+    };
 
-                <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Cerca al correu..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400"
-                    />
-                </div>
+    const selectAll = () => {
+        if (selectedIds.size === messages.length) setSelectedIds(new Set());
+        else setSelectedIds(new Set(messages.map(m => m.id)));
+    };
+
+    const handleBatchAction = async (action) => {
+        if (selectedIds.size === 0) return;
+        const res = await fetch(`/api/mail/batch?email=${encodeURIComponent(account.email)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ids: Array.from(selectedIds) })
+        });
+        if (res.ok) {
+            setSelectedIds(new Set());
+            fetchMessages();
+        }
+    };
+
+    return (
+        <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 min-h-[72px]">
+                {selectedIds.size > 0 ? (
+                    <div className="flex items-center justify-between w-full animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-3">
+                                <input 
+                                    type="checkbox" 
+                                    checked={selectedIds.size === messages.length}
+                                    onChange={selectAll}
+                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+                                />
+                                <span className="text-sm font-bold text-slate-900">{selectedIds.size} seleccionats</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => handleBatchAction('archive')} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 flex items-center gap-2 text-sm font-medium transition-all">
+                                    <Archive size={16} />
+                                    Arxivar
+                                </button>
+                                <button onClick={() => handleBatchAction('trash')} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-red-500 flex items-center gap-2 text-sm font-medium transition-all">
+                                    <Trash2 size={16} />
+                                    Eliminar
+                                </button>
+                                <button onClick={() => handleBatchAction('read')} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 flex items-center gap-2 text-sm font-medium transition-all">
+                                    <CheckCircle2 size={16} />
+                                    Llegit
+                                </button>
+                            </div>
+                        </div>
+                        <button onClick={() => setSelectedIds(new Set())} className="text-sm font-bold text-indigo-600 hover:text-indigo-700">Cancel·lar</button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex items-center gap-4">
+                            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Bandeja de entrada</h2>
+                            <div className="flex items-center gap-1">
+                                <button className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5">
+                                    Categorías
+                                    <ChevronDown size={12} />
+                                </button>
+                                <button className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5">
+                                    Etiquetas
+                                    <ChevronDown size={12} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button className="text-[13px] font-semibold text-slate-500 hover:text-slate-900 px-3 py-1.5 transition-colors">Restablecer</button>
+                            <button className="bg-orange-100 text-orange-700 text-[13px] font-bold px-4 py-1.5 rounded-lg hover:bg-orange-200 transition-colors">Guardar vista</button>
+                            <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-colors">
+                                <MoreVertical size={18} />
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
 
-            <div className="flex-1 overflow-y-auto px-2">
+            <div className="flex-1 overflow-y-auto">
                 {loading && messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-sm font-medium text-slate-500">Sincronitzant amb Gnosi...</p>
+                        <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-sm font-medium text-slate-400">Sincronitzant correu...</p>
                     </div>
                 ) : Object.keys(groupedMessages).length === 0 ? (
                     <div className="p-12 text-center">
-                        <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <Search className="text-slate-300" size={32} />
-                        </div>
-                        <p className="text-slate-500 font-medium">No hi ha missatges aquí</p>
+                        <p className="text-slate-400 font-medium">No hi ha missatges</p>
                     </div>
                 ) : (
                     Object.entries(groupedMessages).map(([groupTitle, msgs]) => (
                         <div key={groupTitle} className="mb-6">
-                            <h3 className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                            <h3 className="px-6 py-3 text-[13px] font-bold text-slate-800">
                                 {groupTitle}
                             </h3>
-                            <div className="space-y-0.5">
+                            <div className="border-t border-slate-50">
                                 {msgs.map((msg) => (
                                     <div
                                         key={msg.id}
                                         onClick={() => handleSelect(msg)}
-                                        className={`group relative mx-2 p-4 rounded-xl cursor-pointer transition-all duration-200 border border-transparent ${selectedMsgId === msg.id
-                                            ? 'bg-indigo-50/70 border-indigo-100 shadow-sm'
-                                            : 'hover:bg-slate-50'
-                                            }`}
+                                        onMouseEnter={() => setHoveredMailId(msg.id)}
+                                        onMouseLeave={() => setHoveredMailId(null)}
+                                        onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
+                                        }}
+                                        className={`group flex items-center px-4 py-2 cursor-pointer border-b border-slate-50 hover:bg-slate-50/80 transition-colors ${selectedMailId === msg.id ? 'bg-indigo-50/50' : ''} ${selectedIds.has(msg.id) ? 'bg-indigo-50/30' : ''}`}
                                     >
-                                        <div className="flex justify-between items-start gap-3 mb-1.5">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                {!msg.is_read && (
-                                                    <div className="w-2 h-2 rounded-full bg-indigo-600 flex-shrink-0" />
-                                                )}
-                                                <span className={`text-[13px] truncate flex-1 ${!msg.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
+                                        <div className="flex items-center gap-3 w-full relative">
+                                            <div className="flex items-center gap-3 min-w-[200px] max-w-[250px]">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedIds.has(msg.id)}
+                                                    onChange={(e) => toggleSelect(e, msg.id)}
+                                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <span className={`text-[13.5px] truncate ${!msg.is_read ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
                                                     {(msg.sender || 'Desconegut').split('<')[0].trim()}
                                                 </span>
-                                                {msg.is_starred && (
-                                                    <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0" />
+                                            </div>
+
+                                            <div className="flex-1 flex items-center gap-3 overflow-hidden">
+                                                <span className={`text-[13.5px] truncate ${!msg.is_read ? 'font-bold text-slate-900' : 'text-slate-700'}`}>
+                                                    {msg.subject || '(Sense assumpte)'}
+                                                </span>
+                                                <span className="text-[13.5px] text-slate-400 truncate opacity-80">
+                                                    {msg.snippet}
+                                                </span>
+
+                                                {/* Hover Preview Popover */}
+                                                {hoveredMailId === msg.id && (
+                                                    <div className="absolute left-64 top-10 z-30 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-left-2 duration-200 pointer-events-none">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <div className="w-6 h-6 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold uppercase">
+                                                                {msg.sender?.[0]}
+                                                            </div>
+                                                            <span className="text-xs font-bold text-slate-900">{msg.sender?.split('<')[0]}</span>
+                                                        </div>
+                                                        <h4 className="text-sm font-bold text-slate-900 mb-2">{msg.subject}</h4>
+                                                        <p className="text-xs text-slate-500 leading-relaxed line-clamp-4">
+                                                            {msg.snippet}
+                                                        </p>
+                                                    </div>
                                                 )}
                                             </div>
-                                            <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">
-                                                {format(new Date(msg.timestamp * 1000), 'HH:mm')}
-                                            </span>
-                                        </div>
 
-                                        <h4 className={`text-[13px] mb-1 truncate leading-snug ${!msg.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
-                                            {msg.subject || '(Sense assumpte)'}
-                                        </h4>
+                                            <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+                                                {msg.has_attachments && <Paperclip size={14} className="text-slate-400" />}
+                                                
+                                                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+                                                    <button className="p-1.5 hover:bg-slate-200 rounded text-slate-400 hover:text-amber-500 transition-colors">
+                                                        <Star size={16} fill={msg.is_starred ? 'currentColor' : 'none'} className={msg.is_starred ? 'text-amber-500' : ''} />
+                                                    </button>
+                                                    <button className="p-1.5 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors">
+                                                        <Archive size={16} />
+                                                    </button>
+                                                    <button className="p-1.5 hover:bg-slate-200 rounded text-slate-400 hover:text-red-500 transition-colors">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
 
-                                        <p className="text-[12px] text-slate-500 line-clamp-2 leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                            {msg.snippet}
-                                        </p>
-
-                                        {msg.labels && (
-                                            <div className="mt-2.5 flex flex-wrap gap-1.5">
-                                                {msg.labels.split(',').filter(l => !l.startsWith('CATEGORY_') && !['INBOX', 'UNREAD', 'IMPORTANT', 'STARRED'].includes(l)).slice(0, 2).map(label => (
-                                                    <span key={label} className="px-2 py-0.5 bg-slate-100 text-[10px] font-bold text-slate-500 rounded-md">
-                                                        {label}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                            <div className="flex items-center gap-1 bg-white/80 backdrop-blur shadow-sm border border-slate-100 rounded-lg p-1">
-                                                <button className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 transition-colors">
-                                                    <Star size={14} />
-                                                </button>
-                                                <button className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 transition-colors">
-                                                    <CheckCircle2 size={14} />
-                                                </button>
+                                                <span className="text-[12px] font-medium text-slate-400 min-w-[45px] text-right">
+                                                    {(() => {
+                                                        const msgDate = new Date(msg.timestamp * 1000);
+                                                        const diff = Math.floor((new Date().getTime() - msgDate.getTime()) / (1000 * 60 * 60 * 24));
+                                                        return format(msgDate, diff < 1 ? 'HH:mm' : 'd MMM');
+                                                    })()}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -163,6 +249,27 @@ export default function MailList({ account, onSelectMail, folder, category }) {
                     ))
                 )}
             </div>
+
+            {/* Context Menu */}
+            {contextMenu && (
+                <div 
+                    className="fixed z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-48 animate-in fade-in zoom-in-95 duration-100"
+                    style={{ left: contextMenu.x, top: contextMenu.y }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button onClick={() => { handleBatchAction('archive'); setContextMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <Archive size={14} /> Arxivar
+                    </button>
+                    <button onClick={() => { handleBatchAction('trash'); setContextMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                        <Trash2 size={14} /> Eliminar
+                    </button>
+                    <div className="border-t border-slate-100 my-1"></div>
+                    <button onClick={() => setContextMenu(null)} className="w-full text-left px-4 py-2 text-sm text-slate-400 hover:bg-slate-50">Tancar</button>
+                </div>
+            )}
+            
+            {/* Global click to close context menu */}
+            {contextMenu && <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />}
         </div>
     );
 }

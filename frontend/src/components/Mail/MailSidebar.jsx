@@ -11,10 +11,12 @@ export default function MailSidebar({
     activeFolder,
     activeCategory,
     onSelectFolder,
-    onSelectCategory
+    onSelectCategory,
+    onCompose
 }) {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showAccountSelector, setShowAccountSelector] = useState(false);
 
     useEffect(() => {
         fetch('/api/integrations')
@@ -58,28 +60,54 @@ export default function MailSidebar({
 
     return (
         <div className="w-64 flex flex-col h-full bg-[#fbfbfa] border-r border-slate-200/60 font-sans">
-            <div className="p-4 flex flex-col gap-2">
-                <div className="flex items-center justify-between px-2 mb-2">
-                    <div className="flex items-center gap-2 group cursor-pointer hover:bg-slate-200/50 p-1 rounded-md transition-colors">
-                        <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-[10px] text-white font-bold">
+            <div className="p-4 flex flex-col gap-4">
+                <div className="flex items-center justify-between px-1 relative">
+                    <div 
+                        onClick={() => setShowAccountSelector(!showAccountSelector)}
+                        className="flex items-center gap-2 group cursor-pointer hover:bg-slate-200/40 p-1.5 rounded-lg transition-colors flex-1"
+                    >
+                        <div className="w-5 h-5 rounded bg-indigo-600 flex items-center justify-center text-[10px] text-white font-bold shadow-sm">
                             {selectedAccount?.email?.[0].toUpperCase() || 'G'}
                         </div>
-                        <span className="text-sm font-semibold text-slate-700 truncate max-w-[120px]">
+                        <span className="text-[13px] font-medium text-slate-700 truncate max-w-[120px]">
                             {selectedAccount?.email || 'Ismael Garcia'}
                         </span>
-                        <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                        <ChevronDown size={14} className={`text-slate-400 transition-transform ${showAccountSelector ? 'rotate-180' : ''}`} />
                     </div>
-                    <button className="p-1.5 hover:bg-slate-200/50 rounded-md text-slate-500 transition-colors">
-                        <Plus size={16} />
+                    <button 
+                        onClick={onCompose}
+                        className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/40 rounded transition-colors"
+                    >
+                        <Plus size={18} />
                     </button>
+
+                    {/* Account Selector Dropdown */}
+                    {showAccountSelector && (
+                        <div className="absolute top-10 left-0 w-full z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cuentas</div>
+                            {accounts.map(acc => (
+                                <button
+                                    key={acc.email}
+                                    onClick={() => {
+                                        onSelectAccount(acc);
+                                        setShowAccountSelector(false);
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-[13px] flex items-center gap-2 transition-colors ${selectedAccount?.email === acc.email ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
+                                >
+                                    <div className={`w-2 h-2 rounded-full ${selectedAccount?.email === acc.email ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+                                    <span className="truncate">{acc.email}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                <div className="relative group mx-2">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <div className="relative group px-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                     <input
                         type="text"
                         placeholder="Buscar"
-                        className="w-full bg-[#efefee] border-transparent text-xs py-1.5 pl-8 pr-2 rounded-md focus:outline-none focus:ring-0 placeholder:text-slate-500"
+                        className="w-full bg-[#efefee] border-transparent text-[13px] py-1.5 pl-8 pr-2 rounded-md focus:outline-none focus:ring-0 placeholder:text-slate-400"
                     />
                 </div>
             </div>
@@ -144,17 +172,7 @@ export default function MailSidebar({
 
             </div>
 
-            {/* Footer Items */}
-            <div className="px-3 py-4 border-t border-slate-200/60 space-y-0.5">
-                <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-[#efefee]/70 transition-all font-medium">
-                    <Settings size={18} className="text-slate-400" />
-                    <span>Configuración</span>
-                </button>
-                <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-[#efefee]/70 transition-all font-medium">
-                    <HelpCircle size={18} className="text-slate-400" />
-                    <span>Soporte y comentarios</span>
-                </button>
-            </div>
+            {/* Footer Items - Removed as per user request */}
         </div>
     );
 }

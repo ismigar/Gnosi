@@ -79,7 +79,6 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
             {/* Overlay */}
             <div
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
             ></div>
 
             {/* Modal */}

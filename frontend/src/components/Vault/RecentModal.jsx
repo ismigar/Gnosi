@@ -89,7 +89,6 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
             {/* Overlay */}
             <div
                 className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
             ></div>
 
             {/* Modal */}

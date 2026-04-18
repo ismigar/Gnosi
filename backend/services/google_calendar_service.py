@@ -31,9 +31,12 @@ def get_google_calendar_service(email: str):
 
     from backend.config.env_config import get_env
 
-    for cal in data.get("calendars", []):
+    # Search in both 'calendars' and 'emails' lists
+    all_accounts = data.get("calendars", []) + data.get("emails", [])
+    
+    for cal in all_accounts:
         if cal.get("provider") == "google" and cal.get("auth_type") == "oauth2":
-            cal_email = cal.get("email", cal.get("username", ""))
+            cal_email = cal.get("email") or cal.get("username") or ""
             if cal_email == email:
                 try:
                     # Resolve client credentials with environment fallback

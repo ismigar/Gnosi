@@ -232,7 +232,8 @@
         "memories_stored": "memorias guardadas",
         "cpu_usage": "Uso de CPU",
         "ram_usage": "Uso de RAM",
-        "tools_title": "Herramientas Creadas",
+        "analytics_overview": "Resumen de Analítica",
+        "tools_title": "Inteligencia (Skills)",
         "approved": "APROBADAS",
         "pending_approval": "Pendiente de aprobación",
         "pending": "PENDIENTES",
@@ -308,7 +309,11 @@
         "role_owner_desc": "Propietario",
         "send_invitation": "Enviar Invitación",
         "configure_permissions": "Configurar Permisos",
-        "member_role": "Rol del Miembro"
+        "member_role": "Rol del Miembro",
+        "purge_history": "Purga Historial",
+        "purge_logs": "Limpiar Logs",
+        "confirm_purge_history": "¿Estás seguro de que quieres limpiar el historial de ejecuciones?",
+        "confirm_purge_logs": "¿Estás seguro de que quieres eliminar todos los logs del sistema?"
     },
     "errors": {
         "load_pages": "Error cargando páginas",

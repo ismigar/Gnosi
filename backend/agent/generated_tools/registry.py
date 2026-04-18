@@ -270,7 +270,7 @@ class ToolRegistry:
                         risk_level="low",
                         created_at=created_at,
                         approved_at=created_at,
-                        path=str(skill_md.resolve()) if skill_md.exists() else str(item.resolve())
+                        path=str((item / "SKILL.md").resolve())
                     ))
         return records
 

@@ -40,7 +40,7 @@ export function AppSidebar() {
 
     useEffect(() => {
         // Fetch health to get gnosi_mode
-        fetch(window.location.origin.replace(':5173', ':5002') + '/api/health')
+        fetch('/api/health')
             .then(res => res.json())
             .then(data => {
                 if (data.gnosi_mode) setGnosiMode(data.gnosi_mode);

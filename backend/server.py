@@ -98,6 +98,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ──────────────── Global Error Handler ────────────────
+try:
+    from pipeline.skills.notification_service.scripts.notification_service import notify as _notify_fn
+except ImportError:
+    _notify_fn = None
+
+from fastapi import Request as _Request
+from fastapi.responses import JSONResponse as _JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: _Request, exc: Exception):
+    """Captura tots els errors 500 no controlats i els registra al sistema de logs."""
+    import traceback
+    route = f"{request.method} {request.url.path}"
+    error_detail = str(exc)
+    tb = traceback.format_exc()
+    
+    log.error(f"❌ Unhandled exception on {route}: {error_detail}\n{tb}")
+    
+    if _notify_fn:
+        try:
+            short_tb = tb.split('\n')[-3] if tb else error_detail
+            _notify_fn(
+                f"Error de l'Aplicació: {route}",
+                f"{error_detail}\n\n{short_tb}",
+                level="ERROR"
+            )
+        except Exception:
+            pass  # No deixem que el handler de logs causi un altre error
+
+    return _JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": error_detail}
+    )
+
 # --- Register Routers (Order matters!) ---
 
 # Workspace Management (Must be first for middleware/context)

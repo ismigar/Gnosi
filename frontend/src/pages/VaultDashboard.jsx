@@ -296,19 +296,30 @@ export default function VaultDashboard() {
     }, [getVisibleTableRecords, pages, visibleTableRecordsById]);
 
     const syncPagesState = useCallback((nextPages) => {
-        setPages(nextPages);
+        // Defensive deduplication to prevent React key collisions if backend serves duplicates
+        const uniquePagesMap = new Map();
+        (nextPages || []).forEach(p => {
+            if (!p.id) return;
+            const existing = uniquePagesMap.get(p.id);
+            if (!existing || p.last_modified > existing.last_modified) {
+                uniquePagesMap.set(p.id, p);
+            }
+        });
+        const dedupedPages = Array.from(uniquePagesMap.values());
+        
+        setPages(dedupedPages);
 
         if (activeTableId) {
-            const matchesActiveTable = (page) => resolvePageTableId(page, nextPages) === activeTableId;
+            const matchesActiveTable = (page) => resolvePageTableId(page, dedupedPages) === activeTableId;
             const cachedVisible = visibleTableRecordsById[activeTableId];
-            setTableNotes(cachedVisible || getVisibleTableRecords(nextPages, activeTableId, nextPages));
-            setTableTemplates(nextPages.filter(page => matchesActiveTable(page) && page.metadata?.is_template));
+            setTableNotes(cachedVisible || getVisibleTableRecords(dedupedPages, activeTableId, dedupedPages));
+            setTableTemplates(dedupedPages.filter(page => matchesActiveTable(page) && page.metadata?.is_template));
         }
 
         setGlobalIndex(Object.fromEntries(
-            nextPages.map(page => [page.id, page.title || t('common.untitled')])
+            dedupedPages.map(page => [page.id, page.title || t('common.untitled')])
         ));
-    }, [activeTableId, getVisibleTableRecords, resolvePageTableId, visibleTableRecordsById]);
+    }, [activeTableId, getVisibleTableRecords, resolvePageTableId, visibleTableRecordsById, t]);
 
 
     const applySchemaDefaults = useCallback((tableId, metadata = {}, title = 'Nou') => {
@@ -801,9 +812,9 @@ export default function VaultDashboard() {
             const id = parts[1];
             // Intentar trobar si és una taula o una pàgina
             const table = registry.tables.find(t => t.id === id || t.name.toLowerCase() === id.toLowerCase());
-            if (table) {
+            if (table && table.id !== activeTableId) {
                 handleTableSelect(table.id, null, true);
-            } else {
+            } else if (!table) {
                 const page = pages.find(p => p.id === id);
                 if (page) loadPage(page.id, true);
             }
@@ -2678,7 +2689,6 @@ export default function VaultDashboard() {
                 promptModal.isOpen && (
                     <div
                         className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[100] flex items-center justify-center p-4"
-                                    onClick={closePromptModal}
                     >
                         <form
                             onSubmit={executeCreateContent}

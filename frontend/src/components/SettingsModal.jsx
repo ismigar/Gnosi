@@ -27,6 +27,20 @@ export function SettingsModal({ isOpen, onClose }) {
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, handleSave]);
+
     const loadSchedulers = async () => {
         try {
             const res = await fetch('/api/schedulers');

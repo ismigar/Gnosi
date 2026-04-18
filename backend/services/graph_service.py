@@ -51,7 +51,7 @@ class GraphService:
     # Class-level cache for node count to avoid heavy scanning on every 2s poll
     _node_count_cache = 0
     _last_count_time = 0
-    _CACHE_TTL = 10 # seconds
+    _CACHE_TTL = 60 # seconds
     
     # Cache for the full graph
     _graph_cache = None

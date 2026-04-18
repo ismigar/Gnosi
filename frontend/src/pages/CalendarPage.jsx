@@ -12,6 +12,18 @@ import { useTranslation } from 'react-i18next';
 import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
+const CalendarRecurrenceKeyboardHandler = ({ onClose, onConfirm }) => {
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+            else if (e.key === 'Enter') onConfirm();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose, onConfirm]);
+    return null;
+};
+
 export default function CalendarPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -114,14 +126,7 @@ export default function CalendarPage() {
             };
         });
 
-        // Filter out "Base" sources if a more specific "Account - Summary" source exists for the same account
-        const specificAccounts = new Set(configs.filter(c => c.source.includes(' - ')).map(c => c.account));
-        return configs.filter(c => {
-            if (specificAccounts.has(c.source) && !c.source.includes(' - ')) {
-                return false; // Skip the generic email entry if we have specific sub-calendars
-            }
-            return true;
-        });
+        return configs;
     }, [availableCalendars, integrations, enabledTables]);
 
     const colorMap = useMemo(() => {
@@ -751,7 +756,11 @@ export default function CalendarPage() {
             {/* MODAL DE TRIA DE RECURRÈNCIA */}
             {isRecurrenceChoiceOpen && (
                 <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsRecurrenceChoiceOpen(false)} />
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
+                    <CalendarRecurrenceKeyboardHandler 
+                        onClose={() => setIsRecurrenceChoiceOpen(false)} 
+                        onConfirm={() => executeDelete(false, true)} // Predeterminat: instància
+                    />
                     <div className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-6 text-red-500">
                             <div className="p-3 bg-red-500/10 rounded-2xl"><Trash2 size={24} /></div>

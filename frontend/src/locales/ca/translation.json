@@ -27,6 +27,7 @@
     "vault_welcome_create_page": "Crea una pàgina",
     "vault_welcome_create_db": "Crea una DB",
     "common": {
+        "loading": "Carregant...",
         "untitled": "Sense títol",
         "new": "Nou",
         "new_view": "Nova Vista",
@@ -309,7 +310,11 @@
         "role_owner_desc": "Propietari",
         "send_invitation": "Enviar Invitació",
         "configure_permissions": "Configurar Permisos",
-        "member_role": "Rol del Membre"
+        "member_role": "Rol del Membre",
+        "purge_history": "Purga Historial",
+        "purge_logs": "Purga Logs",
+        "confirm_purge_history": "Estàs segur que vols netejar l'historial d'execucions?",
+        "confirm_purge_logs": "Estàs segur que vols eliminar tots els logs del sistema?"
     },
     "errors": {
         "load_pages": "Error carregant pàgines",

@@ -16,14 +16,96 @@ function Dashboard() {
     const isAdmin = userRole === 'admin' || userRole === 'owner';
     
     const [stats, setStats] = useState({ cpu: 0, ram_percent: 0, memory_items: 0, status: 'offline' });
-    const [pendingTools, setPendingTools] = useState([]);
     const [approvedTools, setApprovedTools] = useState([]);
+    const [pendingTools, setPendingTools] = useState([]);
+    
+    // Add pagination icons for the custom component
+    const ChevronLeft = (props) => <i className="pi pi-chevron-left" {...props}></i>;
+    const ChevronRight = (props) => <i className="pi pi-chevron-right" {...props}></i>;
+
+    const PaginationControls = ({ total, limit, page, onPageChange, loading }) => {
+        const totalPages = Math.ceil((total || 0) / (limit || 1));
+        if (totalPages <= 1 || isNaN(totalPages)) return null;
+
+        return (
+            <div className="flex items-center justify-between mt-4 px-2 py-4 border-t border-[var(--border-primary)]">
+                <div className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-widest">
+                    Showing {page * limit + 1} to {Math.min((page + 1) * limit, total)} of {total}
+                </div>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => onPageChange(page - 1)}
+                        disabled={page === 0 || loading}
+                        className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] disabled:opacity-30 transition-all text-[var(--text-secondary)]"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+                    
+                    <div className="flex items-center gap-1">
+                        {[...Array(totalPages)].map((_, i) => {
+                            // Mostrar només algunes pàgines si n'hi ha moltes
+                            if (totalPages > 7) {
+                                if (i > 0 && i < totalPages - 1 && Math.abs(i - page) > 1) {
+                                    if (i === 1 || i === totalPages - 2) return <span key={i} className="px-1 text-[10px] opacity-30">...</span>;
+                                    return null;
+                                }
+                            }
+                            return (
+                                <button
+                                    key={i}
+                                    onClick={() => onPageChange(i)}
+                                    disabled={loading}
+                                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                                        page === i 
+                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+                                            : 'hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
+                                    }`}
+                                >
+                                    {i + 1}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <button
+                        onClick={() => onPageChange(page + 1)}
+                        disabled={page >= totalPages - 1 || loading}
+                        className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] disabled:opacity-30 transition-all text-[var(--text-secondary)]"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     const [approvedLoading, setApprovedLoading] = useState(true);
     const [analytics, setAnalytics] = useState(null);
     const [schedulers, setSchedulers] = useState([]);
     const [notifications, setNotifications] = useState([]);
     const [schedulerLoading, setSchedulerLoading] = useState(true);
     const [notificationsLoading, setNotificationsLoading] = useState(false);
+    const [notifPage, setNotifPage] = useState(0);
+    const [notifTotal, setNotifTotal] = useState(0);
+    const NOTIF_LIMIT = 20;
+
+    // Task Execution History (DB Persistent)
+    const [taskHistory, setTaskHistory] = useState([]);
+    const [taskHistoryTotal, setTaskHistoryTotal] = useState(0);
+    const [taskHistoryPage, setTaskHistoryPage] = useState(0);
+    const HISTORY_LIMIT = 15;
+    const [taskHistoryLoading, setTaskHistoryLoading] = useState(false);
+
+    // Modernized Dashboard Features (Directives & Traps with pagination)
+    const [directives, setDirectives] = useState([]);
+    const [directivesTotal, setDirectivesTotal] = useState(0);
+    const [directivesPage, setDirectivesPage] = useState(0);
+    const DIRECTIVES_LIMIT = 12;
+
+    const [traps, setTraps] = useState([]);
+    const [trapsTotal, setTrapsTotal] = useState(0);
+    const [trapsPage, setTrapsPage] = useState(0);
+    const TRAPS_LIMIT = 15;
     const [selectedControlTab, setSelectedControlTab] = useState('schedulers');
     const [executingTasks, setExecutingTasks] = useState(new Set());
     
@@ -50,10 +132,8 @@ function Dashboard() {
     // Traps drilldown state
     const [isTrapsModalOpen, setIsTrapsModalOpen] = useState(false);
     const [memorySearchTerm, setMemorySearchTerm] = useState("");
-    const [traps, setTraps] = useState([]);
     const [isTrapsLoading, setIsTrapsLoading] = useState(false);
     const [isDirectivesModalOpen, setIsDirectivesModalOpen] = useState(false);
-    const [directives, setDirectives] = useState([]);
     const [isDirectivesLoading, setIsDirectivesLoading] = useState(false);
     const [editingDirective, setEditingDirective] = useState(null);
     const [isEditorSaving, setIsEditorSaving] = useState(false);
@@ -71,17 +151,16 @@ function Dashboard() {
     const activeWorkspaceId = localStorage.getItem('gnosi_workspace_id') || 'personal';
 
     const [gnosiMode, setGnosiMode] = useState('personal');
-
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const data = await apiFetch('/api/system/stats');
             setStats(data);
         } catch (e) {
             console.error("Error fetching stats", e);
         }
-    };
+    }, [apiFetch]);
 
-    const fetchConfig = async () => {
+    const fetchConfig = useCallback(async () => {
         try {
             const config = await apiFetch('/api/config');
             if (config.settings && config.settings.gnosi_mode) {
@@ -90,23 +169,23 @@ function Dashboard() {
         } catch (e) {
             console.error("Error fetching config", e);
         }
-    };
+    }, [apiFetch]);
 
-    const fetchPendingTools = async () => {
+    const fetchPendingTools = useCallback(async () => {
         try {
             const data = await apiFetch('/api/tools/pending');
             setPendingTools(data);
         } catch (e) {
             console.error("Error fetching pending tools", e);
         }
-    };
+    }, [apiFetch]);
 
     const fetchAnalytics = async () => {
         try {
-            const data = await apiFetch('/api/analytics');
-            setAnalytics(data);
-        } catch (e) {
-            console.error("Error fetching analytics", e);
+            const data = await apiFetch('/api/analytics/');
+            if (data) setAnalytics(data);
+        } catch (error) {
+            console.error('Error fetching analytics:', error);
         }
     };
 
@@ -122,27 +201,88 @@ function Dashboard() {
         }
     }, [apiFetch]);
 
-    const fetchApprovedTools = async () => {
+    const fetchApprovedTools = useCallback(async () => {
         setApprovedLoading(true);
         try {
-            const data = await apiFetch('/api/tools/approved');
-            setApprovedTools(Array.isArray(data) ? data : []);
+            const data = await apiFetch('/api/analytics/directives');
+            const mature = (data.directives || []).filter(d => d.path.includes('pipeline/skills/') && d.path.endsWith('SKILL.md'));
+            setApprovedTools(mature);
         } catch (e) {
             console.error("Error fetching approved tools", e);
         } finally {
             setApprovedLoading(false);
         }
+    }, [apiFetch]);
+
+    const fetchNotifications = async (p = 0) => {
+        const page = typeof p === 'number' ? p : 0;
+        setNotificationsLoading(true);
+        try {
+            const offset = page * NOTIF_LIMIT;
+            const data = await apiFetch(`/api/system/notifications?limit=${NOTIF_LIMIT}&offset=${offset}`);
+            if (data && data.items) {
+                setNotifications(data.items);
+                setNotifTotal(data.total);
+                setNotifPage(page);
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        } finally {
+            setNotificationsLoading(false);
+        }
     };
 
-    const fetchNotifications = async (silent = false) => {
-        if (!silent) setNotificationsLoading(true);
+    const fetchTaskHistory = async (p = 0) => {
+        const page = typeof p === 'number' ? p : 0;
+        setTaskHistoryLoading(true);
         try {
-            const data = await apiFetch('/api/system/notifications?limit=30');
-            setNotifications(Array.isArray(data) ? data : []);
-        } catch (e) {
-            console.error("Error fetching notifications", e);
+            const offset = page * HISTORY_LIMIT;
+            const data = await apiFetch(`/api/schedulers/history?limit=${HISTORY_LIMIT}&offset=${offset}`);
+            if (data && data.items) {
+                setTaskHistory(data.items);
+                setTaskHistoryTotal(data.total);
+                setTaskHistoryPage(page);
+            }
+        } catch (error) {
+            console.error('Error fetching task history:', error);
         } finally {
-            if (!silent) setNotificationsLoading(false);
+            setTaskHistoryLoading(false);
+        }
+    };
+
+    const fetchTraps = async (p = 0) => {
+        const page = typeof p === 'number' ? p : 0;
+        setIsTrapsLoading(true);
+        try {
+            const offset = page * TRAPS_LIMIT;
+            const data = await apiFetch(`/api/analytics/traps?limit=${TRAPS_LIMIT}&offset=${offset}`);
+            if (data && data.traps) {
+                setTraps(data.traps);
+                setTrapsTotal(data.total);
+                setTrapsPage(page);
+            }
+        } catch (error) {
+            console.error('Error fetching traps:', error);
+        } finally {
+            setIsTrapsLoading(false);
+        }
+    };
+
+    const fetchDirectives = async (p = 0) => {
+        const page = typeof p === 'number' ? p : 0;
+        setIsDirectivesLoading(true);
+        try {
+            const offset = page * DIRECTIVES_LIMIT;
+            const data = await apiFetch(`/api/analytics/directives?limit=${DIRECTIVES_LIMIT}&offset=${offset}`);
+            if (data && data.directives) {
+                setDirectives(data.directives);
+                setDirectivesTotal(data.total);
+                setDirectivesPage(page);
+            }
+        } catch (error) {
+            console.error('Error fetching directives:', error);
+        } finally {
+            setIsDirectivesLoading(false);
         }
     };
 
@@ -152,7 +292,6 @@ function Dashboard() {
         try {
             const data = await apiFetch('/api/graph');
             if (data && data.nodes) {
-                // Sort by label or id for now, as we don't have a reliable date on all nodes yet
                 setGraphNodes(data.nodes);
             }
         } catch (e) {
@@ -163,44 +302,17 @@ function Dashboard() {
     };
 
     const handleGlobalRefresh = async () => {
-        // Run all fetches in parallel
         await Promise.all([
             fetchStats(),
             fetchAnalytics(),
             fetchSchedulers(false),
             fetchApprovedTools(),
             fetchPendingTools(),
-            fetchNotifications(false)
+            fetchNotifications(0)
         ]);
     };
 
-    const fetchTraps = async () => {
-        setIsTrapsLoading(true);
-        setIsTrapsModalOpen(true);
-        try {
-            const data = await apiFetch('/api/analytics/traps');
-            setTraps(data.traps || []);
-        } catch (e) {
-            console.error("Error fetching traps", e);
-        } finally {
-            setIsTrapsLoading(false);
-        }
-    };
-
-    const fetchDirectives = async () => {
-        setIsDirectivesLoading(true);
-        setIsDirectivesModalOpen(true);
-        try {
-            const data = await apiFetch('/api/analytics/directives');
-            setDirectives(data.directives || []);
-        } catch (e) {
-            console.error("Error fetching directives", e);
-        } finally {
-            setIsDirectivesLoading(false);
-        }
-    };
-
-    const handleEditDirective = async (directive) => {
+    const handleEditDirective = useCallback(async (directive) => {
         try {
             const data = await apiFetch(`/api/analytics/directives/content?path=${encodeURIComponent(directive.path)}`);
             setEditorContent(data.content);
@@ -208,9 +320,9 @@ function Dashboard() {
         } catch (e) {
             toast.error("Error al carregar la directiva");
         }
-    };
+    }, [apiFetch]);
 
-    const handleSaveDirective = async () => {
+    const handleSaveDirective = useCallback(async () => {
         if (!editingDirective) return;
         setIsEditorSaving(true);
         try {
@@ -223,7 +335,7 @@ function Dashboard() {
             });
             toast.success("Directiva desada correctament");
             setEditingDirective(null);
-            fetchDirectives();
+            fetchDirectives(directivesPage);
             fetchApprovedTools();
             fetchAnalytics();
         } catch (e) {
@@ -231,25 +343,50 @@ function Dashboard() {
         } finally {
             setIsEditorSaving(false);
         }
-    };
+    }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, apiFetch]);
 
     const handleDeleteDirective = async (directive) => {
-        if (!window.confirm(`Estàs segur que vols eliminar la directiva "${directive.name}"? Aquesta acció no es pot desfer.`)) {
+        const type = directive.path?.includes("pipeline/skills") ? "skill" : "directiva";
+        if (!window.confirm(`Estàs segur que vols eliminar la ${type} "${directive.name}"? Aquesta acció no es pot desfer.`)) {
             return;
         }
         try {
             await apiFetch(`/api/analytics/directives?path=${encodeURIComponent(directive.path)}`, {
                 method: 'DELETE'
             });
-            toast.success("Directiva eliminada");
-            fetchDirectives();
+            toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} eliminada`);
+            fetchDirectives(directivesPage);
+            fetchApprovedTools();
+            fetchAnalytics();
         } catch (e) {
-            toast.error("Error al eliminar la directiva");
+            toast.error(`Error al eliminar la ${type}`);
+        }
+    };
+
+    const handlePurgeHistory = async () => {
+        if (!window.confirm(t('dashboard.confirm_purge_history'))) return;
+        try {
+            await apiFetch('/api/schedulers/history', { method: 'DELETE' });
+            toast.success("Historial purgat");
+            fetchTaskHistory(0);
+        } catch (e) {
+            toast.error("Error al purgar historial");
+        }
+    };
+
+    const handlePurgeLogs = async () => {
+        if (!window.confirm(t('dashboard.confirm_purge_logs'))) return;
+        try {
+            await apiFetch('/api/system/notifications', { method: 'DELETE' });
+            toast.success("Logs purgats");
+            fetchNotifications(0);
+        } catch (e) {
+            toast.error("Error al purgar logs");
         }
     };
 
     useEffect(() => {
-        const fetchCurrentRole = async () => {
+        const fetchWorkspaceData = async () => {
             try {
                 const workspaces = await apiFetch('/api/workspaces');
                 const current = workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
@@ -262,29 +399,43 @@ function Dashboard() {
             }
         };
 
-        fetchStats();
-        fetchConfig();
-        fetchPendingTools();
+        const fetchSystemStatus = () => {
+            fetchStats();
+            fetchConfig();
+            fetchPendingTools();
+            fetchAnalytics();
+        };
+
+        fetchWorkspaceData();
         fetchAnalytics();
+        fetchDirectives(0);
+        fetchTraps(0);
+        fetchSystemStatus();
         fetchSchedulers();
-        fetchApprovedTools();
-        fetchNotifications();
-        fetchCurrentRole();
-        const interval = setInterval(fetchStats, 2000);
-        const toolsInterval = setInterval(fetchPendingTools, 5000);
-        const analyticsInterval = setInterval(fetchAnalytics, 30000);
+        fetchNotifications(0);
+        fetchTaskHistory(0);
+
+        const interval = setInterval(fetchStats, 5000);
+        const toolsInterval = setInterval(fetchPendingTools, 15000);
         const schedulersInterval = setInterval(() => fetchSchedulers(true), 30000);
-        const approvedToolsInterval = setInterval(fetchApprovedTools, 30000);
-        const notificationsInterval = setInterval(() => fetchNotifications(true), 15000);
+        
         return () => {
             clearInterval(interval);
             clearInterval(toolsInterval);
-            clearInterval(analyticsInterval);
             clearInterval(schedulersInterval);
-            clearInterval(approvedToolsInterval);
-            clearInterval(notificationsInterval);
         };
-    }, [fetchSchedulers]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fetchSchedulers, apiFetch, activeWorkspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Secondary polling for history when tab is active
+    useEffect(() => {
+        if (selectedControlTab === 'history') {
+            const historyInterval = setInterval(() => {
+                fetchTaskHistory(taskHistoryPage);
+                fetchNotifications(notifPage);
+            }, 20000);
+            return () => clearInterval(historyInterval);
+        }
+    }, [selectedControlTab, taskHistoryPage, notifPage]);
 
 
 
@@ -300,7 +451,7 @@ function Dashboard() {
         }
     }, [activeWorkspaceId, apiFetch]);
 
-    const handleAddMember = async () => {
+    const handleAddMember = useCallback(async () => {
         if (!newMemberEmail) return;
         try {
             await apiFetch(`/api/workspaces/${activeWorkspaceId}/members`, {
@@ -313,7 +464,7 @@ function Dashboard() {
         } catch (e) {
             console.error("Error adding member", e);
         }
-    };
+    }, [newMemberEmail, activeWorkspaceId, newMemberRole, fetchMembers, apiFetch]);
 
     const handleDeleteMember = async (userId) => {
         if (!confirm(t('dashboard.confirm_delete_member'))) return;
@@ -327,7 +478,7 @@ function Dashboard() {
         }
     };
 
-    const handleUpdatePermissions = async (userId, permissions, role) => {
+    const handleUpdatePermissions = useCallback(async (userId, permissions, role) => {
         try {
             await apiFetch(`/api/workspaces/${activeWorkspaceId}/members/${userId}/role`, {
                 method: 'PUT',
@@ -338,7 +489,7 @@ function Dashboard() {
         } catch (e) {
             console.error("Error updating permissions", e);
         }
-    };
+    }, [activeWorkspaceId, fetchMembers, apiFetch]);
 
     const fetchVaults = useCallback(async () => {
         try {
@@ -456,6 +607,36 @@ function Dashboard() {
             });
         }
     };
+
+
+    // Gestor unificat de teclat per a tots els modals del Dashboard
+    useEffect(() => {
+        const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || isMemoryModalOpen || editingDirective;
+        if (!anyModalOpen) return;
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setIsAddMemberModalOpen(false);
+                setIsPermissionsModalOpen(false);
+                setIsTrapsModalOpen(false);
+                setIsDirectivesModalOpen(false);
+                setIsToolsModalOpen(false);
+                setIsMemoryModalOpen(false);
+                setEditingDirective(null);
+            } else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                
+                // Si estem editant una directiva, Enter podria guardar? 
+                // Habitualment preferim que no tanqui si estem editant text, però el requeriment és Enter = Confirm.
+                // En aquest cas, com que hi ha un botó de Sauve, ho deixem així.
+                if (editingDirective) handleSaveDirective();
+                else if (isAddMemberModalOpen) handleAddMember();
+                else if (isPermissionsModalOpen) handleUpdatePermissions(selectedMember.user_id, selectedMember.permissions, selectedMember.role);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, isMemoryModalOpen, editingDirective, selectedMember, handleAddMember, handleSaveDirective, handleUpdatePermissions]);
 
     const formatFrequency = (task) => {
         if (typeof task.interval_minutes === 'number' && task.interval_minutes > 0) {
@@ -764,110 +945,141 @@ function Dashboard() {
 
                 {selectedControlTab === 'history' && (
                     <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 gap-8">
                             <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                                <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex items-center gap-2">
-                                    <Clock size={14} className="text-blue-500" />
-                                    {t('dashboard.latest_scheduled_runs')}
-                                </h3>
-                                <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-                                    {schedulers
-                                        .filter(task => task.last_run)
-                                        .sort((a, b) => new Date(b.last_run) - new Date(a.last_run))
-                                        .slice(0, 10)
-                                        .map(task => (
-                                            <div key={`${task.name}-last`} className="border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                                <p className="text-sm font-semibold text-[var(--text-primary)]">{task.name.replace(/_/g, ' ')}</p>
-                                                <p className="text-xs text-[var(--text-secondary)]">{new Date(task.last_run).toLocaleString()}</p>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest flex items-center gap-2">
+                                        <Clock size={14} className="text-blue-500" />
+                                        {t('dashboard.latest_scheduled_runs')}
+                                    </h3>
+                                    <button 
+                                        onClick={handlePurgeHistory}
+                                        className="text-[10px] flex items-center gap-1 text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition-all"
+                                    >
+                                        <Trash2 size={12} />
+                                        {t('dashboard.purge_history')}
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    {taskHistoryLoading && taskHistory.length === 0 ? (
+                                        <p className="text-center py-10"><Loader2 className="animate-spin mx-auto text-blue-500" /></p>
+                                    ) : taskHistory.length === 0 ? (
+                                        <p className="text-sm text-gray-500 py-10 text-center italic">{t('dashboard.no_runs_recorded')}</p>
+                                    ) : (
+                                        taskHistory.map(history => (
+                                            <div key={history.id} className={`border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)] flex items-center justify-between group hover:border-${history.status === 'error' ? 'red' : 'cyan'}-500/30 transition-all`}>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{history.task_name.replace(/_/g, ' ')}</p>
+                                                        {history.status === 'running' && <Loader2 size={10} className="animate-spin text-blue-400" />}
+                                                    </div>
+                                                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                                                        {new Date(history.started_at).toLocaleString()} 
+                                                        {history.duration_seconds && ` • ${history.duration_seconds.toFixed(1)}s`}
+                                                    </p>
+                                                    {history.message && <p className="text-[10px] text-[var(--text-secondary)] mt-1 italic line-clamp-1">{history.message}</p>}
+                                                </div>
+                                                <div className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                                    history.status === 'success' ? 'bg-green-500/10 text-green-500' :
+                                                    history.status === 'error' ? 'bg-red-500/10 text-red-500' :
+                                                    'bg-blue-500/10 text-blue-500'
+                                                }`}>
+                                                    {history.status.toUpperCase()}
+                                                </div>
                                             </div>
-                                        ))}
-                                    {schedulers.filter(task => task.last_run).length === 0 && (
-                                        <p className="text-sm text-gray-500">{t('dashboard.no_runs_recorded')}</p>
+                                        ))
                                     )}
                                 </div>
-                            </div>
-
-                            <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                                <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4">{t('dashboard.approved_tools_history')}</h3>
-                                {approvedLoading ? (
-                                    <p className="text-gray-400">{t('dashboard.loading_history')}</p>
-                                ) : approvedTools.length === 0 ? (
-                                    <p className="text-gray-500">{t('dashboard.no_approved_tools')}</p>
-                                ) : (
-                                    <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                                        {approvedTools
-                                            .slice()
-                                            .sort((a, b) => {
-                                                const aTs = a.approved_at ? new Date(a.approved_at).getTime() : 0;
-                                                const bTs = b.approved_at ? new Date(b.approved_at).getTime() : 0;
-                                                return bTs - aTs;
-                                            })
-                                            .slice(0, 30)
-                                            .map(tool => (
-                                                <div key={tool.name} className="border border-[var(--border-primary)] rounded-lg p-3 bg-[var(--bg-tertiary)]">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <p className="text-sm font-semibold text-blue-500 dark:text-blue-300 truncate">{tool.name}</p>
-                                                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${tool.risk_level === 'EXTERNAL_WRITE'
-                                                            ? 'bg-red-500/20 text-red-400'
-                                                            : 'bg-yellow-500/20 text-yellow-400'
-                                                            }`}>
-                                                            {tool.risk_level.replace(/_/g, ' ')}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-xs text-gray-400 mt-1">{tool.approved_at ? new Date(tool.approved_at).toLocaleString() : t('dashboard.no_approval_date')}</p>
-                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{tool.description}</p>
-                                                </div>
-                                            ))}
-                                    </div>
-                                )}
+                                <PaginationControls 
+                                    total={taskHistoryTotal}
+                                    limit={HISTORY_LIMIT}
+                                    page={taskHistoryPage}
+                                    onPageChange={fetchTaskHistory}
+                                    loading={taskHistoryLoading}
+                                />
                             </div>
                         </div>
 
-                        <div className="mt-8 glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                            <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-4 flex items-center justify-between">
-                                {t('dashboard.system_logs', 'Logs de Sistema')}
-                                <span className="text-[10px] text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">{notifications.length} {t('common.entries', 'entrades')}</span>
-                            </h3>
+                            <div className="mt-8 glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest flex items-center gap-2">
+                                        <Activity size={14} className="text-blue-500" />
+                                        {t('dashboard.system_logs', 'Logs de Sistema')}
+                                        <span className="text-[10px] text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">{notifTotal} {t('common.entries', 'entrades')}</span>
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => fetchNotifications(notifPage)}
+                                            className="p-1 hover:bg-blue-500/10 text-blue-400 rounded transition-all"
+                                            title="Actualitzar logs"
+                                        >
+                                            <RefreshCw size={14} className={notificationsLoading ? "animate-spin" : ""} />
+                                        </button>
+                                        <button 
+                                            onClick={handlePurgeLogs}
+                                            className="text-[10px] flex items-center gap-1 text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition-all border border-red-500/10"
+                                        >
+                                            <Trash2 size={12} />
+                                            {t('dashboard.purge_logs')}
+                                        </button>
+                                    </div>
+                                </div>
                             
                             {notificationsLoading && notifications.length === 0 ? (
                                 <p className="text-gray-400">{t('dashboard.loading_logs', 'Carregant logs...')}</p>
                             ) : notifications.length === 0 ? (
                                 <p className="text-gray-500 italic">{t('dashboard.no_logs', 'Sense activitat recent registrada.')}</p>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-xs">
-                                        <thead>
-                                            <tr className="border-b border-[var(--border-primary)] text-[var(--text-secondary)] font-bold">
-                                                <th className="pb-2 w-32">{t('common.time', 'Hora')}</th>
-                                                <th className="pb-2 w-20">{t('common.level', 'Nivell')}</th>
-                                                <th className="pb-2">{t('common.event', 'Esdeveniment')}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-[var(--border-primary)]">
-                                            {notifications.map(notif => (
-                                                <tr key={notif.id} className="hover:bg-[var(--bg-tertiary)] transition-colors">
-                                                    <td className="py-2 text-gray-400 font-mono">
-                                                        {new Date(notif.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                                    </td>
-                                                    <td className="py-2">
-                                                        <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
-                                                            notif.level === 'ERROR' ? 'bg-red-500/20 text-red-400' :
-                                                            notif.level === 'WARNING' ? 'bg-yellow-500/20 text-yellow-500' :
-                                                            notif.level === 'SUCCESS' ? 'bg-green-500/20 text-green-400' :
-                                                            'bg-blue-500/20 text-blue-400'
-                                                        }`}>
-                                                            {notif.level}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-2">
-                                                        <div className="font-bold text-[var(--text-primary)]">{notif.title}</div>
-                                                        <div className="text-[var(--text-secondary)] mt-0.5">{notif.message}</div>
-                                                    </td>
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-xs">
+                                            <thead>
+                                                <tr className="border-b border-[var(--border-primary)] text-[var(--text-secondary)] font-bold">
+                                                    <th className="pb-2 w-32">{t('common.time', 'Hora')}</th>
+                                                    <th className="pb-2 w-20">{t('common.level', 'Nivell')}</th>
+                                                    <th className="pb-2">{t('common.event', 'Esdeveniment')}</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody className="divide-y divide-[var(--border-primary)]">
+                                                {notifications.map(notif => (
+                                                    <tr key={notif.id} className="hover:bg-[var(--bg-tertiary)] transition-colors">
+                                                        <td className="py-2 text-gray-400 font-mono">
+                                                            {new Date(notif.created_at).toLocaleString([], { 
+                                                                day: '2-digit', 
+                                                                month: '2-digit', 
+                                                                year: '2-digit', 
+                                                                hour: '2-digit', 
+                                                                minute: '2-digit', 
+                                                                second: '2-digit' 
+                                                            })}
+                                                        </td>
+                                                        <td className="py-2">
+                                                            <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
+                                                                notif.level === 'ERROR' ? 'bg-red-500/20 text-red-400' :
+                                                                notif.level === 'WARNING' ? 'bg-yellow-500/20 text-yellow-500' :
+                                                                notif.level === 'SUCCESS' ? 'bg-green-500/20 text-green-400' :
+                                                                'bg-blue-500/20 text-blue-400'
+                                                            }`}>
+                                                                {notif.level}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2">
+                                                            <div className="font-bold text-[var(--text-primary)]">{notif.title}</div>
+                                                            <div className="text-[var(--text-secondary)] mt-0.5">{notif.message}</div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <PaginationControls 
+                                        total={notifTotal}
+                                        limit={NOTIF_LIMIT}
+                                        page={notifPage}
+                                        onPageChange={fetchNotifications}
+                                        loading={notificationsLoading}
+                                    />
+                                </>
                             )}
                         </div>
                     </>
@@ -1118,49 +1330,58 @@ function Dashboard() {
                                     <p>No s'han trobat trampes documentades encara.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left table-fixed">
-                                        <thead>
-                                            <tr className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--border-primary)]">
-                                                <th className="px-4 py-3 w-32">{t('common.date', 'Data')}</th>
-                                                <th className="px-4 py-3 w-40">{t('common.source', 'Font')}</th>
-                                                <th className="px-4 py-3 w-1/3">{t('common.trap', 'Trampa / Error')}</th>
-                                                <th className="px-4 py-3">{t('common.solution', 'Solució Aplicada')}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-[var(--border-primary)]">
-                                            {traps.map((t, i) => (
-                                                <tr key={i} className="hover:bg-[var(--bg-tertiary)] transition-all group">
-                                                    <td className="px-4 py-4 text-[11px] font-mono text-[var(--text-secondary)] whitespace-nowrap">{t.date}</td>
-                                                    <td className="px-4 py-4">
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className={`text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded w-fit ${
-                                                                t.category === 'Agent' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
-                                                                t.category === 'Skill' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                                                                'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                                            }`}>
-                                                                {t.category || 'Memory'}
-                                                            </span>
-                                                            <span className="text-[10px] font-bold text-[var(--text-secondary)] truncate max-w-[120px]" title={t.source}>
-                                                                {t.source}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        <div className="text-sm font-semibold text-[var(--text-primary)] leading-tight break-words overflow-hidden">
-                                                            {t.trap}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        <div className="text-xs text-green-500 italic leading-relaxed bg-green-500/5 p-3 rounded-xl border border-green-500/10 break-words overflow-hidden">
-                                                            {t.solution}
-                                                        </div>
-                                                    </td>
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left table-fixed">
+                                            <thead>
+                                                <tr className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--border-primary)]">
+                                                    <th className="px-4 py-3 w-32">{t('common.date', 'Data')}</th>
+                                                    <th className="px-4 py-3 w-40">{t('common.source', 'Font')}</th>
+                                                    <th className="px-4 py-3 w-1/3">{t('common.trap', 'Trampa / Error')}</th>
+                                                    <th className="px-4 py-3">{t('common.solution', 'Solució Aplicada')}</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody className="divide-y divide-[var(--border-primary)]">
+                                                {traps.map((t, i) => (
+                                                    <tr key={i} className="hover:bg-[var(--bg-tertiary)] transition-all group">
+                                                        <td className="px-4 py-4 text-[11px] font-mono text-[var(--text-secondary)] whitespace-nowrap">{t.date}</td>
+                                                        <td className="px-4 py-4">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className={`text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded w-fit ${
+                                                                    t.category === 'Agent' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                                    t.category === 'Skill' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                                    'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                                }`}>
+                                                                    {t.category || 'Memory'}
+                                                                </span>
+                                                                <span className="text-[10px] font-bold text-[var(--text-secondary)] truncate max-w-[120px]" title={t.source}>
+                                                                    {t.source}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <div className="text-sm font-semibold text-[var(--text-primary)] leading-tight break-words overflow-hidden">
+                                                                {t.trap}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <div className="text-xs text-green-500 italic leading-relaxed bg-green-500/5 p-3 rounded-xl border border-green-500/10 break-words overflow-hidden">
+                                                                {t.solution}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <PaginationControls 
+                                        total={trapsTotal}
+                                        limit={TRAPS_LIMIT}
+                                        page={trapsPage}
+                                        onPageChange={fetchTraps}
+                                        loading={isTrapsLoading}
+                                    />
+                                </>
                             )}
                         </div>
                     </div>
@@ -1196,45 +1417,54 @@ function Dashboard() {
                                     <p className="text-[var(--text-secondary)] font-medium">Carregant detalls...</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-3">
-                                    {directives.map((d, i) => (
-                                        <div key={i} className="p-4 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-2xl flex items-center justify-between hover:border-cyan-500/30 transition-all cursor-default group">
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-cyan-500/50 group-hover:text-cyan-400 transition-colors">
-                                                    <Shield size={24} />
+                                <>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {directives.map((d, i) => (
+                                            <div key={i} className="p-4 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-2xl flex items-center justify-between hover:border-cyan-500/30 transition-all cursor-default group">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-cyan-500/50 group-hover:text-cyan-400 transition-colors">
+                                                        <Shield size={24} />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wide block">{d.name.replace(/_/g, ' ')}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] text-[var(--text-secondary)] font-mono">{(d.size_bytes / 1024).toFixed(1)} KB</span>
+                                                            <span className="text-[10px] text-cyan-500/60 font-medium px-1.5 py-0.5 bg-cyan-500/5 rounded uppercase">{d.category}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <span className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wide block">{d.name.replace(/_/g, ' ')}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-[var(--text-secondary)] font-mono">{(d.size_bytes / 1024).toFixed(1)} KB</span>
-                                                        <span className="text-[10px] text-cyan-500/60 font-medium px-1.5 py-0.5 bg-cyan-500/5 rounded uppercase">{d.category}</span>
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-md">
+                                                        {d.trap_count} {t('dashboard.traps', 'traps')}
+                                                    </span>
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={() => handleEditDirective(d)}
+                                                            className="p-1.5 hover:bg-cyan-500/10 text-cyan-400 rounded-lg transition-colors"
+                                                            title="Editar directiva"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteDirective(d)}
+                                                            className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors"
+                                                            title="Eliminar directiva"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-md">
-                                                    {d.trap_count} {t('dashboard.traps', 'traps')}
-                                                </span>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button 
-                                                        onClick={() => handleEditDirective(d)}
-                                                        className="p-1.5 hover:bg-cyan-500/10 text-cyan-400 rounded-lg transition-colors"
-                                                        title="Editar directiva"
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteDirective(d)}
-                                                        className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors"
-                                                        title="Eliminar directiva"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                    <PaginationControls 
+                                        total={directivesTotal}
+                                        limit={DIRECTIVES_LIMIT}
+                                        page={directivesPage}
+                                        onPageChange={fetchDirectives}
+                                        loading={isDirectivesLoading}
+                                    />
+                                </>
                             )}
                         </div>
                     </div>
@@ -1377,13 +1607,22 @@ function Dashboard() {
                                                         <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1">{tool.description}</p>
                                                     </div>
                                                     {tool.path && (
-                                                        <button 
-                                                            onClick={() => handleEditDirective(tool)}
-                                                            className="ml-3 p-2 hover:bg-blue-500/10 text-blue-400 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                            title="Editar Skill"
-                                                        >
-                                                            <Edit2 size={16} />
-                                                        </button>
+                                                        <div className="flex gap-1">
+                                                            <button 
+                                                                onClick={() => handleEditDirective(tool)}
+                                                                className="p-2 hover:bg-blue-500/10 text-blue-400 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                                title="Editar Skill"
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteDirective(tool)}
+                                                                className="p-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                                title="Eliminar Skill"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             ))
