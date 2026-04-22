@@ -13,6 +13,7 @@ import HomePage from './pages/HomePage';
 import MailPage from './pages/MailPage';
 import MediaCenter from './pages/MediaCenter';
 import ContactsPage from './pages/ContactsPage';
+import IdentityProfile from './components/Vault/IdentityProfile';
 
 import SchedulerPage from './pages/SchedulerPage';
 import ComposerPage from './pages/ComposerPage';
@@ -55,6 +56,7 @@ function App() {
           <Route path="/social/history" element={<PostHistory />} />
           <Route path="/media" element={<MediaCenter />} />
           <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/identity" element={<IdentityProfile />} />
         </Routes>
       </div>
       <Toaster position="bottom-right" />

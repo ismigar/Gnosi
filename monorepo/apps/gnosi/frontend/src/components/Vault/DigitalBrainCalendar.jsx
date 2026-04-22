@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Clock, MapPin, AlignLeft } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -60,6 +61,7 @@ export const DigitalBrainCalendar = ({
     onContextMenu,
     calendarRef,
     onTitleChange,
+    onDatesSet,
     onRefresh,
     calendarConfigs = [],
     colorMap = {},
@@ -70,8 +72,10 @@ export const DigitalBrainCalendar = ({
 }) => {
     const { i18n } = useTranslation();
     const [events, setEvents] = useState([]);
+    const [hoveredEvent, setHoveredEvent] = useState(null);
     const [theme, setTheme] = useState(localStorage.getItem('db-theme') || 'light');
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(events);
+    const lastEventClickTimeRef = useRef(0);
 
     const allEventIds = useMemo(
         () => [...new Set(events.map((event) => event.id))],
@@ -207,8 +211,31 @@ export const DigitalBrainCalendar = ({
         setEvents(calendarEvents);
     }, [allNotes, searchQuery, selectedCalendars, calendarConfigs, theme]);
 
+    const handleEventMouseEnter = useCallback((info) => {
+        const { event, jsEvent } = info;
+        const { metadata } = event.extendedProps;
+        
+        setHoveredEvent({
+            title: event.title,
+            start: event.start,
+            end: event.end,
+            allDay: event.allDay,
+            location: metadata?.location,
+            description: metadata?.description,
+            color: event.backgroundColor || event.borderColor,
+            x: jsEvent.clientX,
+            y: jsEvent.clientY
+        });
+    }, []);
+
+    const handleEventMouseLeave = useCallback(() => {
+        setHoveredEvent(null);
+    }, []);
+
     // Clic sobre un event → obrir modal d'edició
     const handleEventClick = useCallback((clickInfo) => {
+        lastEventClickTimeRef.current = Date.now();
+
         const { id, readonly } = clickInfo.event.extendedProps;
         const nativeEvent = clickInfo.jsEvent;
         const isSelectionIntent = !!(nativeEvent?.metaKey || nativeEvent?.ctrlKey || nativeEvent?.shiftKey);
@@ -239,7 +266,7 @@ export const DigitalBrainCalendar = ({
     // Arrossegar event (canviar data)
     const handleEventDrop = useCallback(async (dropInfo) => {
         const { event } = dropInfo;
-        const { id, readonly } = event.extendedProps;
+        const { id, readonly, metadata } = event.extendedProps;
 
         if (readonly) {
             dropInfo.revert();
@@ -254,6 +281,19 @@ export const DigitalBrainCalendar = ({
             ? (event.allDay ? event.endStr : event.end.toISOString().replace('.000Z', ''))
             : null;
 
+        const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);
+
+        // Si és recurrent, deleguem al pare per preguntar
+        if (isRecurrent && onEventEdit) {
+            dropInfo.revert(); // Revertim visualment fins que es confirmi
+            onEventEdit(id, { 
+                date: newStart, 
+                end_date: newEnd,
+                instanceStart: dropInfo.oldEvent.startStr
+            }, 'move');
+            return;
+        }
+
         try {
             const patchData = { metadata: { date: newStart } };
             if (newEnd) patchData.metadata.end_date = newEnd;
@@ -265,12 +305,12 @@ export const DigitalBrainCalendar = ({
             dropInfo.revert();
             toast.error("Error movent l'esdeveniment.");
         }
-    }, [onRefresh]);
+    }, [onRefresh, onEventEdit]);
 
     // Estirar event (canviar data fi)
     const handleEventResize = useCallback(async (resizeInfo) => {
         const { event } = resizeInfo;
-        const { id, readonly } = event.extendedProps;
+        const { id, readonly, metadata } = event.extendedProps;
 
         if (readonly) {
             resizeInfo.revert();
@@ -281,6 +321,18 @@ export const DigitalBrainCalendar = ({
         const newEnd = event.allDay
             ? event.endStr
             : event.end.toISOString().replace('.000Z', '');
+
+        const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);
+
+        // Si és recurrent, deleguem al pare per preguntar
+        if (isRecurrent && onEventEdit) {
+            resizeInfo.revert();
+            onEventEdit(id, { 
+                end_date: newEnd,
+                instanceStart: event.startStr
+            }, 'resize');
+            return;
+        }
 
         try {
             await axios.patch(`/api/vault/pages/${id}`, {
@@ -293,7 +345,7 @@ export const DigitalBrainCalendar = ({
             resizeInfo.revert();
             toast.error("Error redimensionant l'esdeveniment.");
         }
-    }, [onRefresh]);
+    }, [onRefresh, onEventEdit]);
 
     // Afegir context menu a cada event
     const handleEventDidMount = useCallback((info) => {
@@ -371,6 +423,8 @@ export const DigitalBrainCalendar = ({
                     selectable={true}
                     eventResizableFromStart={false}
                     eventClick={handleEventClick}
+                    eventMouseEnter={handleEventMouseEnter}
+                    eventMouseLeave={handleEventMouseLeave}
                     eventDrop={handleEventDrop}
                     eventResize={handleEventResize}
                     eventDidMount={handleEventDidMount}
@@ -459,9 +513,13 @@ export const DigitalBrainCalendar = ({
                         );
                     }}
                     dateClick={(arg) => {
-                        if (onDateClick) {
-                            onDateClick(arg.date);
-                        }
+                        if (!onDateClick) return;
+                        // Evitar crear cita si un event acaba de ser clicat (< 300ms)
+                        if (Date.now() - lastEventClickTimeRef.current < 300) return;
+                        // Evitar crear cita quan el target és dins d'un element d'event
+                        const target = arg.jsEvent?.target;
+                        if (target?.closest('.fc-event, .fc-event-harness, .fc-daygrid-event-harness, .fc-timegrid-event-harness')) return;
+                        onDateClick(arg.date);
                     }}
                     select={(arg) => {
                         if (onSelection) {
@@ -477,13 +535,77 @@ export const DigitalBrainCalendar = ({
                         }
                     }}
                     datesSet={(arg) => {
-                        if (onTitleChange) {
-                            onTitleChange(arg.view.title);
-                        }
+                        if (onTitleChange) onTitleChange(arg.view.title);
+                        if (onDatesSet) onDatesSet({ start: arg.startStr, end: arg.endStr });
                     }}
                 />
             </div>
+
+            {hoveredEvent && (
+                <div 
+                    className="fixed z-[9999] pointer-events-none transition-all duration-200 flex flex-col"
+                    style={{
+                        left: Math.min(hoveredEvent.x + 15, window.innerWidth - 340),
+                        top: hoveredEvent.y,
+                        width: '320px',
+                        transform: hoveredEvent.y > window.innerHeight / 2 ? 'translateY(-105%)' : 'translateY(15px)'
+                    }}
+                >
+                    <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl overflow-hidden backdrop-blur-2xl bg-opacity-95 dark:bg-opacity-90 max-h-[70vh] flex flex-col border-opacity-50">
+                        <div 
+                            className="h-1.5 w-full shrink-0" 
+                            style={{ backgroundColor: hoveredEvent.color || 'var(--gnosi-primary)' }}
+                        />
+                        <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+                            <h4 className="font-bold text-[0.9rem] text-[var(--text-primary)] leading-snug">
+                                {hoveredEvent.title}
+                            </h4>
+                            
+                            <div className="space-y-3 text-[0.8rem]">
+                                <div className="flex items-center text-[var(--text-secondary)]">
+                                    <Clock className="w-4 h-4 mr-3 opacity-70 shrink-0" />
+                                    <span>
+                                        {hoveredEvent.allDay 
+                                            ? (i18n.language === 'ca' ? 'Tot el dia' : 'Todo el día')
+                                            : `${new Date(hoveredEvent.start).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}${hoveredEvent.end ? ' - ' + new Date(hoveredEvent.end).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }) : ''}`
+                                        }
+                                    </span>
+                                </div>
+                                
+                                {hoveredEvent.location && (
+                                    <div className="flex items-start text-[var(--text-secondary)]">
+                                        <MapPin className="w-4 h-4 mr-3 opacity-70 shrink-0 mt-0.5" />
+                                        <span className="leading-relaxed">{hoveredEvent.location}</span>
+                                    </div>
+                                )}
+                                
+                                {hoveredEvent.description && (
+                                    <div className="flex items-start text-[var(--text-tertiary)] pt-3 border-t border-[var(--border-primary)] border-opacity-30 mt-2">
+                                        <AlignLeft className="w-4 h-4 mr-3 mt-1 opacity-70 shrink-0" />
+                                        <div className="leading-relaxed italic whitespace-pre-wrap break-words opacity-90">
+                                            {hoveredEvent.description}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
                 <style>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: var(--border-primary);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: var(--text-tertiary);
+                }
                 .fc {
                     color: var(--text-primary);
                     background-color: var(--bg-primary);

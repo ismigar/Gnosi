@@ -24,7 +24,6 @@ export const ConfirmModal = ({
         }
     }, [isSubmitting, onConfirm]);
 
-    // Gestió del teclat més robusta
     useEffect(() => {
         if (!isOpen) return;
 
@@ -52,37 +51,33 @@ export const ConfirmModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[var(--z-confirm-modal)] flex items-center justify-center">
-            {/* Backdrop amb blur effect unificat de l'app */}
-            <div
-                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-            ></div>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 99999 }}>
+            <div className="absolute inset-0 bg-[var(--bg-primary)]/40 backdrop-blur-sm transition-opacity" />
 
-            {/* Modal Box */}
             <div
                 ref={modalRef}
                 onClick={(e) => e.stopPropagation()}
-                className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 p-6 border border-slate-100"
+                className="relative bg-[var(--bg-primary)] rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 p-6 border border-[var(--border-primary)]"
             >
                 <div className="flex justify-between items-start mb-4">
-                    <div className={`p-3 rounded-full flex-shrink-0 ${isDestructive ? 'bg-red-50 text-red-500' : 'bg-indigo-50 text-indigo-500'}`}>
+                    <div className={`p-3 rounded-full flex-shrink-0 ${isDestructive ? 'bg-[var(--bg-secondary)] text-[var(--status-error)]' : 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'}`}>
                         {isDestructive ? <AlertCircle size={24} /> : <Check size={24} />}
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+                        className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] p-1.5 rounded-lg transition-colors"
                     >
                         <X size={20} />
                     </button>
                 </div>
 
                 <div>
-                    <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
                         {title}
                     </h3>
-                    <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
                         {message}
                     </p>
                 </div>
@@ -92,7 +87,7 @@ export const ConfirmModal = ({
                         type="button"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="px-4 py-2 font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors focus:ring-2 focus:ring-slate-100 outline-none"
+                        className="px-4 py-2 font-medium text-[var(--text-secondary)] border border-[var(--border-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors focus:ring-2 focus:ring-[var(--border-primary)] outline-none"
                     >
                         {cancelText}
                     </button>
@@ -102,8 +97,8 @@ export const ConfirmModal = ({
                         onClick={handleConfirm}
                         disabled={isSubmitting}
                         className={`px-4 py-2 font-medium rounded-lg text-white shadow-sm transition-colors focus:ring-2 focus:ring-offset-1 outline-none ${isDestructive
-                            ? 'bg-red-500 hover:bg-red-600 focus:ring-red-500/50'
-                            : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/50'
+                            ? 'bg-[var(--status-error)] hover:opacity-90 focus:ring-[var(--status-error)]/50'
+                            : 'bg-[var(--gnosi-blue)] hover:opacity-90 focus:ring-[var(--gnosi-blue)]/50'
                             }`}
                     >
                         {isSubmitting ? '...' : confirmText}

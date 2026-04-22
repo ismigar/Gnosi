@@ -1,12 +1,7 @@
 {
     "mcpServers": {
-        "drupal-proxy": {
-            "command": "/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/mcp-servers/drupal-proxy/start_server.sh",
-            "args": [],
-            "env": {}
-        },
         "n8n": {
-            "command": "node",
+            "command": "/usr/local/bin/node",
             "args": [
                 "/Users/ismaelgarciafernandez/Projectes/monorepo/packages/n8n/index.js"
             ],

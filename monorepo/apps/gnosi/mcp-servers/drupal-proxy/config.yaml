@@ -4,7 +4,7 @@ mcp_server:
   # Comando para ejecutar el servidor MCP de Drupal.
   # Puede ser local (docker exec) o remoto (ssh).
   # Ajustar según necesidad.
-  command: "docker"
+  command: "/usr/local/bin/docker"
   args:
     - "exec"
     - "-i"
@@ -12,6 +12,7 @@ mcp_server:
     - "deno"
     - "run"
     - "-A"
+    - "--unsafely-ignore-certificate-errors"
     - "/app/src/mod.ts"
     - "--drupal-url"
     - "https://admin:YT0LTtiJ0KuUF3EUhUsl@www.temenosismael.org"

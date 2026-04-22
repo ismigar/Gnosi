@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../ConfirmModal';
+import { RecurrenceChoiceModal } from '../Vault/RecurrenceChoiceModal';
+import { buildOccurrenceKey, truncateRruleBefore } from '../../utils/calendarUtils';
 
 const REMINDER_OPTIONS = [
     { value: '', label: 'Cap' },
@@ -39,18 +41,21 @@ export const CalendarSidebarRight = ({
     eventPanel = null,
     onClosePanel,
     onSaved,
+    onRsvp,
     calendars = [],
     onToggleSidebar,
     onOpenSearch,
     allNotes = [],
     onEventEdit,
+    userEmail = '',
+    defaultCalendarId = '',
 }) => {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = React.useState('shortcuts'); // 'shortcuts' | 'availability'
 
     if (eventPanel) {
         return (
-            <div className="w-72 flex-shrink-0 bg-[var(--bg-secondary)] border-l border-[var(--border-primary)] flex flex-col h-full overflow-hidden hidden lg:flex">
+            <div className="w-72 flex-shrink-0 bg-[var(--bg-secondary)] border-l border-[var(--border-primary)] flex flex-col h-full overflow-hidden">
                 <EventForm
                     mode={eventPanel.mode}
                     eventData={eventPanel.data}
@@ -58,13 +63,16 @@ export const CalendarSidebarRight = ({
                     calendars={calendars}
                     onClose={onClosePanel}
                     onSaved={onSaved}
+                    onRsvp={onRsvp}
+                    userEmail={userEmail}
+                    defaultCalendarId={defaultCalendarId}
                 />
             </div>
         );
     }
 
     return (
-        <div className="w-64 flex-shrink-0 bg-[var(--bg-secondary)] border-l border-[var(--border-primary)] flex flex-col h-full overflow-hidden hidden lg:flex text-sm text-[var(--text-secondary)]">
+        <div className="w-64 flex-shrink-0 bg-[var(--bg-secondary)] border-l border-[var(--border-primary)] flex flex-col h-full overflow-hidden text-sm text-[var(--text-secondary)]">
             {/* Tab Header */}
             <div className="flex border-b border-[var(--border-primary)]">
                 <button
@@ -192,8 +200,15 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
     );
 };
 
+const RSVP_META = {
+    accepted:    { label: '✓ Acceptat',  dot: 'bg-green-500',  btn: 'border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950',  activeCls: 'bg-green-500 text-white border-green-500' },
+    declined:    { label: '✗ Rebutjat',  dot: 'bg-red-500',    btn: 'border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950',          activeCls: 'bg-red-500 text-white border-red-500' },
+    tentative:   { label: '? Potser',    dot: 'bg-amber-400',  btn: 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950',  activeCls: 'bg-amber-400 text-white border-amber-400' },
+    needsAction: { label: 'Pendent',     dot: 'bg-gray-400',   btn: '', activeCls: '' },
+};
+
 /* ─── Formulari d'events (crear/editar) ─── */
-const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }) => {
+const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, onRsvp, userEmail = '', defaultCalendarId = '' }) => {
     const { t } = useTranslation();
     const titleRef = useRef(null);
 
@@ -223,19 +238,28 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
     const [untilDate, setUntilDate] = useState('');
     const [description, setDescription] = useState('');
 
+    const [attendees, setAttendees] = useState([]);
+    const [attendeeInput, setAttendeeInput] = useState('');
+    const [attendeeSuggestions, setAttendeeSuggestions] = useState([]);
+    const attendeeSuggestTimeoutRef = useRef(null);
+    const originalAttendeesRef = useRef([]);
+
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [saveError, setSaveError] = useState(false);
     const isInitializing = useRef(true);
     const lastSavedData = useRef(null);
     const autoSaveTimeoutRef = useRef(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen] = useState(false);
+    const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
 
     // Poblar camps
     useEffect(() => {
         isInitializing.current = true;
         lastSavedData.current = null;
 
-        if (mode === 'edit' && eventData) {
+        if ((mode === 'edit' || mode === 'view') && eventData) {
             const meta = eventData.metadata || {};
             setTitle(eventData.title || meta.title || '');
 
@@ -261,7 +285,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
 
             const tableId = eventData?.resolved_table_id || meta.table_id || meta.database_table_id || '';
             const hasCalendarOption = calendars.some(c => c.id === tableId);
-            setCalendarId(hasCalendarOption ? tableId : '');
+            const fallbackCalId = defaultCalendarId || calendars[0]?.id || '';
+            setCalendarId(hasCalendarOption ? tableId : fallbackCalId);
             setLocation(meta.location || '');
             setReminder(meta.reminder || '');
 
@@ -295,6 +320,10 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             }
 
             setDescription(eventData.content || '');
+
+            const loadedAttendees = Array.isArray(meta.attendees) ? meta.attendees : [];
+            setAttendees(loadedAttendees);
+            originalAttendeesRef.current = loadedAttendees.map(a => a.email);
         } else {
             setTitle('');
             setStartDate(initialDate || '');
@@ -303,9 +332,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             setEndTime('');
             setAllDay(true);
 
-            // Trobar el calendari predeterminat
-            const defaultCal = calendars.find(c => c.is_default) || calendars[0];
-            setCalendarId(defaultCal ? defaultCal.id : '');
+            // Calendari predeterminat (configurat per l'usuari o primer disponible)
+            const defCalId = defaultCalendarId || calendars.find(c => c.is_default)?.id || calendars[0]?.id || '';
+            setCalendarId(defCalId);
 
             setLocation('');
             setReminder('');
@@ -313,7 +342,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             setSelectedDays([]);
             setEndType('never');
             setDescription('');
+            setAttendees([]);
+            originalAttendeesRef.current = [];
         }
+        setAttendeeInput('');
+        setAttendeeSuggestions([]);
 
 
         setTimeout(() => {
@@ -392,16 +425,62 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
         return () => window.removeEventListener('keydown', handleKey);
     }, [onClose, mode, eventData]);
 
+    // ─── Attendees helpers ────────────────────────────────────────────────────
+    const handleAttendeeInputChange = useCallback((val) => {
+        setAttendeeInput(val);
+        setAttendeeSuggestions([]);
+        if (attendeeSuggestTimeoutRef.current) clearTimeout(attendeeSuggestTimeoutRef.current);
+        if (val.trim().length < 2) return;
+        attendeeSuggestTimeoutRef.current = setTimeout(async () => {
+            try {
+                const res = await axios.get(`/api/calendar/attendees/search?q=${encodeURIComponent(val.trim())}`);
+                setAttendeeSuggestions(res.data || []);
+            } catch {
+                setAttendeeSuggestions([]);
+            }
+        }, 300);
+    }, []);
+
+    const addAttendee = useCallback((contact) => {
+        const email = (contact.email || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) return;
+        setAttendees(prev => prev.some(a => a.email.toLowerCase() === email)
+            ? prev
+            : [...prev, { email, name: contact.name || '', rsvp: 'needsAction' }]
+        );
+        setAttendeeInput('');
+        setAttendeeSuggestions([]);
+    }, []);
+
+    const addAttendeeFromInput = useCallback(() => {
+        addAttendee({ email: attendeeInput, name: '' });
+    }, [attendeeInput, addAttendee]);
+
+    const removeAttendee = useCallback((email) => {
+        setAttendees(prev => prev.filter(a => a.email !== email));
+    }, []);
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     const buildDatetime = (date, time) => {
         if (!date) return null;
         if (!allDay && time) return `${date}T${time}:00`;
         return date;
     };
 
-    const handleSubmit = async (e, silent = true, snapshot = null) => {
+    const handleSubmit = async (e, silent = true, snapshot = null, isSeries = false, isInstanceOnly = false, isFollowing = false) => {
         if (e) e.preventDefault();
         if (!title.trim() || !startDate) return;
+
+        // Si és un guardat manual (no silent) d'un event recurrent i no hem triat encara
+        const isRecurrent = !!(eventData?.metadata?.rrule || eventData?.metadata?.recurrence);
+        if (!silent && isRecurrent && !isSeries && !isInstanceOnly && !isFollowing) {
+            setIsRecurrenceModifyOpen(true);
+            return;
+        }
+
         setSaving(true);
+        setSaveError(false);
 
         const fullStart = buildDatetime(startDate, startTime);
         const fullEnd = buildDatetime(endDate, endTime);
@@ -410,10 +489,12 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             date: fullStart,
             source: 'Gnosi',
             all_day: allDay,
+            exdates: eventData?.metadata?.exdates || [],
         };
         if (fullEnd) metadata.end_date = fullEnd;
         if (location.trim()) metadata.location = location.trim();
         if (reminder) metadata.reminder = reminder;
+        if (attendees.length > 0) metadata.attendees = attendees;
 
         if (recurrence) {
             let rruleParts = [`FREQ=${recurrence}`];
@@ -435,9 +516,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             const cal = calendars.find(c => c.id === calendarId);
             if (cal?.kind === 'table') {
                 metadata.table_id = calendarId;
-                metadata.database_table_id = calendarId; // Backwards compatibility
+                metadata.database_table_id = calendarId;
                 metadata.table_name = cal.name;
-                metadata.database_table_name = cal.name; // Backwards compatibility
+                metadata.database_table_name = cal.name;
             } else if (cal?.source) {
                 metadata.source = cal.source;
             }
@@ -445,90 +526,140 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
 
         try {
             if (mode === 'edit' && eventData?.id) {
-                const response = await axios.patch(`/api/vault/pages/${eventData.id}`, {
-                    title: title.trim(),
-                    content: description.trim() || undefined,
-                    metadata,
-                });
-                let updatedEvent = response.data;
-                if (eventData?.id) {
-                    try {
-                        const fullRes = await axios.get(`/api/vault/pages/${eventData.id}`);
-                        updatedEvent = fullRes.data;
-                    } catch (_) {
-                        updatedEvent = {
-                            id: eventData.id,
-                            title: title.trim(),
-                            content: description.trim() || '',
-                            metadata,
-                        };
-                    }
-                }
-                
-                if (!silent) {
-                    toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
-                    onSaved?.(updatedEvent);
+                if (isInstanceOnly) {
+                    // 1. Afegeix EXDATE al master
+                    const instanceDate = eventData.metadata?.date;
+                    const occurrenceKey = buildOccurrenceKey(instanceDate, null, eventData.metadata?.all_day, eventData.metadata || {});
+                    
+                    const existingExdates = Array.isArray(eventData.metadata?.exdates)
+                        ? eventData.metadata.exdates
+                        : (typeof eventData.metadata?.exdates === 'string'
+                            ? eventData.metadata.exdates.split(',').filter(Boolean)
+                            : []);
+                    
+                    await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                        metadata: {
+                            exdates: [...new Set([...existingExdates, occurrenceKey])],
+                        }
+                    });
+
+                    // 2. Crea nova cita única
+                    const newMetadata = { ...metadata, rrule: null, exdates: [] };
+                    const response = await axios.post('/api/vault/pages', {
+                        title: title.trim(),
+                        content: description.trim() || '',
+                        metadata: newMetadata,
+                    });
+                    onSaved?.(response.data);
                     onClose?.();
+                    toast.success(t('calendar.instance_updated'));
+                } else if (isFollowing) {
+                    // 1. Truncar la rrule del mestre antic
+                    const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
+                    await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                        metadata: { rrule: newRruleOldMaster }
+                    });
+
+                    // 2. Crear un nou mestre que comenci en la nova data
+                    const newMetadata = {
+                        ...(eventData.metadata || {}),
+                        ...metadata,
+                        exdates: [],
+                    };
+                    delete newMetadata.id;
+
+                    const response = await axios.post('/api/vault/pages', {
+                        title: title.trim(),
+                        content: description.trim() || '',
+                        metadata: newMetadata,
+                    });
+                    onSaved?.(response.data);
+                    onClose?.();
+                    toast.success(t('calendar.series_split_updated'));
                 } else {
-                    // Guardado silencioso - actualizar estado local sin cerrar
-                    onSaved?.(updatedEvent);
+                    // Patch normal (o tota la sèrie)
+                    const response = await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                        title: title.trim(),
+                        content: description.trim() || undefined,
+                        metadata,
+                    });
+                    
+                    if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
+                    onSaved?.(response.data);
+                    if (!silent) onClose?.();
                 }
-                lastSavedData.current = snapshot || JSON.stringify({
-                    title, allDay, startDate, endDate, startTime, endTime,
-                    calendarId, location, reminder, recurrence, selectedDays,
-                    endType, endCount, untilDate, description
-                });
             } else {
+                // Create logic
                 const response = await axios.post('/api/vault/pages', {
                     title: title.trim(),
                     content: description.trim() || '',
                     metadata,
                 });
-                let createdEvent = response.data;
-                if (response.data?.id) {
-                    try {
-                        const fullRes = await axios.get(`/api/vault/pages/${response.data.id}`);
-                        createdEvent = fullRes.data;
-                    } catch (_) {
-                        createdEvent = {
-                            id: response.data.id,
-                            title: response.data.title || title.trim(),
-                            content: description.trim() || '',
-                            metadata,
-                        };
-                    }
-                }
                 if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
-                onSaved?.(createdEvent);
+                onSaved?.(response.data);
                 if (!silent) onClose?.();
-                lastSavedData.current = snapshot || JSON.stringify({
-                    title, allDay, startDate, endDate, startTime, endTime,
-                    calendarId, location, reminder, recurrence, selectedDays,
-                    endType, endCount, untilDate, description
-                });
             }
+            
+            lastSavedData.current = snapshot || JSON.stringify({
+                title, allDay, startDate, endDate, startTime, endTime,
+                calendarId, location, reminder, recurrence, selectedDays,
+                endType, endCount, untilDate, description
+            });
         } catch (err) {
             console.error('Error desant event:', err);
-            toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
+            setSaveError(true);
+            if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
+            if (silent && snapshot) lastSavedData.current = snapshot;
         } finally {
             setSaving(false);
+            setIsRecurrenceModifyOpen(false);
         }
     };
 
-    const handleDelete = async () => {
+    const handleDelete = async (isSeries = false, isInstanceOnly = false, isFollowing = false) => {
         if (!eventData?.id) return;
 
-        // Validació addicional d'origen abans de cridar a l'API
-        const isGoogleEvent = eventData?.metadata?.source === 'google' || (eventData?.id && eventData.id.length > 20 && !eventData.id.includes('-'));
-        if (isGoogleEvent) {
-            toast.error(t('calendar.external_event_delete_warning', 'Les cites externes s\'han d\'eliminar des de la plataforma d\'origen.'));
+        // Si és recurrent i no hem triat, obrim el modal
+        const isRecurrent = !!(eventData.metadata?.rrule || eventData.metadata?.recurrence);
+        if (isRecurrent && !isSeries && !isInstanceOnly && !isFollowing) {
+            setIsRecurrenceDeleteOpen(true);
             return;
         }
 
         setDeleting(true);
         try {
-            await axios.delete(`/api/vault/pages/${eventData.id}`);
-            toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
+            if (isInstanceOnly) {
+                // Lògica d'esborrat d'instància
+                const occurrenceKey = buildOccurrenceKey(
+                    eventData.metadata?.date,
+                    null,
+                    eventData.metadata?.all_day,
+                    eventData.metadata || {}
+                );
+
+                const existingExdates = Array.isArray(eventData.metadata?.exdates)
+                    ? eventData.metadata.exdates
+                    : (typeof eventData.metadata?.exdates === 'string'
+                        ? eventData.metadata.exdates.split(',').filter(Boolean)
+                        : []);
+
+                await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    metadata: {
+                        exdates: [...new Set([...existingExdates, occurrenceKey])],
+                    }
+                });
+                toast.success(t('calendar.instance_deleted'));
+            } else if (isFollowing) {
+                // Split: Truncar la rrule del mestre perquè acabi abans d'avui
+                const newRrule = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
+                await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    metadata: { rrule: newRrule }
+                });
+                toast.success(t('calendar.following_deleted', 'Sèrie truncada des d\'avui.'));
+            } else {
+                await axios.delete(`/api/vault/pages/${eventData.id}`);
+                toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
+            }
             onSaved?.();
             onClose?.();
         } catch (err) {
@@ -537,6 +668,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
             toast.error(`${t('calendar.event_delete_error', 'Error eliminant la cita.')} ${errorMsg}`);
         } finally {
             setDeleting(false);
+            setIsRecurrenceDeleteOpen(false);
         }
     };
 
@@ -556,19 +688,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                         {mode === 'create' ? t('calendar.new_event', 'Nova cita') : t('calendar.edit_event', 'Editar cita')}
                     </span>
                 </div>
-                <div className="flex items-center gap-1">
-                    {mode === 'edit' && eventData?.id && (
-                        <button 
-                            type="button"
-                            onClick={() => setIsDeleteConfirmOpen(true)}
-                            disabled={deleting}
-                            className="text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-all"
-                            title={t('calendar.delete', 'Eliminar')}
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    )}
-                </div>
+                <div className="flex items-center gap-1" />
             </div>
 
             {/* Form */}
@@ -684,6 +804,118 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
+                </div>
+
+                {/* Convidats */}
+                <div className="space-y-1.5">
+                    <label className={labelClass}>
+                        <Users size={10} />
+                        {t('calendar.attendees', 'Convidats')}
+                    </label>
+
+                    {isViewMode ? (
+                        /* ── Visualització (events externs) ── */
+                        <div className="space-y-1">
+                            {attendees.length === 0 ? (
+                                <p className="text-[11px] text-[var(--text-tertiary)] italic px-0.5">Sense convidats</p>
+                            ) : (
+                                <>
+                                    {attendees.map((att, i) => {
+                                        const meta = RSVP_META[att.rsvp] || RSVP_META.needsAction;
+                                        return (
+                                            <div key={i} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)]">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dot}`} />
+                                                    <div className="min-w-0">
+                                                        <div className="text-[11px] font-semibold text-[var(--text-primary)] truncate">{att.name || att.email}</div>
+                                                        {att.name && <div className="text-[10px] text-[var(--text-tertiary)] truncate">{att.email}</div>}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                    {att.organizer && <span className="text-[9px] bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-bold">org</span>}
+                                                    <span className="text-[9px] text-[var(--text-tertiary)]">{meta.label}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Botons RSVP si l'usuari és convidat */}
+                                    {attendees.some(a => a.self) && (() => {
+                                        const self = attendees.find(a => a.self);
+                                        return (
+                                            <div className="flex gap-1 mt-1.5">
+                                                {['accepted', 'tentative', 'declined'].map(rv => {
+                                                    const m = RSVP_META[rv];
+                                                    const isActive = self.rsvp === rv;
+                                                    return (
+                                                        <button
+                                                            key={rv}
+                                                            type="button"
+                                                            onClick={() => onRsvp?.(rv)}
+                                                            className={`flex-1 py-1 text-[10px] font-bold rounded border transition-colors ${isActive ? m.activeCls : m.btn}`}
+                                                        >
+                                                            {rv === 'accepted' ? '✓ Acceptar' : rv === 'tentative' ? '? Potser' : '✗ Rebutjar'}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
+                                </>
+                            )}
+                        </div>
+                    ) : (
+                        /* ── Edició / Creació ── */
+                        <div className="space-y-1.5">
+                            {/* Chips d'attendees existents */}
+                            {attendees.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                    {attendees.map((att, i) => (
+                                        <div key={i} className="flex items-center gap-1 pl-2 pr-1 py-0.5 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/25 rounded-full">
+                                            <span className="text-[11px] text-[var(--gnosi-primary)] font-medium truncate max-w-[110px]" title={att.email}>
+                                                {att.name || att.email}
+                                            </span>
+                                            <button type="button" onClick={() => removeAttendee(att.email)}
+                                                className="text-[var(--gnosi-primary)]/60 hover:text-red-500 transition-colors flex-shrink-0">
+                                                <X size={10} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Input + autocomplete */}
+                            <div className="relative">
+                                <div className="flex gap-1">
+                                    <input
+                                        type="text"
+                                        value={attendeeInput}
+                                        onChange={e => handleAttendeeInputChange(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAttendeeFromInput(); } if (e.key === 'Escape') setAttendeeSuggestions([]); }}
+                                        placeholder="Afegir per email o nom..."
+                                        className={`${inputClass} flex-1`}
+                                    />
+                                    <button type="button" onClick={addAttendeeFromInput}
+                                        disabled={!attendeeInput.includes('@')}
+                                        className="px-2 py-1 bg-[var(--gnosi-primary)]/10 hover:bg-[var(--gnosi-primary)]/20 text-[var(--gnosi-primary)] rounded-lg border border-[var(--gnosi-primary)]/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                        <UserPlus size={13} />
+                                    </button>
+                                </div>
+
+                                {attendeeSuggestions.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 z-50 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl mt-0.5 overflow-hidden">
+                                        {attendeeSuggestions.map((s, i) => (
+                                            <button key={i} type="button" onMouseDown={e => { e.preventDefault(); addAttendee(s); }}
+                                                className="w-full text-left px-3 py-1.5 hover:bg-[var(--bg-secondary)] transition-colors border-b border-[var(--border-primary)] last:border-none">
+                                                <div className="text-[12px] font-semibold text-[var(--text-primary)] truncate">{s.name || s.email}</div>
+                                                {s.name && <div className="text-[10px] text-[var(--text-tertiary)] truncate">{s.email}</div>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Repetició */}
@@ -820,24 +1052,60 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved }
                 </div>
             </form>
 
-            {/* Footer Status Indicators */}
-            <div className="px-4 py-2 border-t border-[var(--border-primary)] bg-[var(--bg-tertiary)] flex items-center justify-between">
-                <div className="text-[10px] text-[var(--text-tertiary)] italic">
-                    {saving ? t('calendar.saving', 'Desant...') : (deleting ? t('calendar.deleting', 'Eliminant...') : t('calendar.saved', 'Guardat'))}
+            {/* Footer */}
+            <div className="px-4 py-2 border-t border-[var(--border-primary)] bg-[var(--bg-tertiary)] flex items-center justify-between gap-2">
+                <div className={`text-[10px] italic ${saveError ? 'text-red-500' : 'text-[var(--text-tertiary)]'}`}>
+                    {saving ? t('calendar.saving', 'Desant...') : deleting ? t('calendar.deleting', 'Eliminant...') : saveError ? '⚠ Error desant' : t('calendar.saved', 'Guardat')}
                 </div>
-                <div className="flex gap-2">
-                    <span className="text-[10px] text-slate-300 font-mono">ESC: Deselecciona</span>
+                <div className="flex gap-1.5">
+                    {mode === 'edit' && eventData?.id && (
+                        <button
+                            type="button"
+                            onClick={() => setIsDeleteConfirmOpen(true)}
+                            disabled={deleting || saving}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-red-500/40 text-red-500 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                        >
+                            <Trash2 size={12} />
+                            {t('common.delete', 'Eliminar')}
+                        </button>
+                    )}
+                    <button
+                        type="submit"
+                        onClick={(e) => handleSubmit(e, false)}
+                        disabled={saving || deleting}
+                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg bg-[var(--gnosi-primary)] text-white hover:bg-[var(--gnosi-primary-hover)] disabled:opacity-50 transition-all shadow-sm"
+                    >
+                        {saving ? t('calendar.saving', 'Desant...') : t('common.save', 'Guardar')}
+                    </button>
                 </div>
             </div>
 
             <ConfirmModal 
                 isOpen={isDeleteConfirmOpen}
                 onClose={() => setIsDeleteConfirmOpen(false)}
-                onConfirm={handleDelete}
+                onConfirm={() => handleDelete(false, false)} // Per defecte esborra tot si es confirma aquí (si no és recurrent)
                 title={t('calendar.confirm_delete_event_title', 'Eliminar cita')}
                 message={t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?')}
                 confirmText={t('common.delete', 'Eliminar')}
                 isDestructive={true}
+            />
+
+            <RecurrenceChoiceModal 
+                isOpen={isRecurrenceDeleteOpen}
+                onClose={() => setIsRecurrenceDeleteOpen(false)}
+                onConfirm={handleDelete}
+                title={t('calendar.recurrent_delete_title', 'Esborrar cita recurrent')}
+                message={t('calendar.recurrent_delete_msg', 'Aquesta és una cita repetitiva. Què vols eliminar?')}
+                actionType="delete"
+            />
+
+            <RecurrenceChoiceModal 
+                isOpen={isRecurrenceModifyOpen}
+                onClose={() => setIsRecurrenceModifyOpen(false)}
+                onConfirm={(isSeries, isInstanceOnly, isFollowing) => handleSubmit(null, false, null, isSeries, isInstanceOnly, isFollowing)}
+                title={t('calendar.recurrent_modify_title', 'Modificar cita recurrent')}
+                message={t('calendar.recurrent_modify_msg', 'Aquesta és una cita repetitiva. Com vols aplicar els canvis?')}
+                actionType="modify"
             />
         </div>
     );

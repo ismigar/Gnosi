@@ -5,9 +5,15 @@ from backend.services.contacts_service import ContactsService
 from backend.services.contacts_sync_engine import ContactsSyncEngine
 from typing import Optional, List
 import json
+import asyncio
+import functools
+import time
 from sqlalchemy.orm import Session
 
 router = APIRouter()
+
+_contacts_cache: dict = {}
+_CONTACTS_CACHE_TTL = 60
 log = get_logger(__name__)
 
 def background_sync_contact(db: Session, workspace_id: str, source: str):
@@ -70,9 +76,19 @@ async def list_contacts(
     db: Session = Depends(get_mgmt_session)
 ):
     try:
-        service = ContactsService(db, x_workspace_id)
-        contacts = service.list_contacts(type, search, source)
-        return [contacts_response(c) for c in contacts]
+        cache_key = f"{x_workspace_id}:{type}:{search}:{source}"
+        cached = _contacts_cache.get(cache_key)
+        if cached and time.time() - cached["ts"] < _CONTACTS_CACHE_TTL:
+            return cached["data"]
+
+        def _fetch():
+            service = ContactsService(db, x_workspace_id)
+            return service.list_contacts(type, search, source)
+
+        contacts = await asyncio.get_event_loop().run_in_executor(None, _fetch)
+        result = [contacts_response(c) for c in contacts]
+        _contacts_cache[cache_key] = {"ts": time.time(), "data": result}
+        return result
     except Exception as e:
         log.error(f"Error listing contacts: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -108,11 +124,11 @@ async def create_contact(
 
         service = ContactsService(db, x_workspace_id)
         contact = service.create_contact(data)
-        
-        # Disparar sincronització si cal
+        _contacts_cache.clear()
+
         if contact.source and contact.source != "local":
             background_tasks.add_task(background_sync_contact, db, x_workspace_id, contact.source)
-            
+
         return contacts_response(contact)
     except HTTPException:
         raise
@@ -133,11 +149,11 @@ async def update_contact(
         contact = service.update_contact(contact_id, data)
         if not contact:
             raise HTTPException(status_code=404, detail="Contact not found")
-            
-        # Disparar sincronització si cal
+        _contacts_cache.clear()
+
         if contact.source and contact.source != "local":
             background_tasks.add_task(background_sync_contact, db, x_workspace_id, contact.source)
-            
+
         return contacts_response(contact)
     except HTTPException:
         raise
@@ -165,6 +181,7 @@ async def delete_contact(
         success = service.delete_contact(contact_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete contact")
+        _contacts_cache.clear()
 
         return {"status": "ok", "message": "Contact deleted"}
     except HTTPException:

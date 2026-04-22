@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 import os
 import logging
+os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
 from google_auth_oauthlib.flow import Flow
 from backend.services.integration_manager import integration_manager
-from backend.services.vault_calendar_sync_service import calendar_sync_service
 from pathlib import Path
 
 router = APIRouter(prefix="/api/auth/google", tags=["auth"])
@@ -16,7 +16,7 @@ pending_auths = {}
 # Scopes needed for Calendar and Gmail
 SCOPES = [
     'https://www.googleapis.com/auth/calendar',
-    'https://www.googleapis.com/auth/gmail.modify',
+    'https://mail.google.com/',
     'https://www.googleapis.com/auth/contacts',
     'openid',
     'https://www.googleapis.com/auth/userinfo.email'
@@ -81,7 +81,7 @@ async def login(type: str = None):
     return RedirectResponse(url=authorization_url)
 
 @router.get("/callback")
-async def callback(request: Request, background_tasks: BackgroundTasks):
+async def callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     
@@ -114,28 +114,36 @@ async def callback(request: Request, background_tasks: BackgroundTasks):
         service = build('oauth2', 'v2', credentials=credentials)
         user_info = service.userinfo().get().execute()
         email = user_info.get("email")
+        log.info(f"Google OAuth successful for email: {email}")
         
         # Format to be recognized by the frontend in general lists of emails and calendars
         account_data = {
             "id": f"google_{email}",
             "email": email,
+            "name": user_info.get('name', email),
+            "picture": user_info.get('picture'),
             "provider": "google",
             "auth_type": "oauth2",
             "token": credentials.token,
             "refresh_token": credentials.refresh_token,
             "client_id": credentials.client_id,
             "client_secret": credentials.client_secret,
-            "token_uri": credentials.token_uri
+            "token_uri": credentials.token_uri,
+            "token_status": "connected",
+            "refresh_token_status": "connected"
         }
         
         # We save it as a calendar and email integration if applicable
-        # The integration_manager.update handles merging/adding by ID
-        integration_manager.update("emails", [account_data])
-        integration_manager.update("calendars", [account_data])
-        integration_manager.update("contacts", [account_data])
+        # We use bulk_update to ensure everything is saved at once and use consistent keys
+        log.info(f"Saving integration data for {email}...")
+        integration_manager.bulk_update({
+            "mail_accounts": [account_data],
+            "calendars": [account_data],
+            "contacts": [account_data]
+        })
+        log.info(f"Integration data saved for {email}. Redirecting to frontend.")
         
-        # Trigger immediate sync in background
-        background_tasks.add_task(calendar_sync_service.sync_all_calendars)
+        # Arquitectura híbrida: no cal sync al vault, es consulta l'API directament
         
         # Redirect back to the frontend with context
         # Tab management: activeTab in frontend should react to this

@@ -85,7 +85,7 @@ def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str,
             ("groq", "llama-3.1-8b-instant"),
             ("openai", "gpt-4o-mini"),
             ("anthropic", "claude-3-5-haiku-latest"),
-            ("ollama", "qwen2.5"),
+            ("ollama", "llama3.2:latest"),
         ]
     elif is_complex or {"code", "codi", "codigo", "programa", "programar", "bug", "error"} & tokens:
         preferred = [
@@ -157,7 +157,7 @@ def get_llm(
             print(f"DEBUG: Instantiating ChatOllama with model {model or 'llama3.2'}")
             return ChatOllama(
                 model=model or "llama3.2",
-                base_url=base_url or "http://localhost:11434",
+                base_url=base_url or "http://host.docker.internal:11434",
                 timeout=60,
             )
 
@@ -238,7 +238,8 @@ def _get_hybrid_llm():
         ("openai", "gpt-4o-mini"),
         ("anthropic", "claude-3-5-haiku-latest"),
         ("openrouter", "openai/gpt-4o-mini"),
-        ("groq", "llama-3.1-8b-instant"), # Smaller model might have higher limits
+        ("groq", "llama-3.1-8b-instant"),
+        ("ollama", "llama3.2:latest"),
     ]
     
     from backend.security.ai_credentials import resolve_provider_api_key

@@ -185,3 +185,54 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
             f"Error actualitzant Google Calendar event {event_uid} per a {email}: {e}"
         )
         return False
+
+
+def respond_to_invitation(email: str, event_id: str, rsvp: str, calendar_id: str = "primary") -> bool:
+    """Respon a una invitació de Google Calendar (accepted | declined | tentative | needsAction)."""
+    service = get_google_calendar_service(email)
+    if not service:
+        return False
+    try:
+        event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+        attendees = event.get("attendees", [])
+        updated = False
+        for a in attendees:
+            if a.get("self") or a.get("email") == email:
+                a["responseStatus"] = rsvp
+                updated = True
+                break
+        if not updated:
+            attendees.append({"email": email, "responseStatus": rsvp, "self": True})
+        service.events().patch(
+            calendarId=calendar_id,
+            eventId=event_id,
+            body={"attendees": attendees},
+        ).execute()
+        return True
+    except Exception as e:
+        log.error(f"respond_to_invitation {event_id} for {email}: {e}")
+        return False
+
+
+def patch_event_attendees(email: str, event_id: str, new_attendees: list, calendar_id: str = "primary") -> bool:
+    """Afegeix attendees a un event de Google Calendar. Google envia les notificacions automàticament."""
+    service = get_google_calendar_service(email)
+    if not service:
+        return False
+    try:
+        event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+        existing_emails = {a["email"] for a in event.get("attendees", [])}
+        combined = list(event.get("attendees", []))
+        for att in new_attendees:
+            if att.get("email") and att["email"] not in existing_emails:
+                combined.append({"email": att["email"], "displayName": att.get("name", "")})
+        service.events().patch(
+            calendarId=calendar_id,
+            eventId=event_id,
+            body={"attendees": combined},
+            sendUpdates="all",
+        ).execute()
+        return True
+    except Exception as e:
+        log.error(f"patch_event_attendees {event_id} for {email}: {e}")
+        return False

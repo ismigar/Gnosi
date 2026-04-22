@@ -66,8 +66,12 @@ class SchedulerManager:
             "default_interval": 300,  # 5 hours
         },
         "fetch_calendar": {
-            "description": "Sync Google Calendar to Vault",
+            "description": "Verificació de tokens de calendari",
             "default_interval": 60,  # 1 hour
+        },
+        "fetch_mail": {
+            "description": "Sync correu (Gmail, IMAP)",
+            "default_interval": 30,  # 30 minutes
         },
         "fetch_contacts": {
             "description": "Sync comptes (Google, CardDAV)",
@@ -365,12 +369,41 @@ class SchedulerManager:
             return self._task_suggest_connections()
         elif name == "fetch_calendar":
             return self._task_fetch_calendar()
+        elif name == "fetch_mail":
+            return self._task_fetch_mail()
         elif name == "fetch_contacts":
             return self._task_fetch_contacts()
         elif name == "update_memories":
             return self._task_update_memories()
 
         return {"error": f"Unknown task: {name}"}
+
+    def _task_fetch_mail(self) -> Dict[str, Any]:
+        """Sync mail from all configured accounts (Gmail + IMAP)."""
+        from backend.services.integration_manager import integration_manager
+        from backend.services.vault_mail_sync_service import sync_service
+
+        integrations = integration_manager.get_all_safe()
+        accounts = integrations.get("emails", [])
+        total = 0
+        details = []
+        for acc in accounts:
+            email = acc.get("email") or acc.get("username")
+            if not email:
+                continue
+            try:
+                provider = acc.get("provider", "")
+                auth_type = acc.get("auth_type", "")
+                if provider == "google" or auth_type == "oauth2":
+                    count = sync_service.sync_emails(email, limit=50)
+                else:
+                    from backend.services.imap_mail_sync_service import imap_sync_service
+                    count = imap_sync_service.sync_account(email, limit=50)
+                total += count or 0
+                details.append({"account": email, "success": True, "count": count or 0})
+            except Exception as ex:
+                details.append({"account": email, "success": False, "error": str(ex)})
+        return {"new_emails": total, "details": details}
 
     def _task_fetch_contacts(self) -> Dict[str, Any]:
         """Fetch Contacts from all configured accounts."""
@@ -542,11 +575,8 @@ class SchedulerManager:
 
 
     def _task_fetch_calendar(self) -> Dict[str, Any]:
-        """Fetch Google Calendar events and store in Vault."""
-        from backend.services.vault_calendar_sync_service import calendar_sync_service
-
-        count = calendar_sync_service.sync_all_calendars()
-        return {"new_events": int(count or 0)}
+        """No-op: arquitectura híbrida consulta l'API directament, sense sync al vault."""
+        return {"new_events": 0, "message": "hybrid mode — no vault sync"}
 
     def _task_update_analytics(self) -> Dict[str, Any]:
         """Update cached analytics."""

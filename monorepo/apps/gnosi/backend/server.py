@@ -37,9 +37,10 @@ from backend.api import (
     vault_routes, vault_graph_routes, calendar_routes, mail_routes,
     reader, google_auth_routes, integrations_routes, zotero_routes,
     config_routes, env_routes, credentials_routes, ai_routes,
-    workspace_routes, contacts_routes
+    workspace_routes, contacts_routes, identity_routes
 )
 from backend.scheduler.manager import scheduler_manager
+from backend.models import * # Register all models for SQLAlchemy
 
 log = logging.getLogger(__name__)
 
@@ -165,6 +166,7 @@ app.include_router(config_routes.router, prefix="/api", tags=["Config"])
 app.include_router(env_routes.router, prefix="/api", tags=["Env"])
 app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])
 app.include_router(ai_routes.router, prefix="/api", tags=["AI Settings"])
+app.include_router(identity_routes.router, tags=["Identity"])
 
 @app.get("/api/health")
 async def health_check():

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Request
 import logging
 from backend.services.integration_manager import integration_manager
 import imaplib
@@ -6,6 +6,7 @@ import smtplib
 from email.parser import BytesParser
 from email import policy
 import socket
+from typing import List, Any
 
 router = APIRouter(prefix="/api/integrations", tags=["integrations"])
 log = logging.getLogger(__name__)
@@ -111,8 +112,6 @@ async def test_calendar_connection(payload: dict = Body(...)):
         from requests.auth import HTTPBasicAuth
 
         try:
-            # CalDAV usually responds to PROPFIND on the URL or just standard auth GET
-            # We use a simple GET request with Basic Auth which is usually enough to verify credentials
             response = requests.request(
                 "PROPFIND",
                 url,
@@ -121,10 +120,9 @@ async def test_calendar_connection(payload: dict = Body(...)):
                 headers={"Depth": "0"},
             )
 
-            if response.status_code in (200, 207, 405): # 405 Method Not Allowed implies successful auth but wrong method, which means credentials work
+            if response.status_code in (200, 207, 405):
                 return {"success": True}
             else:
-                # Fallback to GET just in case PROPFIND fails
                 response = requests.get(url, auth=HTTPBasicAuth(username, password), timeout=10)
                 if response.status_code in (200, 207):
                     return {"success": True}
@@ -171,14 +169,10 @@ async def update_calendar_aliases(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-from typing import List, Any
-
-
 @router.put("/calendar_selection")
 async def update_calendar_selection(payload: Any = Body(...)):
     """Saves the list of visible/selected calendar sources."""
     try:
-        # Accept both pure list and {selection: [...]} for backward/forward compatibility
         data = payload
         if isinstance(payload, dict) and "selection" in payload:
             data = payload["selection"]
@@ -187,6 +181,39 @@ async def update_calendar_selection(payload: Any = Body(...)):
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar selection: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/default_calendar")
+async def update_default_calendar(payload: dict = Body(...)):
+    """Desa el calendari predeterminat per a noves cites."""
+    try:
+        integration_manager.update("default_calendar", payload.get("source", ""))
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating default calendar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/default_mail")
+async def update_default_mail(payload: dict = Body(...)):
+    """Desa el compte de correu predeterminat."""
+    try:
+        integration_manager.update("default_mail", payload.get("email", ""))
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating default mail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/default_contacts")
+async def update_default_contacts(payload: dict = Body(...)):
+    """Desa el compte de contactes predeterminat."""
+    try:
+        integration_manager.update("default_contacts", payload.get("email", ""))
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating default contacts: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
