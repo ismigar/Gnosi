@@ -41,8 +41,14 @@ export default function ContactsPage() {
     const loadIntegrations = async () => {
         try {
             const data = await apiGet('/api/integrations');
-            if (data && data.contacts) {
-                setContactAccounts(data.contacts);
+            if (data) {
+                setContactAccounts(data.contacts || []);
+                const defaultEmail = data.default_contacts;
+                if (defaultEmail) {
+                    const allAccounts = [...(data.contacts || []), ...(data.mail_accounts || []), ...(data.emails || [])];
+                    const acc = allAccounts.find(a => (a.email || a.username) === defaultEmail);
+                    if (acc) setDefaultContactAccount(acc);
+                }
             }
         } catch (error) {
             console.error('Error loading integrations:', error);
@@ -114,33 +120,16 @@ export default function ContactsPage() {
             <AppHeader icon={Users} title={t('contacts.title', 'Contactes')}>
                 <button
                     onClick={handleCreateNew}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        height: '28px',
-                        padding: '0 12px',
-                        background: 'var(--gnosi-blue)',
-                        color: 'white',
-                        borderRadius: '6px',
-                        border: 'none',
-                        fontWeight: '700',
-                        fontSize: '11px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)'
-                    }}
+                    className="flex items-center gap-1.5 h-7 px-3 bg-[var(--gnosi-blue)] hover:opacity-90 text-white rounded-md border-none font-bold text-[11px] uppercase tracking-tight cursor-pointer transition-all shadow-sm"
                 >
                     <Plus size={14} />
                     {t('contacts.new_contact', 'Nou Contacte')}
                 </button>
             </AppHeader>
 
-            <div className="gnosi-page__content" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', width: '380px', borderRight: '1px solid var(--border-color)' }}>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div className="flex-1 flex overflow-hidden">
+                <div className="flex flex-col w-[380px] border-r border-[var(--border-primary)]">
+                    <div className="flex-1 overflow-hidden">
                         <ContactList
                             contacts={contacts}
                             selectedId={selectedContact?.id}
@@ -152,7 +141,7 @@ export default function ContactsPage() {
                     </div>
                 </div>
 
-                <div className="gnosi-page__detail" style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-primary)' }}>
+                <div className="flex-1 overflow-y-auto bg-[var(--bg-primary)]">
                     {isEditing ? (
                         <ContactForm
                             contact={isCreating ? null : selectedContact}
@@ -169,12 +158,12 @@ export default function ContactsPage() {
                             onDelete={handleDelete}
                         />
                     ) : (
-                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', textAlign: 'center' }}>
-                            <div style={{ opacity: 0.5 }}>
-                                <div style={{ marginBottom: '16px', display: 'inline-flex', padding: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--border-color)' }}>
-                                    <Users size={48} strokeWidth={1} />
+                        <div className="h-full flex items-center justify-center p-10 text-center">
+                            <div className="opacity-50">
+                                <div className="mb-4 inline-flex p-6 rounded-full border border-dashed border-[var(--border-primary)]">
+                                    <Users size={48} strokeWidth={1} className="text-[var(--text-secondary)]" />
                                 </div>
-                                <p style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>
+                                <p className="text-base text-[var(--text-secondary)]">
                                     {t('contacts.select_hint', 'Selecciona un contacte per veure\'n els detalls')}
                                 </p>
                             </div>

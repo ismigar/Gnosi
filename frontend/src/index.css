@@ -65,6 +65,11 @@
   --status-warning: #f59e0b;
   --status-info: #3b82f6;
   
+  /* Mail Components */
+  --reply-box-bg: #fbfcff;
+  --mail-row-selected: rgba(59, 130, 246, 0.05);
+  --mail-row-hover: rgba(249, 250, 251, 0.8);
+
   /* Brand Colors */
   --gnosi-primary: #3b82f6;
   --gnosi-primary-rgb: 59, 130, 246;
@@ -125,6 +130,11 @@
   --status-error: #dc2626;
   --status-warning: #d97706;
   --status-info: #2563eb;
+
+  /* Mail Components Dark */
+  --reply-box-bg: #1c1c1f;
+  --mail-row-selected: rgba(59, 130, 246, 0.08);
+  --mail-row-hover: rgba(24, 24, 27, 0.8);
 
   /* Brand Colors Dark Overrides (if any) */
   --gnosi-primary: #3b82f6;
@@ -195,6 +205,15 @@ body {
     color: var(--settings-sidebar-active-text) !important;
     opacity: 1;
     font-weight: 600;
+}
+
+/* Utility for hiding scrollbars */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom Scrollbar */
@@ -305,6 +324,11 @@ body {
 .app-sidebar__item--active {
   background-color: var(--sidebar-item-active);
   color: var(--sidebar-item-active-text);
+}
+
+.app-sidebar__item:focus,
+.app-sidebar__item:focus-visible {
+  outline: none;
 }
 
 .app-sidebar__tooltip {

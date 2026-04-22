@@ -130,27 +130,29 @@ class IntegrationManager:
             if not isinstance(old_list, list):
                 old_list = []
 
-            old_dict = {
+            # Create a map of existing items by ID
+            merged_dict = {
                 item.get("id"): item
                 for item in old_list
                 if isinstance(item, dict) and "id" in item
             }
 
-            new_list = []
+            # Update with new items
             for item in data:
                 if not isinstance(item, dict):
                     continue
                 item_id = item.get("id")
                 if not item_id:
                     import uuid
-                    item["id"] = str(uuid.uuid4())
-                    new_list.append(item)
-                elif item_id in old_dict:
-                    new_list.append(self._merge_dict(old_dict[item_id], item))
+                    item_id = str(uuid.uuid4())
+                    item["id"] = item_id
+                
+                if item_id in merged_dict:
+                    merged_dict[item_id] = self._merge_dict(merged_dict[item_id], item)
                 else:
-                    new_list.append(item)
+                    merged_dict[item_id] = item
 
-            config[key] = new_list
+            config[key] = list(merged_dict.values())
         else:
             old_val = config.get(key)
             if isinstance(data, dict) and (isinstance(old_val, dict) or old_val is None):

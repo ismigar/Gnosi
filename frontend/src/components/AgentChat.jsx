@@ -614,14 +614,15 @@ const AgentChat = () => {
         if (iconStr.startsWith('lucide:')) {
             const [_, name, colorName] = iconStr.split(':');
             const IconComp = LucideIcons[name];
-            // Simple color mapping or just inherit
-            return IconComp ? <IconComp size={size} /> : <Bot size={size} />;
+            // Support 'white', 'gray', or any color name. Fallback to white for Brain if no color.
+            const color = colorName || (name === 'Brain' ? 'white' : 'currentColor');
+            return IconComp ? <IconComp size={size} color={color} /> : <Bot size={size} />;
         }
         return <span style={{ fontSize: `${size}px` }}>{iconStr}</span>;
     };
 
     const agentName = agentConfig?.name || 'Gnosi Copilot';
-    const agentIcon = agentConfig?.icon || '🤖';
+    const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
     const sortedSessions = [...chatSessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
     if (!isOpen) {

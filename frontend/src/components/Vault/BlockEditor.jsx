@@ -1096,6 +1096,14 @@ export function EditorInner({
         schema,
         initialContent: blocks || undefined,
         dropCursor: multiColumnDropCursor,
+        uploadFile: async (file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/vault/assets/upload', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error('Upload failed');
+            const data = await res.json();
+            return data.url;
+        },
     });
 
     const initializedNoteRef = useRef('');
@@ -1751,9 +1759,32 @@ export function EditorInner({
 
                 .bn-toggle summary::-webkit-details-marker { display: none; }
             `}</style>
-            <BlockNoteView 
-                editor={editor} 
-                slashMenu={false} 
+            <div
+                onDrop={async (e) => {
+                    if (!e.dataTransfer.types.includes('Files')) return;
+                    const pdfs = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
+                    if (!pdfs.length) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    for (const file of pdfs) {
+                        try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const res = await fetch('/api/vault/assets/upload', { method: 'POST', body: formData });
+                            const data = await res.json();
+                            const pos = editor.getTextCursorPosition();
+                            editor.insertBlocks(
+                                [{ type: 'paragraph', content: `📎 [${file.name}](${data.url})` }],
+                                pos.block, 'after'
+                            );
+                        } catch { /* silent */ }
+                    }
+                }}
+                onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
+            >
+            <BlockNoteView
+                editor={editor}
+                slashMenu={false}
                 theme={effectiveTheme}
             >
                 <SuggestionMenuController
@@ -2089,6 +2120,7 @@ export function EditorInner({
                     }}
                 />
             </BlockNoteView>
+            </div>
         </VaultEditorContext.Provider>
     );
 };

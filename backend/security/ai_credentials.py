@@ -51,7 +51,7 @@ PROVIDER_MODELS = {
     "novita": ["meta-llama/llama-3.1-70b-instruct", "meta-llama/llama-3.1-8b-instruct"],
     "siliconflow": ["deepseek-ai/DeepSeek-V3", "meta-llama/Llama-3.1-70B-Instruct"],
     "voyage": ["voyage-2", "voyage-large-2"],
-    "ollama": ["llama3.2", "qwen2.5", "mistral", "phi3"],
+    "ollama": ["llama3.2:latest", "mistral", "phi3"],
     "generic": ["custom-model-1", "custom-model-2"],
 }
 

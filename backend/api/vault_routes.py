@@ -1507,6 +1507,14 @@ def _read_frontmatter_partial(file_path: Path):
                         frontmatter_count += 1
                         if frontmatter_count == 2:
                             lines.append(line)
+                            # Read up to 60 more lines for body snippet (efficient partial read)
+                            for _ in range(60):
+                                try:
+                                    body_line = next(f, None)
+                                    if body_line is None: break
+                                    lines.append(body_line)
+                                except StopIteration:
+                                    break
                             break
                         frontmatter_started = True
                     
@@ -1544,7 +1552,7 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         if _is_dashworks_file_path(file_path):
             metadata, _ = _read_dashworks_file(file_path)
         else:
-            metadata, _ = _read_frontmatter_partial(file_path)
+            metadata, body = _read_frontmatter_partial(file_path)
             metadata = _process_metadata_paths(metadata)
             # Support Catalan 'data' as 'date' alias
             if "data" in metadata and "date" not in metadata:
@@ -1572,7 +1580,10 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         "title": title,
         "parent_id": metadata.get("parent_id"),
         "is_database": metadata.get("is_database", False),
-        "metadata": metadata,
+        "metadata": {
+            **metadata,
+            "description": metadata.get("description") or (body.strip()[:500] if body else None)
+        },
         "folder": rel_folder,
     }
 
@@ -1816,10 +1827,22 @@ def _get_pages_snapshot(
                 relevant_entries.append(entry)
         entries = relevant_entries
 
+    # Llista d'IDs amagats
+    try:
+        session = get_mgmt_session()
+        hidden_ids = {h[0] for h in session.query(HiddenEvent.event_id).all()}
+        session.close()
+    except Exception:
+        hidden_ids = set()
+
     for entry in entries:
         metadata = entry.get("metadata", {})
         
-        # 1. Resolve table context efficiently
+        # 1. Skip if hidden
+        if entry["id"] in hidden_ids:
+            continue
+            
+        # 2. Resolve table context efficiently
         resolved_table_id = _resolve_table_id_from_context(
             metadata, entry["folder"], folder_to_table, sorted_folders=sorted_folders
         )
@@ -2025,7 +2048,16 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
                 _recompute_cross_record_formulas_for_table, table_id, page_id
             )
         
-        # Clear cache to force re-scan for the sidebar
+        # Registra la nova pàgina al mapa ID→path immediatament (evita 404 a autosave)
+        try:
+            v_path = get_active_vault_path()
+            if v_path:
+                v_str = str(v_path)
+                with _page_index_lock:
+                    _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
+        except Exception:
+            pass
+        # Clear entries cache to force re-scan for the sidebar
         _clear_page_index_cache()
 
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
@@ -2083,6 +2115,19 @@ def find_page_path(page_id: str) -> Optional[Path]:
     dashworks_direct_path = get_p("DASHWORKS") / f"{page_id}.json" if get_p("DASHWORKS") else None
     if dashworks_direct_path and dashworks_direct_path.exists():
         return dashworks_direct_path
+
+    # 4. Full scan (cache fred o buit — costós però correcte)
+    if vault_root and vault_root.exists():
+        for md_file in vault_root.rglob("*.md"):
+            try:
+                raw = md_file.read_text(encoding="utf-8")
+                fm, _ = parse_frontmatter(raw, md_file)
+                if str(fm.get("id", "")) == page_id:
+                    with _page_index_lock:
+                        _page_id_to_path.setdefault(v_str, {})[page_id] = str(md_file)
+                    return md_file
+            except Exception:
+                continue
 
     return None
 
@@ -2469,6 +2514,21 @@ async def import_icon_from_url(request: IconUrlImportRequest):
     payload = b"".join(chunks)
     source_name = Path(urllib.parse.urlparse(url).path).name or "remote-icon"
     return _store_icon_bytes(payload, source_name, content_type)
+
+
+@router.post("/assets/upload")
+async def upload_asset(file: UploadFile = File(...)):
+    """Puja una imatge o PDF a Assets/Inline o Assets/Files i retorna la URL."""
+    is_image = _is_image_upload(file)
+    subdir = "Inline" if is_image else "Files"
+    target_dir = get_p("ASSETS") / subdir
+    try:
+        relative_path = _save_uploaded_file_to_assets(file, target_dir)
+    except Exception as e:
+        log.error(f"Error uploading asset: {e}")
+        raise HTTPException(status_code=500, detail="Could not save file")
+    url = f"/api/vault/assets/{relative_path[len('Assets/'):]}"
+    return {"url": url, "path": relative_path, "is_image": is_image}
 
 
 @router.get("/assets/{asset_path:path}")

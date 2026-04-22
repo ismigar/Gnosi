@@ -3,6 +3,9 @@ import json
 import base64
 from pathlib import Path
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from backend.config.app_config import load_params
@@ -164,57 +167,69 @@ def send_reply(
     body: str,
     to_recipients: str = None,
     cc_recipients: str = None,
+    bcc_recipients: str = None,
     subject: str = None,
+    attachments: list = None,
 ):
-    """Sends a reply or forward to an existing thread."""
+    """Sends a reply or forward to an existing thread, with optional attachments."""
     service = get_gmail_service(email)
     if not service:
         return False
 
     try:
-        # Get the latest message ID and references for proper threading
         thread = service.users().threads().get(userId="me", id=thread_id).execute()
         last_msg = thread["messages"][-1]
-
-        # Build the message
-        message = MIMEText(body)
-
-        # Headers for threading
-        message["In-Reply-To"] = last_msg["id"]
-        message["References"] = last_msg["id"]
-
-        # Find original headers
         headers = last_msg["payload"]["headers"]
         orig_subject = next(
             (h["value"] for h in headers if h["name"].lower() == "subject"), ""
         )
 
-        if to_recipients:
-            message["To"] = to_recipients
+        if attachments:
+            msg = MIMEMultipart("mixed")
         else:
-            # Automatic reply logic
+            content_type = "html" if body.strip().startswith("<") else "plain"
+            msg = MIMEMultipart("mixed")
+            msg.attach(MIMEText(body, content_type))
+
+        msg["In-Reply-To"] = last_msg["id"]
+        msg["References"] = last_msg["id"]
+
+        if to_recipients:
+            msg["To"] = to_recipients
+        else:
             original_to = next(
                 (h["value"] for h in headers if h["name"].lower() == "to"), email
             )
             original_from = next(
                 (h["value"] for h in headers if h["name"].lower() == "from"), ""
             )
-            message["To"] = original_from if original_from != email else original_to
+            msg["To"] = original_from if original_from != email else original_to
 
         if cc_recipients:
-            message["Cc"] = cc_recipients
+            msg["Cc"] = cc_recipients
 
-        if subject:
-            message["Subject"] = subject
-        else:
-            message["Subject"] = (
-                f"Re: {orig_subject}"
-                if not orig_subject.lower().startswith("re:")
-                else orig_subject
-            )
+        if bcc_recipients:
+            msg["Bcc"] = bcc_recipients
 
-        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        msg["Subject"] = subject if subject else (
+            f"Re: {orig_subject}"
+            if not orig_subject.lower().startswith("re:")
+            else orig_subject
+        )
 
+        if attachments:
+            content_type = "html" if body.strip().startswith("<") else "plain"
+            msg.attach(MIMEText(body, content_type))
+            for att in attachments:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(att["data"])
+                encoders.encode_base64(part)
+                filename = att.get("filename", "attachment")
+                part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+                part.add_header("Content-Type", att.get("content_type", "application/octet-stream"))
+                msg.attach(part)
+
+        raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         service.users().messages().send(
             userId="me", body={"raw": raw_message, "threadId": thread_id}
         ).execute()
@@ -225,39 +240,55 @@ def send_reply(
         return False
 
 
-def update_thread_labels(
-    email: str, thread_id: str, add_labels: list = None, remove_labels: list = None
-):
-    """Updates labels for a thread."""
+def update_labels(email: str, gmail_id: str, add_labels: list = None, remove_labels: list = None):
+    """Updates labels for a thread or message (tries thread first, falls back to message)."""
     service = get_gmail_service(email)
     if not service:
         return False
-
     body = {}
     if add_labels:
         body["addLabelIds"] = add_labels
     if remove_labels:
         body["removeLabelIds"] = remove_labels
-
     try:
-        service.users().threads().modify(userId="me", id=thread_id, body=body).execute()
+        service.users().threads().modify(userId="me", id=gmail_id, body=body).execute()
+        return True
+    except Exception:
+        pass
+    try:
+        service.users().messages().modify(userId="me", id=gmail_id, body=body).execute()
         return True
     except Exception as e:
-        log.error(f"Error updating labels for thread {thread_id}: {e}")
+        log.error(f"Error updating labels for {gmail_id}: {e}")
         return False
 
 
-def trash_thread(email: str, thread_id: str):
-    """Moves a thread to trash."""
+def update_thread_labels(
+    email: str, thread_id: str, add_labels: list = None, remove_labels: list = None
+):
+    return update_labels(email, thread_id, add_labels, remove_labels)
+
+
+def trash_gmail(email: str, gmail_id: str):
+    """Moves a thread or message to trash."""
     service = get_gmail_service(email)
     if not service:
         return False
     try:
-        service.users().threads().trash(userId="me", id=thread_id).execute()
+        service.users().threads().trash(userId="me", id=gmail_id).execute()
+        return True
+    except Exception:
+        pass
+    try:
+        service.users().messages().trash(userId="me", id=gmail_id).execute()
         return True
     except Exception as e:
-        log.error(f"Error trashing thread {thread_id}: {e}")
+        log.error(f"Error trashing {gmail_id}: {e}")
         return False
+
+
+def trash_thread(email: str, thread_id: str):
+    return trash_gmail(email, thread_id)
 
 
 def untrash_thread(email: str, thread_id: str):
@@ -279,7 +310,7 @@ def send_new_message(email: str, to: str, subject: str, body: str, cc: str = Non
     if not service:
         return False
     try:
-        message = MIMEText(body)
+        message = MIMEText(body, "html" if body.strip().startswith("<") else "plain")
         message["To"] = to
         message["From"] = email
         message["Subject"] = subject
@@ -293,4 +324,47 @@ def send_new_message(email: str, to: str, subject: str, body: str, cc: str = Non
         return True
     except Exception as e:
         log.error(f"Error sending new message from {email}: {e}")
+        return False
+
+
+def send_new_message_with_attachments(
+    email: str,
+    to: str,
+    subject: str,
+    body: str,
+    cc: str = None,
+    bcc: str = None,
+    attachments: list = None,
+):
+    """Sends a new email with optional file attachments."""
+    service = get_gmail_service(email)
+    if not service:
+        return False
+    try:
+        msg = MIMEMultipart("mixed")
+        msg["To"] = to
+        msg["From"] = email
+        msg["Subject"] = subject
+        if cc:
+            msg["Cc"] = cc
+        if bcc:
+            msg["Bcc"] = bcc
+
+        content_type = "html" if body.strip().startswith("<") else "plain"
+        msg.attach(MIMEText(body, content_type))
+
+        for att in (attachments or []):
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(att["data"])
+            encoders.encode_base64(part)
+            filename = att.get("filename", "attachment")
+            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+            part.add_header("Content-Type", att.get("content_type", "application/octet-stream"))
+            msg.attach(part)
+
+        raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        service.users().messages().send(userId="me", body={"raw": raw_message}).execute()
+        return True
+    except Exception as e:
+        log.error(f"Error sending message with attachments from {email}: {e}")
         return False

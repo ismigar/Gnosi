@@ -66,7 +66,7 @@ const Composer = () => {
     };
 
     return (
-        <div className="glass-panel p-6 rounded-2xl shadow-xl border border-white/5 relative z-10 backdrop-blur-xl">
+        <div className="glass-panel p-6 rounded-2xl shadow-xl border border-[var(--border-primary)] relative z-10 backdrop-blur-xl">
             {/* Header / Network Selector */}
             <div className="mb-4 flex flex-wrap gap-2">
                 {networks.map(net => {
@@ -79,7 +79,7 @@ const Composer = () => {
                                 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 border
                                 ${isSelected
                                     ? `${net.color} text-white border-transparent shadow-lg shadow-black/20 transform -translate-y-0.5`
-                                    : `bg-white/5 text-zinc-400 border-white/5 hover:border-white/10 hover:bg-white/10 hover:text-zinc-200`
+                                    : `bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]`
                                 }
                             `}
                         >
@@ -93,15 +93,15 @@ const Composer = () => {
             {/* Text Area */}
             <div className="relative">
                 <textarea
-                    className="w-full p-4 rounded-xl border border-white/10 bg-black/20 text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-primary/50 focus:border-primary/50 focus:outline-none resize-none transition-all scrollbar-thin scrollbar-thumb-zinc-700"
+                    className="w-full p-4 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:ring-2 focus:ring-[var(--gnosi-blue)]/30 focus:border-[var(--gnosi-blue)]/40 focus:outline-none resize-none transition-all scrollbar-thin"
                     rows="5"
                     placeholder="Què està passant?"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                 />
 
-                <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
-                    <span className={`${content.length > 280 ? 'text-red-400' : 'text-zinc-400'}`}>
+                <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs bg-[var(--bg-secondary)]/80 px-2 py-1 rounded-full backdrop-blur-sm">
+                    <span className={`${content.length > 280 ? 'text-[var(--status-error)]' : 'text-[var(--text-secondary)]'}`}>
                         {content.length} caràcters
                     </span>
                     {content.length > 280 && (
@@ -129,7 +129,7 @@ const Composer = () => {
             {/* Scheduler Component Overlay */}
             {showScheduler && (
                 <div className="absolute top-0 right-0 z-50 mt-16 mr-4">
-                    <div className="glass-card p-4 rounded-xl shadow-2xl border border-white/10">
+                    <div className="glass-card p-4 rounded-xl shadow-2xl border border-[var(--border-primary)]">
                         <Scheduler
                             onSchedule={handleSchedule}
                             onCancel={() => setShowScheduler(false)}
@@ -145,7 +145,7 @@ const Composer = () => {
                     disabled={!content || selectedNetworks.length === 0}
                     className={`
                         px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 text-sm
-                        ${showScheduler ? 'bg-primary/20 text-primary border border-primary/20' : 'border border-white/10 text-zinc-400 hover:text-zinc-200 hover:bg-white/5'}
+                        ${showScheduler ? 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] border border-[var(--gnosi-blue)]/20' : 'border border-[var(--border-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'}
                         disabled:opacity-50 disabled:cursor-not-allowed
                     `}
                 >
@@ -156,7 +156,7 @@ const Composer = () => {
                 <button
                     onClick={() => scheduledTime ? handlePost(false) : handlePost(true)}
                     disabled={!content || selectedNetworks.length === 0 || isPosting}
-                    className="bg-primary hover:bg-blue-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-6 py-2 rounded-lg font-medium transition-all shadow-lg shadow-primary/20 flex items-center gap-2 transform hover:scale-105 active:scale-95 duration-200"
+                    className="bg-[var(--gnosi-blue)] hover:opacity-90 disabled:bg-[var(--bg-tertiary)] disabled:text-[var(--text-secondary)] text-white px-6 py-2 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2 transform hover:scale-105 active:scale-95 duration-200"
                 >
                     {isPosting ? (
                         <Loader2 size={18} className="animate-spin" />

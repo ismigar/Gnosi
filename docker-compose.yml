@@ -11,6 +11,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi:/vault
       - /Users/ismaelgarciafernandez:/Users/ismaelgarciafernandez:rw
+      - /Users/ismaelgarciafernandez/.gnosi:/root/.gnosi:ro
     env_file:
       - ../../../.env_shared # 1. Variables compartides
       - .env # 2. Variables locals (sobreescriuen)

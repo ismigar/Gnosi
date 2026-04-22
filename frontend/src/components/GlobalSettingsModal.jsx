@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-    X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, 
-    Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon, 
-    Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox, 
-    ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText, 
-    PenTool, Image, Paperclip
+import {
+    X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen,
+    Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
+    Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
+    ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
+    PenTool, Image, Paperclip, Eye, EyeOff
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
@@ -72,6 +72,30 @@ const FormGroup = ({ label, children, description, horizontal = false }) => (
     </div>
 );
 
+const PasswordInput = ({ value, onChange, placeholder = 'Introdueix la contrasenya...', className = 'gnosi-input', style }) => {
+    const [show, setShow] = React.useState(false);
+    return (
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+                type={show ? 'text' : 'password'}
+                className={className}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                style={{ paddingRight: '40px', width: '100%', boxSizing: 'border-box', ...style }}
+            />
+            <button
+                type="button"
+                onClick={() => setShow(s => !s)}
+                tabIndex={-1}
+                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0', display: 'flex', alignItems: 'center' }}
+            >
+                {show ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+        </div>
+    );
+};
+
 const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, color = '#3b82f6', isSyncing = false }) => (
     <div className="account-row hover-scale" style={{ 
         padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)', 
@@ -79,7 +103,7 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
         alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
     }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: `var(--gnosi-blue)15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)' }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)' }}>
                 {type === 'calendar' ? <Calendar size={22} /> : (type === 'mail' ? <Mail size={22} /> : <Users size={22} />)}
             </div>
             <div>
@@ -154,6 +178,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [activeTab, setActiveTab] = useState(initialTab);
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
     const integrationsLoadedRef = useRef(false); // Evita que auto-save dispari amb dades buides
+    const [googleSubCalendars, setGoogleSubCalendars] = useState([]);
     const [databases, setDatabases] = useState([]);
     const [tables, setTables] = useState([]);
     const [aiCatalog, setAiCatalog] = useState({});
@@ -276,6 +301,50 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [editingAccountId, setEditingAccountId] = useState(null); // ID del compte en edició
     const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
     
+    // Mail Snippets State
+    const SNIPPETS_KEY = 'gnosi_mail_snippets';
+    const DEFAULT_SNIPPETS = [
+        { id: 'snip_default_1', title: 'Salutació formal',    content: 'Benvolgut/da,\n\nEspero que es trobi bé.' },
+        { id: 'snip_default_2', title: 'Gràcies per la resposta', content: 'Moltes gràcies per la seva resposta.' },
+        { id: 'snip_default_3', title: 'Comiat formal',        content: 'Atentament,\n\n' },
+        { id: 'snip_default_4', title: 'Proposta reunió',      content: 'Li proposo una reunió per tractar aquest tema.' },
+        { id: 'snip_default_5', title: 'Seguiment',            content: 'Em poso en contacte per fer seguiment del tema anterior.' },
+    ];
+    const [snippets, setSnippets] = useState(() => {
+        try {
+            const stored = JSON.parse(localStorage.getItem(SNIPPETS_KEY) || 'null');
+            return stored ?? DEFAULT_SNIPPETS;
+        } catch { return DEFAULT_SNIPPETS; }
+    });
+    const [snippetDraft, setSnippetDraft] = useState({ title: '', content: '' });
+    const [editingSnippetId, setEditingSnippetId] = useState(null);
+
+    const saveSnippets = (list) => {
+        setSnippets(list);
+        localStorage.setItem(SNIPPETS_KEY, JSON.stringify(list));
+    };
+
+    const handleAddSnippet = () => {
+        if (!snippetDraft.title.trim() || !snippetDraft.content.trim()) return;
+        if (editingSnippetId) {
+            saveSnippets(snippets.map(s => s.id === editingSnippetId ? { ...s, ...snippetDraft } : s));
+            setEditingSnippetId(null);
+        } else {
+            saveSnippets([...snippets, { id: `snip_${Date.now()}`, ...snippetDraft }]);
+        }
+        setSnippetDraft({ title: '', content: '' });
+    };
+
+    const handleEditSnippet = (s) => {
+        setEditingSnippetId(s.id);
+        setSnippetDraft({ title: s.title, content: s.content });
+    };
+
+    const handleDeleteSnippet = (id) => {
+        saveSnippets(snippets.filter(s => s.id !== id));
+        if (editingSnippetId === id) { setEditingSnippetId(null); setSnippetDraft({ title: '', content: '' }); }
+    };
+
     // Mail Specialized State
     const [mailImapHost, setMailImapHost] = useState('');
     const [mailImapPort, setMailImapPort] = useState('993');
@@ -312,6 +381,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             checkGoogleAuth();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (activeTab === 'calendar' && isOpen) {
+            fetch('/api/calendar/calendars')
+                .then(r => r.ok ? r.json() : [])
+                .then(setGoogleSubCalendars)
+                .catch(() => {});
+        }
+    }, [activeTab, isOpen]);
 
     // Keyboard support - Escape/Enter to close
     useEffect(() => {
@@ -365,10 +443,26 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const loadIntegrations = async () => {
         try {
-            const res = await fetch('/api/integrations');
+            const res = await fetch(`/api/integrations?t=${Date.now()}`);
             if (res.ok) {
-                setIntegrations(await res.json());
-                integrationsLoadedRef.current = true;
+                const data = await res.json();
+                setIntegrations(data);
+                lastSavedData.current = JSON.stringify({
+                    settings: draft.settings,
+                    paths: draft.paths,
+                    graph: draft.graph,
+                    ai: { 
+                        agents: draft.ai.agents, 
+                        active_agent_id: draft.ai.active_agent_id,
+                        providers: draft.ai.providers
+                    },
+                    integrations: data,
+                    zotero: draft.zotero
+                });
+                // Marcar com a carregat només DESPRÉS de setIntegrations
+                setTimeout(() => {
+                    integrationsLoadedRef.current = true;
+                }, 100);
             }
         } catch (err) { console.error("Error loading integrations:", err); }
     };
@@ -507,18 +601,31 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             title: 'Eliminar Compte',
             message: 'Estàs segur que vols eliminar aquest compte? Es deixarà de sincronitzar immediatament.',
             onConfirm: async () => {
-                const key = category === 'calendar' ? 'calendars' : (category === 'contacts' ? 'contacts' : 'mail_accounts');
-                const newList = integrations[key].filter(a => a.id !== accountId);
-                const updatedIntegrations = { ...integrations, [key]: newList };
-                
+                const updatedIntegrations = { ...integrations };
+                let changed = false;
+
+                // Eliminació agressiva de TOTES les llistes de l'objecte
+                Object.keys(updatedIntegrations).forEach(key => {
+                    if (Array.isArray(updatedIntegrations[key])) {
+                        const originalLen = updatedIntegrations[key].length;
+                        updatedIntegrations[key] = updatedIntegrations[key].filter(a => (a.id !== accountId && a.email !== accountId));
+                        if (updatedIntegrations[key].length !== originalLen) {
+                            changed = true;
+                        }
+                    }
+                });
+
                 setSavingStatus('saving');
                 try {
+                    // Forcem el guardat fins i tot si 'changed' és false per netejar possibles inconsistències
                     await axios.post('/api/integrations/bulk', updatedIntegrations);
                     setIntegrations(updatedIntegrations);
                     setSavingStatus('saved');
+                    console.log("Compte eliminat correctament:", accountId);
                     setTimeout(() => setSavingStatus('idle'), 2000);
                 } catch (e) {
                     setSavingStatus('error');
+                    console.error("Error crític eliminant compte:", e);
                 }
                 setConfirmConfig(prev => ({ ...prev, isOpen: false }));
             }
@@ -552,25 +659,37 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-    const handleSyncAccount = async (category, accountId) => {
+    const handleSyncAccount = async (category, account) => {
+        const accountId = account?.id || account;
         if (!accountId) return;
         setSyncingAccounts(prev => ({ ...prev, [accountId]: true }));
         setSavingStatus('saving');
         try {
-            // Mapping category to correct sync endpoint
-            const base = category === 'calendar' ? 'calendar' : (category === 'contacts' ? 'contacts' : 'mail');
-            const res = await axios.post(`/api/${base}/sync`, { account_id: accountId });
-            
-            if (res.data.success) {
+            const email = account?.email || account?.username || '';
+            let res;
+            if (category === 'contacts') {
+                // contacts sync espera provider + email al body
+                const provider = account?.provider || 'manual';
+                res = await axios.post('/api/contacts/sync', { provider, email, server_url: account?.server_url, password: account?.password, username: account?.username });
+            } else if (category === 'calendar') {
+                res = await axios.post(`/api/calendar/sync?email=${encodeURIComponent(email)}`);
+            } else {
+                res = await axios.post(`/api/mail/sync?email=${encodeURIComponent(email)}`);
+            }
+
+            const ok = res.data.status === 'success' || res.data.status === 'ok';
+            if (ok) {
                 setSavingStatus('saved');
-                loadIntegrations(); // Refresh status if needed
+                loadIntegrations();
             } else {
                 setSavingStatus('error');
-                alert(`Error en la sincronització: ${res.data.error || 'Error desconegut'}`);
+                alert(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
             }
         } catch (e) {
             console.error("Sync error:", e);
             setSavingStatus('error');
+            const detail = e?.response?.data?.detail || e?.message || 'Error desconegut';
+            alert(`Error en la sincronització: ${detail}`);
         } finally {
             setSyncingAccounts(prev => ({ ...prev, [accountId]: false }));
             setTimeout(() => setSavingStatus('idle'), 3000);
@@ -757,7 +876,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="animate-in" style={{ marginTop: '30px', padding: '30px', borderRadius: '24px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                                                 <FormGroup label="Usuari Admin Org"><input type="text" className="gnosi-input" value={draft.settings.org_user} onChange={e => setDraft({...draft, settings: {...draft.settings, org_user: e.target.value}})} /></FormGroup>
-                                                <FormGroup label="Pasword Admin"><input type="password" icon={Shield} className="gnosi-input" value={draft.settings.org_password} onChange={e => setDraft({...draft, settings: {...draft.settings, org_password: e.target.value}})} /></FormGroup>
+                                                <FormGroup label="Pasword Admin"><PasswordInput value={draft.settings.org_password} onChange={e => setDraft({...draft, settings: {...draft.settings, org_password: e.target.value}})} /></FormGroup>
                                             </div>
                                         </div>
                                     )}
@@ -767,7 +886,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <FormGroup label="Ruta del Vault" description="Carpeta principal on s'emmgatzemen totes les dades del sistema.">
                                                 <div style={{ display: 'flex', gap: '14px' }}>
                                                     <input type="text" className="gnosi-input" value={draft.paths.vault || ''} readOnly style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
-                                                    <button onClick={() => { setPickerField('vault'); setPickerOpen(true); }} className="btn-gnosi-secondary" style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'var(--gnosi-blue)20', color: 'var(--gnosi-blue)', flexShrink: 0 }}>
+                                                    <button onClick={() => { setPickerField('vault'); setPickerOpen(true); }} className="btn-gnosi-secondary" style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0 }}>
                                                         <FolderOpen size={18} />
                                                     </button>
                                                 </div>
@@ -903,10 +1022,124 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     }
                                 >
                                     <div style={{ minHeight: '340px', marginTop: '20px' }}>
+                                        {/* Calendari per defecte */}
+                                        {activeTab === 'contacts' && (() => {
+                                            const allContactSources = [
+                                                ...(integrations.contacts || []),
+                                                ...(integrations.mail_accounts || []),
+                                                ...(integrations.emails || []),
+                                            ];
+                                            const seenC = new Set();
+                                            const opts = allContactSources
+                                                .filter(c => { const id = c.email || c.username; if (!id || seenC.has(id)) return false; seenC.add(id); return true; })
+                                                .map(c => ({ id: c.email || c.username, label: c.name || c.email || c.username }));
+                                            if (opts.length === 0) return null;
+                                            return (
+                                                <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                    <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
+                                                        Compte per defecte
+                                                    </label>
+                                                    <select
+                                                        value={integrations.default_contacts || ''}
+                                                        onChange={(e) => {
+                                                            const email = e.target.value;
+                                                            const updated = { ...integrations, default_contacts: email };
+                                                            setIntegrations(updated);
+                                                            axios.put('/api/integrations/default_contacts', { email }).catch(console.error);
+                                                        }}
+                                                        className="gnosi-input"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {opts.map(opt => (
+                                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
+                                                        S'usarà per sincronitzar i crear nous contactes.
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                        {activeTab === 'mail' && (() => {
+                                            const allMail = [...(integrations.mail_accounts || []), ...(integrations.emails || [])];
+                                            const seen = new Set();
+                                            const opts = allMail
+                                                .filter(c => { const id = c.email || c.username; if (!id || seen.has(id)) return false; seen.add(id); return true; })
+                                                .map(c => ({ id: c.email || c.username, label: c.name || c.email || c.username }));
+                                            if (opts.length === 0) return null;
+                                            return (
+                                                <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                    <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
+                                                        Compte per defecte
+                                                    </label>
+                                                    <select
+                                                        value={integrations.default_mail || ''}
+                                                        onChange={(e) => {
+                                                            const email = e.target.value;
+                                                            const updated = { ...integrations, default_mail: email };
+                                                            setIntegrations(updated);
+                                                            axios.put('/api/integrations/default_mail', { email }).catch(console.error);
+                                                        }}
+                                                        className="gnosi-input"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {opts.map(opt => (
+                                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
+                                                        S'usarà per enviar correus i com a remitent per defecte.
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                        {activeTab === 'calendar' && (() => {
+                                            const subCalOpts = googleSubCalendars
+                                                .filter(c => c.id && c.name)
+                                                .map(c => ({ id: c.id, label: c.name, account: c.account }));
+                                            const seenIds = new Set(subCalOpts.map(o => o.id));
+                                            const accountOpts = (integrations.calendars || [])
+                                                .filter(c => {
+                                                    const id = c.email || c.username || c.name;
+                                                    return id && !seenIds.has(id);
+                                                })
+                                                .map(c => ({ id: c.email || c.username || c.name, label: c.name || c.email || c.username }));
+                                            const allCalOpts = [
+                                                ...(tables.filter(t => integrations.vault_calendar?.enabled_tables?.includes(t.id)).map(t => ({ id: t.id, label: t.name }))),
+                                                ...subCalOpts,
+                                                ...accountOpts,
+                                            ];
+                                            if (allCalOpts.length === 0) return null;
+                                            return (
+                                                <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                    <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
+                                                        Calendari per defecte
+                                                    </label>
+                                                    <select
+                                                        value={integrations.default_calendar || ''}
+                                                        onChange={async (e) => {
+                                                            const source = e.target.value;
+                                                            const updated = { ...integrations, default_calendar: source };
+                                                            setIntegrations(updated);
+                                                            axios.put('/api/integrations/default_calendar', { source }).catch(console.error);
+                                                        }}
+                                                        className="gnosi-input"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {allCalOpts.map(opt => (
+                                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
+                                                        S'assignarà automàticament a les noves cites creades al calendari.
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
                                         {isAddingTable && (
                                             <div className="animate-in" style={{ 
                                                 marginBottom: '32px', padding: '28px', borderRadius: '28px', 
-                                                background: 'var(--settings-sidebar-bg)', border: '1px solid var(--gnosi-blue)30',
+                                                background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
                                                 boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -944,7 +1177,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         {addAccountType === activeTab && (
                                             <div className="animate-in" style={{ 
                                                 marginBottom: '32px', padding: '28px', borderRadius: '28px', 
-                                                background: 'var(--settings-sidebar-bg)', border: '1px solid var(--gnosi-blue)30',
+                                                background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
                                                 boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -980,7 +1213,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }}
                                                         >
                                                             <div style={{ background: 'white', padding: '8px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                                                                <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_Logo.svg" style={{ width: '18px', height: '18px' }} alt="Google logo" />
+                                                                <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" style={{ width: '18px', height: '18px' }} alt="Google logo" />
                                                             </div>
                                                             <span style={{ color: 'white' }}>Continuar amb Google</span>
                                                         </button>
@@ -1047,7 +1280,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailImapPort} onChange={e => setMailImapPort(e.target.value)} placeholder="993" /></FormGroup>
                                                                 </div>
                                                                 <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailImapUser} onChange={e => setMailImapUser(e.target.value)} /></FormGroup>
-                                                                <FormGroup label="Contrasenya"><input type="password" className="gnosi-input" value={mailImapPass} onChange={e => setMailImapPass(e.target.value)} placeholder="••••••••" /></FormGroup>
+                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailImapPass} onChange={e => setMailImapPass(e.target.value)} /></FormGroup>
                                                                 <FormGroup label="Seguretat">
                                                                     <select className="gnosi-select" value={mailImapEnc} onChange={e => setMailImapEnc(e.target.value)}>
                                                                         <option value="ssl">SSL/TLS</option>
@@ -1065,7 +1298,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailSmtpPort} onChange={e => setMailSmtpPort(e.target.value)} placeholder="465" /></FormGroup>
                                                                 </div>
                                                                 <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailSmtpUser} onChange={e => setMailSmtpUser(e.target.value)} /></FormGroup>
-                                                                <FormGroup label="Contrasenya"><input type="password" className="gnosi-input" value={mailSmtpPass} onChange={e => setMailSmtpPass(e.target.value)} placeholder="••••••••" /></FormGroup>
+                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailSmtpPass} onChange={e => setMailSmtpPass(e.target.value)} /></FormGroup>
                                                                 <FormGroup label="Seguretat">
                                                                     <select className="gnosi-select" value={mailSmtpEnc} onChange={e => setMailSmtpEnc(e.target.value)}>
                                                                         <option value="ssl">SSL/TLS</option>
@@ -1154,13 +1387,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </FormGroup>
                                                             <FormGroup label="Contrasenya">
-                                                                <input 
-                                                                    type="password" 
-                                                                    className="gnosi-input" 
-                                                                    value={manualPassword} 
-                                                                    onChange={e => setManualPassword(e.target.value)} 
-                                                                    placeholder="••••••••" 
-                                                                />
+                                                                <PasswordInput value={manualPassword} onChange={e => setManualPassword(e.target.value)} />
                                                             </FormGroup>
                                                             
                                                             <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
@@ -1186,22 +1413,22 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         )}
 
                                         {(() => {
+                                            // Get all possible accounts that could be mail accounts
                                             const currentAccounts = [
-                                                ...(activeTab === 'calendar' ? (integrations.calendars || []) : (activeTab === 'contacts' ? (integrations.contacts || []) : (integrations.mail_accounts || []))),
-                                                ...(integrations.emails || []).filter(e => {
-                                                    if (activeTab === 'calendar') return e.provider === 'google' || e.auth_type === 'oauth2';
-                                                    if (activeTab === 'contacts') return e.provider === 'google';
-                                                    if (activeTab === 'mail') return true;
-                                                    return false;
-                                                })
-                                            ];
+                                                ...(integrations.mail_accounts || []),
+                                                ...(integrations.emails || []),
+                                                ...(integrations.calendars || []),
+                                                ...(integrations.contacts || [])
+                                            ].filter(acc => acc.email || acc.username);
                                             
-                                            // Deduplicate by ID or Email
+                                            // Deduplicate by Email/ID
                                             const seen = new Set();
                                             const uniqueAccounts = currentAccounts.filter(acc => {
-                                                const id = acc.id || acc.email;
-                                                if (seen.has(id)) return false;
-                                                seen.add(id);
+                                                const email = acc.email || acc.username;
+                                                if (!email) return false;
+                                                const lowerEmail = email.toLowerCase();
+                                                if (seen.has(lowerEmail)) return false;
+                                                seen.add(lowerEmail);
                                                 return true;
                                             });
 
@@ -1220,7 +1447,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 status="connected" 
                                                                 type={activeTab} 
                                                                 provider={acc.provider}
-                                                                onSync={() => handleSyncAccount(activeTab, acc.id)}
+                                                                onSync={() => handleSyncAccount(activeTab, acc)}
                                                                 isSyncing={syncingAccounts[acc.id]}
                                                                 onEdit={() => handleEditAccount(activeTab, acc)}
                                                                 onDelete={() => handleDeleteAccount(activeTab, acc.id)}
@@ -1301,6 +1528,96 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 );
                                             }
                                         })()}
+                                    </div>
+                                </Section>
+                            )}
+
+                            {/* MAIL SNIPPETS */}
+                            {activeTab === 'mail' && (
+                                <Section title="Fragments de text" icon={FileText}>
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                                        Textos predefinits que pots insertar ràpidament quan redactes o respons correus.
+                                    </p>
+
+                                    {/* Llista de fragments existents */}
+                                    {snippets.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+                                            {snippets.map(s => (
+                                                <div key={s.id} style={{
+                                                    display: 'flex', alignItems: 'flex-start', gap: '12px',
+                                                    padding: '14px 16px', background: 'var(--settings-bg)',
+                                                    borderRadius: '14px', border: `1px solid ${editingSnippetId === s.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`
+                                                }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '4px' }}>{s.title}</div>
+                                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.4', overflow: 'hidden', maxHeight: '3.6em' }}>{s.content}</div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                                        <button
+                                                            onClick={() => handleEditSnippet(s)}
+                                                            style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--gnosi-blue)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                                        >
+                                                            Editar
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteSnippet(s.id)}
+                                                            style={{ padding: '6px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Formulari d'afegir/editar */}
+                                    <div style={{
+                                        padding: '20px', background: 'var(--settings-bg)',
+                                        borderRadius: '16px', border: '1px solid var(--settings-border)',
+                                        display: 'flex', flexDirection: 'column', gap: '14px'
+                                    }}>
+                                        <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                            {editingSnippetId ? 'Editar fragment' : 'Nou fragment'}
+                                        </h4>
+                                        <FormGroup label="Títol" description="Nom curt per identificar el fragment al menú.">
+                                            <input
+                                                type="text"
+                                                className="gnosi-input"
+                                                placeholder="Ex: Salutació formal"
+                                                value={snippetDraft.title}
+                                                onChange={e => setSnippetDraft(d => ({ ...d, title: e.target.value }))}
+                                                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                                            />
+                                        </FormGroup>
+                                        <FormGroup label="Contingut" description="Text que s'inserirà al correu.">
+                                            <textarea
+                                                className="gnosi-input"
+                                                rows={4}
+                                                placeholder="Escriu el text del fragment..."
+                                                value={snippetDraft.content}
+                                                onChange={e => setSnippetDraft(d => ({ ...d, content: e.target.value }))}
+                                                style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
+                                            />
+                                        </FormGroup>
+                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                            {editingSnippetId && (
+                                                <button
+                                                    onClick={() => { setEditingSnippetId(null); setSnippetDraft({ title: '', content: '' }); }}
+                                                    style={{ padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
+                                                >
+                                                    Cancel·lar
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={handleAddSnippet}
+                                                disabled={!snippetDraft.title.trim() || !snippetDraft.content.trim()}
+                                                style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: (!snippetDraft.title.trim() || !snippetDraft.content.trim()) ? 0.5 : 1 }}
+                                            >
+                                                <Plus size={16} />
+                                                {editingSnippetId ? 'Actualitzar' : 'Afegir fragment'}
+                                            </button>
+                                        </div>
                                     </div>
                                 </Section>
                             )}
@@ -1895,7 +2212,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '32px', border: '1px solid var(--settings-border)', boxShadow: '0 10px 40px rgba(0,0,0,0.03)' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
                                                 <FormGroup label="Zotero User ID" description="Identificador públic de la teva llibreria."><input type="text" className="gnosi-input" value={draft.zotero.user} onChange={e => setDraft({...draft, zotero: {...draft.zotero, user: e.target.value}})} placeholder="1234567" /></FormGroup>
-                                                <FormGroup label="API Key / Secret" description="Token d'accés amb permisos de lectura."><input type="password" className="gnosi-input" value={draft.zotero.pwd} onChange={e => setDraft({...draft, zotero: {...draft.zotero, pwd: e.target.value}})} placeholder="sk-..." /></FormGroup>
+                                                <FormGroup label="API Key / Secret" description="Token d'accés amb permisos de lectura."><PasswordInput value={draft.zotero.pwd} onChange={e => setDraft({...draft, zotero: {...draft.zotero, pwd: e.target.value}})} placeholder="sk-..." /></FormGroup>
                                             </div>
                                             <FormGroup label="Taula de Destí del Vault" description="Base de dades on s'emmgatzemaran les referències sincronitzades.">
                                                 <select className="gnosi-select" value={draft.zotero.target_table} onChange={e => setDraft({...draft, zotero: {...draft.zotero, target_table: e.target.value}})}>
@@ -2075,7 +2392,7 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                                 </div>
 
                                 <FormGroup label="API Key / Token" description="La teva clau secreta d'accés.">
-                                    <input type="password" className="gnosi-input" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
+                                    <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
                                 </FormGroup>
 
                                 <FormGroup label="Base URL (Opcional)" description="Només si cal sobrescriure l'endpoint per defecte.">

@@ -28,6 +28,28 @@ COLOR_PALETTE = {
     "default": "#94a3b8"    # Slate
 }
 
+# Optimization: Directories to skip during recursive scans
+IGNORED_DIRS = {
+    "node_modules", ".venv", ".git", ".tmp", "dist", "build", 
+    "target", ".cache", "__pycache__", "Plantilles", "Library", ".gemini"
+}
+
+def get_markdown_files_efficient(root_path: Path) -> List[Path]:
+    """Efficiently finds all .md files skipping IGNORED_DIRS."""
+    md_files = []
+    try:
+        for entry in os.scandir(root_path):
+            if entry.is_dir():
+                if entry.name in IGNORED_DIRS or entry.name.startswith("."):
+                    continue
+                md_files.extend(get_markdown_files_efficient(Path(entry.path)))
+            elif entry.is_file() and entry.name.endswith(".md") and not entry.name.startswith("."):
+                md_files.append(Path(entry.path))
+    except (PermissionError, FileNotFoundError):
+        pass
+    return md_files
+
+
 def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     """Parses a markdown file for YAML frontmatter and body.
 
@@ -256,11 +278,10 @@ class GraphService:
         if not vault_path or not vault_path.exists():
             return []
             
-        # Recursive scan for all .md files
-        for file_path in vault_path.rglob("*.md"):
-            if "Plantilles" in file_path.parts or file_path.name.startswith("."):
-                continue
-
+        # Recursive scan for all .md files - EFFICIENT VERSION
+        all_md_files = get_markdown_files_efficient(vault_path)
+        
+        for file_path in all_md_files:
             path_str = str(file_path.relative_to(vault_path))
             mtime = os.path.getmtime(file_path)
             
@@ -543,19 +564,25 @@ class GraphService:
                 img_path = vault_path / "Images" if vault_path else None
                 media_count = 0
                 if img_path and img_path.exists():
-                    media_count = sum(1 for p in img_path.iterdir() if p.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"])
+                    try:
+                        media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
+                    except Exception: pass
                 count += media_count
             else:
-                # Fallback to disk scan
+                # Fallback to disk scan - EFFICIENT
                 cfg = load_params(strict_env=False)
                 vault_path = cfg.paths.get("VAULT")
                 
                 if vault_path and vault_path.exists():
-                    md_count = sum(1 for p in vault_path.rglob("*.md") if not p.name.startswith("."))
+                    all_md = get_markdown_files_efficient(vault_path)
+                    md_count = len(all_md)
+                    
                     img_path = vault_path / "Images"
                     media_count = 0
                     if img_path.exists():
-                        media_count = sum(1 for p in img_path.iterdir() if p.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"])
+                        try:
+                            media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
+                        except Exception: pass
                     count += md_count + media_count
 
             GraphService._node_count_cache = count

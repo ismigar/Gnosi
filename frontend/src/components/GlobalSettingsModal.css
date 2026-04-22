@@ -79,7 +79,7 @@
 .settings-brand-icon-wrap {
     width: 32px;
     height: 32px;
-    background: var(--gnosi-blue)20;
+    background: rgba(59, 130, 246, 0.12);
     color: var(--gnosi-blue);
     border-radius: 10px;
     display: flex;
