@@ -592,10 +592,11 @@ export const GraphViewer = forwardRef(({
         }
 
         // Use UI slider values! Tuned for position range ~-500 to 500
-        const REPULSION_STRENGTH = repulsion * 0.5; // Reduced multiplier for smaller position range
-        const EDGE_ATTRACTION = edgeInfluence * 0.0005;  // Linear: higher slider = more attraction
-        const GRAVITY_STRENGTH = gravity * 10; // Pull toward center
-        const DAMPING = 0.92; // Higher damping for stability
+        const REPULSION_STRENGTH = repulsion * 0.5;
+        const EDGE_ATTRACTION = edgeInfluence * 0.0005;
+        const GRAVITY_STRENGTH = gravity * 10;
+        // friction prop [0..10]: 0 = molt dinàmic (0.80), 10 = molt estable (0.99)
+        const DAMPING = Math.min(0.99, 0.80 + friction * 0.019);
         const MIN_DISTANCE = 5;  // Smaller minimum for dense graphs
 
 
@@ -719,7 +720,7 @@ export const GraphViewer = forwardRef(({
                 layoutRef.current = null;
             }
         };
-    }, [isPhysicsEnabled, graphData, repulsion, edgeInfluence, gravity]); // React to ALL slider changes!
+    }, [isPhysicsEnabled, graphData, repulsion, edgeInfluence, gravity, friction]); // React to ALL slider changes!
 
     // Handle Filters (Effect)
     useEffect(() => {

@@ -14,7 +14,7 @@ import { Legend } from '../components/Legend';
 import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
-import { applyFilters } from '../utils/graphFilters';
+import { applyFilters, getEffectiveTableId, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
 
 
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
@@ -252,12 +252,15 @@ function GraphPage() {
             setFieldFilters(initialFilters);
         }
 
-        if (g.graph_table_filters) {
-            setGraphTableFiltersSettings(g.graph_table_filters);
-            setActiveTableFilters(new Set(['__wiki__', ...g.graph_table_filters]));
-        } else {
-            setActiveTableFilters(new Set(['__wiki__']));
-        }
+        // graph_table_filters explícit té prioritat; si no n'hi ha, derivem de visible_tables
+        // (tota taula activada al settings apareix com toggle al sidebar del graf)
+        const tableFilters = g.graph_table_filters?.length > 0
+            ? g.graph_table_filters
+            : (g.visible_tables || []);
+        setGraphTableFiltersSettings(tableFilters);
+        // Wiki s'inclou si visible_databases és buit (= tot visible) o conté 'wiki'
+        const wikiVisible = !g.visible_databases?.length || g.visible_databases.includes('wiki');
+        setActiveTableFilters(new Set([...(wikiVisible ? ['__wiki__'] : []), ...tableFilters]));
         if (g.show_arrows !== undefined) setShowArrows(g.show_arrows);
         if (g.label_threshold) setLabelThreshold(g.label_threshold);
         if (g.node_size) setNodeSize(g.node_size);
@@ -384,11 +387,25 @@ function GraphPage() {
     const { filteredNodesCount, filteredEdgesCount } = useMemo(() => {
         if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0 };
         const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
-        return { 
-            filteredNodesCount: visibleNodes.size, 
-            filteredEdgesCount: visibleEdges.size 
-        };
+        return { filteredNodesCount: visibleNodes.size, filteredEdgesCount: visibleEdges.size };
     }, [memoizedGraph, filters]);
+
+    // Pre-computa els valors disponibles per cada camp configurat — O(nodes × camps) un sol cop per càrrega
+    const fieldValuesByKey = useMemo(() => {
+        const result = {};
+        visibleFields.forEach(fieldKey => {
+            if (!fieldKey?.includes(':')) return;
+            const [tableId, fieldName] = fieldKey.split(':');
+            const vm = new Map();
+            (graphData?.nodes || []).forEach(attrs => {
+                if (getEffectiveTableId(attrs) !== tableId) return;
+                toValueStrings(resolveMetaValue(attrs, fieldName))
+                    .forEach(v => vm.set(v, (vm.get(v) || 0) + 1));
+            });
+            result[fieldKey] = Array.from(vm.entries()).sort((a, b) => b[1] - a[1]);
+        });
+        return result;
+    }, [graphData, visibleFields]);
 
 
 
@@ -482,8 +499,8 @@ function GraphPage() {
                     {/* Table Filters */}
                     <CollapsibleSection title="Filtre de Taules" badge={activeTableFilters.size} defaultOpen={true}>
                         <div className="filter-list">
-                            {/* Default: Wiki pages (no table) */}
-                            <div className="filter-item-advanced">
+                            {/* Wiki: només si visible_databases és buit o inclou 'wiki' */}
+                            {(visibleDatabases.length === 0 || visibleDatabases.includes('wiki')) && <div className="filter-item-advanced">
                                 <input
                                     type="checkbox"
                                     id="table-filter-__wiki__"
@@ -502,7 +519,7 @@ function GraphPage() {
                                     </span>
                                     <span className="filter-label-text">📄 Pàgines Wiki</span>
                                 </label>
-                            </div>
+                            </div>}
                             {/* Configured table filters */}
                             {graphTableFiltersSettings.map(tableId => {
                                 const table = (availableTables || []).find(t => t?.id === tableId) || { name: tableId };
@@ -588,61 +605,7 @@ function GraphPage() {
                                         else if (tableId.startsWith('mail:')) tableName = 'Mail';
                                     }
 
-                                    const fieldDef = (table?.properties || table?.fields || []).filter(Boolean).find(f => f?.name === fieldName);
-
-                                    // Calculate available values for this field
-                                    const valuesMap = new Map();
-
-                                    // 1. Try from graph data (current nodes) using categorization logic
-                                    if (graphInstance) {
-                                        graphInstance.forEachNode((node, attrs) => {
-                                            const nodeDb = attrs.database_id;
-                                            const nodeTableRaw = attrs.table_id || attrs.database_table_id;
-                                            const nodeKind = (attrs.kind || "").toLowerCase();
-                                            const nodePath = attrs.path || "";
-                                            const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
-
-                                            let effectiveTableId = nodeTableRaw;
-
-                                            // Mirror logic from graphFilters.js
-                                            if (isWikiNode) effectiveTableId = 'wiki';
-                                            else if (nodeKind === 'calendar' || nodePath.startsWith('Calendar/')) {
-                                                effectiveTableId = attrs.metadata?.calendar_id ? `calendar:${attrs.metadata.calendar_id}` : (attrs.metadata?.source || 'calendar:local');
-                                            } else if (nodeKind === 'contact' || nodePath.startsWith('Contacts/') || nodePath.startsWith('Contactes/')) {
-                                                effectiveTableId = attrs.metadata?.account_id ? `contact:${attrs.metadata.account_id}` : (attrs.metadata?.source || 'contact:local');
-                                            } else if (nodeKind === 'mail') {
-                                                effectiveTableId = attrs.metadata?.account_id ? `mail:${attrs.metadata.account_id}` : 'mail:unknown';
-                                            } else if (nodeKind === 'drawing' || nodePath.startsWith('Drawings/') || nodePath.startsWith('Dibuixos/')) {
-                                                effectiveTableId = 'drawings';
-                                            } else if (nodeKind === 'image' || nodeKind === 'media' || nodePath.startsWith('Assets/Images/') || nodePath.startsWith('Imatges/')) {
-                                                effectiveTableId = 'images';
-                                            } else if (nodeKind === 'asset' || nodeKind === 'adjunt') {
-                                                effectiveTableId = 'assets';
-                                            }
-
-                                            if (effectiveTableId === tableId) {
-                                                const val = attrs[fieldName] || attrs.metadata?.[fieldName];
-                                                if (val !== undefined && val !== null && val !== "") {
-                                                    valuesMap.set(val, (valuesMap.get(val) || 0) + 1);
-                                                }
-                                            }
-                                        });
-                                    }
-
-                                    // 2. Fallback: use field definition options (select/multi_select)
-                                    if (valuesMap.size === 0 && fieldDef) {
-                                        const options = fieldDef.settings?.options || fieldDef.select?.options || fieldDef.multi_select?.options || fieldDef.options;
-                                        if (options) {
-                                            options.forEach(opt => {
-                                                if (!opt) return;
-                                                const val = typeof opt === 'string' ? opt : (opt.name || opt.value || opt.id);
-                                                if (val) valuesMap.set(val, 0);
-                                            });
-                                        }
-                                    }
-
-                                    const sortedValues = Array.from(valuesMap.entries())
-                                        .sort((a, b) => b[1] - a[1]);
+                                    const sortedValues = fieldValuesByKey[fieldKey] || [];
 
                                     return (
                                         <div key={fieldKey} style={{ background: 'var(--bg-secondary)', padding: '10px', borderRadius: '8px' }}>

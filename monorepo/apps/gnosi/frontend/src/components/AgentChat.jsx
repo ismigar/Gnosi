@@ -763,7 +763,9 @@ const AgentChat = () => {
 
                         {!showSessionsView && messages.length === 0 && (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🧬</div>
+                                <div style={{ fontSize: '3rem', marginBottom: '16px', color: 'var(--gnosi-blue)' }}>
+                                    <LucideIcons.Brain size={64} strokeWidth={1.5} />
+                                </div>
                                 <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Com t'ajudo avui?</h4>
                                 <p style={{ fontSize: '0.85rem', margin: 0 }}>Puc analitzar el teu Vault, gestionar el calendari o escriure codi per a tu.</p>
                             </div>

@@ -2,11 +2,9 @@ import os
 import json
 import yaml
 import re
-import uuid
 import logging
 import networkx as nx
 from pathlib import Path
-from datetime import datetime
 import time
 from typing import List, Dict, Any, Optional
 from backend.config.app_config import load_params
@@ -30,8 +28,13 @@ COLOR_PALETTE = {
 
 # Optimization: Directories to skip during recursive scans
 IGNORED_DIRS = {
-    "node_modules", ".venv", ".git", ".tmp", "dist", "build", 
-    "target", ".cache", "__pycache__", "Plantilles", "Library", ".gemini"
+    "node_modules", ".venv", ".git", ".tmp", "dist", "build",
+    "target", ".cache", "__pycache__", "Plantilles", "Library", ".gemini",
+    # Carpetes de sistema gestionades per serveis dedicats (no pàgines wiki)
+    # Contacts i Images són cloud-only a OneDrive: el rglob/scandir triga ~18s via FUSE.
+    # S'afegeixen al graf via _add_contact_nodes (SQLite) i _add_media_nodes (desactivat).
+    "Mail", "Calendar", "Contacts", "Contactes", "Images",
+    "system", "custom_icons", "data",
 }
 
 def get_markdown_files_efficient(root_path: Path) -> List[Path]:
@@ -78,7 +81,7 @@ class GraphService:
     # Cache for the full graph
     _graph_cache = None
     _last_graph_time = 0
-    _GRAPH_CACHE_TTL = 30 # seconds (Reduced TTL as it's now much faster)
+    _GRAPH_CACHE_TTL = 30  # seconds — prou per evitar rebuilds continus però reactiu als canvis
 
     # Class-level Persistent Node Data Cache (metadata, links, etc.)
     # Format: { path_str: { mtime: float, metadata: dict, size: int, links: list, kind: str, color: str, title: str } }
@@ -137,46 +140,50 @@ class GraphService:
 
         log.info(f"Building unified graph (Visible DBs: {self.visible_dbs}, Tables: {self.visible_tables})...")
         G = nx.Graph()
-        
-        # 1. Add Registry Nodes (Databases, Tables, Views)
+
+        # Registry nodes (database/table/view) are metadata-only — add them temporarily
+        # so that _add_structural_edges can resolve parent IDs, then strip them before export.
         self._add_registry_nodes(G)
-        
-        # 2. Add Page Nodes (Markdown files in Vault - Recursive)
+
         page_nodes = self._add_page_nodes(G)
-        
-        # 2.b Add Media Nodes (Images in Vault/Images)
-        self._add_media_nodes(G)
-        
-        # 3. Add Structural Edges (Hierarchy & Frontmatter Links)
+        self._add_contact_nodes(G)
         self._add_structural_edges(G, page_nodes)
+
+        # Remove structural registry nodes: they are never rendered as content
+        registry_nodes = [n for n, d in G.nodes(data=True) if d.get("kind") in ("database", "table", "view")]
+        G.remove_nodes_from(registry_nodes)
         
         # 4. Generate Layout (Reuse if possible, else Spring)
         new_nodes_set = set(G.nodes())
         old_nodes_set = set(GraphService._LAYOUT_CACHE.keys())
         
-        # If the structure is strictly the same, reuse full layout
+        # Si l'estructura no ha canviat, reutilitzem el layout en caché
         if new_nodes_set == old_nodes_set:
             pos = GraphService._LAYOUT_CACHE
         else:
-            log.info(f"Structure changed. Re-calculating layout for {len(G.nodes())} nodes...")
-            # Use ForceAtlas-like params for better result
-            pos = nx.spring_layout(G, k=0.5, iterations=20)
-            # Update cache
+            log.info(f"Structure changed. Assigning random layout for {len(G.nodes())} nodes (ForceAtlas2 s'encarrega al frontend)...")
+            # random_layout és O(n) vs spring_layout O(n²·k). El frontend ja té ForceAtlas2.
+            pos = nx.random_layout(G, seed=42)
             GraphService._LAYOUT_CACHE = pos
             
         nodes = []
         for node_id in G.nodes():
             attrs = G.nodes[node_id]
+            meta = attrs.get("metadata", {}) or {}
             nodes.append({
                 "id": node_id,
                 "key": node_id,
                 "label": attrs.get("label", node_id),
-                "x": pos[node_id][0] * 1000,
-                "y": pos[node_id][1] * 1000,
+                "x": float(pos[node_id][0]) * 1000,
+                "y": float(pos[node_id][1]) * 1000,
                 "size": attrs.get("size", 10),
                 "color": attrs.get("color", COLOR_PALETTE.get(attrs.get("kind"), COLOR_PALETTE["default"])),
                 "kind": attrs.get("kind", "page"),
-                "metadata": attrs.get("metadata", {})
+                "metadata": meta,
+                # Atributs addicionals necessaris per la categorització al frontend (graphFilters.js)
+                "path": attrs.get("path", ""),
+                "table_id": attrs.get("table_id") or meta.get("table_id") or meta.get("database_table_id"),
+                "database_id": attrs.get("database_id") or meta.get("database_id"),
             })
             
         edges = []
@@ -222,7 +229,7 @@ class GraphService:
         }
         
         GraphService._graph_cache = result
-        GraphService._last_graph_time = now
+        GraphService._last_graph_time = time.time()  # temps DESPRÉS del build, no abans
         return result
 
     def _add_registry_nodes(self, G: nx.Graph):
@@ -243,11 +250,17 @@ class GraphService:
             table_id = table.get("id")
             db_id = table.get("database_id")
             
-            if self.visible_dbs and db_id not in self.visible_dbs:
-                continue
-                
-            if self.visible_tables and table_id not in self.visible_tables:
-                continue
+            # Table is visible if:
+            # 1. It's explicitly selected
+            # 2. Its parent DB is selected
+            # 3. No explicit selections exist at all
+            is_explicit = self.visible_tables and table_id in self.visible_tables
+            is_db_explicit = self.visible_dbs and db_id in self.visible_dbs
+            
+            if (self.visible_tables or self.visible_dbs):
+                if not (is_explicit or is_db_explicit):
+                    continue
+            
                 
             G.add_node(table_id, 
                        label=table.get("name", "Table"), 
@@ -277,7 +290,16 @@ class GraphService:
         page_nodes = []
         if not vault_path or not vault_path.exists():
             return []
-            
+
+        # Build folder→table_id lookup so BD page nodes get table_id even without frontmatter
+        folder_to_table_id: dict = {}
+        folder_to_db_id: dict = {}
+        for t in self.registry.get("tables", []):
+            folder = t.get("folder")
+            if folder:
+                folder_to_table_id[folder] = t["id"]
+                folder_to_db_id[folder] = t.get("database_id", "")
+
         # Recursive scan for all .md files - EFFICIENT VERSION
         all_md_files = get_markdown_files_efficient(vault_path)
         
@@ -293,7 +315,7 @@ class GraphService:
                 title = cache_entry["title"]
                 kind = cache_entry["kind"]
                 color = cache_entry["color"]
-                size = cache_entry["size"]
+                pass  # size llegit des de cache_entry["size"] al G.add_node
             else:
                 # Cache miss - Read and parse file
                 try:
@@ -315,7 +337,17 @@ class GraphService:
                     elif "index" in norm_kind or "índex" in norm_kind: kind = "index"
                     elif "journal" in norm_kind or "diari" in norm_kind or "bitàcora" in norm_kind: kind = "journal"
                     elif "dialogue" in norm_kind or "diàleg" in norm_kind or "dialogo" in norm_kind: kind = "dialogue"
+                    elif "contact" in norm_kind: kind = "contact"
+                    elif "calendar" in norm_kind or "event" in norm_kind: kind = "calendar"
+                    elif "mail" in norm_kind or "email" in norm_kind: kind = "mail"
                     else: kind = "page"
+
+                    # Fallback: detectar per ruta si el frontmatter no especifica el tipus
+                    if kind == "page":
+                        if path_str.startswith("Contacts/") or path_str.startswith("Contactes/"):
+                            kind = "contact"
+                        elif path_str.startswith("Calendar/"):
+                            kind = "calendar"
 
                     # Color
                     node_colors = cfg.colors.get("node_types", {})
@@ -347,14 +379,26 @@ class GraphService:
                     log.error(f"Error processing node {path_str}: {e}")
                     continue
 
+            # Infer table_id from path if not in frontmatter (BD/[DB]/[TableFolder]/file.md)
+            inferred_table_id = metadata.get("table_id") or metadata.get("database_table_id")
+            inferred_db_id = metadata.get("database_id")
+            if not inferred_table_id:
+                path_parts = path_str.replace("\\", "/").split("/")
+                if len(path_parts) >= 3 and path_parts[0] == "BD":
+                    table_folder = path_parts[2]
+                    inferred_table_id = folder_to_table_id.get(table_folder)
+                    inferred_db_id = inferred_db_id or folder_to_db_id.get(table_folder)
+
             # Add to NetworkX
-            G.add_node(id_to_use, 
-                       label=title, 
-                       kind=kind, 
+            G.add_node(id_to_use,
+                       label=title,
+                       kind=kind,
                        color=color,
                        size=cache_entry["size"],
                        metadata=metadata,
-                       path=path_str)
+                       path=path_str,
+                       table_id=inferred_table_id,
+                       database_id=inferred_db_id)
             
             # Update Global Index (ID -> Relative Path string)
             # This allows find_page_path to be O(1)
@@ -371,14 +415,58 @@ class GraphService:
                 
         return page_nodes
 
+    def _add_contact_nodes(self, G: nx.Graph):
+        """Afegeix contactes des de la BD SQLite local (evita escanejar Contacts/ via OneDrive)."""
+        try:
+            from backend.data.db import get_engine_for_path
+            from backend.models.contact import Contact
+
+            cfg = load_params(strict_env=False)
+            vault_path = cfg.paths.get("VAULT")
+            if not vault_path:
+                return
+
+            _, SessionLocal = get_engine_for_path(vault_path)
+            db = SessionLocal()
+            try:
+                contacts = db.query(Contact).all()
+                node_colors = cfg.colors.get("node_types", {})
+                color_cfg = node_colors.get("contact", node_colors.get("default", {}))
+                color = color_cfg.get("bg", "#10b981")
+
+                for c in contacts:
+                    node_id = f"contact_{c.id}"
+                    label = c.name or c.email or str(c.id)
+                    metadata = {
+                        "id": str(c.id),
+                        "title": label,
+                        "email": c.email,
+                        "company": getattr(c, "company", None),
+                        "job_title": getattr(c, "job_title", None),
+                        "source": str(getattr(c, "source", "custom")),
+                        "account_id": getattr(c, "account_id", None),
+                    }
+                    G.add_node(node_id,
+                               label=label,
+                               kind="contact",
+                               color=color,
+                               size=8,
+                               metadata=metadata,
+                               path=f"Contacts/{label}.md")
+            finally:
+                db.close()
+        except Exception as e:
+            log.warning(f"_add_contact_nodes: {e}")
+
     def _add_media_nodes(self, G: nx.Graph) -> List[Dict[str, Any]]:
         """Scans Vault/Images for media nodes using MediaService."""
         from backend.services.media_service import MediaService
         service = MediaService()
         
-        media_list = service.get_all_media()
+        result = service.get_all_media(limit=500)
+        media_list = result.get("items", [])
         media_nodes = []
-        
+
         for media in media_list:
             # We only show media with tags or description by default to avoid clutter
             # unless a global setting says otherwise.
