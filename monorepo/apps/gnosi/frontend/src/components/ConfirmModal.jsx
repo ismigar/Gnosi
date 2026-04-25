@@ -19,6 +19,8 @@ export const ConfirmModal = ({
         try {
             setIsSubmitting(true);
             await onConfirm();
+        } catch (err) {
+            console.error('[ConfirmModal] Error en onConfirm:', err);
         } finally {
             setIsSubmitting(false);
         }
@@ -67,9 +69,10 @@ export const ConfirmModal = ({
                         type="button"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] p-1.5 rounded-lg transition-colors"
+                        className="gnosi-close-btn"
+                        aria-label="Tancar"
                     >
-                        <X size={20} />
+                        <X />
                     </button>
                 </div>
 

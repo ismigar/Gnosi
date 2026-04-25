@@ -432,8 +432,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                         <Settings size={20} className="text-[var(--gnosi-primary)]" />
                         {t('schema.manage_properties_of')} {folder}
                     </h2>
-                    <button onClick={onClose} className="text-[var(--text-secondary)]/60 hover:text-[var(--text-primary)] transition-colors">
-                        <X size={20} />
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar">
+                        <X />
                     </button>
                 </div>
 

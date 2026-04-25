@@ -147,9 +147,11 @@ async def callback(request: Request):
         
         # Redirect back to the frontend with context
         # Tab management: activeTab in frontend should react to this
-        frontend_url = f"http://localhost:5173/calendar?auth=success&tab={auth_type}"
+        base = get_env("FRONTEND_URL", "http://localhost:5173")
+        frontend_url = f"{base}/calendar?auth=success&tab={auth_type}"
         return RedirectResponse(url=frontend_url)
-        
+
     except Exception as e:
         log.error(f"Error in Google OAuth callback: {e}")
-        return RedirectResponse(url="http://localhost:5173/calendar?auth=error")
+        base = get_env("FRONTEND_URL", "http://localhost:5173")
+        return RedirectResponse(url=f"{base}/calendar?auth=error")

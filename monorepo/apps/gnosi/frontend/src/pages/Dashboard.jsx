@@ -646,7 +646,11 @@ function Dashboard() {
             if (task.interval_minutes % 60 === 0) {
                 return t('dashboard.frequency_hours', { count: task.interval_minutes / 60 });
             }
-            return t('dashboard.frequency_minutes', { count: task.interval_minutes });
+            const hours = task.interval_minutes / 60;
+            if (hours > 1 && Number.isFinite(hours)) {
+                return t('dashboard.frequency_hours', { count: Math.round(hours * 100) / 100 });
+            }
+            return t('dashboard.frequency_minutes', { count: Math.round(task.interval_minutes) });
         }
         if (typeof task.interval === 'number' && task.interval > 0) {
             return t('dashboard.frequency_seconds', { count: task.interval });
@@ -911,7 +915,11 @@ function Dashboard() {
                                                     value={task.interval_minutes}
                                                     onChange={(e) => updateScheduler(task, { interval_minutes: Number(e.target.value) })}
                                                 >
+                                                    <option value={15}>{t('dashboard.time_15_min')}</option>
+                                                    <option value={30}>{t('dashboard.time_30_min')}</option>
+                                                    <option value={45}>{t('dashboard.time_45_min')}</option>
                                                     <option value={60}>{t('dashboard.time_1_hour')}</option>
+                                                    <option value={90}>{t('dashboard.time_1_5_hours')}</option>
                                                     <option value={120}>{t('dashboard.time_2_hours')}</option>
                                                     <option value={180}>{t('dashboard.time_3_hours')}</option>
                                                     <option value={360}>{t('dashboard.time_6_hours')}</option>

@@ -1,6 +1,5 @@
 import json
 import logging
-from pathlib import Path
 from backend.config.app_config import load_params
 
 log = logging.getLogger(__name__)
@@ -174,6 +173,104 @@ class IntegrationManager:
             self._update_single_key(config, key, data)
         self._save(config)
 
+    # ── Mail account helpers ───────────────────────────────────────────────────
+
+    def get_all_mail_accounts(self, only_enabled: bool = False) -> list:
+        """Returns all mail accounts (raw) from both 'emails' and 'mail_accounts'."""
+        data = self._load()
+        accounts = data.get("emails", []) + data.get("mail_accounts", [])
+        if only_enabled:
+            accounts = [a for a in accounts if a.get("enabled", True)]
+        return accounts
+
+    def set_mail_account_enabled(self, email: str, enabled: bool) -> bool:
+        """Sets the enabled flag for a mail account. Returns True if found."""
+        data = self._load()
+        email_lower = email.strip().lower()
+        for section in ("emails", "mail_accounts"):
+            for acc in data.get(section, []):
+                if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
+                    acc["enabled"] = enabled
+                    self._save(data)
+                    return True
+        return False
+
+    def get_mail_account(self, email: str) -> dict | None:
+        """Returns the raw account dict for an email, searching both lists."""
+        email_lower = email.strip().lower()
+        for acc in self.get_all_mail_accounts():
+            if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
+                return acc
+        return None
+
+    def get_account_by_alias(self, alias_email: str) -> dict | None:
+        """Returns the parent account that owns the given alias email, or None."""
+        alias_lower = alias_email.strip().lower()
+        for acc in self.get_all_mail_accounts():
+            for alias in acc.get("aliases", []):
+                if alias.get("email", "").strip().lower() == alias_lower:
+                    return acc
+        return None
+
+    def update_mail_account_token(self, email: str, token: str) -> None:
+        """Persists a refreshed OAuth token in-place without touching other fields."""
+        data = self._load()
+        email_lower = email.strip().lower()
+        for section in ("emails", "mail_accounts"):
+            for acc in data.get(section, []):
+                if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
+                    acc["token"] = token
+                    self._save(data)
+                    return
+
+    # ── Provider classification (static, no I/O) ──────────────────────────────
+
+    @staticmethod
+    def is_google_account(acc: dict) -> bool:
+        """True for Google OAuth2 accounts (use Gmail API)."""
+        return bool(
+            acc
+            and acc.get("provider") == "google"
+            and acc.get("auth_type") == "oauth2"
+        )
+
+    @staticmethod
+    def is_microsoft_account(acc: dict) -> bool:
+        """True for Microsoft 365 / Entra ID OAuth2 accounts (use Graph API)."""
+        return bool(
+            acc
+            and acc.get("provider") == "microsoft"
+            and acc.get("auth_type") == "oauth2"
+        )
+
+    @staticmethod
+    def is_imap_account(acc: dict) -> bool:
+        """True for any account that should be accessed via IMAP.
+
+        Includes manual, Outlook, and any account with imap_host that is not
+        Google OAuth2.
+        """
+        if not acc:
+            return False
+        if IntegrationManager.is_google_account(acc):
+            return False
+        provider = acc.get("provider", "")
+        return provider in ("manual", "outlook", "imap") or bool(acc.get("imap_host"))
+
+    @staticmethod
+    def resolve_imap_defaults(acc: dict) -> dict:
+        """Returns the account dict with default IMAP settings filled in for
+        known providers (e.g. Outlook) when the caller hasn't set them explicitly."""
+        provider = acc.get("provider", "")
+        if provider == "outlook" and not acc.get("imap_host"):
+            acc = {
+                **acc,
+                "imap_host": "outlook.office365.com",
+                "imap_port": acc.get("imap_port") or 993,
+                "imap_encryption": acc.get("imap_encryption") or "ssl",
+                "imap_user": acc.get("imap_user") or acc.get("email", ""),
+            }
+        return acc
 
 
 integration_manager = IntegrationManager()

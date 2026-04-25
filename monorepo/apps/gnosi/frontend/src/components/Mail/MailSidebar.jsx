@@ -4,9 +4,10 @@ import {
     Inbox, Send, FileText, Trash2,
     ChevronDown, Plus, Star,
     Archive, Search, AlertOctagon,
-    MoreHorizontal, Pencil, Trash2 as DeleteIcon, Layout,
+    MoreHorizontal, Pencil, Trash2 as DeleteIcon, Layout, Tag,
 } from 'lucide-react';
 import { useMailViews } from '../../hooks/useMailViews';
+import { useMailTags } from '../../hooks/useMailTags';
 import MailViewEditor from './MailViewEditor';
 
 export default function MailSidebar({
@@ -16,9 +17,11 @@ export default function MailSidebar({
     activeFolder,
     activeCategory,
     activeViewId,
+    activeTagId,
     onSelectFolder,
     onSelectCategory,
     onSelectView,
+    onSelectTag,
     onCompose,
     onSearch,
     counts = {},
@@ -29,6 +32,9 @@ export default function MailSidebar({
     const [showEditor, setShowEditor] = useState(false);
     const [editingView, setEditingView] = useState(null);
     const [viewMenuId, setViewMenuId] = useState(null);
+    const [showTags, setShowTags] = useState(true);
+
+    const { tags, createTag, deleteTag } = useMailTags();
 
     const { views, createView, updateView, deleteView } = useMailViews();
 
@@ -79,7 +85,8 @@ export default function MailSidebar({
             ? activeFolder === item.id
             : activeCategory === item.id;
         const c = counts[item.id] || {};
-        const unread = c.unread || 0;
+        const noUnreadBadge = item.id === 'TRASH' || item.id === 'SPAM';
+        const unread = noUnreadBadge ? 0 : (c.unread || 0);
         return (
             <button
                 onClick={() => handleItemClick(item)}
@@ -253,6 +260,37 @@ export default function MailSidebar({
                             {t('mail.mail_section')}
                         </div>
                         {systemFolders.map(item => <NavItem key={item.id} item={item} />)}
+                    </div>
+
+                    {/* Etiquetes */}
+                    <div>
+                        <button
+                            onClick={() => setShowTags(v => !v)}
+                            className="w-full flex items-center gap-1.5 px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors"
+                        >
+                            <span className="flex-1 text-left">Etiquetes</span>
+                            <ChevronDown size={11} className={`transition-transform ${showTags ? '' : '-rotate-90'}`} />
+                        </button>
+                        {showTags && (
+                            <>
+                                {tags.map(tag => (
+                                    <button
+                                        key={tag.id}
+                                        onClick={() => onSelectTag?.(activeTagId === tag.id ? null : tag.id)}
+                                        className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13.5px] transition-colors text-left
+                                            ${activeTagId === tag.id
+                                                ? 'bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)] font-semibold'
+                                                : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-item-hover)] font-medium'}`}
+                                    >
+                                        <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: tag.color, display: 'inline-block', flexShrink: 0 }} />
+                                        <span className="flex-1 truncate">{tag.name}</span>
+                                    </button>
+                                ))}
+                                {tags.length === 0 && (
+                                    <div className="px-3 py-1 text-[12px] text-[var(--text-secondary)]">Cap etiqueta</div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

@@ -191,8 +191,8 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                 {/* Header */}
                 <div className="settings-modal__header">
                     <h2 className="settings-modal__title">📡 Gestió de Feeds</h2>
-                    <button className="settings-modal__close" onClick={onClose}>
-                        <X size={20} />
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
+                        <X />
                     </button>
                 </div>
 

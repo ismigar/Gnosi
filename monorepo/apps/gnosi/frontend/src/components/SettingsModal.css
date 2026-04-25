@@ -36,13 +36,7 @@
     font-size: 1.2rem;
 }
 
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #888;
-}
+
 
 .settings-tabs {
     display: flex;

@@ -26,6 +26,7 @@ from backend.services.google_mail_service import (
     trash_thread,
     send_new_message,
     send_new_message_with_attachments,
+    get_thread_details,
 )
 from backend.services.imap_mail_sync_service import imap_sync_service
 from backend.services.vault_mail_sync_service import sync_service
@@ -37,6 +38,11 @@ from backend.models.mail import (
     MailView,
     MailViewCreateSchema,
     MailViewUpdateSchema,
+    MailTag,
+    MailMessageTag,
+    MailTagCreateSchema,
+    MailTagUpdateSchema,
+    MailMessageTagsSetSchema,
 )
 from backend.data.db import get_db
 from sqlalchemy.orm import Session
@@ -202,13 +208,13 @@ async def get_mail_counts(email: str = Query(...)):
     from backend.services.hybrid_mail_service import gmail_get_counts, imap_get_counts
     from backend.services.integration_manager import integration_manager
 
-    integrations = integration_manager.get_all_safe()
-    all_accounts = integrations.get("emails", []) + integrations.get("mail_accounts", [])
-    acc = next((a for a in all_accounts if (a.get("email") or a.get("username")) == email), None)
-
+    acc = integration_manager.get_mail_account(email)
     loop = asyncio.get_event_loop()
-    if acc and acc.get("provider") == "google":
+    if integration_manager.is_google_account(acc):
         counts = await loop.run_in_executor(None, gmail_get_counts, email)
+    elif integration_manager.is_microsoft_account(acc):
+        from backend.services.microsoft_mail_service import microsoft_get_counts
+        counts = await loop.run_in_executor(None, microsoft_get_counts, email)
     else:
         counts = await loop.run_in_executor(None, imap_get_counts, email)
 
@@ -225,26 +231,36 @@ async def get_messages(
     offset: int = Query(0),
     page_token: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    force: bool = Query(False),
 ):
     """Hybrid: consulta Gmail API o IMAP directament (sense vault)."""
     from backend.services.hybrid_mail_service import gmail_list_messages, imap_list_messages
     from backend.services.integration_manager import integration_manager
 
     cache_key = f"{email}|{folder}|{category}|{page_token}|{offset}|{search}"
-    cached = _MAIL_CACHE.get(cache_key)
-    if cached and time.time() < cached["expiry"]:
-        return cached["data"]
+    if not force:
+        cached = _MAIL_CACHE.get(cache_key)
+        if cached and time.time() < cached["expiry"]:
+            return cached["data"]
+    else:
+        _MAIL_CACHE.pop(cache_key, None)
 
-    integrations = integration_manager.get_all_safe()
-    all_accounts = integrations.get("emails", []) + integrations.get("mail_accounts", [])
-    acc = next((a for a in all_accounts if (a.get("email") or a.get("username")) == email), None)
-
+    acc = integration_manager.get_mail_account(email)
     loop = asyncio.get_event_loop()
-    if acc and acc.get("provider") == "google":
+    if integration_manager.is_google_account(acc):
         result = await loop.run_in_executor(
             None, functools.partial(
                 gmail_list_messages, email,
                 folder=folder or "all", category=category,
+                search=search, limit=limit, page_token=page_token,
+            )
+        )
+    elif integration_manager.is_microsoft_account(acc):
+        from backend.services.microsoft_mail_service import microsoft_list_messages
+        result = await loop.run_in_executor(
+            None, functools.partial(
+                microsoft_list_messages, email,
+                folder=folder or "INBOX", category=category,
                 search=search, limit=limit, page_token=page_token,
             )
         )
@@ -257,12 +273,17 @@ async def get_messages(
             )
         )
 
+    error = result.get("error")
     data = {
         "messages": result.get("messages", []),
         "next_page_token": result.get("next_page_token"),
         "total": result.get("total", len(result.get("messages", []))),
     }
-    _MAIL_CACHE[cache_key] = {"data": data, "expiry": time.time() + _MAIL_CACHE_TTL}
+    if error:
+        data["error"] = error
+    else:
+        # Només caché si no hi ha error
+        _MAIL_CACHE[cache_key] = {"data": data, "expiry": time.time() + _MAIL_CACHE_TTL}
     return data
 
 
@@ -277,16 +298,16 @@ async def get_message(
     from backend.services.integration_manager import integration_manager
 
     if email:
-        integrations = integration_manager.get_all_safe()
-        all_accounts = integrations.get("emails", []) + integrations.get("mail_accounts", [])
-        acc = next((a for a in all_accounts if (a.get("email") or a.get("username")) == email), None)
-
+        acc = integration_manager.get_mail_account(email)
         loop = asyncio.get_event_loop()
         if message_id.startswith("imap_"):
             uid = message_id[5:]
             result = await loop.run_in_executor(None, imap_get_message, email, uid, folder or "INBOX")
-        elif acc and acc.get("provider") == "google":
+        elif integration_manager.is_google_account(acc):
             result = await loop.run_in_executor(None, gmail_get_message, email, message_id)
+        elif integration_manager.is_microsoft_account(acc):
+            from backend.services.microsoft_mail_service import microsoft_get_message
+            result = await loop.run_in_executor(None, microsoft_get_message, email, message_id)
         else:
             uid = message_id[5:] if message_id.startswith("imap_") else message_id
             result = await loop.run_in_executor(None, imap_get_message, email, uid, folder or "INBOX")
@@ -331,63 +352,84 @@ async def get_message(
     }
 
 
+@router.get("/threads/{thread_id}")
+async def get_thread(thread_id: str, email: str = Query(...)):
+    """Retorna tots els missatges d'un thread de Gmail (inclou INBOX i SENT)."""
+    from backend.services.hybrid_mail_service import _parse_gmail_meta
+    from backend.services.integration_manager import integration_manager
+
+    acc = integration_manager.get_mail_account(email)
+    if not integration_manager.is_google_account(acc):
+        return {"messages": []}
+
+    loop = asyncio.get_event_loop()
+    thread = await loop.run_in_executor(None, get_thread_details, email, thread_id)
+    if not thread:
+        return {"messages": []}
+
+    messages = []
+    for msg in thread.get("messages", []):
+        try:
+            normalized = _parse_gmail_meta(msg, email)
+            messages.append(normalized)
+        except Exception:
+            pass
+
+    messages.sort(key=lambda m: m.get("timestamp", 0))
+    return {"messages": messages}
+
+
 @router.post("/sync")
 async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50):
     """Triggers a manual synchronization for one or all mail accounts."""
     try:
         from backend.services.integration_manager import integration_manager
+        from backend.services.imap_mail_sync_service import imap_sync_service
 
-        integrations = integration_manager.get_all_safe()
+        all_accounts = integration_manager.get_all_mail_accounts()
 
-        # If email is provided, sync only that one. Otherwise, sync all.
-        accounts_to_sync = []
         if email:
-            accounts_to_sync.append(email)
+            accounts_to_sync = [email]
         else:
-            # Get all gmail/google accounts from integrations
-            for acc in integrations.get("mail_accounts", []):
-                acc_email = acc.get("email") or acc.get("username")
-                if acc_email:
-                    accounts_to_sync.append(acc_email)
-
-            # Also check generic emails list if any
-            for acc in integrations.get("emails", []):
-                if acc.get("email"):
-                    accounts_to_sync.append(acc["email"])
-
-        # Deduplicate
-        accounts_to_sync = list(set(accounts_to_sync))
+            seen = set()
+            accounts_to_sync = []
+            for acc in all_accounts:
+                if not acc.get("enabled", True):
+                    continue
+                addr = acc.get("email") or acc.get("username")
+                if addr and addr not in seen:
+                    seen.add(addr)
+                    accounts_to_sync.append(addr)
 
         total_synced = 0
+        failed_accounts = []
         for acc_email in accounts_to_sync:
-            log.info(f"Triggering manual sync for {acc_email}...")
-            # Check account type to decide which sync service to use
-            acc_data = integration_manager.get_raw("mail_accounts")
-            account_info = next(
-                (
-                    acc
-                    for acc in acc_data
-                    if acc.get("email") == acc_email or acc.get("username") == acc_email
-                ),
-                None,
-            )
-            if account_info and account_info.get("provider") == "manual":
-                # Use IMAP sync service
-                from backend.services.imap_mail_sync_service import imap_sync_service
-
+            log.info(f"Manual sync per a {acc_email}...")
+            acc = integration_manager.get_mail_account(acc_email)
+            if integration_manager.is_imap_account(acc):
                 count = imap_sync_service.sync_account(acc_email, limit=limit)
+                if count is None:
+                    log.warning(f"[Sync] Connexió IMAP fallida per a {acc_email}")
+                    failed_accounts.append(acc_email)
+                    count = 0
             else:
-                # Use Gmail sync service
                 count = sync_service.sync_emails(acc_email, limit=limit)
-            total_synced += count
+            total_synced += count or 0
+
+        if failed_accounts and not total_synced and len(failed_accounts) == len(accounts_to_sync):
+            raise HTTPException(
+                status_code=503,
+                detail=f"No s'ha pogut connectar: {', '.join(failed_accounts)}. Comprova les credencials IMAP a Configuració."
+            )
 
         return {
-            "status": "success",
+            "status": "partial" if failed_accounts else "success",
             "synced_count": total_synced,
             "accounts": accounts_to_sync,
+            "failed": failed_accounts,
         }
     except Exception as e:
-        log.error(f"Error in POST /api/mail/sync: {e}")
+        log.error(f"Error en POST /api/mail/sync: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -431,9 +473,14 @@ async def update_message(message_id: str, update: dict = Body(...)):
 
 def _is_imap_account(email: str) -> bool:
     from backend.services.integration_manager import integration_manager
-    accs = integration_manager.get_raw("mail_accounts")
-    acc = next((a for a in accs if a.get("email") == email), None)
-    return bool(acc and acc.get("provider") == "manual" and acc.get("imap_host"))
+    acc = integration_manager.get_mail_account(email)
+    return integration_manager.is_imap_account(acc)
+
+
+def _is_microsoft_account(email: str) -> bool:
+    from backend.services.integration_manager import integration_manager
+    acc = integration_manager.get_mail_account(email)
+    return integration_manager.is_microsoft_account(acc)
 
 
 def _resolve_gmail_id(message_id: str) -> str:
@@ -453,10 +500,15 @@ def _resolve_gmail_id(message_id: str) -> str:
 
 
 @router.post("/messages/{message_id}/trash")
-async def trash_msg(message_id: str, email: str = Query(...)):
+async def trash_msg(message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)):
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
-        if imap_sync_service.trash_message(email, message_id):
+        if imap_sync_service.trash_message(email, message_id, imap_folder=folder):
+            _invalidate_mail_cache()
+            return {"status": "success"}
+    if _is_microsoft_account(email):
+        from backend.services.microsoft_mail_service import microsoft_trash_message
+        if microsoft_trash_message(email, message_id):
             _invalidate_mail_cache()
             return {"status": "success"}
     gmail_id = _resolve_gmail_id(message_id)
@@ -467,10 +519,10 @@ async def trash_msg(message_id: str, email: str = Query(...)):
 
 
 @router.post("/messages/{message_id}/archive")
-async def archive_msg(message_id: str, email: str = Query(...)):
+async def archive_msg(message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)):
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
-        if imap_sync_service.archive_message(email, message_id):
+        if imap_sync_service.archive_message(email, message_id, imap_folder=folder):
             _invalidate_mail_cache()
             return {"status": "success"}
     gmail_id = _resolve_gmail_id(message_id)
@@ -484,6 +536,11 @@ async def archive_msg(message_id: str, email: str = Query(...)):
 async def star_msg(
     message_id: str, email: str = Query(...), starred: bool = Body(..., embed=True)
 ):
+    if _is_microsoft_account(email):
+        from backend.services.microsoft_mail_service import microsoft_star_message
+        if microsoft_star_message(email, message_id, starred):
+            _invalidate_mail_cache()
+            return {"status": "success"}
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
         if imap_sync_service.star_message(email, message_id, starred):
@@ -544,12 +601,29 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
             if target_type:
                 folder_info = next((f for f in folders if f["type"] == target_type), None)
         
-        if not folder_info:
+        # Fallback: busca per paraula clau en TOTES les carpetes IMAP (sense filtratge de tipus)
+        real_name = None
+        if not folder_info and folder.upper() in ("TRASH", "SPAM"):
+            keywords = ["trash", "paperera", "papelera", "deleted", "bin", "wastebasket"] if folder.upper() == "TRASH" else ["spam", "junk", "brossa"]
+            all_raw = imap_sync_service.list_all_raw_folders(email)
+            for kw in keywords:
+                match = next((n for n in all_raw if kw in n.lower()), None)
+                if match:
+                    real_name = match
+                    log.info(f"[IMAP] Carpeta trobada per fallback raw '{kw}': {real_name}")
+                    break
+
+        if not folder_info and not real_name:
+            # Si list_folders retorna buit probablement és error de connexió/autenticació
+            if not folders:
+                log.warning(f"[IMAP] No s'ha pogut connectar al compte {email} — credencials incorrectes?")
+                raise HTTPException(status_code=503, detail=f"No s'ha pogut connectar al compte {email}. Comprova les credencials IMAP a Configuració.")
             log.warning(f"[IMAP] Carpeta {folder} no trobada per a {email}")
             raise HTTPException(status_code=404, detail=f"Folder {folder} not found")
-            
-        real_name = folder_info["name"]
-        is_trash = folder_info["type"] == "Deleted" or real_name.upper() == "TRASH"
+
+        if not real_name:
+            real_name = folder_info["name"]
+        is_trash = (folder_info["type"] == "Deleted" if folder_info else False) or folder.upper() == "TRASH"
         log.info(f"[IMAP] Buidant carpeta real '{real_name}' (permanent={is_trash})")
         
         if imap_sync_service.empty_folder(email, real_name, permanent=is_trash):
@@ -599,10 +673,10 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
 
 @router.post("/drafts")
 async def save_draft(payload: dict = Body(...)):
-    """Auto-saves a draft to the Vault. Creates or overwrites {draft_id}.md with type: Draft."""
-    import uuid as _uuid
+    """Auto-saves a draft. For Gmail accounts uses the Gmail Drafts API; falls back to local vault for IMAP."""
+    from backend.services.integration_manager import integration_manager
 
-    draft_id = payload.get("draft_id") or f"draft_{_uuid.uuid4().hex[:12]}"
+    draft_id = payload.get("draft_id") or None
     to = payload.get("to", "")
     cc = payload.get("cc", "")
     bcc = payload.get("bcc", "")
@@ -610,44 +684,40 @@ async def save_draft(payload: dict = Body(...)):
     body = payload.get("body", "")
     email_account = payload.get("account", "")
 
+    acc = integration_manager.get_mail_account(email_account) if email_account else None
+
+    if acc and integration_manager.is_google_account(acc):
+        from backend.services.google_mail_service import save_gmail_draft
+        loop = asyncio.get_event_loop()
+        new_id = await loop.run_in_executor(
+            None, lambda: save_gmail_draft(
+                email_account, to, subject, body, cc=cc, bcc=bcc, gmail_draft_id=draft_id
+            )
+        )
+        if new_id:
+            _invalidate_mail_cache()
+            return {"status": "success", "draft_id": new_id}
+        raise HTTPException(status_code=500, detail="Error saving Gmail draft")
+
+    # Fallback: local vault (IMAP accounts)
+    import uuid as _uuid
+    draft_id = draft_id or f"draft_{_uuid.uuid4().hex[:12]}"
     mail_path = get_mail_vault_path()
     mail_path.mkdir(parents=True, exist_ok=True)
-
-    clean = "".join(c for c in subject if c.isalnum() or c in (" ", "-", "_")).strip()[
-        :50
-    ]
+    clean = "".join(c for c in subject if c.isalnum() or c in (" ", "-", "_")).strip()[:50]
     filename = f"{draft_id}_{clean}.md" if clean else f"{draft_id}.md"
-
-    # Remove previous draft file with same draft_id (subject may have changed)
     for old in mail_path.glob(f"{draft_id}_*.md"):
         old.unlink(missing_ok=True)
-
     metadata = {
-        "title": subject or "(Esborrany)",
-        "id": draft_id,
-        "gmail_id": draft_id,
-        "thread_id": draft_id,
-        "type": "Draft",
-        "sender": email_account,
-        "recipients": to,
-        "cc": cc,
-        "bcc": bcc,
-        "date": datetime.utcnow().isoformat(),
-        "is_read": True,
-        "is_starred": False,
-        "has_attachments": False,
-        "has_html": False,
-        "category": "Main",
-        "archived": False,
-        "spam": False,
-        "account": email_account,
-        "database_table_id": "mail",
+        "title": subject or "(Esborrany)", "id": draft_id, "gmail_id": draft_id,
+        "thread_id": draft_id, "type": "Draft", "sender": email_account,
+        "recipients": to, "cc": cc, "bcc": bcc, "date": datetime.utcnow().isoformat(),
+        "is_read": True, "is_starred": False, "has_attachments": False, "has_html": False,
+        "category": "Main", "archived": False, "spam": False,
+        "account": email_account, "database_table_id": "mail",
     }
-    yaml_front = yaml.dump(
-        metadata, default_flow_style=False, sort_keys=False, allow_unicode=True
-    )
-    file_path = mail_path / filename
-    file_path.write_text(f"---\n{yaml_front}---\n\n{body}\n", encoding="utf-8")
+    yaml_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    (mail_path / filename).write_text(f"---\n{yaml_front}---\n\n{body}\n", encoding="utf-8")
     return {"status": "success", "draft_id": draft_id}
 
 
@@ -794,9 +864,10 @@ async def send_mail(
     body: str = Form(default=""),
     cc: str = Form(default=None),
     bcc: str = Form(default=None),
+    from_name: str = Form(default=None),
+    from_email: str = Form(default=None),
     attachments: List[UploadFile] = File(default=[]),
 ):
-    # Support both multipart/form-data (with attachments) and plain JSON
     if to is None:
         raise HTTPException(status_code=400, detail="Missing TO")
     if not body:
@@ -813,12 +884,33 @@ async def send_mail(
             }
         )
 
-    if attachment_data:
+    # Resolve the SMTP account (handles aliases: email may be the alias, smtp_email is the parent)
+    from backend.services.integration_manager import integration_manager
+    smtp_email = email
+    acc = integration_manager.get_mail_account(email)
+    if acc is None:
+        # Try alias resolution: find the parent account that owns this alias
+        acc = integration_manager.get_account_by_alias(email)
+        if acc:
+            smtp_email = acc.get("email") or acc.get("username") or email
+
+    if _is_microsoft_account(smtp_email):
+        from backend.services.microsoft_mail_service import microsoft_send_message
+        success = microsoft_send_message(smtp_email, to, subject, body, cc, bcc)
+    elif _is_imap_account(smtp_email):
+        from backend.services.imap_mail_sync_service import imap_smtp_send
+        imap_acc = acc or integration_manager.get_mail_account(smtp_email) or {}
+        success = imap_smtp_send(
+            imap_acc, to, subject, body, cc, bcc, attachment_data or None,
+            from_email=from_email or email,
+            from_name=from_name or imap_acc.get("display_name"),
+        )
+    elif attachment_data:
         success = send_new_message_with_attachments(
-            email, to, subject, body, cc, bcc, attachment_data
+            smtp_email, to, subject, body, cc, bcc, attachment_data
         )
     else:
-        success = send_new_message(email, to, subject, body, cc, bcc)
+        success = send_new_message(smtp_email, to, subject, body, cc, bcc)
 
     if success:
         return {"status": "success"}
@@ -844,19 +936,75 @@ async def get_folders(email: str = Query(...)):
 
 @router.post("/messages/{message_id}/move")
 async def move_message(message_id: str, email: str = Query(...), payload: dict = Body(...)):
-    """Move a message to a different folder."""
+    """Move a message to a different folder (IMAP) or apply label changes (Gmail)."""
     target_folder = payload.get("target_folder")
     if not target_folder:
         raise HTTPException(status_code=400, detail="Missing target_folder")
 
-    if not _is_imap_account(email):
-        raise HTTPException(status_code=400, detail="Move only supported for IMAP accounts")
+    from backend.services.integration_manager import integration_manager
+    acc = integration_manager.get_mail_account(email)
 
-    from backend.services.imap_mail_sync_service import imap_sync_service
-    ok = imap_sync_service.move_message(email, message_id, target_folder)
-    if ok:
-        return {"status": "success"}
-    raise HTTPException(status_code=500, detail="Error moving message")
+    if integration_manager.is_imap_account(acc):
+        from backend.services.imap_mail_sync_service import imap_sync_service
+        imap_uid = payload.get("imap_uid")
+        imap_folder = payload.get("imap_folder")
+        if imap_uid and imap_folder:
+            ok = imap_sync_service.move_message_by_uid(email, imap_uid, imap_folder, target_folder)
+        else:
+            ok = imap_sync_service.move_message(email, message_id, target_folder)
+        if ok:
+            _invalidate_mail_cache()
+            return {"status": "success"}
+        raise HTTPException(status_code=500, detail="Error moving message")
+
+    if integration_manager.is_google_account(acc):
+        from backend.services.google_mail_service import get_gmail_service
+        gmail_id = _resolve_gmail_id(message_id)
+        folder_upper = target_folder.upper()
+        service = get_gmail_service(email)
+        if not service:
+            raise HTTPException(status_code=500, detail="No s'ha pogut connectar amb Gmail")
+        try:
+            if folder_upper == "TRASH":
+                try:
+                    service.users().threads().trash(userId="me", id=gmail_id).execute()
+                except Exception:
+                    service.users().messages().trash(userId="me", id=gmail_id).execute()
+            elif folder_upper == "INBOX":
+                try:
+                    service.users().threads().untrash(userId="me", id=gmail_id).execute()
+                except Exception:
+                    service.users().messages().untrash(userId="me", id=gmail_id).execute()
+                update_thread_labels(email, gmail_id, add_labels=["INBOX"], remove_labels=["SPAM"])
+            elif folder_upper == "SPAM":
+                try:
+                    service.users().threads().modify(
+                        userId="me", id=gmail_id,
+                        body={"addLabelIds": ["SPAM"], "removeLabelIds": ["INBOX", "TRASH"]}
+                    ).execute()
+                except Exception:
+                    service.users().messages().modify(
+                        userId="me", id=gmail_id,
+                        body={"addLabelIds": ["SPAM"], "removeLabelIds": ["INBOX", "TRASH"]}
+                    ).execute()
+            else:
+                raise HTTPException(status_code=400, detail=f"Carpeta Gmail no suportada: {target_folder}")
+            _invalidate_mail_cache()
+            return {"status": "success"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            log.error(f"[Gmail] Error movent {gmail_id} a {target_folder}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error movent a Gmail: {e}")
+
+    if _is_microsoft_account(email):
+        from backend.services.microsoft_mail_service import microsoft_move_message
+        if microsoft_move_message(email, message_id, target_folder):
+            _invalidate_mail_cache()
+            return {"status": "success"}
+        raise HTTPException(status_code=500, detail="Error movent a Microsoft")
+
+    raise HTTPException(status_code=400, detail="Compte no suportat per moure missatges")
 
 
 @router.post("/batch")
@@ -890,6 +1038,11 @@ async def batch_action(email: str = Query(...), payload: dict = Body(...)):
 @router.post("/messages/{message_id}/read")
 async def mark_as_read(message_id: str, email: str = Query(...)):
     """Marca un missatge com a llegit (treu l'etiqueta UNREAD a Gmail o posa \\Seen a IMAP)."""
+    if _is_microsoft_account(email):
+        from backend.services.microsoft_mail_service import microsoft_mark_read
+        if microsoft_mark_read(email, message_id, True):
+            _invalidate_mail_cache()
+            return {"status": "success"}
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
         uid = message_id[5:] if message_id.startswith("imap_") else message_id
@@ -944,15 +1097,19 @@ async def reply_message(
         data = await att.read()
         att_list.append({"filename": att.filename, "data": data, "content_type": att.content_type})
 
-    success = send_reply(
-        email=email,
-        thread_id=message_id,
-        body=body,
-        to_recipients=to,
-        cc_recipients=cc,
-        bcc_recipients=bcc,
-        attachments=att_list if att_list else None,
-    )
+    if _is_microsoft_account(email):
+        from backend.services.microsoft_mail_service import microsoft_reply_message
+        success = microsoft_reply_message(email, message_id, body, to, cc, bcc)
+    else:
+        success = send_reply(
+            email=email,
+            thread_id=message_id,
+            body=body,
+            to_recipients=to,
+            cc_recipients=cc,
+            bcc_recipients=bcc,
+            attachments=att_list if att_list else None,
+        )
     if success:
         return {"status": "success"}
     raise HTTPException(status_code=500, detail="Error sending email")
@@ -978,25 +1135,37 @@ async def extract_entities(payload: dict = Body(...)):
     if not context:
         return {"events": [], "contacts": []}
 
-    system_prompt = """Extract potential calendar events and contacts from the following email.
-Return ONLY a JSON object with 'events' and 'contacts' arrays. 
-If no entities are found, return empty arrays.
+    from datetime import date
+    today = date.today().isoformat()
 
-Events should have:
-- title: string
-- start: ISO datetime string (if only date is mentioned, use T09:00:00)
-- end: ISO datetime string (if not mentioned, 1 hour after start)
-- location: string
-- description: string
+    system_prompt = f"""Analitza el contingut d'aquest correu electrònic i extreu esdeveniments de calendari i contactes.
+L'email pot estar en qualsevol idioma (català, castellà, anglès, francès...).
+La data d'avui és {today}.
 
-Contacts should have:
+Retorna ÚNICAMENT un objecte JSON amb els camps 'events' i 'contacts'. Sense cap text addicional, sense markdown.
+Si no hi ha entitats, retorna arrays buits.
+
+Formats de data a reconèixer (exemples no exhaustius):
+- "dia 6 de maig de 2026 a les 09.30 hores" → 2026-05-06T09:30:00
+- "el proper dilluns a les 10h" → calcula a partir de {today}
+- "6 de mayo de 2026 a las 10:00" → 2026-05-06T10:00:00
+- "May 6th 2026 at 10am" → 2026-05-06T10:00:00
+
+Events han de tenir:
+- title: string (nom curt descriptiu de l'esdeveniment)
+- start: string ISO 8601 (si no hi ha hora, usa T09:00:00)
+- end: string ISO 8601 (si no s'especifica, 1 hora després de start)
+- location: string (buit si no s'esmenta)
+- description: string (resum breu)
+
+Contacts han de tenir:
 - name: string
 - email: string
 - phone: string
 - company: string
 - notes: string
 
-EMAIL CONTENT:
+CONTINGUT DEL CORREU:
 """
     ai_prompt = system_prompt + context
     content, provider = call_ai_with_fallback(ai_prompt)
@@ -1090,3 +1259,278 @@ async def delete_view(view_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Vista no trobada")
     db.delete(view)
     db.commit()
+
+
+async def _gmail_get_attachment_bytes(email: str, message_id: str, attachment_id: str) -> tuple:
+    """Returns (data_bytes, content_type) for a Gmail attachment."""
+    import base64
+    from backend.services.google_mail_service import get_gmail_service
+    service = get_gmail_service(email)
+    if not service:
+        return None, None
+    att = service.users().messages().attachments().get(
+        userId="me", messageId=message_id, id=attachment_id
+    ).execute()
+    data = base64.urlsafe_b64decode(att.get("data", "") + "==")
+    return data, None
+
+
+async def _imap_fetch_raw(email: str, message_id: str, folder: str):
+    """Returns (raw_bytes, imap_conn) for an IMAP message. Caller must release the pool."""
+    from backend.services.hybrid_mail_service import _get_imap_account, _imap_pool_acquire, _imap_folder_name
+    acc = _get_imap_account(email)
+    if not acc:
+        return None, None
+    imap = _imap_pool_acquire(acc)
+    if not imap:
+        return None, None
+    uid = message_id[5:] if message_id.startswith("imap_") else message_id
+    folder_name = _imap_folder_name(imap, folder)
+    imap.select(f'"{folder_name}"', readonly=True)
+    status, data = imap.uid("fetch", uid, "(BODY[])")
+    if status != "OK" or not data:
+        return None, imap
+    raw_bytes = next((p[1] for p in data if isinstance(p, tuple)), None)
+    return raw_bytes, imap
+
+
+@router.get("/messages/{message_id}/attachments/{att_id:path}")
+async def get_attachment(
+    message_id: str,
+    att_id: str,
+    email: str = Query(...),
+    folder: str = Query("INBOX"),
+    inline: bool = Query(False),
+    content_type_hint: Optional[str] = Query(None, alias="content_type"),
+    filename_hint: Optional[str] = Query(None, alias="filename"),
+):
+    """Downloads an attachment — works for Gmail (att_id=attachmentId) and IMAP (att_id=part_index)."""
+    from fastapi.responses import Response
+    from backend.services.integration_manager import integration_manager
+
+    disposition = "inline" if inline else "attachment"
+    acc = integration_manager.get_mail_account(email)
+
+    if integration_manager.is_google_account(acc):
+        data, _ = await _gmail_get_attachment_bytes(email, message_id, att_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Adjunt no trobat")
+        media_type = content_type_hint or "application/octet-stream"
+        safe_filename = filename_hint or "attachment"
+        return Response(content=data, media_type=media_type,
+                        headers={"Content-Disposition": f'{disposition}; filename="{safe_filename}"'})
+
+    # IMAP path
+    import email as email_lib
+    from backend.services.hybrid_mail_service import _imap_pool_release, _imap_pool_invalidate, _decode_mime
+    raw_bytes, imap = await _imap_fetch_raw(email, message_id, folder)
+    if not raw_bytes:
+        if imap:
+            _imap_pool_release(email)
+        raise HTTPException(status_code=404, detail="Missatge no trobat")
+    try:
+        msg = email_lib.message_from_bytes(raw_bytes)
+        parts = list(msg.walk())
+        idx = int(att_id)
+        if idx >= len(parts):
+            raise HTTPException(status_code=404, detail="Adjunt no trobat")
+        part = parts[idx]
+        payload = part.get_payload(decode=True)
+        if not payload:
+            raise HTTPException(status_code=404, detail="Adjunt buit")
+        filename = _decode_mime(part.get_filename() or f"attachment_{idx}")
+        content_type = part.get_content_type() or "application/octet-stream"
+        return Response(content=payload, media_type=content_type,
+                        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'})
+    except HTTPException:
+        raise
+    except Exception as e:
+        _imap_pool_invalidate(email)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        _imap_pool_release(email)
+
+
+@router.get("/messages/{message_id}/cid/{cid:path}")
+async def get_cid_image(
+    message_id: str,
+    cid: str,
+    email: str = Query(...),
+    folder: str = Query("INBOX"),
+):
+    """Serves an inline CID image — works for Gmail and IMAP."""
+    from fastapi.responses import Response
+    from backend.services.integration_manager import integration_manager
+
+    acc = integration_manager.get_mail_account(email)
+
+    if integration_manager.is_google_account(acc):
+        # For Gmail, fetch full message to find CID→attachmentId mapping
+        from backend.services.hybrid_mail_service import gmail_get_message
+        loop = asyncio.get_event_loop()
+        mail = await loop.run_in_executor(None, gmail_get_message, email, message_id)
+        if not mail:
+            raise HTTPException(status_code=404, detail="Missatge no trobat")
+        cid_clean = cid.strip("<>")
+        match = next((img for img in (mail.get("inline_images") or [])
+                      if img["cid"].strip("<>") == cid_clean), None)
+        if not match:
+            raise HTTPException(status_code=404, detail="Imatge CID no trobada")
+        data, _ = await _gmail_get_attachment_bytes(email, message_id, match["attachment_id"])
+        if not data:
+            raise HTTPException(status_code=404, detail="Imatge no disponible")
+        return Response(content=data, media_type=match.get("content_type", "image/png"))
+
+    # IMAP path
+    import email as email_lib
+    from backend.services.hybrid_mail_service import _imap_pool_release, _imap_pool_invalidate
+    raw_bytes, imap = await _imap_fetch_raw(email, message_id, folder)
+    if not raw_bytes:
+        if imap:
+            _imap_pool_release(email)
+        raise HTTPException(status_code=404, detail="Missatge no trobat")
+
+    try:
+        msg = email_lib.message_from_bytes(raw_bytes)
+        cid_clean = cid.strip("<>")
+        for part in msg.walk():
+            part_cid = part.get("Content-ID", "").strip("<>")
+            if part_cid == cid_clean or part_cid == cid:
+                payload = part.get_payload(decode=True)
+                if payload:
+                    return Response(content=payload, media_type=part.get_content_type() or "image/png")
+        raise HTTPException(status_code=404, detail="Imatge CID no trobada")
+    except HTTPException:
+        raise
+    except Exception as e:
+        _imap_pool_invalidate(email)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        _imap_pool_release(email)
+
+
+@router.patch("/accounts/{email:path}/enabled")
+async def set_account_enabled(email: str, body: dict):
+    enabled = body.get("enabled", True)
+    from backend.services.integration_manager import integration_manager
+    found = integration_manager.set_mail_account_enabled(email, bool(enabled))
+    if not found:
+        raise HTTPException(status_code=404, detail="Compte no trobat")
+    return {"email": email, "enabled": bool(enabled)}
+
+
+# ── Tags CRUD ────────────────────────────────────────────────────────────────────
+
+def _tag_to_dict(tag: MailTag) -> dict:
+    return {
+        "id": tag.id,
+        "name": tag.name,
+        "color": tag.color,
+        "created_at": tag.created_at.isoformat() if tag.created_at else None,
+    }
+
+
+@router.get("/tags")
+async def list_tags(db: Session = Depends(get_db)):
+    tags = db.query(MailTag).order_by(MailTag.created_at).all()
+    return [_tag_to_dict(t) for t in tags]
+
+
+@router.post("/tags", status_code=201)
+async def create_tag(payload: MailTagCreateSchema, db: Session = Depends(get_db)):
+    tag = MailTag(name=payload.name, color=payload.color)
+    db.add(tag)
+    db.commit()
+    db.refresh(tag)
+    return _tag_to_dict(tag)
+
+
+@router.put("/tags/{tag_id}")
+async def update_tag(tag_id: str, payload: MailTagUpdateSchema, db: Session = Depends(get_db)):
+    tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
+    if not tag:
+        raise HTTPException(status_code=404, detail="Etiqueta no trobada")
+    if payload.name is not None:
+        tag.name = payload.name
+    if payload.color is not None:
+        tag.color = payload.color
+    db.commit()
+    db.refresh(tag)
+    return _tag_to_dict(tag)
+
+
+@router.delete("/tags/{tag_id}", status_code=204)
+async def delete_tag(tag_id: str, db: Session = Depends(get_db)):
+    tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
+    if not tag:
+        raise HTTPException(status_code=404, detail="Etiqueta no trobada")
+    db.query(MailMessageTag).filter(MailMessageTag.tag_id == tag_id).delete()
+    db.delete(tag)
+    db.commit()
+
+
+# ── Message ↔ Tag Association ────────────────────────────────────────────────────
+
+@router.get("/messages/{message_id}/tags")
+async def get_message_tags(message_id: str, db: Session = Depends(get_db)):
+    rows = db.query(MailMessageTag).filter(MailMessageTag.message_id == message_id).all()
+    return [row.tag_id for row in rows]
+
+
+@router.post("/messages/{message_id}/tags")
+async def set_message_tags(
+    message_id: str, payload: MailMessageTagsSetSchema, db: Session = Depends(get_db)
+):
+    db.query(MailMessageTag).filter(MailMessageTag.message_id == message_id).delete()
+    for tag_id in payload.tag_ids:
+        tag_exists = db.query(MailTag).filter(MailTag.id == tag_id).first()
+        if not tag_exists:
+            raise HTTPException(status_code=404, detail=f"Etiqueta {tag_id} no trobada")
+        assoc = MailMessageTag(
+            message_id=message_id,
+            tag_id=tag_id,
+            account_email=payload.account_email,
+            subject=payload.subject,
+            sender=payload.sender,
+            date_str=payload.date_str,
+        )
+        db.add(assoc)
+    db.commit()
+    return {"status": "success", "tag_ids": payload.tag_ids}
+
+
+@router.get("/tags/{tag_id}/messages")
+async def get_tagged_messages(tag_id: str, db: Session = Depends(get_db)):
+    tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
+    if not tag:
+        raise HTTPException(status_code=404, detail="Etiqueta no trobada")
+    rows = db.query(MailMessageTag).filter(MailMessageTag.tag_id == tag_id).all()
+    return {
+        "tag": _tag_to_dict(tag),
+        "messages": [
+            {
+                "message_id": r.message_id,
+                "account_email": r.account_email,
+                "subject": r.subject,
+                "sender": r.sender,
+                "date_str": r.date_str,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/tags/messages/batch")
+async def get_tags_for_messages(payload: dict = Body(...), db: Session = Depends(get_db)):
+    message_ids = payload.get("message_ids", [])
+    if not message_ids:
+        return {}
+    rows = (
+        db.query(MailMessageTag)
+        .filter(MailMessageTag.message_id.in_(message_ids))
+        .all()
+    )
+    result: dict = {mid: [] for mid in message_ids}
+    for row in rows:
+        result[row.message_id].append(row.tag_id)
+    return result

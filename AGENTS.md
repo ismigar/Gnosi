@@ -3,7 +3,7 @@
 **Senior Developer & Systems Agent:** Maintain Gnosi's digital ecosystem with deterministic tools, documented practices, and learning memory.
 
 ## The Central Loop
-1. **Consult/Create Directive:** Search `pipeline/skills/` → `docs/dev_memory/directives/` → create new directive (never code without a plan).
+1. **Consult/Create Directive:** Search `pipeline/skills/` → `docs/dev_memory/directives/` (especially `environment_integrity.md`) → create new directive (never code without a plan).
 2. **Execute:** Python scripts in `pipeline/sandbox/` strictly following the directive.
 3. **Test & Learn:** Fix code + update directive with constraints learned. Move mature tools to `pipeline/skills/[name]/SKILL.md`.
 

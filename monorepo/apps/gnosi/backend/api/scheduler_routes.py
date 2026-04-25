@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/schedulers", tags=["schedulers"])
 
 
 class TaskUpdate(BaseModel):
-    interval_minutes: int
+    interval_minutes: float
     enabled: bool
 
 

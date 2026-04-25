@@ -278,9 +278,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                 </h2>
                 <button
                     onClick={onClose}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                    className="gnosi-close-btn"
+                    aria-label="Tancar"
                 >
-                    <X size={16} />
+                    <X />
                 </button>
             </div>
 

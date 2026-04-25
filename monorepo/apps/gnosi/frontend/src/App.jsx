@@ -56,7 +56,6 @@ function App() {
           <Route path="/social/history" element={<PostHistory />} />
           <Route path="/media" element={<MediaCenter />} />
           <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/identity" element={<IdentityProfile />} />
         </Routes>
       </div>
       <Toaster position="bottom-right" />

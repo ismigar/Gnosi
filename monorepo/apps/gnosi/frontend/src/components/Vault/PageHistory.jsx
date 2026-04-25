@@ -112,9 +112,10 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
           </div>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-[var(--bg-tertiary)] rounded-full text-[var(--text-tertiary)] transition-colors"
+            className="gnosi-close-btn"
+            aria-label="Tancar historial"
           >
-            <X size={20} />
+            <X />
           </button>
         </div>
         

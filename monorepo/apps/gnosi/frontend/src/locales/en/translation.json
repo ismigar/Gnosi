@@ -332,7 +332,11 @@
     "frequency_minutes_other": "Every {{count}} min",
     "frequency_seconds": "Every {{count}}s",
     "frequency_none": "Not defined",
+    "time_15_min": "15 min",
+    "time_30_min": "30 min",
+    "time_45_min": "45 min",
     "time_1_hour": "1 hour",
+    "time_1_5_hours": "1.5 hours",
     "time_2_hours": "2 hours",
     "time_3_hours": "3 hours",
     "time_6_hours": "6 hours",
@@ -593,7 +597,8 @@
       "mail_accounts": "Mail Accounts",
       "contacts": "Contacts",
       "ai": "Artificial Intelligence",
-      "zotero": "Zotero"
+      "zotero": "Zotero",
+      "profile": "Profile"
     },
     "general": {
       "title": "General Configuration",
@@ -618,6 +623,10 @@
       "vault_path": "Vault Path",
       "select_folder": "Select folder",
       "vault_path_desc": "Where your local Gnosi data is saved."
+    },
+    "profile": {
+      "title": "User Profile",
+      "desc": "Your digital identity and contact information."
     },
     "language": {
       "title": "Language & Region",
@@ -993,7 +1002,7 @@
     "forward_to_label": "To:",
     "forward_to_placeholder": "email@example.com",
     "forward_missing_to": "Please enter a recipient for forwarding",
-    "reply_title": "Quick reply",
+    "reply_title": "Reply",
     "reply_all_title": "Reply all",
     "forward_title": "Forward",
     "send_btn": "Send email",

@@ -15,7 +15,7 @@ async function uploadFileToVault(file) {
     return data.url;
 }
 
-export default function MailBlockEditor({ initialContent, onChange, editorRef, minHeight = "200px", onAttachFile }) {
+export default function MailBlockEditor({ initialContent, onChange, editorRef, minHeight = "200px", onAttachFile, autoFocus = false, prependEmptyLines = 0 }) {
     const { effectiveTheme } = useTheme();
     const editor = useCreateBlockNote({
         uploadFile: uploadFileToVault,
@@ -29,7 +29,12 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
                     const blocks = await editor.tryParseHTMLToBlocks(initialContent || "");
                     if (blocks) {
                         editor.replaceBlocks(editor.topLevelBlocks, blocks);
+                        if (prependEmptyLines > 0 && editor.topLevelBlocks.length > 0) {
+                            const emptyBlocks = Array.from({ length: prependEmptyLines }, () => ({ type: 'paragraph', content: [] }));
+                            editor.insertBlocks(emptyBlocks, editor.topLevelBlocks[0], 'before');
+                        }
                         lastContentRef.current = initialContent;
+                        try { editor.setTextCursorPosition(editor.topLevelBlocks[0], 'start'); } catch { /* ok */ }
                     }
                 } catch (e) {
                     console.error("Error parsing initial content for MailBlockEditor:", e);
@@ -44,6 +49,17 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
     useEffect(() => {
         if (editorRef) editorRef.current = editor;
     }, [editor, editorRef]);
+
+    useEffect(() => {
+        if (!autoFocus || !editor) return;
+        const t = setTimeout(() => {
+            try {
+                editor.setTextCursorPosition(editor.topLevelBlocks[0], 'start');
+                editor.focus();
+            } catch { /* ok */ }
+        }, 150);
+        return () => clearTimeout(t);
+    }, [autoFocus, editor]);
 
     const handleDrop = useCallback(async (e) => {
         if (!e.dataTransfer.types.includes('Files')) return;
@@ -84,12 +100,11 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
                 editor={editor}
                 onChange={() => {
                     if (onChange) {
-                        editor.blocksToHTML(editor.topLevelBlocks).then(html => {
-                            if (html !== lastContentRef.current) {
-                                lastContentRef.current = html;
-                                onChange(html);
-                            }
-                        });
+                        const html = editor.blocksToHTMLLossy(editor.topLevelBlocks);
+                        if (html !== lastContentRef.current) {
+                            lastContentRef.current = html;
+                            onChange(html);
+                        }
                     }
                 }}
                 theme={effectiveTheme}

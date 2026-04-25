@@ -367,10 +367,15 @@ export default function VaultDashboard() {
     };
     // --------------------------------------------
 
-    const fetchPages = useCallback(async () => {
+    const fetchPages = useCallback(async (attempt = 0) => {
         try {
             setLoading(true);
             const res = await axios.get('/api/vault/pages');
+            if (res.data.length === 0 && attempt < 3) {
+                // Backend cache may still be warming up — retry with backoff
+                setTimeout(() => fetchPages(attempt + 1), 2000 * (attempt + 1));
+                return [];
+            }
             syncPagesState(res.data);
             setLoading(false);
             return res.data;
@@ -1000,36 +1005,40 @@ export default function VaultDashboard() {
         }
     }, [tabs, fetchPageById, setTabs]);
 
-    const handleTabClose = (tabId) => {
-        const remainingTabs = tabs.filter(t => t.id !== tabId);
-        const remainingSplitTabIds = splitTabIds.filter(id => id !== tabId);
+    const handleTabClose = useCallback((tabId) => {
+        setTabs(prevTabs => {
+            const remainingTabs = prevTabs.filter(t => t.id !== tabId);
+            
+            setSplitTabIds(prevSplit => {
+                const remainingSplitTabIds = prevSplit.filter(id => id !== tabId);
+                
+                if (activeTabId === tabId) {
+                    const promotedPaneId = remainingSplitTabIds.find(id => remainingTabs.some(tab => tab.id === id)) || null;
+                    const fallbackTabId = remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].id : null;
+                    const nextActiveTabId = promotedPaneId || fallbackTabId;
 
-        setTabs(remainingTabs);
-
-        if (activeTabId === tabId) {
-            const promotedPaneId = remainingSplitTabIds.find(id => remainingTabs.some(tab => tab.id === id)) || null;
-            const fallbackTabId = remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].id : null;
-            const nextActiveTabId = promotedPaneId || fallbackTabId;
-
-            if (nextActiveTabId) {
-                const nextTab = remainingTabs.find(tab => tab.id === nextActiveTabId);
-                setActiveTabId(nextActiveTabId);
-                setActiveTableId(nextTab?.isTable ? getTableIdFromTab(nextTab) : null);
-                setViewMode(nextTab?.isDrawing ? 'drawing' : 'editor');
-                setSplitTabIds(remainingSplitTabIds.filter(id => id !== nextActiveTabId));
-            } else if (splitTableIds.length > 0) {
-                const promotedTableId = splitTableIds[0];
-                setSplitTableIds(prev => prev.filter(id => id !== promotedTableId));
-                handleTableSelect(promotedTableId);
-            } else {
-                setActiveTabId(null);
-                setSplitTabIds(remainingSplitTabIds);
-            }
-            return;
-        }
-
-        setSplitTabIds(remainingSplitTabIds);
-    };
+                    if (nextActiveTabId) {
+                        const nextTab = remainingTabs.find(tab => tab.id === nextActiveTabId);
+                        setActiveTabId(nextActiveTabId);
+                        setActiveTableId(nextTab?.isTable ? getTableIdFromTab(nextTab) : null);
+                        setViewMode(nextTab?.isDrawing ? 'drawing' : 'editor');
+                        return remainingSplitTabIds.filter(id => id !== nextActiveTabId);
+                    } else if (splitTableIds.length > 0) {
+                        const promotedTableId = splitTableIds[0];
+                        setSplitTableIds(prev => prev.filter(id => id !== promotedTableId));
+                        handleTableSelect(promotedTableId);
+                        return remainingSplitTabIds;
+                    } else {
+                        setActiveTabId(null);
+                        return remainingSplitTabIds;
+                    }
+                }
+                return remainingSplitTabIds;
+            });
+            
+            return remainingTabs;
+        });
+    }, [activeTabId, splitTableIds, handleTableSelect]);
 
     useEffect(() => {
         const existingPageIds = new Set(pages.map(page => page.id));
@@ -1458,21 +1467,33 @@ export default function VaultDashboard() {
         setPageToDelete({ id: pageId, title: pageTitle });
     }, []);
 
-    const executeDeletePage = async () => {
+    const executeDeletePage = useCallback(async () => {
         if (!pageToDelete) return;
         const { id } = pageToDelete;
         try {
             await axios.delete(`/api/vault/pages/${id}`);
+            
+            // Actualitzem l'estat local immediatament
             setPages(prev => prev.filter(page => page.id !== id));
-            toast.success("Pàgina eliminada");
+            toast.success(t('success.page_deleted') || "Pàgina eliminada");
+            
+            // Tanquem el tab i gestionem la navegació
             handleTabClose(id);
+            
+            // Si la pàgina que estem eliminant és la que tenim oberta a la URL, naveguem a l'arrel del vault
+            if (nestedPath && nestedPath.includes(id)) {
+                navigate('/vault');
+            }
+            
+            // Forcem una recàrrega de les pàgines en segon pla
             void fetchPages();
         } catch (err) {
-            toast.error("Error eliminant la pàgina");
+            console.error("Error eliminant la pàgina:", err);
+            toast.error(t('errors.delete_page') || "Error eliminant la pàgina");
         } finally {
             setPageToDelete(null);
         }
-    };
+    }, [pageToDelete, nestedPath, navigate, handleTabClose, fetchPages, t]);
 
     // ---- ELIMINAR MÚLTIPLES REGISTRES (amb suport Undo) ----
     // Funció que mostra el modal de confirmació

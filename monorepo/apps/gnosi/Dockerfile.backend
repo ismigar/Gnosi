@@ -16,4 +16,4 @@ COPY . .
 EXPOSE 5002
 
 # Command to run the application
-CMD ["uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "5002", "--reload"]
+CMD ["uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "5002"]

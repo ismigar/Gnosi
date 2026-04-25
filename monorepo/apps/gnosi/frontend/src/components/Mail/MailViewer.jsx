@@ -1,20 +1,33 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
-    Reply, ReplyAll, Forward, Trash2, MoreVertical,
-    Star, Send, RefreshCw, Sparkles, ExternalLink,
-    Archive, Clock, Tag, Mail, Calendar, FolderInput,
-    X as CloseIcon, ChevronLeft, ChevronRight, ChevronDown,
-    Paperclip, File as FileIcon, FileText, UserPlus, CalendarCheck, User,
-    MapPin, Phone, Building, ShieldAlert
+    Reply, ReplyAll, Forward, Trash2,
+    Star, RefreshCw, Sparkles, ExternalLink,
+    Archive, Clock, Tag, Mail, FolderInput,
+    X as CloseIcon, ChevronDown,
+    FileText, UserPlus, CalendarCheck,
+    MapPin, Phone, Building, ShieldAlert, Maximize2, Minimize2,
+    Paperclip, File as FileIcon, ChevronRight,
 } from 'lucide-react';
 import { format, addHours, addDays, nextMonday } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
-import MailBlockEditor from './MailBlockEditor';
-import { AddressInput } from './MailAddressInput';
-import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
+import MailTagPicker, { TagPill } from './MailTagPicker';
+import { useMailTags } from '../../hooks/useMailTags';
 import axios from 'axios';
+import { Document, Page, pdfjs } from 'react-pdf';
+import { translateFolderName } from './mailFolderUtils';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url,
+).toString();
+
+const cleanName = (addr) =>
+    (addr || '').split('<')[0].trim().replace(/^["']+|["']+$/g, '').trim() || addr || '';
 
 function sanitizeHtml(html) {
     return html
@@ -22,21 +35,262 @@ function sanitizeHtml(html) {
         .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
 }
 
-function MailBody({ bodyHtml, bodyText }) {
-    if (bodyHtml) {
-        const bodyMatch = bodyHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-        const content = sanitizeHtml(bodyMatch ? bodyMatch[1] : bodyHtml);
+const EMAIL_CSS = `
+    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #111; background: transparent; }
+    img { max-width: 100% !important; height: auto !important; display: inline-block; }
+    table { max-width: 100% !important; border-collapse: collapse; }
+    td, th { word-break: break-word; }
+    pre, code { white-space: pre-wrap; word-break: break-word; }
+    a { color: #3b82f6; }
+    * { box-sizing: border-box; }
+`;
+
+const PDF_ZOOM_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+function PdfViewer({ url }) {
+    const [numPages, setNumPages] = useState(null);
+    const [zoom, setZoom] = useState('fit');
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const containerRef = useRef(null);
+    const scrollRef = useRef(null);
+    const hoveredRef = useRef(false);
+    const [containerWidth, setContainerWidth] = useState(0);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const obs = new ResizeObserver(entries => setContainerWidth(entries[0].contentRect.width));
+        obs.observe(containerRef.current);
+        return () => obs.disconnect();
+    }, [isFullscreen]);
+
+    const pageWidth = containerWidth
+        ? (zoom === 'fit' ? containerWidth : containerWidth * zoom)
+        : undefined;
+
+    const zoomLabel = zoom === 'fit' ? 'Amplada' : `${Math.round(zoom * 100)}%`;
+    const zoomIn  = () => setZoom(z => { const s = typeof z === 'number' ? z : 1; return PDF_ZOOM_STEPS.find(v => v > s) ?? s; });
+    const zoomOut = () => setZoom(z => { const s = typeof z === 'number' ? z : 1; const p = [...PDF_ZOOM_STEPS].reverse().find(v => v < s); return p ?? 'fit'; });
+    const atMax = typeof zoom === 'number' && zoom >= PDF_ZOOM_STEPS[PDF_ZOOM_STEPS.length - 1];
+    const atMin = zoom === 'fit';
+
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.metaKey || e.ctrlKey) {
+                if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn(); }
+                if (e.key === '-') { e.preventDefault(); zoomOut(); }
+                if (e.key === '0') { e.preventDefault(); setZoom('fit'); }
+            }
+            if (e.key === 'Escape' && isFullscreen) { setIsFullscreen(false); return; }
+
+            // Scroll del PDF quan el cursor és sobre ell
+            if (!hoveredRef.current) return;
+            const el = scrollRef.current;
+            if (!el) return;
+            const step = 80;
+            if (e.key === 'ArrowDown') { e.preventDefault(); el.scrollBy(0, step); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); el.scrollBy(0, -step); }
+            else if (e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); el.scrollBy(0, el.clientHeight * 0.9); }
+            else if (e.key === 'PageUp') { e.preventDefault(); el.scrollBy(0, -el.clientHeight * 0.9); }
+            else if (e.key === 'Home') { e.preventDefault(); el.scrollTo(0, 0); }
+            else if (e.key === 'End') { e.preventDefault(); el.scrollTo(0, el.scrollHeight); }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [zoom, isFullscreen]);
+
+    const pdfContent = (maxH) => (
+        <div
+            ref={el => { containerRef.current = el; scrollRef.current = el; }}
+            className="overflow-auto"
+            style={{ maxHeight: maxH }}
+            onMouseEnter={() => { hoveredRef.current = true; }}
+            onMouseLeave={() => { hoveredRef.current = false; }}
+        >
+            {containerWidth > 0 && (
+                <Document
+                    file={url}
+                    onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                    loading={
+                        <div className="flex items-center justify-center py-16">
+                            <div className="w-6 h-6 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        </div>
+                    }
+                    error={<div className="p-8 text-center text-red-400 text-sm">No s'ha pogut carregar el PDF</div>}
+                >
+                    {numPages && Array.from({ length: numPages }, (_, i) => (
+                        <div key={i} className="flex justify-center py-2">
+                            <Page
+                                pageNumber={i + 1}
+                                width={pageWidth}
+                                renderTextLayer={true}
+                                renderAnnotationLayer={true}
+                            />
+                        </div>
+                    ))}
+                </Document>
+            )}
+        </div>
+    );
+
+    const toolbar = (onFullscreenToggle, fullscreen) => (
+        <div className="flex items-center gap-2 px-3 py-2" style={{ background: '#3c3f41', borderBottom: '1px solid #222' }}>
+            <button onClick={zoomOut} disabled={atMin}
+                className="w-7 h-7 flex items-center justify-center rounded text-white text-lg font-bold hover:bg-white/10 disabled:opacity-30 transition-all">−</button>
+            <span className="text-[12px] font-bold text-white/80 min-w-[56px] text-center select-none">{zoomLabel}</span>
+            <button onClick={zoomIn} disabled={atMax}
+                className="w-7 h-7 flex items-center justify-center rounded text-white text-lg font-bold hover:bg-white/10 disabled:opacity-30 transition-all">+</button>
+            <button onClick={() => setZoom('fit')}
+                className="ml-1 px-2 py-1 rounded text-[11px] font-bold text-white/60 hover:bg-white/10 transition-all">
+                Amplada
+            </button>
+            <span className="ml-auto text-[10px] text-white/30 mr-2">⌘+/−/0</span>
+            <button
+                onClick={onFullscreenToggle}
+                title={fullscreen ? 'Sortir de pantalla completa (Esc)' : 'Pantalla completa'}
+                className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white transition-all"
+            >
+                {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
+        </div>
+    );
+
+    if (isFullscreen) {
         return (
-            <div
-                className="prose prose-sm max-w-none text-[var(--text-primary)] leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: content }}
+            <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: '#525659' }}>
+                {toolbar(() => setIsFullscreen(false), true)}
+                {pdfContent('calc(100vh - 41px)')}
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full rounded-xl border border-[var(--border-primary)] overflow-hidden" style={{ background: '#525659' }}>
+            {toolbar(() => setIsFullscreen(true), false)}
+            {pdfContent('75vh')}
+        </div>
+    );
+}
+
+function AttachmentList({ attachments, messageId, email, folder }) {
+    const [previewIndex, setPreviewIndex] = useState(null);
+
+    const attUrl = (att, { forInline = false } = {}) => {
+        const id = att.attachment_id ?? att.part_index;
+        let url = `/api/mail/messages/${messageId}/attachments/${encodeURIComponent(id)}?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder || 'INBOX')}`;
+        if (att.filename) url += `&filename=${encodeURIComponent(att.filename)}`;
+        if (forInline) {
+            url += `&inline=true`;
+            if (att.content_type) url += `&content_type=${encodeURIComponent(att.content_type)}`;
+        }
+        return url;
+    };
+
+    const fmtSize = (s) => s > 1024 * 1024 ? `${(s / 1024 / 1024).toFixed(1)} MB` : `${Math.round(s / 1024)} KB`;
+
+    const AttIcon = ({ ct }) => {
+        if (ct?.includes('pdf')) return <FileText size={16} className="text-red-500 shrink-0" />;
+        if (ct?.startsWith('image/')) return <FileIcon size={16} className="text-blue-400 shrink-0" />;
+        return <FileIcon size={16} className="text-[var(--gnosi-blue)] shrink-0" />;
+    };
+
+    const activeAtt = previewIndex !== null ? attachments[previewIndex] : null;
+    const isPdfActive = activeAtt && (activeAtt.content_type?.includes('pdf') || activeAtt.filename?.toLowerCase().endsWith('.pdf'));
+    const isImageActive = activeAtt && activeAtt.content_type?.startsWith('image/');
+
+    return (
+        <div className="mt-6 mb-2">
+            <div className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-3 flex items-center gap-2">
+                <Paperclip size={12} /> {attachments.length} adjunt{attachments.length > 1 ? 's' : ''}
+            </div>
+
+            {/* Chips */}
+            <div className="flex flex-wrap gap-2">
+                {attachments.map((att, i) => {
+                    const canPreview = att.content_type?.includes('pdf') || att.filename?.toLowerCase().endsWith('.pdf') || att.content_type?.startsWith('image/');
+                    const isActive = previewIndex === i;
+                    return (
+                        <div key={i} className="flex items-center gap-1">
+                            <a
+                                href={attUrl(att)}
+                                download={att.filename}
+                                className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-[13px] font-medium text-[var(--text-primary)] hover:bg-[var(--sidebar-item-active)] hover:text-[var(--gnosi-blue)] transition-all max-w-[220px]"
+                                title="Descarregar"
+                            >
+                                <AttIcon ct={att.content_type} />
+                                <span className="truncate">{att.filename}</span>
+                                <span className="text-[11px] text-[var(--text-secondary)] shrink-0">{fmtSize(att.size)}</span>
+                            </a>
+                            {canPreview && (
+                                <button
+                                    onClick={() => setPreviewIndex(isActive ? null : i)}
+                                    className={`px-2 py-2 border rounded-xl text-[11px] font-bold transition-all shrink-0 ${isActive ? 'bg-[var(--gnosi-blue)] text-white border-[var(--gnosi-blue)]' : 'bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--gnosi-blue)] hover:bg-[var(--sidebar-item-active)]'}`}
+                                    title="Previsualitzar"
+                                >{isActive ? '▲' : '▼'}</button>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Preview panel */}
+            {activeAtt && (
+                <div className="mt-4 w-full">
+                    {isPdfActive && <PdfViewer url={attUrl(activeAtt, { forInline: true })} />}
+                    {isImageActive && (
+                        <img
+                            src={attUrl(activeAtt, { forInline: true })}
+                            alt={activeAtt.filename}
+                            className="w-full rounded-xl border border-[var(--border-primary)]"
+                            style={{ maxHeight: '75vh', objectFit: 'contain' }}
+                        />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function MailBody({ bodyHtml, bodyText, messageId, email, folder }) {
+    const iframeRef = useRef(null);
+    const [height, setHeight] = useState(200);
+
+    useEffect(() => {
+        if (!bodyHtml || !iframeRef.current) return;
+        const iframe = iframeRef.current;
+        const onLoad = () => {
+            try {
+                const doc = iframe.contentDocument;
+                doc.querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
+                const newH = Math.max(200, doc.documentElement.scrollHeight + 20);
+                setHeight(newH);
+            } catch {}
+        };
+        iframe.addEventListener('load', onLoad);
+        return () => iframe.removeEventListener('load', onLoad);
+    }, [bodyHtml]);
+
+    if (bodyHtml) {
+        const sanitized = sanitizeHtml(bodyHtml);
+        const withCid = messageId && email
+            ? sanitized.replace(/cid:([^"'\s>)]+)/gi, (_, cid) =>
+                `/api/mail/messages/${messageId}/cid/${encodeURIComponent(cid)}?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder || 'INBOX')}`)
+            : sanitized;
+        const src = `<style>${EMAIL_CSS}</style>${withCid}`;
+        return (
+            <iframe
+                ref={iframeRef}
+                srcDoc={src}
+                sandbox="allow-same-origin allow-popups"
+                title="mail-body"
+                style={{ width: '100%', border: 'none', height: `${height}px`, display: 'block' }}
             />
         );
     }
+
     const text = bodyText || '';
     const linked = text.replace(
         /(https?:\/\/[^\s<>"']+)/g,
-        '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-[var(--gnosi-blue)] underline break-all">$1</a>'
+        '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#3b82f6">$1</a>'
     );
     return (
         <div
@@ -46,55 +300,98 @@ function MailBody({ bodyHtml, bodyText }) {
     );
 }
 
-export default function MailViewer({ account, mail: selectedMail, onClose, onMailRead, onActionDone }) {
+export default function MailViewer({ account, mail: selectedMail, onClose, onMailRead, onActionDone, onMoved, onCompose }) {
     const { t } = useTranslation();
     const [mailData, setMailData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [replyBody, setReplyBody] = useState('');
-    const [replyMode, setReplyMode] = useState(null);
-    const [replyTo, setReplyTo] = useState('');
-    const [replyCc, setReplyCc] = useState('');
-    const [replyCco, setReplyCco] = useState('');
-    const [showReplyCcBcc, setShowReplyCcBcc] = useState(false);
-    const [sending, setSending] = useState(false);
-    const [aiGenerating, setAiGenerating] = useState(false);
-    const [quotedHtml, setQuotedHtml] = useState('');
-    const [replyAttachments, setReplyAttachments] = useState([]);
-    const replyFileInputRef = useRef(null);
-    const [showAvailability, setShowAvailability] = useState(false);
     const [showSnooze, setShowSnooze] = useState(false);
+    const [snoozeMenuPos, setSnoozeMenuPos] = useState({ x: 0, y: 0 });
     const [showMove, setShowMove] = useState(false);
+    const [moveMenuPos, setMoveMenuPos] = useState({ x: 0, y: 0 });
     const [moveFolders, setMoveFolders] = useState([]);
     const [moving, setMoving] = useState(false);
-    const [calendarData, setCalendarData] = useState({ pages: [], integrations: {}, tables: [] });
-    const [calendarTitle, setCalendarTitle] = useState('');
+    const moveBtnRef = useRef(null);
     const [expandedThreadIds, setExpandedThreadIds] = useState(new Set());
-    const editorRef = useRef(null);
-    const calendarCompRef = useRef(null);
-    const [extracting, setExtracting] = useState(false);
+    const [threadMsgData, setThreadMsgData] = useState({});
     const [extractedEntities, setExtractedEntities] = useState(null);
-    const [showEventCalendarPicker, setShowEventCalendarPicker] = useState(null); // stores the event being added
+    const [showEventCalendarPicker, setShowEventCalendarPicker] = useState(null);
     const [availableCalendars, setAvailableCalendars] = useState([]);
+    const scannedIdsRef = useRef(new Set());
+    const [showTagPicker, setShowTagPicker] = useState(false);
+    const [tagPickerAnchor, setTagPickerAnchor] = useState(null);
+    const [activeTagIds, setActiveTagIds] = useState([]);
+    const tagBtnRef = useRef(null);
+    const { tags, createTag, deleteTag, getMessageTags, setMessageTags } = useMailTags();
+
+    const [fullThreadMsgs, setFullThreadMsgs] = useState([]);
 
     const threadMessages = selectedMail?.thread_messages || [];
-    const olderMessages = threadMessages.slice(1); // newest-first; skip index 0 (current)
+    // Prefer server-fetched full thread; fall back to client-side grouping
+    const allThreadMsgs = fullThreadMsgs.length > 0
+        ? fullThreadMsgs
+        : (threadMessages.length > 0 ? threadMessages : (selectedMail ? [selectedMail] : []));
 
-    const toggleThreadMsg = (id) => setExpandedThreadIds(prev => {
-        const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
-        return next;
-    });
-
+    // Fetch full thread from backend when message changes (includes SENT siblings)
     useEffect(() => {
-        setReplyMode(null);
-        setReplyBody('');
-        setQuotedHtml('');
-        setReplyAttachments([]);
-        setReplyTo('');
-        setReplyCc('');
-        setReplyCco('');
-        setShowReplyCcBcc(false);
+        setFullThreadMsgs([]);
+        setThreadMsgData({});
+        if (!selectedMail?.id) return;
+
+        const tid = selectedMail.thread_id;
+        const email = selectedMail.account || account?.email || '';
+        // Only Gmail threads have a different thread_id
+        if (!tid || tid === selectedMail.id || !email || selectedMail.source === 'vault') return;
+
+        fetch(`/api/mail/threads/${encodeURIComponent(tid)}?email=${encodeURIComponent(email)}`)
+            .then(r => r.json())
+            .then(data => {
+                const msgs = (data.messages || []).slice().reverse(); // newest first
+                if (msgs.length > 1) setFullThreadMsgs(msgs);
+            })
+            .catch(() => {});
     }, [selectedMail?.id]);
+
+    // Auto-expand newest message when thread changes
+    useEffect(() => {
+        if (allThreadMsgs.length > 0) {
+            setExpandedThreadIds(new Set([allThreadMsgs[0].id]));
+        }
+    }, [selectedMail?.id]);
+
+    // Load tags for the current message
+    useEffect(() => {
+        if (!selectedMail?.id) { setActiveTagIds([]); return; }
+        getMessageTags(selectedMail.id).then(setActiveTagIds).catch(() => setActiveTagIds([]));
+    }, [selectedMail?.id]);
+
+    const toggleThreadMsg = (msg) => {
+        const id = msg.id;
+        const willExpand = !expandedThreadIds.has(id);
+        setExpandedThreadIds(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+        // Lazy fetch body for older messages not yet loaded
+        if (willExpand && id !== mailData?.id && !threadMsgData[id]) {
+            const msgEmail = msg.account || account?.email || '';
+            const msgFolder = msg.imap_folder || '';
+            const params = new URLSearchParams();
+            if (msgEmail) params.set('email', msgEmail);
+            if (msgFolder) params.set('folder', msgFolder);
+            fetch(`/api/mail/messages/${id}?${params}`)
+                .then(r => r.json())
+                .then(data => setThreadMsgData(prev => ({ ...prev, [id]: data })))
+                .catch(() => {});
+        }
+    };
+
+    const isSentMsg = (msg) => {
+        const effectiveEmail = account?.email || '';
+        const senderRaw = msg.sender || '';
+        const senderEmail = senderRaw.match(/<([^>]+)>/)?.[1]?.toLowerCase() || senderRaw.toLowerCase();
+        return msg.type === 'Sent' || (effectiveEmail && senderEmail.includes(effectiveEmail.toLowerCase()));
+    };
 
     useEffect(() => {
         if (!selectedMail?.id) { setMailData(null); return; }
@@ -110,31 +407,31 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                 setMailData(data);
                 setLoading(false);
                 if (!data.is_read) markAsRead(data.id, msgEmail);
+                // Auto-scan entities on first open
+                if (!scannedIdsRef.current.has(data.id) && (data.body_text || data.snippet)) {
+                    scannedIdsRef.current.add(data.id);
+                    extractEntities(data.body_text || data.snippet);
+                }
             })
             .catch(() => setLoading(false));
     }, [selectedMail]);
 
-    const handleExtractEntities = async () => {
-        if (!mailData?.body_text && !mailData?.snippet) return;
-        setExtracting(true);
+    const extractEntities = async (context) => {
+        if (!context) return;
         setExtractedEntities(null);
         try {
             const res = await fetch('/api/mail/ai/extract_entities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ context: mailData.body_text || mailData.snippet })
+                body: JSON.stringify({ context })
             });
             const data = await res.json();
             if (data.events?.length > 0 || data.contacts?.length > 0) {
                 setExtractedEntities(data);
-                toast.success('S\'han trobat suggeriments intel·ligents');
-            } else {
-                toast.error('No s\'ha trobat informació rellevant');
+                toast.success("S'han trobat suggeriments intel·ligents");
             }
         } catch {
-            toast.error('Error en l\'anàlisi intel·ligent');
-        } finally {
-            setExtracting(false);
+            toast.error("Error en l'anàlisi intel·ligent");
         }
     };
 
@@ -211,54 +508,6 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         }).catch(() => toast.error('Error actualitzant metadades'));
     };
 
-    const handleSendReply = async () => {
-        if (!replyBody.trim() || !account?.email || !mailData?.id) return;
-        if (!replyTo.trim()) {
-            toast.error(t('mail.forward_missing_to'));
-            return;
-        }
-        setSending(true);
-        try {
-            const fullBody = quotedHtml
-                ? `${replyBody}<blockquote style="border-left:3px solid #6366f1;padding-left:0.75rem;color:#888;margin-top:1rem">${quotedHtml}</blockquote>`
-                : replyBody;
-            const formData = new FormData();
-            formData.append('body', fullBody);
-            formData.append('to', replyTo);
-            if (replyCc) formData.append('cc', replyCc);
-            if (replyCco) formData.append('bcc', replyCco);
-            replyAttachments.forEach(f => formData.append('attachments', f));
-            const res = await fetch(
-                `/api/mail/messages/${mailData.id}/reply?email=${encodeURIComponent(account.email)}`,
-                { method: 'POST', body: formData }
-            );
-            await res.json();
-            setReplyBody('');
-            setReplyTo('');
-            setQuotedHtml('');
-            setReplyAttachments([]);
-            setSending(false);
-            setReplyMode(null);
-            toast.success(t('mail.sent_ok'));
-        } catch {
-            setSending(false);
-            toast.error(t('mail.send_error'));
-        }
-    };
-
-    const handleAIAssist = () => {
-        if (!mailData?.body_text && !mailData?.snippet) return;
-        setAiGenerating(true);
-        fetch('/api/mail/ai/generate_draft', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ context: mailData.body_text || mailData.snippet })
-        })
-            .then(res => res.json())
-            .then(data => { setReplyBody(data.draft); setAiGenerating(false); toast.success(t('mail.ai_draft_ok')); })
-            .catch(() => { setAiGenerating(false); toast.error(t('mail.ai_draft_error')); });
-    };
-
     const detectFormLinks = (html, text) => {
         const patterns = [
             /https:\/\/forms\.gle\/[a-zA-Z0-9_-]+/g,
@@ -332,48 +581,6 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         }
     };
 
-    const fetchCalendarResources = async () => {
-        try {
-            const [pagesRes, integrationsRes, tablesRes] = await Promise.all([
-                axios.get('/api/vault/pages'),
-                axios.get('/api/integrations'),
-                axios.get('/api/vault/tables'),
-            ]);
-            setCalendarData({ pages: pagesRes.data, integrations: integrationsRes.data, tables: tablesRes.data });
-        } catch {
-            toast.error('Error carregant el calendari');
-        }
-    };
-
-    const handleInsertAvailability = () => {
-        setShowAvailability(true);
-        if (calendarData.pages.length === 0) fetchCalendarResources();
-    };
-
-    useEffect(() => {
-        if (!showAvailability) return;
-        const handler = (e) => { if (e.key === 'Escape') setShowAvailability(false); };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [showAvailability]);
-
-    const handleSlotSelection = (selection) => {
-        if (!editorRef.current) return;
-        const { start, end, allDay } = selection;
-        const startStr = format(start, allDay ? 'd MMMM' : 'd MMMM HH:mm', { locale: ca });
-        const endStr = end ? format(end, allDay ? 'd MMMM' : 'HH:mm', { locale: ca }) : '';
-        const text = allDay
-            ? t('mail.availability_day', { date: startStr })
-            : t('mail.availability_range', { start: startStr, end: endStr });
-
-        const editor = editorRef.current;
-        if (editor?.insertBlocks) {
-            editor.insertBlocks([{ type: 'paragraph', content: text }], editor.getTextCursorPosition().block, 'after');
-        }
-        setShowAvailability(false);
-        toast.success(t('mail.availability_inserted'));
-    };
-
     const buildQuotedHtml = (data) => {
         const header = `<strong>${t('mail.from_label')}:</strong> ${data.sender || ''} &nbsp;|&nbsp; <strong>${t('mail.date_label')}:</strong> ${data.date || ''} &nbsp;|&nbsp; <strong>${t('mail.subject_label')}:</strong> ${data.subject || ''}`;
         const content = data.body_html
@@ -384,45 +591,39 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
     const handleReply = () => {
         if (!mailData) return;
-        setReplyMode('reply');
-        setReplyTo(mailData.sender || '');
-        setReplyCc('');
-        setReplyCco('');
-        setShowReplyCcBcc(false);
-        setReplyBody('');
-        setQuotedHtml(buildQuotedHtml(mailData));
-        setReplyAttachments([]);
-        setTimeout(() => document.getElementById('reply-area')?.scrollIntoView({ behavior: 'smooth' }), 100);
+        onCompose?.({
+            mode: 'reply',
+            replyToMessageId: mailData.id,
+            initialTo: mailData.sender || '',
+            initialSubject: `Re: ${mailData.subject || ''}`,
+            quotedHtml: buildQuotedHtml(mailData),
+        });
     };
 
     const handleReplyAll = () => {
         if (!mailData) return;
-        setReplyMode('reply_all');
-        setReplyTo(mailData.sender || '');
-        setReplyCc(mailData.recipient || '');
-        setReplyCco('');
-        setShowReplyCcBcc(!!mailData.recipient);
-        setReplyBody('');
-        setQuotedHtml(buildQuotedHtml(mailData));
-        setReplyAttachments([]);
-        setTimeout(() => document.getElementById('reply-area')?.scrollIntoView({ behavior: 'smooth' }), 100);
+        onCompose?.({
+            mode: 'reply_all',
+            replyToMessageId: mailData.id,
+            initialTo: mailData.sender || '',
+            initialCc: mailData.recipient || '',
+            initialSubject: `Re: ${mailData.subject || ''}`,
+            quotedHtml: buildQuotedHtml(mailData),
+        });
     };
 
     const handleForward = () => {
         if (!mailData) return;
-        setReplyMode('forward');
-        setReplyTo('');
-        setReplyCc('');
-        setReplyCco('');
-        setShowReplyCcBcc(false);
-        setReplyBody('');
-        setQuotedHtml(buildQuotedHtml(mailData));
-        setReplyAttachments([]);
-        setTimeout(() => document.getElementById('reply-area')?.scrollIntoView({ behavior: 'smooth' }), 100);
+        onCompose?.({
+            mode: 'forward',
+            replyToMessageId: mailData.id,
+            initialTo: '',
+            initialSubject: `Fwd: ${mailData.subject || ''}`,
+            quotedHtml: buildQuotedHtml(mailData),
+        });
     };
 
     const effectiveEmail = account?.email || mailData?.account;
-
     const handleToggleStar = () => {
         if (!mailData || !effectiveEmail) return;
         const newValue = !mailData.is_starred;
@@ -437,20 +638,22 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
     const handleArchive = () => {
         if (!mailData?.id || !effectiveEmail) return;
-        fetch(`/api/mail/messages/${mailData.id}/archive?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' })
-            .then(() => {
-                toast.success(t('mail.archive_ok'));
-                onActionDone?.();
+        const folderParam = mailData.imap_folder ? `&folder=${encodeURIComponent(mailData.imap_folder)}` : '';
+        fetch(`/api/mail/messages/${mailData.id}/archive?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
+            .then(res => {
+                if (!res.ok) throw new Error('archive_failed');
+                onActionDone?.(mailData.id, 'archive', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder });
             })
             .catch(() => toast.error(t('mail.archive_error')));
     };
 
     const handleDelete = () => {
         if (!mailData?.id || !effectiveEmail) return;
-        fetch(`/api/mail/messages/${mailData.id}/trash?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' })
-            .then(() => {
-                toast.success(t('mail.delete_ok'));
-                onActionDone?.();
+        const folderParam = mailData.imap_folder ? `&folder=${encodeURIComponent(mailData.imap_folder)}` : '';
+        fetch(`/api/mail/messages/${mailData.id}/trash?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
+            .then(res => {
+                if (!res.ok) throw new Error('trash_failed');
+                onActionDone?.(mailData.id, 'trash', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder });
             })
             .catch(() => toast.error(t('mail.delete_error')));
     };
@@ -485,10 +688,14 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
     const handleOpenMove = async () => {
         if (!effectiveEmail) return;
+        if (moveBtnRef.current) {
+            const rect = moveBtnRef.current.getBoundingClientRect();
+            setMoveMenuPos({ x: rect.left, y: rect.bottom + 4 });
+        }
         setShowMove(v => !v);
         if (moveFolders.length === 0) {
             try {
-                const res = await fetch(`/api/mail/folders?email=${encodeURIComponent(account.email)}`);
+                const res = await fetch(`/api/mail/folders?email=${encodeURIComponent(effectiveEmail)}`);
                 const data = await res.json();
                 setMoveFolders(data.folders || []);
             } catch {
@@ -504,11 +711,11 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         try {
             const res = await fetch(
                 `/api/mail/messages/${mailData.id}/move?email=${encodeURIComponent(effectiveEmail)}`,
-                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target_folder: folderName }) }
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target_folder: folderName, imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }) }
             );
             if (res.ok) {
                 toast.success(`Mogut a ${folderName}`);
-                if (onClose) onClose();
+                onMoved ? onMoved(mailData.id) : onClose?.();
             } else {
                 const err = await res.json().catch(() => ({}));
                 toast.error(err.detail || 'Error movent el missatge');
@@ -541,26 +748,14 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         );
     }
 
-    const replyModeLabel = replyMode === 'forward' ? t('mail.forward_title') : replyMode === 'reply_all' ? t('mail.reply_all_title') : t('mail.reply_title');
-
     return (
         <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] overflow-hidden font-sans">
             {/* Action Bar */}
-            <div className="h-14 border-b border-[var(--border-primary)] px-6 flex items-center justify-between bg-[var(--bg-primary)]/80 backdrop-blur-xl sticky top-0 z-20 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-1 shrink-0">
+            <div className="h-14 border-b border-[var(--border-primary)] flex items-center bg-[var(--bg-primary)]/80 backdrop-blur-xl sticky top-0 z-20">
+                <div className="flex-1 overflow-x-auto scrollbar-hide flex items-center gap-1 pl-6 pr-2">
                     <button onClick={handleAddToVault} title={t('mail.add_to_vault')} className="p-2 hover:bg-[var(--sidebar-item-active)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all flex items-center gap-2 text-sm font-medium">
                         <ExternalLink size={16} />
                         <span className="hidden xl:block">{t('mail.add_to_vault')}</span>
-                    </button>
-                    <div className="w-px h-5 bg-[var(--border-primary)] mx-1" />
-                    <button
-                        onClick={handleExtractEntities}
-                        disabled={extracting}
-                        title="Anàlisi intel·ligent"
-                        className={`p-2 rounded-xl transition-all flex items-center gap-2 ${extracting ? 'bg-[var(--bg-secondary)] text-[var(--gnosi-blue)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-blue)]'}`}
-                    >
-                        {extracting ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                        <span className="hidden xl:block text-xs font-bold uppercase tracking-wider">Smart Scan</span>
                     </button>
                     <div className="w-px h-5 bg-[var(--border-primary)] mx-1" />
                     <button onClick={handleReply} title={t('mail.reply_title')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all"><Reply size={16} /></button>
@@ -569,9 +764,52 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                     <div className="w-px h-5 bg-[var(--border-primary)] mx-1" />
                     <button onClick={handleArchive} title={t('mail.archive_action')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all"><Archive size={16} /></button>
 
+                    {/* Tag picker */}
+                    <div className="relative">
+                        <button
+                            ref={tagBtnRef}
+                            title="Etiquetes"
+                            onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setTagPickerAnchor(rect);
+                                setShowTagPicker(v => !v);
+                            }}
+                            className={`p-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTagIds.length > 0 ? 'text-[var(--gnosi-blue)] bg-[var(--sidebar-item-active)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+                        >
+                            <Tag size={16} />
+                            {activeTagIds.length > 0 && <span style={{ fontSize: 11, fontWeight: 700 }}>{activeTagIds.length}</span>}
+                        </button>
+                        {showTagPicker && (
+                            <MailTagPicker
+                                tags={tags}
+                                selectedTagIds={activeTagIds}
+                                anchorRect={tagPickerAnchor}
+                                onClose={() => setShowTagPicker(false)}
+                                onToggleTag={async (tagId) => {
+                                    const next = activeTagIds.includes(tagId)
+                                        ? activeTagIds.filter(id => id !== tagId)
+                                        : [...activeTagIds, tagId];
+                                    setActiveTagIds(next);
+                                    await setMessageTags(selectedMail.id, next, {
+                                        account_email: account?.email || selectedMail?.account || '',
+                                        subject: selectedMail?.subject || '',
+                                        sender: selectedMail?.sender || '',
+                                        date: selectedMail?.date || '',
+                                    }).catch(() => {});
+                                }}
+                                onCreateTag={async (data) => { await createTag(data); }}
+                                onDeleteTag={async (id) => {
+                                    await deleteTag(id);
+                                    setActiveTagIds(prev => prev.filter(tid => tid !== id));
+                                }}
+                            />
+                        )}
+                    </div>
+
                     {/* Move to folder dropdown */}
                     <div className="relative">
                         <button
+                            ref={moveBtnRef}
                             title="Moure a carpeta"
                             onClick={handleOpenMove}
                             disabled={moving}
@@ -579,10 +817,13 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                         >
                             {moving ? <div className="w-[16px] h-[16px] border-2 border-current border-t-transparent rounded-full animate-spin" /> : <FolderInput size={16} />}
                         </button>
-                        {showMove && (
+                        {showMove && createPortal(
                             <>
-                                <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={() => setShowMove(false)} />
-                                <div className="absolute left-0 top-full mt-1 z-[var(--z-modal)] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-52 animate-in fade-in zoom-in-95 duration-150">
+                                <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setShowMove(false)} />
+                                <div
+                                    className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-52 animate-in fade-in zoom-in-95 duration-150"
+                                    style={{ left: moveMenuPos.x, top: moveMenuPos.y, zIndex: 10001 }}
+                                >
                                     <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Moure a...</div>
                                     {moveFolders.length === 0
                                         ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">Carregant...</div>
@@ -595,12 +836,13 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                                     className="w-full text-left px-3 py-2 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors flex items-center gap-2"
                                                 >
                                                     <span className="text-[var(--text-secondary)] text-[10px] font-mono uppercase opacity-60 w-14 shrink-0">{f.type}</span>
-                                                    {f.name}
+                                                    {translateFolderName(f.name, t)}
                                                 </button>
                                             ))
                                     }
                                 </div>
-                            </>
+                            </>,
+                            document.body
                         )}
                     </div>
 
@@ -608,15 +850,22 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                     <div className="relative">
                         <button
                             title={t('mail.snooze')}
-                            onClick={() => setShowSnooze(v => !v)}
+                            onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setSnoozeMenuPos({ x: rect.left, y: rect.bottom + 4 });
+                                setShowSnooze(v => !v);
+                            }}
                             className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all flex items-center gap-1"
                         >
                             <Clock size={16} />
                         </button>
-                        {showSnooze && (
+                        {showSnooze && createPortal(
                             <>
-                                <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={() => setShowSnooze(false)} />
-                                <div className="absolute left-0 top-full mt-1 z-[var(--z-modal)] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-48 animate-in fade-in zoom-in-95 duration-150">
+                                <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setShowSnooze(false)} />
+                                <div
+                                    className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-48 animate-in fade-in zoom-in-95 duration-150"
+                                    style={{ left: snoozeMenuPos.x, top: snoozeMenuPos.y, zIndex: 10001 }}
+                                >
                                     <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.snooze')}</div>
                                     {[['1h', 'snooze_1h'], ['tomorrow', 'snooze_tomorrow'], ['next_week', 'snooze_next_week']].map(([key, labelKey]) => (
                                         <button key={key} onClick={() => handleSnooze(key)} className="w-full text-left px-3 py-2 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors">
@@ -624,7 +873,8 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                         </button>
                                     ))}
                                 </div>
-                            </>
+                            </>,
+                            document.body
                         )}
                     </div>
 
@@ -640,132 +890,155 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                     >
                         <ShieldAlert size={16} fill={isSpam ? 'currentColor' : 'none'} />
                     </button>
-                    <div className="w-px h-5 bg-[var(--border-primary)] mx-1" />
-                    <button onClick={onClose} title={t('common.close')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all active:scale-90"><CloseIcon size={16} /></button>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0 ml-2">
+                <div className="flex items-center gap-1 shrink-0 px-2 border-l border-[var(--border-primary)]">
                     <button
                         onClick={handleToggleStar}
                         className={`p-2 rounded-xl transition-all ${mailData?.is_starred ? 'text-[var(--status-warning)] bg-[var(--bg-secondary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                     >
                         <Star size={16} fill={mailData?.is_starred ? 'currentColor' : 'none'} />
                     </button>
-                    <button className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all"><MoreVertical size={16} /></button>
+                    <button onClick={onClose} title={t('common.close')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all active:scale-90"><CloseIcon size={16} /></button>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div data-role="mail-viewer-scroll" className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
                 <div className="max-w-5xl mx-auto px-6 lg:px-12 pt-8">
-                        <h1 className="text-2xl font-extrabold text-[var(--text-primary)] leading-tight mb-6 tracking-tight">
-                            {mailData?.subject}
-                        </h1>
-
-                        <div className="flex items-center justify-between gap-4 mb-6 pb-6 border-b border-[var(--border-primary)]">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg shadow-lg shrink-0">
-                                    {mailData?.sender?.[0]?.toUpperCase()}
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="font-bold text-[var(--text-primary)] text-base leading-tight truncate">
-                                        {mailData?.sender?.split('<')[0].trim()}
-                                    </div>
-                                    <div className="text-xs text-[var(--text-secondary)] font-medium truncate">
-                                        Per a: {mailData?.recipient}
-                                        {mailData?.cc && <span className="block italic mt-0.5">CC: {mailData.cc}</span>}
-                                        {mailData?.bcc && <span className="block italic mt-0.5">BCC: {mailData.bcc}</span>}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                                <div className="text-sm font-bold text-[var(--text-primary)]">
-                                    {mailData?.timestamp ? format(new Date(mailData.timestamp * 1000), 'd MMM yyyy', { locale: ca }) : ''}
-                                </div>
-                                <div className="text-xs text-[var(--text-secondary)] font-medium tracking-wide uppercase">
-                                    {mailData?.timestamp ? format(new Date(mailData.timestamp * 1000), 'HH:mm') : ''}
-                                </div>
-                            </div>
-                        </div>
-
-                    {/* Meta badges */}
-                    <div className="flex flex-wrap gap-3 items-center mb-8">
+                    {/* Subject + meta badges */}
+                    <h1 className="text-2xl font-extrabold text-[var(--text-primary)] leading-tight mb-3 tracking-tight">
+                        {mailData?.subject}
+                    </h1>
+                    <div className="flex flex-wrap gap-2 items-center mb-6">
                         <div className="flex items-center gap-1.5 bg-[var(--bg-secondary)] px-2 py-1 rounded-lg border border-[var(--border-primary)]">
-                            <Tag size={12} className="text-[var(--text-secondary)]" />
+                            <Tag size={11} className="text-[var(--text-secondary)]" />
                             <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">{mailData?.category || 'General'}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 bg-[var(--sidebar-item-active)] px-2 py-1 rounded-lg border border-[var(--border-primary)]">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--gnosi-blue)]" />
-                            <span className="text-[10px] font-bold text-[var(--gnosi-blue)] uppercase tracking-widest">Inbox</span>
-                        </div>
-                        {formLinks.length > 0 && (
-                            <div className="flex gap-2">
-                                {formLinks.map((link, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => handleFillForm(link)}
-                                        className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2.5 py-1 rounded-lg shadow-sm hover:shadow-md transition-all animate-pulse hover:animate-none"
-                                    >
-                                        <FileText size={12} />
-                                        <span className="text-[10px] font-bold uppercase tracking-wider">Omplir Formulari</span>
-                                    </button>
-                                ))}
+                        {activeTagIds.map(tid => {
+                            const tag = tags.find(t => t.id === tid);
+                            return tag ? (
+                                <TagPill
+                                    key={tid}
+                                    tag={tag}
+                                    onRemove={async (id) => {
+                                        const next = activeTagIds.filter(x => x !== id);
+                                        setActiveTagIds(next);
+                                        await setMessageTags(selectedMail.id, next, {
+                                            account_email: account?.email || selectedMail?.account || '',
+                                            subject: selectedMail?.subject || '',
+                                            sender: selectedMail?.sender || '',
+                                            date: selectedMail?.date || '',
+                                        }).catch(() => {});
+                                    }}
+                                />
+                            ) : null;
+                        })}
+                        {allThreadMsgs.length > 1 && (
+                            <div className="flex items-center gap-1.5 bg-[var(--bg-secondary)] px-2 py-1 rounded-lg border border-[var(--border-primary)]">
+                                <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">{allThreadMsgs.length} missatges</span>
                             </div>
                         )}
+                        {formLinks.length > 0 && formLinks.map((link, i) => (
+                            <button key={i} onClick={() => handleFillForm(link)}
+                                className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2.5 py-1 rounded-lg shadow-sm hover:shadow-md transition-all animate-pulse hover:animate-none">
+                                <FileText size={12} />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Omplir Formulari</span>
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Older thread messages (collapsed) */}
-                    {olderMessages.length > 0 && (
-                        <div className="space-y-2 mb-4">
-                            {olderMessages.map(msg => {
-                                const isExpanded = expandedThreadIds.has(msg.id);
-                                const senderName = (msg.sender || '').split('<')[0].trim();
-                                return (
-                                    <div
-                                        key={msg.id}
-                                        className="border border-[var(--border-primary)] rounded-xl overflow-hidden"
+                    {/* Thread — newest first */}
+                    <div className="space-y-2 mb-8">
+                        {allThreadMsgs.map((msg, idx) => {
+                            const isMain = msg.id === mailData?.id || (idx === 0 && !mailData);
+                            const isExpanded = expandedThreadIds.has(msg.id);
+                            const sent = isSentMsg(msg);
+                            const senderName = sent ? 'Tu' : cleanName(msg.sender);
+                            const fullContent = isMain ? mailData : threadMsgData[msg.id];
+                            const dateLabel = msg.timestamp
+                                ? format(new Date(msg.timestamp * 1000), 'd MMM yyyy · HH:mm', { locale: ca })
+                                : '';
+                            return (
+                                <div key={msg.id} className={`rounded-xl overflow-hidden border transition-all ${
+                                    sent
+                                        ? 'border-[var(--gnosi-blue)]/40 bg-[var(--sidebar-item-active)]/40'
+                                        : 'border-[var(--border-primary)] bg-[var(--bg-primary)]'
+                                }`}>
+                                    {/* Card header */}
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleThreadMsg(msg)}
+                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-secondary)]/60 transition-colors text-left"
                                     >
-                                        <button
-                                            type="button"
-                                            onClick={() => toggleThreadMsg(msg.id)}
-                                            className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left gap-4"
-                                        >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-7 h-7 rounded-lg bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] flex items-center justify-center text-[11px] font-bold uppercase shrink-0">
-                                                    {senderName[0] || '?'}
-                                                </div>
-                                                <span className={`text-[13px] font-semibold truncate ${!msg.is_read ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[12px] font-bold shrink-0 ${
+                                            sent
+                                                ? 'bg-[var(--gnosi-blue)] text-white'
+                                                : 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'
+                                        }`}>
+                                            {senderName[0]?.toUpperCase() || '?'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-[13px] font-bold ${sent ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-primary)]'}`}>
                                                     {senderName}
                                                 </span>
-                                                {!isExpanded && (
-                                                    <span className="text-[12px] text-[var(--text-secondary)] truncate opacity-70">
+                                                {sent && <span className="text-[10px] font-bold text-[var(--gnosi-blue)]/60 uppercase tracking-wider">enviat</span>}
+                                                {!sent && !isExpanded && (
+                                                    <span className="text-[12px] text-[var(--text-secondary)] truncate opacity-60 max-w-[300px]">
                                                         {msg.snippet}
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <span className="text-[12px] text-[var(--text-secondary)]">
-                                                    {msg.timestamp ? format(new Date(msg.timestamp * 1000), 'd MMM HH:mm', { locale: ca }) : ''}
-                                                </span>
-                                                <ChevronDown
-                                                    size={14}
-                                                    className={`text-[var(--text-secondary)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                                />
-                                            </div>
-                                        </button>
-                                        {isExpanded && (
-                                            <div className="px-5 py-4 bg-[var(--bg-primary)]">
-                                                <MailBody
-                                                    bodyHtml={msg.body_html}
-                                                    bodyText={msg.body_text || msg.snippet || ''}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                            {isExpanded && (
+                                                <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                                                    {sent
+                                                        ? `A: ${cleanName(msg.recipient || mailData?.recipient)}`
+                                                        : `Per a: ${cleanName(msg.recipient || mailData?.recipient)}`}
+                                                    {(msg.cc || (isMain && mailData?.cc)) && (
+                                                        <span className="ml-2 opacity-70">CC: {cleanName(msg.cc || mailData?.cc)}</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-[11px] text-[var(--text-secondary)] font-medium">{dateLabel}</span>
+                                            <ChevronDown size={14} className={`text-[var(--text-secondary)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                        </div>
+                                    </button>
+
+                                    {/* Card body */}
+                                    {isExpanded && (
+                                        <div className="border-t border-[var(--border-primary)]/60 px-5 py-5">
+                                            {fullContent ? (
+                                                <>
+                                                    <MailBody
+                                                        bodyHtml={fullContent.body_html}
+                                                        bodyText={fullContent.body_text || msg.snippet || ''}
+                                                        messageId={msg.id}
+                                                        email={msg.account || account?.email}
+                                                        folder={msg.imap_folder}
+                                                    />
+                                                    {fullContent.attachments?.length > 0 && (
+                                                        <AttachmentList
+                                                            attachments={fullContent.attachments}
+                                                            messageId={msg.id}
+                                                            email={msg.account || account?.email}
+                                                            folder={msg.imap_folder}
+                                                        />
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="flex items-center justify-center py-8">
+                                                    <div className="w-5 h-5 border-2 border-[var(--gnosi-blue)] border-t-transparent rounded-full animate-spin" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
 
                     {/* Extracted Entities Panel */}
                     {extractedEntities && (extractedEntities.events.length > 0 || extractedEntities.contacts.length > 0) && (
@@ -853,200 +1126,9 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                         </div>
                     )}
 
-                    <MailBody
-                        bodyHtml={mailData?.body_html}
-                        bodyText={mailData?.body_text || mailData?.snippet || ''}
-                    />
-
-                    {/* Reply section */}
-                    <div className="pt-20 pb-10" id="reply-area">
-                        <div className="bg-[var(--reply-box-bg)] rounded-3xl border-2 border-[var(--border-primary)] p-6 shadow-sm">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-xl bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] flex items-center justify-center">
-                                        {replyMode === 'forward' ? <Forward size={16} /> : replyMode === 'reply_all' ? <ReplyAll size={16} /> : <Reply size={16} />}
-                                    </div>
-                                    <h3 className="font-bold text-[var(--text-primary)]">{replyModeLabel}</h3>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleInsertAvailability}
-                                        className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-primary)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-primary)] rounded-xl text-sm font-bold transition-all hover:shadow-md active:scale-95"
-                                    >
-                                        <Calendar size={14} />
-                                        {t('mail.availability')}
-                                    </button>
-                                    <button
-                                        onClick={handleAIAssist}
-                                        disabled={aiGenerating}
-                                        className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-primary)] hover:bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] border border-[var(--border-primary)] rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
-                                    >
-                                        {aiGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                        {t('mail.ai_draft')}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                <AddressInput
-                                    label={t('mail.to_label')}
-                                    placeholder="destinatari@exemple.com"
-                                    value={replyTo}
-                                    onChange={setReplyTo}
-                                    accountEmail={account?.email}
-                                />
-                                <div className="flex justify-end">
-                                    <button
-                                        onClick={() => setShowReplyCcBcc(v => !v)}
-                                        className="text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-colors py-1"
-                                    >
-                                        CC/CCO <ChevronDown size={10} className={`inline transition-transform ${showReplyCcBcc ? 'rotate-180' : ''}`} />
-                                    </button>
-                                </div>
-                                {showReplyCcBcc && (
-                                    <div className="animate-in slide-in-from-top-1 duration-150">
-                                        <AddressInput
-                                            label="CC"
-                                            placeholder="cc@exemple.com"
-                                            value={replyCc}
-                                            onChange={setReplyCc}
-                                            accountEmail={account?.email}
-                                        />
-                                        <AddressInput
-                                            label="CCO"
-                                            placeholder="cco@exemple.com"
-                                            value={replyCco}
-                                            onChange={setReplyCco}
-                                            accountEmail={account?.email}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            <MailBlockEditor
-                                initialContent={replyBody}
-                                onChange={setReplyBody}
-                                editorRef={editorRef}
-                                onAttachFile={file => setReplyAttachments(prev => {
-                                    if (prev.some(f => f.name === file.name && f.size === file.size)) return prev;
-                                    return [...prev, file];
-                                })}
-                            />
-
-                            {/* Quoted message */}
-                            {quotedHtml && (
-                                <div className="mt-4 border-l-4 border-[var(--gnosi-blue)] pl-4 py-2 text-[var(--text-secondary)] text-[13px] leading-relaxed opacity-70 rounded-r-lg bg-[var(--bg-secondary)]/30">
-                                    <div className="text-[10px] font-bold uppercase tracking-widest mb-2 text-[var(--gnosi-blue)] opacity-60">
-                                        {replyMode === 'forward' ? t('mail.forwarded_message') : t('mail.original_message')}
-                                    </div>
-                                    <div
-                                        className="prose prose-sm max-w-none text-[var(--text-secondary)]"
-                                        dangerouslySetInnerHTML={{ __html: quotedHtml }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Reply attachments */}
-                            {replyAttachments.length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    {replyAttachments.map((f, i) => (
-                                        <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg text-[12px] max-w-[200px]">
-                                            <FileIcon size={13} className="text-[var(--gnosi-blue)] shrink-0" />
-                                            <span className="truncate text-[var(--text-primary)] font-medium">{f.name}</span>
-                                            <span className="text-[var(--text-secondary)] shrink-0">{Math.round(f.size / 1024)}KB</span>
-                                            <button onClick={() => setReplyAttachments(prev => prev.filter((_, j) => j !== i))} className="text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-colors shrink-0">
-                                                <CloseIcon size={13} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="mt-6 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        ref={replyFileInputRef}
-                                        type="file"
-                                        multiple
-                                        className="hidden"
-                                        onChange={e => {
-                                            const files = Array.from(e.target.files || []);
-                                            setReplyAttachments(prev => {
-                                                const existing = new Set(prev.map(f => f.name + f.size));
-                                                return [...prev, ...files.filter(f => !existing.has(f.name + f.size))];
-                                            });
-                                            e.target.value = '';
-                                        }}
-                                    />
-                                    <button
-                                        onClick={() => replyFileInputRef.current?.click()}
-                                        className="relative p-2.5 hover:bg-[var(--bg-primary)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-transparent hover:border-[var(--border-primary)]"
-                                        title={t('mail.attach_reply')}
-                                    >
-                                        <Paperclip size={18} />
-                                        {replyAttachments.length > 0 && (
-                                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--gnosi-blue)] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                                                {replyAttachments.length}
-                                            </span>
-                                        )}
-                                    </button>
-                                </div>
-                                <button
-                                    onClick={handleSendReply}
-                                    disabled={sending || !replyBody.trim()}
-                                    className="flex items-center gap-2 px-8 py-3 bg-[var(--gnosi-blue)] hover:opacity-90 disabled:opacity-50 text-white text-[15px] font-bold rounded-2xl transition-all shadow-lg active:scale-95 hover:-translate-y-0.5"
-                                >
-                                    {sending ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
-                                    {t('mail.send_btn')}
-                                </button>
-                            </div>
-                        </div>
                 </div>
             </div>
-        </div>
 
-            {/* Availability overlay */}
-            {showAvailability && (
-                <div className="fixed inset-0 z-[var(--z-modal)] bg-[var(--bg-primary)]/40 backdrop-blur-sm flex items-center justify-center p-4 lg:p-12 animate-in fade-in duration-300">
-                    <div className="bg-[var(--bg-primary)] w-full max-w-5xl h-full max-h-[800px] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-[var(--border-primary)] animate-in zoom-in-95 duration-300">
-                        <div className="h-20 border-b border-[var(--border-primary)] px-8 flex items-center justify-between bg-[var(--bg-secondary)]/50">
-                            <div>
-                                <h3 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-[var(--gnosi-blue)] text-white flex items-center justify-center shadow-lg">
-                                        <Calendar size={20} />
-                                    </div>
-                                    Tria la teva disponibilitat
-                                </h3>
-                                <p className="text-xs text-[var(--text-secondary)] font-medium ml-13 mt-1 uppercase tracking-wider">{calendarTitle}</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-1 bg-[var(--bg-primary)] p-1 rounded-xl shadow-sm border border-[var(--border-primary)]">
-                                    <button onClick={() => calendarCompRef.current?.getApi().prev()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronLeft size={18} /></button>
-                                    <button onClick={() => calendarCompRef.current?.getApi().today()} className="px-4 text-xs font-bold uppercase tracking-tight text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)]">Avui</button>
-                                    <button onClick={() => calendarCompRef.current?.getApi().next()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronRight size={18} /></button>
-                                </div>
-                                <button onClick={() => setShowAvailability(false)} className="p-3 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-2xl transition-all active:scale-95"><CloseIcon size={20} /></button>
-                            </div>
-                        </div>
-                        <div className="flex-1 p-8 bg-[var(--bg-primary)] overflow-hidden">
-                            <DigitalBrainCalendar
-                                allNotes={calendarData.pages}
-                                calendarRef={calendarCompRef}
-                                onTitleChange={setCalendarTitle}
-                                onSelection={handleSlotSelection}
-                                selectedCalendars={new Set(calendarData.pages.map(p => p.metadata?.source).filter(Boolean))}
-                                colorMap={{ 'Gnosi': 'var(--gnosi-primary)' }}
-                                calendarConfigs={[]}
-                            />
-                        </div>
-                        <div className="p-6 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] text-center">
-                            <p className="text-sm text-[var(--text-secondary)] font-medium italic">
-                                Fes clic i arrossega per crear una franja de disponibilitat. Apareixerà automàticament al correu.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
             {/* Calendar Picker Modal */}
             {showEventCalendarPicker && (
                 <div className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">

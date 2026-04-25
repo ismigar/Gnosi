@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime
+from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey
 from pydantic import BaseModel
 from typing import Optional, List, Any
 from datetime import datetime, timezone
@@ -27,6 +27,26 @@ class MailMessage(Base):
     category = Column(String)
     labels = Column(String)  # Comma separated
     raw_json = Column(Text)
+
+
+class MailTag(Base):
+    __tablename__ = "mail_tags"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    color = Column(String, default="#3b82f6")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class MailMessageTag(Base):
+    __tablename__ = "mail_message_tags"
+
+    message_id = Column(String, primary_key=True)
+    tag_id = Column(String, ForeignKey("mail_tags.id", ondelete="CASCADE"), primary_key=True)
+    account_email = Column(String, default="")
+    subject = Column(String, default="")
+    sender = Column(String, default="")
+    date_str = Column(String, default="")
 
 
 class MailView(Base):
@@ -121,3 +141,33 @@ class MailViewSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Tag Schemas ─────────────────────────────────────────────────────────────────
+
+class MailTagCreateSchema(BaseModel):
+    name: str
+    color: str = "#3b82f6"
+
+
+class MailTagUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+
+
+class MailTagSchema(BaseModel):
+    id: str
+    name: str
+    color: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MailMessageTagsSetSchema(BaseModel):
+    tag_ids: List[str]
+    account_email: str = ""
+    subject: str = ""
+    sender: str = ""
+    date_str: str = ""

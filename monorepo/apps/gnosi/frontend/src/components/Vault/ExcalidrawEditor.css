@@ -88,10 +88,7 @@
     color: var(--text-primary);
 }
 
-.action-btn.close-btn:hover {
-    background: var(--status-error-bg, #fee2e2);
-    color: var(--status-error);
-}
+
 
 .excalidraw-wrapper {
     flex: 1;

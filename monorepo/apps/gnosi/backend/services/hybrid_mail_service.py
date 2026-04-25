@@ -85,7 +85,7 @@ _GMAIL_FOLDER_QUERY = {
     "TRASH":        "in:trash",
     "SPAM":         "in:spam",
     "STARRED":      "is:starred",
-    "all":          "",
+    "all":          "-in:trash -in:spam",
     "NOT_ARCHIVED": "in:inbox",
 }
 
@@ -144,12 +144,15 @@ def _ts(date_str: str) -> int:
 
 
 def _get_imap_account(email: str) -> Optional[dict]:
-    accs = integration_manager.get_raw("mail_accounts")
-    return next(
-        (a for a in accs if a.get("email") == email
-         and a.get("provider") == "manual" and a.get("imap_host")),
-        None
-    )
+    """Returns the account dict if *email* should be accessed via IMAP.
+
+    Covers: manual (any IMAP), Outlook (injects default host/port), and any
+    account with an explicit imap_host that is not Google OAuth2.
+    """
+    acc = integration_manager.get_mail_account(email)
+    if not integration_manager.is_imap_account(acc):
+        return None
+    return integration_manager.resolve_imap_defaults(acc)
 
 
 def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
@@ -200,7 +203,9 @@ def gmail_list_messages(
 ) -> dict:
     service = get_gmail_service(email)
     if not service:
-        return {"messages": [], "next_page_token": None, "total": 0}
+        msg = f"No s'ha pogut connectar amb Gmail per a {email}. Comprova les credencials a Configuració."
+        log.error(f"[Gmail] {msg}")
+        return {"messages": [], "next_page_token": None, "total": 0, "error": msg}
 
     q_parts = []
     folder_q = _GMAIL_FOLDER_QUERY.get(folder or "INBOX", "in:inbox")
@@ -223,8 +228,13 @@ def gmail_list_messages(
         next_token = result.get("nextPageToken")
         total = result.get("resultSizeEstimate", len(msg_ids))
     except Exception as e:
-        log.error(f"[Gmail] Error llistant missatges per {email}: {e}")
-        return {"messages": [], "next_page_token": None, "total": 0}
+        err_str = str(e)
+        if "invalid_grant" in err_str or "Token has been expired" in err_str:
+            msg = f"El token de Gmail per a {email} ha caducat. Torna a connectar el compte a Configuració."
+        else:
+            msg = f"Error accedint a Gmail per a {email}: {err_str}"
+        log.error(f"[Gmail] {msg}")
+        return {"messages": [], "next_page_token": None, "total": 0, "error": msg}
 
     if not msg_ids:
         return {"messages": [], "next_page_token": None, "total": 0}
@@ -312,6 +322,54 @@ def _parse_gmail_meta(msg: dict, account_email: str) -> dict:
 # GMAIL — DETALL
 # ══════════════════════════════════════════════════════════════════════
 
+def _extract_gmail_parts(payload: dict) -> tuple:
+    """Returns (attachments, inline_images) from a Gmail message payload."""
+    import base64
+    attachments = []
+    inline_images = []
+
+    def _header(part, name):
+        for h in part.get("headers", []):
+            if h["name"].lower() == name.lower():
+                return h["value"]
+        return ""
+
+    def _walk(part):
+        mime = part.get("mimeType", "")
+        body = part.get("body", {})
+        att_id = body.get("attachmentId")
+        filename = part.get("filename", "")
+        size = body.get("size", 0)
+        cid_raw = _header(part, "Content-ID")
+        cid = cid_raw.strip("<>") if cid_raw else None
+        cd = _header(part, "Content-Disposition").lower()
+
+        if att_id:
+            if mime.startswith("image/") and "attachment" not in cd:
+                # Imatge inline (amb o sense CID) — no mostrar com adjunt
+                inline_images.append({
+                    "cid": cid or "",
+                    "attachment_id": att_id,
+                    "content_type": mime,
+                    "filename": filename,
+                    "size": size,
+                })
+            elif filename:
+                # Fitxer amb nom explícit (PDF, Word, imatge adjunta, etc.)
+                attachments.append({
+                    "attachment_id": att_id,
+                    "filename": filename,
+                    "content_type": mime,
+                    "size": size,
+                })
+
+        for sub in part.get("parts", []):
+            _walk(sub)
+
+    _walk(payload)
+    return attachments, inline_images
+
+
 def gmail_get_message(email: str, message_id: str) -> Optional[dict]:
     service = get_gmail_service(email)
     if not service:
@@ -325,9 +383,14 @@ def gmail_get_message(email: str, message_id: str) -> Optional[dict]:
         return None
 
     meta = _parse_gmail_meta(raw, email)
-    body_text, body_html = _extract_gmail_body(raw.get("payload", {}))
+    payload = raw.get("payload", {})
+    body_text, body_html = _extract_gmail_body(payload)
+    attachments, inline_images = _extract_gmail_parts(payload)
     meta["body_text"] = body_text
     meta["body_html"] = body_html
+    meta["attachments"] = attachments
+    meta["inline_images"] = inline_images
+    meta["has_attachments"] = bool(attachments) or bool(inline_images)
     return meta
 
 
@@ -425,7 +488,9 @@ def imap_list_messages(
 ) -> dict:
     acc = _get_imap_account(email)
     if not acc:
-        return {"messages": [], "total": 0}
+        msg = f"No s'ha trobat configuració IMAP per a {email}."
+        log.error(f"[IMAP] {msg}")
+        return {"messages": [], "total": 0, "error": msg}
 
     imap = _imap_pool_acquire(acc)
     if not imap:
@@ -562,10 +627,39 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[di
         date_str = msg.get("Date", "")
 
         body_text = body_html = ""
+        attachments = []
+        inline_images = []
         if msg.is_multipart():
-            for part in msg.walk():
+            for i, part in enumerate(msg.walk()):
                 ct = part.get_content_type()
+                cd = part.get("Content-Disposition", "")
+                cid_raw = part.get("Content-ID", "")
+                cid = cid_raw.strip("<>") if cid_raw else None
+                filename = part.get_filename()
+                if filename:
+                    filename = _decode_mime(filename)
                 payload = part.get_payload(decode=True)
+
+                # Inline image with CID (signature images, etc.)
+                if cid and ct.startswith("image/"):
+                    inline_images.append({
+                        "part_index": i,
+                        "cid": cid,
+                        "content_type": ct,
+                        "size": len(payload) if payload else 0,
+                    })
+                    continue
+
+                # Regular attachment
+                if filename and "attachment" in cd.lower():
+                    attachments.append({
+                        "part_index": i,
+                        "filename": filename,
+                        "content_type": ct,
+                        "size": len(payload) if payload else 0,
+                    })
+                    continue
+
                 if not payload:
                     continue
                 charset = part.get_content_charset() or "utf-8"
@@ -596,10 +690,9 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[di
             "is_starred":      "\\flagged" in flags,
             "body_text":       body_text,
             "body_html":       body_html,
-            "has_attachments": any(
-                p.get_filename() for p in msg.walk()
-                if hasattr(p, "get_filename") and p.get_filename()
-            ),
+            "has_attachments": bool(attachments) or bool(inline_images),
+            "attachments":     attachments,
+            "inline_images":   inline_images,
             "category":        "Main",
             "type":            _FOLDER_TO_TYPE.get(folder.upper(), "Received"),
             "account":         email,

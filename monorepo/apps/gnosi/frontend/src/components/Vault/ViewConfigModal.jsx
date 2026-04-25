@@ -139,8 +139,8 @@ export function ViewConfigModal({
                         <SlidersHorizontal size={18} className="text-[var(--gnosi-primary)]" />
                         {t('view_config.title')}
                     </h2>
-                    <button onClick={onClose} className="text-[var(--text-secondary)]/60 hover:text-[var(--text-primary)] transition-colors p-1 rounded-md hover:bg-[var(--bg-secondary)]">
-                        <X size={18} />
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar">
+                        <X />
                     </button>
                 </div>
 
