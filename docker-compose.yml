@@ -7,7 +7,6 @@ services:
     ports:
       - "5002:5002"
     volumes:
-      - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
       - /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi:/vault
       - /Users/ismaelgarciafernandez:/Users/ismaelgarciafernandez:rw
@@ -21,6 +20,7 @@ services:
       - VAULT_HOST_PATH=/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi
       - HOME_HOST_PATH=/Users/ismaelgarciafernandez
       - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
       # Variables calculades dinàmicament o especials
       - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
       - TZ=Europe/Madrid

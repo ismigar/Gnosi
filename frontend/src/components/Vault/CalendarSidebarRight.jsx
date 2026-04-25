@@ -681,8 +681,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-tertiary)]">
                 <div className="flex items-center gap-2">
-                    <button onClick={onClose} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] p-1 rounded-lg transition-colors">
-                        <X size={16} />
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar panell">
+                        <X />
                     </button>
                     <span className="text-[13px] font-semibold text-[var(--text-primary)]">
                         {mode === 'create' ? t('calendar.new_event', 'Nova cita') : t('calendar.edit_event', 'Editar cita')}

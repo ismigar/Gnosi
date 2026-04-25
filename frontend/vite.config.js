@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
       },
       host: true, // Ensure it listens on 0.0.0.0
       port: Number(frontendPort),
+      strictPort: true,
       proxy: {
         "/api": {
           target: `http://${env.VITE_BACKEND_HOST || "127.0.0.1"}:${backendPort}`,

@@ -261,7 +261,11 @@
     "frequency_minutes_other": "Cada {{count}} min",
     "frequency_seconds": "Cada {{count}}s",
     "frequency_none": "No definida",
+    "time_15_min": "15 min",
+    "time_30_min": "30 min",
+    "time_45_min": "45 min",
     "time_1_hour": "1 hora",
+    "time_1_5_hours": "1,5 hores",
     "time_2_hours": "2 hores",
     "time_3_hours": "3 hores",
     "time_6_hours": "6 hores",
@@ -579,7 +583,8 @@
       "mail_accounts": "Comptes de Correu",
       "contacts": "Contactes",
       "ai": "Intel·ligència Artificial",
-      "zotero": "Zotero"
+      "zotero": "Zotero",
+      "profile": "Perfil"
     },
     "general": {
       "title": "Configuració General",
@@ -602,6 +607,10 @@
       "vault_path": "Ruta del Vault",
       "select_folder": "Seleccionar carpeta",
       "vault_path_desc": "On es guarden les teves dades locals de Gnosi."
+    },
+    "profile": {
+      "title": "Perfil d'Usuari",
+      "desc": "La teva identitat digital i dades de contacte."
     },
     "language": {
       "title": "Idioma i Regió",
@@ -994,7 +1003,7 @@
     "forward_to_label": "Per a:",
     "forward_to_placeholder": "correu@exemple.com",
     "forward_missing_to": "Indica un destinatari per al reenviament",
-    "reply_title": "Resposta ràpida",
+    "reply_title": "Resposta",
     "reply_all_title": "Respondre a tots",
     "forward_title": "Reenviar",
     "send_btn": "Enviar correu",

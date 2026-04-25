@@ -37,7 +37,8 @@ from backend.api import (
     vault_routes, vault_graph_routes, calendar_routes, mail_routes,
     reader, google_auth_routes, integrations_routes, zotero_routes,
     config_routes, env_routes, credentials_routes, ai_routes,
-    workspace_routes, contacts_routes, identity_routes
+    workspace_routes, contacts_routes, identity_routes,
+    microsoft_auth_routes,
 )
 from backend.scheduler.manager import scheduler_manager
 from backend.models import * # Register all models for SQLAlchemy
@@ -160,6 +161,7 @@ app.include_router(contacts_routes.router, prefix="/api", tags=["Contacts"])
 
 # Integrations and Config
 app.include_router(google_auth_routes.router, tags=["Auth"])
+app.include_router(microsoft_auth_routes.router, tags=["Auth"])
 app.include_router(integrations_routes.router, tags=["Integrations"])
 app.include_router(zotero_routes.router, tags=["Zotero"])
 app.include_router(config_routes.router, prefix="/api", tags=["Config"])

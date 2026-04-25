@@ -4,7 +4,7 @@ import {
     Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
     ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
-    PenTool, Image, Paperclip, Eye, EyeOff
+    PenTool, Image, Paperclip, Eye, EyeOff, User
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
@@ -13,6 +13,7 @@ import axios from 'axios';
 import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
+import IdentityProfile from './Vault/IdentityProfile';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -38,16 +39,14 @@ const NOTION_COLORS = [
 ];
 
 // -- REUSABLE UI COMPONENTS --
-const Section = ({ title, icon: Icon, children, extra }) => (
+export const Section = ({ title, icon: Icon, children, extra }) => (
     <div className="settings-section animate-in">
         <div className="settings-section-title-wrap">
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 {Icon && <div className="settings-section-icon-wrap"><Icon size={20} /></div>}
                 <h3 className="settings-section-title">{title}</h3>
             </div>
-            <div style={{ flexShrink: 0 }}>
-                {extra}
-            </div>
+            {extra && <div style={{ flexShrink: 0 }}>{extra}</div>}
         </div>
         <div className="settings-section-content">
             {children}
@@ -55,14 +54,14 @@ const Section = ({ title, icon: Icon, children, extra }) => (
     </div>
 );
 
-const FormGroup = ({ label, children, description, horizontal = false }) => (
+export const FormGroup = ({ label, children, description, horizontal = false }) => (
     <div className="settings-form-group" style={{ 
         display: horizontal ? 'flex' : 'block', 
         alignItems: horizontal ? 'center' : 'stretch',
         justifyContent: horizontal ? 'space-between' : 'flex-start',
         gap: horizontal ? '20px' : '0'
     }}>
-        <div style={{ marginBottom: horizontal ? '0' : '10px', flex: horizontal ? 1 : 'none' }}>
+        <div style={{ flex: horizontal ? 1 : 'none' }}>
             <label className="settings-label">{label}</label>
             {description && <div className="settings-desc">{description}</div>}
         </div>
@@ -96,11 +95,79 @@ const PasswordInput = ({ value, onChange, placeholder = 'Introdueix la contrasen
     );
 };
 
-const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, color = '#3b82f6', isSyncing = false }) => (
-    <div className="account-row hover-scale" style={{ 
-        padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)', 
-        background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between', 
-        alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+const AliasEditor = ({ aliases, onChange }) => {
+    const [expandedIdx, setExpandedIdx] = React.useState(null);
+    const update = (i, patch) => {
+        const updated = [...aliases];
+        updated[i] = { ...updated[i], ...patch };
+        onChange(updated);
+    };
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {aliases.map((alias, i) => (
+                <div key={i} style={{ border: '1px solid var(--settings-border)', borderRadius: '10px', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', padding: '6px 8px' }}>
+                        <input
+                            type="email"
+                            className="gnosi-input"
+                            style={{ flex: 2 }}
+                            value={alias.email}
+                            placeholder="alias@domini.org"
+                            onChange={e => update(i, { email: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            className="gnosi-input"
+                            style={{ flex: 2 }}
+                            value={alias.display_name || ''}
+                            placeholder="Nom (opcional)"
+                            onChange={e => update(i, { display_name: e.target.value })}
+                        />
+                        <button
+                            type="button"
+                            title="Signatura"
+                            onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
+                            style={{ padding: '6px 8px', border: '1px solid var(--settings-border)', borderRadius: '6px', background: expandedIdx === i ? 'var(--gnosi-blue)' : 'transparent', color: expandedIdx === i ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+                        >
+                            Sig
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { onChange(aliases.filter((_, j) => j !== i)); if (expandedIdx === i) setExpandedIdx(null); }}
+                            style={{ padding: '6px', border: 'none', background: 'transparent', color: 'var(--status-error)', cursor: 'pointer', borderRadius: '6px' }}
+                        >✕</button>
+                    </div>
+                    {expandedIdx === i && (
+                        <div style={{ padding: '8px', borderTop: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)' }}>
+                            <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '6px' }}>
+                                Signatura de l'àlies
+                            </label>
+                            <MailBlockEditor
+                                initialContent={alias.signature || ''}
+                                onChange={html => update(i, { signature: html })}
+                                minHeight="80px"
+                            />
+                        </div>
+                    )}
+                </div>
+            ))}
+            <button
+                type="button"
+                onClick={() => onChange([...aliases, { email: '', display_name: '', signature: '' }])}
+                style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.78rem', border: '1px dashed var(--settings-border)', borderRadius: '8px', background: 'transparent', color: 'var(--gnosi-blue)', cursor: 'pointer', fontWeight: '700' }}
+            >
+                + Afegir àlies
+            </button>
+        </div>
+    );
+};
+
+const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => (
+    <div className="account-row hover-scale" style={{
+        padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)',
+        background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        opacity: enabled ? 1 : 0.5
     }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)' }}>
@@ -115,24 +182,35 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
-                <span style={{ 
-                    fontSize: '0.68rem', padding: '5px 14px', borderRadius: '20px', 
-                    background: status === 'connected' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)', 
-                    color: status === 'connected' ? '#10b981' : '#f59e0b', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
-                }}>
-                    {status === 'connected' ? 'Connectat' : 'Pendent'}
-                </span>
-                
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onSync && onSync(); }} 
-                    disabled={isSyncing}
-                    className="icon-btn hover-bg" 
-                    title="Sincronitzar aquest compte"
-                    style={{ padding: '8px', borderRadius: '10px', color: 'var(--gnosi-blue)' }}
-                >
-                    <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
-                </button>
+                {enabled && (
+                    <span style={{
+                        fontSize: '0.68rem', padding: '5px 14px', borderRadius: '20px',
+                        background: status === 'connected' ? 'rgba(16, 185, 129, 0.12)' : status === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                        color: status === 'connected' ? '#10b981' : status === 'error' ? '#ef4444' : '#f59e0b', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
+                    }}>
+                        {status === 'connected' ? 'Connectat' : status === 'error' ? 'Error' : 'Pendent'}
+                    </span>
+                )}
+                {enabled && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onSync && onSync(); }}
+                        disabled={isSyncing}
+                        className="icon-btn hover-bg"
+                        title="Sincronitzar aquest compte"
+                        style={{ padding: '8px', borderRadius: '10px', color: 'var(--gnosi-blue)' }}
+                    >
+                        <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+                    </button>
+                )}
             </div>
+            <button
+                onClick={(e) => { e.stopPropagation(); onToggleEnabled && onToggleEnabled(!enabled); }}
+                className="icon-btn hover-bg"
+                title={enabled ? 'Desactivar compte' : 'Activar compte'}
+                style={{ padding: '8px', borderRadius: '10px', color: enabled ? 'var(--text-secondary)' : 'var(--gnosi-blue)' }}
+            >
+                {enabled ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
             <button onClick={onEdit} className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
             <button onClick={onDelete} className="icon-btn hover-bg-danger" style={{ color: '#ef4444', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
         </div>
@@ -140,17 +218,13 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
 );
 
 const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
-    <button className={`settings-sidebar__item ${active ? 'active' : ''}`} onClick={onClick} style={{
-        display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', border: 'none', borderRadius: '16px',
-        background: active ? 'var(--settings-sidebar-active)' : 'transparent',
-        color: active ? 'var(--settings-sidebar-active-text)' : 'var(--text-secondary)',
-        cursor: 'pointer', textAlign: 'left', fontWeight: active ? '800' : '600', 
-        fontSize: '0.96rem', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)', width: '100%',
-        boxShadow: active ? '0 10px 15px -3px rgba(59, 130, 246, 0.15)' : 'none'
-    }}>
-        <Icon size={20} style={{ opacity: active ? 1 : 0.6 }} />
+    <button 
+        className={`settings-sidebar__item ${active ? 'active' : ''}`} 
+        onClick={onClick}
+    >
+        <Icon size={18} strokeWidth={active ? 2.5 : 2} />
         <span style={{ flex: 1 }}>{label}</span>
-        {active && <ChevronRight size={16} style={{ opacity: 0.4 }} />}
+        {active && <ChevronRight size={14} style={{ opacity: 0.5 }} />}
     </button>
 );
 
@@ -172,7 +246,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             physics: { gravity: 0.1, repulsion: 1000, friction: 10 }
         },
         ai: { agents: [], providers: {}, active_agent_id: '' },
-        zotero: { user: '', pwd: '', workspace: '', target_table: '', mapping: {} }
+        zotero: { user: '', pwd: '', workspace: '', target_table: '', mapping: {} },
+        identity: {
+            full_name: '', first_name: '', last_name: '', email: '',
+            phone: '', address: '', city: '', zip_code: '', dni_nie: '', notes: ''
+        }
     });
 
     const [activeTab, setActiveTab] = useState(initialTab);
@@ -295,11 +373,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // Account Integration State
     const [addAccountType, setAddAccountType] = useState(null); // 'calendar' | 'contacts' | 'mail' | null
     const [addAccountEmail, setAddAccountEmail] = useState('');
+    const [addAccountEmailBlurred, setAddAccountEmailBlurred] = useState(false);
     const [isManualGoogle, setIsManualGoogle] = useState(false);
     const [manualServer, setManualServer] = useState('');
     const [manualPassword, setManualPassword] = useState('');
     const [editingAccountId, setEditingAccountId] = useState(null); // ID del compte en edició
     const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
+    const [syncErrorAccounts, setSyncErrorAccounts] = useState(new Set()); // Emails amb error de sync
     
     // Mail Snippets State
     const SNIPPETS_KEY = 'gnosi_mail_snippets';
@@ -358,6 +438,44 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [mailSmtpEnc, setMailSmtpEnc] = useState('ssl');
     const [mailSignature, setMailSignature] = useState('');
     const [mailCertificate, setMailCertificate] = useState('');
+    const [mailDisplayName, setMailDisplayName] = useState('');
+    const [mailAliases, setMailAliases] = useState([]);
+
+    // -- SCROLL MANAGEMENT --
+    const sidebarRef = useRef(null);
+    const mainRef = useRef(null);
+
+    useEffect(() => {
+        const sidebar = sidebarRef.current;
+        const main = mainRef.current;
+        if (!sidebar || !main) return;
+
+        const isScrollable = (el) => {
+            const style = getComputedStyle(el);
+            return el.scrollHeight > el.clientHeight &&
+                style.overflowY !== 'visible' && style.overflowY !== 'hidden';
+        };
+
+        const handleWheel = (e) => {
+            const panel = sidebar.contains(e.target) ? sidebar : main;
+            // If there's a nested scrollable element between the target and the panel, let it scroll naturally
+            let el = e.target;
+            while (el && el !== panel) {
+                if (isScrollable(el)) return;
+                el = el.parentElement;
+            }
+            if (!isScrollable(panel)) return;
+            e.preventDefault();
+            panel.scrollTop += e.deltaY;
+        };
+
+        sidebar.addEventListener('wheel', handleWheel, { passive: false });
+        main.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            sidebar.removeEventListener('wheel', handleWheel);
+            main.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
 
     // -- AUTO-SAVE CONTROLS --
     const autoSaveTimeoutRef = useRef(null);
@@ -379,8 +497,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             loadIntegrations();
             loadNewsletterSources();
             checkGoogleAuth();
+            loadIdentity();
         }
     }, [isOpen]);
+
+    const loadIdentity = async () => {
+        try {
+            const res = await axios.get('/api/identity');
+            if (res.data) {
+                setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...res.data } }));
+            }
+        } catch (err) { console.error("Error loading identity:", err); }
+    };
 
     useEffect(() => {
         if (activeTab === 'calendar' && isOpen) {
@@ -532,7 +660,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 providers: draft.ai.providers
             },
             integrations,
-            zotero: draft.zotero
+            zotero: draft.zotero,
+            identity: draft.identity
         });
 
         // Initialize baseline on first load
@@ -566,7 +695,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     }
                 }),
                 axios.post('/api/integrations/bulk', integrations),
-                axios.post('/api/zotero/config', draft.zotero)
+                axios.post('/api/zotero/config', draft.zotero),
+                axios.post('/api/identity', draft.identity)
             ]);
             
             lastSavedData.current = currentData;
@@ -636,6 +766,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         setAddAccountType(category);
         setEditingAccountId(account.id);
         setAddAccountEmail(account.email || account.username || '');
+        setAddAccountEmailBlurred(true);
         if (account.provider === 'manual') {
             setManualServer(account.server_url || '');
             setManualPassword(account.password || '');
@@ -656,19 +787,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setMailSmtpEnc(account.smtp_encryption || 'ssl');
             setMailSignature(account.signature || '');
             setMailCertificate(account.certificate || '');
+            setMailDisplayName(account.display_name || '');
+            setMailAliases(account.aliases || []);
         }
     };
 
     const handleSyncAccount = async (category, account) => {
         const accountId = account?.id || account;
         if (!accountId) return;
+        const email = account?.email || account?.username || '';
         setSyncingAccounts(prev => ({ ...prev, [accountId]: true }));
         setSavingStatus('saving');
         try {
-            const email = account?.email || account?.username || '';
             let res;
             if (category === 'contacts') {
-                // contacts sync espera provider + email al body
                 const provider = account?.provider || 'manual';
                 res = await axios.post('/api/contacts/sync', { provider, email, server_url: account?.server_url, password: account?.password, username: account?.username });
             } else if (category === 'calendar') {
@@ -678,9 +810,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             }
 
             const ok = res.data.status === 'success' || res.data.status === 'ok';
-            if (ok) {
-                setSavingStatus('saved');
+            const partial = res.data.status === 'partial';
+            if (ok || partial) {
+                const failedEmails = res.data.failed || [];
+                setSyncErrorAccounts(prev => {
+                    const next = new Set(prev);
+                    if (email) failedEmails.includes(email) ? next.add(email) : next.delete(email);
+                    return next;
+                });
+                setSavingStatus(partial ? 'error' : 'saved');
                 loadIntegrations();
+                if (partial && failedEmails.length) {
+                    alert(`Alguns comptes no s'han pogut sincronitzar: ${failedEmails.join(', ')}. Comprova les credencials IMAP a Configuració.`);
+                }
             } else {
                 setSavingStatus('error');
                 alert(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
@@ -688,6 +830,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (e) {
             console.error("Sync error:", e);
             setSavingStatus('error');
+            if (email) setSyncErrorAccounts(prev => new Set(prev).add(email));
             const detail = e?.response?.data?.detail || e?.message || 'Error desconegut';
             alert(`Error en la sincronització: ${detail}`);
         } finally {
@@ -786,19 +929,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     <div className="settings-inner">
                     
                     {/* SIDEBAR */}
-                    <aside className="settings-sidebar">
+                    <aside className="settings-sidebar" ref={sidebarRef}>
                         <div className="settings-sidebar-header">
                             <div className="settings-sidebar-brand">
-                                <div className="settings-brand-icon-wrap">
-                                    <SettingsIcon size={18} />
+                                <div className="settings-section-icon-wrap">
+                                    <SettingsIcon size={20} strokeWidth={2} />
                                 </div>
-                                <h2 className="settings-sidebar-title">{t('settings.title') || 'Configuració'}</h2>
+                                <h2 className="settings-sidebar-title">Configuració</h2>
                             </div>
                             
-                            {/* INDICADOR DE SAVING (Mogut aquí per visibilitat) */}
-                            <div style={{ 
-                                marginTop: '15px', padding: '10px 14px', borderRadius: '14px', 
-                                background: 'var(--settings-sidebar-active)', border: '1px solid var(--settings-border)', 
+                            {/* INDICADOR DE SAVING */}
+                            <div className={`settings-status-indicator ${savingStatus}`} style={{ 
+                                marginTop: '20px', padding: '10px 14px', borderRadius: '14px', 
+                                background: 'rgba(59, 130, 246, 0.05)', border: '1px solid var(--settings-border)', 
                                 display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.3s'
                             }}>
                                 {savingStatus === 'saving' ? (
@@ -819,17 +962,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         </div>
 
                         <div className="settings-sidebar-nav">
+                            <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
+                            
+                            <div className="settings-sidebar-hr" />
+
                             <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
                             <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
                             <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
                             
-                            <div style={{ height: '1px', background: 'var(--settings-border)', margin: '18px 14px', opacity: 0.6 }} />
+                            <div className="settings-sidebar-hr" />
                             
                             <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />
                             <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />
-                            <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu Electrònic'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
+                            <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
                             
-                            <div style={{ height: '1px', background: 'var(--settings-border)', margin: '18px 14px', opacity: 0.6 }} />
+                            <div className="settings-sidebar-hr" />
 
                             <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
                             <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
@@ -840,20 +987,29 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     </aside>
 
                     {/* CONTENT AREA */}
-                    <main className="settings-main">
-                        <button onClick={onClose} className="settings-close-btn" aria-label="Tancar configuració">
-                            <X size={22} />
+                    <main className="settings-main" ref={mainRef}>
+                        <button onClick={onClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
+                            <X />
                         </button>
 
                         <div className="settings-content-wrap">
                             
-                            {/* GENERAL */}
+                             {/* PERFIL D'IDENTITAT */}
+                             {activeTab === 'profile' && (
+                                <div className="animate-in">
+                                    <IdentityProfile 
+                                        userName={draft.settings.user_name} 
+                                        setUserName={(val) => setDraft({...draft, settings: {...draft.settings, user_name: val}})}
+                                        profile={draft.identity}
+                                        setProfile={(val) => setDraft({...draft, identity: val})}
+                                    />
+                                </div>
+                             )}
+
+                             {/* GENERAL */}
                             {activeTab === 'general' && (
                                 <Section title="Configuració del Sistema" icon={SettingsIcon}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
-                                        <FormGroup label="Nom d'usuari" description="Com et diran els agents d'IA.">
-                                            <input type="text" className="gnosi-input" value={draft.settings.user_name} onChange={e => setDraft({...draft, settings: {...draft.settings, user_name: e.target.value}})} placeholder="Ismael Garcia" />
-                                        </FormGroup>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
                                         <FormGroup label="Nom del Workspace" description="Identificador del teu cervell digital.">
                                             <input type="text" className="gnosi-input" value={draft.settings.workspace_name} onChange={e => setDraft({...draft, settings: {...draft.settings, workspace_name: e.target.value}})} placeholder="Meu Cervell Digital" />
                                         </FormGroup>
@@ -1182,42 +1338,106 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                                     <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Configuració del Compte</span>
-                                                    <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
+                                                    <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
                                                 </div>
                                                 
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                                     <FormGroup label="Adreça de Correu">
-                                                        <input 
-                                                            type="email" 
-                                                            className="gnosi-input" 
-                                                            value={addAccountEmail} 
+                                                        <input
+                                                            type="email"
+                                                            className="gnosi-input"
+                                                            value={addAccountEmail}
                                                             onChange={e => {
                                                                 setAddAccountEmail(e.target.value);
+                                                                setAddAccountEmailBlurred(false);
                                                                 setIsManualGoogle(false);
                                                             }}
+                                                            onBlur={() => setAddAccountEmailBlurred(true)}
                                                             placeholder="exemple@pangea.org"
                                                             autoFocus
                                                         />
                                                     </FormGroup>
 
-                                                    {(addAccountEmail.trim().toLowerCase().endsWith('@gmail.com') || addAccountEmail.trim().toLowerCase().endsWith('@googlemail.com') || isManualGoogle) ? (
-                                                        <button 
-                                                            onClick={() => window.location.href = `/api/auth/google/login?type=${activeTab}`}
-                                                            className="btn-gnosi-primary animate-in" 
-                                                            style={{ 
-                                                                width: '100%', background: '#4285f4', padding: '16px', 
-                                                                borderRadius: '16px', fontWeight: '900', display: 'flex', 
-                                                                alignItems: 'center', justifyContent: 'center', gap: '14px',
-                                                                boxShadow: '0 10px 20px rgba(66,133,244,0.2)', marginTop: '8px',
-                                                                border: 'none', cursor: 'pointer', transition: 'all 0.2s'
-                                                            }}
-                                                        >
-                                                            <div style={{ background: 'white', padding: '8px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                                                                <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" style={{ width: '18px', height: '18px' }} alt="Google logo" />
+                                                    {(() => {
+                                                        const emailLower = addAccountEmail.trim().toLowerCase();
+                                                        const isComplete = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower);
+                                                        if (!isComplete || (!addAccountEmailBlurred && !isManualGoogle)) return null;
+
+                                                        const isGoogle   = emailLower.endsWith('@gmail.com') || emailLower.endsWith('@googlemail.com') || isManualGoogle;
+                                                        const isMicrosoft = emailLower.endsWith('@outlook.com') || emailLower.endsWith('@hotmail.com') || emailLower.endsWith('@live.com') || emailLower.endsWith('@msn.com');
+                                                        const isICloud   = emailLower.endsWith('@icloud.com') || emailLower.endsWith('@me.com') || emailLower.endsWith('@mac.com');
+                                                        const isYahoo    = emailLower.endsWith('@yahoo.com') || emailLower.endsWith('@ymail.com') || emailLower.endsWith('@yahoo.es');
+                                                        const isAol      = emailLower.endsWith('@aol.com');
+
+                                                        const fillImap = (imap, smtp) => {
+                                                            setMailImapHost(imap.host); setMailImapPort(imap.port); setMailImapEnc(imap.enc);
+                                                            setMailSmtpHost(smtp.host); setMailSmtpPort(smtp.port); setMailSmtpEnc(smtp.enc);
+                                                            setMailImapUser(addAccountEmail); setMailSmtpUser(addAccountEmail);
+                                                        };
+
+                                                        const btnStyle = (bg, shadow) => ({
+                                                            width: '100%', background: bg, padding: '14px 16px',
+                                                            borderRadius: '14px', fontWeight: '800', display: 'flex',
+                                                            alignItems: 'center', gap: '12px',
+                                                            boxShadow: shadow, border: 'none', cursor: 'pointer',
+                                                            transition: 'all 0.2s', color: 'white', fontSize: '0.95rem'
+                                                        });
+                                                        const iconBox = (r) => ({ background: 'white', padding: '7px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: r || '10px' });
+
+                                                        const GoogleBtn = () => (
+                                                            <button onClick={() => window.location.href = `/api/auth/google/login?type=${activeTab}`} style={btnStyle('#4285f4', '0 8px 16px rgba(66,133,244,0.25)')}>
+                                                                <div style={iconBox()}><img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" style={{ width: '18px', height: '18px' }} alt="" /></div>
+                                                                Continuar amb Google
+                                                            </button>
+                                                        );
+                                                        const MicrosoftBtn = () => (
+                                                            <button onClick={() => window.location.href = '/api/auth/microsoft/login'} style={btnStyle('#0078d4', '0 8px 16px rgba(0,120,212,0.25)')}>
+                                                                <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg></div>
+                                                                Continuar amb Microsoft
+                                                            </button>
+                                                        );
+                                                        const ICloudBtn = () => (
+                                                            <button onClick={() => fillImap({ host: 'imap.mail.me.com', port: '993', enc: 'ssl' }, { host: 'smtp.mail.me.com', port: '587', enc: 'starttls' })} style={btnStyle('#555', '0 8px 16px rgba(0,0,0,0.15)')}>
+                                                                <div style={iconBox('8px')}><svg width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg></div>
+                                                                Continuar amb iCloud
+                                                            </button>
+                                                        );
+                                                        const YahooBtn = () => (
+                                                            <button onClick={() => fillImap({ host: 'imap.mail.yahoo.com', port: '993', enc: 'ssl' }, { host: 'smtp.mail.yahoo.com', port: '465', enc: 'ssl' })} style={btnStyle('#6001d2', '0 8px 16px rgba(96,1,210,0.2)')}>
+                                                                <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 24 24" fill="#6001d2"><path d="M14.2 2.9L12 9.3 9.8 2.9H6L10.6 14v7.1h2.8V14L18 2.9zM19.6 9.5l-2 5.7-2.1-5.7h-2.8l3.5 9-.1.2c-.4.9-.8 1.2-1.6 1.2-.3 0-.7-.1-1-.2l-.3 2.2c.5.2 1.1.3 1.7.3 2 0 3-.9 3.9-3.4l3.3-9.3h-2.5z"/></svg></div>
+                                                                Continuar amb Yahoo
+                                                            </button>
+                                                        );
+                                                        const AolBtn = () => (
+                                                            <button onClick={() => fillImap({ host: 'imap.aol.com', port: '993', enc: 'ssl' }, { host: 'smtp.aol.com', port: '465', enc: 'ssl' })} style={btnStyle('#ff0b00', '0 8px 16px rgba(255,11,0,0.2)')}>
+                                                                <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 24 24" fill="#ff0b00"><text x="0" y="16" fontSize="14" fontWeight="bold">AOL</text></svg></div>
+                                                                Continuar amb AOL
+                                                            </button>
+                                                        );
+
+                                                        // Domain clearly identified → single button
+                                                        if (isGoogle)    return <div className="animate-in" style={{ marginTop: '8px' }}><GoogleBtn /></div>;
+                                                        if (isMicrosoft) return <div className="animate-in" style={{ marginTop: '8px' }}><MicrosoftBtn /></div>;
+                                                        if (isICloud)    return <div className="animate-in" style={{ marginTop: '8px' }}><ICloudBtn /></div>;
+                                                        if (isYahoo)     return <div className="animate-in" style={{ marginTop: '8px' }}><YahooBtn /></div>;
+                                                        if (isAol)       return <div className="animate-in" style={{ marginTop: '8px' }}><AolBtn /></div>;
+
+                                                        // Unknown domain → show all options
+                                                        return (
+                                                            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                                                                <p style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', margin: '0 0 4px', textAlign: 'center' }}>Selecciona el proveïdor</p>
+                                                                <GoogleBtn />
+                                                                <MicrosoftBtn />
+                                                                <ICloudBtn />
+                                                                <YahooBtn />
+                                                                <AolBtn />
+                                                                <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textAlign: 'center', margin: '4px 0 0' }}>
+                                                                    O configura manualment amb el formulari de sota
+                                                                </p>
                                                             </div>
-                                                            <span style={{ color: 'white' }}>Continuar amb Google</span>
-                                                        </button>
-                                                    ) : activeTab === 'mail' ? (
+                                                        );
+                                                    })()}
+                                                    {activeTab === 'mail' ? (
                                                         <form onSubmit={async (e) => {
                                                             e.preventDefault();
                                                             if (!addAccountEmail) return;
@@ -1231,6 +1451,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     id: editingAccountId || `mail_${Date.now()}`,
                                                                     email: addAccountEmail,
                                                                     provider: 'manual',
+                                                                    display_name: mailDisplayName,
                                                                     imap_host: mailImapHost,
                                                                     imap_port: mailImapPort,
                                                                     imap_user: mailImapUser,
@@ -1243,6 +1464,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     smtp_encryption: mailSmtpEnc,
                                                                     signature: mailSignature,
                                                                     certificate: mailCertificate,
+                                                                    aliases: mailAliases,
                                                                     type: 'mail'
                                                                 };
                                                                 
@@ -1260,6 +1482,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 setSavingStatus('saved');
                                                                 setAddAccountType(null);
                                                                 setAddAccountEmail('');
+                                                                setMailDisplayName(''); setMailAliases([]);
                                                                 setMailImapHost(''); setMailImapPort('993'); setMailImapUser(''); setMailImapPass(''); setMailImapEnc('ssl');
                                                                 setMailSmtpHost(''); setMailSmtpPort('465'); setMailSmtpUser(''); setMailSmtpPass(''); setMailSmtpEnc('ssl');
                                                                 setMailSignature(''); setMailCertificate('');
@@ -1272,6 +1495,26 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 setSavingStatus('error');
                                                             }
                                                         }} className="animate-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                            {/* NOM REMITENT + ÀLIES */}
+                                                            <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 20px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                                <div>
+                                                                    <FormGroup label="Nom del remitent" description="Com apareixerà al camp 'De' dels correus enviats.">
+                                                                        <input
+                                                                            type="text"
+                                                                            className="gnosi-input"
+                                                                            value={mailDisplayName}
+                                                                            onChange={e => setMailDisplayName(e.target.value)}
+                                                                            placeholder="Ismael García"
+                                                                        />
+                                                                    </FormGroup>
+                                                                </div>
+                                                                <div>
+                                                                    <FormGroup label="Àlies (adreces addicionals)" description="Cada àlies envia via el mateix SMTP i pot tenir la seva pròpia signatura.">
+                                                                        <AliasEditor aliases={mailAliases} onChange={setMailAliases} />
+                                                                    </FormGroup>
+                                                                </div>
+                                                            </div>
+
                                                             {/* SECCIÓ IMAP */}
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                                 <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>Servidor IMAP (Recepció)</h4>
@@ -1440,18 +1683,34 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                         {/* Comptes Externs / Integracions */}
                                                         {uniqueAccounts.map((acc, idx) => (
-                                                            <AccountRow 
-                                                                key={`acc-${idx}`} 
-                                                                name={acc.name || acc.email} 
-                                                                description={acc.username || acc.email} 
-                                                                status="connected" 
-                                                                type={activeTab} 
+                                                            <AccountRow
+                                                                key={`acc-${idx}`}
+                                                                name={acc.name || acc.email}
+                                                                description={acc.username || acc.email}
+                                                                status={syncErrorAccounts.has(acc.email || acc.username) ? 'error' : 'connected'}
+                                                                type={activeTab}
                                                                 provider={acc.provider}
+                                                                enabled={acc.enabled !== false}
+                                                                onToggleEnabled={activeTab === 'mail' ? async (val) => {
+                                                                    const emailAddr = acc.email || acc.username;
+                                                                    await axios.patch(`/api/mail/accounts/${encodeURIComponent(emailAddr)}/enabled`, { enabled: val });
+                                                                    setIntegrations(prev => {
+                                                                        const updated = { ...prev };
+                                                                        for (const section of ['mail_accounts', 'emails']) {
+                                                                            if (updated[section]) {
+                                                                                updated[section] = updated[section].map(a =>
+                                                                                    (a.email || a.username) === emailAddr ? { ...a, enabled: val } : a
+                                                                                );
+                                                                            }
+                                                                        }
+                                                                        return updated;
+                                                                    });
+                                                                } : undefined}
                                                                 onSync={() => handleSyncAccount(activeTab, acc)}
                                                                 isSyncing={syncingAccounts[acc.id]}
                                                                 onEdit={() => handleEditAccount(activeTab, acc)}
                                                                 onDelete={() => handleDeleteAccount(activeTab, acc.id)}
-                                                                color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')} 
+                                                                color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
                                                             />
                                                         ))}
                                                         
@@ -1785,7 +2044,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <span style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{db.name}</span>
                                                                     </div>
 
-                                                                    {isDbVisible && dbTables.length > 0 && (
+                                                                    {dbTables.length > 0 && (
                                                                         <div style={{ marginLeft: '40px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                             {dbTables.map(table => {
                                                                                 const isTableVisible = draft.graph.visible_tables?.includes(table.id);

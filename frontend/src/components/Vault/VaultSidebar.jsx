@@ -113,6 +113,7 @@ const PageTreeItem = ({
     return (
         <div className="select-none relative">
             <div
+                title={page.title}
                 className={`group flex items-center gap-1 py-1 text-sm rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'}`}
                 style={{ paddingLeft: `${depth * 12 + 8}px`, paddingRight: '8px' }}
                 onClick={() => {

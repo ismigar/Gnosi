@@ -78,8 +78,8 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
             <div className="settings-modal" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
                 <div className="settings-modal__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
                     <h2 className="settings-modal__title" style={{ margin: 0, fontSize: '1.1em' }}>📁 Seleccionar Carpeta</h2>
-                    <button className="settings-modal__close" onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
-                        <X size={20} />
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
+                        <X />
                     </button>
                 </div>
 

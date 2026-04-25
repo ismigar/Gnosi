@@ -260,11 +260,15 @@
     "frequency_minutes_other": "Cada {{count}} min",
     "frequency_seconds": "Cada {{count}}s",
     "frequency_none": "No definida",
+    "time_15_min": "15 min",
+    "time_30_min": "30 min",
+    "time_45_min": "45 min",
     "time_1_hour": "1 hora",
-    "time_2_hours": "2 hores",
-    "time_3_hours": "3 hores",
-    "time_6_hours": "6 hores",
-    "time_12_hours": "12 hores",
+    "time_1_5_hours": "1,5 horas",
+    "time_2_hours": "2 horas",
+    "time_3_hours": "3 horas",
+    "time_6_hours": "6 horas",
+    "time_12_hours": "12 horas",
     "time_1_day": "1 día",
     "time_1_week": "1 semana",
     "activity_summary": "Resumen de Actividad",
@@ -531,7 +535,8 @@
       "mail_accounts": "Cuentas de Correo",
       "contacts": "Contactos",
       "ai": "Inteligencia Artificial",
-      "zotero": "Zotero"
+      "zotero": "Zotero",
+      "profile": "Perfil"
     },
     "general": {
       "title": "Configuración General",
@@ -547,6 +552,10 @@
       "vault_path": "Ruta del Vault",
       "select_folder": "Seleccionar carpeta",
       "vault_path_desc": "Donde se guardan tus datos locales de Gnosi."
+    },
+    "profile": {
+      "title": "Perfil de Usuario",
+      "desc": "Tu identidad digital y datos de contacto."
     },
     "language": {
       "title": "Idioma y Región",
@@ -887,7 +896,7 @@
     "forward_to_label": "Para:",
     "forward_to_placeholder": "correo@ejemplo.com",
     "forward_missing_to": "Indica un destinatario para el reenvío",
-    "reply_title": "Respuesta rápida",
+    "reply_title": "Respuesta",
     "reply_all_title": "Responder a todos",
     "forward_title": "Reenviar",
     "send_btn": "Enviar correo",

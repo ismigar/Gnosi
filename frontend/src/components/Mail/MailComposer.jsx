@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Send, X, Paperclip, Sparkles, RefreshCw, ChevronDown, File as FileIcon,
-    Calendar, ChevronLeft, ChevronRight, Trash2, Type
+    Calendar, ChevronLeft, ChevronRight, Trash2, Type, Reply, ReplyAll, Forward
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -27,15 +27,58 @@ function AttachmentBadge({ file, onRemove }) {
     );
 }
 
+// ─── QuotedMessage ───────────────────────────────────────────────────────────
+function QuotedMessage({ html }) {
+    const [expanded, setExpanded] = React.useState(false);
+    return (
+        <div className="mt-4">
+            <button
+                type="button"
+                onClick={() => setExpanded(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-colors mb-2"
+            >
+                <span className="flex gap-0.5">
+                    <span className="w-1 h-1 rounded-full bg-current" />
+                    <span className="w-1 h-1 rounded-full bg-current" />
+                    <span className="w-1 h-1 rounded-full bg-current" />
+                </span>
+                {expanded ? 'Amagar citat' : 'Mostrar missatge citat'}
+            </button>
+            {expanded && (
+                <div
+                    className="border-l-2 border-[#6366f1] pl-3 text-[var(--text-secondary)] text-[13px] leading-relaxed opacity-75 animate-in slide-in-from-top-1 duration-150"
+                    dangerouslySetInnerHTML={{ __html: html }}
+                />
+            )}
+        </div>
+    );
+}
+
 // ─── MailComposer ─────────────────────────────────────────────────────────────
-export default function MailComposer({ account, onClose, onSent }) {
+export default function MailComposer({
+    account, accounts = [], onClose, onSent,
+    mode = null, replyToMessageId = null,
+    initialTo = '', initialCc = '', initialSubject = '', quotedHtml = '',
+}) {
     const { t } = useTranslation();
-    const [to, setTo] = useState('');
-    const [cc, setCc] = useState('');
+    const [fromAccount, setFromAccount] = useState(account);
+    const [to, setTo] = useState(initialTo);
+    const [cc, setCc] = useState(initialCc);
     const [bcc, setBcc] = useState('');
-    const [showCcBcc, setShowCcBcc] = useState(false);
-    const [subject, setSubject] = useState('');
+    const [showCcBcc, setShowCcBcc] = useState(!!initialCc);
+    const [subject, setSubject] = useState(initialSubject);
     const [body, setBody] = useState('');
+    // Signatura reactiva: s'actualitza quan canvia la identitat "De"
+    const signatureHtml = useMemo(
+        () => fromAccount?.signature || '',
+        [fromAccount]
+    );
+    // El citat queda fora de l'editor per no contaminar el cos escrit
+    const quotedBlockHtml = useMemo(() => quotedHtml
+        ? `<blockquote style="border-left:3px solid #6366f1;padding-left:0.75rem;color:#888;margin-top:1rem">${quotedHtml}</blockquote>`
+        : '', []);
+    // L'editor arrenca buit (o només amb línies de cortesia per posicionar el cursor en replies)
+    const editorInitialHtml = '';
     const [attachments, setAttachments] = useState([]);
     const [sending, setSending] = useState(false);
     const [aiGenerating, setAiGenerating] = useState(false);
@@ -59,34 +102,44 @@ export default function MailComposer({ account, onClose, onSent }) {
     useEffect(() => { ccRef.current = cc; }, [cc]);
     useEffect(() => { bccRef.current = bcc; }, [bcc]);
 
-    // Auto-save draft every 30s
+    const saveDraft = useCallback(async () => {
+        if (!fromAccount?.email) return;
+        const currentBody = bodyRef.current;
+        const currentSubject = subjectRef.current;
+        if (!currentBody && !currentSubject) return;
+        try {
+            const res = await fetch('/api/mail/drafts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    draft_id: draftIdRef.current || undefined,
+                    to: toRef.current,
+                    cc: ccRef.current,
+                    bcc: bccRef.current,
+                    subject: currentSubject,
+                    body: currentBody,
+                    account: fromAccount.email,
+                }),
+            });
+            const data = await res.json();
+            if (data.draft_id && !draftIdRef.current) draftIdRef.current = data.draft_id;
+            toast(t('mail.draft_saved'), { icon: '💾', duration: 1500 });
+        } catch { /* silent */ }
+    }, [fromAccount, t]);
+
+    // Debounced auto-save mentre s'escriu (2s després de l'últim canvi)
     useEffect(() => {
-        if (!account?.email) return;
-        const timer = setInterval(async () => {
-            const currentBody = bodyRef.current;
-            const currentSubject = subjectRef.current;
-            if (!currentBody && !currentSubject) return;
-            try {
-                const res = await fetch('/api/mail/drafts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        draft_id: draftIdRef.current || undefined,
-                        to: toRef.current,
-                        cc: ccRef.current,
-                        bcc: bccRef.current,
-                        subject: currentSubject,
-                        body: currentBody,
-                        account: account.email,
-                    }),
-                });
-                const data = await res.json();
-                if (data.draft_id && !draftIdRef.current) draftIdRef.current = data.draft_id;
-                toast(t('mail.draft_saved'), { icon: '💾', duration: 1500 });
-            } catch { /* silent */ }
-        }, 30000);
+        if (!body && !subject) return;
+        const timer = setTimeout(saveDraft, 2000);
+        return () => clearTimeout(timer);
+    }, [body, subject]);
+
+    // Fallback: auto-save cada 30s
+    useEffect(() => {
+        if (!fromAccount?.email) return;
+        const timer = setInterval(saveDraft, 30000);
         return () => clearInterval(timer);
-    }, [account]);
+    }, [fromAccount, saveDraft]);
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files || []);
@@ -103,40 +156,42 @@ export default function MailComposer({ account, onClose, onSent }) {
     };
 
     const handleSend = async () => {
-        if (!to.trim() || !body.trim() || !account?.email) {
+        if (!to.trim() || !body.trim() || !fromAccount?.email) {
             toast.error(t('mail.compose_missing_fields'));
             return;
         }
         setSending(true);
         try {
+            const sigPart = signatureHtml ? `<div style="margin-top:1rem">${signatureHtml}</div>` : '';
+            const fullBody = body + sigPart + (quotedBlockHtml ? `<div style="margin-top:1rem">${quotedBlockHtml}</div>` : '');
+            const smtpEmail = fromAccount.smtp_email || fromAccount.email;
+            const fromAddr = fromAccount.smtp_email ? fromAccount.email : null;
+            const fromDisplayName = fromAccount.display_name || fromAccount.name || null;
+
+            const formData = new FormData();
+            formData.append('to', to);
+            formData.append('subject', subject);
+            formData.append('body', fullBody);
+            if (cc) formData.append('cc', cc);
+            if (bcc) formData.append('bcc', bcc);
+            if (fromAddr) formData.append('from_email', fromAddr);
+            if (fromDisplayName) formData.append('from_name', fromDisplayName);
+            attachments.forEach(f => formData.append('attachments', f));
+
             let res;
-            if (attachments.length > 0) {
-                const formData = new FormData();
-                formData.append('to', to);
-                formData.append('subject', subject);
-                formData.append('body', body);
-                if (cc) formData.append('cc', cc);
-                if (bcc) formData.append('bcc', bcc);
-                attachments.forEach(f => formData.append('attachments', f));
-                res = await fetch(`/api/mail/send?email=${encodeURIComponent(account.email)}`, {
-                    method: 'POST',
-                    body: formData,
-                });
+            if (mode && replyToMessageId) {
+                res = await fetch(
+                    `/api/mail/messages/${replyToMessageId}/reply?email=${encodeURIComponent(smtpEmail)}`,
+                    { method: 'POST', body: formData }
+                );
             } else {
-                // FormData without files also works
-                const formData = new FormData();
-                formData.append('to', to);
-                formData.append('subject', subject);
-                formData.append('body', body);
-                if (cc) formData.append('cc', cc);
-                if (bcc) formData.append('bcc', bcc);
-                res = await fetch(`/api/mail/send?email=${encodeURIComponent(account.email)}`, {
+                res = await fetch(`/api/mail/send?email=${encodeURIComponent(smtpEmail)}`, {
                     method: 'POST',
                     body: formData,
                 });
             }
             const data = await res.json();
-            if (data.status === 'success') {
+            if (data.status === 'success' || data.message_id) {
                 toast.success(t('mail.sent_ok'));
                 try { editorRef.current?.replaceBlocks([{ type: 'paragraph', content: '' }]); } catch { /* ok */ }
                 if (onSent) onSent();
@@ -236,15 +291,18 @@ export default function MailComposer({ account, onClose, onSent }) {
         }
     };
 
+    const modeIcon = mode === 'reply' ? <Reply size={16} /> : mode === 'reply_all' ? <ReplyAll size={16} /> : mode === 'forward' ? <Forward size={16} /> : <Send size={16} />;
+    const modeLabel = mode === 'reply' ? t('mail.reply_title') : mode === 'reply_all' ? t('mail.reply_all_title') : mode === 'forward' ? t('mail.forward_title') : t('mail.new_message');
+
     return (
         <div className="flex flex-col h-full bg-[var(--bg-primary)] relative animate-in slide-in-from-right-4 duration-300">
             {/* Header */}
             <div className="h-16 border-b border-[var(--border-primary)] px-6 flex items-center justify-between sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-md">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-[var(--gnosi-blue)] text-white flex items-center justify-center">
-                        <Send size={16} />
+                        {modeIcon}
                     </div>
-                    <h2 className="font-bold text-[var(--text-primary)]">{t('mail.new_message')}</h2>
+                    <h2 className="font-bold text-[var(--text-primary)]">{modeLabel}</h2>
                 </div>
                 <button onClick={onClose} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all">
                     <X size={20} />
@@ -254,6 +312,33 @@ export default function MailComposer({ account, onClose, onSent }) {
             {/* Address fields */}
             <div className="flex-1 overflow-y-auto p-8 space-y-0">
                 <div className="max-w-[800px] mx-auto">
+                    {/* From */}
+                    <div className="flex items-center border-b border-[var(--border-primary)] py-2">
+                        <span className="text-[13px] font-bold text-[var(--text-secondary)] uppercase w-20 shrink-0">
+                            {t('mail.from_label')}:
+                        </span>
+                        <select
+                            value={fromAccount?.email || fromAccount?.username || ''}
+                            onChange={e => {
+                                const acc = accounts.find(a => (a.email || a.username) === e.target.value);
+                                if (acc) setFromAccount(acc);
+                            }}
+                            className="flex-1 bg-transparent border-none text-[15px] focus:ring-0 font-medium text-[var(--text-primary)] outline-none cursor-pointer appearance-none"
+                        >
+                            {accounts.map(acc => {
+                                const email = acc.email || acc.username;
+                                const label = acc.name ? `${acc.name} <${email}>` : email;
+                                return <option key={email} value={email}>{label}</option>;
+                            })}
+                            {accounts.length === 0 && fromAccount && (
+                                <option value={fromAccount.email || fromAccount.username}>
+                                    {fromAccount.email || fromAccount.username}
+                                </option>
+                            )}
+                        </select>
+                        <ChevronDown size={14} className="text-[var(--text-secondary)] shrink-0 pointer-events-none" />
+                    </div>
+
                     <AddressInput
                         label={t('mail.to_label')}
                         placeholder="exemple@correu.com"
@@ -303,17 +388,32 @@ export default function MailComposer({ account, onClose, onSent }) {
                     )}
 
                     {/* Editor */}
-                    <div className="pt-6 min-h-[400px]">
+                    <div className="pt-6 min-h-[200px]">
                         <MailBlockEditor
-                            initialContent={body}
+                            initialContent={editorInitialHtml}
+                            prependEmptyLines={0}
                             onChange={setBody}
                             editorRef={editorRef}
+                            autoFocus
                             onAttachFile={file => setAttachments(prev => {
                                 if (prev.some(f => f.name === file.name && f.size === file.size)) return prev;
                                 return [...prev, file];
                             })}
                         />
                     </div>
+
+                    {/* Signatura (reactiva, fora de l'editor) */}
+                    {signatureHtml && (
+                        <div className="mt-3 pt-3 border-t border-[var(--border-primary)]">
+                            <div
+                                className="text-[var(--text-secondary)] text-[13px] leading-relaxed [&_a]:text-[var(--gnosi-blue)]"
+                                dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                            />
+                        </div>
+                    )}
+
+                    {/* Missatge citat (fora de l'editor, col·lapsable) */}
+                    {quotedHtml && <QuotedMessage html={quotedHtml} />}
 
                     {/* Attachment list */}
                     {attachments.length > 0 && (
@@ -323,6 +423,7 @@ export default function MailComposer({ account, onClose, onSent }) {
                             ))}
                         </div>
                     )}
+
                 </div>
             </div>
 

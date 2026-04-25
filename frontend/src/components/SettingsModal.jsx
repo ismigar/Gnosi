@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../hooks/use-api';
+import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './SettingsModal.css';
 
@@ -150,7 +151,9 @@ export function SettingsModal({ isOpen, onClose }) {
             <div className="settings-modal">
                 <div className="settings-header">
                     <h2>{t('settings') || 'Settings'}</h2>
-                    <button className="close-btn" onClick={onClose}>&times;</button>
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
+                        <X />
+                    </button>
                 </div>
 
                 <div className="settings-tabs">

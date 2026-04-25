@@ -30,7 +30,6 @@ const navItems = [
     { to: '/reader', icon: BookOpen, label: 'Lector' },
     { to: '/social-dashboard', icon: Share2, label: 'Social' },
     { to: '/media', icon: ImageIcon, label: 'Fotos' },
-    { to: '/identity', icon: User, label: 'Identitat' },
 ];
 
 export function AppSidebar() {
@@ -92,13 +91,15 @@ export function AppSidebar() {
 
             {/* Sidebar */}
             <nav className={`app-sidebar ${mobileOpen ? 'app-sidebar--open' : ''}`}>
-                {gnosiMode !== 'personal' && <WorkspaceSwitcher />}
+                <div className="app-sidebar__header">
+                    {/* Logo */}
+                    <div className="app-sidebar__logo-wrapper">
+                        <Link to="/" className="app-sidebar__logo" title="Gnosi">
+                            G
+                        </Link>
+                    </div>
 
-                {/* Logo */}
-                <div className="app-sidebar__logo-wrapper">
-                    <Link to="/" className="app-sidebar__logo" title="Gnosi">
-                        G
-                    </Link>
+                    {gnosiMode !== 'personal' && <WorkspaceSwitcher />}
                 </div>
 
                 {/* Nav Items */}
@@ -148,7 +149,7 @@ export function AppSidebar() {
             {settingsOpen && (
                 <GlobalSettingsModal
                     isOpen={settingsOpen}
-                    onClose={() => setSettingsOpen(false)}
+                    onClose={() => { setSettingsOpen(false); window.location.reload(); }}
                     initialTab={settingsTab}
                 />
             )}

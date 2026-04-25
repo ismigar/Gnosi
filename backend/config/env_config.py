@@ -23,10 +23,17 @@ _loaded = False
 _keychain_loaded = False
 
 
+def _is_docker() -> bool:
+    return Path("/.dockerenv").exists() or bool(os.environ.get("DOCKER_CONTAINER"))
+
+
 def _load_keychain():
-    """Load credentials from Keychain if available."""
+    """Load credentials from Keychain if available. Skipped in Docker (env vars come from env_file)."""
     global _keychain_loaded
     if _keychain_loaded:
+        return
+    if _is_docker():
+        _keychain_loaded = True
         return
 
     try:
@@ -44,6 +51,8 @@ def _load_keychain():
             "N8N_PASSWORD": "n8n_password",
             "GOOGLE_OAUTH_CLIENT_ID": "google_oauth_client_id",
             "GOOGLE_OAUTH_CLIENT_SECRET": "google_oauth_client_secret",
+            "MICROSOFT_OAUTH_CLIENT_ID": "microsoft_oauth_client_id",
+            "MICROSOFT_OAUTH_CLIENT_SECRET": "microsoft_oauth_client_secret",
             "SSH_PASSWORD": "ssh_password",
             "SSH_SUWEB_PASSWORD": "ssh_suweb_password",
             "DRUPAL_ROOT_PASSWORD": "drupal_root_password",

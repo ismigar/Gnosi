@@ -6,7 +6,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(12px);
     z-index: var(--z-modal);
     display: none;
@@ -24,21 +24,21 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0.95);
-    width: 94vw;
-    max-width: 1200px;
-    height: 85vh;
+    width: 95vw;
+    max-width: 1240px;
+    height: 88vh;
     background: var(--settings-bg);
-    border-radius: 32px;
+    border-radius: 40px;
     z-index: var(--z-modal);
     display: none;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15);
     border: 1px solid var(--settings-border);
     backdrop-filter: blur(40px);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .settings-modal.active {
@@ -55,146 +55,125 @@
 
 /* Sidebar */
 .settings-sidebar {
-    width: 300px;
+    width: 280px;
     background: var(--settings-sidebar-bg);
     border-right: 1px solid var(--settings-border);
-    padding: 44px 24px;
+    padding: 40px 20px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     overflow-y: auto;
+    outline: none;
 }
 
 .settings-sidebar-header {
-    padding: 0 14px 40px 14px;
+    padding: 0 10px 32px 10px;
 }
 
 .settings-sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 14px;
-    margin-bottom: 10px;
+    gap: 12px;
 }
 
 .settings-brand-icon-wrap {
-    width: 32px;
-    height: 32px;
-    background: rgba(59, 130, 246, 0.12);
-    color: var(--gnosi-blue);
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    background: var(--gnosi-blue);
+    color: white;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
 .settings-sidebar-title {
-    font-size: 1.4rem;
-    font-weight: 900;
+    font-size: 1.5rem;
+    font-weight: 800;
     margin: 0;
     color: var(--text-primary);
-    letter-spacing: -0.04em;
+    letter-spacing: -0.03em;
 }
 
 .settings-sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .settings-sidebar-hr {
     height: 1px;
     background: var(--settings-border);
-    margin: 18px 14px;
-    opacity: 0.6;
+    margin: 16px 10px;
+    opacity: 0.5;
 }
 
 /* Main Content */
 .settings-main {
     flex: 1;
-    padding: 70px 80px;
+    padding: 0;
     overflow-y: auto;
     background: var(--settings-bg);
     position: relative;
     scroll-behavior: smooth;
+    outline: none;
 }
 
 .settings-content-wrap {
-    max-width: 800px;
+    max-width: 860px;
     margin: 0 auto;
+    padding: 80px 40px;
 }
 
-/* Close Button - Unified */
+/* Close Button Positioning */
 .settings-close-btn {
     position: absolute;
     top: 32px;
     right: 32px;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%; /* Unificat */
-    background: var(--settings-sidebar-bg);
-    border: 1px solid var(--settings-border);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 10;
-}
-
-.settings-close-btn:hover {
-    background: var(--border-primary);
-    color: var(--text-primary);
-    transform: rotate(90deg) scale(1.05);
-}
-
-.settings-close-btn:active {
-    transform: scale(0.95);
+    z-index: 100;
 }
 
 /* Section Styling */
+.settings-section {
+    margin-bottom: 64px;
+}
+
 .settings-section-title-wrap {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 28px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--settings-border);
+    margin-bottom: 32px;
 }
 
 .settings-section-icon-wrap {
     color: var(--gnosi-blue);
     display: flex;
-    padding: 8px;
-    background: var(--settings-sidebar-bg);
-    border-radius: 10px;
+    padding: 10px;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 14px;
 }
 
 .settings-section-title {
     margin: 0;
-    font-size: 1.3rem;
-    font-weight: 850;
+    font-size: 1.4rem;
+    font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--text-primary);
 }
 
 /* Form Controls */
 .settings-form-group {
-    margin-bottom: 32px;
-}
-
-.settings-label-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 10px;
+    margin-bottom: 28px;
 }
 
 .settings-label {
     display: block;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--text-primary);
+    margin-bottom: 6px;
+    margin-left: 2px;
 }
 
 .settings-desc {
@@ -202,43 +181,44 @@
     font-size: 0.85rem;
     color: var(--text-secondary);
     opacity: 0.7;
-    margin-top: 2px;
-    line-height: 1.4;
+    margin-top: -2px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    margin-left: 2px;
 }
 
-/* Status Indicator */
-.settings-status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    background: var(--settings-sidebar-bg);
-    border: 1px solid var(--settings-border);
-    font-size: 0.75rem;
-    font-weight: 800;
+/* Account Cards */
+.account-row {
+    background: var(--bg-primary) !important;
+    border: 1px solid var(--settings-border) !important;
+    padding: 20px 24px !important;
+    border-radius: 24px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.settings-status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+.account-row:hover {
+    border-color: var(--gnosi-blue) !important;
+    box-shadow: 0 12px 30px -10px rgba(59, 130, 246, 0.15) !important;
+    transform: translateY(-2px) !important;
 }
 
-.settings-status-dot.saving { background: var(--gnosi-blue); animation: pulse 1s infinite; }
-.settings-status-dot.saved { background: #10b981; }
-.settings-status-dot.error { background: #ef4444; }
+/* Segmented Control */
+.segmented-control {
+    background: var(--bg-secondary) !important;
+    padding: 4px !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--settings-border) !important;
+}
 
-@keyframes pulse {
-    0% { opacity: 0.4; }
-    50% { opacity: 1; }
-    100% { opacity: 0.4; }
+.segmented-control button {
+    border-radius: 12px !important;
+    font-weight: 700 !important;
 }
 
 /* Scrollbar tuning */
 .settings-sidebar::-webkit-scrollbar,
 .settings-main::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
 }
 
 .settings-sidebar::-webkit-scrollbar-thumb,
@@ -247,7 +227,21 @@
     border-radius: 10px;
 }
 
-.settings-sidebar::-webkit-scrollbar-track,
-.settings-main::-webkit-scrollbar-track {
-    background: transparent;
+/* Sidebar Item Improvements */
+.settings-sidebar__item {
+    padding: 12px 16px !important;
+    border-radius: 14px !important;
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    gap: 12px !important;
+}
+
+.settings-sidebar__item.active {
+    background: var(--gnosi-blue) !important;
+    color: white !important;
+    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.3) !important;
+}
+
+.settings-sidebar__item.active svg {
+    opacity: 1 !important;
 }

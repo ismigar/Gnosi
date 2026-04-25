@@ -47,6 +47,7 @@ router = APIRouter(dependencies=[Depends(get_workspace_context)])
 
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
+from backend.services.media_service import media_service
 
 # Helper function to get active paths
 def get_p(key: str) -> Path:
@@ -1600,7 +1601,14 @@ def _get_cached_page_entries(
 
     # 1. Initialize from disk if needed
     if not _page_index_initialized.get(v_str):
-        _load_page_index_from_disk(v_str)
+        loaded = _load_page_index_from_disk(v_str)
+        if not loaded:
+            # Disk cache missing: mark as initialized to prevent repeated reads
+            # and force a synchronous scan so the first response is never empty.
+            with _page_index_lock:
+                _page_index_entries.setdefault(v_str, {})
+            _page_index_initialized[v_str] = True
+            force_refresh = True
 
     # 2. If it's a read-only request (Fast Path), return immediately
     if not force_refresh:
@@ -1761,9 +1769,10 @@ def _get_cached_page_entries(
 
 
 def _get_pages_snapshot(
-    only_calendar: bool = False, 
+    only_calendar: bool = False,
     background_tasks: Optional[BackgroundTasks] = None
 ) -> List[PageInfo]:
+    global _last_vault_sync_time, _last_google_calendar_sync_time
     search_paths = None
     enabled_calendar_tables = []
     registry = load_registry()
@@ -1786,7 +1795,6 @@ def _get_pages_snapshot(
 
     # Trigger background sync if background_tasks provided AND cooldown passed
     if background_tasks:
-        global _last_vault_sync_time, _last_google_calendar_sync_time
         now = time.monotonic()
         
         # 1. Disk Index Sync (Vault)
@@ -1806,9 +1814,32 @@ def _get_pages_snapshot(
             except Exception as e:
                 log.error(f"Could not trigger background Google Calendar sync: {e}")
 
-    entries = _get_cached_page_entries(search_paths=search_paths, force_refresh=False)
-    if not entries:
+    raw_entries = _get_cached_page_entries(search_paths=search_paths, force_refresh=False)
+    if not raw_entries:
         return []
+
+    # Filter out entries whose files no longer exist (deleted externally)
+    entries = []
+    stale_paths = []
+    for e in raw_entries:
+        p_str = e.get("path")
+        if p_str and not Path(p_str).exists():
+            stale_paths.append(p_str)
+        else:
+            entries.append(e)
+
+    if stale_paths:
+        from backend.services.context_vars import get_active_vault_path
+        v_str = str(get_active_vault_path())
+        with _page_index_lock:
+            idx = _page_index_entries.get(v_str, {})
+            id_map = _page_id_to_path.get(v_str, {})
+            for p_str in stale_paths:
+                entry = idx.pop(p_str, None)
+                if entry:
+                    id_map.pop(entry.get("id", ""), None)
+        _last_vault_sync_time = 0.0
+        log.info(f"🗑️ Pruned {len(stale_paths)} stale page entries from cache.")
 
     folder_to_table = _build_table_folder_index(registry)
     sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
@@ -2086,7 +2117,9 @@ def find_page_path(page_id: str) -> Optional[Path]:
     v_path = get_active_vault_path()
     if not v_path: return None
     v_str = str(v_path)
-    
+
+    stale_detected = False
+
     # 1. High Performance Cache Lookup (O(1))
     # This is populated during list_pages (vault sync)
     with _page_index_lock:
@@ -2096,15 +2129,31 @@ def find_page_path(page_id: str) -> Optional[Path]:
             p = Path(path_str)
             if p.exists():
                 return p
+            # File deleted externally: prune stale entries
+            id_map.pop(page_id, None)
+            _page_index_entries.get(v_str, {}).pop(path_str, None)
+            stale_detected = True
 
     # 2. Fallback: Search using the full entries cache
     with _page_index_lock:
         entries = _page_index_entries.get(v_str, {})
-        for p_str, entry in entries.items():
+        for p_str, entry in list(entries.items()):
             if entry.get("id") == page_id:
-                # Update map for next time
-                _page_id_to_path.setdefault(v_str, {})[page_id] = p_str
-                return Path(p_str)
+                p = Path(p_str)
+                if p.exists():
+                    _page_id_to_path.setdefault(v_str, {})[page_id] = p_str
+                    return p
+                # File deleted externally: prune stale entry
+                entries.pop(p_str, None)
+                _page_id_to_path.get(v_str, {}).pop(page_id, None)
+                stale_detected = True
+                break
+
+    if stale_detected:
+        # Force immediate rescan on next list_pages call
+        global _last_vault_sync_time
+        _last_vault_sync_time = 0.0
+        log.info(f"🗑️ Stale cache entry detected for page {page_id}. Rescan scheduled.")
 
     # 3. Last Resort Fallback: Direct file lookups (Avoid if possible)
     vault_root = get_p("VAULT")

@@ -374,8 +374,8 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                     <button onClick={() => setIsFullScreen(!isFullScreen)} title={isFullScreen ? "Sortir de pantalla completa" : "Pantalla completa"} className="action-btn">
                         {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                     </button>
-                    <button onClick={onClose} title="Tancar" className="action-btn close-btn">
-                        <X size={18} />
+                    <button onClick={onClose} title="Tancar" className="action-btn close-btn gnosi-close-btn">
+                        <X />
                     </button>
                 </div>
             </div>

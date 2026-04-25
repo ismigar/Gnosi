@@ -44,7 +44,10 @@ _NAME_TYPE_MAP = {
     "deleted messages": "Deleted",
     "deleted items": "Deleted",
     "papelera": "Deleted",
+    "paperera": "Deleted",
+    "correu eliminat": "Deleted",
     "bin": "Deleted",
+    "wastebasket": "Deleted",
     "junk": "Spam",
     "junk e-mail": "Spam",
     "spam": "Spam",
@@ -129,7 +132,13 @@ def _discover_folders(imap) -> list[tuple[str, str]]:
                 break
 
         if folder_type is None:
-            folder_type = _NAME_TYPE_MAP.get(name.lower())
+            name_lower = name.lower()
+            folder_type = _NAME_TYPE_MAP.get(name_lower)
+            if folder_type is None:
+                # Prova el nom base de carpetes jeràrquiques (p.ex. "INBOX.Trash" → "trash")
+                basename = name_lower.rsplit(".", 1)[-1].rsplit("/", 1)[-1]
+                if basename != name_lower:
+                    folder_type = _NAME_TYPE_MAP.get(basename)
 
         if name.upper() == "INBOX":
             folder_type = "Received"
@@ -231,9 +240,11 @@ class ImapMailSyncService:
     # PULL SYNC
     # ------------------------------------------------------------------
 
-    def sync_account(self, email_account: str, limit: int = 50, folder_type: Optional[str] = None) -> int:
+    def sync_account(self, email_account: str, limit: int = 50, folder_type: Optional[str] = None) -> Optional[int]:
         """Pull sync for one IMAP account.
 
+        Returns the number of synced messages, 0 if nothing new, or None if the
+        connection failed (so callers can distinguish auth errors from empty syncs).
         If folder_type is provided, only that folder is synced (fast path).
         A per-(account, folder) cooldown prevents redundant syncs.
         """
@@ -245,7 +256,7 @@ class ImapMailSyncService:
 
         with self._connect(email_account) as imap:
             if imap is None:
-                return 0
+                return None
 
             folders = _discover_folders(imap)
             if folder_type:
@@ -600,6 +611,27 @@ class ImapMailSyncService:
                 return []
             return [{"name": n, "type": t} for n, t in _discover_folders(imap)]
 
+    def list_all_raw_folders(self, email_account: str) -> list[str]:
+        """Return ALL folder names from the IMAP server, without type filtering."""
+        with self._connect(email_account) as imap:
+            if imap is None:
+                return []
+            status, folder_list = imap.list()
+            if status != "OK":
+                return []
+            names = []
+            for raw in folder_list:
+                line = raw.decode() if isinstance(raw, bytes) else raw
+                parts = line.split('"')
+                if len(parts) < 3:
+                    continue
+                name = parts[-2] if parts[-1].strip() == "" else parts[-1]
+                name = name.strip().strip('"')
+                if name:
+                    names.append(name)
+            log.info(f"[IMAP] Totes les carpetes de {email_account}: {names}")
+            return names
+
     def move_message(self, email_account: str, message_id: str, target_folder: str) -> bool:
         """Move a message to any folder on the IMAP server and update vault."""
         vault_file = self._find_vault_file(message_id)
@@ -650,64 +682,85 @@ class ImapMailSyncService:
             log.info(f"[IMAP] Missatge {message_id} mogut de {from_folder} a {target_folder}")
         return True
 
-    def trash_message(self, email_account: str, message_id: str) -> bool:
+    def move_message_by_uid(self, email_account: str, uid: str, from_folder: str, target_folder: str) -> bool:
+        """Move a message directly by UID and folder (no vault lookup required)."""
+        if from_folder.lower() == target_folder.lower():
+            return True
+        with self._connect(email_account) as imap:
+            if imap is None:
+                return False
+            folders = _discover_folders(imap)
+            folder_names = [n for n, _ in folders]
+            if target_folder not in folder_names:
+                log.error(f"[IMAP] Carpeta destí no trobada: {target_folder}")
+                return False
+            ok = self._move_on_server(imap, uid, from_folder, target_folder)
+            if ok:
+                log.info(f"[IMAP] Missatge UID {uid} mogut de {from_folder} a {target_folder}")
+            return ok
+
+    def trash_message(self, email_account: str, message_id: str, imap_folder: Optional[str] = None) -> bool:
         """Move message to Trash on server and update vault."""
         vault_file = self._find_vault_file(message_id)
-        if not vault_file:
-            return False
 
-        meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
-        uid = meta.get("imap_uid")
-        from_folder = meta.get("imap_folder")
-
-        # Always update vault immediately
-        self._update_vault_file(vault_file, {"type": "Deleted", "archived": True})
+        if vault_file:
+            meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+            uid = meta.get("imap_uid")
+            from_folder = meta.get("imap_folder") or imap_folder
+            self._update_vault_file(vault_file, {"type": "Deleted", "archived": True})
+        else:
+            # Missatge híbrid (no al vault): extreu UID del prefix imap_
+            raw = message_id[5:] if message_id.startswith("imap_") else message_id
+            uid = raw
+            from_folder = imap_folder
 
         if not uid or not from_folder:
-            log.warning(f"[IMAP] Missatge {message_id} sense UID/folder al Vault, s'actualitza només localment")
-            return True
+            log.warning(f"[IMAP] Missatge {message_id} sense UID/folder, no es pot moure al servidor")
+            return bool(vault_file)
 
         with self._connect(email_account) as imap:
             if imap is None:
-                return True  # vault already updated
+                return bool(vault_file)
             to_folder = self._find_server_folder(imap, "Deleted")
             if not to_folder:
                 log.warning(f"[IMAP] No s'ha trobat carpeta Trash per a {email_account}")
-                return True
+                return bool(vault_file)
             if from_folder.lower() == to_folder.lower():
                 return True  # already in trash
             ok = self._move_on_server(imap, uid, from_folder, to_folder)
-            if ok:
+            if ok and vault_file:
                 self._update_vault_file(vault_file, {"imap_folder": to_folder})
                 log.info(f"[IMAP] Missatge {message_id} mogut a {to_folder}")
         return True
 
-    def archive_message(self, email_account: str, message_id: str) -> bool:
+    def archive_message(self, email_account: str, message_id: str, imap_folder: Optional[str] = None) -> bool:
         """Move message to Archive on server and update vault."""
         vault_file = self._find_vault_file(message_id)
-        if not vault_file:
-            return False
 
-        meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
-        uid = meta.get("imap_uid")
-        from_folder = meta.get("imap_folder")
-
-        self._update_vault_file(vault_file, {"archived": True})
+        if vault_file:
+            meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+            uid = meta.get("imap_uid")
+            from_folder = meta.get("imap_folder") or imap_folder
+            self._update_vault_file(vault_file, {"archived": True})
+        else:
+            raw = message_id[5:] if message_id.startswith("imap_") else message_id
+            uid = raw
+            from_folder = imap_folder
 
         if not uid or not from_folder:
-            return True
+            return bool(vault_file)
 
         with self._connect(email_account) as imap:
             if imap is None:
-                return True
+                return bool(vault_file)
             to_folder = self._find_server_folder(imap, "Archived")
             if not to_folder:
                 log.warning(f"[IMAP] No s'ha trobat carpeta Archive per a {email_account}")
-                return True
+                return bool(vault_file)
             if from_folder.lower() == to_folder.lower():
                 return True
             ok = self._move_on_server(imap, uid, from_folder, to_folder)
-            if ok:
+            if ok and vault_file:
                 self._update_vault_file(vault_file, {"imap_folder": to_folder})
                 log.info(f"[IMAP] Missatge {message_id} arxivat a {to_folder}")
         return True
@@ -811,3 +864,87 @@ class ImapMailSyncService:
 
 
 imap_sync_service = ImapMailSyncService()
+
+
+def imap_smtp_send(
+    account: dict,
+    to: str,
+    subject: str,
+    body: str,
+    cc: str = None,
+    bcc: str = None,
+    attachments: list = None,
+    from_email: str = None,
+    from_name: str = None,
+) -> bool:
+    """Send a message via SMTP using an IMAP account's SMTP config."""
+    import smtplib
+    import ssl
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email import encoders
+    from email.utils import formataddr
+
+    smtp_host = account.get("smtp_host", "")
+    smtp_port = int(account.get("smtp_port", 465))
+    smtp_user = account.get("smtp_user") or account.get("imap_user", "")
+    smtp_pass = account.get("smtp_password") or account.get("imap_password", "")
+    smtp_enc = (account.get("smtp_encryption") or "ssl").lower()
+    sender_email = from_email or account.get("email") or smtp_user
+    sender_display = from_name or account.get("display_name") or ""
+    from_header = formataddr((sender_display, sender_email)) if sender_display else sender_email
+
+    if not smtp_host:
+        log.error("[SMTP] smtp_host no configurat")
+        return False
+
+    content_type = "html" if body.strip().startswith("<") else "plain"
+    if attachments:
+        msg = MIMEMultipart("mixed")
+        msg.attach(MIMEText(body, content_type, "utf-8"))
+        for att in attachments:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(att["data"])
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", f'attachment; filename="{att["filename"]}"')
+            part.add_header("Content-Type", att.get("content_type", "application/octet-stream"))
+            msg.attach(part)
+    else:
+        msg = MIMEText(body, content_type, "utf-8")
+
+    msg["From"] = from_header
+    msg["To"] = to
+    msg["Subject"] = subject
+    if cc:
+        msg["Cc"] = cc
+    if bcc:
+        msg["Bcc"] = bcc
+
+    recipients = [a.strip() for a in to.split(",")]
+    if cc:
+        recipients += [a.strip() for a in cc.split(",")]
+    if bcc:
+        recipients += [a.strip() for a in bcc.split(",")]
+
+    try:
+        ctx = ssl.create_default_context()
+        if smtp_enc == "ssl":
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx) as server:
+                if smtp_user and smtp_pass:
+                    server.login(smtp_user, smtp_pass)
+                server.sendmail(sender_email, recipients, msg.as_bytes())
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.ehlo()
+                if smtp_enc == "starttls":
+                    server.starttls(context=ctx)
+                    server.ehlo()
+                if smtp_user and smtp_pass:
+                    server.login(smtp_user, smtp_pass)
+                server.sendmail(sender_email, recipients, msg.as_bytes())
+        log.info(f"[SMTP] Missatge enviat de {sender_email} a {to}")
+        return True
+    except Exception as e:
+        log.error(f"[SMTP] Error enviant de {sender_email}: {e}")
+        return False

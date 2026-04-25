@@ -1,88 +1,62 @@
 import logging
-import json
 import base64
-from pathlib import Path
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from backend.config.app_config import load_params
 
 log = logging.getLogger(__name__)
 
 
-def get_google_email_accounts():
-    """Returns a list of registered Google email accounts from integrations.json."""
-    cfg = load_params(strict_env=False)
-    integrations_file = cfg.paths["SECRETS"] / "integrations.json"
-
-    if not integrations_file.exists():
-        return []
-
-    try:
-        data = json.loads(integrations_file.read_text(encoding="utf-8"))
-        accounts = []
-        for account in data.get("emails", []):
-            if (
-                account.get("provider") == "google"
-                and account.get("auth_type") == "oauth2"
-            ):
-                acc_email = account.get("email", "")
-                if acc_email:
-                    accounts.append(acc_email)
-        return accounts
-    except Exception as e:
-        log.error(f"Failed to read accounts from integrations.json: {e}")
-        return []
+def get_google_email_accounts() -> list[str]:
+    """Returns email addresses of all registered Google OAuth2 accounts."""
+    from backend.services.integration_manager import integration_manager
+    return [
+        acc.get("email", "")
+        for acc in integration_manager.get_all_mail_accounts()
+        if integration_manager.is_google_account(acc) and acc.get("email")
+    ]
 
 
 def get_gmail_service(email: str):
-    """Initializes and returns the Gmail service for a given email."""
-    cfg = load_params(strict_env=False)
-    integrations_file = cfg.paths["SECRETS"] / "integrations.json"
+    """Builds and returns an authenticated Gmail API service for *email*.
 
-    if not integrations_file.exists():
-        log.error("No integrations.json found to sync Gmail.")
+    Automatically refreshes an expired access token and persists the new one.
+    Returns None if the account is not found, not Google OAuth2, or auth fails.
+    """
+    from backend.services.integration_manager import integration_manager
+    from backend.config.env_config import get_env
+
+    account = integration_manager.get_mail_account(email)
+    if not integration_manager.is_google_account(account):
+        log.warning(f"[Gmail] No OAuth2 Google account found for {email}")
+        return None
+
+    client_id = account.get("client_id") or get_env("GOOGLE_OAUTH_CLIENT_ID")
+    client_secret = account.get("client_secret") or get_env("GOOGLE_OAUTH_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        log.error(f"[Gmail] Missing OAuth client credentials for {email}")
         return None
 
     try:
-        data = json.loads(integrations_file.read_text(encoding="utf-8"))
+        creds = Credentials(
+            token=account.get("token"),
+            refresh_token=account.get("refresh_token"),
+            token_uri=account.get("token_uri", "https://oauth2.googleapis.com/token"),
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+        if creds.expired and creds.refresh_token:
+            from google.auth.transport.requests import Request
+            creds.refresh(Request())
+            integration_manager.update_mail_account_token(email, creds.token)
+            log.info(f"[Gmail] Token renovat per {email}")
+        return build("gmail", "v1", credentials=creds)
     except Exception as e:
-        log.error(f"Failed to read integrations.json: {e}")
+        log.error(f"[Gmail] Error inicialitzant servei per {email}: {e}")
         return None
-
-    from backend.config.env_config import get_env
-
-    for account in data.get("emails", []):
-        if account.get("provider") == "google" and account.get("auth_type") == "oauth2":
-            acc_email = account.get("email", "")
-            if acc_email == email:
-                try:
-                    # Resolve client credentials with environment fallback
-                    client_id = account.get("client_id") or get_env("GOOGLE_OAUTH_CLIENT_ID")
-                    client_secret = account.get("client_secret") or get_env("GOOGLE_OAUTH_CLIENT_SECRET")
-                    
-                    if not client_id or not client_secret:
-                        log.error(f"❌ Missing OAuth client credentials for {email}. Sync will fail.")
-                        continue
-
-                    creds_dict = {
-                        "token": account.get("token"),
-                        "refresh_token": account.get("refresh_token"),
-                        "token_uri": account.get(
-                            "token_uri", "https://oauth2.googleapis.com/token"
-                        ),
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                    }
-                    creds = Credentials(**creds_dict)
-                    return build("gmail", "v1", credentials=creds)
-                except Exception as e:
-                    log.error(f"Error initializing Gmail service for {email}: {e}")
-                    return None
-    return None
 
 
 def list_threads(email: str, query: str = "label:INBOX", max_results: int = 50):
@@ -368,3 +342,30 @@ def send_new_message_with_attachments(
     except Exception as e:
         log.error(f"Error sending message with attachments from {email}: {e}")
         return False
+
+
+def save_gmail_draft(email: str, to: str, subject: str, body: str, cc: str = "", bcc: str = "", gmail_draft_id: str = None) -> str | None:
+    """Creates or updates a Gmail draft. Returns the Gmail draft ID on success, None on failure."""
+    service = get_gmail_service(email)
+    if not service:
+        return None
+    try:
+        content_type = "html" if body.strip().startswith("<") else "plain"
+        msg = MIMEText(body, content_type, "utf-8")
+        msg["to"] = to or ""
+        msg["from"] = email
+        msg["subject"] = subject or ""
+        if cc:
+            msg["cc"] = cc
+        if bcc:
+            msg["bcc"] = bcc
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        draft_body = {"message": {"raw": raw}}
+        if gmail_draft_id:
+            result = service.users().drafts().update(userId="me", id=gmail_draft_id, body=draft_body).execute()
+        else:
+            result = service.users().drafts().create(userId="me", body=draft_body).execute()
+        return result.get("id")
+    except Exception as e:
+        log.error(f"Error saving Gmail draft for {email}: {e}")
+        return None

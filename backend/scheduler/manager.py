@@ -27,7 +27,7 @@ except ImportError:
 class ScheduledTask:
     name: str
     description: str
-    interval_minutes: int
+    interval_minutes: float
     enabled: bool
     last_run: Optional[str] = None
     next_run: Optional[str] = None
@@ -219,7 +219,7 @@ class SchedulerManager:
             time.sleep(60)  # Check every minute
 
     def update_task(
-        self, name: str, interval_minutes: int, enabled: bool
+        self, name: str, interval_minutes: float, enabled: bool
     ) -> Dict[str, Any]:
         """Update a task's configuration."""
         if name not in self._tasks:
@@ -382,23 +382,23 @@ class SchedulerManager:
         """Sync mail from all configured accounts (Gmail + IMAP)."""
         from backend.services.integration_manager import integration_manager
         from backend.services.vault_mail_sync_service import sync_service
+        from backend.services.imap_mail_sync_service import imap_sync_service
 
-        integrations = integration_manager.get_all_safe()
-        accounts = integrations.get("emails", [])
         total = 0
         details = []
-        for acc in accounts:
+        seen: set = set()
+        for acc in integration_manager.get_all_mail_accounts(only_enabled=True):
             email = acc.get("email") or acc.get("username")
-            if not email:
+            if not email or email in seen:
                 continue
+            seen.add(email)
             try:
-                provider = acc.get("provider", "")
-                auth_type = acc.get("auth_type", "")
-                if provider == "google" or auth_type == "oauth2":
-                    count = sync_service.sync_emails(email, limit=50)
-                else:
-                    from backend.services.imap_mail_sync_service import imap_sync_service
+                if integration_manager.is_imap_account(acc):
                     count = imap_sync_service.sync_account(email, limit=50)
+                elif integration_manager.is_microsoft_account(acc):
+                    count = 0  # Microsoft Graph és live — no cal sync al vault
+                else:
+                    count = sync_service.sync_emails(email, limit=50)
                 total += count or 0
                 details.append({"account": email, "success": True, "count": count or 0})
             except Exception as ex:
