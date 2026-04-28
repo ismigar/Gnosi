@@ -20,48 +20,25 @@ function AttachmentBadge({ file, onRemove }) {
             <FileIcon size={13} className="text-[var(--gnosi-blue)] shrink-0" />
             <span className="truncate text-[var(--text-primary)] font-medium">{file.name}</span>
             <span className="text-[var(--text-secondary)] shrink-0">{sizeKB}KB</span>
-            <button onClick={() => onRemove(file)} className="text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-colors shrink-0">
+            <button type="button" onClick={() => onRemove(file)} className="text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-colors shrink-0">
                 <X size={13} />
             </button>
         </div>
     );
 }
 
-// ─── QuotedMessage ───────────────────────────────────────────────────────────
-function QuotedMessage({ html }) {
-    const [expanded, setExpanded] = React.useState(false);
-    return (
-        <div className="mt-4">
-            <button
-                type="button"
-                onClick={() => setExpanded(v => !v)}
-                className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-colors mb-2"
-            >
-                <span className="flex gap-0.5">
-                    <span className="w-1 h-1 rounded-full bg-current" />
-                    <span className="w-1 h-1 rounded-full bg-current" />
-                    <span className="w-1 h-1 rounded-full bg-current" />
-                </span>
-                {expanded ? 'Amagar citat' : 'Mostrar missatge citat'}
-            </button>
-            {expanded && (
-                <div
-                    className="border-l-2 border-[#6366f1] pl-3 text-[var(--text-secondary)] text-[13px] leading-relaxed opacity-75 animate-in slide-in-from-top-1 duration-150"
-                    dangerouslySetInnerHTML={{ __html: html }}
-                />
-            )}
-        </div>
-    );
-}
-
 // ─── MailComposer ─────────────────────────────────────────────────────────────
 export default function MailComposer({
-    account, accounts = [], onClose, onSent,
+    account, accounts = [], onClose, onSent, onDraftSaved,
     mode = null, replyToMessageId = null,
     initialTo = '', initialCc = '', initialSubject = '', quotedHtml = '',
+    initialBody = '', _draftId = null,
 }) {
     const { t } = useTranslation();
-    const [fromAccount, setFromAccount] = useState(account);
+    const [fromAccount, setFromAccount] = useState(account || accounts[0] || null);
+    useEffect(() => {
+        if (account && !fromAccount) setFromAccount(account);
+    }, [account]);
     const [to, setTo] = useState(initialTo);
     const [cc, setCc] = useState(initialCc);
     const [bcc, setBcc] = useState('');
@@ -73,12 +50,17 @@ export default function MailComposer({
         () => fromAccount?.signature || '',
         [fromAccount]
     );
-    // El citat queda fora de l'editor per no contaminar el cos escrit
-    const quotedBlockHtml = useMemo(() => quotedHtml
-        ? `<blockquote style="border-left:3px solid #6366f1;padding-left:0.75rem;color:#888;margin-top:1rem">${quotedHtml}</blockquote>`
-        : '', []);
-    // L'editor arrenca buit (o només amb línies de cortesia per posicionar el cursor en replies)
-    const editorInitialHtml = '';
+    const isReplyOrForward = mode === 'reply' || mode === 'reply_all' || mode === 'forward';
+
+    // Respostes/reenviaments: cursor dalt → línia buida → signatura → citat
+    const editorInitialHtml = useMemo(() => {
+        if (initialBody) return initialBody;
+        if (!quotedHtml) return '';
+        const sigBlock = signatureHtml
+            ? `<div style="margin-bottom:0.5rem">${signatureHtml}</div><hr style="border:none;border-top:1px solid #ccc;margin:0.5rem 0">`
+            : '';
+        return `${sigBlock}<blockquote style="border-left:3px solid #6366f1;padding-left:0.75rem;color:#888;margin-top:1rem">${quotedHtml}</blockquote>`;
+    }, [quotedHtml, signatureHtml]);
     const [attachments, setAttachments] = useState([]);
     const [sending, setSending] = useState(false);
     const [aiGenerating, setAiGenerating] = useState(false);
@@ -87,9 +69,11 @@ export default function MailComposer({
     const [calendarData, setCalendarData] = useState({ pages: [], integrations: {}, tables: [] });
     const [calendarTitle, setCalendarTitle] = useState('');
     const editorRef = React.useRef(null);
-    const draftIdRef = useRef(null);
+    const draftIdRef = useRef(_draftId);
     const fileInputRef = useRef(null);
     const calendarCompRef = useRef(null);
+
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
     const bodyRef = useRef(body);
     const subjectRef = useRef(subject);
@@ -106,7 +90,8 @@ export default function MailComposer({
         if (!fromAccount?.email) return;
         const currentBody = bodyRef.current;
         const currentSubject = subjectRef.current;
-        if (!currentBody && !currentSubject) return;
+        const bodyText = currentBody?.replace(/<[^>]*>/g, '').trim() || '';
+        if (!bodyText && !currentSubject) return;
         try {
             const res = await fetch('/api/mail/drafts', {
                 method: 'POST',
@@ -122,22 +107,38 @@ export default function MailComposer({
                 }),
             });
             const data = await res.json();
-            if (data.draft_id && !draftIdRef.current) draftIdRef.current = data.draft_id;
-            toast(t('mail.draft_saved'), { icon: '💾', duration: 1500 });
+            const isFirstSave = !draftIdRef.current;
+            if (data.draft_id) draftIdRef.current = data.draft_id;
+            if (isFirstSave) {
+                toast(t('mail.draft_saved'), { icon: '💾', duration: 1500 });
+                onDraftSaved?.();
+            }
         } catch { /* silent */ }
     }, [fromAccount, t]);
 
-    // Debounced auto-save mentre s'escriu (2s després de l'últim canvi)
-    useEffect(() => {
-        if (!body && !subject) return;
-        const timer = setTimeout(saveDraft, 2000);
-        return () => clearTimeout(timer);
-    }, [body, subject]);
+    const hasContent = useCallback(() => {
+        const bodyText = bodyRef.current?.replace(/<[^>]*>/g, '').trim() || '';
+        return !!(bodyText || subjectRef.current?.trim() || toRef.current?.trim());
+    }, []);
 
-    // Fallback: auto-save cada 30s
+    const handleCloseRequest = useCallback(() => {
+        if (hasContent()) {
+            setShowCloseConfirm(true);
+        } else {
+            onClose();
+        }
+    }, [hasContent, onClose]);
+
+    const handleSaveAndClose = useCallback(async () => {
+        await saveDraft();
+        setShowCloseConfirm(false);
+        onClose();
+    }, [saveDraft, onClose]);
+
+    // Auto-save cada 2s mentre hi ha contingut
     useEffect(() => {
         if (!fromAccount?.email) return;
-        const timer = setInterval(saveDraft, 30000);
+        const timer = setInterval(saveDraft, 2000);
         return () => clearInterval(timer);
     }, [fromAccount, saveDraft]);
 
@@ -162,8 +163,8 @@ export default function MailComposer({
         }
         setSending(true);
         try {
-            const sigPart = signatureHtml ? `<div style="margin-top:1rem">${signatureHtml}</div>` : '';
-            const fullBody = body + sigPart + (quotedBlockHtml ? `<div style="margin-top:1rem">${quotedBlockHtml}</div>` : '');
+            const sigPart = (!isReplyOrForward && signatureHtml) ? `<div style="margin-top:1rem">${signatureHtml}</div>` : '';
+            const fullBody = body + sigPart;
             const smtpEmail = fromAccount.smtp_email || fromAccount.email;
             const fromAddr = fromAccount.smtp_email ? fromAccount.email : null;
             const fromDisplayName = fromAccount.display_name || fromAccount.name || null;
@@ -192,6 +193,10 @@ export default function MailComposer({
             }
             const data = await res.json();
             if (data.status === 'success' || data.message_id) {
+                if (draftIdRef.current) {
+                    fetch(`/api/mail/drafts/${draftIdRef.current}`, { method: 'DELETE' }).catch(() => {});
+                    onDraftSaved?.();
+                }
                 toast.success(t('mail.sent_ok'));
                 try { editorRef.current?.replaceBlocks([{ type: 'paragraph', content: '' }]); } catch { /* ok */ }
                 if (onSent) onSent();
@@ -225,11 +230,15 @@ export default function MailComposer({
     };
 
     useEffect(() => {
-        if (!showAvailability) return;
-        const handler = (e) => { if (e.key === 'Escape') setShowAvailability(false); };
+        const handler = (e) => {
+            if (e.key !== 'Escape') return;
+            if (showAvailability) { setShowAvailability(false); return; }
+            if (showCloseConfirm) { setShowCloseConfirm(false); return; }
+            handleCloseRequest();
+        };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [showAvailability]);
+    }, [showAvailability, showCloseConfirm, handleCloseRequest]);
 
     const handleSlotSelection = (selection) => {
         if (!editorRef.current) return;
@@ -295,7 +304,21 @@ export default function MailComposer({
     const modeLabel = mode === 'reply' ? t('mail.reply_title') : mode === 'reply_all' ? t('mail.reply_all_title') : mode === 'forward' ? t('mail.forward_title') : t('mail.new_message');
 
     return (
-        <div className="flex flex-col h-full bg-[var(--bg-primary)] relative animate-in slide-in-from-right-4 duration-300">
+        <div
+            className="flex flex-col h-full bg-[var(--bg-primary)] relative animate-in slide-in-from-right-4 duration-300"
+            onKeyDown={e => {
+                // Cmd+Enter → enviar; Shift+Enter → hard break gestionat per BlockNote
+                // En ambdós casos evitem el comportament per defecte del browser (submit/refresh)
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSend();
+                } else if (e.shiftKey && e.key === 'Enter') {
+                    // BlockNote ja gestiona Shift+Enter internament; aquí només evitem
+                    // que el browser faci res per defecte si l'event burbulla fora de l'editor
+                    e.stopPropagation();
+                }
+            }}
+        >
             {/* Header */}
             <div className="h-16 border-b border-[var(--border-primary)] px-6 flex items-center justify-between sticky top-0 z-20 bg-[var(--bg-primary)]/80 backdrop-blur-md">
                 <div className="flex items-center gap-3">
@@ -304,7 +327,7 @@ export default function MailComposer({
                     </div>
                     <h2 className="font-bold text-[var(--text-primary)]">{modeLabel}</h2>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all">
+                <button type="button" onClick={handleCloseRequest} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all">
                     <X size={20} />
                 </button>
             </div>
@@ -358,8 +381,10 @@ export default function MailComposer({
                             placeholder={t('mail.subject_placeholder')}
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         />
                         <button
+                            type="button"
                             onClick={() => setShowCcBcc(v => !v)}
                             className="flex items-center gap-1 text-[12px] font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-colors ml-2 shrink-0"
                         >
@@ -391,7 +416,7 @@ export default function MailComposer({
                     <div className="pt-6 min-h-[200px]">
                         <MailBlockEditor
                             initialContent={editorInitialHtml}
-                            prependEmptyLines={0}
+                            prependEmptyLines={quotedHtml ? 2 : 0}
                             onChange={setBody}
                             editorRef={editorRef}
                             autoFocus
@@ -402,8 +427,8 @@ export default function MailComposer({
                         />
                     </div>
 
-                    {/* Signatura (reactiva, fora de l'editor) */}
-                    {signatureHtml && (
+                    {/* Signatura fora de l'editor només per missatges nous (en replies ja va dins) */}
+                    {!isReplyOrForward && signatureHtml && (
                         <div className="mt-3 pt-3 border-t border-[var(--border-primary)]">
                             <div
                                 className="text-[var(--text-secondary)] text-[13px] leading-relaxed [&_a]:text-[var(--gnosi-blue)]"
@@ -411,9 +436,6 @@ export default function MailComposer({
                             />
                         </div>
                     )}
-
-                    {/* Missatge citat (fora de l'editor, col·lapsable) */}
-                    {quotedHtml && <QuotedMessage html={quotedHtml} />}
 
                     {/* Attachment list */}
                     {attachments.length > 0 && (
@@ -432,6 +454,7 @@ export default function MailComposer({
                 <div className="flex items-center gap-2">
                     {/* IA Assist */}
                     <button
+                        type="button"
                         onClick={handleAIAssist}
                         disabled={aiGenerating}
                         className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-primary)] hover:bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] border border-[var(--border-primary)] rounded-xl text-sm font-bold transition-all shadow-sm"
@@ -443,6 +466,7 @@ export default function MailComposer({
                     {/* Adjuntar arxiu */}
                     <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
                     <button
+                        type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="relative p-2.5 hover:bg-[var(--bg-primary)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-transparent hover:border-[var(--border-primary)]"
                         title={t('mail.attach_file')}
@@ -458,6 +482,7 @@ export default function MailComposer({
                     {/* Insertar fragment */}
                     <div className="relative">
                         <button
+                            type="button"
                             onClick={() => setShowSnippets(v => !v)}
                             className="p-2.5 hover:bg-[var(--bg-primary)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-transparent hover:border-[var(--border-primary)]"
                             title={t('mail.insert_snippet')}
@@ -471,6 +496,7 @@ export default function MailComposer({
                                     <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.insert_snippet')}</div>
                                     {SNIPPETS.map(s => (
                                         <button
+                                            type="button"
                                             key={s.key}
                                             onMouseDown={() => handleInsertSnippet(s.content || s.label)}
                                             className="w-full text-left px-4 py-2 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
@@ -488,6 +514,7 @@ export default function MailComposer({
 
                     {/* Insertar disponibilitat */}
                     <button
+                        type="button"
                         onClick={handleInsertAvailability}
                         className="p-2.5 hover:bg-[var(--bg-primary)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-transparent hover:border-[var(--border-primary)]"
                         title={t('mail.availability')}
@@ -497,6 +524,7 @@ export default function MailComposer({
 
                     {/* Eliminar / descartar */}
                     <button
+                        type="button"
                         onClick={onClose}
                         className="p-2.5 hover:bg-[var(--bg-primary)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-all border border-transparent hover:border-[var(--border-primary)]"
                         title={t('mail.discard_draft')}
@@ -506,6 +534,7 @@ export default function MailComposer({
                 </div>
 
                 <button
+                    type="button"
                     onClick={handleSend}
                     disabled={sending}
                     className="flex items-center gap-2 px-8 py-3 bg-[var(--gnosi-blue)] hover:opacity-90 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95 disabled:opacity-50"
@@ -514,6 +543,39 @@ export default function MailComposer({
                     {t('mail.send_btn')}
                 </button>
             </div>
+
+            {/* Close confirmation dialog */}
+            {showCloseConfirm && (
+                <div className="fixed inset-0 z-[var(--z-modal)] bg-black/30 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-150">
+                    <div className="bg-[var(--bg-primary)] rounded-2xl shadow-2xl border border-[var(--border-primary)] p-6 w-[340px] animate-in zoom-in-95 duration-150">
+                        <h3 className="font-bold text-[var(--text-primary)] text-[16px] mb-1">{t('mail.close_confirm_title')}</h3>
+                        <p className="text-[13px] text-[var(--text-secondary)] mb-5">{t('mail.close_confirm_desc')}</p>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                type="button"
+                                onClick={handleSaveAndClose}
+                                className="w-full px-4 py-2.5 bg-[var(--gnosi-blue)] text-white rounded-xl font-bold text-[14px] hover:opacity-90 transition-all"
+                            >
+                                {t('mail.close_save_draft')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setShowCloseConfirm(false); onClose(); }}
+                                className="w-full px-4 py-2.5 bg-[var(--bg-secondary)] text-[var(--status-error)] rounded-xl font-semibold text-[14px] hover:bg-[var(--bg-tertiary)] transition-all"
+                            >
+                                {t('mail.close_discard')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowCloseConfirm(false)}
+                                className="w-full px-4 py-2.5 text-[var(--text-secondary)] rounded-xl font-semibold text-[14px] hover:bg-[var(--bg-secondary)] transition-all"
+                            >
+                                {t('mail.close_cancel')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Availability overlay */}
             {showAvailability && (
@@ -528,11 +590,11 @@ export default function MailComposer({
                             </h3>
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-1 bg-[var(--bg-primary)] p-1 rounded-xl shadow-sm border border-[var(--border-primary)]">
-                                    <button onClick={() => calendarCompRef.current?.getApi().prev()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronLeft size={18} /></button>
-                                    <button onClick={() => calendarCompRef.current?.getApi().today()} className="px-4 text-xs font-bold uppercase tracking-tight text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)]">Avui</button>
-                                    <button onClick={() => calendarCompRef.current?.getApi().next()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronRight size={18} /></button>
+                                    <button type="button" onClick={() => calendarCompRef.current?.getApi().prev()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronLeft size={18} /></button>
+                                    <button type="button" onClick={() => calendarCompRef.current?.getApi().today()} className="px-4 text-xs font-bold uppercase tracking-tight text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)]">Avui</button>
+                                    <button type="button" onClick={() => calendarCompRef.current?.getApi().next()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronRight size={18} /></button>
                                 </div>
-                                <button onClick={() => setShowAvailability(false)} className="p-3 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-2xl transition-all active:scale-95"><X size={20} /></button>
+                                <button type="button" onClick={() => setShowAvailability(false)} className="p-3 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-2xl transition-all active:scale-95"><X size={20} /></button>
                             </div>
                         </div>
                         <div className="flex-1 p-8 bg-[var(--bg-primary)] overflow-hidden">

@@ -108,6 +108,45 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 )}
             </div>
 
+            {/* Files: storage folder config */}
+            {field.type === 'files' && (
+                <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
+                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
+                            {t('schema.storage_folder', 'Carpeta de destinació')}
+                        </label>
+                        <div className="flex gap-2">
+                            {[
+                                { value: 'assets',    label: 'Assets',    desc: t('schema.storage_assets_desc', 'Carpeta Assets del vault') },
+                                { value: 'biblioteca', label: 'Biblioteca', desc: t('schema.storage_biblioteca_desc', 'Biblioteca de referència compartida') },
+                                { value: 'free',      label: t('schema.storage_free', 'Lliure'), desc: t('schema.storage_free_desc', "L'usuari tria la carpeta o fitxer en cada adjunt") },
+                            ].map(opt => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => handleUpdateField(idx, 'storage_folder', opt.value)}
+                                    title={opt.desc}
+                                    className={`flex-1 text-xs rounded-lg border px-2 py-1.5 font-semibold transition-colors ${
+                                        (field.storage_folder || 'assets') === opt.value
+                                            ? 'bg-[var(--gnosi-primary)] text-white border-[var(--gnosi-primary)]'
+                                            : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
+                            {{
+                                assets:    t('schema.storage_assets_desc', 'Carpeta Assets del vault'),
+                                biblioteca: t('schema.storage_biblioteca_desc', 'Biblioteca de referència compartida (OneDrive/Biblioteca)'),
+                                free:      t('schema.storage_free_desc', "L'usuari tria la carpeta de destinació o el fitxer existent en cada adjunt"),
+                            }[field.storage_folder || 'assets']}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Specific Configuration Section (Formula, Rollup, Relation) */}
             {(field.type === 'relation' || field.type === 'rollup' || field.type === 'formula') && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -267,24 +306,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         }
     }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                onClose();
-            } else if (e.key === 'Enter') {
-                // Evitem si estem en un input o similar per no guardar per error si l'usuari vol fer una altra cosa
-                // però en aquest modal el comportament és habitualment Save.
-                if (document.activeElement.tagName === 'INPUT') {
-                   // Permetem Enter en inputs de nom de propietat etc.
-                }
-                handleSave();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, handleSave]);
-
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -422,6 +443,22 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             toast.error(t('schema.error_saving'));
         }
     };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'INPUT') {
+                   // Permetem Enter en inputs de nom de propietat etc.
+                }
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, handleSave]);
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm">

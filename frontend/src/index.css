@@ -290,7 +290,7 @@ body {
 
 /* AppSidebar - Reference Match */
 .app-sidebar {
-  width: 60px;
+  width: 52px;
   height: 100vh;
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
@@ -317,17 +317,17 @@ body {
 }
 
 .app-sidebar__logo {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   background: linear-gradient(135deg, #0066ff, #00d4ff);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 10px;
   text-decoration: none;
   font-weight: 800;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -347,8 +347,8 @@ body {
 }
 
 .app-sidebar__item {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -379,7 +379,7 @@ body {
 
 .app-sidebar__tooltip {
   position: absolute;
-  left: 76px;
+  left: 66px;
   top: 50%;
   transform: translateY(-50%) translateX(-10px);
   background-color: #1a1a1c;

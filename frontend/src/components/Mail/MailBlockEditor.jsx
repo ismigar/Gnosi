@@ -89,6 +89,40 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
         if (e.dataTransfer.types.includes('Files')) e.preventDefault();
     }, []);
 
+    useEffect(() => {
+        if (!editor) return;
+
+        const handleAutoLink = (e) => {
+            if (e.key !== ' ') return;
+            if (!editor._tiptapEditor?.isFocused) return;
+
+            editor.transact((tr) => {
+                const { $from } = tr.selection;
+                const textBeforeCursor = $from.parent.textContent.slice(0, $from.parentOffset);
+                const lastWord = textBeforeCursor.split(/\s+/).pop();
+                if (!lastWord) return tr;
+
+                const urlPattern = /^(https?:\/\/|www\.)\S+\.\S{2,}$/;
+                const emailPattern = /^\S+@\S+\.\S{2,}$/;
+                if (!urlPattern.test(lastWord) && !emailPattern.test(lastWord)) return tr;
+
+                let href = lastWord;
+                if (emailPattern.test(lastWord)) href = `mailto:${lastWord}`;
+                else if (lastWord.startsWith('www.')) href = `https://${lastWord}`;
+
+                const to = $from.pos;
+                const from = to - lastWord.length;
+                const linkMark = editor.pmSchema.marks.link?.create({ href });
+                if (!linkMark) return tr;
+
+                return tr.addMark(from, to, linkMark);
+            });
+        };
+
+        document.addEventListener('keydown', handleAutoLink);
+        return () => document.removeEventListener('keydown', handleAutoLink);
+    }, [editor]);
+
     return (
         <div
             className="mail-block-editor rounded-2xl bg-[var(--bg-primary)] overflow-hidden transition-all duration-300"
@@ -136,6 +170,11 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
                     color: var(--text-secondary) !important;
                     opacity: 0.8;
                     margin: 4px 0 !important;
+                }
+                .mail-block-editor a {
+                    color: var(--gnosi-blue) !important;
+                    text-decoration: underline !important;
+                    cursor: pointer !important;
                 }
             `}</style>
         </div>

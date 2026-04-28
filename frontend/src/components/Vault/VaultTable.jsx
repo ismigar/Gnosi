@@ -3,6 +3,67 @@ import { useTranslation } from 'react-i18next';
 import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty } from './VaultDateProperty';
+
+const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave }) => {
+    const [localValues, setLocalValues] = useState(value);
+    const [search, setSearch] = useState('');
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                onSave(localValues);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [localValues, onSave]);
+
+    const toggle = (val) => {
+        setLocalValues(prev =>
+            prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+        );
+    };
+
+    const filtered = options.filter(opt =>
+        (idToTitle[opt] || opt).toLowerCase().includes(search.toLowerCase()) &&
+        !localValues.includes(opt)
+    );
+
+    return (
+        <div ref={containerRef} className="w-full">
+            <div className="flex flex-wrap gap-1 mb-1 min-h-[20px]">
+                {localValues.map(val => (
+                    <span key={val} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/20 whitespace-nowrap">
+                        {idToTitle[val] || (val.length > 16 ? val.substring(0, 8) + '…' : val)}
+                        <X size={9} className="cursor-pointer hover:text-red-500 shrink-0" onMouseDown={e => { e.preventDefault(); toggle(val); }} />
+                    </span>
+                ))}
+            </div>
+            <input
+                autoFocus
+                className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                placeholder="Cercar…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') onSave(localValues); }}
+            />
+            {filtered.length > 0 && (
+                <div className="mt-1 max-h-32 overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] shadow-md z-50 relative">
+                    {filtered.map(opt => (
+                        <div
+                            key={opt}
+                            className="px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)] cursor-pointer"
+                            onMouseDown={e => { e.preventDefault(); toggle(opt); }}
+                        >
+                            {idToTitle[opt] || opt}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
@@ -16,7 +77,7 @@ import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
-export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
+export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
     const { t, i18n } = useTranslation();
     const safeNotes = notes || [];
     const ROWS_BATCH_SIZE = 200;
@@ -861,6 +922,32 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 );
             }
 
+            if (type === 'multi_select' || type === 'relation') {
+                let options;
+                let displayMap = idToTitle;
+                if (type === 'relation') {
+                    const config = getFieldConfig(schema, field);
+                    const relatedTableId = config?.relation_database_id;
+                    const relatedNotes = allNotes.filter(n => {
+                        const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                        return nTableId === relatedTableId;
+                    });
+                    options = relatedNotes.map(n => n.id);
+                    displayMap = { ...idToTitle, ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])) };
+                } else {
+                    options = getAvailableOptions(field, type);
+                }
+                const currentValues = Array.isArray(value) ? value : (value ? String(value).split(',').map(s => s.trim()).filter(Boolean) : []);
+                return (
+                    <InlinePillsPicker
+                        value={currentValues}
+                        options={options}
+                        idToTitle={displayMap}
+                        onSave={(vals) => handleCellSave(noteId, field, vals, originalMetaKey)}
+                    />
+                );
+            }
+
             // Edit dates and periods using VaultDateProperty component
             if (type === 'date' || type === 'datetime' || type === 'period') {
                 return (
@@ -1065,7 +1152,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         ${isSelected(note.id) ? 'bg-indigo-500/10' : ''}
                         ${isChild ? 'bg-[var(--bg-secondary)]/30' : ''}
                     `}
-                    onClick={() => { /* Row: selection via checkbox, click opens directly */ }}
+                    onClick={() => { /* Row: selection via checkbox */ }}
                     onDoubleClick={() => onNoteSelect(note.id)}
                 >
                     {/* Acció cel·la */}

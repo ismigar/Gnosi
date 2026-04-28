@@ -68,27 +68,30 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
             {...attributes}
             className="relative flex items-center shrink-0"
         >
-            <button
-                {...listeners}
-                onClick={(e) => {
-                    e.preventDefault();
-                    onSelect?.(view.id);
-                }}
-                className={`w-[184px] flex items-center gap-1.5 px-3 pt-1.5 pb-0 text-xs font-medium transition-all rounded-t-md border-b-2 mr-1 ${isActive
+            <div
+                className={`w-[184px] flex items-center gap-1.5 px-3 pt-1.5 pb-0 text-xs font-medium transition-all rounded-t-md border-b-2 mr-1 cursor-pointer ${isActive
                     ? 'text-[var(--gnosi-blue)] border-[var(--gnosi-blue)] bg-[var(--bg-primary)] shadow-[0_-2px_5px_-1px_rgba(var(--gnosi-primary-rgb),0.1)]'
                     : 'text-[var(--text-tertiary)] border-transparent hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
                     }`}
+                onClick={() => onSelect?.(view.id)}
                 title={view.name}
             >
-                <ViewIcon size={13} className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]'} />
+                {/* Mànec de drag separat per evitar conflicte amb onClick */}
+                <span
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing flex items-center"
+                    onClick={(e) => e.stopPropagation()}
+                    title={t('views_header.drag_to_reorder', 'Arrossega per reordenar')}
+                >
+                    <ViewIcon size={13} className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]'} />
+                </span>
                 <span className="truncate flex-1 min-w-0" title={view.name}>{view.name}</span>
                 {isPrimaryView && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[10px] text-[var(--text-tertiary)] border border-[var(--border-primary)]" title={t('views_header.main_view')} aria-label={t('views_header.main_view')}>
                         <Lock size={10} />
                     </span>
                 )}
-                
-                <div 
+                <div
                     onClick={(e) => {
                         e.stopPropagation();
                         setShowMenu(!showMenu);
@@ -97,7 +100,7 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
                 >
                     <MoreHorizontal size={13} />
                 </div>
-            </button>
+            </div>
 
             {showMenu && (
                 <div 

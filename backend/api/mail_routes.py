@@ -222,6 +222,45 @@ async def get_mail_counts(email: str = Query(...)):
     return counts
 
 
+def _load_vault_drafts(account_email: str) -> list:
+    """Retorna els esborranys guardats localment al vault per un compte IMAP."""
+    mail_path = get_mail_vault_path()
+    if not mail_path.exists():
+        return []
+    drafts = []
+    for f in mail_path.glob("draft_*.md"):
+        try:
+            content = f.read_text(encoding="utf-8")
+            metadata, body = parse_frontmatter(content, f)
+            if metadata.get("type") != "Draft":
+                continue
+            if account_email and metadata.get("account", "") != account_email:
+                continue
+            date_val = metadata.get("date")
+            drafts.append({
+                "id": metadata.get("id") or f.stem,
+                "thread_id": metadata.get("thread_id") or f.stem,
+                "subject": metadata.get("title") or "(Esborrany)",
+                "sender": metadata.get("sender") or account_email,
+                "recipient": metadata.get("recipients") or "",
+                "cc": metadata.get("cc") or "",
+                "date": str(date_val) if date_val else "",
+                "timestamp": get_unix_timestamp(date_val) if date_val else 0,
+                "body_text": body or "",
+                "is_read": True,
+                "is_starred": False,
+                "has_attachments": False,
+                "archived": False,
+                "type": "Draft",
+                "account": account_email,
+                "source": "vault",
+            })
+        except Exception:
+            continue
+    drafts.sort(key=lambda d: d.get("timestamp", 0), reverse=True)
+    return drafts
+
+
 @router.get("/messages")
 async def get_messages(
     email: str = Query("ismigar@gmail.com"),
@@ -272,6 +311,12 @@ async def get_messages(
                 search=search, limit=limit, offset=offset,
             )
         )
+        if folder and folder.upper() in ("DRAFTS", "DRAFT"):
+            vault_drafts = _load_vault_drafts(email)
+            existing_ids = {m.get("id") for m in result.get("messages", [])}
+            extra = [d for d in vault_drafts if d["id"] not in existing_ids]
+            result = dict(result)
+            result["messages"] = extra + result.get("messages", [])
 
     error = result.get("error")
     data = {
@@ -706,7 +751,7 @@ async def save_draft(payload: dict = Body(...)):
     mail_path.mkdir(parents=True, exist_ok=True)
     clean = "".join(c for c in subject if c.isalnum() or c in (" ", "-", "_")).strip()[:50]
     filename = f"{draft_id}_{clean}.md" if clean else f"{draft_id}.md"
-    for old in mail_path.glob(f"{draft_id}_*.md"):
+    for old in list(mail_path.glob(f"{draft_id}_*.md")) + list(mail_path.glob(f"{draft_id}.md")):
         old.unlink(missing_ok=True)
     metadata = {
         "title": subject or "(Esborrany)", "id": draft_id, "gmail_id": draft_id,
@@ -718,7 +763,19 @@ async def save_draft(payload: dict = Body(...)):
     }
     yaml_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
     (mail_path / filename).write_text(f"---\n{yaml_front}---\n\n{body}\n", encoding="utf-8")
+    _invalidate_mail_cache()
     return {"status": "success", "draft_id": draft_id}
+
+
+@router.delete("/drafts/{draft_id}")
+async def delete_draft(draft_id: str):
+    mail_path = get_mail_vault_path()
+    deleted = False
+    for f in list(mail_path.glob(f"{draft_id}_*.md")) + list(mail_path.glob(f"{draft_id}.md")):
+        f.unlink(missing_ok=True)
+        deleted = True
+    _invalidate_mail_cache()
+    return {"status": "deleted" if deleted else "not_found"}
 
 
 @router.get("/recipients/suggest")

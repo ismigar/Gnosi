@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
-import { SocialLayout } from '../components/social/SocialLayout';
 
 const ContentCalendar = () => {
     const [scheduledPosts, setScheduledPosts] = useState([]);
@@ -77,37 +76,38 @@ const ContentCalendar = () => {
         setCurrentWeek(newDate);
     };
 
-    const ActionControls = (
-        <div className="flex items-center gap-4 bg-white/5 rounded-lg p-1 border border-white/5">
-            <button
-                onClick={() => navigateWeek(-1)}
-                className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-zinc-400 hover:text-white"
-            >
-                <ChevronLeft size={20} />
-            </button>
-            <span className="font-semibold text-sm w-32 text-center text-zinc-200">
-                {weekDays[0].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })} -
-                {weekDays[6].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })}
-            </span>
-            <button
-                onClick={() => navigateWeek(1)}
-                className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-zinc-400 hover:text-white"
-            >
-                <ChevronRight size={20} />
-            </button>
-        </div>
-    );
-
     return (
-        <SocialLayout title="Calendar" action={ActionControls}>
-            <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col p-6 overflow-hidden">
+            {/* Controls de navegació setmanal */}
+            <div className="flex items-center gap-4 mb-4 shrink-0">
+                <div className="flex items-center gap-2 bg-[var(--bg-secondary)] rounded-lg p-1 border border-[var(--border-primary)]">
+                    <button
+                        onClick={() => navigateWeek(-1)}
+                        className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded-md transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <span className="font-semibold text-sm w-36 text-center text-[var(--text-primary)]">
+                        {weekDays[0].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })} –{' '}
+                        {weekDays[6].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })}
+                    </span>
+                    <button
+                        onClick={() => navigateWeek(1)}
+                        className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded-md transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex flex-col">
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-full text-zinc-500 gap-4">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                         <span>Carregant calendari...</span>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-7 gap-4 h-full min-h-[600px]">
+                    <div className="grid grid-cols-7 gap-4 flex-1 min-h-0">
                         {weekDays.map((day, idx) => {
                             const dayPosts = getPostsForDay(day);
                             const dayName = day.toLocaleDateString('ca-ES', { weekday: 'short' });
@@ -187,7 +187,7 @@ const ContentCalendar = () => {
                     </div>
                 )}
             </div>
-        </SocialLayout>
+        </div>
     );
 };
 

@@ -55,6 +55,8 @@ import { IconRenderer } from './IconRenderer';
 
 import { VaultEditorContext } from './VaultEditorContext';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
+import { PageViewModal } from './PageViewModal';
+import { FileAttachmentField } from './FileAttachmentField';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 
 const normalizeVaultAssetUrl = (value) => {
@@ -101,7 +103,7 @@ const markdownToPlainText = (markdown) => {
         .trim();
 };
 
-export const inFlightSaves = new Map();
+import { inFlightSaves } from './editorState';
 
 const extractSectionPreview = (markdown, sectionName) => {
     const cleanSectionName = String(sectionName || '').trim().toLowerCase();
@@ -1092,6 +1094,8 @@ export function EditorInner({
         return `${id.slice(0, 8)}...${id.slice(-4)}`;
     }, []);
 
+    const tableId = metadata?.table_id || metadata?.database_table_id || '';
+
     const editor = useCreateBlockNote({
         schema,
         initialContent: blocks || undefined,
@@ -1099,7 +1103,8 @@ export function EditorInner({
         uploadFile: async (file) => {
             const formData = new FormData();
             formData.append('file', file);
-            const res = await fetch('/api/vault/assets/upload', { method: 'POST', body: formData });
+            const url = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
+            const res = await fetch(url, { method: 'POST', body: formData });
             if (!res.ok) throw new Error('Upload failed');
             const data = await res.json();
             return data.url;
@@ -1770,7 +1775,8 @@ export function EditorInner({
                         try {
                             const formData = new FormData();
                             formData.append('file', file);
-                            const res = await fetch('/api/vault/assets/upload', { method: 'POST', body: formData });
+                            const pdfUploadUrl = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
+                            const res = await fetch(pdfUploadUrl, { method: 'POST', body: formData });
                             const data = await res.json();
                             const pos = editor.getTextCursorPosition();
                             editor.insertBlocks(
@@ -1792,7 +1798,7 @@ export function EditorInner({
                     getItems={async (query) => {
                         if (!editor) return [];
                         const defaultItems = getDefaultReactSlashMenuItems(editor);
-                        const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], editor }).map(item => ({
+                        const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { setPageViewPreselectedTable(tableId); setIsPageViewModalOpen(true); } }).map(item => ({
                             title: item.title,
                             onItemClick: item.onItemClick,
                             aliases: item.aliases,
@@ -2125,7 +2131,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, historyOpenSignal = 0, isCodeView = false }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, historyOpenSignal = 0, isCodeView = false }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewer = role === 'viewer';
@@ -2143,6 +2149,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [metadata]);
 
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [isPageViewModalOpen, setIsPageViewModalOpen] = useState(false);
+    const [pageViewPreselectedTable, setPageViewPreselectedTable] = useState('');
     const [isAddingProp, setIsAddingProp] = useState(false);
     const [newPropName, setNewPropName] = useState("");
     const [incomingLinks, setIncomingLinks] = useState([]);
@@ -2532,14 +2540,46 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 </div>
                                                 <span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span>
                                             </div>
-                                            <div className="flex items-center gap-1.5 group h-8">
-                                                {prop.type === 'multi_select' ? (
+                                            <div className={`flex items-center gap-1.5 group ${prop.type === 'files' ? 'h-auto py-1' : 'h-8'}`}>
+                                                {prop.type === 'relation' ? (() => {
+                                                    const relatedTableId = prop.relation_database_id;
+                                                    const relatedNotes = allNotes.filter(n => {
+                                                        const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                                                        return nTableId === relatedTableId;
+                                                    });
+                                                    const options = relatedNotes.map(n => n.id);
+                                                    const relatedMap = { ...idToTitle, ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])) };
+                                                    return (
+                                                        <MultiSelectPills
+                                                            value={metadata[prop.name]}
+                                                            onChange={val => isEditor && handleMetaChange(prop.name, val)}
+                                                            options={options}
+                                                            idToTitle={relatedMap}
+                                                            placeholder={isEditor ? t('editor.add_options') : t('common.empty')}
+                                                        />
+                                                    );
+                                                })() : prop.type === 'multi_select' ? (
                                                     <MultiSelectPills value={metadata[prop.name]} onChange={val => isEditor && handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder={isEditor ? t('editor.add_options') : t('common.empty')} onCreate={val => { if (!isEditor) return; const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(metadata[prop.name]) ? metadata[prop.name] : []), val]); }} />
                                                 ) : prop.type === 'select' ? (
                                                     <select disabled={!isEditor} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-transparent hover:border-[var(--border-primary)] rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:bg-[var(--bg-primary)] focus:border-[var(--gnosi-primary)]/40 transition-all font-medium h-7 disabled:opacity-50 disabled:cursor-not-allowed">
                                                         <option value="">{t('common.empty')}</option>
                                                         {(prop.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                                     </select>
+                                                ) : prop.type === 'files' ? (
+                                                    <div className="w-full">
+                                                        {isEditor ? (
+                                                            <FileAttachmentField
+                                                                tableId={rawTableId}
+                                                                propertyName={prop.name}
+                                                                storageFolder={prop.storage_folder || 'assets'}
+                                                                value={metadata[prop.name] || ''}
+                                                                onChange={val => handleMetaChange(prop.name, val)}
+                                                                apiFetch={apiFetch}
+                                                            />
+                                                        ) : (
+                                                            <span className="text-sm text-[var(--text-secondary)] truncate">{metadata[prop.name] || t('common.empty')}</span>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <input disabled={!isEditor} type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />
                                                 )}
@@ -2791,6 +2831,18 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 </div>
             </div>
             <PageHistory pageId={noteFilename} open={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} onRestore={() => window.location.reload()} />
+            <PageViewModal
+                isOpen={isPageViewModalOpen}
+                onClose={(changed) => {
+                    setIsPageViewModalOpen(false);
+                    setPageViewPreselectedTable('');
+                    if (changed) onRefreshNotes?.();
+                }}
+                pageId={noteFilename}
+                allTables={allTables}
+                apiFetch={apiFetch}
+                preselectedTableId={pageViewPreselectedTable}
+            />
 
             {/* Pickers Portals */}
             <IconPicker 

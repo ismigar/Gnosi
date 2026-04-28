@@ -2,20 +2,36 @@ import React, { useState } from 'react';
 import { Send, Calendar as CalendarIcon, X, AlertTriangle, Loader2 } from 'lucide-react';
 import Scheduler from './Scheduler';
 
+const NETWORK_STYLES = {
+    mastodon: { color: 'bg-purple-600', border: 'border-purple-500/50' },
+    linkedin:  { color: 'bg-blue-700',  border: 'border-blue-600/50' },
+    facebook:  { color: 'bg-blue-600',  border: 'border-blue-500/50' },
+    telegram:  { color: 'bg-sky-400',   border: 'border-sky-400/50' },
+    bluesky:   { color: 'bg-blue-500',  border: 'border-blue-400/50' },
+};
+
 const Composer = () => {
     const [content, setContent] = useState('');
-    const [selectedNetworks, setSelectedNetworks] = useState(['mastodon', 'linkedin']);
+    const [networks, setNetworks] = useState([]);
+    const [selectedNetworks, setSelectedNetworks] = useState([]);
     const [isPosting, setIsPosting] = useState(false);
     const [showScheduler, setShowScheduler] = useState(false);
     const [scheduledTime, setScheduledTime] = useState(null);
 
-    const networks = [
-        { id: 'mastodon', name: 'Mastodon', color: 'bg-purple-600', hover: 'hover:bg-purple-600', border: 'border-purple-500/50', icon: '🐘' },
-        { id: 'linkedin', name: 'LinkedIn', color: 'bg-blue-700', hover: 'hover:bg-blue-700', border: 'border-blue-600/50', icon: '💼' },
-        { id: 'facebook', name: 'Facebook', color: 'bg-blue-600', hover: 'hover:bg-blue-600', border: 'border-blue-500/50', icon: '📘' },
-        { id: 'telegram', name: 'Telegram', color: 'bg-sky-400', hover: 'hover:bg-sky-400', border: 'border-sky-400/50', icon: '✈️' },
-        { id: 'bluesky', name: 'Bluesky', color: 'bg-blue-500', hover: 'hover:bg-blue-500', border: 'border-blue-400/50', icon: '🦋' },
-    ];
+    useEffect(() => {
+        fetch('/api/social/networks')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (!data) return;
+                const enabled = data.filter(n => n.enabled);
+                setNetworks(enabled.map(n => ({
+                    ...n,
+                    ...(NETWORK_STYLES[n.id] || { color: 'bg-zinc-600', border: 'border-zinc-500/50' }),
+                })));
+                setSelectedNetworks(enabled.map(n => n.id));
+            })
+            .catch(() => {});
+    }, []);
 
     const toggleNetwork = (id) => {
         setSelectedNetworks(prev =>

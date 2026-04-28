@@ -15,7 +15,11 @@ export function ForcesSection({
     edgeInfluence = 0,
     onEdgeInfluenceChange = () => { },
     linLogMode = false,
-    onLinLogModeChange = () => { }
+    onLinLogModeChange = () => { },
+    strongGravityMode = false,
+    onStrongGravityModeChange = () => { },
+    outboundAttractionDistribution = false,
+    onOutboundAttractionDistributionChange = () => { }
 }) {
     const sliderStyle = {
         width: '100%',
@@ -63,8 +67,8 @@ export function ForcesSection({
                 <input
                     type="range"
                     min="0"
-                    max="1"
-                    step="0.001"
+                    max="2"
+                    step="0.01"
                     value={gravity}
                     onChange={(e) => onGravityChange(Number(e.target.value))}
                     style={sliderStyle}
@@ -98,8 +102,8 @@ export function ForcesSection({
                 <input
                     type="range"
                     min="1"
-                    max="20"
-                    step="1"
+                    max="10"
+                    step="0.5"
                     value={friction}
                     onChange={(e) => onFrictionChange(Number(e.target.value))}
                     style={sliderStyle}
@@ -117,12 +121,38 @@ export function ForcesSection({
                 <input
                     type="range"
                     min="0"
-                    max="10"
+                    max="2"
                     step="0.1"
                     value={edgeInfluence}
                     onChange={(e) => onEdgeInfluenceChange(Number(e.target.value))}
                     style={sliderStyle}
                 />
+            </div>
+
+            {/* Strong Gravity Mode */}
+            <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
+                <input
+                    type="checkbox"
+                    checked={strongGravityMode}
+                    onChange={(e) => onStrongGravityModeChange(e.target.checked)}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                />
+                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onStrongGravityModeChange(!strongGravityMode)}>
+                    Gravetat forta - <span style={{ fontSize: '0.7rem', color: '#999' }}>Evita que els orfes escapin</span>
+                </label>
+            </div>
+
+            {/* Outbound Attraction Distribution */}
+            <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
+                <input
+                    type="checkbox"
+                    checked={outboundAttractionDistribution}
+                    onChange={(e) => onOutboundAttractionDistributionChange(e.target.checked)}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                />
+                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onOutboundAttractionDistributionChange(!outboundAttractionDistribution)}>
+                    Distribuir atracció per grau - <span style={{ fontSize: '0.7rem', color: '#999' }}>Comprimeix hubs (off = radial tipus Obsidian)</span>
+                </label>
             </div>
 
             <div style={{ fontSize: '0.7rem', color: '#999', marginTop: '8px', fontStyle: 'italic' }}>

@@ -27,6 +27,7 @@ export default function MailPage() {
     const executeUndoRef = useRef(null);
 
     const [identities, setIdentities] = React.useState([]);
+    const [defaultAccount, setDefaultAccount] = React.useState(null);
 
     useEffect(() => {
         fetch('/api/integrations')
@@ -62,7 +63,12 @@ export default function MailPage() {
                 const defaultEmail = data.default_mail;
                 if (defaultEmail) {
                     const defaultAcc = unique.find(a => (a.email || a.username) === defaultEmail);
-                    if (defaultAcc) setSelectedAccount(defaultAcc);
+                    if (defaultAcc) {
+                        setSelectedAccount(defaultAcc);
+                        setDefaultAccount(defaultAcc);
+                    }
+                } else if (unique.length > 0) {
+                    setDefaultAccount(unique[0]);
                 }
             })
             .catch(() => {});
@@ -150,12 +156,11 @@ export default function MailPage() {
         return () => window.removeEventListener('keydown', handler);
     }, []);
 
-    // ── ESC: closes composer or viewer ──
+    // ── ESC: closes viewer (composer handles its own Escape) ──
     useEffect(() => {
         const handler = (e) => {
             if (e.key !== 'Escape') return;
-            if (isComposing) setIsComposing(false);
-            else if (selectedMail) setSelectedMail(null);
+            if (!isComposing && selectedMail) setSelectedMail(null);
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
@@ -229,7 +234,9 @@ export default function MailPage() {
 
     const handleCompose = () => {
         setSelectedMail(null);
-        setComposeData(null);
+        const effectiveAccount = selectedAccount || defaultAccount;
+        const prefix = effectiveAccount?.subject_prefix || '';
+        setComposeData(prefix ? { initialSubject: prefix } : null);
         setIsComposing(true);
     };
 
@@ -239,6 +246,18 @@ export default function MailPage() {
     };
 
     const handleMailSelected = (mail) => {
+        if (mail?.type === 'Draft' && mail?.source === 'vault') {
+            setComposeData({
+                initialTo: mail.recipient || '',
+                initialCc: mail.cc || '',
+                initialSubject: mail.subject === '(Esborrany)' ? '' : (mail.subject || ''),
+                initialBody: mail.body_text || '',
+                _draftId: mail.id,
+            });
+            setSelectedMail(null);
+            setIsComposing(true);
+            return;
+        }
         setIsComposing(false);
         setSelectedMail(mail);
     };
@@ -304,6 +323,7 @@ export default function MailPage() {
                                 accounts={identities}
                                 onClose={() => { setIsComposing(false); setComposeData(null); }}
                                 onSent={() => { setIsComposing(false); setComposeData(null); }}
+                                onDraftSaved={() => setListRefreshToken(t => t + 1)}
                                 {...(composeData || {})}
                             />
                         ) : (
