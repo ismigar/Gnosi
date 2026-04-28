@@ -2,12 +2,20 @@ import os
 import json
 import yaml
 import re
+import hashlib
 import logging
 import networkx as nx
 from pathlib import Path
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from backend.config.app_config import load_params
+
+try:
+    import igraph as ig  # type: ignore
+    _HAS_IGRAPH = True
+except ImportError:
+    ig = None
+    _HAS_IGRAPH = False
 
 # Import suggestion handler (Phase 1 MVP) - DISABLED: No module named 'pipeline.skills.graph_suggestions'
 # from pipeline.skills.graph_suggestions.scripts.graph_suggestion_handler import SuggestionHandler
@@ -53,6 +61,59 @@ def get_markdown_files_efficient(root_path: Path) -> List[Path]:
     return md_files
 
 
+def parse_section_links(content: str) -> dict[str | None, list[str]]:
+    """Extreu wikilinks del cos del .md agrupats per heading.
+
+    Retorna {heading_str: [link, ...], None: [link, ...]}
+    on None = links anteriors al primer heading.
+    Ignora blocs :::gnosi-ignore i ```code``` per no duplicar artefactes Notion.
+    """
+    # Strip frontmatter
+    match = re.match(r'^---\s*\n.*?\n---\s*\n', content, re.DOTALL)
+    body = content[match.end():] if match else content
+
+    sections: dict[str | None, list[str]] = {None: []}
+    current_heading: str | None = None
+    in_ignore = False
+    in_code = False
+
+    for line in body.split("\n"):
+        stripped = line.strip()
+
+        # Track :::gnosi-ignore blocks (Notion artefacts — no compten per al graf)
+        if stripped.startswith(":::gnosi-ignore"):
+            in_ignore = True
+            continue
+        if in_ignore:
+            if stripped == ":::":
+                in_ignore = False
+            continue
+
+        # Track code fences
+        if stripped.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code:
+            continue
+
+        # Detect heading
+        h_match = re.match(r'^(#{1,6})\s+(.+)$', stripped)
+        if h_match:
+            current_heading = h_match.group(2).strip()
+            if current_heading not in sections:
+                sections[current_heading] = []
+            continue
+
+        # Extract wikilinks from this line
+        for raw in re.findall(r'\[\[(.*?)\]\]', line):
+            target = raw.split('|')[0].split('#')[0].strip()
+            if target:
+                bucket = sections.setdefault(current_heading, [])
+                bucket.append(target)
+
+    return sections
+
+
 def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     """Parses a markdown file for YAML frontmatter and body.
 
@@ -92,7 +153,8 @@ class GraphService:
     _ID_TO_PATH_CACHE = {}
     
     # Class-level Layout Cache to avoid recalcing layout if not needed
-    _LAYOUT_CACHE = {} 
+    _LAYOUT_CACHE = {}
+    _LAYOUT_HASH: Optional[str] = None
 
     def __init__(self):
         self.registry = self._load_registry()
@@ -119,6 +181,80 @@ class GraphService:
                 log.error(f"Error loading vault_db_registry.json: {e}")
         
         return {"databases": [], "tables": [], "views": []}
+
+    def _compute_graph_hash(self, G: "nx.Graph") -> str:
+        """Hash estable del graf basat en nodes+edges. Detecta canvis estructurals."""
+        nodes = sorted(str(n) for n in G.nodes())
+        edges = sorted((str(s), str(t)) for s, t in G.edges())
+        payload = json.dumps({"n": nodes, "e": edges}, sort_keys=True).encode()
+        return hashlib.sha256(payload).hexdigest()
+
+    def _compute_layout(self, G: "nx.Graph") -> Dict[str, Tuple[float, float]]:
+        """Calcula posicions amb igraph Fruchterman-Reingold (ràpid, qualitat alta).
+        Falla amb fallback a networkx spring_layout si igraph no està disponible.
+        Retorna dict {node_id: (x, y)} en l'espai original (pre-escalat al render).
+        """
+        n_nodes = G.number_of_nodes()
+        if n_nodes == 0:
+            return {}
+
+        if _HAS_IGRAPH:
+            node_list = list(G.nodes())
+            idx = {n: i for i, n in enumerate(node_list)}
+            # Fem servir NOMÉS edges "link" (wikilinks reals) per al layout, igual que Obsidian.
+            # Els edges "relation" (inferits per tags) creen una xarxa artificialment densa
+            # que col·lapsa tots els nodes en un sol clúster.
+            layout_edges = [
+                (idx[s], idx[t])
+                for s, t, d in G.edges(data=True)
+                if d.get('kind', 'link') == 'link'
+            ]
+            ig_graph = ig.Graph(n=n_nodes, edges=layout_edges)
+            n_iter = max(500, min(3000, n_nodes * 5))
+            import random as _rnd
+            _rnd.seed(42)
+            layout = ig_graph.layout_fruchterman_reingold(niter=n_iter)
+            coords = layout.coords
+            # Normalitzem a un espai fix de 10000 × 10000 centrat a l'origen
+            raw_xs = [float(coords[i][0]) for i in range(n_nodes)]
+            raw_ys = [float(coords[i][1]) for i in range(n_nodes)]
+            xmin, xmax = min(raw_xs), max(raw_xs)
+            ymin, ymax = min(raw_ys), max(raw_ys)
+            xrange = (xmax - xmin) or 1.0
+            yrange = (ymax - ymin) or 1.0
+            CANVAS = 10000.0
+            pos = {
+                node_list[i]: (
+                    (raw_xs[i] - xmin) / xrange * CANVAS - CANVAS / 2,
+                    (raw_ys[i] - ymin) / yrange * CANVAS - CANVAS / 2,
+                )
+                for i in range(n_nodes)
+            }
+        else:
+            log.warning("python-igraph not available; using networkx spring_layout (slower)")
+            pos_raw = nx.spring_layout(G, seed=42, iterations=300)
+            pos = {n: (float(p[0]), float(p[1])) for n, p in pos_raw.items()}
+
+        # Col·loquem nodes orfes (degree 0) en una corona externa al voltant del component connectat.
+        connected = [n for n in G.nodes() if G.degree(n) > 0]
+        orphans = [n for n in G.nodes() if G.degree(n) == 0]
+        if connected and orphans:
+            xs = [pos[n][0] for n in connected]
+            ys = [pos[n][1] for n in connected]
+            cx = sum(xs) / len(xs)
+            cy = sum(ys) / len(ys)
+            half_w = (max(xs) - min(xs)) / 2 or 1.0
+            half_h = (max(ys) - min(ys)) / 2 or 1.0
+            base_r = max(half_w, half_h) * 1.4 + max(half_w, half_h) * 0.3
+            ring_depth = base_r * 0.5
+            import math, random
+            rnd = random.Random(42)
+            for i, node in enumerate(orphans):
+                angle = (i / len(orphans)) * 2 * math.pi + (rnd.random() - 0.5) * 0.2
+                r = base_r + rnd.random() * ring_depth
+                pos[node] = (cx + math.cos(angle) * r, cy + math.sin(angle) * r)
+
+        return pos
 
     def build_unified_graph(self) -> Dict[str, Any]:
         """
@@ -153,18 +289,19 @@ class GraphService:
         registry_nodes = [n for n, d in G.nodes(data=True) if d.get("kind") in ("database", "table", "view")]
         G.remove_nodes_from(registry_nodes)
         
-        # 4. Generate Layout (Reuse if possible, else Spring)
-        new_nodes_set = set(G.nodes())
-        old_nodes_set = set(GraphService._LAYOUT_CACHE.keys())
-        
-        # Si l'estructura no ha canviat, reutilitzem el layout en caché
-        if new_nodes_set == old_nodes_set:
+        # 4. Generate Layout — calculat al backend amb igraph (Fruchterman-Reingold)
+        # Caché per hash de l'estructura del graf (nodes + edges). Si no canvia, no recalcula.
+        graph_hash = self._compute_graph_hash(G)
+        if GraphService._LAYOUT_HASH == graph_hash and GraphService._LAYOUT_CACHE:
+            log.info(f"Reusing cached layout (hash={graph_hash[:8]}, {len(G.nodes())} nodes)")
             pos = GraphService._LAYOUT_CACHE
         else:
-            log.info(f"Structure changed. Assigning random layout for {len(G.nodes())} nodes (ForceAtlas2 s'encarrega al frontend)...")
-            # random_layout és O(n) vs spring_layout O(n²·k). El frontend ja té ForceAtlas2.
-            pos = nx.random_layout(G, seed=42)
+            log.info(f"Computing new layout for {len(G.nodes())} nodes / {len(G.edges())} edges...")
+            t0 = time.time()
+            pos = self._compute_layout(G)
+            log.info(f"Layout computed in {time.time() - t0:.2f}s")
             GraphService._LAYOUT_CACHE = pos
+            GraphService._LAYOUT_HASH = graph_hash
             
         nodes = []
         for node_id in G.nodes():
@@ -174,8 +311,8 @@ class GraphService:
                 "id": node_id,
                 "key": node_id,
                 "label": attrs.get("label", node_id),
-                "x": float(pos[node_id][0]) * 1000,
-                "y": float(pos[node_id][1]) * 1000,
+                "x": float(pos[node_id][0]),
+                "y": float(pos[node_id][1]),
                 "size": attrs.get("size", 10),
                 "color": attrs.get("color", COLOR_PALETTE.get(attrs.get("kind"), COLOR_PALETTE["default"])),
                 "kind": attrs.get("kind", "page"),
@@ -358,10 +495,10 @@ class GraphService:
                     status = str(metadata.get("estat") or metadata.get("status") or "").lower()
                     if "idea" in status: color = "#fcd34d"
 
-                    # PRE-EXTRACT WIKILINKS (Save for later pass to avoid double read)
-                    wiki_links = re.findall(r'\[\[(.*?)\]\]', raw_content)
-                    md_links = re.findall(r'\[.*?\]\((.*?)\)', raw_content)
-                    all_links = list(set(wiki_links + md_links))
+                    # PRE-EXTRACT WIKILINKS per secció (evita re-lectura al pas d'edges)
+                    section_links = parse_section_links(raw_content)
+                    # Flat list per compatibilitat backward
+                    all_links = list({lnk for links in section_links.values() for lnk in links})
 
                     # Update Cache
                     cache_entry = {
@@ -372,7 +509,8 @@ class GraphService:
                         "color": color,
                         "size": 8 + min(len(body) // 1000, 10),
                         "metadata": metadata,
-                        "links": all_links
+                        "links": all_links,
+                        "section_links": section_links,
                     }
                     GraphService._NODE_DATA_CACHE[path_str] = cache_entry
                 except Exception as e:
@@ -410,7 +548,9 @@ class GraphService:
                 "tags": metadata.get("tags", []),
                 "metadata": metadata,
                 "path": file_path,
-                "links": cache_entry["links"]
+                "links": cache_entry["links"],
+                "section_links": cache_entry.get("section_links", {}),
+                "table_id": inferred_table_id,
             })
                 
         return page_nodes
@@ -527,23 +667,72 @@ class GraphService:
                             G.add_edge(node_id, t_id, kind="relation", color="#6366f1", size=1.5)
 
         # 2. Wikipedia-style links from cached link data (NO NEW FILE READS!)
+        # Títols genèrics de Notion que NO han de ser hubs (artefactes d'exportació)
+        GENERIC_TITLES = {"untitled", "sense títol", "sin título", "new page", "nova pàgina"}
+
+        # Pre-build O(1) lookup indexes before iterating links
+        label_to_id: dict[str, str] = {}   # lowercase label → node_id
+        stem_to_id: dict[str, str] = {}    # lowercase path stem → node_id
+        for n_id, n_attrs in G.nodes(data=True):
+            label = str(n_attrs.get("label") or "").strip().lower()
+            if label and label not in GENERIC_TITLES:
+                label_to_id.setdefault(label, n_id)
+            node_path = n_attrs.get("path", "")
+            if node_path:
+                stem = Path(node_path).stem.lower()
+                if stem not in GENERIC_TITLES:
+                    stem_to_id.setdefault(stem, n_id)
+
+        # Pre-build table_id → {heading: section_config} per classificar edges
+        table_sections_map: dict[str, dict[str, dict]] = {}
+        for table in self.registry.get("tables", []):
+            sections = table.get("sections", [])
+            if sections:
+                table_sections_map[table["id"]] = {
+                    s["heading"]: s
+                    for s in sections
+                    if s.get("type") == "db_view"
+                }
+
+        def resolve_link(target_label: str):
+            target_key = target_label.split('|')[0].split('#')[0].strip()
+            target_lower = target_key.lower()
+            if G.has_node(target_key):
+                return target_key
+            return label_to_id.get(target_lower) or stem_to_id.get(target_lower)
+
         for page in page_nodes:
             node_id = page["id"]
-            links = page.get("links") or []
-            
-            for target_label in links:
-                # Handle [[WikiLinks]] and [markdown](id)
-                target_ref = target_label.split('|')[0]
-                target_key = target_ref.split('#')[0].strip()
-                
-                if G.has_node(target_key):
-                    G.add_edge(node_id, target_key, kind="link", color="#10b981", size=1.2)
-                else:
-                    # Match by title
-                    for n_id, n_attrs in G.nodes(data=True):
-                        if str(n_attrs.get("label") or "").strip() == target_key:
-                            G.add_edge(node_id, n_id, kind="link", color="#10b981", size=1.2)
-                            break
+            table_id = page.get("table_id") or G.nodes[node_id].get("table_id")
+            db_view_headings = table_sections_map.get(table_id, {}) if table_id else {}
+
+            section_links = page.get("section_links") or {}
+
+            # Processa primer les seccions db_view per garantir kind='relation' si hi ha conflicte
+            ordered_headings = sorted(
+                section_links.keys(),
+                key=lambda h: (0 if h in db_view_headings else 1),
+            )
+
+            for heading in ordered_headings:
+                links = section_links[heading]
+                is_db_view = heading in db_view_headings
+
+                for target_label in links:
+                    resolved = resolve_link(target_label)
+                    if not resolved or resolved == node_id or not G.has_node(resolved):
+                        continue
+                    if G.has_edge(node_id, resolved):
+                        # Si ja existeix com a link simple però ara és db_view, promou-lo
+                        if is_db_view and G.edges[node_id, resolved].get("kind") == "link":
+                            G.edges[node_id, resolved]["kind"] = "relation"
+                            G.edges[node_id, resolved]["color"] = "#6366f1"
+                            G.edges[node_id, resolved]["size"] = 1.5
+                        continue
+                    if is_db_view:
+                        G.add_edge(node_id, resolved, kind="relation", color="#6366f1", size=1.5)
+                    else:
+                        G.add_edge(node_id, resolved, kind="link", color="#10b981", size=1.2)
 
     
     def _add_suggestion_edges(self, G: nx.Graph):

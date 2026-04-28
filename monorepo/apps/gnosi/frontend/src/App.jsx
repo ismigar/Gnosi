@@ -4,9 +4,7 @@ import { AppSidebar } from './components/AppSidebar';
 import GraphPage from './pages/GraphPage';
 import Dashboard from './pages/Dashboard';
 import SocialDashboard from './pages/SocialDashboard';
-import ContentCalendar from './pages/ContentCalendar';
 import CalendarPage from './pages/CalendarPage';
-import PostHistory from './pages/PostHistory';
 import VaultDashboard from './pages/VaultDashboard';
 import ReaderDashboard from './pages/ReaderDashboard';
 import HomePage from './pages/HomePage';
@@ -52,8 +50,6 @@ function App() {
           <Route path="/scheduler" element={<SchedulerPage />} />
           <Route path="/composer" element={<ComposerPage />} />
           <Route path="/social-dashboard" element={<SocialDashboard />} />
-          <Route path="/social/calendar" element={<ContentCalendar />} />
-          <Route path="/social/history" element={<PostHistory />} />
           <Route path="/media" element={<MediaCenter />} />
           <Route path="/contacts" element={<ContactsPage />} />
         </Routes>

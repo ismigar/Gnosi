@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -9,8 +9,23 @@ import html
 import re
 
 from backend.services.social_clients import mastodon_client, bluesky_client
+from backend.services.integration_manager import integration_manager
 
 log = logging.getLogger(__name__)
+
+DEFAULT_STREAMS = [
+    {"id": "mastodon-home", "title": "Mastodon Home", "icon": "🐘", "network": "mastodon"},
+    {"id": "bluesky-home", "title": "Bluesky Home", "icon": "🦋", "network": "bluesky"},
+    {"id": "scheduled", "title": "Programats", "icon": "📅", "network": "scheduled"},
+]
+
+DEFAULT_NETWORKS = [
+    {"id": "mastodon", "name": "Mastodon", "icon": "🐘", "enabled": True},
+    {"id": "bluesky",  "name": "Bluesky",  "icon": "🦋", "enabled": True},
+    {"id": "linkedin", "name": "LinkedIn", "icon": "💼", "enabled": True},
+    {"id": "facebook", "name": "Facebook", "icon": "📘", "enabled": False},
+    {"id": "telegram", "name": "Telegram", "icon": "✈️", "enabled": False},
+]
 
 router = APIRouter()
 
@@ -72,12 +87,34 @@ def strip_html(text: str) -> str:
 
 @router.get("/streams", response_model=List[Stream])
 async def get_streams():
-    """Returns the configured streams/columns."""
-    return [
-        {"id": "mastodon-home", "title": "Mastodon Home", "icon": "🐘", "network": "mastodon"},
-        {"id": "bluesky-home", "title": "Bluesky Home", "icon": "🦋", "network": "bluesky"},
-        {"id": "scheduled", "title": "Scheduled", "icon": "📅", "network": "scheduled"},
-    ]
+    """Returns the user-configured streams/columns."""
+    config = integration_manager._load()
+    return config.get("social_streams", DEFAULT_STREAMS)
+
+
+@router.put("/streams")
+async def update_streams(payload: List[dict] = Body(...)):
+    """Saves the user's stream configuration."""
+    config = integration_manager._load()
+    config["social_streams"] = payload
+    integration_manager._save(config)
+    return {"status": "ok"}
+
+
+@router.get("/networks")
+async def get_networks():
+    """Returns the user-configured social networks."""
+    config = integration_manager._load()
+    return config.get("social_networks", DEFAULT_NETWORKS)
+
+
+@router.put("/networks")
+async def update_networks(payload: List[dict] = Body(...)):
+    """Saves the enabled/disabled state of social networks."""
+    config = integration_manager._load()
+    config["social_networks"] = payload
+    integration_manager._save(config)
+    return {"status": "ok"}
 
 @router.get("/feed/{stream_id}")
 async def get_feed(stream_id: str, limit: int = 20):

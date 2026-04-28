@@ -1,6 +1,65 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { X, Columns2, Plus, Search, FileText, LayoutPanelLeft } from 'lucide-react';
+import {
+    DndContext, closestCenter, PointerSensor, KeyboardSensor,
+    useSensor, useSensors
+} from '@dnd-kit/core';
+import {
+    SortableContext, horizontalListSortingStrategy,
+    useSortable, arrayMove, sortableKeyboardCoordinates
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortableDocTab({ tab, isActive, isSplit, canSplit, onTabSelect, onTabClose, onToggleSplit }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
+
+    let tabClasses = "w-[184px] flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ";
+    if (isActive) {
+        tabClasses += "border-[var(--gnosi-blue)] text-[var(--gnosi-blue)] bg-[var(--bg-primary)] shadow-sm";
+    } else if (isSplit) {
+        tabClasses += "border-purple-400 text-purple-700 bg-purple-50/10";
+    } else {
+        tabClasses += "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]";
+    }
+
+    return (
+        <div
+            ref={setNodeRef}
+            {...attributes}
+            {...listeners}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.5 : 1,
+                zIndex: isDragging ? 100 : 1,
+            }}
+            className={tabClasses + " group cursor-pointer select-none flex-shrink-0"}
+            onClick={() => onTabSelect(tab.id)}
+            title={tab.title || 'Sense Títol'}
+        >
+            <span className="truncate flex-1 min-w-0" title={tab.title || 'Sense Títol'}>{tab.title || 'Sense Títol'}</span>
+            <div className="flex items-center ml-1">
+                {!isActive && canSplit && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onToggleSplit(tab.id); }}
+                        className={`p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${isSplit ? 'text-purple-600 bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-50/20'}`}
+                        title={isSplit ? "Treure de la vista paral·lela" : "Obrir en paral·lel"}
+                    >
+                        <Columns2 size={14} />
+                    </button>
+                )}
+                <button
+                    onClick={(e) => { e.stopPropagation(); onTabClose(tab.id); }}
+                    className="p-1 rounded text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50/10 transition-colors"
+                    title="Tancar pestanya"
+                >
+                    <X size={14} />
+                </button>
+            </div>
+        </div>
+    );
+}
 
 export function VaultDocumentTabs({
     tabs,
@@ -9,6 +68,7 @@ export function VaultDocumentTabs({
     onTabSelect,
     onTabClose,
     onToggleSplit,
+    onReorderTabs,
     quickOpenItems = [],
     onQuickOpenItem,
     onQuickOpenParallel
@@ -28,6 +88,20 @@ export function VaultDocumentTabs({
     const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
     const quickOpenShortcutLabel = isMac ? 'Cmd+T' : 'Ctrl+T';
     const tabJumpShortcutLabel = isMac ? 'Cmd+1..9' : 'Ctrl+1..9';
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleDragEnd = (event) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id && onReorderTabs) {
+            const oldIndex = normalizedTabs.findIndex(t => t.id === active.id);
+            const newIndex = normalizedTabs.findIndex(t => t.id === over.id);
+            onReorderTabs(arrayMove(normalizedTabs, oldIndex, newIndex));
+        }
+    };
 
     const isEditableTarget = React.useCallback((target) => {
         if (!(target instanceof HTMLElement)) return false;
@@ -215,50 +289,22 @@ export function VaultDocumentTabs({
 
     return (
         <div className="relative flex items-center gap-1 overflow-x-auto px-4 pt-1 pb-0 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] shrink-0">
-            {normalizedTabs.map(tab => {
-                const isActive = tab.id === activeTabId;
-                const isSplit = splitSet.has(tab.id);
-                const canSplit = !tab.isTable;
-
-                let tabClasses = "w-[184px] flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ";
-                if (isActive) {
-                    tabClasses += "border-[var(--gnosi-blue)] text-[var(--gnosi-blue)] bg-[var(--bg-primary)] shadow-sm";
-                } else if (isSplit) {
-                    tabClasses += "border-purple-400 text-purple-700 bg-purple-50/10";
-                } else {
-                    tabClasses += "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]";
-                }
-
-                return (
-                    <div
-                        key={tab.id}
-                        className={tabClasses + " group cursor-pointer select-none flex-shrink-0"}
-                        onClick={() => onTabSelect(tab.id)}
-                        title={tab.title || 'Sense Títol'}
-                    >
-                        <span className="truncate flex-1 min-w-0" title={tab.title || 'Sense Títol'}>{tab.title || 'Sense Títol'}</span>
-
-                        <div className="flex items-center ml-1">
-                            {!isActive && canSplit && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onToggleSplit(tab.id); }}
-                                    className={`p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${isSplit ? 'text-purple-600 bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-50/20'}`}
-                                    title={isSplit ? "Treure de la vista paral·lela" : "Obrir en paral·lel"}
-                                >
-                                    <Columns2 size={14} />
-                                </button>
-                            )}
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onTabClose(tab.id); }}
-                                className="p-1 rounded text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50/10 transition-colors"
-                                title="Tancar pestanya"
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
-                    </div>
-                );
-            })}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={normalizedTabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
+                    {normalizedTabs.map(tab => (
+                        <SortableDocTab
+                            key={tab.id}
+                            tab={tab}
+                            isActive={tab.id === activeTabId}
+                            isSplit={splitSet.has(tab.id)}
+                            canSplit={!tab.isTable}
+                            onTabSelect={onTabSelect}
+                            onTabClose={onTabClose}
+                            onToggleSplit={onToggleSplit}
+                        />
+                    ))}
+                </SortableContext>
+            </DndContext>
 
             <button
                 ref={plusButtonRef}

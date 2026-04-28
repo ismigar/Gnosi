@@ -115,7 +115,7 @@ export function AppSidebar() {
                                 `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                             }
                         >
-                            <Icon size={18} strokeWidth={1.5} />
+                            <Icon size={16} strokeWidth={1.5} />
                             <span className="app-sidebar__tooltip">{label}</span>
                         </NavLink>
                     ))}
@@ -130,7 +130,7 @@ export function AppSidebar() {
                             `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                         }
                     >
-                        <Gauge size={18} strokeWidth={1.5} />
+                        <Gauge size={16} strokeWidth={1.5} />
                         <span className="app-sidebar__tooltip">Control</span>
                     </NavLink>
                     <button
@@ -138,7 +138,7 @@ export function AppSidebar() {
                         title="Configuració"
                         onClick={() => setSettingsOpen(true)}
                     >
-                        <Settings size={18} strokeWidth={1.5} />
+                        <Settings size={16} strokeWidth={1.5} />
                         <span className="app-sidebar__tooltip">Config</span>
                     </button>
 

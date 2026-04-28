@@ -11,6 +11,7 @@
     z-index: var(--z-modal);
     display: none;
     opacity: 0;
+    pointer-events: none;
     transition: all 0.3s ease;
 }
 
@@ -50,12 +51,14 @@
 
 .settings-inner {
     display: flex;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
 }
 
 /* Sidebar */
 .settings-sidebar {
     width: 280px;
+    min-height: 0;
     background: var(--settings-sidebar-bg);
     border-right: 1px solid var(--settings-border);
     padding: 40px 20px;
@@ -63,6 +66,7 @@
     flex-direction: column;
     gap: 6px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     outline: none;
 }
 
@@ -112,8 +116,10 @@
 /* Main Content */
 .settings-main {
     flex: 1;
+    min-height: 0;
     padding: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     background: var(--settings-bg);
     position: relative;
     scroll-behavior: smooth;

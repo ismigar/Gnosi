@@ -74,6 +74,7 @@ export function AddressInput({ value, onChange, label, placeholder, accountEmail
                 placeholder={placeholder}
                 value={value}
                 onChange={handleChange}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                 onFocus={() => { if (suggestions.length > 0 || groupSuggestions.length > 0) setShowDropdown(true); }}
                 onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
             />

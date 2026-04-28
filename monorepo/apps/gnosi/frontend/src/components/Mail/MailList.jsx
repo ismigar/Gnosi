@@ -35,6 +35,24 @@ function lsSet(key, messages) {
     } catch { /* quota exceeded */ }
 }
 
+function lsPurgeIds(ids) {
+    const idSet = new Set(ids);
+    try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const lsKey = localStorage.key(i);
+            if (!lsKey?.startsWith(LS_PREFIX)) continue;
+            const raw = localStorage.getItem(lsKey);
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed?.m)) continue;
+            const filtered = parsed.m.filter(m => !idSet.has(m.id));
+            if (filtered.length !== parsed.m.length) {
+                localStorage.setItem(lsKey, JSON.stringify({ m: filtered, ts: parsed.ts }));
+            }
+        }
+    } catch { /* quota */ }
+}
+
 const DEFAULT_CONFIG = {
     sortBy: 'date',
     sortDir: 'desc',
@@ -64,6 +82,8 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     const sentinelRef = useRef(null);
     const listRef = useRef(null);
     const flatMessagesRef = useRef([]);
+    const isComposingRef = useRef(isComposing);
+    useEffect(() => { isComposingRef.current = isComposing; });
     const [focusedIndex, setFocusedIndex] = useState(-1);
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false });
     const [moveMenu, setMoveMenu] = useState(null); // { x, y, msg, folders }
@@ -238,10 +258,10 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         setMessages(prev => {
             const threadId = prev.find(m => m.id === removedMailId)?.thread_id;
             const filtered = filterOutThread(prev, removedMailId, threadId);
-            // Neteja la caché perquè els missatges no reapareguin en navegar
             Object.keys(msgCacheRef.current).forEach(key => {
                 msgCacheRef.current[key] = filterOutThread(msgCacheRef.current[key], removedMailId, threadId);
             });
+            lsPurgeIds([removedMailId]);
             return filtered;
         });
     }, [removedMailId]);
@@ -278,9 +298,12 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
+            if (isComposingRef.current) return;
             const active = document.activeElement;
-            if (['INPUT', 'TEXTAREA'].includes(active.tagName)) return;
-            if (active.isContentEditable) return;
+            const isInteractive = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(active.tagName) || active.isContentEditable;
+            // Delete/Backspace: permet actuar si hi ha selecció encara que el focus sigui en un checkbox
+            const isDeleteKey = e.key === 'Delete' || e.key === 'Backspace';
+            if (isInteractive && !(isDeleteKey && selectedIds.size > 0)) return;
             const flat = flatMessagesRef.current;
 
             const viewer = document.querySelector('[data-role="mail-viewer-scroll"]');
@@ -326,6 +349,14 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedIds, messages, focusedIndex]);
+
+    const purgeMsgFromCache = (msgId, threadId) => {
+        const idsToRemove = [msgId];
+        Object.keys(msgCacheRef.current).forEach(key => {
+            msgCacheRef.current[key] = filterOutThread(msgCacheRef.current[key], msgId, threadId);
+        });
+        lsPurgeIds(idsToRemove);
+    };
 
     const handleBatchActionWithConfirm = (action) => {
         if (selectedIds.size === 0) return;
@@ -721,12 +752,19 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             }).catch(() => {});
         } else if (action === 'archive') {
             setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
+            purgeMsgFromCache(msg.id, msg.thread_id);
             onRecordAction?.('archive', msg.id, effectiveEmail, { imap_uid: msg.imap_uid, imap_folder: msg.imap_folder });
             await fetch(`/api/mail/messages/${msg.id}/archive?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
         } else if (action === 'trash') {
             setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
+            purgeMsgFromCache(msg.id, msg.thread_id);
             onRecordAction?.('trash', msg.id, effectiveEmail, { imap_uid: msg.imap_uid, imap_folder: msg.imap_folder });
-            await fetch(`/api/mail/messages/${msg.id}/trash?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
+            if (msg.source === 'vault') {
+                await fetch(`/api/mail/drafts/${msg.id}`, { method: 'DELETE' }).catch(() => {});
+                onBatchDone?.();
+            } else {
+                await fetch(`/api/mail/messages/${msg.id}/trash?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
+            }
         }
     };
 
@@ -737,33 +775,70 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         // Optimistic UI: update/remove immediately
         if (action === 'trash' || action === 'archive') {
             setMessages(prev => prev.filter(m => !selectedIds.has(m.id)));
+            // Purga la caché perquè no reapareguin en recarregar
+            Object.keys(msgCacheRef.current).forEach(key => {
+                msgCacheRef.current[key] = msgCacheRef.current[key].filter(m => !selectedIds.has(m.id));
+            });
+            lsPurgeIds(ids);
         } else if (action === 'read') {
             setMessages(prev => prev.map(m => selectedIds.has(m.id) ? { ...m, is_read: true } : m));
         }
         setSelectedIds(new Set());
 
-        // Group by account when in "all accounts" mode
-        const emailsToCall = account?.email
-            ? [{ email: account.email, ids }]
-            : Object.values(
-                messages
-                    .filter(m => ids.includes(m.id))
-                    .reduce((acc, m) => {
-                        const em = m.account_email || m.account;
-                        if (!em) return acc;
-                        if (!acc[em]) acc[em] = { email: em, ids: [] };
-                        acc[em].ids.push(m.id);
-                        return acc;
-                    }, {})
-            );
+        if (action === 'trash' || action === 'archive') {
+            // Esborranys vault: crida l'endpoint específic de cada un
+            const vaultIds = messages.filter(m => ids.includes(m.id) && m.source === 'vault').map(m => m.id);
+            const imapIds = ids.filter(id => !vaultIds.includes(id));
 
-        await Promise.all(emailsToCall.map(({ email, ids: groupIds }) =>
-            fetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, ids: groupIds }),
-            }).catch(() => {})
-        ));
+            await Promise.all([
+                ...vaultIds.map(id => fetch(`/api/mail/drafts/${id}`, { method: 'DELETE' }).catch(() => {})),
+                ...(() => {
+                    if (!imapIds.length) return [];
+                    const emailsToCall = account?.email
+                        ? [{ email: account.email, ids: imapIds }]
+                        : Object.values(
+                            messages
+                                .filter(m => imapIds.includes(m.id))
+                                .reduce((acc, m) => {
+                                    const em = m.account_email || m.account;
+                                    if (!em) return acc;
+                                    if (!acc[em]) acc[em] = { email: em, ids: [] };
+                                    acc[em].ids.push(m.id);
+                                    return acc;
+                                }, {})
+                        );
+                    return emailsToCall.map(({ email, ids: groupIds }) =>
+                        fetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action, ids: groupIds }),
+                        }).catch(() => {})
+                    );
+                })(),
+            ]);
+        } else {
+            // Per 'read' i altres accions, crida batch genèric
+            const emailsToCall = account?.email
+                ? [{ email: account.email, ids }]
+                : Object.values(
+                    messages
+                        .filter(m => ids.includes(m.id))
+                        .reduce((acc, m) => {
+                            const em = m.account_email || m.account;
+                            if (!em) return acc;
+                            if (!acc[em]) acc[em] = { email: em, ids: [] };
+                            acc[em].ids.push(m.id);
+                            return acc;
+                        }, {})
+                );
+            await Promise.all(emailsToCall.map(({ email, ids: groupIds }) =>
+                fetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ids: groupIds }),
+                }).catch(() => {})
+            ));
+        }
         onBatchDone?.();
     };
 

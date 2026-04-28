@@ -10,7 +10,8 @@ import { VaultSidebar } from '../components/Vault/VaultSidebar';
 import { VaultTabs } from '../components/Vault/VaultTabs';
 import { VaultTable } from '../components/Vault/VaultTable';
 import { VaultKanban } from '../components/Vault/VaultKanban';
-import { BlockEditor, inFlightSaves } from '../components/Vault/BlockEditor';
+import { BlockEditor } from '../components/Vault/BlockEditor';
+import { inFlightSaves } from '../components/Vault/editorState';
 import { SchemaConfigModal } from '../components/Vault/SchemaConfigModal';
 import { ViewConfigModal } from '../components/Vault/ViewConfigModal';
 import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
@@ -37,6 +38,8 @@ export default function VaultDashboard() {
     const { "*": nestedPath } = useParams();
 
     const [pages, setPages] = useState([]);
+    const pagesRef = useRef([]);
+    const viewCreationInProgressRef = useRef(new Set());
     const [tabs, setTabs] = useState([]);
     const [activeTabId, setActiveTabId] = useState(null);
     const [codeViewByTabId, setCodeViewByTabId] = useState({});
@@ -306,7 +309,7 @@ export default function VaultDashboard() {
             }
         });
         const dedupedPages = Array.from(uniquePagesMap.values());
-        
+        pagesRef.current = dedupedPages;
         setPages(dedupedPages);
 
         if (activeTableId) {
@@ -380,12 +383,16 @@ export default function VaultDashboard() {
             setLoading(false);
             return res.data;
         } catch (err) {
+            if (isAbortLikeError(err) && attempt < 2) {
+                setTimeout(() => fetchPages(attempt + 1), 400 * (attempt + 1));
+                return [];
+            }
             console.error(err);
             toast.error(t('errors.load_pages'));
             setLoading(false);
             return [];
         }
-    }, [syncPagesState]);
+    }, [syncPagesState, isAbortLikeError]);
 
     const fetchRegistry = useCallback(async (attempt = 0) => {
         if (attempt === 0) {
@@ -450,7 +457,7 @@ export default function VaultDashboard() {
         }
     }, [isAbortLikeError, resolvePageTableId, shouldIncludeTableRecord]);
 
-    const loadPage = useCallback(async (pageId, fromHistory = false) => {
+    const loadPage = useCallback(async (pageId, fromHistory = false, attempt = 0) => {
         try {
             if (!pageId) return;
             const tabId = pageId;
@@ -476,13 +483,16 @@ export default function VaultDashboard() {
                 metadata: pageData.metadata || {},
                 isTable: false
             };
-            setTabs(prev => [...prev, newTab]);
+            setTabs(prev => (prev.some(t => t.id === newTab.id) ? prev : [...prev, newTab]));
             setActiveTabId(tabId);
             setViewMode('editor');
             setActiveTableId(null);
             if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
         } catch (err) {
-            if (isAbortLikeError(err)) return;
+            if (isAbortLikeError(err) && attempt < 2) {
+                setTimeout(() => loadPage(pageId, fromHistory, attempt + 1), 400);
+                return;
+            }
             console.error("Error carregant la pàgina:", err);
             toast.error(t('errors.load_page'));
         }
@@ -820,11 +830,12 @@ export default function VaultDashboard() {
             if (table && table.id !== activeTableId) {
                 handleTableSelect(table.id, null, true);
             } else if (!table) {
-                const page = pages.find(p => p.id === id);
+                const page = pagesRef.current.find(p => p.id === id);
                 if (page) loadPage(page.id, true);
             }
         }
-    }, [nestedPath, registry.tables, pages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nestedPath, registry.tables]);
 
     useEffect(() => {
         const refreshActiveTable = () => {
@@ -847,6 +858,15 @@ export default function VaultDashboard() {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [activeTableId, fetchPagesByTable]);
+
+    // Sincronitzar tableNotes quan el snapshot del servidor s'actualitza (p.ex. després d'una eliminació)
+    useEffect(() => {
+        if (!activeTableId) return;
+        const freshNotes = visibleTableRecordsById[activeTableId];
+        if (freshNotes !== undefined) {
+            setTableNotes(freshNotes);
+        }
+    }, [activeTableId, visibleTableRecordsById]);
 
     // Keyboard listeners for Cmd+K / Ctrl+K and Escape
     useEffect(() => {
@@ -898,6 +918,19 @@ export default function VaultDashboard() {
     }, []);
 
     const handleTableSelect = useCallback(async (tableId, viewId = null, fromHistory = false) => {
+        // Si ja hi ha una pestanya de taula oberta, canviar el focus a ella
+        const existingTableTab = tabs.find(t => t.isTable && getTableIdFromTab(t) === tableId);
+        if (existingTableTab) {
+            if (!fromHistory) pushToHistory({ type: 'table', id: tableId, subId: viewId });
+            setActiveTabId(existingTableTab.id);
+            setActiveTableId(tableId);
+            setViewMode('editor');
+            if (viewId) setActiveViewId(viewId);
+            return;
+        }
+        // Si la taula ja és la vista activa inline i no hi ha canvi de vista, no fer res
+        if (!fromHistory && activeTableId === tableId && !viewId) return;
+
         if (!fromHistory) {
             pushToHistory({ type: 'table', id: tableId, subId: viewId });
         }
@@ -936,9 +969,9 @@ export default function VaultDashboard() {
         }
         // Instant migration of old tables to views system
         // If no views exist for this table, create a default one
-        if (tableViews.length === 0) {
+        if (tableViews.length === 0 && !viewCreationInProgressRef.current.has(tableId)) {
             const defaultId = uuidv4();
-            // setActiveViewId(defaultId); // This is now handled by the 'default' above
+            viewCreationInProgressRef.current.add(tableId);
             axios.post(`/api/vault/views`, {
                 id: defaultId,
                 table_id: tableId,
@@ -947,9 +980,10 @@ export default function VaultDashboard() {
                 sort: { field: "last_modified", direction: "desc" },
                 filters: [],
                 is_main: true,
-            }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creating view:", err));
+            }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creating view:", err))
+              .finally(() => viewCreationInProgressRef.current.delete(tableId));
         }
-    }, [pushToHistory, setActiveTableId, setViewMode, setActiveTabId, resolvePageTableId, getTableVisibleRecords, setTableNotes, pages, setTableTemplates, fetchPagesByTable, registry.tables, registry.views, getSchemaFromTableId, setViews, setActiveViewId, getPreferredInitialViewId, fetchRegistry]);
+    }, [pushToHistory, setActiveTableId, setViewMode, setActiveTabId, resolvePageTableId, getTableVisibleRecords, setTableNotes, pages, setTableTemplates, fetchPagesByTable, registry.tables, registry.views, getSchemaFromTableId, setViews, setActiveViewId, getPreferredInitialViewId, fetchRegistry, tabs, getTableIdFromTab, activeTableId]);
 
     const focusPageTab = useCallback((pageId) => {
         setActiveTabId(pageId);
@@ -1421,7 +1455,7 @@ export default function VaultDashboard() {
                 });
                 setActiveTabId(drawingId);
                 setViewMode('drawing');
-                setTabs(prev => [...prev, { id: drawingId, title: title, isDrawing: true }]);
+                setTabs(prev => (prev.some(t => t.id === drawingId) ? prev : [...prev, { id: drawingId, title: title, isDrawing: true }]));
             } else if (isDatabase && databaseId) {
                 // Taula dins d'una Database (App)
                 const tableRes = await axios.post('/api/vault/tables', {
@@ -1475,8 +1509,9 @@ export default function VaultDashboard() {
             
             // Actualitzem l'estat local immediatament
             setPages(prev => prev.filter(page => page.id !== id));
+            setTableNotes(prev => prev.filter(note => note.id !== id));
             toast.success(t('success.page_deleted') || "Pàgina eliminada");
-            
+
             // Tanquem el tab i gestionem la navegació
             handleTabClose(id);
             
@@ -1519,6 +1554,7 @@ export default function VaultDashboard() {
         );
 
         setPages(prev => prev.filter(p => !idArray.includes(p.id)));
+        setTableNotes(prev => prev.filter(p => !idArray.includes(p.id)));
         idArray.forEach(id => handleTabClose(id));
 
         setUndoStack(prev => [...prev, { type: 'delete', items: deletedItems }]);
@@ -2070,6 +2106,7 @@ export default function VaultDashboard() {
                                     onNoteSelect={loadPage}
                                     schema={paneSchema}
                                     idToTitle={globalIndex}
+                                    allNotes={pages}
                                     activeView={cv}
                                     onUpdateView={handleUpdateView}
                                     isListView={cv.type === 'list'}
@@ -2272,6 +2309,7 @@ export default function VaultDashboard() {
                                 onNoteSelect={loadPage}
                                 schema={paneSchema}
                                 idToTitle={globalIndex}
+                                allNotes={pages}
                                 activeView={cv}
                                 onUpdateView={handleUpdateView}
                                 isListView={cv.type === 'list'}
@@ -2363,6 +2401,7 @@ export default function VaultDashboard() {
                                 handleOpenParallel(item.id);
                             }
                         }}
+                        onReorderTabs={(reordered) => setTabs(reordered)}
                     />
                 )}
 
@@ -2581,6 +2620,7 @@ export default function VaultDashboard() {
                                             onNoteSelect={loadPage}
                                             schema={schema}
                                             idToTitle={globalIndex}
+                                            allNotes={pages}
                                             activeView={cv}
                                             onUpdateView={handleUpdateView}
                                             isListView={cv.type === 'list'}

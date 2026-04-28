@@ -53,11 +53,12 @@ from backend.services.media_service import media_service
 def get_p(key: str) -> Path:
     from backend.services.context_vars import get_active_vault_path
     base = get_active_vault_path()
-    
+
     # Mapping of standard sub-folders
     mapping = {
         "VAULT": base,
         "ASSETS": base / "Assets",
+        "BIBLIOTECA": base.parent / "Biblioteca",
         "DATABASES": base / "BD",
         # The REGISTRY is now a file inside BD
         "REGISTRY": base / "BD" / "vault_db_registry.json",
@@ -2566,11 +2567,23 @@ async def import_icon_from_url(request: IconUrlImportRequest):
 
 
 @router.post("/assets/upload")
-async def upload_asset(file: UploadFile = File(...)):
-    """Puja una imatge o PDF a Assets/Inline o Assets/Files i retorna la URL."""
+async def upload_asset(file: UploadFile = File(...), table_id: Optional[str] = Query(None)):
+    """Puja una imatge o PDF a Assets/Inline o Assets/Files i retorna la URL.
+    Si s'indica table_id, desa a Assets/<DB>/<Taula>/Inline/ o .../Files/.
+    """
     is_image = _is_image_upload(file)
     subdir = "Inline" if is_image else "Files"
-    target_dir = get_p("ASSETS") / subdir
+
+    if table_id:
+        registry = load_registry()
+        table, database = _resolve_table_and_database_for_assets(table_id, registry)
+        if table:
+            target_dir = _table_assets_dir(table, database) / subdir
+        else:
+            target_dir = get_p("ASSETS") / subdir
+    else:
+        target_dir = get_p("ASSETS") / subdir
+
     try:
         relative_path = _save_uploaded_file_to_assets(file, target_dir)
     except Exception as e:
@@ -2712,13 +2725,47 @@ async def save_custom_icons(request: CustomIconsRequest):
     return {"icons": saved}
 
 
+def _resolve_storage_dir(storage_folder: str, table, database, property_name: str) -> tuple[Path, str]:
+    """Resolve the target directory and URL prefix based on storage_folder config.
+
+    Returns (target_dir, url_prefix_type) where url_prefix_type is 'assets' or 'absolute'.
+    """
+    if storage_folder == "biblioteca":
+        biblioteca = get_p("BIBLIOTECA")
+        biblioteca.mkdir(parents=True, exist_ok=True)
+        return biblioteca, "absolute"
+    # Default: assets (nested per DB/Table/Property)
+    return _property_assets_dir(table, database, property_name), "assets"
+
+
+def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict:
+    """Build the API response dict for a saved/linked file."""
+    if url_prefix_type == "assets":
+        vault = get_p("VAULT")
+        try:
+            rel = str(dest_path.relative_to(vault)).replace("\\", "/")
+        except ValueError:
+            rel = str(dest_path)
+        # Strip leading "Assets/" to build the /api/vault/assets/ URL
+        if rel.startswith("Assets/"):
+            url = f"/api/vault/assets/{rel[len('Assets/'):]}"
+        else:
+            url = f"/api/vault/assets/{rel}"
+        return {"path": rel, "url": url, "storage": "assets"}
+    else:
+        # Absolute path — returned as-is so the frontend can display the filename
+        return {"path": str(dest_path), "url": None, "storage": "absolute"}
+
+
 @router.post("/upload-property-file")
 async def upload_property_file(
     table_id: str = Query(...),
     property_name: str = Query(...),
+    storage_folder: str = Query(default="assets"),
     file: UploadFile = File(...),
 ):
-    """Uploads a file to Assets/[DB]/[Table]/[Property] and returns relative path."""
+    """Upload a file for a property. Routes to Assets/, Biblioteca/ or a free path
+    depending on the storage_folder parameter (assets | biblioteca | free)."""
     registry = load_registry()
     table, database = _resolve_table_and_database_for_assets(table_id, registry)
     if not table:
@@ -2728,15 +2775,107 @@ async def upload_property_file(
     if not property_clean:
         raise HTTPException(status_code=400, detail="property_name is mandatory")
 
-    target_dir = _property_assets_dir(table, database, property_clean)
+    target_dir, url_type = _resolve_storage_dir(storage_folder, table, database, property_clean)
     try:
-        relative_path = _save_uploaded_file_to_assets(file, target_dir)
+        dest_path = Path(_save_uploaded_file_to_dir(file, target_dir))
     except Exception as e:
         log.error(f"Error uploading property file: {e}")
         raise HTTPException(status_code=500, detail="Could not save file")
 
-    api_url = f"/api/vault/assets/{relative_path[len('Assets/') :]}"
-    return {"path": relative_path, "url": api_url}
+    return _file_response_payload(dest_path, url_type)
+
+
+def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path) -> Path:
+    """Save an UploadFile to target_dir and return the absolute destination path."""
+    target_dir.mkdir(parents=True, exist_ok=True)
+    original_name = upload.filename or "upload.bin"
+    ext = Path(original_name).suffix
+    stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
+    destination = target_dir / f"{stem}{ext}"
+    if destination.exists():
+        destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
+    with open(destination, "wb") as buffer:
+        shutil.copyfileobj(upload.file, buffer)
+    return destination
+
+
+@router.post("/link-existing-file")
+async def link_existing_file(body: dict):
+    """Variant B: register an existing local file path without copying it.
+
+    Body: { "file_path": "/absolute/path/to/file.pdf" }
+    Returns the path and a display name.
+    """
+    file_path = str(body.get("file_path", "")).strip()
+    if not file_path:
+        raise HTTPException(status_code=400, detail="file_path is mandatory")
+
+    p = Path(file_path)
+    if not p.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+    if not p.is_file():
+        raise HTTPException(status_code=400, detail="Path is not a file")
+
+    return {
+        "path": str(p),
+        "url": None,
+        "storage": "absolute",
+        "name": p.name,
+        "size": p.stat().st_size,
+    }
+
+
+@router.post("/pick-folder")
+async def pick_folder():
+    """Open a native macOS folder-picker dialog and return the chosen path."""
+    import subprocess
+    script = (
+        'tell application "System Events"\n'
+        '  activate\n'
+        'end tell\n'
+        'set chosen to choose folder with prompt "Selecciona la carpeta de destinació"\n'
+        'return POSIX path of chosen'
+    )
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True, text=True, timeout=60
+        )
+        chosen = result.stdout.strip()
+        if not chosen:
+            raise HTTPException(status_code=204, detail="No folder selected")
+        return {"path": chosen}
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="Folder picker timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/pick-file")
+async def pick_file():
+    """Open a native macOS file-picker dialog and return the chosen file path."""
+    import subprocess
+    script = (
+        'tell application "System Events"\n'
+        '  activate\n'
+        'end tell\n'
+        'set chosen to choose file with prompt "Selecciona el fitxer a enllaçar"\n'
+        'return POSIX path of chosen'
+    )
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True, text=True, timeout=60
+        )
+        chosen = result.stdout.strip()
+        if not chosen:
+            raise HTTPException(status_code=204, detail="No file selected")
+        p = Path(chosen)
+        return {"path": chosen, "name": p.name, "size": p.stat().st_size if p.exists() else 0}
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="File picker timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/unsplash/search")

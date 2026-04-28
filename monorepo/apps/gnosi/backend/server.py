@@ -34,7 +34,7 @@ from backend.api import (
     agent_routes, system_routes, tools_routes,
     analytics_routes,
     scheduler_routes, social_routes,
-    vault_routes, vault_graph_routes, calendar_routes, mail_routes,
+    vault_routes, vault_graph_routes, vault_views_routes, calendar_routes, mail_routes,
     reader, google_auth_routes, integrations_routes, zotero_routes,
     config_routes, env_routes, credentials_routes, ai_routes,
     workspace_routes, contacts_routes, identity_routes,
@@ -148,6 +148,7 @@ app.include_router(social_routes.router, prefix="/api/social", tags=["Social"])
 # Vault and Graph
 app.include_router(vault_routes.router, prefix="/api/vault", tags=["Vault"])
 app.include_router(vault_graph_routes.router, prefix="/api", tags=["Vault Graph"])
+app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"])
 
 # Components
 app.include_router(calendar_routes.router, tags=["Calendar"])

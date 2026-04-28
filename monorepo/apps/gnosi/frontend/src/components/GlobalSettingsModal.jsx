@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
@@ -246,7 +247,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             physics: { gravity: 0.1, repulsion: 1000, friction: 10 }
         },
         ai: { agents: [], providers: {}, active_agent_id: '' },
-        zotero: { user: '', pwd: '', workspace: '', target_table: '', mapping: {} },
+        zotero: { enabled: false, zotero_db: '~/Zotero/zotero.sqlite', user: '', pwd: '', workspace: '', target_table: '', mapping: {} },
         identity: {
             full_name: '', first_name: '', last_name: '', email: '',
             phone: '', address: '', city: '', zip_code: '', dni_nie: '', notes: ''
@@ -262,6 +263,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [aiCatalog, setAiCatalog] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
+    const [zoteroSyncing, setZoteroSyncing] = useState(null);
+    const [zoteroSyncMsg, setZoteroSyncMsg] = useState('');
 
     const language = draft.settings.language || 'ca';
 
@@ -379,7 +382,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [manualPassword, setManualPassword] = useState('');
     const [editingAccountId, setEditingAccountId] = useState(null); // ID del compte en edició
     const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
-    const [syncErrorAccounts, setSyncErrorAccounts] = useState(new Set()); // Emails amb error de sync
+    const [syncErrorAccounts, setSyncErrorAccounts] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('gnosi_mail_sync_errors') || '[]')); } catch { return new Set(); }
+    }); // Emails amb error de sync (persistit a localStorage)
     
     // Mail Snippets State
     const SNIPPETS_KEY = 'gnosi_mail_snippets';
@@ -425,6 +430,62 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         if (editingSnippetId === id) { setEditingSnippetId(null); setSnippetDraft({ title: '', content: '' }); }
     };
 
+    // Social State
+    const SOCIAL_NETWORK_DEFAULTS = [
+        { id: 'mastodon', name: 'Mastodon', icon: '🐘', enabled: true },
+        { id: 'bluesky',  name: 'Bluesky',  icon: '🦋', enabled: true },
+        { id: 'linkedin', name: 'LinkedIn', icon: '💼', enabled: true },
+        { id: 'facebook', name: 'Facebook', icon: '📘', enabled: false },
+        { id: 'telegram', name: 'Telegram', icon: '✈️', enabled: false },
+    ];
+    const [socialNetworks, setSocialNetworks] = useState(SOCIAL_NETWORK_DEFAULTS);
+    const [socialStreams, setSocialStreams] = useState([]);
+    const [newStreamForm, setNewStreamForm] = useState({ id: '', title: '', icon: '📡', network: 'mastodon' });
+    const [showAddStream, setShowAddStream] = useState(false);
+
+    const loadSocialSettings = async () => {
+        try {
+            const [nRes, sRes] = await Promise.all([
+                fetch('/api/social/networks'),
+                fetch('/api/social/streams'),
+            ]);
+            if (nRes.ok) setSocialNetworks(await nRes.json());
+            if (sRes.ok) setSocialStreams(await sRes.json());
+        } catch { /* silent */ }
+    };
+
+    const saveSocialNetworks = async (updated) => {
+        setSocialNetworks(updated);
+        try {
+            await fetch('/api/social/networks', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated),
+            });
+            toast.success('Xarxes desades');
+        } catch { toast.error('Error desant xarxes'); }
+    };
+
+    const saveSocialStreams = async (updated) => {
+        setSocialStreams(updated);
+        try {
+            await fetch('/api/social/streams', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated),
+            });
+            toast.success('Streams desats');
+        } catch { toast.error('Error desant streams'); }
+    };
+
+    const handleAddSocialStream = () => {
+        if (!newStreamForm.id.trim() || !newStreamForm.title.trim()) return;
+        const updated = [...socialStreams, { ...newStreamForm }];
+        saveSocialStreams(updated);
+        setNewStreamForm({ id: '', title: '', icon: '📡', network: 'mastodon' });
+        setShowAddStream(false);
+    };
+
     // Mail Specialized State
     const [mailImapHost, setMailImapHost] = useState('');
     const [mailImapPort, setMailImapPort] = useState('993');
@@ -439,43 +500,38 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [mailSignature, setMailSignature] = useState('');
     const [mailCertificate, setMailCertificate] = useState('');
     const [mailDisplayName, setMailDisplayName] = useState('');
+    const [mailSubjectPrefix, setMailSubjectPrefix] = useState('');
     const [mailAliases, setMailAliases] = useState([]);
+    const [mailTestStatus, setMailTestStatus] = useState(null); // null | 'testing' | 'ok' | 'error'
+    const identityAutoSaveRef = useRef(null); // debounce timer
+    const identityLoadedForRef = useRef(null); // tracks which account was last loaded (skip initial save)
 
-    // -- SCROLL MANAGEMENT --
-    const sidebarRef = useRef(null);
-    const mainRef = useRef(null);
-
+    // Auto-save identity fields (signature, name, aliases, subject_prefix) when editing an account
     useEffect(() => {
-        const sidebar = sidebarRef.current;
-        const main = mainRef.current;
-        if (!sidebar || !main) return;
-
-        const isScrollable = (el) => {
-            const style = getComputedStyle(el);
-            return el.scrollHeight > el.clientHeight &&
-                style.overflowY !== 'visible' && style.overflowY !== 'hidden';
-        };
-
-        const handleWheel = (e) => {
-            const panel = sidebar.contains(e.target) ? sidebar : main;
-            // If there's a nested scrollable element between the target and the panel, let it scroll naturally
-            let el = e.target;
-            while (el && el !== panel) {
-                if (isScrollable(el)) return;
-                el = el.parentElement;
-            }
-            if (!isScrollable(panel)) return;
-            e.preventDefault();
-            panel.scrollTop += e.deltaY;
-        };
-
-        sidebar.addEventListener('wheel', handleWheel, { passive: false });
-        main.addEventListener('wheel', handleWheel, { passive: false });
-        return () => {
-            sidebar.removeEventListener('wheel', handleWheel);
-            main.removeEventListener('wheel', handleWheel);
-        };
-    }, []);
+        if (!editingAccountId) return;
+        // Skip the first run right after handleEditAccount populates the fields
+        if (identityLoadedForRef.current !== editingAccountId) {
+            identityLoadedForRef.current = editingAccountId;
+            return;
+        }
+        clearTimeout(identityAutoSaveRef.current);
+        identityAutoSaveRef.current = setTimeout(async () => {
+            const currentList = integrations.mail_accounts || [];
+            const newList = currentList.map(a => a.id !== editingAccountId ? a : {
+                ...a,
+                display_name: mailDisplayName,
+                subject_prefix: mailSubjectPrefix,
+                signature: mailSignature,
+                certificate: mailCertificate,
+                aliases: mailAliases,
+            });
+            try {
+                await axios.post('/api/integrations/bulk', { ...integrations, mail_accounts: newList });
+                setIntegrations(prev => ({ ...prev, mail_accounts: newList }));
+            } catch { /* silent */ }
+        }, 1200);
+        return () => clearTimeout(identityAutoSaveRef.current);
+    }, [mailSignature, mailDisplayName, mailSubjectPrefix, mailAliases, mailCertificate, editingAccountId]);
 
     // -- AUTO-SAVE CONTROLS --
     const autoSaveTimeoutRef = useRef(null);
@@ -498,6 +554,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             loadNewsletterSources();
             checkGoogleAuth();
             loadIdentity();
+            loadSocialSettings();
         }
     }, [isOpen]);
 
@@ -519,6 +576,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     }, [activeTab, isOpen]);
 
+    useEffect(() => {
+        try { localStorage.setItem('gnosi_mail_sync_errors', JSON.stringify([...syncErrorAccounts])); } catch { /* quota */ }
+    }, [syncErrorAccounts]);
+
     // Keyboard support - Escape/Enter to close
     useEffect(() => {
         const handleKeyPress = (e) => {
@@ -527,11 +588,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             if (e.key === 'Escape') {
                 onClose();
             } else if (e.key === 'Enter') {
-                // Si estem en un textarea no tanquem per Enter
                 if (document.activeElement.tagName === 'TEXTAREA') return;
-                
-                // També evitem si estem en un input de tipus "search" o similar que ja s'encarrega d'ell mateix?
-                // Per GlobalSettings habitualment Enter significa tancar.
+                if (document.activeElement.isContentEditable) return;
                 onClose();
             }
         };
@@ -774,21 +832,27 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setIsManualGoogle(false);
         }
 
-        if (category === 'mail' && account.provider === 'manual') {
-            setMailImapHost(account.imap_host || '');
-            setMailImapPort(account.imap_port || '993');
-            setMailImapUser(account.imap_user || '');
-            setMailImapPass(account.imap_password || '');
-            setMailImapEnc(account.imap_encryption || 'ssl');
-            setMailSmtpHost(account.smtp_host || '');
-            setMailSmtpPort(account.smtp_port || '465');
-            setMailSmtpUser(account.smtp_user || '');
-            setMailSmtpPass(account.smtp_password || '');
-            setMailSmtpEnc(account.smtp_encryption || 'ssl');
+        if (category === 'mail') {
             setMailSignature(account.signature || '');
             setMailCertificate(account.certificate || '');
             setMailDisplayName(account.display_name || '');
+            setMailSubjectPrefix(account.subject_prefix || '');
             setMailAliases(account.aliases || []);
+            if (account.provider === 'manual') {
+                setMailImapHost(account.imap_host || '');
+                setMailImapPort(account.imap_port || '993');
+                setMailImapUser(account.imap_user || '');
+                setMailImapPass(account.imap_password || '');
+                setMailImapEnc(account.imap_encryption || 'ssl');
+                setMailSmtpHost(account.smtp_host || '');
+                setMailSmtpPort(account.smtp_port || '465');
+                setMailSmtpUser(account.smtp_user || '');
+                setMailSmtpPass(account.smtp_password || '');
+                setMailSmtpEnc(account.smtp_encryption || 'ssl');
+            } else {
+                setMailImapHost(''); setMailImapPort('993'); setMailImapUser(''); setMailImapPass(''); setMailImapEnc('ssl');
+                setMailSmtpHost(''); setMailSmtpPort('465'); setMailSmtpUser(''); setMailSmtpPass(''); setMailSmtpEnc('ssl');
+            }
         }
     };
 
@@ -825,6 +889,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 }
             } else {
                 setSavingStatus('error');
+                if (email) setSyncErrorAccounts(prev => new Set(prev).add(email));
                 alert(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
             }
         } catch (e) {
@@ -929,7 +994,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     <div className="settings-inner">
                     
                     {/* SIDEBAR */}
-                    <aside className="settings-sidebar" ref={sidebarRef}>
+                    <aside className="settings-sidebar">
                         <div className="settings-sidebar-header">
                             <div className="settings-sidebar-brand">
                                 <div className="settings-section-icon-wrap">
@@ -979,6 +1044,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <div className="settings-sidebar-hr" />
 
                             <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
+                            <SidebarItem id="social" icon={Share2} label="Social" active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
                             <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
                             <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
                             <SidebarItem id="zotero" icon={BookOpen} label={t('settings.tabs.zotero') || 'Zotero'} active={activeTab === 'zotero'} onClick={() => { setActiveTab('zotero'); setAddAccountType(null); }} />
@@ -987,7 +1053,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     </aside>
 
                     {/* CONTENT AREA */}
-                    <main className="settings-main" ref={mainRef}>
+                    <main className="settings-main">
                         <button onClick={onClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
                             <X />
                         </button>
@@ -1441,58 +1507,73 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <form onSubmit={async (e) => {
                                                             e.preventDefault();
                                                             if (!addAccountEmail) return;
-                                                            
-                                                            setSavingStatus('saving');
-                                                            try {
-                                                                const key = 'mail_accounts';
-                                                                const currentList = integrations[key] || [];
-                                                                let newList;
-                                                                const mailAcc = {
-                                                                    id: editingAccountId || `mail_${Date.now()}`,
-                                                                    email: addAccountEmail,
-                                                                    provider: 'manual',
-                                                                    display_name: mailDisplayName,
-                                                                    imap_host: mailImapHost,
-                                                                    imap_port: mailImapPort,
-                                                                    imap_user: mailImapUser,
-                                                                    imap_password: mailImapPass,
-                                                                    imap_encryption: mailImapEnc,
-                                                                    smtp_host: mailSmtpHost,
-                                                                    smtp_port: mailSmtpPort,
-                                                                    smtp_user: mailSmtpUser,
-                                                                    smtp_password: mailSmtpPass,
-                                                                    smtp_encryption: mailSmtpEnc,
-                                                                    signature: mailSignature,
-                                                                    certificate: mailCertificate,
-                                                                    aliases: mailAliases,
-                                                                    type: 'mail'
-                                                                };
-                                                                
-                                                                if (editingAccountId) {
-                                                                    newList = currentList.map(a => a.id === editingAccountId ? mailAcc : a);
-                                                                } else {
-                                                                    newList = [...currentList, mailAcc];
+
+                                                            const mailAcc = {
+                                                                id: editingAccountId || `mail_${Date.now()}`,
+                                                                email: addAccountEmail,
+                                                                provider: 'manual',
+                                                                display_name: mailDisplayName,
+                                                                subject_prefix: mailSubjectPrefix,
+                                                                imap_host: mailImapHost,
+                                                                imap_port: mailImapPort,
+                                                                imap_user: mailImapUser,
+                                                                imap_password: mailImapPass,
+                                                                imap_encryption: mailImapEnc,
+                                                                smtp_host: mailSmtpHost,
+                                                                smtp_port: mailSmtpPort,
+                                                                smtp_user: mailSmtpUser,
+                                                                smtp_password: mailSmtpPass,
+                                                                smtp_encryption: mailSmtpEnc,
+                                                                signature: mailSignature,
+                                                                certificate: mailCertificate,
+                                                                aliases: mailAliases,
+                                                                type: 'mail'
+                                                            };
+                                                            const key = 'mail_accounts';
+                                                            const currentList = integrations[key] || [];
+                                                            const newList = editingAccountId
+                                                                ? currentList.map(a => a.id === editingAccountId ? mailAcc : a)
+                                                                : [...currentList, mailAcc];
+
+                                                            if (editingAccountId && mailImapHost) {
+                                                                // Mode edició: prova la connexió IMAP/SMTP
+                                                                setMailTestStatus('testing');
+                                                                try {
+                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
+                                                                    const res = await axios.post('/api/integrations/test-email', {
+                                                                        imap_server: mailImapHost,
+                                                                        smtp_server: mailSmtpHost,
+                                                                        username: mailImapUser || addAccountEmail,
+                                                                        password: mailImapPass,
+                                                                    });
+                                                                    const ok = res.data?.success;
+                                                                    setMailTestStatus(ok ? 'ok' : 'error');
+                                                                    toast[ok ? 'success' : 'error'](ok ? 'Connexió IMAP/SMTP correcta' : `Error: ${res.data?.error || 'No s\'ha pogut connectar'}`);
+                                                                    if (ok) loadIntegrations();
+                                                                } catch (err) {
+                                                                    setMailTestStatus('error');
+                                                                    toast.error(`Error provant connexió: ${err?.response?.data?.detail || err.message || 'Error desconegut'}`);
                                                                 }
-                                                                
-                                                                await axios.post('/api/integrations/bulk', {
-                                                                    ...integrations,
-                                                                    [key]: newList
-                                                                });
-                                                                
-                                                                setSavingStatus('saved');
-                                                                setAddAccountType(null);
-                                                                setAddAccountEmail('');
-                                                                setMailDisplayName(''); setMailAliases([]);
-                                                                setMailImapHost(''); setMailImapPort('993'); setMailImapUser(''); setMailImapPass(''); setMailImapEnc('ssl');
-                                                                setMailSmtpHost(''); setMailSmtpPort('465'); setMailSmtpUser(''); setMailSmtpPass(''); setMailSmtpEnc('ssl');
-                                                                setMailSignature(''); setMailCertificate('');
-                                                                setEditingAccountId(null);
-                                                                
-                                                                loadIntegrations();
-                                                                setTimeout(() => setSavingStatus('idle'), 2000);
-                                                            } catch (err) {
-                                                                console.error(err);
-                                                                setSavingStatus('error');
+                                                            } else {
+                                                                // Mode nou compte: guarda i tanca
+                                                                setSavingStatus('saving');
+                                                                try {
+                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
+                                                                    setSavingStatus('saved');
+                                                                    toast.success('Compte connectat correctament');
+                                                                    setAddAccountType(null);
+                                                                    setAddAccountEmail('');
+                                                                    setMailDisplayName(''); setMailSubjectPrefix(''); setMailAliases([]);
+                                                                    setMailImapHost(''); setMailImapPort('993'); setMailImapUser(''); setMailImapPass(''); setMailImapEnc('ssl');
+                                                                    setMailSmtpHost(''); setMailSmtpPort('465'); setMailSmtpUser(''); setMailSmtpPass(''); setMailSmtpEnc('ssl');
+                                                                    setMailSignature(''); setMailCertificate('');
+                                                                    setEditingAccountId(null);
+                                                                    loadIntegrations();
+                                                                    setTimeout(() => setSavingStatus('idle'), 2000);
+                                                                } catch (err) {
+                                                                    setSavingStatus('error');
+                                                                    toast.error(`Error guardant: ${err?.response?.data?.detail || err.message || 'Error desconegut'}`);
+                                                                }
                                                             }
                                                         }} className="animate-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                                             {/* NOM REMITENT + ÀLIES */}
@@ -1511,6 +1592,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 <div>
                                                                     <FormGroup label="Àlies (adreces addicionals)" description="Cada àlies envia via el mateix SMTP i pot tenir la seva pròpia signatura.">
                                                                         <AliasEditor aliases={mailAliases} onChange={setMailAliases} />
+                                                                    </FormGroup>
+                                                                </div>
+                                                                <div style={{ gridColumn: 'span 2' }}>
+                                                                    <FormGroup label="Assignatura per defecte" description="S'afegirà automàticament al camp 'Assumpte' en crear un correu nou.">
+                                                                        <input
+                                                                            type="text"
+                                                                            className="gnosi-input"
+                                                                            value={mailSubjectPrefix}
+                                                                            onChange={e => setMailSubjectPrefix(e.target.value)}
+                                                                            placeholder="Ex: [Departament TIC] "
+                                                                        />
                                                                     </FormGroup>
                                                                 </div>
                                                             </div>
@@ -1554,10 +1646,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <div style={{ gridColumn: 'span 2' }}>
                                                                 <FormGroup label="Signatura HTML (Opcional)" description="Aquesta signatura s'afegirà automàticament als correus que enviïs.">
                                                                     <div style={{ marginTop: '8px' }}>
-                                                                        <MailBlockEditor 
-                                                                            initialContent={mailSignature} 
-                                                                            onChange={setMailSignature} 
-                                                                            minHeight="120px" 
+                                                                        <MailBlockEditor
+                                                                            key={editingAccountId || 'new'}
+                                                                            initialContent={mailSignature}
+                                                                            onChange={setMailSignature}
+                                                                            minHeight="120px"
                                                                         />
                                                                     </div>
                                                                 </FormGroup>
@@ -1568,9 +1661,23 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 </FormGroup>
                                                             </div>
                                                             
-                                                            <div style={{ gridColumn: 'span 2', marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
-                                                                <button type="submit" className="btn-gnosi-primary" style={{ padding: '12px 24px', fontSize: '0.9rem' }}>
-                                                                    Connectar Compte
+                                                            <div style={{ gridColumn: 'span 2', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                                                    {editingAccountId
+                                                                        ? '✓ Els canvis de signatura, nom i àlies es guarden automàticament.'
+                                                                        : 'Omple el servidor IMAP/SMTP i clica per connectar.'}
+                                                                </div>
+                                                                <button
+                                                                    type="submit"
+                                                                    className="btn-gnosi-primary"
+                                                                    style={{ padding: '12px 24px', fontSize: '0.9rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                                    disabled={mailTestStatus === 'testing'}
+                                                                >
+                                                                    {mailTestStatus === 'testing' && <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />}
+                                                                    {mailTestStatus === 'ok' && <Check size={15} />}
+                                                                    {editingAccountId
+                                                                        ? (mailTestStatus === 'ok' ? 'Connexió OK' : mailTestStatus === 'error' ? 'Error connexió' : 'Provar connexió')
+                                                                        : 'Connectar Compte'}
                                                                 </button>
                                                             </div>
                                                         </form>
@@ -1879,6 +1986,98 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </div>
                                 </Section>
+                            )}
+
+                            {/* SOCIAL */}
+                            {activeTab === 'social' && (
+                                <>
+                                    <Section title="Xarxes Socials" icon={Share2}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {socialNetworks.map(net => (
+                                                <div key={net.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <span style={{ fontSize: '1.4rem' }}>{net.icon}</span>
+                                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
+                                                    </div>
+                                                    <div
+                                                        className={`gnosi-toggle ${net.enabled ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
+                                                            saveSocialNetworks(updated);
+                                                        }}
+                                                    >
+                                                        <div className="gnosi-toggle-handle" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Section>
+
+                                    <Section title="Streams del Dashboard" icon={Rss} extra={
+                                        <button onClick={() => setShowAddStream(v => !v)} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem', borderRadius: '10px' }}>
+                                            {showAddStream ? <X size={15} /> : <Plus size={15} />}
+                                            {showAddStream ? 'Cancel·lar' : 'Afegir stream'}
+                                        </button>
+                                    }>
+                                        {showAddStream && (
+                                            <div style={{ padding: '16px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                    <div>
+                                                        <label className="settings-label">ID intern</label>
+                                                        <input className="gnosi-input" placeholder="ex: mastodon-hashtag" value={newStreamForm.id} onChange={e => setNewStreamForm(f => ({ ...f, id: e.target.value }))} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="settings-label">Títol</label>
+                                                        <input className="gnosi-input" placeholder="ex: #tech" value={newStreamForm.title} onChange={e => setNewStreamForm(f => ({ ...f, title: e.target.value }))} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="settings-label">Icona (emoji)</label>
+                                                        <input className="gnosi-input" placeholder="📡" value={newStreamForm.icon} onChange={e => setNewStreamForm(f => ({ ...f, icon: e.target.value }))} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="settings-label">Xarxa</label>
+                                                        <select className="gnosi-input" value={newStreamForm.network} onChange={e => setNewStreamForm(f => ({ ...f, network: e.target.value }))}>
+                                                            {socialNetworks.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                                            <option value="scheduled">Programats</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <button onClick={handleAddSocialStream} className="btn-gnosi-primary" style={{ alignSelf: 'flex-end', padding: '8px 20px', borderRadius: '10px', fontSize: '0.85rem' }}>
+                                                    Afegir
+                                                </button>
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {socialStreams.length === 0 && (
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '20px', textAlign: 'center' }}>
+                                                    No hi ha streams configurats.
+                                                </div>
+                                            )}
+                                            {socialStreams.map(stream => (
+                                                <div key={stream.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <span style={{ fontSize: '1.2rem' }}>{stream.icon}</span>
+                                                        <div>
+                                                            <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{stream.title}</div>
+                                                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{stream.network} · {stream.id}</div>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = socialStreams.filter(s => s.id !== stream.id);
+                                                            saveSocialStreams(updated);
+                                                        }}
+                                                        style={{ padding: '6px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                                        className="hover-bg"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Section>
+                                </>
                             )}
 
                             {/* NEWSLETTERS */}
@@ -2465,29 +2664,111 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             )}
 
                             {/* ZOTERO */}
-                            {activeTab === 'zotero' && (
-                                <Section title="Integració Zotero" icon={BookOpen} extra={<button onClick={async () => { await fetch('/api/zotero/sync', {method:'POST'}); alert('Sincronització en marxa...'); }} className="btn-gnosi-secondary" style={{ padding: '10px 20px', fontSize: '0.9rem', borderRadius: '14px' }}><RefreshCw size={18} /> Acció Ràpida</button>}>
+                            {activeTab === 'zotero' && (() => {
+                                const runZoteroSync = async (direction) => {
+                                    setZoteroSyncing(direction);
+                                    setZoteroSyncMsg('');
+                                    try {
+                                        if (direction === 'z-to-g' || direction === 'both') {
+                                            const r = await fetch('/api/zotero/sync', { method: 'POST' });
+                                            if (!r.ok) {
+                                                const err = await r.json().catch(() => ({}));
+                                                setZoteroSyncMsg(err.detail || 'Error en Z→G');
+                                                setZoteroSyncing(null); return;
+                                            }
+                                        }
+                                        if (direction === 'g-to-z' || direction === 'both') {
+                                            const r = await fetch('/api/zotero/sync-back', { method: 'POST' });
+                                            const data = await r.json().catch(() => ({}));
+                                            if (!r.ok) { setZoteroSyncMsg(data.detail || 'Error en G→Z'); setZoteroSyncing(null); return; }
+                                            if (data.status === 'zotero_open') { setZoteroSyncMsg(data.message); setZoteroSyncing(null); return; }
+                                        }
+                                        setZoteroSyncMsg(direction === 'both' ? 'Sincronització bidireccional iniciada en segon pla.' : direction === 'z-to-g' ? 'Importació Z→G iniciada en segon pla.' : 'Exportació G→Z iniciada en segon pla.');
+                                    } catch (e) {
+                                        setZoteroSyncMsg(`Error: ${e.message}`);
+                                    }
+                                    setZoteroSyncing(null);
+                                };
+                                const btnStyle = { padding: '8px 14px', fontSize: '0.85rem', borderRadius: '12px', opacity: zoteroSyncing ? 0.6 : 1 };
+                                return (
+                                <Section title="Integració Zotero" icon={BookOpen} extra={draft.zotero.enabled && (
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {zoteroSyncMsg && <span style={{ fontSize: '0.8rem', color: zoteroSyncMsg.startsWith('Error') || zoteroSyncMsg.includes('Tanca') ? 'var(--color-error, #ef4444)' : 'var(--text-secondary)', maxWidth: '200px' }}>{zoteroSyncMsg}</span>}
+                                        <button title="Zotero → Gnosi" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('z-to-g')} className="btn-gnosi-secondary" style={btnStyle}>
+                                            {zoteroSyncing === 'z-to-g' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null} Z → G
+                                        </button>
+                                        <button title="Gnosi → Zotero" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('g-to-z')} className="btn-gnosi-secondary" style={btnStyle}>
+                                            {zoteroSyncing === 'g-to-z' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null} G → Z
+                                        </button>
+                                        <button title="Bidireccional G ↔ Z" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('both')} className="btn-gnosi-secondary" style={btnStyle}>
+                                            {zoteroSyncing === 'both' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={13} />} G ↔ Z
+                                        </button>
+                                    </div>
+                                )}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                        <div style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '32px', border: '1px solid var(--settings-border)', boxShadow: '0 10px 40px rgba(0,0,0,0.03)' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
-                                                <FormGroup label="Zotero User ID" description="Identificador públic de la teva llibreria."><input type="text" className="gnosi-input" value={draft.zotero.user} onChange={e => setDraft({...draft, zotero: {...draft.zotero, user: e.target.value}})} placeholder="1234567" /></FormGroup>
-                                                <FormGroup label="API Key / Secret" description="Token d'accés amb permisos de lectura."><PasswordInput value={draft.zotero.pwd} onChange={e => setDraft({...draft, zotero: {...draft.zotero, pwd: e.target.value}})} placeholder="sk-..." /></FormGroup>
+
+                                        {/* Toggle activació */}
+                                        <div style={{ background: 'var(--settings-sidebar-bg)', padding: '28px 36px', borderRadius: '32px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: '1rem' }}>Activar integració Zotero</div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Sincronitza la teva biblioteca local de Zotero amb el Vault de Gnosi.</div>
                                             </div>
-                                            <FormGroup label="Taula de Destí del Vault" description="Base de dades on s'emmgatzemaran les referències sincronitzades.">
-                                                <select className="gnosi-select" value={draft.zotero.target_table} onChange={e => setDraft({...draft, zotero: {...draft.zotero, target_table: e.target.value}})}>
-                                                    <option value="">Selecciona una taula del Vault...</option>
-                                                    {tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                </select>
-                                            </FormGroup>
+                                            <div
+                                                className={`gnosi-toggle ${draft.zotero.enabled ? 'active' : ''}`}
+                                                style={{ transform: 'scale(1.2)', flexShrink: 0 }}
+                                                onClick={async () => {
+                                                    const newEnabled = !draft.zotero.enabled;
+                                                    const newZotero = { ...draft.zotero, enabled: newEnabled };
+                                                    setDraft(prev => ({ ...prev, zotero: newZotero }));
+                                                    // Desar immediatament sense esperar el debounce
+                                                    await fetch('/api/zotero/config', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify(newZotero),
+                                                    }).catch(() => {});
+                                                    if (newEnabled && !draft.zotero.target_table) {
+                                                        try {
+                                                            const res = await fetch('/api/zotero/setup', { method: 'POST' });
+                                                            if (res.ok) {
+                                                                const data = await res.json();
+                                                                setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, enabled: true, target_table: data.table_id } }));
+                                                                fetch('/api/vault/tables').then(async r => { if (r.ok) setTables(await r.json()); });
+                                                            }
+                                                        } catch (e) { console.error('Zotero setup error:', e); }
+                                                    }
+                                                }}
+                                            >
+                                                <div className="gnosi-toggle-handle" />
+                                            </div>
                                         </div>
-                                        
-                                        <div style={{ padding: '20px', borderRadius: '20px', background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                            <div style={{ width: '40px', height: '40px', background: 'var(--gnosi-blue)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Info size={20} /></div>
-                                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>Gnosi sincronitzarà automàticament els teus ítems residencials i PDF adjunts cada vegada que s'actualitzi el Vault.</div>
-                                        </div>
+
+                                        {/* Configuració (només si activat) */}
+                                        {draft.zotero.enabled && (
+                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '32px', border: '1px solid var(--settings-border)', boxShadow: '0 10px 40px rgba(0,0,0,0.03)' }}>
+                                                <FormGroup label="Ruta de la BD Zotero" description="Camí absolut a la base de dades local de Zotero (zotero.sqlite).">
+                                                    <input type="text" className="gnosi-input" value={draft.zotero.zotero_db || ''} onChange={e => setDraft({...draft, zotero: {...draft.zotero, zotero_db: e.target.value}})} placeholder="~/Zotero/zotero.sqlite" />
+                                                </FormGroup>
+                                                <div style={{ marginTop: '28px' }}>
+                                                    <FormGroup label="Taula de Destí del Vault" description="Taula on s'emmagatzemaran les referències. Es pot reanomenar lliurement.">
+                                                        <select className="gnosi-select" value={draft.zotero.target_table} onChange={e => setDraft({...draft, zotero: {...draft.zotero, target_table: e.target.value}})}>
+                                                            <option value="">Selecciona una taula del Vault...</option>
+                                                            {tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                        </select>
+                                                    </FormGroup>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {draft.zotero.enabled && (
+                                            <div style={{ padding: '20px', borderRadius: '20px', background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                                <div style={{ width: '40px', height: '40px', background: 'var(--gnosi-blue)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}><Info size={20} /></div>
+                                                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>El sync és bidireccional: Zotero → Gnosi importa els ítems de Zotero, i Gnosi → Zotero exporta els canvis fets des de Gnosi. Zotero ha d'estar tancat per al sync de tornada.</div>
+                                            </div>
+                                        )}
                                     </div>
                                 </Section>
-                            )}
+                                );
+                            })()}
 
                         </div>
                     </main>

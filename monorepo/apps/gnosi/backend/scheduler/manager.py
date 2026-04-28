@@ -81,6 +81,10 @@ class SchedulerManager:
             "description": "Actualització General de Memòria (Graf i Connexions)",
             "default_interval": 1440,  # 24 hours
         },
+        "zotero_sync": {
+            "description": "Sincronització bidireccional Zotero ↔ Vault",
+            "default_interval": 60,  # 1 hour
+        },
     }
 
     def __init__(self):
@@ -375,6 +379,8 @@ class SchedulerManager:
             return self._task_fetch_contacts()
         elif name == "update_memories":
             return self._task_update_memories()
+        elif name == "zotero_sync":
+            return self._task_zotero_sync()
 
         return {"error": f"Unknown task: {name}"}
 
@@ -615,6 +621,50 @@ class SchedulerManager:
             return {"success": False, "error": str(e)}
             
         return results
+
+
+    def _task_zotero_sync(self) -> Dict[str, Any]:
+        """Bidirectional Zotero ↔ Vault sync. Skips Vault→Zotero if Zotero is open."""
+        import subprocess
+        from pathlib import Path
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+
+        base = Path(__file__).resolve().parents[2]
+        scripts = base / "pipeline/skills/zotero_sync/scripts"
+
+        # Check config enabled
+        config_path = base / "pipeline/skills/zotero_sync/zotero_db_config.json"
+        try:
+            import json
+            config = json.loads(config_path.read_text())
+            if not config.get("enabled"):
+                return {"message": "Zotero integration disabled — skipped"}
+        except Exception as e:
+            return {"success": False, "error": f"Could not read Zotero config: {e}"}
+
+        results = {}
+
+        # Zotero → Vault
+        try:
+            r = subprocess.run(["python3", str(scripts / "zotero_to_vault.py")], capture_output=True, text=True, cwd=str(base))
+            results["zotero_to_vault"] = "ok" if r.returncode == 0 else r.stderr.strip()
+        except Exception as e:
+            results["zotero_to_vault"] = str(e)
+
+        # Vault → Zotero (only if Zotero is closed)
+        zotero_open = subprocess.run(["pgrep", "-x", "Zotero"], capture_output=True).returncode == 0
+        if zotero_open:
+            results["vault_to_zotero"] = "skipped — Zotero is open"
+            log.info("⏰ Zotero sync: Vault→Zotero skipped (Zotero is running)")
+        else:
+            try:
+                r = subprocess.run(["python3", str(scripts / "gnosi_to_zotero.py")], capture_output=True, text=True, cwd=str(base))
+                results["vault_to_zotero"] = "ok" if r.returncode == 0 else r.stderr.strip()
+            except Exception as e:
+                results["vault_to_zotero"] = str(e)
+
+        return {"success": True, "message": "Zotero sync completed", "details": results}
 
 
 # Singleton

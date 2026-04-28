@@ -27,7 +27,8 @@ function GraphPage() {
     const [rendererInstance, setRendererInstance] = useState(null);
     const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-    const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(true);
+    // Layout igraph FR calculat al backend. FA2 desactivat per defecte.
+    const isPhysicsEnabled = false;
 
     // Filter State
     const location = useLocation();
@@ -56,25 +57,28 @@ function GraphPage() {
     // Visualization State
     const [showArrows, setShowArrows] = useState(true);
     const [labelThreshold, setLabelThreshold] = useState(14);
-    const [nodeSize, setNodeSize] = useState(1.0);
-    const [edgeThickness, setEdgeThickness] = useState(1.2);
+    const [nodeSize, setNodeSize] = useState(0.4);
+    const [edgeThickness, setEdgeThickness] = useState(0.05);
 
     // Physics State - UI (Instant feedback for sliders)
-    const [gravityUI, setGravityUI] = useState(0.01);   // Increased Gravity
-    const [repulsionUI, setRepulsionUI] = useState(15000); // Increased Repulsion
-    const [frictionUI, setFrictionUI] = useState(2.5);    // Increased Friction
-    const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(5); // High Link Force
+    const [gravityUI, setGravityUI] = useState(0.1);
+    const [repulsionUI, setRepulsionUI] = useState(2000);
+    const [frictionUI, setFrictionUI] = useState(1.0);
+    const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(1.0);
 
-    const [linLogMode, setLinLogMode] = useState(false); // Vanilla
+    const [linLogMode, setLinLogMode] = useState(true);
+    const [strongGravityMode, setStrongGravityMode] = useState(true);
+    const [outboundAttractionDistribution, setOutboundAttractionDistribution] = useState(true);
 
     // Sync State
     const [isSyncing, setIsSyncing] = useState(false);
 
     // Physics State - Real (Debounced for ForceAtlas2)
-    const [gravity, setGravity] = useState(0.005);
+    // Inicials iguals als UI per evitar restart brusc als 300ms
+    const [gravity, setGravity] = useState(0.1);
     const [repulsion, setRepulsion] = useState(2000);
-    const [friction, setFriction] = useState(1.5);
-    const [edgeInfluence, setEdgeInfluence] = useState(5);
+    const [friction, setFriction] = useState(1.0);
+    const [edgeInfluence, setEdgeInfluence] = useState(1.0);
 
 
     // Debounce Effects
@@ -376,11 +380,15 @@ function GraphPage() {
     }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
+    // Només comptem edges "link" (wikilinks) per mantenir coherència amb el que es renderitza.
     const memoizedGraph = useMemo(() => {
         if (!graphData?.nodes) return null;
         const g = new Graph();
         graphData.nodes.forEach(n => g.addNode(n.key, n));
-        graphData.edges.forEach(e => g.addEdge(e.source, e.target, e));
+        graphData.edges.forEach(e => {
+            if (e.kind !== 'link') return;
+            try { g.addEdge(e.source, e.target, e); } catch (_) {}
+        });
         return g;
     }, [graphData]);
 
@@ -492,6 +500,10 @@ function GraphPage() {
                                 onEdgeInfluenceChange={setEdgeInfluenceUI}
                                 linLogMode={linLogMode}
                                 onLinLogModeChange={setLinLogMode}
+                                strongGravityMode={strongGravityMode}
+                                onStrongGravityModeChange={setStrongGravityMode}
+                                outboundAttractionDistribution={outboundAttractionDistribution}
+                                onOutboundAttractionDistributionChange={setOutboundAttractionDistribution}
                             />
                         </div>
                     }
@@ -697,8 +709,6 @@ function GraphPage() {
                     onZoomOut={() => graphViewerRef.current?.zoomOut()}
                     onCenter={() => graphViewerRef.current?.center()}
                     onFullscreen={() => graphViewerRef.current?.fullscreen()}
-                    isPhysicsEnabled={isPhysicsEnabled}
-                    setIsPhysicsEnabled={setIsPhysicsEnabled}
                 />
             }
             bottomPanel={
@@ -739,6 +749,8 @@ function GraphPage() {
                     friction={friction}
                     edgeInfluence={edgeInfluence}
                     linLogMode={linLogMode}
+                    strongGravityMode={strongGravityMode}
+                    outboundAttractionDistribution={outboundAttractionDistribution}
                 />
                 <Legend 
                     graphData={graphData} 
