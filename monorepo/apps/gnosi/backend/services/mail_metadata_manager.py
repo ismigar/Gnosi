@@ -1,7 +1,9 @@
 import json
 import logging
+import threading
 from pathlib import Path
 from backend.config.app_config import load_params
+from backend.utils.safe_io import safe_write_json
 
 log = logging.getLogger(__name__)
 
@@ -12,6 +14,10 @@ class MailMetadataManager:
         self.secrets_dir = cfg.paths["SECRETS"]
         self.secrets_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = self.secrets_dir / "mail_metadata.json"
+        # Read-modify-write lock: dues escriptures concurrents (p.ex. dos
+        # tabs marcant llegit alhora) podrien perdre updates si llegeixen
+        # el mateix snapshot abans d'escriure.
+        self._lock = threading.Lock()
 
     def _load(self) -> dict:
         if not self.config_file.exists():
@@ -24,7 +30,7 @@ class MailMetadataManager:
 
     def _save(self, data: dict):
         try:
-            self.config_file.write_text(json.dumps(data, indent=4), encoding="utf-8")
+            safe_write_json(self.config_file, data, indent=4)
         except Exception as e:
             log.error(f"Error saving mail metadata: {e}")
 
@@ -32,12 +38,13 @@ class MailMetadataManager:
         return self._load().get(thread_id, {})
 
     def update_metadata(self, thread_id: str, new_metadata: dict):
-        data = self._load()
-        if thread_id not in data:
-            data[thread_id] = {}
-        data[thread_id].update(new_metadata)
-        self._save(data)
-        return data[thread_id]
+        with self._lock:
+            data = self._load()
+            if thread_id not in data:
+                data[thread_id] = {}
+            data[thread_id].update(new_metadata)
+            self._save(data)
+            return data[thread_id]
 
 
 mail_metadata_manager = MailMetadataManager()
