@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException, Depends, BackgroundTasks
 from backend.config.logger_config import get_logger
-from backend.data.management_db import get_mgmt_session
+from backend.utils.errors import safe_error_detail
+from backend.data.management_db import get_mgmt_db
 from backend.services.contacts_service import ContactsService
 from backend.services.contacts_sync_engine import ContactsSyncEngine
 from typing import Optional, List
@@ -12,23 +13,35 @@ from sqlalchemy.orm import Session
 
 router = APIRouter()
 
-_contacts_cache: dict = {}
-_CONTACTS_CACHE_TTL = 60
+# Thread-safe + bounded (see backend.utils.cache for rationale).
+from backend.utils.cache import SimpleCache as _SimpleCache
+_contacts_cache = _SimpleCache(default_ttl=60, max_size=128)
 log = get_logger(__name__)
 
-def background_sync_contact(db: Session, workspace_id: str, source: str):
-    """Executa la sincronització cap a fora per a un compte específic."""
+def background_sync_contact(workspace_id: str, source: str):
+    """Executa la sincronització cap a fora per a un compte específic.
+
+    IMPORTANT: aquesta funció **obre i tanca la seva pròpia sessió**.
+    La sessió que ve de `Depends(get_mgmt_db)` ja s'ha tancat per quan
+    FastAPI executa la background task (el `finally db.close()` del
+    dependency es dispara abans d'enviar la resposta). Reusar-la donaria
+    `DetachedInstanceError`.
+    """
+    from backend.data.management_db import get_mgmt_session
+    db = get_mgmt_session()
     try:
-        # Busquem si hi ha una integració configurada per a aquest email de font
-        # Per simplificar, creem una integració temporal basada en la font si és un email
         if "@" in source:
             integration = {"provider": "google", "email": source}
-            # Nota: El SyncEngine ja s'encarrega d'obtenir el token del Vault
             sync_engine = ContactsSyncEngine(db, workspace_id, integration)
             sync_engine.sync_gnosi_to_remote()
             log.info(f"Sincronització de fons completada per a {source}")
     except Exception as e:
         log.error(f"Error en la sincronització de fons per a {source}: {e}")
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 def contacts_response(contact) -> dict:
     def parse_json(field_data):
@@ -38,7 +51,7 @@ def contacts_response(contact) -> dict:
             return field_data
         try:
             return json.loads(field_data)
-        except:
+        except (ValueError, TypeError):
             return []
 
     return {
@@ -73,31 +86,36 @@ async def list_contacts(
     type: Optional[str] = None,
     search: Optional[str] = None,
     source: Optional[str] = None,
-    db: Session = Depends(get_mgmt_session)
+    db: Session = Depends(get_mgmt_db)
 ):
     try:
         cache_key = f"{x_workspace_id}:{type}:{search}:{source}"
         cached = _contacts_cache.get(cache_key)
-        if cached and time.time() - cached["ts"] < _CONTACTS_CACHE_TTL:
-            return cached["data"]
+        if cached is not None:
+            return cached
 
         def _fetch():
             service = ContactsService(db, x_workspace_id)
             return service.list_contacts(type, search, source)
 
-        contacts = await asyncio.get_event_loop().run_in_executor(None, _fetch)
+        # asyncio.get_event_loop() està deprecat dins funcions async i pot
+        # fallar en Python 3.12+. asyncio.to_thread és l'equivalent modern.
+        contacts = await asyncio.to_thread(_fetch)
         result = [contacts_response(c) for c in contacts]
-        _contacts_cache[cache_key] = {"ts": time.time(), "data": result}
+        _contacts_cache.set(cache_key, result)
         return result
     except Exception as e:
         log.error(f"Error listing contacts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /contacts list"),
+        )
 
 @router.get("/contacts/{contact_id}")
 async def get_contact(
     contact_id: str,
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
-    db: Session = Depends(get_mgmt_session)
+    db: Session = Depends(get_mgmt_db)
 ):
     try:
         service = ContactsService(db, x_workspace_id)
@@ -109,14 +127,17 @@ async def get_contact(
         raise
     except Exception as e:
         log.error(f"Error getting contact: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /contacts/{contact_id}"),
+        )
 
 @router.post("/contacts", status_code=201)
 async def create_contact(
     data: dict,
     background_tasks: BackgroundTasks,
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
-    db: Session = Depends(get_mgmt_session)
+    db: Session = Depends(get_mgmt_db)
 ):
     try:
         if not data.get("name") or not data.get("email"):
@@ -127,14 +148,17 @@ async def create_contact(
         _contacts_cache.clear()
 
         if contact.source and contact.source != "local":
-            background_tasks.add_task(background_sync_contact, db, x_workspace_id, contact.source)
+            background_tasks.add_task(background_sync_contact, x_workspace_id, contact.source)
 
         return contacts_response(contact)
     except HTTPException:
         raise
     except Exception as e:
         log.error(f"Error creating contact: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /contacts"),
+        )
 
 @router.put("/contacts/{contact_id}")
 async def update_contact(
@@ -142,7 +166,7 @@ async def update_contact(
     data: dict,
     background_tasks: BackgroundTasks,
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
-    db: Session = Depends(get_mgmt_session)
+    db: Session = Depends(get_mgmt_db)
 ):
     try:
         service = ContactsService(db, x_workspace_id)
@@ -152,21 +176,24 @@ async def update_contact(
         _contacts_cache.clear()
 
         if contact.source and contact.source != "local":
-            background_tasks.add_task(background_sync_contact, db, x_workspace_id, contact.source)
+            background_tasks.add_task(background_sync_contact, x_workspace_id, contact.source)
 
         return contacts_response(contact)
     except HTTPException:
         raise
     except Exception as e:
         log.error(f"Error updating contact: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "PUT /contacts/{contact_id}"),
+        )
 
 @router.delete("/contacts/{contact_id}")
 async def delete_contact(
     contact_id: str,
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
     x_user_email: str = Header("", alias="X-User-Email"),
-    db: Session = Depends(get_mgmt_session)
+    db: Session = Depends(get_mgmt_db)
 ):
     try:
         service = ContactsService(db, x_workspace_id)
@@ -188,14 +215,17 @@ async def delete_contact(
         raise
     except Exception as e:
         log.error(f"Error deleting contact: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "DELETE /contacts/{contact_id}"),
+        )
 
 @router.post("/contacts/sync")
 async def sync_contacts(
     data: Optional[dict] = None,
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
     x_user_email: str = Header("", alias="X-User-Email"),
-    db: Session = Depends(get_mgmt_session)
+    db: Session = Depends(get_mgmt_db)
 ):
     try:
         # 1. Prepare integration data
@@ -230,12 +260,15 @@ async def sync_contacts(
         raise
     except Exception as e:
         log.error(f"Error syncing contacts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /contacts/sync"),
+        )
 
 @router.get("/contacts/sync/status")
 async def sync_status(
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
-    db: Session = Depends(get_mgmt_session)
+    db: Session = Depends(get_mgmt_db)
 ):
     try:
         service = ContactsService(db, x_workspace_id)
@@ -243,4 +276,7 @@ async def sync_status(
         return status
     except Exception as e:
         log.error(f"Error getting sync status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /contacts/sync/status"),
+        )
