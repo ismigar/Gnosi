@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 import unicodedata
 import shutil
@@ -41,6 +42,14 @@ from backend.services.rule_engine import RuleEngine
 log = logging.getLogger(__name__)
 
 from backend.services.path_resolver import path_resolver
+from backend.utils.safe_io import (
+    safe_write_text,
+    safe_write_json,
+    file_etag,
+    file_mtime_ns,
+)
+from backend.utils.errors import safe_error_detail
+import asyncio
 
 from backend.services.workspace_service import get_workspace_context, require_role
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
@@ -48,11 +57,39 @@ router = APIRouter(dependencies=[Depends(get_workspace_context)])
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.media_service import media_service
+from backend.api.virtual_fields import (
+    inject_for_table as _vf_inject_for_table,
+    inject_for_single_page as _vf_inject_for_single_page,
+    list_virtual_field_specs as _vf_list_specs,
+)
+from backend.services.field_resolver import (
+    expand_metadata_for_response,
+    migrate_metadata_keys,
+)
+
+
+def _table_by_id(table_id: str) -> Optional[dict]:
+    """Helper for virtual_fields injection — looks up the table dict in registry."""
+    if not table_id:
+        return None
+    try:
+        reg = load_registry()
+        for t in reg.get("tables", []):
+            if t.get("id") == table_id:
+                return t
+    except Exception:
+        return None
+    return None
 
 # Helper function to get active paths
 def get_p(key: str) -> Path:
     from backend.services.context_vars import get_active_vault_path
     base = get_active_vault_path()
+
+    # Local-only data root (Docker volume, never on cloud-synced storage).
+    # Resolved from env to match paths_config.py.
+    local_env = os.environ.get("GNOSI_LOCAL_DATA")
+    local_data = Path(local_env) if local_env else Path("/app/data")
 
     # Mapping of standard sub-folders
     mapping = {
@@ -70,7 +107,12 @@ def get_p(key: str) -> Path:
         "DASHWORKS": base / ".Dashworks",
         "NEWSLETTERS": base / "Newsletters",
         "DATA": base / "data",
-        "CUSTOM_ICONS": base / "data" / "vault_custom_icons.json"
+        "CUSTOM_ICONS": base / "data" / "vault_custom_icons.json",
+        # Local-only paths — caches, indices, system DBs. Mirror paths_config.py
+        "LOCAL_DATA": local_data,
+        "LOCAL_CACHE": local_data / "cache",
+        "PAGE_INDEX_CACHE": local_data / "cache" / "vault_page_index.json",
+        "INDEX_STATUS": local_data / "cache" / "indexer_status.json",
     }
     return mapping.get(key, base / key.lower())
 
@@ -131,6 +173,11 @@ class PageSaveRequest(BaseModel):
     parent_id: Optional[str] = None
     is_database: bool = False
     metadata: dict = {}
+    # Optimistic concurrency: client sends the etag it last received from GET.
+    # If the file changed in the meantime (sync from another device, external
+    # editor, etc.), the server rejects the write with 409 unless `force=True`.
+    expected_etag: Optional[str] = None
+    force: bool = False
 
 
 class DrawingSaveRequest(BaseModel):
@@ -160,6 +207,9 @@ class PagePatchRequest(BaseModel):
     metadata: Optional[dict] = None
     parent_id: Optional[str] = None
     is_database: Optional[bool] = None
+    # Optimistic concurrency (same semantics as PageSaveRequest)
+    expected_etag: Optional[str] = None
+    force: bool = False
 
 
 class OpenResourceRequest(BaseModel):
@@ -260,16 +310,122 @@ _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
 _last_google_calendar_sync_time = 0.0
 
 def get_page_index_cache_path():
-    return get_p("DATA") / "vault_page_index.json"
+    # Local-only: this cache is per-instance and contains absolute paths that
+    # only make sense on the machine that built it. Never on cloud storage.
+    p = get_p("PAGE_INDEX_CACHE")
+    if p:
+        return p
+    # Fallback if LOCAL_DATA isn't configured for some reason
+    return Path("/app/data/cache/vault_page_index.json")
+
+
+# ── Indexer status (background warmup state) ──────────────────────────────
+# When the backend boots, the first request that needs the page index would
+# trigger a synchronous full scan of the vault — on cloud-mounted storage
+# (OneDrive FUSE) this can take 10-60s and block the asyncio event loop.
+# We track status in-memory so the UI can show "indexing…" and so the warmup
+# only runs once per vault per process.
+_indexer_status_lock = threading.Lock()
+_indexer_status_by_vault: Dict[str, Dict[str, Any]] = {}
+
+
+def _set_indexer_status(v_str: str, **fields):
+    with _indexer_status_lock:
+        cur = _indexer_status_by_vault.setdefault(
+            v_str,
+            {"state": "idle", "started_at": None, "finished_at": None,
+             "files_indexed": 0, "error": None},
+        )
+        cur.update(fields)
+
+
+def get_indexer_status(v_str: str) -> Dict[str, Any]:
+    with _indexer_status_lock:
+        return dict(_indexer_status_by_vault.get(
+            v_str,
+            {"state": "idle", "started_at": None, "finished_at": None,
+             "files_indexed": 0, "error": None},
+        ))
+
+
+def kickoff_index_warmup(v_path: Path) -> None:
+    """Launch a background thread to populate the page index.
+
+    Safe to call on startup or on settings change. Idempotent: if the indexer
+    is already running for this vault, this call is a no-op.
+
+    Why a thread (not asyncio.create_task): the underlying scan is filesystem-
+    heavy and cloud-mount-bound — running it in a thread keeps the asyncio
+    event loop responsive even if FUSE blocks for tens of seconds.
+    """
+    if not v_path or not v_path.exists():
+        return
+    v_str = str(v_path)
+    with _indexer_status_lock:
+        cur = _indexer_status_by_vault.get(v_str, {})
+        if cur.get("state") == "running":
+            return
+        _indexer_status_by_vault[v_str] = {
+            "state": "running",
+            "started_at": time.time(),
+            "finished_at": None,
+            "files_indexed": 0,
+            "error": None,
+        }
+
+    def _run():
+        try:
+            # 1. Try to load from local disk cache first (fast path)
+            loaded = _load_page_index_from_disk(v_str)
+            if loaded:
+                with _page_index_lock:
+                    n = len(_page_index_entries.get(v_str, {}))
+                _set_indexer_status(
+                    v_str, state="ready", finished_at=time.time(),
+                    files_indexed=n,
+                )
+                # Schedule a refresh in the background so the cache stays
+                # warm against external changes — non-blocking.
+                try:
+                    _get_cached_page_entries(force_refresh=True)
+                    with _page_index_lock:
+                        n = len(_page_index_entries.get(v_str, {}))
+                    _set_indexer_status(v_str, files_indexed=n)
+                except Exception as e:
+                    log.warning(f"Background index refresh failed: {e}")
+                return
+            # 2. No cache — full scan
+            _get_cached_page_entries(force_refresh=True)
+            with _page_index_lock:
+                n = len(_page_index_entries.get(v_str, {}))
+            _set_indexer_status(
+                v_str, state="ready", finished_at=time.time(),
+                files_indexed=n,
+            )
+        except Exception as e:
+            log.error(f"Indexer warmup failed for {v_str}: {e}")
+            _set_indexer_status(
+                v_str, state="error", finished_at=time.time(), error=str(e),
+            )
+
+    t = threading.Thread(target=_run, daemon=True, name=f"indexer-warmup-{v_str}")
+    t.start()
 
 def _save_page_index_to_disk(v_str: str):
     """Persists the in-memory cache for a specific vault to disk."""
     try:
         cache_path = get_page_index_cache_path()
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        data = _page_index_entries.get(v_str, {})
+        # CRITICAL: snapshot under the lock. The indexer thread mutates
+        # `_page_index_entries[v_str]` while it walks the vault; serializing
+        # the live reference can raise `dictionary changed size during
+        # iteration` or, worse, write a partially-mutated JSON to disk.
+        with _page_index_lock:
+            data = dict(_page_index_entries.get(v_str, {}))
         if data:
-            cache_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            # Local cache lives on a Docker volume — atomic write prevents
+            # half-written JSON when the container is killed mid-flush.
+            safe_write_json(cache_path, data, indent=2, ensure_ascii=False)
             log.info(f"💾 Page index cache saved to disk for {v_str}")
     except Exception as e:
         log.error(f"❌ Error saving page index cache for {v_str}: {e}")
@@ -311,10 +467,7 @@ def _save_custom_icons(values: List[str]) -> List[str]:
         try:
             path = get_custom_icons_path()
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(
-                json.dumps(normalized, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            safe_write_json(path, normalized, indent=2, ensure_ascii=False)
         except Exception as exc:
             raise HTTPException(
                 status_code=500,
@@ -448,7 +601,17 @@ def _resource_visible_record(page: PageInfo) -> bool:
     if metadata.get("is_template"):
         return False
 
-    tipus = str(metadata.get("Type") or metadata.get("Tipus") or "").strip().lower()
+    # Locate a "type" property regardless of locale/casing. Hardcoding "Type"
+    # / "Tipus" was a pre-identity-normalization patch that misses any other
+    # localized variant (`Tipo`, `Categoria`, `tipus de recurs`, …). Now that
+    # frontmatter keys equal canonical schema names, we just scan all keys
+    # whose normalized form is "type"/"tipus"/"tipo".
+    tipus = ""
+    for k, v in metadata.items():
+        norm_k = str(k).strip().lower().replace("_", "").replace(" ", "")
+        if norm_k in ("type", "tipus", "tipo"):
+            tipus = str(v or "").strip().lower()
+            break
     title = str(page.title or "").strip().lower()
     gnosi_id = str(metadata.get("id") or page.id or "").strip()
 
@@ -510,7 +673,7 @@ def is_calendar_entry(metadata: Optional[dict]) -> bool:
 
     source = (metadata.get("source") or "").strip().lower()
     has_date = bool(metadata.get("date"))
-    has_table = bool(metadata.get("database_table_id") or metadata.get("table_id"))
+    has_table = bool(get_table_id(metadata))
 
     # An appointment must always have a date. With date: it's an appointment if it comes from Gnosi
     # (internal calendar) or if it doesn't belong to any DB table.
@@ -901,10 +1064,7 @@ def _write_dashworks_file(
         "metadata": metadata,
         "content": content,
     }
-    file_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    safe_write_json(file_path, payload, indent=2, ensure_ascii=False)
 
 
 def _ensure_page_extension(file_path: Path, is_dashworks: bool) -> Path:
@@ -988,6 +1148,14 @@ def _property_assets_dir(
 
 
 def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
+    """Crea totes les carpetes d'assets associades a una taula:
+      • `Assets/<TableName>/` — destí pla per fitxers genèrics (drag&drop a
+        notes que no van lligats a cap propietat concreta).
+      • `Assets/<DB>/<Table>/<Property>/` — un sub-dir per cada propietat de
+        tipus asset (files/file/image/...).
+
+    Idempotent: `mkdir(parents=True, exist_ok=True)` no falla si ja existeix.
+    """
     if not table:
         return
     database = next(
@@ -998,6 +1166,17 @@ def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
         ),
         None,
     )
+
+    # 1) Carpeta plana Assets/<TableName>/ — sempre, per a qualsevol taula
+    table_name = str(table.get("name") or "").strip()
+    if table_name:
+        try:
+            flat_segment = _sanitize_asset_segment(table_name, "Table")
+            (get_p("ASSETS") / flat_segment).mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            log.warning(f"Could not create Assets/{table_name}/: {e}")
+
+    # 2) Sub-dirs per cada propietat de tipus asset
     for prop in table.get("properties", []) or []:
         if not _is_asset_property(prop):
             continue
@@ -1132,7 +1311,17 @@ def _delete_asset_property_dir(
 
 
 def _delete_asset_table_dir(table: Dict[str, Any], database: Optional[Dict[str, Any]]):
-    """Recursively deletes the Assets/[DB]/[Table] folder if it exists."""
+    """Recursively deletes the table's asset folders.
+
+    Symmetric with `_ensure_asset_dirs_for_table_entry`, which creates two:
+      • `Assets/<DB>/<Table>/`         (structured, per-property children)
+      • `Assets/<TableName>/`          (flat, for generic drag&drop)
+
+    Both are removed here. Empty-or-not, this is a destructive operation
+    consistent with the existing rmtree behaviour. The caller (delete_table
+    handler) is the only entry point and it requires admin role.
+    """
+    # 1) Structured Assets/[DB]/[Table]/
     table_dir = _table_assets_dir(table, database)
     if table_dir.is_dir():
         try:
@@ -1140,6 +1329,18 @@ def _delete_asset_table_dir(table: Dict[str, Any], database: Optional[Dict[str, 
             log.info(f"Table folder deleted: {table_dir}")
         except Exception as exc:
             log.warning(f"Could not delete folder {table_dir}: {exc}")
+
+    # 2) Flat Assets/<TableName>/
+    table_name = str((table or {}).get("name") or "").strip()
+    if table_name:
+        try:
+            flat_segment = _sanitize_asset_segment(table_name, "Table")
+            flat_dir = get_p("ASSETS") / flat_segment
+            if flat_dir.is_dir():
+                shutil.rmtree(flat_dir)
+                log.info(f"Flat assets folder deleted: {flat_dir}")
+        except Exception as exc:
+            log.warning(f"Could not delete flat assets folder for {table_name}: {exc}")
 
 
 def _copy_local_file_to_assets(local_path: Path, target_dir: Path) -> str:
@@ -1244,7 +1445,7 @@ def _persist_metadata_assets(metadata: dict) -> dict:
     if not metadata:
         return metadata
 
-    table_id = metadata.get("database_table_id") or metadata.get("table_id")
+    table_id = get_table_id(metadata)
     if not table_id:
         return metadata
 
@@ -1467,9 +1668,7 @@ def _recompute_cross_record_formulas_for_table(
 
                 try:
                     frontmatter = generate_frontmatter(updated)
-                    file_path.write_text(
-                        f"{frontmatter}\n{body.lstrip()}", encoding="utf-8"
-                    )
+                    safe_write_text(file_path, f"{frontmatter}\n{body.lstrip()}")
                 except Exception as e:
                     log.warning(f"Error saving recomputation for {page_id}: {e}")
 
@@ -1859,13 +2058,11 @@ def _get_pages_snapshot(
                 relevant_entries.append(entry)
         entries = relevant_entries
 
-    # Llista d'IDs amagats
-    try:
-        session = get_mgmt_session()
-        hidden_ids = {h[0] for h in session.query(HiddenEvent.event_id).all()}
-        session.close()
-    except Exception:
-        hidden_ids = set()
+    # Llista d'IDs amagats. Reaprofitem l'helper de calendar_routes que ja
+    # gestiona correctament el cicle de la sessió (open/try/finally close),
+    # en lloc de duplicar el patró aquí.
+    from backend.api.calendar_routes import _get_hidden_event_ids
+    hidden_ids = _get_hidden_event_ids()
 
     for entry in entries:
         metadata = entry.get("metadata", {})
@@ -1932,22 +2129,56 @@ def _get_pages_snapshot(
 
 @router.get("/pages", response_model=List[PageInfo])
 async def list_pages(
-    background_tasks: BackgroundTasks, 
-    only_calendar: bool = Query(False)
+    background_tasks: BackgroundTasks,
+    only_calendar: bool = Query(False),
+    folder: Optional[str] = Query(
+        None,
+        description="If provided, only pages whose folder starts with this prefix are returned.",
+    ),
+    limit: Optional[int] = Query(
+        None,
+        ge=1,
+        le=10000,
+        description="Maximum number of pages to return. Default: no limit.",
+    ),
+    offset: int = Query(0, ge=0),
 ):
     """Lists all pages in the root flatly by iterating through UUID.md files.
     Returns cached data instantly and triggers a background refresh.
+
+    The vault can hold thousands of pages (calendar events, mail metadata,
+    test fixtures…). Without `folder`/`limit`/`offset` filters, naive callers
+    get the full snapshot — useful for the sidebar tree, expensive otherwise.
     """
-    return _get_pages_snapshot(only_calendar=only_calendar, background_tasks=background_tasks)
+    pages = await asyncio.to_thread(
+        _get_pages_snapshot,
+        only_calendar=only_calendar,
+        background_tasks=background_tasks,
+    )
+    if folder:
+        prefix = folder.strip("/")
+        pages = [p for p in pages if (p.folder or "").startswith(prefix)]
+    if limit is not None:
+        pages = pages[offset:offset + limit]
+    elif offset:
+        pages = pages[offset:]
+    return pages
 
 
 @router.get("/pages/by-table/{table_id}", response_model=List[PageInfo])
 async def list_pages_by_table(table_id: str, include_templates: bool = Query(True)):
     """Returns only pages from a specific table to avoid loading the entire Vault."""
-    pages = _get_pages_snapshot()
+    # _get_pages_snapshot iterates the in-memory cache but may stat files —
+    # push to a thread so a cold OneDrive doesn't block other requests.
+    pages = await asyncio.to_thread(_get_pages_snapshot)
     filtered = [p for p in pages if p.resolved_table_id == table_id]
     if not include_templates:
         filtered = [p for p in filtered if not p.metadata.get("is_template")]
+    table_obj = _table_by_id(table_id)
+    _vf_inject_for_table(table_obj, filtered, get_p("DATABASES") / "vault_graph.json")
+    if table_obj:
+        for p in filtered:
+            p.metadata = expand_metadata_for_response(p.metadata or {}, table_obj)
     return filtered
 
 
@@ -1958,9 +2189,15 @@ async def list_pages_by_table_snapshot(table_id: str):
     This route avoids divergences between frontend sessions and establishes
      a single source of truth for the count of visible records.
     """
-    pages = _get_pages_snapshot()
+    pages = await asyncio.to_thread(_get_pages_snapshot)
     raw_pages = [p for p in pages if p.resolved_table_id == table_id]
     visible_pages = _canonical_visible_table_pages(table_id, raw_pages)
+
+    table_obj = _table_by_id(table_id)
+    _vf_inject_for_table(table_obj, visible_pages, get_p("DATABASES") / "vault_graph.json")
+    if table_obj:
+        for p in visible_pages:
+            p.metadata = expand_metadata_for_response(p.metadata or {}, table_obj)
 
     return TablePagesSnapshot(
         table_id=table_id,
@@ -1968,6 +2205,34 @@ async def list_pages_by_table_snapshot(table_id: str):
         visible_count=len(visible_pages),
         pages=visible_pages,
     )
+
+
+@router.get("/virtual-fields")
+async def list_virtual_fields():
+    """Catalogue of virtual field computers available for the schema config UI."""
+    return {"computers": _vf_list_specs()}
+
+
+@router.get("/indexer-status")
+async def get_indexer_status_endpoint():
+    """Expose the page-index warmup status so the UI can show 'indexing…'.
+
+    States:
+      - idle:    no indexing has been requested yet
+      - running: warmup in progress (UI may still receive partial results
+                 from the cache; full scan ongoing)
+      - ready:   index is complete and serving requests
+      - error:   warmup failed (see `error`)
+    """
+    v_path = get_active_vault_path()
+    if not v_path:
+        return {"state": "no_vault", "files_indexed": 0}
+    status = get_indexer_status(str(v_path))
+    # Also surface a count from in-memory cache so the UI can show progress
+    with _page_index_lock:
+        cached = len(_page_index_entries.get(str(v_path), {}))
+    status["cached_entries"] = cached
+    return status
 
 
 @router.get("/sidebar/summary", response_model=List[SidebarPageInfo])
@@ -2016,6 +2281,9 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     metadata = request.metadata.copy()
     metadata = normalize_metadata_ids(metadata)
     metadata = normalize_table_context(metadata)
+    _table_for_meta = _table_by_id(get_table_id(metadata))
+    if _table_for_meta:
+        metadata, _ = migrate_metadata_keys(metadata, _table_for_meta)
     metadata["id"] = page_id
     metadata["title"] = request.title
     if request.parent_id:
@@ -2070,27 +2338,36 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
                 is_database=request.is_database,
             )
         else:
-            file_path.write_text(full_content, encoding="utf-8")
+            safe_write_text(file_path, full_content)
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
         )
-        table_id = metadata.get("database_table_id") or metadata.get("table_id")
+        table_id = get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
                 _recompute_cross_record_formulas_for_table, table_id, page_id
             )
         
-        # Registra la nova pàgina al mapa ID→path immediatament (evita 404 a autosave)
+        # Insereix la nova pàgina al cache directament en lloc de buidar-lo.
+        # Buidar el cache feia que la següent crida a GET /api/vault/pages
+        # retornés [] fins que un force_refresh acabés (~1-2s sobre OneDrive),
+        # cosa que feia que el frontend creés la pestanya nova i, just després,
+        # l'efecte de neteja `useEffect` la filtrés perquè el seu id encara
+        # no era a `pages` → editor en blanc i la taula mostrava 0 registres.
         try:
             v_path = get_active_vault_path()
             if v_path:
                 v_str = str(v_path)
+                stat_result = file_path.stat()
+                new_entry = _build_page_cache_entry(file_path, stat_result)
                 with _page_index_lock:
+                    _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
                     _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
-        except Exception:
-            pass
-        # Clear entries cache to force re-scan for the sidebar
-        _clear_page_index_cache()
+        except Exception as e:
+            # Si no podem inserir, anem al pla B (rebuild segur) per no servir
+            # un cache parcialment incoherent.
+            log.warning(f"Could not insert new page into index cache, falling back to clear: {e}")
+            _clear_page_index_cache()
 
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
@@ -2112,20 +2389,65 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         )
 
 
-def find_page_path(page_id: str) -> Optional[Path]:
-    """Seeks the path of an .md file by ID recursively using an optimized in-memory index."""
+def get_table_id(metadata: Optional[dict]) -> Optional[str]:
+    """Returns the table_id of a record, looking at both alias keys.
+
+    The codebase has historically written both `database_table_id` (newer,
+    preferred) and `table_id` (legacy). PATCH writes both; older imports
+    only set one. Centralizing the lookup avoids repeating the
+    `or`-chain in 10+ call sites and makes future migrations one-line.
+    """
+    if not metadata:
+        return None
+    val = metadata.get("database_table_id") or metadata.get("table_id")
+    return str(val) if val else None
+
+
+def _canonicalize_id(page_id: Any) -> str:
+    """Returns the canonical form of a UUID-ish id for comparisons.
+
+    Notion exports IDs as 32-char no-dash hex (`df3614865ff34a1490055d9b7b456492`).
+    Gnosi/UUID standard form has dashes (`df361486-5ff3-4a14-9005-5d9b7b456492`).
+    Some legacy frontmatter, manual edits, parent_id refs, and link resolution
+    paths can carry either form. Comparing as raw strings causes silent
+    misses ("page not found" when it's there). This helper strips dashes,
+    spaces, and case so both forms map to the same canonical key.
+    """
+    s = str(page_id or "").strip().lower().replace("-", "")
+    return s
+
+
+def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Path]:
+    """Seeks the path of an .md file by ID recursively using an optimized in-memory index.
+
+    Compares ids canonically (dashes-or-not, case-insensitive) so a frontmatter
+    `id: df3614865ff34a1490055d9b7b456492` matches a request for
+    `df361486-5ff3-4a14-9005-5d9b7b456492` and vice-versa.
+
+    `allow_full_scan=False` skips the last-resort `rglob` over the entire vault.
+    Callers that already know "if not in cache then it doesn't exist" (e.g. PUT
+    on a brand-new page id) should pass `allow_full_scan=False` to avoid a
+    multi-second OneDrive scan.
+    """
     from backend.services.context_vars import get_active_vault_path
     v_path = get_active_vault_path()
     if not v_path: return None
     v_str = str(v_path)
 
+    canonical_target = _canonicalize_id(page_id)
     stale_detected = False
 
-    # 1. High Performance Cache Lookup (O(1))
-    # This is populated during list_pages (vault sync)
+    # 1. High Performance Cache Lookup (O(1) when ids match exactly).
+    # Try the raw id first (covers the 99% case), then a canonical scan.
     with _page_index_lock:
         id_map = _page_id_to_path.get(v_str, {})
         path_str = id_map.get(page_id)
+        if not path_str and canonical_target:
+            # Linear scan of the id map only when the exact key missed.
+            for k, v in id_map.items():
+                if _canonicalize_id(k) == canonical_target:
+                    path_str = v
+                    break
         if path_str:
             p = Path(path_str)
             if p.exists():
@@ -2135,11 +2457,11 @@ def find_page_path(page_id: str) -> Optional[Path]:
             _page_index_entries.get(v_str, {}).pop(path_str, None)
             stale_detected = True
 
-    # 2. Fallback: Search using the full entries cache
+    # 2. Fallback: Search using the full entries cache (canonical compare)
     with _page_index_lock:
         entries = _page_index_entries.get(v_str, {})
         for p_str, entry in list(entries.items()):
-            if entry.get("id") == page_id:
+            if _canonicalize_id(entry.get("id")) == canonical_target:
                 p = Path(p_str)
                 if p.exists():
                     _page_id_to_path.setdefault(v_str, {})[page_id] = p_str
@@ -2166,13 +2488,18 @@ def find_page_path(page_id: str) -> Optional[Path]:
     if dashworks_direct_path and dashworks_direct_path.exists():
         return dashworks_direct_path
 
-    # 4. Full scan (cache fred o buit — costós però correcte)
+    # 4. Full scan (cache fred o buit — costós però correcte). Canonical
+    # compare so dash/no-dash and case differences don't cause false negatives.
+    # Skipped when the caller knows the page can't exist yet (PUT to a fresh
+    # id) — saves a multi-second OneDrive rglob.
+    if not allow_full_scan:
+        return None
     if vault_root and vault_root.exists():
         for md_file in vault_root.rglob("*.md"):
             try:
                 raw = md_file.read_text(encoding="utf-8")
                 fm, _ = parse_frontmatter(raw, md_file)
-                if str(fm.get("id", "")) == page_id:
+                if _canonicalize_id(fm.get("id", "")) == canonical_target:
                     with _page_index_lock:
                         _page_id_to_path.setdefault(v_str, {})[page_id] = str(md_file)
                     return md_file
@@ -2185,22 +2512,37 @@ def find_page_path(page_id: str) -> Optional[Path]:
 @router.get("/pages/{page_id}")
 async def get_page(page_id: str):
     """Returns the full content of a page by ID."""
-    file_path = find_page_path(page_id)
+    # Page lookup walks the FS — push it off the asyncio event loop so a slow
+    # OneDrive stat() can't block other concurrent requests.
+    file_path = await asyncio.to_thread(find_page_path, page_id)
 
     if not file_path or not file_path.exists():
         raise HTTPException(
             status_code=404, detail=f"Page not found (ID: {page_id})"
         )
 
-    try:
+    def _read_and_parse():
         if _is_dashworks_file_path(file_path):
-            metadata, body = _read_dashworks_file(file_path)
-        else:
-            raw_content = file_path.read_text(encoding="utf-8")
-            metadata, body = parse_frontmatter(raw_content, file_path)
+            return _read_dashworks_file(file_path)
+        raw_content = file_path.read_text(encoding="utf-8")
+        return parse_frontmatter(raw_content, file_path)
+
+    try:
+        metadata, body = await asyncio.to_thread(_read_and_parse)
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
         )
+        _table_obj = _table_by_id(resolved_table_id)
+        _vf_inject_for_single_page(
+            _table_obj,
+            str(metadata.get("id") or page_id),
+            metadata,
+            get_p("DATABASES") / "vault_graph.json",
+        )
+        # Compatibilitat enrere: el frontend antic llegeix metadata per nom de
+        # camp; expandim id-keys amb el nom corresponent (sense esborrar id).
+        if _table_obj:
+            metadata = expand_metadata_for_response(metadata, _table_obj)
         return {
             "id": str(metadata.get("id") or page_id),
             "title": metadata.get("title", ""),
@@ -2208,6 +2550,10 @@ async def get_page(page_id: str):
             "content": body.strip(),
             "folder": rel_folder,
             "resolved_table_id": resolved_table_id,
+            # Etag for optimistic concurrency. Client should echo this in the
+            # next PUT — if the file moved/changed (cloud sync, external edit)
+            # the server returns 409 instead of overwriting.
+            "etag": file_etag(file_path),
         }
     except Exception as e:
         log.error(f"Error reading page {page_id}: {e}")
@@ -2219,11 +2565,46 @@ async def save_page(
     page_id: str, request: PageSaveRequest, background_tasks: BackgroundTasks
 ):
     """Saves or updates a page existing or re-adapting its UUID."""
-    file_path = find_page_path(page_id)
+    # FS lookup off the asyncio loop — slow stat()/rglob() on OneDrive should
+    # never paralyze other concurrent requests. Skip the full-vault rglob
+    # fallback: if the page id isn't in the cache, treat it as "new note" and
+    # let the create branch run (much faster). Existing notes are always
+    # cached after the indexer warmup.
+    file_path = await asyncio.to_thread(
+        find_page_path, page_id, allow_full_scan=False
+    )
+
+    # Optimistic concurrency check: if the client submitted an expected_etag,
+    # confirm the on-disk file hasn't changed since they GET'd it. This
+    # protects against the "edit on laptop + edit on phone" personal-mode
+    # case without needing real locks. Pass `force=True` to override.
+    if file_path and file_path.exists() and request.expected_etag and not request.force:
+        current = file_etag(file_path)
+        if current and current != request.expected_etag:
+            log.info(
+                f"⚠️ etag mismatch for {page_id}: expected={request.expected_etag} "
+                f"current={current}. Refusing to overwrite."
+            )
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "etag_mismatch",
+                    "message": (
+                        "El fitxer s'ha modificat des que el vas obrir "
+                        "(probablement sincronització des d'un altre dispositiu). "
+                        "Recarrega o reenvia amb force=true per sobreescriure."
+                    ),
+                    "current_etag": current,
+                    "expected_etag": request.expected_etag,
+                },
+            )
 
     metadata = request.metadata.copy()
     metadata = normalize_metadata_ids(metadata)
     metadata = normalize_table_context(metadata)
+    _table_for_meta = _table_by_id(get_table_id(metadata))
+    if _table_for_meta:
+        metadata, _ = migrate_metadata_keys(metadata, _table_for_meta)
     metadata["id"] = page_id
     metadata["title"] = request.title
     if request.parent_id is not None:
@@ -2249,23 +2630,62 @@ async def save_page(
             target_dir = table_folder if table_folder else get_p("WIKI")
 
         target_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = _safe_filename(request.title, target_dir)
-        file_extension = ".json" if is_dashworks else ".md"
-        file_path = target_dir / f"{safe_name}{file_extension}"
+        # Defensa contra duplicats: si el cache d'index no tenia la pàgina
+        # però el fitxer SÍ existeix al directori target (índex incomplet
+        # per Errno 35 'Resource deadlock' en OneDrive, etc.), reutilitzem
+        # aquell fitxer en lloc de crear "{title} (2).md". Sense això, cada
+        # PUT consecutiu generaria un fitxer nou i la pàgina apareixeria
+        # duplicada al sidebar amb estats incongruents.
+        canonical = _canonicalize_id(page_id)
+        existing_local = None
+        try:
+            file_extension = ".json" if is_dashworks else ".md"
+            for candidate in target_dir.iterdir():
+                if not candidate.is_file() or candidate.suffix != file_extension:
+                    continue
+                try:
+                    raw_existing = candidate.read_text(encoding="utf-8")
+                    fm_existing, _ = parse_frontmatter(raw_existing, candidate)
+                    if _canonicalize_id(str(fm_existing.get("id", ""))) == canonical:
+                        existing_local = candidate
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            existing_local = None
+
+        if existing_local is not None:
+            file_path = existing_local
+            # Repobla el cache perquè futures crides no tornin a fer
+            # aquesta exploració.
+            with _page_index_lock:
+                from backend.services.context_vars import get_active_vault_path
+                v_root = get_active_vault_path()
+                if v_root:
+                    _page_id_to_path.setdefault(str(v_root), {})[page_id] = str(file_path)
+            log.info(f"♻️ Reusing existing file for {page_id}: {file_path}")
+        else:
+            safe_name = _safe_filename(request.title, target_dir)
+            file_extension = ".json" if is_dashworks else ".md"
+            file_path = target_dir / f"{safe_name}{file_extension}"
     else:
         # Ensure it's in the correct folder
         file_path = ensure_correct_page_location(file_path, metadata)
         file_path = _ensure_page_extension(file_path, is_dashworks)
         file_path = _rename_page_file_to_match_title(file_path, request.title)
 
-    # Read previous metadata to detect manual overrides
-    old_metadata = {}
-    if file_path and file_path.exists():
+    # Read previous metadata to detect manual overrides — off the event loop
+    # so a slow OneDrive read doesn't block other concurrent requests.
+    def _read_old_meta():
+        if not file_path or not file_path.exists():
+            return {}
         try:
             raw_content = file_path.read_text(encoding="utf-8")
-            old_metadata, _ = parse_frontmatter(raw_content, file_path)
+            md, _ = parse_frontmatter(raw_content, file_path)
+            return md
         except Exception:
-            pass
+            return {}
+    old_metadata = await asyncio.to_thread(_read_old_meta)
 
     # Aplicar automatitzacions i fòrmules
     try:
@@ -2279,10 +2699,12 @@ async def save_page(
     # Evitar dobletes de salts inútils respectant body
     full_content = f"{frontmatter}\n{request.content.lstrip()}"
 
-    try:
+    def _write_now():
+        # Both the version backup and the actual file write are real I/O on
+        # OneDrive — pushed onto a worker thread together so the request
+        # path stays unblocked.
         if file_path and file_path.exists():
             _create_page_version(page_id, file_path)
-
         if is_dashworks:
             _write_dashworks_file(
                 file_path=file_path,
@@ -2294,11 +2716,30 @@ async def save_page(
                 is_database=request.is_database,
             )
         else:
-            file_path.write_text(full_content, encoding="utf-8")
+            safe_write_text(file_path, full_content)
+
+    try:
+        await asyncio.to_thread(_write_now)
+
+        # CRITICAL: update the page-id → path cache immediately so the next
+        # GET/PATCH for this id can hit the O(1) lookup instead of falling
+        # through to a multi-second `vault.rglob("*.md")`. The indexer warmup
+        # would eventually pick it up on the next periodic refresh, but the
+        # write→read race is tight enough to matter (especially in tests).
+        try:
+            from backend.services.context_vars import get_active_vault_path
+            v_path = get_active_vault_path()
+            if v_path:
+                v_str = str(v_path)
+                with _page_index_lock:
+                    _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
+        except Exception:
+            pass
+
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
         )
-        table_id = metadata.get("database_table_id") or metadata.get("table_id")
+        table_id = get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
                 _recompute_cross_record_formulas_for_table, table_id, page_id
@@ -2315,6 +2756,7 @@ async def save_page(
             "content": request.content,
             "folder": rel_folder,
             "resolved_table_id": resolved_table_id,
+            "etag": file_etag(file_path),  # New etag for next save's optimistic check
             "message": "Page saved successfully",
         }
     except Exception as e:
@@ -2327,16 +2769,40 @@ async def patch_page(
     page_id: str, request: PagePatchRequest, background_tasks: BackgroundTasks
 ):
     """Partial update of a page (e.g., metadata only)."""
-    file_path = find_page_path(page_id)
+    # FS lookup off the asyncio loop — protects against slow OneDrive stat()
+    file_path = await asyncio.to_thread(find_page_path, page_id)
     if not file_path:
         raise HTTPException(status_code=404, detail="Page not found")
 
-    try:
+    # Optimistic concurrency: same as PUT (see save_page above for rationale)
+    if request.expected_etag and not request.force:
+        current = file_etag(file_path)
+        if current and current != request.expected_etag:
+            log.info(
+                f"⚠️ etag mismatch (PATCH) for {page_id}: "
+                f"expected={request.expected_etag} current={current}"
+            )
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "etag_mismatch",
+                    "message": (
+                        "El fitxer s'ha modificat des que el vas obrir. "
+                        "Recarrega o reenvia amb force=true per sobreescriure."
+                    ),
+                    "current_etag": current,
+                    "expected_etag": request.expected_etag,
+                },
+            )
+
+    def _read_file():
         if _is_dashworks_file_path(file_path):
-            metadata, body = _read_dashworks_file(file_path)
-        else:
-            raw_content = file_path.read_text(encoding="utf-8")
-            metadata, body = parse_frontmatter(raw_content, file_path)
+            return _read_dashworks_file(file_path)
+        raw_content = file_path.read_text(encoding="utf-8")
+        return parse_frontmatter(raw_content, file_path)
+
+    try:
+        metadata, body = await asyncio.to_thread(_read_file)
 
         if request.title is not None:
             metadata["title"] = request.title
@@ -2362,11 +2828,18 @@ async def patch_page(
         if request.title is not None:
             file_path = _rename_page_file_to_match_title(file_path, request.title)
 
-        # Apply automations and formulas
+        # Apply automations and formulas — read previous metadata off the
+        # event loop because rule_engine.process_updates can also be CPU/IO
+        # heavy (formula evaluation against other notes).
+        def _read_original():
+            try:
+                raw = file_path.read_text(encoding="utf-8")
+                md, _ = parse_frontmatter(raw, file_path)
+                return md
+            except Exception:
+                return {}
         try:
-            # Here 'metadata' already has the request changes, 'RuleEngine' will compare with 'original_metadata' (from file)
-            raw_content = file_path.read_text(encoding="utf-8")
-            original_metadata, _ = parse_frontmatter(raw_content, file_path)
+            original_metadata = await asyncio.to_thread(_read_original)
             metadata = get_rule_engine().process_updates(page_id, original_metadata, metadata)
         except Exception as e:
             log.error(f"Error processing automations for {page_id}: {e}")
@@ -2376,23 +2849,27 @@ async def patch_page(
         frontmatter = generate_frontmatter(metadata)
         full_content = f"{frontmatter}\n{content.lstrip()}"
 
-        _create_page_version(page_id, file_path)
-        if metadata.get("is_dashworks") is True:
-            _write_dashworks_file(
-                file_path=file_path,
-                page_id=page_id,
-                title=metadata.get("title", "Untitled"),
-                metadata=metadata,
-                content=content,
-                parent_id=metadata.get("parent_id"),
-                is_database=bool(metadata.get("is_database")),
-            )
-        else:
-            file_path.write_text(full_content, encoding="utf-8")
+        # Backup + write off the loop so concurrent requests aren't stuck on
+        # OneDrive while we save.
+        def _write_now():
+            _create_page_version(page_id, file_path)
+            if metadata.get("is_dashworks") is True:
+                _write_dashworks_file(
+                    file_path=file_path,
+                    page_id=page_id,
+                    title=metadata.get("title", "Untitled"),
+                    metadata=metadata,
+                    content=content,
+                    parent_id=metadata.get("parent_id"),
+                    is_database=bool(metadata.get("is_database")),
+                )
+            else:
+                safe_write_text(file_path, full_content)
+        await asyncio.to_thread(_write_now)
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", content
         )
-        table_id = metadata.get("database_table_id") or metadata.get("table_id")
+        table_id = get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
                 _recompute_cross_record_formulas_for_table, table_id, page_id
@@ -2410,17 +2887,25 @@ async def patch_page(
             "content": content,
             "folder": rel_folder,
             "resolved_table_id": resolved_table_id,
+            "etag": file_etag(file_path),  # Echo back for next save
             "message": "Page partially updated",
         }
     except Exception as e:
         log.error(f"Error patching page {page_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, f"PATCH /pages/{page_id}"),
+        )
 
 
 @router.delete("/pages/{page_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_page(page_id: str):
-    """Permanently deletes the .md page (use with care)."""
-    file_path = find_page_path(page_id)
+    """Permanently deletes the .md page (use with care).
+
+    All filesystem work goes through `asyncio.to_thread` so a slow OneDrive
+    stat()/unlink() doesn't paralyze the event loop while the delete runs.
+    """
+    file_path = await asyncio.to_thread(find_page_path, page_id)
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="Page not found")
 
@@ -2428,9 +2913,11 @@ async def delete_page(page_id: str):
         registry = load_registry()
 
         # Esborrar fitxers d'assets associats al registre
-        try:
+        def _read_meta():
             raw_content = file_path.read_text(encoding="utf-8")
-            page_metadata, _ = parse_frontmatter(raw_content, file_path)
+            return parse_frontmatter(raw_content, file_path)
+        try:
+            page_metadata, _ = await asyncio.to_thread(_read_meta)
             table_id = page_metadata.get("table_id") or page_metadata.get(
                 "database_table_id"
             )
@@ -2444,7 +2931,9 @@ async def delete_page(page_id: str):
                     None,
                 )
                 if table:
-                    _delete_asset_files_for_page(page_metadata, table, registry)
+                    await asyncio.to_thread(
+                        _delete_asset_files_for_page, page_metadata, table, registry
+                    )
         except Exception as asset_exc:
             log.warning(
                 f"Could not delete assets for record {page_id}: {asset_exc}"
@@ -2460,10 +2949,13 @@ async def delete_page(page_id: str):
         # registry["tables"] = [t for t in registry["tables"] if t.get("database_id") != page_id]
         # registry["views"] = [v for v in registry["views"] if v.get("table_id") not in tables_to_remove]
 
-        file_path.unlink()
+        await asyncio.to_thread(file_path.unlink)
         return {"status": "success", "message": "Page deleted and registry cleaned"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "DELETE /pages/{page_id}"),
+        )
 
 
 @router.post("/upload-cover", dependencies=[Depends(require_role("editor"))])
@@ -2527,6 +3019,40 @@ async def upload_icon(
         raise e
 
 
+def _is_safe_external_url(url: str) -> tuple[bool, str]:
+    """Reject URLs that would let the server fetch internal resources (SSRF).
+
+    Blocks: loopback, private IP ranges (RFC1918), link-local (169.254/16,
+    cloud metadata), multicast, reserved. Resolves the hostname to verify
+    — a hostname like "metadata.google.internal" maps to 169.254.169.254.
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False, "Invalid URL"
+    if parsed.scheme.lower() not in ("http", "https"):
+        return False, "URL must be http(s)"
+    host = parsed.hostname
+    if not host:
+        return False, "URL has no host"
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return False, "Could not resolve host"
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
+            return False, f"Host resolves to a non-public address ({ip})"
+    return True, ""
+
+
 @router.post("/import-icon-url")
 async def import_icon_from_url(request: IconUrlImportRequest):
     """Downloads an external icon URL and stores it in Assets/Icons."""
@@ -2537,9 +3063,20 @@ async def import_icon_from_url(request: IconUrlImportRequest):
     if not re.match(r"^https?://", url, re.IGNORECASE):
         raise HTTPException(status_code=400, detail="URL must be http(s)")
 
+    # SSRF guard — block loopback, RFC1918 private ranges, cloud metadata
+    # (169.254.169.254), n8n/redis on the docker network, etc.
+    ok, reason = _is_safe_external_url(url)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"Refusing to fetch URL: {reason}")
+
     try:
-        response = requests.get(url, timeout=12, stream=True)
+        # Wrap blocking requests.get in a thread to avoid stalling the loop
+        response = await asyncio.to_thread(
+            requests.get, url, timeout=12, stream=True
+        )
         response.raise_for_status()
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not fetch icon URL: {exc}")
 
@@ -2605,8 +3142,17 @@ async def get_asset(asset_path: str):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid asset path")
 
-    if not str(requested).startswith(str(assets_root)):
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Path containment using `is_relative_to` (not `startswith`).
+    # `startswith` would let `Assets-anything/` (a sibling whose name starts
+    # with "Assets") slip through; `is_relative_to` checks the actual path
+    # hierarchy. Same pattern as `serve_vault_image` elsewhere in the file.
+    try:
+        if not requested.is_relative_to(assets_root):
+            raise HTTPException(status_code=403, detail="Access denied")
+    except AttributeError:
+        # Python < 3.9 fallback (project requires 3.11 but be defensive)
+        if not str(requested).startswith(str(assets_root) + os.sep) and requested != assets_root:
+            raise HTTPException(status_code=403, detail="Access denied")
 
     if not requested.exists() or not requested.is_file():
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -2688,13 +3234,13 @@ async def serve_vault_image(image_path: str):
 
     # Detecció de fitxers placeholder de OneDrive (mida 0 bytes)
     try:
-        if requested.stat().st_size == 0:
-            log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
-            # Retornem 404 o un error que el frontend pugui identificar si calgués, 
-            # però per ara amb el log n'hi ha prou per a depuració.
-            raise HTTPException(status_code=404, detail="Image is an empty placeholder (OneDrive)")
-    except Exception as e:
+        size_zero = requested.stat().st_size == 0
+    except OSError as e:
         log.error(f"Error comprovant mida del fitxer: {e}")
+        size_zero = False
+    if size_zero:
+        log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
+        raise HTTPException(status_code=404, detail="Image is an empty placeholder (OneDrive)")
 
     media_type, _ = mimetypes.guess_type(str(requested))
     if not media_type:
@@ -2848,7 +3394,10 @@ async def pick_folder():
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=408, detail="Folder picker timed out")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /pick-folder"),
+        )
 
 
 @router.post("/pick-file")
@@ -2875,7 +3424,10 @@ async def pick_file():
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=408, detail="File picker timed out")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /pick-file"),
+        )
 
 
 @router.get("/unsplash/search")
@@ -2893,7 +3445,12 @@ async def unsplash_search(query: str = Query(...), page: int = Query(1)):
     params = {"query": query, "page": page, "per_page": 21, "orientation": "landscape"}
 
     try:
-        resp = requests.get(url, headers=headers, params=params)
+        # to_thread + explicit timeout. Without timeout, a stuck Unsplash
+        # connection would block this async handler indefinitely (and via
+        # the shared event loop, all concurrent requests with it).
+        resp = await asyncio.to_thread(
+            requests.get, url, headers=headers, params=params, timeout=10
+        )
         resp.raise_for_status()
         data = resp.json()
 
@@ -2958,7 +3515,7 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
             frontmatter = generate_frontmatter(new_metadata)
             full_content = f"{frontmatter}\n{body.lstrip()}"
             new_file_path = source_path.parent / f"{new_page_id}.md"
-            new_file_path.write_text(full_content, encoding="utf-8")
+            safe_write_text(new_file_path, full_content)
 
         background_tasks.add_task(
             trigger_n8n_webhook, new_file_path.name, "Universal", body
@@ -3050,14 +3607,25 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
 
 
 @router.get("/global-index")
-async def get_global_index():
-    """Returns a global mapping id -> title for the entire Vault."""
+def get_global_index():
+    """Returns a global mapping id -> title for the entire Vault.
+
+    Declared as `def` (not `async def`) so FastAPI runs it in a threadpool —
+    `build_id_title_index` rglobs the whole vault on OneDrive and reads many
+    files; running on the asyncio loop would block all concurrent requests.
+    Same rationale as /backlinks and /unlinked-mentions below.
+    """
     return build_id_title_index()
 
 
 @router.get("/backlinks")
-async def get_backlinks(id: str):
-    """Finds all notes linking to a specific ID (both in metadata and body)."""
+def get_backlinks(id: str):
+    """Finds all notes linking to a specific ID (both in metadata and body).
+
+    Declared as `def` (not `async def`) so FastAPI runs it in a threadpool —
+    the body iterates the entire vault and reads many files, which would
+    block the asyncio event loop on slow OneDrive mounts.
+    """
     backlinks = []
     seen_backlink_ids: set[str] = set()
 
@@ -3269,8 +3837,12 @@ def _link_mentions_in_plain_segments(body: str, target_title: str, target_id: st
 
 
 @router.get("/unlinked-mentions")
-async def get_unlinked_mentions(id: str):
-    """Finds notes mentioning target title in plain text without an actual link."""
+def get_unlinked_mentions(id: str):
+    """Finds notes mentioning target title in plain text without an actual link.
+
+    `def` (not `async def`) → FastAPI runs in threadpool. Same rationale as
+    /backlinks: heavy filesystem traversal must not block the event loop.
+    """
     target_id = str(id or "").strip()
     if not target_id:
         return []
@@ -3377,7 +3949,7 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
                 )
             else:
                 full_content = f"{generate_frontmatter(metadata)}\n{updated_body.lstrip()}"
-                file_path.write_text(full_content, encoding="utf-8")
+                safe_write_text(file_path, full_content)
 
             changed_notes.append(
                 {
@@ -3403,31 +3975,55 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
 
 _registry_cache = None
 _registry_cache_mtime = 0
+_registry_cache_ts = 0.0  # monotonic time of last successful cache load
+_registry_cache_ttl_seconds = 30  # serve from cache without stat() if recent
+
+# Tracks tables that already had _ensure_table_vault_folder called once successfully
+# during this process lifetime. Avoids redundant FUSE stat() calls on every read.
+_registry_ensured_tables: set = set()
 
 
 
 def load_registry():
-    """Reads the central registry and ensures it. 
-    Cleanup: Deletes default taula_1 and normalizes paths to relative.
-    Uses an in-memory cache to avoid redundant I/O.
+    """Reads the central registry. Resilient to slow cloud filesystems (OneDrive).
+
+    Strategy:
+    - In-memory cache with 30s TTL: skip ALL filesystem I/O when fresh.
+    - Beyond TTL, attempt mtime-based stat with short timeout; on slow FS, return stale cache.
+    - Only run `_ensure_table_vault_folder` on first encounter per table per process.
+    - On any unexpected error, return last cached data (graceful degradation).
     """
-    global _registry_cache, _registry_cache_mtime
-    
+    global _registry_cache, _registry_cache_mtime, _registry_cache_ts
+
+    # Fast path: cache is fresh (TTL not expired) → no filesystem I/O at all
+    now = time.monotonic()
+    if _registry_cache is not None and (now - _registry_cache_ts) < _registry_cache_ttl_seconds:
+        return _registry_cache
+
     registry_path = get_p("REGISTRY")
-    if not registry_path or not registry_path.exists():
-        return {"databases": [], "tables": [], "views": []}
-    
-    # Check cache
+    if not registry_path:
+        return _registry_cache or {"databases": [], "tables": [], "views": []}
+
+    # mtime check: if file unchanged since last load, return cache without re-reading
     try:
+        if not registry_path.exists():
+            return _registry_cache or {"databases": [], "tables": [], "views": []}
         mtime = registry_path.stat().st_mtime
         if _registry_cache is not None and mtime <= _registry_cache_mtime:
+            _registry_cache_ts = now
             return _registry_cache
-    except Exception:
-        pass
+    except Exception as e:
+        # FS hung (cloud sync etc.). Prefer stale cache over blocking the request.
+        if _registry_cache is not None:
+            log.warning(f"⚠️ load_registry: stat failed ({e}); serving stale cache")
+            return _registry_cache
+        # No cache yet: bail out with empty registry (better than hanging).
+        log.error(f"❌ load_registry: stat failed and no cache available: {e}")
+        return {"databases": [], "tables": [], "views": []}
 
     try:
         data = json.loads(registry_path.read_text(encoding="utf-8"))
-        
+
         changed = False
         tables = data.get("tables", [])
         # 1. Cleanup: Delete default taula_1 if it exists
@@ -3451,50 +4047,65 @@ def load_registry():
             changed = True
             log.info("🧹 Removed legacy wiki table and its views from registry.")
 
-        # 2. Sanejament i creació de carpetes
+        # 2. Sanejament i creació de carpetes (només per taules no validades encara)
         for table in data.get("tables", []):
-            # Assegurar propietat 'folder' i que sigui RELATIVA (neteja host paths)
             folder_raw = table.get("folder") or table.get("name", "untitled_table")
             folder_normalized = _normalize_rel_folder(folder_raw)
-            
+
             if table.get("folder") != folder_normalized:
                 table["folder"] = folder_normalized
                 changed = True
                 log.info(f"🧹 Normalized table path '{table.get('name')}': {folder_normalized}")
-            
-            # Ensure physical folder
+
+            tid = str(table.get("id") or "")
+            if tid and tid in _registry_ensured_tables:
+                continue
             try:
                 _ensure_table_vault_folder(table, data)
+                if tid:
+                    _registry_ensured_tables.add(tid)
             except Exception as e:
                 log.error(f"❌ Error ensuring folder for table {table.get('name')}: {e}")
-        
+
         if changed:
             save_registry(data)
-        
+
         # Sync cache
         _registry_cache = data
+        _registry_cache_ts = now
         try:
             _registry_cache_mtime = registry_path.stat().st_mtime
         except Exception:
-            _registry_cache_mtime = 0
-            
+            _registry_cache_mtime = mtime if 'mtime' in locals() else 0
+
         return data
     except Exception as e:
         log.error(f"❌ Error loading registry: {e}")
+        if _registry_cache is not None:
+            log.warning("⚠️ load_registry: serving stale cache after error")
+            return _registry_cache
         return {"databases": [], "tables": [], "views": []}
 
 
 def save_registry(data):
     """Saves the current state to the registry file and updates cache."""
-    global _registry_cache, _registry_cache_mtime
+    global _registry_cache, _registry_cache_mtime, _registry_cache_ts
     reg_path = get_p('REGISTRY')
     if not reg_path:
         log.warning("⚠️ Registry save attempt without configured path.")
         return
     try:
-        reg_path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        # Atomic write — registry lives on cloud-synced storage, so any
+        # half-flushed write would propagate to other devices and corrupt the
+        # central config. safe_write_json does tmp + fsync + rename.
+        safe_write_json(reg_path, data, indent=2, ensure_ascii=False)
+        # Refresh cache so subsequent reads see new data without re-stat
+        _registry_cache = data
+        _registry_cache_ts = time.monotonic()
+        try:
+            _registry_cache_mtime = reg_path.stat().st_mtime
+        except Exception:
+            pass
     except Exception as e:
         log.error(f"❌ Error saving registry: {e}")
 
@@ -3521,8 +4132,48 @@ def _sort_key_name(item):
     return (order_val, normalized_name)
 
 
+_HOST_OPEN_HELPER_URL = os.environ.get(
+    "GNOSI_HOST_OPEN_HELPER_URL",
+    "http://host.docker.internal:5099/open",
+)
+
+
+def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:
+    """Delega l'obertura al helper que corre al host (Mac/Win/Linux real).
+
+    El backend de Gnosi sol córrer dins d'un contenidor Docker Linux que NO
+    té accés al sistema gràfic del host (Finder/Explorer). El helper
+    `host_open_helper` (vegeu pipeline/skills/host_open_helper/) escolta a
+    127.0.0.1:5099 al host i el contenidor el contacta via
+    `host.docker.internal:5099`. Si no està disponible, fem fallback al
+    `subprocess` local (que funciona si el backend corre directament al
+    host, no en Docker).
+    """
+    try:
+        import urllib.request
+        import urllib.error
+        req = urllib.request.Request(
+            _HOST_OPEN_HELPER_URL,
+            data=json.dumps({"path": target}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except Exception:
+        return False
+
+
 def _safe_open_target(target: str) -> None:
-    """Open URI/path with the system default app without shell interpolation."""
+    """Open URI/path with the system default app without shell interpolation.
+
+    Primer prova el helper del host (necessari quan el backend corre dins
+    de Docker, perquè el contenidor no pot cridar Finder/Explorer del Mac).
+    Si el helper no està disponible, cau al `subprocess` local — útil quan
+    el backend s'executa directament al host (mode debug/local).
+    """
+    if _try_host_open_helper(target):
+        return
     if sys.platform == "darwin":
         subprocess.Popen(["open", target])
         return
@@ -3603,7 +4254,10 @@ async def get_registry():
         return registry
     except Exception as e:
         logging.exception(f"ERROR in get_registry: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /registry"),
+        )
 
 
 @router.post("/registry")
@@ -3644,6 +4298,45 @@ async def open_resource(payload: OpenResourceRequest):
         )
 
 
+@router.post("/open-local-path", dependencies=[Depends(require_role("editor"))])
+async def open_local_path(payload: dict = Body(...)):
+    """
+    Obre una ruta local (fitxer o carpeta) amb l'app per defecte del sistema.
+    Accepta path absolut o URL file://. Útil per als enllaços file:// inserits
+    al BlockEditor que els navegadors moderns bloquegen per seguretat.
+    """
+    raw = (payload or {}).get("path") or (payload or {}).get("url") or ""
+    raw = str(raw).strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Missing 'path'")
+
+    # Normalitza file://… → ruta del sistema
+    if raw.lower().startswith("file://"):
+        # file:///Users/foo  → /Users/foo  ;  file://host/share → //host/share
+        without_scheme = raw[7:]
+        if without_scheme.startswith("/"):
+            target = urllib.parse.unquote(without_scheme)
+        else:
+            target = "//" + urllib.parse.unquote(without_scheme)
+    else:
+        target = raw
+
+    # Expandeix ~ i resol simbòlicament
+    try:
+        path = Path(target).expanduser()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+
+    try:
+        _safe_open_target(str(path))
+        return {"status": "ok", "target": str(path), "kind": "dir" if path.is_dir() else "file"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not open: {e}")
+
+
 @router.get("/databases")
 async def list_databases():
     registry = load_registry()
@@ -3670,7 +4363,7 @@ async def create_database(db: dict = Body(...)):
     return db
 
 
-@router.delete("/databases/{database_id}")
+@router.delete("/databases/{database_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_database(database_id: str):
     registry = load_registry()
     registry["databases"] = [
@@ -3703,12 +4396,54 @@ async def list_tables(database_id: Optional[str] = None):
     return sorted(tables, key=_sort_key_name)
 
 
+def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
+    """Guarantee that `table_id` has at least one view with `is_main=True`.
+
+    Resolution order:
+      1. If a view already has `is_main=True`, do nothing.
+      2. Otherwise promote an existing `type=="table"` view (the closest
+         match for "default") by flagging it `is_main=True` — this avoids
+         creating duplicate "Taula Principal" rows when migrating older
+         tables whose only view simply lacked the flag.
+      3. Otherwise (table has zero views at all) create a fresh
+         `Taula Principal` view.
+
+    Returns the view that ended up being the main one only when the
+    registry was modified, otherwise None. The caller is responsible for
+    persisting via `save_registry`.
+    """
+    views = registry.setdefault("views", [])
+    table_views = [v for v in views if v.get("table_id") == table_id]
+    if any(v.get("is_main") for v in table_views):
+        return None
+    # Prefer the first existing table-typed view (oldest at the top of
+    # the list); fall back to any view; create only if there are none.
+    promote_candidate = next(
+        (v for v in table_views if v.get("type") == "table"),
+        None,
+    ) or (table_views[0] if table_views else None)
+    if promote_candidate is not None:
+        promote_candidate["is_main"] = True
+        return promote_candidate
+    new_view = {
+        "id": str(uuid.uuid4()),
+        "table_id": table_id,
+        "name": "Taula Principal",
+        "type": "table",
+        "sort": {"field": "last_modified", "direction": "desc"},
+        "filters": [],
+        "is_main": True,
+    }
+    views.append(new_view)
+    return new_view
+
+
 @router.post("/tables")
 async def create_table(table: dict = Body(...)):
     registry = load_registry()
     if "id" not in table:
         table["id"] = str(uuid.uuid4())
-    
+
     # Ensure and normalize the folder property
     folder_raw = table.get("folder") or table.get("name", "untitled_table")
     table["folder"] = _normalize_rel_folder(folder_raw)
@@ -3749,15 +4484,33 @@ async def create_table(table: dict = Body(...)):
     _ensure_asset_dirs_for_table_entry(table, registry)
     _ensure_table_vault_folder(table, registry)
 
+    # Product invariant: every table must always own at least one main
+    # view. Without this, a freshly-created table renders as a blank
+    # canvas in the UI and the (now-guarded) frontend auto-create no
+    # longer kicks in. Doing it server-side also covers any non-UI client
+    # that POSTs a table directly.
+    _ensure_main_view(registry, table["id"])
+
     save_registry(registry)
     return table
 
 
-@router.delete("/tables/{table_id}")
-async def delete_table(table_id: str):
+@router.delete("/tables/{table_id}", dependencies=[Depends(require_role("admin"))])
+async def delete_table(table_id: str, background_tasks: BackgroundTasks):
+    """Delete a table.
+
+    Why background_tasks for the rmtree:
+      The asset folders may live on cloud-synced storage (OneDrive FUSE)
+      where deleting hundreds of files can take seconds-to-minutes. Doing
+      it inline blocks the HTTP response → the frontend modal hangs in
+      `isSubmitting=true` state, looking like the operation is broken.
+      We update the registry synchronously (the user-visible source of
+      truth) and queue the disk cleanup as a background task.
+    """
     registry = load_registry()
     # Get table info BEFORE deleting it from registry
     table_entry = next((t for t in registry["tables"] if t.get("id") == table_id), None)
+    db_entry = None
     if table_entry:
         db_entry = next(
             (
@@ -3767,11 +4520,16 @@ async def delete_table(table_id: str):
             ),
             None,
         )
-        _delete_asset_table_dir(table_entry, db_entry)
+    # Update registry FIRST so the response is fast and the UI updates immediately
     registry["tables"] = [t for t in registry["tables"] if t.get("id") != table_id]
     # Netejar views associades
     registry["views"] = [v for v in registry["views"] if v.get("table_id") != table_id]
     save_registry(registry)
+
+    # Schedule the slow filesystem cleanup off the request path
+    if table_entry:
+        background_tasks.add_task(_delete_asset_table_dir, table_entry, db_entry)
+
     return {"status": "success"}
 
 
@@ -3780,17 +4538,136 @@ async def rename_table(table_id: str, data: dict = Body(...)):
     registry = load_registry()
     for t in registry["tables"]:
         if t["id"] == table_id:
+            old_name = str(t.get("name") or "").strip()
             if "name" in data:
                 t["name"] = data["name"]
                 if not t.get("folder"):
                     t["folder"] = data["name"]
             if "folder" in data:
                 t["folder"] = data["folder"]
+            new_name = str(t.get("name") or "").strip()
+
+            # Si el nom ha canviat, mou ambdues carpetes d'assets perquè els
+            # fitxers existents segueixin l'objecte taula:
+            #   1) Assets/<OldName>/                  (plana, drag&drop genèric)
+            #   2) Assets/<DB>/<OldTable>/            (estructurada per propietats)
+            # Si la destinació ja existeix (col·lisió raríssima), no fem res
+            # i deixem un warning al log per inspeccionar manualment.
+            if old_name and new_name and old_name != new_name:
+                # 1) Plana
+                try:
+                    old_seg = _sanitize_asset_segment(old_name, "Table")
+                    new_seg = _sanitize_asset_segment(new_name, "Table")
+                    old_dir = get_p("ASSETS") / old_seg
+                    new_dir = get_p("ASSETS") / new_seg
+                    if old_dir.is_dir() and not new_dir.exists():
+                        old_dir.rename(new_dir)
+                        log.info(f"Renamed flat assets folder: {old_dir} → {new_dir}")
+                    elif old_dir.is_dir() and new_dir.exists():
+                        log.warning(
+                            f"Both old and new flat assets dirs exist for table "
+                            f"rename ({old_name}→{new_name}); leaving as-is."
+                        )
+                except Exception as e:
+                    log.warning(f"Could not rename flat assets folder: {e}")
+
+                # 2) Estructurada — necessitem la database actual per resoldre
+                # `Assets/<DBName>/<OldTable>/` correctament.
+                try:
+                    db_entry = next(
+                        (
+                            d
+                            for d in registry.get("databases", []) or []
+                            if str(d.get("id")) == str(t.get("database_id"))
+                        ),
+                        None,
+                    )
+                    db_seg = _sanitize_asset_segment(
+                        (db_entry or {}).get("name") or t.get("database_id") or "General",
+                        "General",
+                    )
+                    old_struct = get_p("ASSETS") / db_seg / _sanitize_asset_segment(old_name, "Table")
+                    new_struct = get_p("ASSETS") / db_seg / _sanitize_asset_segment(new_name, "Table")
+                    if old_struct.is_dir() and not new_struct.exists():
+                        old_struct.rename(new_struct)
+                        log.info(f"Renamed structured assets folder: {old_struct} → {new_struct}")
+                    elif old_struct.is_dir() and new_struct.exists():
+                        log.warning(
+                            f"Both old and new structured assets dirs exist for "
+                            f"table rename ({old_name}→{new_name}); leaving as-is."
+                        )
+                except Exception as e:
+                    log.warning(f"Could not rename structured assets folder: {e}")
+
             _ensure_asset_dirs_for_table_entry(t, registry)
             _ensure_table_vault_folder(t, registry)
             break
     save_registry(registry)
     return {"status": "success"}
+
+
+@router.patch("/tables/{table_id}/properties/{field_id}",
+               dependencies=[Depends(require_role("editor"))])
+async def patch_table_property(table_id: str, field_id: str, data: dict = Body(...)):
+    """
+    Renomena o actualitza atributs no estructurals d'una property identificada
+    pel seu 'id' immutable. Mai canvia l'id; per això renomenar el 'name' és
+    una operació purament cosmètica i no trenca cap referència interna ni
+    metadata existent.
+
+    Body acceptat (tots opcionals):
+      - name: nou nom mostrat
+      - type: nou type (només si la migració de dades és segura)
+      - config: dict que es fa merge amb la config existent
+    """
+    registry = load_registry()
+    target_table = None
+    target_prop = None
+    for t in registry.get("tables", []):
+        if t.get("id") == table_id:
+            target_table = t
+            for p in t.get("properties", []) or []:
+                if p.get("id") == field_id:
+                    target_prop = p
+                    break
+            break
+    if not target_table:
+        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
+    if not target_prop:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Property {field_id} not found in table {table_id}",
+        )
+
+    if "name" in data and isinstance(data["name"], str) and data["name"].strip():
+        new_name = data["name"].strip()
+        # Validació: no permetre col·lisió amb un altre nom de la mateixa taula
+        for p in target_table.get("properties", []) or []:
+            if p is target_prop:
+                continue
+            if (p.get("name") or "").strip() == new_name:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Ja existeix una property amb el nom '{new_name}' a la taula",
+                )
+        target_prop["name"] = new_name
+
+    if "type" in data and isinstance(data["type"], str):
+        target_prop["type"] = data["type"]
+
+    if "config" in data and isinstance(data["config"], dict):
+        existing = target_prop.get("config") or {}
+        if not isinstance(existing, dict):
+            existing = {}
+        existing.update(data["config"])
+        target_prop["config"] = existing
+
+    save_registry(registry)
+    return {
+        "status": "success",
+        "table_id": table_id,
+        "property": target_prop,
+    }
 
 
 @router.get("/views")
@@ -3831,10 +4708,47 @@ async def create_view(view: dict = Body(...)):
     return view
 
 
-@router.delete("/views/{view_id}")
+@router.delete("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_view(view_id: str):
     registry = load_registry()
-    registry["views"] = [v for v in registry["views"] if v.get("id") != view_id]
+    views = registry.get("views", [])
+    target = next((v for v in views if v.get("id") == view_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="View not found")
+
+    table_id = target.get("table_id")
+    siblings = [v for v in views if v.get("table_id") == table_id]
+    is_only = len(siblings) <= 1
+    is_main = bool(target.get("is_main"))
+    other_mains = [v for v in siblings if v.get("id") != view_id and v.get("is_main")]
+
+    # Product invariant: every table must keep at least one main view at
+    # all times. Reject deletes that would leave a table with no views, or
+    # that would strip the last `is_main` flag.
+    if is_only:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "cannot_delete_last_view",
+                "message": (
+                    "No es pot eliminar l'única vista d'una taula. "
+                    "Crea'n una altra primer."
+                ),
+            },
+        )
+    if is_main and not other_mains:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "cannot_delete_main_view",
+                "message": (
+                    "No es pot eliminar la vista principal. Marca una "
+                    "altra vista com a principal abans d'eliminar aquesta."
+                ),
+            },
+        )
+
+    registry["views"] = [v for v in views if v.get("id") != view_id]
     save_registry(registry)
     return {"status": "success"}
 
@@ -3873,7 +4787,7 @@ async def save_schema(folder: str, schema: dict = Body(...)):
     """
     schema_path = get_p('VAULT') / folder / "schema.json"
     schema_path.parent.mkdir(parents=True, exist_ok=True)
-    schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
+    safe_write_json(schema_path, schema, indent=2)
     return {"status": "success"}
 
 
@@ -3977,16 +4891,14 @@ async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
     }
 
     try:
-        file_path.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        safe_write_json(file_path, payload, indent=2, ensure_ascii=False)
         return {"status": "success", "id": drawing_id}
     except Exception as e:
         log.error(f"Error saving drawing {drawing_id}: {e}")
         raise HTTPException(status_code=500, detail="Error writing target file")
 
 
-@router.delete("/drawings/{drawing_id}")
+@router.delete("/drawings/{drawing_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_drawing(drawing_id: str):
     """Deletes a drawing."""
     dib_path = get_p('DIBUIXOS')
@@ -4098,7 +5010,7 @@ async def restore_page_version(page_id: str, timestamp: str, background_tasks: B
         # Optionally recompute formulas if page belongs to a table
         raw_content = file_path.read_text(encoding="utf-8")
         metadata, _ = parse_frontmatter(raw_content, file_path)
-        table_id = metadata.get("database_table_id") or metadata.get("table_id")
+        table_id = get_table_id(metadata)
         if table_id:
             background_tasks.add_task(_recompute_cross_record_formulas_for_table, table_id, page_id)
             
@@ -4108,7 +5020,7 @@ async def restore_page_version(page_id: str, timestamp: str, background_tasks: B
         raise HTTPException(status_code=500, detail="Error restoring the version")
 
 
-@router.delete("/pages/{page_id}/history")
+@router.delete("/pages/{page_id}/history", dependencies=[Depends(require_role("admin"))])
 async def purge_page_history(page_id: str):
     """Deletes all version history of a page."""
     history_base = get_p("VAULT") / ".history" / page_id

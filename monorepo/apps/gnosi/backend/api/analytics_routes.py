@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import re
@@ -9,6 +9,9 @@ from datetime import datetime
 from backend.agent.generated_tools.registry import registry
 from backend.config.app_config import load_params
 from backend.utils.cache import global_cache
+from backend.utils.safe_io import safe_write_text
+from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -79,8 +82,10 @@ def _parse_date(date_str: str) -> datetime:
                     return datetime.strptime(date_str, "%d/%m/%y")
                 return datetime.strptime(date_str, "%d/%m/%Y")
             if len(parts) == 2:
-                # Default to current year for DD/MM
-                return datetime.strptime(f"{date_str}/2026", "%d/%m/%Y")
+                # Default to current year for DD/MM (no hardcodejar — caducaria
+                # cada 1 de gener).
+                current_year = datetime.now().year
+                return datetime.strptime(f"{date_str}/{current_year}", "%d/%m/%Y")
     except Exception:
         pass
     return datetime.min
@@ -269,7 +274,10 @@ def _validate_path(path_str: str, allow_missing: bool = False) -> Path:
     try:
         path = Path(path_str).resolve()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid path format: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=safe_error_detail(e, "validate path format"),
+        )
         
     base_dir = _get_base_dir()
     sources = _get_trap_sources(base_dir)
@@ -280,8 +288,10 @@ def _validate_path(path_str: str, allow_missing: bool = False) -> Path:
     for src in sources:
         src_dir = src["dir"].resolve()
         valid_dirs.append(str(src_dir))
-        # Check if the path is a child of the source directory
-        if path.is_relative_to(src_dir) or str(path).startswith(str(src_dir)):
+        # Strict containment check via path semantics. Removed the previous
+        # `str.startswith` OR fallback because that lets `<src>-attacker/...`
+        # slip through (sibling directory whose name starts the same way).
+        if path.is_relative_to(src_dir):
             is_valid = True
             break
             
@@ -311,9 +321,12 @@ async def get_directive_content(path: str = Query(...)) -> Dict[str, Any]:
             "content": content
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading directive: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /directives/content"),
+        )
 
-@router.post("/directives/content")
+@router.post("/directives/content", dependencies=[Depends(require_role("editor"))])
 async def save_directive_content(
     path: str = Body(...),
     content: str = Body(...)
@@ -321,12 +334,15 @@ async def save_directive_content(
     """Update directive content."""
     file_path = _validate_path(path, allow_missing=True)
     try:
-        file_path.write_text(content, encoding='utf-8')
+        safe_write_text(file_path, content)
         return {"message": "Updated successfully", "path": path}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /directives/content"),
+        )
 
-@router.delete("/directives")
+@router.delete("/directives", dependencies=[Depends(require_role("admin"))])
 async def delete_directive(path: str = Query(...)) -> Dict[str, Any]:
     """Delete a directive file or an entire skill folder."""
     # Allow missing to support deleting skill folders even if SKILL.md isn't there yet
@@ -352,4 +368,7 @@ async def delete_directive(path: str = Query(...)) -> Dict[str, Any]:
             
         return {"message": "Deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "DELETE /directives"),
+        )
