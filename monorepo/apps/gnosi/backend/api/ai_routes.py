@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +14,7 @@ from backend.security.ai_credentials import (
     sanitize_ai_config,
     set_provider_api_key,
 )
+from backend.utils.errors import safe_error_detail
 
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
@@ -61,16 +63,21 @@ async def validate_provider(provider_id: str, payload: ValidatePayload):
         if not llm:
             return {"success": False, "error": f"No s'ha pogut instanciar el proveïdor {provider}. Revisa que la dependència o la clau API siguin correctos. Model: {target_model}"}
             
-        # Intent d'invocació mínima
+        # Intent d'invocació mínima — to_thread evita bloquejar l'event loop
+        # (alguns LLMs no exposen `ainvoke` o el seu sync n'és el primary path).
         from langchain_core.messages import HumanMessage
-        response = llm.invoke([HumanMessage(content="Digues 'ok'")], config={"timeout": 10})
-        
+        response = await asyncio.to_thread(
+            llm.invoke,
+            [HumanMessage(content="Digues 'ok'")],
+            config={"timeout": 10},
+        )
+
         return {"success": True, "response": response.content}
     except Exception as e:
         error_msg = str(e)
         if "API key" in error_msg:
-            error_msg = f"Clau API invàlida per a {provider.capitalize()}."
-        return {"success": False, "error": error_msg}
+            return {"success": False, "error": f"Clau API invàlida per a {provider.capitalize()}."}
+        return {"success": False, "error": safe_error_detail(e, context=f"POST /ai/providers/{provider}/validate")}
 
 
 
