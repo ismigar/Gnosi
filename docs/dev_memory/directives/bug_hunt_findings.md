@@ -15,6 +15,16 @@
 | `89307110c` | `backend/api/analytics_routes.py` | Any 2026 hardcoded al `_parse_date` → `datetime.now().year`. |
 | `89307110c` | `backend/scheduler/manager.py` | `_save_config` engolia errors silenciosament i no era atòmic → log + `safe_write_json`. |
 | `89307110c` | `backend/api/vault_routes.py` (serve_vault_image) | `except Exception` engolia HTTPException(404) per fitxer buit OneDrive → fitxer placeholder es servia com a buit en lloc de 404. |
+| `db76e58b7` | `backend/api/env_routes.py` | HTTPException(400) engolida + escriptura no atòmica de .env_shared. |
+| `db76e58b7` | `backend/agent/generated_tools/test_sandbox.py` | Thread no daemon: tools penjats impedien shutdown del procés. |
+| `f3fc653c5` | `backend/api/mail_routes.py`, `calendar_routes.py`, `contacts_routes.py` | `asyncio.get_event_loop()` deprecat dins async (7 ocurrències) → `asyncio.to_thread()`. |
+| `9e52b77cd` | `backend/agent/generated_tools/creator.py` | Creator escrivia tools a `Path(__file__).parent` però loader llegeix de `cfg.paths.AGENT_TOOLS` → tools auto-aprovats no es carregaven mai. |
+| `9e52b77cd` | `backend/services/integration_manager.py` | Race condition: 4 mètodes RMW sense lock. integrations.json (totes les credencials!) escrit no atòmicament → corruption en cas de crash. |
+| `9e52b77cd` | `backend/services/mail_metadata_manager.py` | Race condition: `update_metadata` RMW sense lock → updates concurrents podien perdre canvis. |
+| `0f5e63f35` | `backend/api/config_routes.py` | params.yaml escrit no atòmicament + HTTPException engolida. |
+| `0f5e63f35` | `backend/api/vault_graph_routes.py` | `build_unified_graph` (rglob + Fruchterman-Reingold) síncron dins async → bloquejava event loop segons. |
+| `047748450` | `backend/api/social_routes.py` | `interact_with_post` retornava 500 enganyós si network/action invàlid → ara 400 amb llistat d'opcions vàlides. |
+| `b60941e45` | `backend/data/management_db.py` | Sense lock a `_get_or_init_mgmt_engine` → dos requests concurrents al primer arrencada podien crear engines paral·lels. Afegit double-checked locking. |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
@@ -84,6 +94,35 @@ Va quedar arreglat al fix #50782350b, però val la pena verificar al codi actual
 
 ### 11. `frontend/src/hooks/useVaultViewData.js:17` — variable `schema` no usada
 Trivial, però possible deute de l'última refactor de vistes.
+
+### 12. `backend/server.py:138-144` — CORS misconfiguration
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,  # ⚠️ Incompatible amb origins=["*"]
+    ...
+)
+```
+La spec CORS prohibeix `Access-Control-Allow-Credentials: true` quan `Allow-Origin: *`. Els navegadors rebutgen requests amb credentials. En personal mode local potser no es noten errors, però si s'activen requests autenticats cross-origin, fallaran silenciosament.
+
+**Recomanació:** llistar origins explícits (`["http://localhost:3000", "http://localhost:5173"]`) o desactivar `allow_credentials` si no s'usa.
+
+### 13. `backend/server.py:155-179` — global_exception_handler filtra detalls
+El handler retorna `error_detail = str(exc)` al cos de la resposta 500. Si l'excepció conté paths absoluts, tokens, traces de DB, el frontend (i potencialment proxies/logs intermedis) ho rebran en clar.
+
+**Recomanació:** loggar el detall però retornar només `{"detail": "Internal server error"}` al client, sense `"error"`.
+
+### 14. `backend/services/imap_mail_sync_service.py:215` — `socket.setdefaulttimeout(30)` global
+Setejar el timeout per defecte global afecta TOTS els sockets del procés (graph fetch, calendar APIs, requests fora del IMAP). És un side-effect que escapa el `_connect`.
+
+**Recomanació:** usar `imap.sock.settimeout(30)` per-connexió en lloc del global.
+
+### 15. `backend/services/feed_ingester.py:71` — `if True: # pub_date > target_time:`
+Codi mort — l'if sempre és True. El comentari diu que es va treure el filtre 24h. Hauria de ser `if pub_date > target_time:` o eliminar la condició entera.
+
+### 16. `backend/api/workspace_routes.py:247-250` — `WorkspaceResponse.from_orm(None)`
+Si la membership existeix però el workspace s'ha eliminat (cas corrupte), `from_orm(None)` crashejaria. Cas marginal però val la pena un None check.
 
 ## Patrons recurrents a vigilar
 
