@@ -1,6 +1,8 @@
 import json
 import logging
+import threading
 from backend.config.app_config import load_params
+from backend.utils.safe_io import safe_write_json
 
 log = logging.getLogger(__name__)
 
@@ -13,6 +15,10 @@ class IntegrationManager:
         self.config_file = self.secrets_dir / "integrations.json"
         self._cache = None
         self._cache_mtime = 0
+        # Read-modify-write lock: dues operacions concurrents (ex. dos
+        # tabs guardant credencials, sync que toca tokens i UI alhora)
+        # poden perdre updates si llegeixen el mateix snapshot.
+        self._lock = threading.RLock()
 
     def _load(self) -> dict:
         """Loads from disk only if needed."""
@@ -43,8 +49,10 @@ class IntegrationManager:
 
     def _save(self, data: dict):
         try:
-            with open(self.config_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4)
+            # Atomic write: integrations.json conté TOTES les credencials.
+            # Un crash a meitat de json.dump deixaria el fitxer truncat i
+            # totes les integracions deixarien de funcionar al següent restart.
+            safe_write_json(self.config_file, data, indent=4)
             # Update cache immediately
             self._cache = data
             try:
@@ -162,16 +170,18 @@ class IntegrationManager:
 
     def update(self, key: str, data):
         """Updates a specific integration configuration."""
-        config = self._load()
-        self._update_single_key(config, key, data)
-        self._save(config)
+        with self._lock:
+            config = self._load()
+            self._update_single_key(config, key, data)
+            self._save(config)
 
     def bulk_update(self, updates: dict):
         """Updates multiple integration keys and saves once."""
-        config = self._load()
-        for key, data in updates.items():
-            self._update_single_key(config, key, data)
-        self._save(config)
+        with self._lock:
+            config = self._load()
+            for key, data in updates.items():
+                self._update_single_key(config, key, data)
+            self._save(config)
 
     # ── Mail account helpers ───────────────────────────────────────────────────
 
@@ -185,15 +195,16 @@ class IntegrationManager:
 
     def set_mail_account_enabled(self, email: str, enabled: bool) -> bool:
         """Sets the enabled flag for a mail account. Returns True if found."""
-        data = self._load()
-        email_lower = email.strip().lower()
-        for section in ("emails", "mail_accounts"):
-            for acc in data.get(section, []):
-                if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
-                    acc["enabled"] = enabled
-                    self._save(data)
-                    return True
-        return False
+        with self._lock:
+            data = self._load()
+            email_lower = email.strip().lower()
+            for section in ("emails", "mail_accounts"):
+                for acc in data.get(section, []):
+                    if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
+                        acc["enabled"] = enabled
+                        self._save(data)
+                        return True
+            return False
 
     def get_mail_account(self, email: str) -> dict | None:
         """Returns the raw account dict for an email, searching both lists."""
@@ -214,14 +225,15 @@ class IntegrationManager:
 
     def update_mail_account_token(self, email: str, token: str) -> None:
         """Persists a refreshed OAuth token in-place without touching other fields."""
-        data = self._load()
-        email_lower = email.strip().lower()
-        for section in ("emails", "mail_accounts"):
-            for acc in data.get(section, []):
-                if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
-                    acc["token"] = token
-                    self._save(data)
-                    return
+        with self._lock:
+            data = self._load()
+            email_lower = email.strip().lower()
+            for section in ("emails", "mail_accounts"):
+                for acc in data.get(section, []):
+                    if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
+                        acc["token"] = token
+                        self._save(data)
+                        return
 
     # ── Provider classification (static, no I/O) ──────────────────────────────
 
