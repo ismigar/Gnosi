@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, createElement, useContext, useState, useEffect, useCallback } from 'react';
 
 const API = '/api/mail/tags';
 
-export function useMailTags() {
+const MailTagsContext = createContext(null);
+
+function useMailTagsImpl() {
     const [tags, setTags] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -102,4 +104,19 @@ export function useMailTags() {
         getTaggedMessages,
         getBatchMessageTags,
     };
+}
+
+export function MailTagsProvider({ children }) {
+    const value = useMailTagsImpl();
+    // createElement avoids JSX in this `.js` file (Vite's React plugin only
+    // transforms `.jsx`/`.tsx` by default).
+    return createElement(MailTagsContext.Provider, { value }, children);
+}
+
+export function useMailTags() {
+    const ctx = useContext(MailTagsContext);
+    if (!ctx) {
+        throw new Error('useMailTags must be used within a <MailTagsProvider>');
+    }
+    return ctx;
 }
