@@ -16,6 +16,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.config.app_config import load_params
+from backend.utils.safe_io import safe_write_json
+from backend.utils.errors import safe_error_detail
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,10 +56,9 @@ def _load_registry(vault_path: Path) -> tuple[dict, Path]:
 
 
 def _save_registry(registry: dict, registry_path: Path) -> None:
-    registry_path.write_text(
-        json.dumps(registry, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    # Atomic write — registry sits on cloud-synced storage; half-flushed
+    # writes propagate to other devices and break everyone.
+    safe_write_json(registry_path, registry, indent=2, ensure_ascii=False)
 
 
 def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
@@ -92,11 +93,19 @@ async def get_page_views(page_id: str):
             "page_id": page_id,
             "sections": page_cfg.get("sections", []),
         }
+    except HTTPException:
+        raise
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(
+            status_code=404,
+            detail=safe_error_detail(e, "GET /pages/{page_id}/views"),
+        )
     except Exception as e:
         log.exception(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /pages/{page_id}/views"),
+        )
 
 
 @router.post("/pages/{page_id}/views")
@@ -147,11 +156,19 @@ async def upsert_page_view(page_id: str, view: ViewSection):
             "md_synced": synced,
         }
 
+    except HTTPException:
+        raise
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(
+            status_code=404,
+            detail=safe_error_detail(e, "POST /pages/{page_id}/views"),
+        )
     except Exception as e:
         log.exception(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /pages/{page_id}/views"),
+        )
 
 
 @router.delete("/pages/{page_id}/views/{heading}")
@@ -185,4 +202,7 @@ async def delete_page_view(page_id: str, heading: str):
         raise
     except Exception as e:
         log.exception(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "DELETE /pages/{page_id}/views/{heading}"),
+        )
