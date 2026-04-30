@@ -20,6 +20,10 @@ from typing import Optional, List
 from pathlib import Path
 from email.utils import parsedate_to_datetime
 from collections import defaultdict
+
+from backend.utils.safe_io import safe_write_text, safe_write_json
+from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
 from backend.services.google_mail_service import (
     send_reply,
     update_thread_labels,
@@ -55,8 +59,12 @@ log = logging.getLogger(__name__)
 
 
 # ── Mail Message Cache ──────────────────────────────────────────────────────────
-_MAIL_CACHE: dict = {}
-_MAIL_CACHE_TTL = 120  # seconds
+# Thread-safe + bounded. Replaces the previous bare dict that grew unbounded
+# (every (email, folder, category) tuple stayed forever) and could race with
+# the threadpool callbacks invoked from `run_in_executor`.
+from backend.utils.cache import SimpleCache as _SimpleCache
+_MAIL_CACHE = _SimpleCache(default_ttl=120, max_size=128)
+_COUNTS_CACHE = _SimpleCache(default_ttl=300, max_size=64)
 
 
 def _cache_key(email: str, folder: Optional[str], category: Optional[str]) -> str:
@@ -64,19 +72,11 @@ def _cache_key(email: str, folder: Optional[str], category: Optional[str]) -> st
 
 
 def _get_cached_messages(email: str, folder: Optional[str], category: Optional[str]) -> Optional[list]:
-    key = _cache_key(email, folder, category)
-    entry = _MAIL_CACHE.get(key)
-    if entry and time.time() < entry["expiry"]:
-        return entry["messages"]
-    return None
+    return _MAIL_CACHE.get(_cache_key(email, folder, category))
 
 
 def _set_cached_messages(email: str, folder: Optional[str], category: Optional[str], messages: list):
-    key = _cache_key(email, folder, category)
-    _MAIL_CACHE[key] = {
-        "messages": messages,
-        "expiry": time.time() + _MAIL_CACHE_TTL,
-    }
+    _MAIL_CACHE.set(_cache_key(email, folder, category), messages)
 
 
 def _invalidate_mail_cache():
@@ -91,6 +91,33 @@ def get_mail_vault_path() -> Path:
 
 def get_vault_path() -> Path:
     return get_active_vault_path()
+
+
+# Allow-list characters that are safe inside a Mail/ filename stem. Real
+# message ids from Gmail/IMAP only ever use these. Anything else (path
+# separators, glob wildcards, ".." traversal segments, NUL) is rejected
+# before being interpolated into a `glob()` pattern.
+_MESSAGE_ID_RE = re.compile(r"^[A-Za-z0-9_\-@.+]+$")
+
+
+def _validate_message_id(message_id: str) -> str:
+    """Validates and returns the message_id, or raises HTTPException(400)."""
+    mid = str(message_id or "").strip()
+    if not mid or not _MESSAGE_ID_RE.match(mid) or len(mid) > 256:
+        raise HTTPException(status_code=400, detail="Invalid message id")
+    return mid
+
+
+def _find_message_files(mail_path: Path, message_id: str) -> list[Path]:
+    """Returns mail .md files matching `<message_id>_*.md` or that contain
+    the (validated) id in the stem. Validates the id before any glob to
+    avoid arbitrary glob patterns landing in user input.
+    """
+    mid = _validate_message_id(message_id)
+    files = list(mail_path.glob(f"{mid}_*.md"))
+    if not files:
+        files = [f for f in mail_path.glob("*.md") if mid in f.stem]
+    return files
 
 
 def _sanitize_yaml_string(val: str) -> str:
@@ -140,7 +167,7 @@ def _repair_file(file_path: Path, yaml_text: str, body: str):
     new_front = yaml.dump(
         metadata, default_flow_style=False, sort_keys=False, allow_unicode=True
     )
-    file_path.write_text(f"---\n{new_front}---\n\n{body}\n", encoding="utf-8")
+    safe_write_text(file_path, f"---\n{new_front}---\n\n{body}\n")
     log.info(f"Rewrote malformed mail frontmatter in {file_path}")
 
 
@@ -194,31 +221,28 @@ def get_unix_timestamp(date_str):
     return int(time.time())
 
 
-_COUNTS_CACHE: dict = {}
-_COUNTS_CACHE_TTL = 300  # seconds
-
-
 @router.get("/counts")
 async def get_mail_counts(email: str = Query(...)):
     """Returns unread and total counts per folder/category via Gmail API or IMAP."""
     cached = _COUNTS_CACHE.get(email)
-    if cached and time.time() < cached["expiry"]:
-        return cached["data"]
+    if cached is not None:
+        return cached
 
     from backend.services.hybrid_mail_service import gmail_get_counts, imap_get_counts
     from backend.services.integration_manager import integration_manager
 
     acc = integration_manager.get_mail_account(email)
-    loop = asyncio.get_event_loop()
+    # asyncio.get_event_loop() és deprecat dins async; asyncio.to_thread és
+    # l'equivalent modern (Python 3.9+) i no requereix referenciar el loop.
     if integration_manager.is_google_account(acc):
-        counts = await loop.run_in_executor(None, gmail_get_counts, email)
+        counts = await asyncio.to_thread(gmail_get_counts, email)
     elif integration_manager.is_microsoft_account(acc):
         from backend.services.microsoft_mail_service import microsoft_get_counts
-        counts = await loop.run_in_executor(None, microsoft_get_counts, email)
+        counts = await asyncio.to_thread(microsoft_get_counts, email)
     else:
-        counts = await loop.run_in_executor(None, imap_get_counts, email)
+        counts = await asyncio.to_thread(imap_get_counts, email)
 
-    _COUNTS_CACHE[email] = {"data": counts, "expiry": time.time() + _COUNTS_CACHE_TTL}
+    _COUNTS_CACHE.set(email, counts)
     return counts
 
 
@@ -279,38 +303,57 @@ async def get_messages(
     cache_key = f"{email}|{folder}|{category}|{page_token}|{offset}|{search}"
     if not force:
         cached = _MAIL_CACHE.get(cache_key)
-        if cached and time.time() < cached["expiry"]:
-            return cached["data"]
+        if cached is not None:
+            return cached
     else:
-        _MAIL_CACHE.pop(cache_key, None)
+        _MAIL_CACHE.pop(cache_key)
 
     acc = integration_manager.get_mail_account(email)
-    loop = asyncio.get_event_loop()
-    if integration_manager.is_google_account(acc):
-        result = await loop.run_in_executor(
-            None, functools.partial(
-                gmail_list_messages, email,
-                folder=folder or "all", category=category,
-                search=search, limit=limit, page_token=page_token,
+    # Hard cap on remote mail listings. IMAP servers in particular can hang
+    # for minutes on flaky networks, leaving the HTTP request pending and
+    # blocking the frontend tab. 30s aligns with the IMAP socket timeout in
+    # imap_mail_sync_service and the axios default on the frontend.
+    REMOTE_LIST_TIMEOUT_S = 30
+    try:
+        if integration_manager.is_google_account(acc):
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    gmail_list_messages, email,
+                    folder=folder or "all", category=category,
+                    search=search, limit=limit, page_token=page_token,
+                ),
+                timeout=REMOTE_LIST_TIMEOUT_S,
             )
-        )
-    elif integration_manager.is_microsoft_account(acc):
-        from backend.services.microsoft_mail_service import microsoft_list_messages
-        result = await loop.run_in_executor(
-            None, functools.partial(
-                microsoft_list_messages, email,
-                folder=folder or "INBOX", category=category,
-                search=search, limit=limit, page_token=page_token,
+        elif integration_manager.is_microsoft_account(acc):
+            from backend.services.microsoft_mail_service import microsoft_list_messages
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    microsoft_list_messages, email,
+                    folder=folder or "INBOX", category=category,
+                    search=search, limit=limit, page_token=page_token,
+                ),
+                timeout=REMOTE_LIST_TIMEOUT_S,
             )
-        )
-    else:
-        result = await loop.run_in_executor(
-            None, functools.partial(
-                imap_list_messages, email,
-                folder=folder or "INBOX",
-                search=search, limit=limit, offset=offset,
+        else:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    imap_list_messages, email,
+                    folder=folder or "INBOX",
+                    search=search, limit=limit, offset=offset,
+                ),
+                timeout=REMOTE_LIST_TIMEOUT_S,
             )
-        )
+    except asyncio.TimeoutError:
+        return {
+            "messages": [],
+            "next_page_token": None,
+            "total": 0,
+            "error": (
+                f"Timeout after {REMOTE_LIST_TIMEOUT_S}s listing mail for "
+                f"{email}. The remote server is unreachable or slow."
+            ),
+        }
+    if not integration_manager.is_google_account(acc) and not integration_manager.is_microsoft_account(acc):
         if folder and folder.upper() in ("DRAFTS", "DRAFT"):
             vault_drafts = _load_vault_drafts(email)
             existing_ids = {m.get("id") for m in result.get("messages", [])}
@@ -328,7 +371,7 @@ async def get_messages(
         data["error"] = error
     else:
         # Només caché si no hi ha error
-        _MAIL_CACHE[cache_key] = {"data": data, "expiry": time.time() + _MAIL_CACHE_TTL}
+        _MAIL_CACHE.set(cache_key, data)
     return data
 
 
@@ -344,27 +387,24 @@ async def get_message(
 
     if email:
         acc = integration_manager.get_mail_account(email)
-        loop = asyncio.get_event_loop()
         if message_id.startswith("imap_"):
             uid = message_id[5:]
-            result = await loop.run_in_executor(None, imap_get_message, email, uid, folder or "INBOX")
+            result = await asyncio.to_thread(imap_get_message, email, uid, folder or "INBOX")
         elif integration_manager.is_google_account(acc):
-            result = await loop.run_in_executor(None, gmail_get_message, email, message_id)
+            result = await asyncio.to_thread(gmail_get_message, email, message_id)
         elif integration_manager.is_microsoft_account(acc):
             from backend.services.microsoft_mail_service import microsoft_get_message
-            result = await loop.run_in_executor(None, microsoft_get_message, email, message_id)
+            result = await asyncio.to_thread(microsoft_get_message, email, message_id)
         else:
             uid = message_id[5:] if message_id.startswith("imap_") else message_id
-            result = await loop.run_in_executor(None, imap_get_message, email, uid, folder or "INBOX")
+            result = await asyncio.to_thread(imap_get_message, email, uid, folder or "INBOX")
 
         if result:
             return result
 
     # Fallback: cerca al vault (missatges guardats manualment)
     mail_path = get_mail_vault_path()
-    files = list(mail_path.glob(f"{message_id}_*.md"))
-    if not files:
-        files = [f for f in mail_path.glob("*.md") if message_id in f.stem]
+    files = _find_message_files(mail_path, message_id)
     if not files:
         raise HTTPException(status_code=404, detail="Message not found")
 
@@ -407,8 +447,7 @@ async def get_thread(thread_id: str, email: str = Query(...)):
     if not integration_manager.is_google_account(acc):
         return {"messages": []}
 
-    loop = asyncio.get_event_loop()
-    thread = await loop.run_in_executor(None, get_thread_details, email, thread_id)
+    thread = await asyncio.to_thread(get_thread_details, email, thread_id)
     if not thread:
         return {"messages": []}
 
@@ -475,16 +514,17 @@ async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50
         }
     except Exception as e:
         log.error(f"Error en POST /api/mail/sync: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /api/mail/sync"),
+        )
 
 
 @router.patch("/messages/{message_id}")
 async def update_message(message_id: str, update: dict = Body(...)):
     """Updates metadata fields in Vault and propagates flag changes to IMAP server."""
     mail_path = get_mail_vault_path()
-    files = list(mail_path.glob(f"{message_id}_*.md"))
-    if not files:
-        files = [f for f in mail_path.glob("*.md") if message_id in f.stem]
+    files = _find_message_files(mail_path, message_id)
     if not files:
         raise HTTPException(status_code=404, detail="Message not found")
 
@@ -500,7 +540,7 @@ async def update_message(message_id: str, update: dict = Body(...)):
     new_front = yaml.dump(
         metadata, default_flow_style=False, sort_keys=False, allow_unicode=True
     )
-    file_path.write_text(f"---\n{new_front}---\n\n{body}\n", encoding="utf-8")
+    safe_write_text(file_path, f"---\n{new_front}---\n\n{body}\n")
 
     _invalidate_mail_cache()
 
@@ -531,9 +571,7 @@ def _is_microsoft_account(email: str) -> bool:
 def _resolve_gmail_id(message_id: str) -> str:
     """Returns thread_id from vault if available, otherwise the message_id as-is."""
     mail_path = get_mail_vault_path()
-    files = list(mail_path.glob(f"{message_id}_*.md"))
-    if not files:
-        files = [f for f in mail_path.glob("*.md") if message_id in f.stem]
+    files = _find_message_files(mail_path, message_id)
     if files:
         try:
             content = files[0].read_text(encoding="utf-8")
@@ -628,7 +666,7 @@ async def spam_msg(message_id: str, email: str = Query(...), spam: bool = Body(.
     raise HTTPException(status_code=500, detail="Error actualitzant estat de spam")
 
 
-@router.post("/empty_folder")
+@router.post("/empty_folder", dependencies=[Depends(require_role("admin"))])
 async def empty_folder(email: str = Query(...), folder: str = Query(...)):
     """Buida una carpeta (Paperera o Spam)."""
     log.info(f"[Mail] Peticion buidat carpeta {folder} per a {email}")
@@ -711,7 +749,10 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
                         status_code=403, 
                         detail="L'aplicació necessita nous permisos per buidar carpetes. Si us plau, ves a Configuració i torna a connectar el teu compte de Gmail."
                     )
-                raise HTTPException(status_code=500, detail=f"Error Gmail: {str(e)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=safe_error_detail(e, "Gmail empty folder"),
+                )
 
     raise HTTPException(status_code=500, detail="Error buidant la carpeta")
 
@@ -733,11 +774,10 @@ async def save_draft(payload: dict = Body(...)):
 
     if acc and integration_manager.is_google_account(acc):
         from backend.services.google_mail_service import save_gmail_draft
-        loop = asyncio.get_event_loop()
-        new_id = await loop.run_in_executor(
-            None, lambda: save_gmail_draft(
-                email_account, to, subject, body, cc=cc, bcc=bcc, gmail_draft_id=draft_id
-            )
+        new_id = await asyncio.to_thread(
+            save_gmail_draft,
+            email_account, to, subject, body,
+            cc=cc, bcc=bcc, gmail_draft_id=draft_id,
         )
         if new_id:
             _invalidate_mail_cache()
@@ -762,13 +802,15 @@ async def save_draft(payload: dict = Body(...)):
         "account": email_account, "database_table_id": "mail",
     }
     yaml_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
-    (mail_path / filename).write_text(f"---\n{yaml_front}---\n\n{body}\n", encoding="utf-8")
+    safe_write_text(mail_path / filename, f"---\n{yaml_front}---\n\n{body}\n")
     _invalidate_mail_cache()
     return {"status": "success", "draft_id": draft_id}
 
 
-@router.delete("/drafts/{draft_id}")
+@router.delete("/drafts/{draft_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_draft(draft_id: str):
+    # Validate draft_id (same allow-list as message_id) before glob.
+    draft_id = _validate_message_id(draft_id)
     mail_path = get_mail_vault_path()
     deleted = False
     for f in list(mail_path.glob(f"{draft_id}_*.md")) + list(mail_path.glob(f"{draft_id}.md")):
@@ -1088,7 +1130,7 @@ async def batch_action(email: str = Query(...), payload: dict = Body(...)):
             if update_thread_labels(email, msg_id, remove_labels=["UNREAD"]):
                 success_count += 1
 
-    _COUNTS_CACHE.pop(email, None)
+    _COUNTS_CACHE.pop(email)
     return {"status": "success", "processed": success_count}
 
 
@@ -1121,9 +1163,7 @@ async def snooze_message(message_id: str, payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="Missing snooze_until")
 
     mail_path = get_mail_vault_path()
-    files = list(mail_path.glob(f"{message_id}_*.md"))
-    if not files:
-        files = [f for f in mail_path.glob("*.md") if message_id in f.stem]
+    files = _find_message_files(mail_path, message_id)
     if not files:
         raise HTTPException(status_code=404, detail="Message not found")
 
@@ -1135,7 +1175,7 @@ async def snooze_message(message_id: str, payload: dict = Body(...)):
     new_front = yaml.dump(
         metadata, default_flow_style=False, sort_keys=False, allow_unicode=True
     )
-    file_path.write_text(f"---\n{new_front}---\n\n{body}\n", encoding="utf-8")
+    safe_write_text(file_path, f"---\n{new_front}---\n\n{body}\n")
     return {"status": "success"}
 
 
@@ -1242,7 +1282,12 @@ CONTINGUT DEL CORREU:
         }
     except Exception as e:
         log.error(f"Error parsing AI response for entities: {e}")
-        return {"events": [], "contacts": [], "error": str(e), "raw": content}
+        return {
+            "events": [],
+            "contacts": [],
+            "error": safe_error_detail(e, "AI parse mail entities"),
+            "raw": content,
+        }
 
 
 
@@ -1309,7 +1354,7 @@ async def update_view(
     return _view_to_dict(view)
 
 
-@router.delete("/views/{view_id}", status_code=204)
+@router.delete("/views/{view_id}", status_code=204, dependencies=[Depends(require_role("editor"))])
 async def delete_view(view_id: str, db: Session = Depends(get_db)):
     view = db.query(MailView).filter(MailView.id == view_id).first()
     if not view:
@@ -1403,7 +1448,10 @@ async def get_attachment(
         raise
     except Exception as e:
         _imap_pool_invalidate(email)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /messages attachment"),
+        )
     finally:
         _imap_pool_release(email)
 
@@ -1424,8 +1472,7 @@ async def get_cid_image(
     if integration_manager.is_google_account(acc):
         # For Gmail, fetch full message to find CID→attachmentId mapping
         from backend.services.hybrid_mail_service import gmail_get_message
-        loop = asyncio.get_event_loop()
-        mail = await loop.run_in_executor(None, gmail_get_message, email, message_id)
+        mail = await asyncio.to_thread(gmail_get_message, email, message_id)
         if not mail:
             raise HTTPException(status_code=404, detail="Missatge no trobat")
         cid_clean = cid.strip("<>")
@@ -1461,7 +1508,10 @@ async def get_cid_image(
         raise
     except Exception as e:
         _imap_pool_invalidate(email)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "GET /messages CID image"),
+        )
     finally:
         _imap_pool_release(email)
 
@@ -1516,7 +1566,7 @@ async def update_tag(tag_id: str, payload: MailTagUpdateSchema, db: Session = De
     return _tag_to_dict(tag)
 
 
-@router.delete("/tags/{tag_id}", status_code=204)
+@router.delete("/tags/{tag_id}", status_code=204, dependencies=[Depends(require_role("editor"))])
 async def delete_tag(tag_id: str, db: Session = Depends(get_db)):
     tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
     if not tag:

@@ -10,6 +10,10 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from icalendar import Calendar, Event
 
+from backend.utils.safe_io import safe_write_text
+from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
+
 from backend.services.google_calendar_service import (
     create_google_calendar_event,
     get_google_calendar_free_busy,
@@ -47,14 +51,15 @@ def _get_calendar_storage_path() -> Path:
 
 def _get_hidden_event_ids() -> set[str]:
     """Retorna el conjunt d'IDs d'esdeveniments amagats localment."""
+    session = get_mgmt_session()
     try:
-        session = get_mgmt_session()
         hidden = session.query(HiddenEvent.event_id).all()
-        session.close()
         return {h[0] for h in hidden}
     except Exception as e:
         log.warning(f"Error recuperant esdeveniments amagats: {e}")
         return set()
+    finally:
+        session.close()
 
 
 def get_frontmatter(content: str):
@@ -150,8 +155,8 @@ async def get_events(
         if cached and time.time() < cached["expiry"]:
             all_events.extend(cached["data"])
             continue
-        events = await asyncio.get_event_loop().run_in_executor(
-            None, functools.partial(list_events, em, time_min, time_max, search, calendar_id)
+        events = await asyncio.to_thread(
+            list_events, em, time_min, time_max, search, calendar_id
         )
         _EVENTS_CACHE[cache_key] = {"data": events, "expiry": time.time() + _EVENTS_CACHE_TTL}
         all_events.extend(events)
@@ -261,7 +266,7 @@ async def post_event(
         raise HTTPException(status_code=500, detail="Failed to create event")
     except Exception as e:
         log.error(f"POST /events: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, "POST /events"))
 
 
 # ── PATCH /events/{event_id} ───────────────────────────────────────────────────
@@ -287,7 +292,7 @@ async def patch_event(
                     if k in allowed:
                         meta[k] = v
                 new_front = yaml.dump(meta, default_flow_style=False, allow_unicode=True)
-                p.write_text(f"---\n{new_front}---\n\n{body}\n", encoding="utf-8")
+                safe_write_text(p, f"---\n{new_front}---\n\n{body}\n")
                 _invalidate_calendar_cache()
                 return {"status": "success"}
 
@@ -302,7 +307,7 @@ async def patch_event(
 
 # ── DELETE /events/{event_id} ──────────────────────────────────────────────────
 
-@router.delete("/events/{event_id}")
+@router.delete("/events/{event_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_event(
     event_id: str,
     email: str = Query(...),
@@ -327,7 +332,10 @@ async def delete_event(
         return {"status": "success"}
     except Exception as e:
         log.error(f"DELETE /events/{event_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, f"DELETE /events/{event_id}"),
+        )
 
 
 # ── POST /freebusy ─────────────────────────────────────────────────────────────
@@ -342,7 +350,10 @@ async def post_freebusy(
     try:
         return get_google_calendar_free_busy(email, time_min, time_max, calendar_ids)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /freebusy"),
+        )
 
 
 # ── GET /feed.ics ──────────────────────────────────────────────────────────────
@@ -515,32 +526,41 @@ async def invite_to_event(event_id: str, body: dict = Body(...)):
 @router.post("/events/{event_id}/hide")
 async def hide_event(event_id: str):
     """Amaga un esdeveniment localment."""
+    session = get_mgmt_session()
     try:
-        session = get_mgmt_session()
-        # Verificar si ja està amagat
         exists = session.query(HiddenEvent).filter_by(event_id=event_id).first()
         if not exists:
             new_hidden = HiddenEvent(event_id=event_id)
             session.add(new_hidden)
             session.commit()
-        session.close()
         _invalidate_calendar_cache()
         return {"status": "success", "message": "Event hidden"}
     except Exception as e:
+        session.rollback()
         log.error(f"Error amagant esdeveniment: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /events/{event_id}/hide"),
+        )
+    finally:
+        session.close()
 
 
 @router.post("/events/{event_id}/unhide")
 async def unhide_event(event_id: str):
     """Torna a mostrar un esdeveniment amagat."""
+    session = get_mgmt_session()
     try:
-        session = get_mgmt_session()
         session.query(HiddenEvent).filter_by(event_id=event_id).delete()
         session.commit()
-        session.close()
         _invalidate_calendar_cache()
         return {"status": "success", "message": "Event unhidden"}
     except Exception as e:
+        session.rollback()
         log.error(f"Error desamagant esdeveniment: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /events/{event_id}/unhide"),
+        )
+    finally:
+        session.close()
