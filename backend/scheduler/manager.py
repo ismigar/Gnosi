@@ -5,7 +5,7 @@ Scheduler Manager: Manages scheduled tasks using APScheduler.
 import json
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, asdict
 import asyncio
@@ -100,6 +100,7 @@ class SchedulerManager:
         self._tasks: Dict[str, ScheduledTask] = {}
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._lock_file = None  # held while scheduler owns the singleton mutex
 
         self._load_config()
 
@@ -158,13 +159,19 @@ class SchedulerManager:
         """Save scheduler configuration to file."""
         if not self.config_path:
             return
-            
+
         try:
             data = {"tasks": {name: asdict(task) for name, task in self._tasks.items()}}
-            with open(self.config_path, "w") as f:
-                json.dump(data, f, indent=2)
+            # Atomic write: el fitxer es modifica desenes de cops per execució
+            # de tasca; un crash a meitat deixaria scheduler.json corrupte i
+            # tot l'scheduler caduria al següent restart (al _load_config).
+            from backend.utils.safe_io import safe_write_json
+            safe_write_json(self.config_path, data, indent=2)
         except Exception as e:
-            pass
+            from backend.config.logger_config import get_logger
+            get_logger(__name__).error(
+                f"Failed to save scheduler config to {self.config_path}: {e}"
+            )
 
     def get_tasks(self) -> List[Dict[str, Any]]:
         """Get all scheduled tasks."""
@@ -184,8 +191,35 @@ class SchedulerManager:
             log.info("⏰ SchedulerManager is already running.")
             return
 
+        # File-based mutex: prevent multiple scheduler instances on the same
+        # host from racing on the same tasks (duplicate mail fetches, racing
+        # filesystem cleanups, etc.). For a multi-host deployment this would
+        # need to be replaced with a distributed lock (Redis, DB advisory).
+        try:
+            import fcntl
+        except ImportError:
+            fcntl = None  # Non-POSIX; fall back to in-process singleton only.
+
+        if fcntl and self.config_path:
+            lock_path = self.config_path.parent / ".scheduler.lock"
+            try:
+                self._lock_file = open(lock_path, "w")
+                fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (BlockingIOError, OSError):
+                log.warning(
+                    f"⚠️  Another scheduler already holds {lock_path}. "
+                    "Skipping startup to avoid duplicate task execution."
+                )
+                try:
+                    if self._lock_file:
+                        self._lock_file.close()
+                except Exception:
+                    pass
+                self._lock_file = None
+                return
+
         log.info("⏰ Starting SchedulerManager background loop...")
-        
+
         self._running = True
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
@@ -250,7 +284,9 @@ class SchedulerManager:
             with get_mgmt_session() as db:
                 db.query(TaskExecutionHistory).delete()
                 db.commit()
-        except Exception: pass
+        except Exception as _e:
+            from backend.config.logger_config import get_logger
+            get_logger(__name__).warning(f"Could not clear task history: {_e}")
 
         return {"success": True, "message": "Scheduler history cleared"}
 
@@ -319,7 +355,13 @@ class SchedulerManager:
                             history.finished_at = datetime.now(timezone.utc)
                             history.duration_seconds = duration
                             db.commit()
-                except Exception: pass
+                except Exception as _e:
+                    # Don't crash the scheduler over a bookkeeping error,
+                    # but log so a corrupt task_history DB shows up in logs.
+                    from backend.config.logger_config import get_logger
+                    get_logger(__name__).warning(
+                        f"Could not persist task history for {name}: {_e}"
+                    )
 
             notify(
                 f"Tasca Finalitzada: {name.replace('_', ' ').title()}", 
@@ -345,7 +387,13 @@ class SchedulerManager:
                             history.message = error_msg
                             history.finished_at = datetime.now(timezone.utc)
                             db.commit()
-                except Exception: pass
+                except Exception as _e:
+                    # Don't crash the scheduler over a bookkeeping error,
+                    # but log so a corrupt task_history DB shows up in logs.
+                    from backend.config.logger_config import get_logger
+                    get_logger(__name__).warning(
+                        f"Could not persist task history for {name}: {_e}"
+                    )
 
             notify(
                 f"Error en Tasca: {name.replace('_', ' ').title()}", 
