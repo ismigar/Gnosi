@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Body, Request
+import asyncio
 import logging
 from backend.services.integration_manager import integration_manager
+from backend.utils.errors import safe_error_detail
 import imaplib
 import smtplib
 from email.parser import BytesParser
@@ -19,7 +21,26 @@ async def get_integrations():
         return integration_manager.get_all_safe()
     except Exception as e:
         log.error(f"Error getting integrations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /api/integrations"))
+
+
+def _test_email_sync(imap_server: str, smtp_server: str, username: str, password: str) -> dict:
+    result = {"imap": False, "smtp": False, "error": None}
+    try:
+        imap = imaplib.IMAP4_SSL(imap_server, timeout=10)
+        imap.login(username, password)
+        imap.logout()
+        result["imap"] = True
+    except Exception as e:
+        result["error"] = f"IMAP: {safe_error_detail(e, context='POST /api/integrations/test-email IMAP')}"
+    try:
+        smtp = smtplib.SMTP_SSL(smtp_server, timeout=10)
+        smtp.login(username, password)
+        smtp.quit()
+        result["smtp"] = True
+    except Exception as e:
+        result["error"] = f"SMTP: {safe_error_detail(e, context='POST /api/integrations/test-email SMTP')}"
+    return result
 
 
 @router.post("/test-email")
@@ -34,32 +55,16 @@ async def test_email_connection(payload: dict = Body(...)):
         if not all([imap_server, smtp_server, username, password]):
             return {"success": False, "error": "Falten credencials"}
 
-        result = {"imap": False, "smtp": False, "error": None}
-
-        # Test IMAP
-        try:
-            imap = imaplib.IMAP4_SSL(imap_server, timeout=10)
-            imap.login(username, password)
-            imap.logout()
-            result["imap"] = True
-        except Exception as e:
-            result["error"] = f"IMAP: {str(e)}"
-
-        # Test SMTP
-        try:
-            smtp = smtplib.SMTP_SSL(smtp_server, timeout=10)
-            smtp.login(username, password)
-            smtp.quit()
-            result["smtp"] = True
-        except Exception as e:
-            result["error"] = f"SMTP: {str(e)}"
-
+        # imaplib/smtplib són bloquejants → off-thread per no congelar l'event loop.
+        result = await asyncio.to_thread(
+            _test_email_sync, imap_server, smtp_server, username, password
+        )
         return {"success": result["imap"] and result["smtp"], **result}
     except socket.timeout:
         return {"success": False, "error": "Timeout de connexió"}
     except Exception as e:
         log.error(f"Error testing email connection: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-email")}
 
 
 @router.post("/test-contacts")
@@ -77,7 +82,9 @@ async def test_contacts_connection(payload: dict = Body(...)):
         from requests.auth import HTTPBasicAuth
 
         try:
-            response = requests.get(
+            # requests.get bloqueja l'event loop fins a 10s → off-thread.
+            response = await asyncio.to_thread(
+                requests.get,
                 url,
                 auth=HTTPBasicAuth(username, password),
                 timeout=10,
@@ -91,10 +98,10 @@ async def test_contacts_connection(payload: dict = Body(...)):
         except requests.exceptions.Timeout:
             return {"success": False, "error": "Timeout de connexió"}
         except requests.exceptions.RequestException as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-contacts request")}
     except Exception as e:
         log.error(f"Error testing contacts connection: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-contacts")}
 
 
 @router.post("/test-calendar")
@@ -112,7 +119,9 @@ async def test_calendar_connection(payload: dict = Body(...)):
         from requests.auth import HTTPBasicAuth
 
         try:
-            response = requests.request(
+            # requests.* bloqueja l'event loop fins a 10s → off-thread.
+            response = await asyncio.to_thread(
+                requests.request,
                 "PROPFIND",
                 url,
                 auth=HTTPBasicAuth(username, password),
@@ -123,17 +132,19 @@ async def test_calendar_connection(payload: dict = Body(...)):
             if response.status_code in (200, 207, 405):
                 return {"success": True}
             else:
-                response = requests.get(url, auth=HTTPBasicAuth(username, password), timeout=10)
+                response = await asyncio.to_thread(
+                    requests.get, url, auth=HTTPBasicAuth(username, password), timeout=10
+                )
                 if response.status_code in (200, 207):
                     return {"success": True}
                 return {"success": False, "error": f"Status: {response.status_code}"}
         except requests.exceptions.Timeout:
             return {"success": False, "error": "Timeout de connexió"}
         except requests.exceptions.RequestException as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-calendar request")}
     except Exception as e:
         log.error(f"Error testing calendar connection: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-calendar")}
 
 
 @router.put("/{integration_id}")
@@ -144,7 +155,7 @@ async def update_integration(integration_id: str, payload: dict = Body(...)):
         return {"status": "success", "message": f"Integration {integration_id} updated"}
     except Exception as e:
         log.error(f"Error updating integration {integration_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context=f"PUT /api/integrations/{integration_id}"))
 
 
 @router.put("/calendar_colors")
@@ -155,7 +166,7 @@ async def update_calendar_colors(payload: dict = Body(...)):
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar colors: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_colors"))
 
 
 @router.put("/calendar_aliases")
@@ -166,7 +177,7 @@ async def update_calendar_aliases(payload: dict = Body(...)):
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar aliases: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_aliases"))
 
 
 @router.put("/calendar_selection")
@@ -181,7 +192,7 @@ async def update_calendar_selection(payload: Any = Body(...)):
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar selection: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_selection"))
 
 
 @router.put("/default_calendar")
@@ -192,7 +203,7 @@ async def update_default_calendar(payload: dict = Body(...)):
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default calendar: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_calendar"))
 
 
 @router.put("/default_mail")
@@ -203,7 +214,7 @@ async def update_default_mail(payload: dict = Body(...)):
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default mail: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_mail"))
 
 
 @router.put("/default_contacts")
@@ -214,7 +225,7 @@ async def update_default_contacts(payload: dict = Body(...)):
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default contacts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_contacts"))
 
 
 @router.post("/bulk")
@@ -225,4 +236,4 @@ async def bulk_update_integrations(payload: dict = Body(...)):
         return {"status": "success", "message": "Integrations updated in bulk"}
     except Exception as e:
         log.error(f"Error bulk updating integrations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /api/integrations/bulk"))
