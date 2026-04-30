@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import migrate_ai_provider_secrets, sanitize_ai_config
+from backend.utils.errors import safe_error_detail
+from backend.utils.safe_io import safe_write_text
 from pathlib import Path
 import yaml
 import logging
@@ -51,7 +53,7 @@ async def get_config():
         return safe_params
     except Exception as e:
         log.error(f"Error reading config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /config"))
 
 def deep_merge(dict1, dict2):
     """Recursively merges dict2 into dict1."""
@@ -115,10 +117,17 @@ async def update_config(request: Request):
 
         log.info(f"Final configuration to save (summary): {list(merged_config.keys())}")
 
-        # Write to disk
-        with open(params_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(merged_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-            
+        # Atomic write: params.yaml és la config principal de l'app. Un crash
+        # a meitat de safe_dump deixaria el YAML truncat i el següent restart
+        # del backend caducaria al load_params.
+        yaml_text = yaml.safe_dump(
+            merged_config,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )
+        safe_write_text(params_path, yaml_text)
+
         # Force environment restart (uvicorn --reload) to apply critical route changes
         server_file = Path(__file__).resolve().parents[1] / "server.py"
         if server_file.exists():
@@ -128,6 +137,8 @@ async def update_config(request: Request):
         log.info("File params.yaml updated successfully.")
         return {"status": "success", "message": "Configuration updated"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"Error updating config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /config"))
