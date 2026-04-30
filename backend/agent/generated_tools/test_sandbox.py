@@ -117,13 +117,18 @@ class TestSandbox:
         
         module = importlib.util.module_from_spec(spec)
         
-        # Execute with limited globals
+        # Execute with limited globals.
+        # Defense-in-depth: deliberately omit `type`, `__import__`, `getattr`,
+        # `setattr`, `compile`, `eval`, `exec`, `globals`, `locals`, `vars` and
+        # `open` to make sandbox escapes harder (e.g. the classic
+        # `type(None).__bases__[0].__subclasses__()` chain). The primary
+        # protection is still the validator + human approval gate.
         safe_globals = {
             '__builtins__': {
                 'str': str, 'int': int, 'float': float, 'bool': bool,
                 'list': list, 'dict': dict, 'tuple': tuple, 'set': set,
                 'len': len, 'range': range, 'enumerate': enumerate,
-                'print': print, 'isinstance': isinstance, 'type': type,
+                'print': print, 'isinstance': isinstance,
                 'Exception': Exception, 'ValueError': ValueError,
                 'TypeError': TypeError, 'KeyError': KeyError,
             },
@@ -171,8 +176,10 @@ class TestSandbox:
             except Exception as e:
                 error = f"{type(e).__name__}: {str(e)}"
         
-        # Run with timeout
-        thread = threading.Thread(target=run_test)
+        # Run with timeout. daemon=True garanteix que un tool penjat no
+        # impedeixi el shutdown del procés (Python no té API segura per
+        # matar threads → el millor és marcar-los com a daemon).
+        thread = threading.Thread(target=run_test, daemon=True)
         thread.start()
         thread.join(timeout=self.timeout)
         
