@@ -292,7 +292,6 @@ function GraphPage() {
 
                 if (newVersion && newVersion !== graphVersion) {
                     fetchGraphData(true);
-                } else {
                 }
             } catch (err) {
                 console.error("❌ Sync error:", err);
