@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pathlib import Path
 import json
 import os
@@ -7,6 +7,7 @@ import uuid
 from typing import Dict, Any, List
 
 from backend.config.app_config import load_params
+from backend.services.workspace_service import require_role
 from backend.api.vault_routes import (
     load_registry,
     save_registry,
@@ -97,7 +98,7 @@ async def get_config():
     return {**DEFAULT_CONFIG, **config}
 
 
-@router.post("/config")
+@router.post("/config", dependencies=[Depends(require_role("editor"))])
 async def save_config(config: Dict[str, Any]):
     existing = load_json(CONFIG_PATH, {})
     merged = {**DEFAULT_CONFIG, **existing, **config}
@@ -105,7 +106,7 @@ async def save_config(config: Dict[str, Any]):
     return {"status": "success"}
 
 
-@router.post("/setup")
+@router.post("/setup", dependencies=[Depends(require_role("editor"))])
 async def setup_recursos():
     """Creates the 'Recursos' vault table if it doesn't exist and saves its id to config."""
     registry = load_registry()
@@ -153,7 +154,7 @@ async def get_fields():
     return ZOTERO_FIELDS
 
 
-@router.post("/sync")
+@router.post("/sync", dependencies=[Depends(require_role("editor"))])
 async def trigger_sync(background_tasks: BackgroundTasks):
     """Triggers Zotero → Vault sync in background."""
     config = load_json(CONFIG_PATH, DEFAULT_CONFIG)
@@ -185,7 +186,7 @@ async def trigger_sync(background_tasks: BackgroundTasks):
     return {"status": "started", "direction": "zotero→vault"}
 
 
-@router.post("/sync-back")
+@router.post("/sync-back", dependencies=[Depends(require_role("editor"))])
 async def trigger_sync_back(background_tasks: BackgroundTasks):
     """Triggers Vault → Zotero sync in background. Checks Zotero is not running first."""
     config = load_json(CONFIG_PATH, DEFAULT_CONFIG)
