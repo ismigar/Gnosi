@@ -3,18 +3,88 @@
  * Utilitat per a la conversió bi-direccional entre BlockNote JSON i Markdown Enriquit.
  */
 
+// Sentinella per als enllaços file:// dins l'editor.
+//
+// BlockNote/Tiptap (extension-link) blanqueja qualsevol href el protocol del
+// qual no és a la seva allowlist (http/https/ftp/mailto/tel/...). `file:` no
+// hi és, així que un anchor amb href="file:///..." es rendireitza com
+// <a href=""> i, en clicar, window.open("") obre una pestanya nova a l'origin
+// de Gnosi. Per evitar-ho, el href intern dels enllaços a fitxer queda com
+// "https://gnosi-file-protocol.local/..." (passa la validació de Tiptap
+// perquè és https) i es converteix de tornada a "file://" només (a) quan se
+// serialitza a markdown per guardar al disc, i (b) quan l'interceptor de
+// clicks crida el backend per obrir la ruta amb el shell del sistema.
+// Sentinel sense slash final perquè la conversió sigui un swap directe del
+// prefix: "file://" (7 chars) ↔ "https://gnosi-file-protocol.local" (33 chars).
+// Així mantenim la barra inicial del path local en totes dues direccions.
+//
+// IMPORTANT: el sentinel NO pot contenir "__" perquè el parser markdown de
+// BlockNote (markdown-it) interpreta `__...__` com a bold i trenca la URL
+// dins de `](...)`. Per això usem guions normals i un TLD ".local" reservat.
+export const FILE_PROTOCOL_SENTINEL = "https://gnosi-file-protocol.local";
+// Sentinel legacy (versions anteriors). Mantenim el reconeixement per
+// compatibilitat amb notes ja desades a l'editor abans del canvi.
+const LEGACY_FILE_PROTOCOL_SENTINEL = "https://__gnosi_file_protocol__";
+// Variant corrompuda: si una nota legacy va passar per un re-serialitzador
+// que va aplicar èmfasi (markdown-it interpreta `__...__` com a strong) i
+// va escriure el resultat a disc literal, queda `**gnosi_file_protocol**`.
+// La detectem per recuperar enllaços ja danyats al markdown.
+const CORRUPTED_FILE_PROTOCOL_SENTINEL = "https://**gnosi_file_protocol**";
+
+/**
+ * Sentinella → file:// (per a serialització a markdown o per al backend).
+ */
+export const sentinelToFileUrl = (href) => {
+    if (typeof href !== "string") return href;
+    if (href.startsWith(FILE_PROTOCOL_SENTINEL)) {
+        return "file://" + href.slice(FILE_PROTOCOL_SENTINEL.length);
+    }
+    if (href.startsWith(LEGACY_FILE_PROTOCOL_SENTINEL)) {
+        return "file://" + href.slice(LEGACY_FILE_PROTOCOL_SENTINEL.length);
+    }
+    if (href.startsWith(CORRUPTED_FILE_PROTOCOL_SENTINEL)) {
+        return "file://" + href.slice(CORRUPTED_FILE_PROTOCOL_SENTINEL.length);
+    }
+    return href;
+};
+
+/**
+ * file:// → sentinella (per a inserció a l'editor).
+ */
+export const fileUrlToSentinel = (href) => {
+    if (typeof href !== "string") return href;
+    if (/^file:\/\//i.test(href)) {
+        return FILE_PROTOCOL_SENTINEL + href.slice(7);
+    }
+    return href;
+};
+
 /**
  * Converteix una llista de blocs de BlockNote a Markdown enriquit.
  */
 export const blocksToRichMarkdown = (blocks, editor) => {
     if (!blocks || !Array.isArray(blocks)) return "";
 
-    let markdown = "";
-    blocks.forEach((block) => {
-        markdown += blockToMarkdown(block, editor, 0);
-    });
+    // Separem els blocs top-level amb una línia en blanc (\n\n).
+    // Sense això, dos paràgrafs consecutius serien "Linia1\nLinia2" i el
+    // parser de BlockNote (tryParseMarkdownToBlocks) els interpreta com un sol
+    // paràgraf amb soft-break, perdent els salts en re-parse.
+    const parts = blocks.map(
+        (block) => blockToMarkdown(block, editor, 0).replace(/\n+$/, "")
+    );
+    const result = parts.join("\n\n").trim();
 
-    return (markdown || "").trim();
+    // Sentinella defensiva: si trobem "[object Object]" al resultat,
+    // alguna part del converter ha rebut un valor mal format. Llançem error
+    // en lloc d'escriure brossa al disc (i evitem perdre la nota).
+    if (result.includes("[object Object]")) {
+        throw new Error(
+            "blocksToRichMarkdown: detectat '[object Object]' al resultat — " +
+            "el contingut de l'editor té un format inesperat. Save abortat per " +
+            "no sobreescriure la nota."
+        );
+    }
+    return result;
 };
 
 /**
@@ -249,24 +319,57 @@ const inlineContentToMarkdown = (content) => {
     if (!Array.isArray(content)) return "";
 
     return content.map(item => {
+        if (!item || typeof item !== "object") return "";
         if (item.type === "text") {
+            // Defensiva: si item.text no és string, NO el toString-egem
+            // (tornaria "[object Object]" i sobreescriuria la nota al disc).
+            if (typeof item.text !== "string") {
+                console.warn("inlineContentToMarkdown: item.text no és string", item);
+                return "";
+            }
             let text = item.text;
-            
+
             // Handle soft line breaks inside text nodes. Standard Markdown requires two spaces or <br>.
             if (text.includes('\n')) {
                 text = text.replace(/\n/g, '<br>\n');
             }
             
             if (item.styles) {
-                if (item.styles.bold) text = `**${text}**`;
-                if (item.styles.italic) text = `*${text}*`;
-                if (item.styles.underline) text = `<u>${text}</u>`;
-                if (item.styles.strike) text = `~~${text}~~`;
-                if (item.styles.code) text = `\`${text}\``;
+                // CommonMark no reconeix delimitadors d'èmfasi quan tenen
+                // espais immediatament adjacents (p.ex. "** text **" no és bold).
+                // Movem els espais d'inici/final fora dels marcadors.
+                const wrap = (str, open, close = open) => {
+                    if (!str) return str;
+                    const m = String(str).match(/^(\s*)([\s\S]*?)(\s*)$/);
+                    const lead = m ? m[1] : "";
+                    const core = m ? m[2] : str;
+                    const trail = m ? m[3] : "";
+                    if (!core) return str; // tot espais; no aplicar marca
+                    return `${lead}${open}${core}${close}${trail}`;
+                };
+                if (item.styles.bold) text = wrap(text, "**");
+                if (item.styles.italic) text = wrap(text, "*");
+                if (item.styles.underline) text = wrap(text, "<u>", "</u>");
+                if (item.styles.strike) text = wrap(text, "~~");
+                if (item.styles.code) text = wrap(text, "`");
             }
             return text;
         }
-        if (item.type === "link") return `[${inlineContentToMarkdown(item.content)}](${item.href})`;
+        if (item.type === "link") {
+            // Robustesa: el content d'un link pot ser array (esperat),
+            // string (legacy) o un sol objecte (insertion bug). Normalitzem.
+            let linkContent = item.content;
+            if (linkContent && !Array.isArray(linkContent) && typeof linkContent !== "string") {
+                linkContent = [linkContent];
+            }
+            const innerText = inlineContentToMarkdown(linkContent);
+            const rawHref = typeof item.href === "string" ? item.href : "";
+            // El sentinel intern es desserialitza a file:// abans d'escriure
+            // al disc, perquè els lectors externs (Obsidian, etc.) entenguin
+            // l'enllaç local original.
+            const safeHref = sentinelToFileUrl(rawHref);
+            return `[${innerText}](${safeHref})`;
+        }
         if (item.type === "wikilink") {
             const target = item.props?.target || "";
             const section = item.props?.section || "";
@@ -283,18 +386,45 @@ const inlineContentToMarkdown = (content) => {
     }).join("");
 };
 
+// Els enllaços file:// dins el markdown se substitueixen pel sentinel abans
+// del parse perquè BlockNote/Tiptap no els accepta com a href vàlid (no és
+// als seus protocols permesos). Mantenim el sentinel als blocs durant tota
+// la vida útil al editor; només es reverteix a file:// al moment de
+// serialitzar a markdown (vegeu inlineContentToMarkdown). El sentinel passa
+// la validació de Tiptap perquè comença amb https://, així que l'<a> al DOM
+// té un href clicable que el nostre useFileLinkInterceptor pot capturar.
 const parsePlainMarkdownBlock = async (text, editor) => {
     if (!text) return [];
+
+    // Reemplaça file:// pel sentinel abans de delegar al parser.
+    // També reemplaça el sentinel legacy (`__gnosi_file_protocol__`) i la
+    // seva variant corrompuda (`**gnosi_file_protocol**`, escrita per un
+    // re-serialitzador que va interpretar els `__` com a bold) pel sentinel
+    // actual. Sense aquesta normalització, el parser veu un href trencat
+    // i renderitza `[text](url)` com a markdown literal.
+    const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const protectedText = text
+        .replace(/\]\(file:\/\//g, `](${FILE_PROTOCOL_SENTINEL}`)
+        .replace(
+            new RegExp(`\\]\\(${escapeRe(LEGACY_FILE_PROTOCOL_SENTINEL)}`, 'g'),
+            `](${FILE_PROTOCOL_SENTINEL}`,
+        )
+        .replace(
+            new RegExp(`\\]\\(${escapeRe(CORRUPTED_FILE_PROTOCOL_SENTINEL)}`, 'g'),
+            `](${FILE_PROTOCOL_SENTINEL}`,
+        );
+
     let blocks = [];
     if (editor?.tryParseMarkdownToBlocks) {
         try {
-            blocks = await editor.tryParseMarkdownToBlocks(text);
+            blocks = await editor.tryParseMarkdownToBlocks(protectedText);
         } catch (e) {
             blocks = [{ type: "paragraph", content: text }];
         }
     } else {
         blocks = [{ type: "paragraph", content: text }];
     }
+
     return processBlocksForWikilinks(blocks);
 };
 

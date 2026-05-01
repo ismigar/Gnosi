@@ -10,6 +10,18 @@ import { useTranslation } from 'react-i18next';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+// ID immutable per a properties: 'fld_' + 8 hex chars. Es persisteix al
+// schema de la taula i es manté entre renames del nom de camp.
+const generateFieldId = () => {
+    const bytes = new Uint8Array(4);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(bytes);
+    } else {
+        for (let i = 0; i < 4; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return 'fld_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 const ROLLUP_AGGREGATIONS = [
     { value: 'count_all', label: 'Count all' },
     { value: 'count_values', label: 'Count values' },
@@ -25,7 +37,7 @@ const ROLLUP_AGGREGATIONS = [
 ];
 
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [] }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [] }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -93,6 +105,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <option value="relation">{t('schema.type_relation')}</option>
                         <option value="formula">{t('schema.type_formula')}</option>
                         <option value="rollup">{t('schema.type_rollup')}</option>
+                        <option value="virtual">{t('schema.type_virtual', 'Derivat')}</option>
                         <option value="title">{t('schema.type_title')}</option>
                     </select>
                 </div>
@@ -147,10 +160,37 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 </div>
             )}
 
-            {/* Specific Configuration Section (Formula, Rollup, Relation) */}
-            {(field.type === 'relation' || field.type === 'rollup' || field.type === 'formula') && (
+            {/* Specific Configuration Section (Formula, Rollup, Relation, Virtual) */}
+            {(field.type === 'relation' || field.type === 'rollup' || field.type === 'formula' || field.type === 'virtual') && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner">
+                        {field.type === 'virtual' && (
+                            <div className="space-y-2">
+                                <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
+                                    {t('schema.virtual_compute', 'Computador derivat')}
+                                </label>
+                                <select
+                                    value={field.compute || ''}
+                                    onChange={(e) => handleUpdateField(idx, 'compute', e.target.value)}
+                                    className="w-full text-sm bg-transparent text-[var(--text-primary)] outline-none border-none focus:ring-0"
+                                >
+                                    <option value="">{t('schema.virtual_pick', '— Tria un computador —')}</option>
+                                    {(virtualComputers || []).map(c => (
+                                        <option key={c.compute} value={c.compute}>
+                                            {c.label} ({c.compute})
+                                        </option>
+                                    ))}
+                                </select>
+                                {field.compute && (
+                                    <p className="text-[10px] text-[var(--text-secondary)]/80 px-1 border-t border-[var(--border-primary)] pt-1">
+                                        {(virtualComputers || []).find(c => c.compute === field.compute)?.description || ''}
+                                    </p>
+                                )}
+                                <p className="text-[10px] text-[var(--text-secondary)]/60 px-1">
+                                    {t('schema.virtual_hint', 'Camp derivat (read-only). El backend el calcula a partir del graf o altres índexs.')}
+                                </p>
+                            </div>
+                        )}
                         {field.type === 'formula' && (
                             <div className="space-y-2">
                                 <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.formula_expression')}</label>
@@ -269,16 +309,20 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const { t } = useTranslation();
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
+    const [virtualComputers, setVirtualComputers] = useState([]);
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
 
     useEffect(() => {
         if (isOpen) {
             // Transform object to array for editing.
             const fieldsArray = getSchemaFieldNames(currentSchema || {}).map((name) => ({
-                id: generateId(),
+                // Reusem el field_id immutable del config si existeix; en cas
+                // contrari generem-ne un de nou que es persistirà al desar.
+                id: getFieldConfig(currentSchema || {}, name).id || generateFieldId(),
                 name,
                 type: getFieldType(currentSchema || {}, name),
                 formula: getFieldConfig(currentSchema || {}, name).formula || '',
+                compute: getFieldConfig(currentSchema || {}, name).compute || '',
                 defaultFormula: getFieldConfig(currentSchema || {}, name).defaultFormula || '',
                 relationField: getFieldConfig(currentSchema || {}, name).relationField || '',
                 targetProperty: getFieldConfig(currentSchema || {}, name).targetProperty || '',
@@ -303,6 +347,17 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 }
             };
             fetchTables();
+
+            // Load virtual computers catalogue for "type: virtual" properties
+            const fetchVirtualComputers = async () => {
+                try {
+                    const response = await axios.get('/api/vault/virtual-fields');
+                    setVirtualComputers(response.data?.computers || []);
+                } catch (err) {
+                    console.error('Error carregant catàleg de computadors virtuals:', err);
+                }
+            };
+            fetchVirtualComputers();
         }
     }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties]);
 
@@ -315,10 +370,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
 
     const handleAddField = () => {
         setFields([...fields, {
-            id: generateId(),
+            id: generateFieldId(),
             name: '',
             type: 'text',
             formula: '',
+            compute: '',
             defaultFormula: '',
             relationField: '',
             targetProperty: '',
@@ -336,6 +392,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         newFields[index][key] = value;
         if (key === 'type' && value !== 'formula') {
             newFields[index].formula = '';
+        }
+        if (key === 'type' && value !== 'virtual') {
+            newFields[index].compute = '';
         }
         if (key === 'type' && value !== 'rollup') {
             newFields[index].relationField = '';
@@ -378,6 +437,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             return;
         }
 
+        if (fields.some(f => f.type === 'virtual' && !f.compute?.trim())) {
+            toast.error(t('schema.error_compute_required', 'Cal seleccionar un computador per al camp derivat.'));
+            return;
+        }
+
         if (fields.some(f => f.type === 'rollup' && !f.relationField?.trim())) {
             toast.error(t('schema.error_relation_field_required'));
             return;
@@ -395,8 +459,17 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             const cleanName = f.name.trim();
             newSchemaObj[cleanName] = f.type;
             const config = {};
+            // Persisteix el field_id immutable: és la clau estable per a
+            // referenciar el camp en notes, vistes, filtres i seccions.
+            // No es regenera mai un cop assignat.
+            if (f.id && /^fld_[0-9a-f]{8}$/.test(f.id)) {
+                config.id = f.id;
+            }
             if (f.type === 'formula') {
                 config.formula = f.formula.trim();
+            }
+            if (f.type === 'virtual') {
+                config.compute = f.compute.trim();
             }
             if (f.type === 'rollup') {
                 config.relationField = f.relationField.trim();
@@ -516,6 +589,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                         idx={idx}
                                         allFields={fields}
                                         allTables={allTables}
+                                        virtualComputers={virtualComputers}
                                         handleUpdateField={handleUpdateField}
                                         handleRemoveField={handleRemoveField}
                                     />
