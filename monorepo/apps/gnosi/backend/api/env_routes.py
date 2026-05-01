@@ -1,12 +1,17 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pathlib import Path
 import logging
 import re
 
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
+from backend.services.workspace_service import require_role
 
-router = APIRouter()
+# Auth gate: en personal mode l'usuari és auto-promogut a "owner" així que
+# require_role("admin") no bloqueja. En organitzacio mode protegeix els
+# endpoints d'env contra usuaris no privilegiats (paths del vault, providers
+# AI). Aplicat a router-level.
+router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
 
 # Secrets: .env_shared (Projectes root)

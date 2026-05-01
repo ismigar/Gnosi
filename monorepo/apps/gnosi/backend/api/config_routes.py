@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import migrate_ai_provider_secrets, sanitize_ai_config
+from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
 from pathlib import Path
@@ -8,7 +9,10 @@ import yaml
 import logging
 import os
 
-router = APIRouter()
+# Auth gate: config conté provider AI, paths del vault i mode (personal/org).
+# require_role("admin") és no-op en personal mode (usuari auto-owner) però
+# bloqueja accés en organitzacio mode.
+router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
 
 # Note: We now fetch the dynamic path from app_config at runtime
