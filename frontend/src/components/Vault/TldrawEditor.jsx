@@ -34,9 +34,15 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
         window.open(`/vault?page=${pageId}`, '_blank');
     };
 
-    const copyId = () => {
-        navigator.clipboard.writeText(pageId);
-        toast.success('ID copiat!');
+    const copyId = async () => {
+        // navigator.clipboard pot rebutjar (insecure context, permís denegat).
+        // Sense `await` el toast.success es mostrava abans de saber el resultat.
+        try {
+            await navigator.clipboard.writeText(pageId);
+            toast.success('ID copiat!');
+        } catch {
+            toast.error('No s\'ha pogut copiar l\'ID');
+        }
     };
 
     return (
