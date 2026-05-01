@@ -7,7 +7,10 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
     const { t } = useTranslation();
     if (!contact) return null;
 
-    const initials = contact.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    // contact.name pot ser undefined/null si la BD té contactes incomplets
+    // (sync parcial de Google, contactes sense nom). `null.split` crashejaria
+    // i tota la pàgina pintaria un error genèric en lloc del detall.
+    const initials = (contact.name || '?').split(' ').map(n => n[0] || '').join('').toUpperCase().substring(0, 2) || '?';
     
     // Check if we should try a Gmail avatar fallback
     const effectivePhotoUrl = contact.photo_url || (isGmail(contact.email) ? getGoogleAvatarUrl(contact.email) : '');
