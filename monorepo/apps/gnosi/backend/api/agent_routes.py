@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from fastapi.responses import StreamingResponse
@@ -11,6 +11,7 @@ from backend.agent.factory import create_agent_workflow
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.config.app_config import load_params
 from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
 
 cfg = load_params()
 
@@ -90,7 +91,7 @@ async def get_agent_workflow(
     return workflow, llm_selection
 
 
-@router.post("/chat")
+@router.post("/chat", dependencies=[Depends(require_role("editor"))])
 async def chat_endpoint(request: Request, chat_req: ChatRequest):
     """
     Main endpoint for chatting with a specific agent.
