@@ -156,7 +156,7 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                                     />
                                 ) : null}
                                 <div style={{ width: '100%', textAlign: 'center', display: (contact.photo_url || (isGmail(contact.email) ? getGoogleAvatarUrl(contact.email) : '')) ? 'none' : 'block' }}>
-                                    {contact.name.charAt(0).toUpperCase()}
+                                    {(contact.name || '?').charAt(0).toUpperCase()}
                                 </div>
                             </div>
                             
