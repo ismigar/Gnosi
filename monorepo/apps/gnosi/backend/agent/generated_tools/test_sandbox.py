@@ -140,15 +140,17 @@ class TestSandbox:
         except Exception as e:
             raise RuntimeError(f"Error executant codi: {e}")
         
-        # Find the tool function
+        # Find the tool function — mateix criteri que loader: BaseTool real
+        # o callable amb marker explícit `__tool__ = True`. Evita capturar
+        # callables amb `.name` casuals.
         from langchain_core.tools import BaseTool
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
             if isinstance(attr, BaseTool):
                 return attr
-            if callable(attr) and hasattr(attr, 'name'):
+            if callable(attr) and getattr(attr, "__tool__", False) is True:
                 return attr
-        
+
         return None
     
     def _run_single_test(self, tool_func, test_case: TestCase) -> TestResult:
