@@ -1,5 +1,5 @@
 # backend/api/credentials_routes.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import sys
@@ -8,8 +8,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.security.keychain_manager import get_keychain
 from backend.config.env_config import reload_keychain
+from backend.services.workspace_service import require_role
 
-router = APIRouter(prefix="/credentials", tags=["Credentials"])
+# Auth gate: aquests endpoints gestionen el Keychain (HuggingFace, OpenRouter,
+# Telegram, n8n, OAuth secrets, etc.). En personal mode l'usuari és auto-owner
+# i no es bloqueja; en organitzacio mode només admins poden tocar credentials.
+router = APIRouter(
+    prefix="/credentials",
+    tags=["Credentials"],
+    dependencies=[Depends(require_role("admin"))],
+)
 
 CREDENTIAL_INFO = {
     "huggingface_api_key": {
