@@ -36,16 +36,22 @@ const EmbeddedNote = ({ noteId }) => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchNote = async () => {
             try {
-                const res = await axios.get(`${API_BASE_URL}/pages/${noteId}`);
+                const res = await axios.get(`${API_BASE_URL}/pages/${noteId}`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 setNoteData(res.data);
             } catch (err) {
+                if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
                 console.error("Error fetching embedded note:", err);
                 setError(err);
             }
         };
         fetchNote();
+        return () => {
+            controller.abort();
+        };
     }, [noteId]);
 
     if (error) return <div className="p-4 text-red-500 text-sm">Error carregant nota.</div>;
@@ -76,10 +82,12 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
 
     // Carregar dades inicials
     useEffect(() => {
+        const controller = new AbortController();
         const fetchDrawing = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`${API_BASE_URL}/drawings/${drawingId}`);
+                const response = await axios.get(`${API_BASE_URL}/drawings/${drawingId}`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 let payload = response.data;
 
                 // Auto-repair corrupted drawings on load
@@ -116,27 +124,31 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
                     setTitle(payload.metadata?.title || payload.title);
                 }
             } catch (error) {
+                if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
                 if (error.response?.status === 404) {
                     // Si no existeix, inicialitzem buit
-                    setInitialData({ 
-                        elements: [], 
-                        appState: { 
-                            viewBackgroundColor: effectiveTheme === 'dark' ? "#121212" : "#ffffff" 
-                        }, 
-                        files: {} 
+                    setInitialData({
+                        elements: [],
+                        appState: {
+                            viewBackgroundColor: effectiveTheme === 'dark' ? "#121212" : "#ffffff"
+                        },
+                        files: {}
                     });
                 } else {
                     toast.error("Error carregant el dibuix");
                     console.error(error);
                 }
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
 
         if (drawingId) {
             fetchDrawing();
         }
+        return () => {
+            controller.abort();
+        };
     }, [drawingId]);
 
     // Funció per guardar
@@ -153,19 +165,29 @@ const ExcalidrawEditor = ({ drawingId, title: initialTitle, onClose, onSaveSucce
             if (onSaveSuccess) onSaveSuccess();
         } catch (error) {
             console.error("Error auto-saving drawing:", error);
+            // Re-llencem perquè triggerSave (manual save) pugui distingir
+            // èxit/fallada i mostrar toast correcte.
+            throw error;
         } finally {
             setSaving(false);
         }
     }, [drawingId, title, onSaveSuccess]);
 
     // Debounce save (manual o automàtic al tancar)
-    const triggerSave = () => {
+    const triggerSave = async () => {
         if (excalidrawAPI) {
             const elements = excalidrawAPI.getSceneElements();
             const appState = excalidrawAPI.getAppState();
             const files = excalidrawAPI.getFiles();
-            handleSave(elements, appState, files);
-            toast.success("Dibuix desat");
+            // handleSave engoleix els errors a console.error; si fallava
+            // aquí es mostrava "Dibuix desat" abans de saber el resultat.
+            // Esperem el save i només toast.success si tot ha anat bé.
+            try {
+                await handleSave(elements, appState, files);
+                toast.success("Dibuix desat");
+            } catch {
+                toast.error("Error desant el dibuix");
+            }
         }
     };
 
