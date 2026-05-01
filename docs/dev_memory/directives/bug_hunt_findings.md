@@ -41,6 +41,9 @@
 | `41c45272e` | `frontend/components/Mail/MailComposer.jsx` (saveDraft) | Auto-save fallit silenciat cada 2s → usuari pensava que els drafts es guardaven quan no era així. Ara loggeja a console.warn. |
 | `1b5011092` | `frontend/components/Mail/MailViewer.jsx` | **XSS**: `bodyText` del cos d'email injectat amb `dangerouslySetInnerHTML` sense escapar → un email amb `<script>` s'executava. Ara escapa HTML abans del replace de URLs. |
 | `d324acb92` | `frontend/components/Vault/BlockEditor.jsx` | **ReferenceError runtime**: `setIsPageViewModalOpen`+`setPageViewPreselectedTable` cridats a EditorInner però declarats a BlockEditor (component pare) → /vista crashejava. Fix: callback prop. També MultiSelectPills i SingleSelectPill cridaven `t()` sense `useTranslation()`. |
+| `363a3b07e` | `backend/security/keychain_manager.py` | `_macos_save` retornava sempre True ignorant el resultat de `_macos_update`, emmascarant errors reals (Keychain bloquejat). Afegit warn explícit quan GNOSI_MASTER_KEY no està configurat (credentials en clar a disc). |
+| `363a3b07e` | `backend/services/contacts_service.py` | `get_contact_by_email` feia exact match `Contact.email == email` case-sensitive → emails amb majúscules no es trobaven i feien O(N) scan. Ara `ilike(email)`. |
+| `c11893d03` | `backend/agent/factory.py` | 7 `print(f"DEBUG: ...")` substituits per `log.debug(...)` per no contaminar stdout. |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
