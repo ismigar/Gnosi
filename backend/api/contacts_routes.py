@@ -4,6 +4,7 @@ from backend.utils.errors import safe_error_detail
 from backend.data.management_db import get_mgmt_db
 from backend.services.contacts_service import ContactsService
 from backend.services.contacts_sync_engine import ContactsSyncEngine
+from backend.services.workspace_service import require_role
 from typing import Optional, List
 import json
 import asyncio
@@ -132,7 +133,7 @@ async def get_contact(
             detail=safe_error_detail(e, "GET /contacts/{contact_id}"),
         )
 
-@router.post("/contacts", status_code=201)
+@router.post("/contacts", status_code=201, dependencies=[Depends(require_role("editor"))])
 async def create_contact(
     data: dict,
     background_tasks: BackgroundTasks,
@@ -160,7 +161,7 @@ async def create_contact(
             detail=safe_error_detail(e, "POST /contacts"),
         )
 
-@router.put("/contacts/{contact_id}")
+@router.put("/contacts/{contact_id}", dependencies=[Depends(require_role("editor"))])
 async def update_contact(
     contact_id: str,
     data: dict,
@@ -188,7 +189,7 @@ async def update_contact(
             detail=safe_error_detail(e, "PUT /contacts/{contact_id}"),
         )
 
-@router.delete("/contacts/{contact_id}")
+@router.delete("/contacts/{contact_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_contact(
     contact_id: str,
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
@@ -220,7 +221,7 @@ async def delete_contact(
             detail=safe_error_detail(e, "DELETE /contacts/{contact_id}"),
         )
 
-@router.post("/contacts/sync")
+@router.post("/contacts/sync", dependencies=[Depends(require_role("editor"))])
 async def sync_contacts(
     data: Optional[dict] = None,
     x_workspace_id: str = Header("default", alias="X-Workspace-ID"),

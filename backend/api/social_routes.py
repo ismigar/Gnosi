@@ -350,7 +350,7 @@ async def create_post(request: CreatePostRequest):
         raise HTTPException(status_code=502, detail=safe_error_detail(e, context="POST /api/social/post n8n webhook"))
 
 
-@router.post("/schedule")
+@router.post("/schedule", dependencies=[Depends(require_role("editor"))])
 async def schedule_post(request: SchedulePostRequest):
     """Schedule a post for future publication."""
     
@@ -384,15 +384,21 @@ async def get_scheduled_posts():
     return [p for p in SCHEDULED_POSTS if p["status"] == "pending"]
 
 
-@router.delete("/scheduled/{post_id}")
+@router.delete("/scheduled/{post_id}", dependencies=[Depends(require_role("editor"))])
 async def cancel_scheduled_post(post_id: str):
     """Cancel a scheduled post."""
     for post in SCHEDULED_POSTS:
         if post["id"] == post_id:
             post["status"] = "cancelled"
             return {"status": "cancelled", "id": post_id}
-    
-@router.post("/process-scheduled")
+    # Bug previ: la funció queia per la fi sense return ni raise, retornant
+    # `None` (200 OK) quan el post no existia. Ara retornem 404 explícit
+    # perquè el frontend pugui tractar-ho com a error de UX.
+    raise HTTPException(status_code=404, detail=f"Scheduled post {post_id} not found")
+
+
+
+@router.post("/process-scheduled", dependencies=[Depends(require_role("editor"))])
 async def process_scheduled_posts():
     """Check for due posts and publish them."""
     now = datetime.now()
