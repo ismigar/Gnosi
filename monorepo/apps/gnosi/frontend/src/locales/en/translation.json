@@ -260,7 +260,9 @@
     "switch_normal_view": "Switch to normal view",
     "switch_code_view": "Switch to code view (md/json)",
     "view_history": "View history",
-    "delete_current_page": "Delete current page"
+    "delete_current_page": "Delete current page",
+    "hide_sidebar": "Hide sidebar",
+    "show_sidebar": "Show sidebar"
   },
   "table": {
     "new_record": "New record",

@@ -319,7 +319,6 @@ function GraphPage() {
             if (graphViewerRef.current) {
                 graphViewerRef.current.panToNode(String(match.key), 2.5);
             }
-        } else {
         }
     };
 

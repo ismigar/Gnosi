@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { logError, notifyError } from '../lib/notifyError';
 import { FileText, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VaultShell } from '../components/Vault/VaultShell';
@@ -77,6 +78,13 @@ export default function VaultDashboard() {
     const [pendingView, setPendingView] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const pageRequestInFlightRef = useRef(new Map());
+    // AbortController for the *currently active* page navigation. When the
+    // user clicks pages quickly, we abort the previous in-flight loadPage so
+    // late responses can't overwrite state with stale data (race condition).
+    const activeLoadAbortRef = useRef(null);
+    // Per-pageId AbortController map for fetchPageById, so the in-flight
+    // request can be cancelled when a newer load supersedes it.
+    const pageRequestAbortersRef = useRef(new Map());
 
 
     // --- Personal Navigation History ---
@@ -108,7 +116,7 @@ export default function VaultDashboard() {
         );
     }, []);
 
-    const fetchPageById = useCallback(async (pageId, maxAbortRetries = 1) => {
+    const fetchPageById = useCallback(async (pageId, maxAbortRetries = 1, externalSignal = null) => {
         if (!pageId) return null;
 
         const existingRequest = pageRequestInFlightRef.current.get(pageId);
@@ -116,14 +124,30 @@ export default function VaultDashboard() {
             return existingRequest;
         }
 
+        // Per-pageId controller so that an external signal from the caller can
+        // abort the underlying axios call (e.g. when the user navigates away).
+        const controller = new AbortController();
+        pageRequestAbortersRef.current.set(pageId, controller);
+
+        const onExternalAbort = () => controller.abort();
+        if (externalSignal) {
+            if (externalSignal.aborted) {
+                controller.abort();
+            } else {
+                externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+            }
+        }
+
         const requestPromise = (async () => {
             let lastErr = null;
             for (let attempt = 0; attempt <= maxAbortRetries; attempt += 1) {
                 try {
-                    const res = await axios.get(`/api/vault/pages/${pageId}`);
+                    const res = await axios.get(`/api/vault/pages/${pageId}`, { signal: controller.signal });
                     return res;
                 } catch (err) {
                     lastErr = err;
+                    // If the external caller aborted, propagate immediately.
+                    if (externalSignal?.aborted) throw err;
                     if (isAbortLikeError(err) && attempt < maxAbortRetries) {
                         await new Promise(resolve => setTimeout(resolve, 60));
                         continue;
@@ -157,6 +181,10 @@ export default function VaultDashboard() {
             return await requestPromise;
         } finally {
             pageRequestInFlightRef.current.delete(pageId);
+            pageRequestAbortersRef.current.delete(pageId);
+            if (externalSignal) {
+                externalSignal.removeEventListener?.('abort', onExternalAbort);
+            }
         }
     }, [isAbortLikeError]);
 
@@ -319,11 +347,27 @@ export default function VaultDashboard() {
             setTableTemplates(dedupedPages.filter(page => matchesActiveTable(page) && page.metadata?.is_template));
         }
 
-        setGlobalIndex(Object.fromEntries(
-            dedupedPages.map(page => [page.id, page.title || t('common.untitled')])
-        ));
+        setGlobalIndex(prev => ({
+            ...prev,
+            ...Object.fromEntries(dedupedPages.map(page => [page.id, page.title || t('common.untitled')]))
+        }));
     }, [activeTableId, getVisibleTableRecords, resolvePageTableId, visibleTableRecordsById, t]);
 
+    // Optimistic patch del sidebar: el BlockEditor el crida abans (o en
+    // paral·lel) al PATCH del backend per a canvis discrets com icona o
+    // portada, perquè el sidebar es refresqui de seguida sense esperar al
+    // re-fetch complet de pàgines.
+    const updatePageMetadataLocal = useCallback((pageId, partialMetadata) => {
+        if (!pageId || !partialMetadata) return;
+        setPages(prev => {
+            const next = prev.map(p => {
+                if (p.id !== pageId) return p;
+                return { ...p, metadata: { ...(p.metadata || {}), ...partialMetadata } };
+            });
+            pagesRef.current = next;
+            return next;
+        });
+    }, []);
 
     const applySchemaDefaults = useCallback((tableId, metadata = {}, title = 'Nou') => {
         if (!tableId) return metadata;
@@ -370,13 +414,30 @@ export default function VaultDashboard() {
     };
     // --------------------------------------------
 
+    // Track in-flight retry timers so we can cancel them on unmount —
+    // otherwise `setTimeout(() => fetchPages(...))` keeps firing after the
+    // component is gone and triggers React "setState on unmounted" warnings.
+    const fetchPagesRetryTimerRef = useRef(null);
+    useEffect(() => {
+        return () => {
+            if (fetchPagesRetryTimerRef.current) {
+                clearTimeout(fetchPagesRetryTimerRef.current);
+                fetchPagesRetryTimerRef.current = null;
+            }
+        };
+    }, []);
+
     const fetchPages = useCallback(async (attempt = 0) => {
         try {
             setLoading(true);
             const res = await axios.get('/api/vault/pages');
             if (res.data.length === 0 && attempt < 3) {
                 // Backend cache may still be warming up — retry with backoff
-                setTimeout(() => fetchPages(attempt + 1), 2000 * (attempt + 1));
+                if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
+                fetchPagesRetryTimerRef.current = setTimeout(
+                    () => fetchPages(attempt + 1),
+                    2000 * (attempt + 1),
+                );
                 return [];
             }
             syncPagesState(res.data);
@@ -384,11 +445,14 @@ export default function VaultDashboard() {
             return res.data;
         } catch (err) {
             if (isAbortLikeError(err) && attempt < 2) {
-                setTimeout(() => fetchPages(attempt + 1), 400 * (attempt + 1));
+                if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
+                fetchPagesRetryTimerRef.current = setTimeout(
+                    () => fetchPages(attempt + 1),
+                    400 * (attempt + 1),
+                );
                 return [];
             }
-            console.error(err);
-            toast.error(t('errors.load_pages'));
+            notifyError('load-pages', err, t('errors.load_pages'));
             setLoading(false);
             return [];
         }
@@ -403,11 +467,14 @@ export default function VaultDashboard() {
             setRegistry(res.data);
             setIsRegistryLoading(false);
         } catch (err) {
-            console.error("Error carregant el registre:", err);
+            // Log every retry attempt; only toast on the final failure to avoid
+            // a chain of "load failed" toasts during transient warm-up errors.
+            logError('load-registry', err);
             if (attempt < 2) {
                 setTimeout(() => fetchRegistry(attempt + 1), 800);
                 return;
             }
+            notifyError('load-registry', err, t('errors.load_registry'));
             setIsRegistryLoading(false);
             toast.error(t('errors.connection'));
         }
@@ -424,9 +491,14 @@ export default function VaultDashboard() {
             setPages(prevPages => {
                 const nonTablePages = prevPages.filter(p => resolvePageTableId(p) !== tableId);
                 const merged = [...nonTablePages, ...tablePages];
-                setGlobalIndex(Object.fromEntries(merged.map(page => [page.id, page.title || t('common.untitled')])));
+                setGlobalIndex(prev => ({
+                    ...prev,
+                    ...Object.fromEntries(merged.map(page => [page.id, page.title || t('common.untitled')]))
+                }));
                 return merged;
             });
+
+            fetchGlobalIndex();
 
             try {
                 const snapshotRes = await axios.get(`/api/vault/pages/by-table/${tableId}/snapshot`);
@@ -452,29 +524,45 @@ export default function VaultDashboard() {
             return tablePages;
         } catch (err) {
             if (isAbortLikeError(err)) return [];
-            console.error('Error carregant pàgines de la taula:', err);
+            logError('load-table-pages', err);
             return [];
         }
     }, [isAbortLikeError, resolvePageTableId, shouldIncludeTableRecord]);
 
     const loadPage = useCallback(async (pageId, fromHistory = false, attempt = 0) => {
-        try {
-            if (!pageId) return;
-            const tabId = pageId;
-            const existingTab = tabs.find(t => t.id === tabId);
-            if (existingTab) {
-                setActiveTabId(tabId);
-                setViewMode('editor');
-                setActiveTableId(null);
-                if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
-                return;
+        if (!pageId) return;
+        const tabId = pageId;
+        const existingTab = tabs.find(t => t.id === tabId);
+        if (existingTab) {
+            // Cap petició en vol: només canviem el focus.
+            if (activeLoadAbortRef.current) {
+                activeLoadAbortRef.current.abort();
+                activeLoadAbortRef.current = null;
             }
+            setActiveTabId(tabId);
+            setViewMode('editor');
+            setActiveTableId(null);
+            if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
+            return;
+        }
 
-            const res = await fetchPageById(pageId);
+        // Avortem qualsevol loadPage anterior abans de començar el nou: si
+        // l'usuari clica diverses pàgines ràpidament, només volem que la
+        // darrera "guanyi" i sobrescrigui els tabs/active state.
+        if (activeLoadAbortRef.current) {
+            activeLoadAbortRef.current.abort();
+        }
+        const controller = new AbortController();
+        activeLoadAbortRef.current = controller;
+
+        try {
+            const res = await fetchPageById(pageId, 1, controller.signal);
+            if (controller.signal.aborted) return;
             if (!res) return;
             const pageData = res.data;
             const tableIdOfPage = resolvePageTableId(pageData);
             if (tableIdOfPage) await fetchPagesByTable(tableIdOfPage);
+            if (controller.signal.aborted) return;
 
             const newTab = {
                 id: tabId,
@@ -489,12 +577,19 @@ export default function VaultDashboard() {
             setActiveTableId(null);
             if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
         } catch (err) {
-            if (isAbortLikeError(err) && attempt < 2) {
-                setTimeout(() => loadPage(pageId, fromHistory, attempt + 1), 400);
-                return;
+            if (controller.signal.aborted || isAbortLikeError(err)) {
+                // Aborted by a newer loadPage — silenciós, no és un error real.
+                if (controller.signal.aborted) return;
+                if (attempt < 2) {
+                    setTimeout(() => loadPage(pageId, fromHistory, attempt + 1), 400);
+                    return;
+                }
             }
-            console.error("Error carregant la pàgina:", err);
-            toast.error(t('errors.load_page'));
+            notifyError('load-page', err, t('errors.load_page'));
+        } finally {
+            if (activeLoadAbortRef.current === controller) {
+                activeLoadAbortRef.current = null;
+            }
         }
     }, [fetchPageById, fetchPagesByTable, isAbortLikeError, pushToHistory, resolvePageTableId, tabs]);
 
@@ -506,8 +601,7 @@ export default function VaultDashboard() {
             const tableIdOfPage = resolvePageTableId(page);
             if (tableIdOfPage) await fetchPagesByTable(tableIdOfPage);
         } catch (err) {
-            console.error("Error actualitzant nota:", err);
-            toast.error(t('errors.save_note'));
+            notifyError('update-note', err, t('errors.save_note'));
         }
     }, [fetchPages, fetchPagesByTable, pages, resolvePageTableId]);
 
@@ -516,7 +610,7 @@ export default function VaultDashboard() {
             const res = await axios.get(`/api/vault/schema?folder=${databaseId}`);
             setSchema(res.data);
         } catch (err) {
-            console.error(err);
+            logError('fetch-schema', err);
         }
     }, []);
 
@@ -525,7 +619,7 @@ export default function VaultDashboard() {
             const res = await axios.get(`/api/vault/views?folder=${databaseId}`);
             setViews(res.data);
         } catch (err) {
-            console.error(err);
+            logError('fetch-views', err);
         }
     }, []);
 
@@ -801,6 +895,21 @@ export default function VaultDashboard() {
         fetchRegistry();
     }, []);
 
+    // Avortar totes les peticions pendents quan es desmunta el component
+    // (eviten "setState on unmounted component" warnings i memory leaks).
+    useEffect(() => {
+        return () => {
+            if (activeLoadAbortRef.current) {
+                activeLoadAbortRef.current.abort();
+                activeLoadAbortRef.current = null;
+            }
+            pageRequestAbortersRef.current.forEach((controller) => {
+                try { controller.abort(); } catch { /* noop */ }
+            });
+            pageRequestAbortersRef.current.clear();
+        };
+    }, []);
+
     // Sincronitzar URL -> Estat Intern
     useEffect(() => {
         if (!nestedPath || !registry.tables) return;
@@ -868,6 +977,19 @@ export default function VaultDashboard() {
         }
     }, [activeTableId, visibleTableRecordsById]);
 
+    // Refs for the keyboard listener below — same pattern as undoRef/redoRef.
+    // Otherwise the empty-deps useEffect captures stale versions of
+    // `loadPage`, `closePromptModal` etc. (rebuilt every render) and:
+    //   • Cmd+K / Escape end up reading first-render state (e.g. tabs list
+    //     used to find an existing tab is empty → duplicate tabs created on
+    //     subsequent opens of the same page)
+    //   • the `vault-open-folder` event handler calls a stale loadPage so
+    //     the "open existing tab" branch never matches.
+    const loadPageRef = useRef(null);
+    const closePromptModalRef = useRef(null);
+    useEffect(() => { loadPageRef.current = loadPage; }, [loadPage]);
+    useEffect(() => { closePromptModalRef.current = closePromptModal; }, [closePromptModal]);
+
     // Keyboard listeners for Cmd+K / Ctrl+K and Escape
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -879,14 +1001,14 @@ export default function VaultDashboard() {
                 setPageToDelete(null);
                 setIsGlobalSearchOpen(false);
                 setIsRecentOpen(false);
-                closePromptModal();
+                closePromptModalRef.current?.();
             }
         };
 
         const handleFolderOpen = (e) => {
             if (e.detail?.folder) {
-                // Backwards compatibility for Database block clicks, try to open the database or parent page
-                loadPage(e.detail.folder);
+                // Backwards compatibility for Database block clicks
+                loadPageRef.current?.(e.detail.folder);
             }
         };
 
@@ -967,9 +1089,21 @@ export default function VaultDashboard() {
         } else {
             setActiveViewId(getPreferredInitialViewId(tableViews));
         }
-        // Instant migration of old tables to views system
-        // If no views exist for this table, create a default one
-        if (tableViews.length === 0 && !viewCreationInProgressRef.current.has(tableId)) {
+        // Instant migration of old tables to views system: if no views
+        // exist for this table, create a default one.
+        //
+        // The `!isRegistryLoading` guard is critical — without it, opening a
+        // table while the initial /api/vault/registry fetch is still in
+        // flight would see an empty `registry.views` array and trigger an
+        // auto-creation, even though a main view already exists on disk.
+        // That's exactly how duplicate "Vista principal" rows piled up on
+        // every page reload.
+        if (
+            !isRegistryLoading &&
+            Array.isArray(registry.views) &&
+            tableViews.length === 0 &&
+            !viewCreationInProgressRef.current.has(tableId)
+        ) {
             const defaultId = uuidv4();
             viewCreationInProgressRef.current.add(tableId);
             axios.post(`/api/vault/views`, {
@@ -1304,8 +1438,17 @@ export default function VaultDashboard() {
             const tableViews = registry.views?.filter(v => v.table_id === tableId) || [];
             setActiveViewId(getPreferredInitialViewId(tableViews));
 
-            if (tableViews.length === 0) {
+            // Same guard as in handleTableOpen above: never auto-create a
+            // default view while the registry is still loading — the empty
+            // array there is "we don't know yet", not "no views exist".
+            if (
+                !isRegistryLoading &&
+                Array.isArray(registry.views) &&
+                tableViews.length === 0 &&
+                !viewCreationInProgressRef.current.has(tableId)
+            ) {
                 const defaultId = uuidv4();
+                viewCreationInProgressRef.current.add(tableId);
                 axios.post(`/api/vault/views`, {
                     id: defaultId,
                     table_id: tableId,
@@ -1314,7 +1457,8 @@ export default function VaultDashboard() {
                     sort: { field: "last_modified", direction: "desc" },
                     filters: [],
                     is_main: true,
-                }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creating view:", err));
+                }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creating view:", err))
+                  .finally(() => viewCreationInProgressRef.current.delete(tableId));
             }
         } catch (err) {
             console.error("Error obrint la taula:", err);
@@ -1657,37 +1801,60 @@ export default function VaultDashboard() {
 
     const handleToggleFavorite = useCallback(async (pageId) => {
         if (!pageId) return;
+        // Calcula el nou valor a partir de l'estat local (cau més ràpid que
+        // un GET, i serveix també com a base per al patch optimista que fa
+        // que la secció Favorits aparegui de seguida al sidebar sense
+        // esperar al PUT + fetchPages següents).
+        const currentPage = pagesRef.current.find(p => p.id === pageId)
+            || tabs.find(t => t.id === pageId);
+        const wasFav = currentPage?.metadata?.favorite === true
+            || currentPage?.metadata?.favorite === 'true';
+        const nextFav = !wasFav;
+
+        // 1) Optimista: actualitza pages i tabs immediatament.
+        setPages(prev => {
+            const next = prev.map(p => p.id === pageId
+                ? { ...p, metadata: { ...(p.metadata || {}), favorite: nextFav } }
+                : p);
+            pagesRef.current = next;
+            return next;
+        });
+        setTabs(prevTabs => prevTabs.map(t => t.id === pageId
+            ? { ...t, metadata: { ...(t.metadata || {}), favorite: nextFav } }
+            : t));
+
+        // 2) Persistència al backend. Necessitem el contingut actual per al
+        // PUT (no perdre cos de la nota); si el GET o el PUT fallen,
+        // revertim l'optimista per no enganyar l'usuari.
         try {
-            // Obtenir el contingut de la nota sencera per no perdre dades
             const getRes = await axios.get(`/api/vault/pages/${pageId}`);
             const { content, metadata, title } = getRes.data;
-
-            // Invertir el valor de favorite (tractar undefined com a false prèviament)
-            const isFav = metadata.favorite === true || metadata.favorite === 'true';
-            const updatedMeta = { ...metadata, favorite: !isFav };
-
-            // Desar la pàgina amb el status de favorit invertit
+            const updatedMeta = { ...metadata, favorite: nextFav };
             await axios.put(`/api/vault/pages/${pageId}`, {
                 title: title,
                 content: content,
                 is_database: updatedMeta.is_database || false,
                 parent_id: updatedMeta.parent_id || null,
-                metadata: updatedMeta
+                metadata: updatedMeta,
             });
-
-            // Update tabs if the favorite card was open
-            setTabs(prevTabs => prevTabs.map(t =>
-                t.id === pageId
-                    ? { ...t, metadata: updatedMeta }
-                    : t
-            ));
-
-            await fetchPages(); // So Sidebar reloads favorites
+            // No esperem a fetchPages (és lent en xarxes saturades); el
+            // patch optimista ja ha refrescat la UI.
         } catch (err) {
             console.error(err);
+            // Revertir optimista
+            setPages(prev => {
+                const next = prev.map(p => p.id === pageId
+                    ? { ...p, metadata: { ...(p.metadata || {}), favorite: wasFav } }
+                    : p);
+                pagesRef.current = next;
+                return next;
+            });
+            setTabs(prevTabs => prevTabs.map(tt => tt.id === pageId
+                ? { ...tt, metadata: { ...(tt.metadata || {}), favorite: wasFav } }
+                : tt));
             toast.error(t('errors.toggle_favorites'));
         }
-    }, [fetchPages, setTabs]);
+    }, [tabs, t]);
 
     const handleEditSchema = useCallback((table, tabMetadata) => {
         const tid = table?.id || resolvePageTableId({ metadata: tabMetadata });
@@ -2077,6 +2244,7 @@ export default function VaultDashboard() {
                                             onNoteSelect={loadPage}
                                             schema={paneSchema}
                                             idToTitle={globalIndex}
+                                            allNotes={pages}
                                             activeView={cv}
                                             onUpdateView={handleUpdateView}
                                             onDeletePage={handleDeletePage}
@@ -2139,12 +2307,18 @@ export default function VaultDashboard() {
         }
 
         return (
+            // key MUST be the page id so React unmounts the BlockEditor (and
+            // resets all its refs and timers) when the user navigates to a
+            // different note. Otherwise the spurious-autosave + unmount-save
+            // logic in BlockEditor can fire a final PATCH against the wrong
+            // note when reconciliation reuses the component instance.
             <BlockEditor
                 key={tab.id}
                 noteFilename={tab.id}
                 initialContent={tab.content}
                 initialMetadata={tab.metadata}
                 isCodeView={Boolean(codeViewByTabId[tab.id])}
+                onToggleCodeView={() => setCodeViewByTabId(prev => ({ ...prev, [tab.id]: !Boolean(prev[tab.id]) }))}
                 onUpdate={handleEditorUpdate}
                 historyOpenSignal={tab.id === activeTabId ? historyOpenSignal : 0}
                 folder="Universal"
@@ -2155,6 +2329,7 @@ export default function VaultDashboard() {
                 idToTitle={globalIndex}
                 onRefreshIndex={fetchGlobalIndex}
                 onRefreshNotes={fetchPages}
+                onUpdatePageMetadata={updatePageMetadataLocal}
                 onRefreshRegistry={fetchRegistry}
                 onNoteSelect={loadPage}
                 onOpenParallel={handleOpenParallel}
@@ -2267,6 +2442,7 @@ export default function VaultDashboard() {
                                         onNoteSelect={loadPage}
                                         schema={paneSchema}
                                         idToTitle={globalIndex}
+                                        allNotes={pages}
                                         activeView={cv}
                                         onUpdateView={handleUpdateView}
                                         onDeletePage={handleDeletePage}
@@ -2545,6 +2721,7 @@ export default function VaultDashboard() {
                                                     onNoteSelect={loadPage}
                                                     schema={schema}
                                                     idToTitle={globalIndex}
+                                                    allNotes={pages}
                                                     activeView={cv}
                                                     onUpdateView={handleUpdateView}
                                                     onDeletePage={handleDeletePage}
@@ -2603,6 +2780,7 @@ export default function VaultDashboard() {
                                                     onNoteSelect={loadPage}
                                                     schema={schema}
                                                     idToTitle={globalIndex}
+                                                    allNotes={pages}
                                                     onDeletePage={handleDeletePage}
                                                     onDeleteSelected={handleDeleteSelected}
                                                     searchTerm={searchTerm}
@@ -2797,7 +2975,7 @@ export default function VaultDashboard() {
                                 <button
                                     type="submit"
                                     disabled={promptModal.isLoading || !promptModal.inputValue.trim()}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-gnosi hover:bg-gnosi/90 rounded-md transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                                    className="btn btn-gnosi-primary px-4 py-2 text-sm font-medium disabled:opacity-50 flex items-center gap-2"
                                 >
                                     {promptModal.isLoading && <Loader2 size={16} className="animate-spin" />}
                                     {promptModal.isRename ? t('common.rename') : t('common.create')}

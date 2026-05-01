@@ -4,8 +4,18 @@ import MailSidebar from '../components/Mail/MailSidebar';
 import MailList from '../components/Mail/MailList';
 import MailViewer from '../components/Mail/MailViewer';
 import MailComposer from '../components/Mail/MailComposer';
+import { MailTagsProvider } from '../hooks/useMailTags';
+import { cachedJson } from '../lib/cachedJson';
 
 export default function MailPage() {
+    return (
+        <MailTagsProvider>
+            <MailPageInner />
+        </MailTagsProvider>
+    );
+}
+
+function MailPageInner() {
     const [selectedMail, setSelectedMail] = React.useState(null);
     const [selectedAccount, setSelectedAccount] = React.useState(null);
     const [accounts, setAccounts] = useState([]);
@@ -30,8 +40,10 @@ export default function MailPage() {
     const [defaultAccount, setDefaultAccount] = React.useState(null);
 
     useEffect(() => {
-        fetch('/api/integrations')
-            .then(res => res.json())
+        // Use a short-TTL cache so MailPage, MailComposer and CalendarPage
+        // don't each hit /api/integrations independently when they happen to
+        // mount close together.
+        cachedJson('/api/integrations')
             .then(data => {
                 const allMail = [...(data.mail_accounts || []), ...(data.emails || [])];
                 const seen = new Set();

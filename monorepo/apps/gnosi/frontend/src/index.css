@@ -428,12 +428,19 @@ body {
 }
 /* Home Page Premium Styles */
 .home-page {
-  min-height: 100vh;
+  /* IMPORTANT: do NOT set `overflow-x: hidden` here.
+     CSS spec: when overflow-x and overflow-y have different values and one is
+     `hidden`, the browser converts the other from `visible` to `auto` —
+     producing an unwanted second vertical scrollbar inside this element.
+     Horizontal clipping for the decorative glows is therefore done at the
+     parent level (App.jsx → flex-1 overflow-x-hidden), which already has an
+     explicit vertical overflow value so the spec rule never triggers. */
+  width: 100%;
+  box-sizing: border-box;
   background: var(--home-bg);
   color: var(--text-primary);
   padding: 4rem 2rem;
   position: relative;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;

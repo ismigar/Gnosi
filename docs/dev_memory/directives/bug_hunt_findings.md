@@ -4,6 +4,23 @@
 > arreglats automàticament (perquè requereixen revisió manual o decisió de
 > producte). Els que sí s'han arreglat tenen el seu propi commit.
 
+## Resum executiu (sessió nocturna 2026-05-01 00:48 → ~07:30)
+
+- **43 commits** de fixes i docs en 14 iteracions autònomes.
+- **52+ bugs reals arreglats** abastant security (XSS, CSRF, info leaks),
+  crashes (ReferenceError, null deref), funcionalitat trencada
+  (paths divergents, case sensitivity), race conditions (10+ patrons
+  read-modify-write sense lock), performance (8+ casos d'IO bloquejant
+  l'event loop), atomic writes (6+ fitxers crítics), error handling
+  (12+ casos de `if (res.ok)` sense `else`).
+- **Backend healthy** durant tota la nit (scheduler executant tasques
+  fetch_calendar, update_analytics, cap caiguda).
+- **Frontend builds** correctament (Vite production build sense errors).
+- Lint del frontend: 267 → 253 errors (els que queden són majoritàriament
+  `no-unused-vars` cosmètics).
+- ~20 bugs més documentats sota per a revisió manual (codi mort, edge cases
+  marginals, decisions de producte com el formula evaluator basat en `Function`).
+
 ## Bugs arreglats automàticament (commitats)
 
 | Commit | Fitxer | Descripció |
@@ -53,6 +70,8 @@
 | `45e07d2fe` | `frontend/components/FeedManagerModal.jsx` | `executeDeleteSource` no avisava si delete fallava → font seguia a la llista sense feedback. |
 | `75ced3152` | `frontend/components/Contacts/ContactList.jsx` | `contact.name.charAt(0)` crashejava per contactes sense nom (mateix patró que ContactDetail). |
 | `f29103c62` | `frontend/components/Vault/ExcalidrawEditor.jsx` | `triggerSave` no esperava `handleSave` → `toast.success("Dibuix desat")` es mostrava sempre encara que el save backend fallés. |
+| `1c704b379`, `4895f6abc` | `ReaderDashboard.jsx`, `BlockEditor.jsx` | Catch buits substituïts per `console.debug` per facilitar troubleshooting (3 ocurrències; silenci preservat per a usuaris). |
+| `561a88ddd` | `GraphPage.jsx` | Block `else {}` buit (cleanup lint). |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
