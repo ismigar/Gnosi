@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/use-api';
 import { toast } from 'react-hot-toast';
 import { createPortal } from 'react-dom';
-import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2 } from 'lucide-react';
+import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
 import { isCalendarPage, isAppContent } from './schemaUtils';
@@ -377,6 +377,96 @@ export const VaultSidebar = ({
     const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
     const [isDashworksExpanded, setIsDashworksExpanded] = useState(true);
     const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
+    // Ordenació de favorits: {mode, manualOrder}. Persistit a localStorage.
+    // mode pot ser 'manual' | 'alpha-asc' | 'alpha-desc' | 'recent' | 'oldest'.
+    const [favoritesSort, setFavoritesSort] = useState(() => {
+        try {
+            const raw = localStorage.getItem('gnosi.sidebar.favoritesSort');
+            if (raw) return { mode: 'manual', manualOrder: [], ...JSON.parse(raw) };
+        } catch (e) { /* noop */ }
+        return { mode: 'manual', manualOrder: [] };
+    });
+    const [isFavoritesSortOpen, setIsFavoritesSortOpen] = useState(false);
+    const favoritesSortMenuRef = useRef(null);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('gnosi.sidebar.favoritesSort', JSON.stringify(favoritesSort));
+        } catch (e) { /* noop */ }
+    }, [favoritesSort]);
+
+    useEffect(() => {
+        if (!isFavoritesSortOpen) return;
+        const handleClickOutside = (e) => {
+            if (favoritesSortMenuRef.current && !favoritesSortMenuRef.current.contains(e.target)) {
+                setIsFavoritesSortOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isFavoritesSortOpen]);
+
+    const sortedFavoritePages = useMemo(() => {
+        const list = Array.isArray(favoritePages) ? [...favoritePages] : [];
+        const { mode, manualOrder } = favoritesSort;
+        if (mode === 'alpha-asc') {
+            return list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
+        }
+        if (mode === 'alpha-desc') {
+            return list.sort((a, b) => String(b.title || '').localeCompare(String(a.title || '')));
+        }
+        if (mode === 'recent') {
+            return list.sort((a, b) => String(b.last_modified || '').localeCompare(String(a.last_modified || '')));
+        }
+        if (mode === 'oldest') {
+            return list.sort((a, b) => String(a.last_modified || '').localeCompare(String(b.last_modified || '')));
+        }
+        // mode === 'manual': respect explicit order, then add new favorites at the end
+        const order = Array.isArray(manualOrder) ? manualOrder : [];
+        const orderedIds = new Set(order);
+        const byId = new Map(list.map((p) => [p.id, p]));
+        const ordered = order.map((id) => byId.get(id)).filter(Boolean);
+        const newcomers = list.filter((p) => !orderedIds.has(p.id));
+        return [...ordered, ...newcomers];
+    }, [favoritePages, favoritesSort]);
+
+    const setFavoritesSortMode = (nextMode) => {
+        setFavoritesSort((prev) => ({ ...prev, mode: nextMode }));
+        setIsFavoritesSortOpen(false);
+    };
+
+    // Drag handler per ordre manual
+    const [draggingFavoriteId, setDraggingFavoriteId] = useState(null);
+    const handleFavoriteDragStart = (id) => (e) => {
+        setDraggingFavoriteId(id);
+        try { e.dataTransfer.effectAllowed = 'move'; } catch { /* noop */ }
+    };
+    const handleFavoriteDragOver = (id) => (e) => {
+        if (!draggingFavoriteId || draggingFavoriteId === id) return;
+        e.preventDefault();
+        try { e.dataTransfer.dropEffect = 'move'; } catch { /* noop */ }
+    };
+    const handleFavoriteDrop = (targetId) => (e) => {
+        e.preventDefault();
+        if (!draggingFavoriteId || draggingFavoriteId === targetId) {
+            setDraggingFavoriteId(null);
+            return;
+        }
+        // Switching to manual mode if the user drops while in another sort
+        const currentIds = sortedFavoritePages.map((p) => p.id);
+        const fromIdx = currentIds.indexOf(draggingFavoriteId);
+        const toIdx = currentIds.indexOf(targetId);
+        if (fromIdx === -1 || toIdx === -1) {
+            setDraggingFavoriteId(null);
+            return;
+        }
+        const next = [...currentIds];
+        next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, draggingFavoriteId);
+        setFavoritesSort({ mode: 'manual', manualOrder: next });
+        setDraggingFavoriteId(null);
+    };
+    const handleFavoriteDragEnd = () => setDraggingFavoriteId(null);
     const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
     const [expandedDatabases, setExpandedDatabases] = useState({});
     const [menuState, setMenuState] = useState(null);
@@ -632,23 +722,70 @@ export const VaultSidebar = ({
 
             {favoritePages.length > 0 && (
                 <>
-                    <SectionHeader
-                        label={t('sidebar.favorites', 'Favorites')}
-                        isExpanded={isFavoritesExpanded}
-                        onToggle={() => setIsFavoritesExpanded(!isFavoritesExpanded)}
-                    />
+                    <div className="group relative flex items-center px-3 mt-6 mb-1">
+                        <button
+                            onClick={() => setIsFavoritesExpanded(!isFavoritesExpanded)}
+                            className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
+                        >
+                            {isFavoritesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            {t('sidebar.favorites', 'Favorites')}
+                        </button>
+                        <div className="relative" ref={favoritesSortMenuRef}>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setIsFavoritesSortOpen((v) => !v); }}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                                title={t('sidebar.favorites_sort', 'Ordena favorits')}
+                            >
+                                <ArrowUpDown size={12} />
+                            </button>
+                            {isFavoritesSortOpen && (
+                                <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl py-1 text-xs">
+                                    {[
+                                        { id: 'manual', label: t('sidebar.sort_manual', 'Manual (drag)'), icon: GripVertical },
+                                        { id: 'alpha-asc', label: t('sidebar.sort_alpha_asc', 'A → Z'), icon: ArrowDownAZ },
+                                        { id: 'alpha-desc', label: t('sidebar.sort_alpha_desc', 'Z → A'), icon: ArrowUpAZ },
+                                        { id: 'recent', label: t('sidebar.sort_recent', 'Més recents'), icon: Clock },
+                                        { id: 'oldest', label: t('sidebar.sort_oldest', 'Més antics'), icon: Clock },
+                                    ].map(({ id, label, icon: Icon }) => (
+                                        <button
+                                            key={id}
+                                            onClick={() => setFavoritesSortMode(id)}
+                                            className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--bg-secondary)] text-left ${favoritesSort.mode === id ? 'text-[var(--gnosi-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}
+                                        >
+                                            <Icon size={12} className="shrink-0" />
+                                            <span className="flex-1">{label}</span>
+                                            {favoritesSort.mode === id && <Check size={12} />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     {isFavoritesExpanded && (
                         <div className="px-2 space-y-0.5">
-                            {favoritePages.map(page => (
-                                <NavItem
-                                    key={page.id}
-                                    icon={FileText}
-                                    label={page.title}
-                                    onClick={() => onPageSelect(page.id)}
-                                    colorClass="text-[var(--text-secondary)]/60"
-                                    emoji={page.metadata?.icon}
-                                />
-                            ))}
+                            {sortedFavoritePages.map((page) => {
+                                const isDragging = draggingFavoriteId === page.id;
+                                const draggable = favoritesSort.mode === 'manual';
+                                return (
+                                    <div
+                                        key={page.id}
+                                        draggable={draggable}
+                                        onDragStart={draggable ? handleFavoriteDragStart(page.id) : undefined}
+                                        onDragOver={draggable ? handleFavoriteDragOver(page.id) : undefined}
+                                        onDrop={draggable ? handleFavoriteDrop(page.id) : undefined}
+                                        onDragEnd={draggable ? handleFavoriteDragEnd : undefined}
+                                        className={`relative ${isDragging ? 'opacity-40' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                    >
+                                        <NavItem
+                                            icon={FileText}
+                                            label={page.title}
+                                            onClick={() => onPageSelect(page.id)}
+                                            colorClass="text-[var(--text-secondary)]/60"
+                                            emoji={page.metadata?.icon}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </>
