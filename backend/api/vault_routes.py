@@ -2018,15 +2018,26 @@ def _get_pages_snapshot(
     if not raw_entries:
         return []
 
-    # Filter out entries whose files no longer exist (deleted externally)
+    # Filter out entries whose files no longer exist (deleted externally).
+    # ATENCIÓ: Path.exists() per cada entry són 3988 stat() al OneDrive cada
+    # cop que es crida /pages — això eleva el temps a 15+ segons. Amb cache
+    # de mtime al `_iter_docs_cache`, només validem stale_paths un cop per
+    # `_STALE_CHECK_TTL` segons. Si un fitxer es borra externament, queda
+    # visible a la sidebar fins el següent stat — acceptable.
+    now_mono = time.monotonic()
+    do_stale_check = (now_mono - _last_stale_check["ts"]) > _STALE_CHECK_TTL
     entries = []
     stale_paths = []
-    for e in raw_entries:
-        p_str = e.get("path")
-        if p_str and not Path(p_str).exists():
-            stale_paths.append(p_str)
-        else:
-            entries.append(e)
+    if do_stale_check:
+        for e in raw_entries:
+            p_str = e.get("path")
+            if p_str and not Path(p_str).exists():
+                stale_paths.append(p_str)
+            else:
+                entries.append(e)
+        _last_stale_check["ts"] = now_mono
+    else:
+        entries = list(raw_entries)
 
     if stale_paths:
         from backend.services.context_vars import get_active_vault_path
@@ -2866,6 +2877,34 @@ async def patch_page(
             else:
                 safe_write_text(file_path, full_content)
         await asyncio.to_thread(_write_now)
+
+        # Actualitza el cache `_page_index_entries` IMMEDIATAMENT amb el nou
+        # metadata. Sense això, el següent GET /api/vault/pages retorna el
+        # metadata cachejat (vell) i el frontend reverteix els canvis recents
+        # — bug visible quan canvies una icona/cover i la sidebar la perd
+        # després d'un fetchPages. També invalidem els bodies cache i els
+        # iter_docs cache perquè /backlinks reflecteixi els canvis.
+        try:
+            from backend.services.context_vars import get_active_vault_path
+            v_path = get_active_vault_path()
+            if v_path:
+                v_str = str(v_path)
+                try:
+                    stat_result = file_path.stat()
+                    new_entry = _build_page_cache_entry(file_path, stat_result)
+                    with _page_index_lock:
+                        _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
+                        new_id = new_entry.get("id")
+                        if new_id:
+                            _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
+                except Exception as e:
+                    log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
+            with _body_cache_lock:
+                _body_cache.pop(str(file_path), None)
+            _iter_docs_cache["docs"] = None
+        except Exception as e:
+            log.debug(f"Cache invalidation after PATCH failed: {e}")
+
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", content
         )
@@ -3591,12 +3630,52 @@ _iter_docs_cache: dict = {"docs": None, "ts": 0.0}
 _iter_docs_lock = threading.Lock()
 _ITER_DOCS_TTL = 60.0
 
+# Cache de bodies de markdown indexada per path → (mtime_ns, body). Indep del
+# TTL de la llista: aquest cache només invalida quan el fitxer canvia. Així
+# la primera invocació de /backlinks després del TTL no força rellegir 3988
+# fitxers; només els que han canviat. Els fitxers nous (no cachejats) es
+# llegeixen un cop i s'incorporen.
+_body_cache: Dict[str, tuple[int, str]] = {}
+_body_cache_lock = threading.Lock()
+
+# TTL del check d'stale paths a `_get_pages_snapshot`. Cada `Path.exists()`
+# al OneDrive triga ~10ms — multiplicar per 3988 entries dóna 40s. Limitem a
+# fer aquest cleanup només cada 30s.
+_last_stale_check: dict = {"ts": 0.0}
+_STALE_CHECK_TTL = 30.0
+
+
+def _get_body_for_path(file_path: Path) -> str:
+    """Retorna el body d'un .md aprofitant cache amb invalidació per mtime."""
+    path_str = str(file_path)
+    try:
+        mtime_ns = file_path.stat().st_mtime_ns
+    except OSError:
+        return ""
+
+    with _body_cache_lock:
+        cached = _body_cache.get(path_str)
+        if cached and cached[0] == mtime_ns:
+            return cached[1]
+
+    try:
+        raw_content = file_path.read_text(encoding="utf-8")
+    except Exception as e:
+        log.warning(f"Error reading body of {file_path.name}: {e}")
+        return ""
+
+    with _body_cache_lock:
+        _body_cache[path_str] = (mtime_ns, raw_content)
+    return raw_content
+
 
 def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, bool]]:
     """Yields page documents as (path, metadata, body, is_dashworks).
 
-    Cached per `_ITER_DOCS_TTL` seconds per evitar I/O massiu repetit als
-    endpoints /backlinks, /unlinked-mentions i /global-index.
+    Cached per `_ITER_DOCS_TTL` seconds. Quan la cache de la llista expira,
+    els bodies individuals no es rellegeixen si el seu mtime no ha canviat
+    (vegeu `_get_body_for_path`). Així la 2a/3a/Nª invocació és O(stat()) per
+    fitxer en lloc d'O(read).
     """
     now = time.time()
     cached = _iter_docs_cache.get("docs")
@@ -3613,12 +3692,24 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
 
         docs: List[tuple[Path, Dict[str, Any], str, bool]] = []
 
-        if get_p("VAULT") and get_p("VAULT").exists():
-            for file_path in get_p("VAULT").rglob("*.md"):
+        # Usem PathResolver (cache pre-warmed al startup) per la llista de
+        # fitxers, evitant rglob lent al OneDrive. Si la cache encara no està
+        # llesta, list_all_files fa fallback a rglob.
+        vault_path = get_p("VAULT")
+        if vault_path and vault_path.exists():
+            try:
+                from backend.services.path_resolver import path_resolver
+                all_files = path_resolver.list_all_files(vault_path)
+            except Exception:
+                all_files = list(vault_path.rglob("*.md"))
+
+            for file_path in all_files:
                 if ".history" in file_path.parts:
                     continue
                 try:
-                    raw_content = file_path.read_text(encoding="utf-8")
+                    raw_content = _get_body_for_path(file_path)
+                    if not raw_content:
+                        continue
                     metadata, body = parse_frontmatter(raw_content, file_path)
                     docs.append((file_path, metadata, body, False))
                 except Exception as e:
