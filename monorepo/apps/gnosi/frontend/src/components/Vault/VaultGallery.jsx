@@ -3,13 +3,13 @@ import { FileText, Tag, Calendar, Link as LinkIcon, Type, CheckSquare } from 'lu
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
-import { getFieldType, getSchemaFieldNames } from './schemaUtils';
+import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
-export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
+export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
@@ -91,7 +91,22 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
-    const renderPropertyValue = (value, type) => {
+    const getRelationDisplayMap = (field) => {
+        const config = getFieldConfig(schema, field);
+        const relatedTableId = config?.relation_database_id;
+        const relatedNotes = relatedTableId
+            ? (allNotes || []).filter(n => {
+                const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                return nTableId === relatedTableId;
+            })
+            : [];
+        return {
+            ...idToTitle,
+            ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])),
+        };
+    };
+
+    const renderPropertyValue = (value, type, field) => {
         if (value === undefined || value === null || value === '') return <span className="text-[var(--text-tertiary)] opacity-40">-</span>;
 
         switch (type) {
@@ -114,11 +129,12 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             case 'multi_select':
             case 'relation': {
                 const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
+                const displayMap = type === 'relation' ? getRelationDisplayMap(field) : idToTitle;
                 return (
                     <div className="flex flex-wrap gap-1 max-w-full overflow-hidden h-4">
                         {items.slice(0, 2).map((it, idx) => (
                             <span key={idx} className="px-1.5 py-0 rounded-sm text-[10px] font-medium bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] whitespace-nowrap truncate max-w-full block" title={it}>
-                                {idToTitle[it] || it}
+                                {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '…' : it)}
                             </span>
                         ))}
                         {items.length > 2 && <span className="text-[10px] text-[var(--text-tertiary)]">+{items.length - 2}</span>}
@@ -255,7 +271,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                                     <div key={`${key}-${propIndex}`} className="flex items-center gap-2 text-[var(--text-secondary)] overflow-hidden min-h-[18px]">
                                                         <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] w-16 shrink-0 truncate">{key}</span>
                                                         <div className="flex-1 min-w-0">
-                                                            {renderPropertyValue(val, type)}
+                                                            {renderPropertyValue(val, type, key)}
                                                         </div>
                                                     </div>
                                                 );

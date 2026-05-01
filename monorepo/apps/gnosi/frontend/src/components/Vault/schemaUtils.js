@@ -54,6 +54,7 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         schema[prop.name] = prop.type || 'text';
         const config = {};
         if (prop.formula) config.formula = prop.formula;
+        if (prop.compute) config.compute = prop.compute;
         if (prop.defaultFormula) config.defaultFormula = prop.defaultFormula;
         if (prop.relationField) config.relationField = prop.relationField;
         if (prop.targetProperty) config.targetProperty = prop.targetProperty;
@@ -62,11 +63,87 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.cardinality) config.cardinality = prop.cardinality;
         if (prop.limit !== undefined && prop.limit !== '') config.limit = prop.limit;
         if (prop.fallbackValue !== undefined && prop.fallbackValue !== '') config.fallbackValue = prop.fallbackValue;
+        if (prop.id) config.id = prop.id;
         if (Object.keys(config).length > 0) {
             schema[`${prop.name}${RESERVED_KEYS_SUFFIX}`] = config;
         }
     });
     return schema;
+}
+
+/**
+ * Retorna l'ID immutable d'un camp ('fld_xxxxxxxx') si existeix.
+ * Aquest ID és la clau estable per referenciar el camp en notes,
+ * filtres, vistes i seccions, independent del seu nom mostrat.
+ * @param {Object} schema
+ * @param {string} fieldName
+ * @returns {string|undefined}
+ */
+export function getFieldId(schema = {}, fieldName) {
+    return getFieldConfig(schema, fieldName).id;
+}
+
+/**
+ * Retorna el nom actual d'un camp donat el seu ID immutable.
+ * @param {Object} schema
+ * @param {string} fieldId
+ * @returns {string|undefined}
+ */
+export function getFieldNameById(schema = {}, fieldId) {
+    if (!fieldId) return undefined;
+    for (const name of getSchemaFieldNames(schema)) {
+        if (getFieldConfig(schema, name).id === fieldId) return name;
+    }
+    return undefined;
+}
+
+/**
+ * Resol una referència de camp que pot venir com a ID estable o com a nom.
+ * Retorna { id, name } amb tots dos valors quan és possible.
+ * @param {Object} schema
+ * @param {string} ref - id ('fld_*') o nom de camp
+ * @returns {{id: string|undefined, name: string|undefined}}
+ */
+export function resolveFieldRef(schema = {}, ref) {
+    if (!ref) return { id: undefined, name: undefined };
+    if (typeof ref === 'string' && ref.startsWith('fld_')) {
+        return { id: ref, name: getFieldNameById(schema, ref) };
+    }
+    return { id: getFieldId(schema, ref), name: ref };
+}
+
+/**
+ * Llegeix un valor de metadata d'una pàgina per ID o nom de camp.
+ * Prioritza ID; si no hi és, fa fallback al nom (compatibilitat enrere).
+ * @param {Object} page - amb metadata
+ * @param {Object} schema
+ * @param {string} ref - id o nom
+ */
+export function getMetaValue(page, schema, ref) {
+    if (!page || !page.metadata) return undefined;
+    const { id, name } = resolveFieldRef(schema, ref);
+    if (id !== undefined && page.metadata[id] !== undefined) return page.metadata[id];
+    if (name !== undefined && page.metadata[name] !== undefined) return page.metadata[name];
+    return undefined;
+}
+
+/**
+ * Escriu un valor de metadata utilitzant ID com a clau quan és possible
+ * (i elimina la clau antiga per nom si encara hi és, per migrar lazy).
+ * Muta i retorna el metadata.
+ */
+export function setMetaValue(metadata, schema, ref, value) {
+    metadata = metadata || {};
+    const { id, name } = resolveFieldRef(schema, ref);
+    if (id) {
+        metadata[id] = value;
+        if (name && name !== id && metadata[name] !== undefined) {
+            delete metadata[name];
+        }
+    } else if (name) {
+        metadata[name] = value;
+    }
+    return metadata;
 }
 
 /**
