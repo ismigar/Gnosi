@@ -106,6 +106,11 @@ export default function MailComposer({
                     account: fromAccount.email,
                 }),
             });
+            // Sense aquest check, una resposta 5xx (servidor caigut, base de
+            // dades de drafts plena) feia que res.json() retornés el body
+            // d'error i tot continués com si res, deixant l'usuari amb la
+            // sensació que els drafts es guardaven cada 2s quan cap ho feia.
+            if (!res.ok) throw new Error(`Draft save HTTP ${res.status}`);
             const data = await res.json();
             const isFirstSave = !draftIdRef.current;
             if (data.draft_id) draftIdRef.current = data.draft_id;
@@ -113,7 +118,11 @@ export default function MailComposer({
                 toast(t('mail.draft_saved'), { icon: '💾', duration: 1500 });
                 onDraftSaved?.();
             }
-        } catch { /* silent */ }
+        } catch (err) {
+            // Auto-save no notifica l'usuari (massa intrusiu cada 2s) però
+            // logueja perquè no es perdi la causa real.
+            console.warn('[MailComposer] draft auto-save failed:', err);
+        }
     }, [fromAccount, t]);
 
     const hasContent = useCallback(() => {
