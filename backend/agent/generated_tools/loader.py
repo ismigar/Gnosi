@@ -101,13 +101,15 @@ class ToolLoader:
             # Register the module
             sys.modules[module_name] = module
 
-            # Find the tool function (decorated with @tool)
+            # Find the tool function. Acceptem només BaseTool reals o
+            # callables marcats explícitament amb `__tool__ = True`. Abans
+            # acceptàvem qualsevol callable amb `.name` cosa que podia
+            # capturar funcions decorades amb metadades arbitràries.
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
                 if isinstance(attr, BaseTool):
                     return attr
-                # Also check for StructuredTool or functions with __tool__ marker
-                if callable(attr) and hasattr(attr, 'name'):
+                if callable(attr) and getattr(attr, "__tool__", False) is True:
                     return attr
 
             return None
