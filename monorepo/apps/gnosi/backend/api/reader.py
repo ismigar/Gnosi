@@ -145,24 +145,22 @@ def get_podcast_info():
     """Returns information about the last generated podcast"""
     import os
     from datetime import datetime
-    
-    from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR
+
     from backend.services.context_vars import get_active_vault_path
-    
+
     # Podcast path within the active vault
     pod_dir = get_active_vault_path() / "data" / "podcasts"
     pod_dir.mkdir(parents=True, exist_ok=True)
-    
-    if not os.path.exists(pod_dir):
-        return {"exists": False}
-        
+
     files = [f for f in os.listdir(pod_dir) if f.endswith('.mp3')]
     if not files:
         return {"exists": False}
-    
+
     latest_file = sorted(files, reverse=True)[0]
-    file_path = os.path.join(AUDIO_OUTPUT_DIR, latest_file)
-    
+    # Bug previ: el file_path es construïa amb AUDIO_OUTPUT_DIR (config.paths.AUDIO)
+    # però els fitxers vivien a pod_dir → getmtime fallava amb FileNotFoundError.
+    file_path = os.path.join(pod_dir, latest_file)
+
     # Get the modification date
     mtime = os.path.getmtime(file_path)
     dt = datetime.fromtimestamp(mtime)

@@ -5,6 +5,7 @@ Tokens are stored in integrations.json under 'mail_accounts' with
 provider='microsoft' so the rest of the mail stack picks them up
 automatically.
 """
+import asyncio
 import secrets
 import logging
 import requests as http
@@ -69,7 +70,11 @@ async def login():
         "state":         state,
         "prompt":        "select_account",
     }
-    url = AUTH_URL + "?" + "&".join(f"{k}={v}" for k, v in params.items())
+    # urlencode garanteix encoding correcte d'espais a SCOPES, `://` a
+    # redirect_uri, etc. La concat manual abans podia generar URLs invàlides
+    # depenent dels valors.
+    from urllib.parse import urlencode
+    url = AUTH_URL + "?" + urlencode(params)
     return RedirectResponse(url=url)
 
 
@@ -90,32 +95,40 @@ async def callback(request: Request):
     _pending.pop(state, None)
     cfg = _get_config()
 
-    # Exchange code for tokens
+    # Exchange code for tokens — `requests` és bloquejant; off-thread per
+    # no congelar l'event loop fins a 15s.
     try:
-        resp = http.post(TOKEN_URL, data={
-            "client_id":     cfg["client_id"],
-            "client_secret": cfg["client_secret"],
-            "code":          code,
-            "redirect_uri":  cfg["redirect_uri"],
-            "grant_type":    "authorization_code",
-            "scope":         SCOPES,
-        }, timeout=15)
+        resp = await asyncio.to_thread(
+            http.post,
+            TOKEN_URL,
+            data={
+                "client_id":     cfg["client_id"],
+                "client_secret": cfg["client_secret"],
+                "code":          code,
+                "redirect_uri":  cfg["redirect_uri"],
+                "grant_type":    "authorization_code",
+                "scope":         SCOPES,
+            },
+            timeout=15,
+        )
         resp.raise_for_status()
         tokens = resp.json()
     except Exception as e:
         log.error(f"[Microsoft] Error intercanviant codi: {e}")
-        raise HTTPException(status_code=500, detail=f"Error obtenint token: {e}")
+        raise HTTPException(status_code=500, detail="Error obtenint token")
 
     access_token  = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
 
-    # Get user info from Graph API
+    # Get user info from Graph API (igualment off-thread).
     try:
-        me = http.get(
+        me_resp = await asyncio.to_thread(
+            http.get,
             "https://graph.microsoft.com/v1.0/me",
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
-        ).json()
+        )
+        me = me_resp.json()
         email = me.get("mail") or me.get("userPrincipalName", "")
         name  = me.get("displayName", email)
     except Exception as e:

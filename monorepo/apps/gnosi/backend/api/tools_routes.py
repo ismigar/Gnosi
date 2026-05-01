@@ -2,14 +2,28 @@
 API Routes for Generated Tools Management.
 Provides endpoints for the Dashboard to approve/reject pending tools.
 """
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
 from backend.agent.generated_tools.registry import registry, ToolStatus
 from backend.agent.generated_tools.loader import loader
+from backend.config.app_config import load_params
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
+
+
+def _get_tools_base() -> Path:
+    """Directori on viuen pending/approved/rejected — ha de coincidir amb el
+    que llegeix `loader.ToolLoader.__init__` (cfg.paths.AGENT_TOOLS). Si no,
+    aprovar/rebutjar mou fitxers a un lloc que ningú llegeix."""
+    cfg = load_params(strict_env=False)
+    tools_base = cfg.paths.get("AGENT_TOOLS")
+    if tools_base:
+        return tools_base
+    return Path(__file__).resolve().parents[1] / "agent" / "generated_tools"
 
 
 class ToolResponse(BaseModel):
@@ -91,14 +105,14 @@ async def approve_tool(request: ApproveRequest):
         )
     
     # Move file from pending to approved
-    from pathlib import Path
-    base_dir = Path(__file__).parent.parent / "agent" / "generated_tools"
+    base_dir = _get_tools_base()
+    (base_dir / "approved").mkdir(parents=True, exist_ok=True)
     pending_file = base_dir / "pending" / f"{request.name}.py"
     approved_file = base_dir / "approved" / f"{request.name}.py"
-    
+
     if pending_file.exists():
         pending_file.rename(approved_file)
-    
+
     # Refresh loaded tools
     loader.refresh()
     
@@ -120,11 +134,11 @@ async def reject_tool(request: RejectRequest):
         )
     
     # Move file from pending to rejected
-    from pathlib import Path
-    base_dir = Path(__file__).parent.parent / "agent" / "generated_tools"
+    base_dir = _get_tools_base()
+    (base_dir / "rejected").mkdir(parents=True, exist_ok=True)
     pending_file = base_dir / "pending" / f"{request.name}.py"
     rejected_file = base_dir / "rejected" / f"{request.name}.py"
-    
+
     if pending_file.exists():
         pending_file.rename(rejected_file)
     
