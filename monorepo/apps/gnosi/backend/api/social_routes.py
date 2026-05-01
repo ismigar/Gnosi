@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -10,6 +10,7 @@ import re
 
 from backend.services.social_clients import mastodon_client, bluesky_client
 from backend.services.integration_manager import integration_manager
+from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 
 log = logging.getLogger(__name__)
@@ -93,12 +94,14 @@ async def get_streams():
     return config.get("social_streams", DEFAULT_STREAMS)
 
 
-@router.put("/streams")
+@router.put("/streams", dependencies=[Depends(require_role("editor"))])
 async def update_streams(payload: List[dict] = Body(...)):
     """Saves the user's stream configuration."""
-    config = integration_manager._load()
-    config["social_streams"] = payload
-    integration_manager._save(config)
+    # `replace_key` agafa el lock de l'IntegrationManager i reemplaça
+    # totalment la llista (cosa que `update()` no fa: faria merge per ID
+    # i streams eliminats per l'usuari ressuscitarien). Abans s'accedia
+    # a `_load`/`_save` directes, saltant-se el lock i el merge.
+    integration_manager.replace_key("social_streams", payload)
     return {"status": "ok"}
 
 
@@ -109,12 +112,10 @@ async def get_networks():
     return config.get("social_networks", DEFAULT_NETWORKS)
 
 
-@router.put("/networks")
+@router.put("/networks", dependencies=[Depends(require_role("editor"))])
 async def update_networks(payload: List[dict] = Body(...)):
     """Saves the enabled/disabled state of social networks."""
-    config = integration_manager._load()
-    config["social_networks"] = payload
-    integration_manager._save(config)
+    integration_manager.replace_key("social_networks", payload)
     return {"status": "ok"}
 
 @router.get("/feed/{stream_id}")
@@ -261,7 +262,7 @@ _VALID_ACTIONS = {
 }
 
 
-@router.post("/interact")
+@router.post("/interact", dependencies=[Depends(require_role("editor"))])
 async def interact_with_post(request: InteractionRequest):
     """Perform an interaction (like, reblog) on a post."""
 
@@ -308,7 +309,7 @@ async def interact_with_post(request: InteractionRequest):
     return {"status": "success", "action": request.action, "post_id": request.post_id}
 
 
-@router.post("/post")
+@router.post("/post", dependencies=[Depends(require_role("editor"))])
 async def create_post(request: CreatePostRequest):
     """Publishes a post to selected networks via n8n webhook."""
     
