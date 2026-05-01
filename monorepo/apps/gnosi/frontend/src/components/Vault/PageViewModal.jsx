@@ -28,11 +28,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     if (!isOpen) return null;
 
     const selectedTable = allTables.find(t => t.id === sourceTableId);
+    // Single source of truth = property `name` in the registry. Identity (no
+    // slug). Mirrors backend (virtual_fields._frontmatter_key) and pipeline
+    // (import_from_export.normalize_key, sync_sections.property_name_to_frontmatter_key).
+    // Slugging here while the rest of the stack uses canonical names was making
+    // sync_sections silently render zero rows for these views.
     const relationProps = (selectedTable?.properties || [])
         .filter(p => p.type === 'relation')
         .map(p => ({
             label: p.name,
-            key: p.name.replace('📀 ', '📀_').toLowerCase().replace(/ /g, '_'),
+            key: p.name,
         }));
 
     const reset = () => {
