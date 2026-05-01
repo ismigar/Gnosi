@@ -410,7 +410,7 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // actual. Sense aquesta normalització, el parser veu un href trencat
     // i renderitza `[text](url)` com a markdown literal.
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const protectedText = text
+    let protectedText = text
         .replace(/\]\(file:\/\//g, `](${FILE_PROTOCOL_SENTINEL}`)
         .replace(
             new RegExp(`\\]\\(${escapeRe(LEGACY_FILE_PROTOCOL_SENTINEL)}`, 'g'),
@@ -420,6 +420,25 @@ const parsePlainMarkdownBlock = async (text, editor) => {
             new RegExp(`\\]\\(${escapeRe(CORRUPTED_FILE_PROTOCOL_SENTINEL)}`, 'g'),
             `](${FILE_PROTOCOL_SENTINEL}`,
         );
+
+    // Codifica espais (i altres caràcters problemàtics) dins de URLs en
+    // markdown links `[text](url)`. Markdown-it només accepta URLs amb espais
+    // si estan envoltades de `<...>`; sense això, `[Doc](https://host/Pla de
+    // futur/Finances/foo.docx)` es renderitza com a text literal en lloc de
+    // link clicable. Codifiquem només dins el grup `(...)` per no afectar la
+    // resta del text. També tractem `\` (escape paths Unix) i altres ASCII
+    // control chars que markdown-it rebutja.
+    protectedText = protectedText.replace(
+        /\]\(([^)]*)\)/g,
+        (m, url) => {
+            // Si la URL ja està entre angle brackets, no la tornem a codificar
+            if (url.startsWith('<') && url.endsWith('>')) return m;
+            // Codifiquem espais com a %20. Mantenim els altres caràcters per
+            // no trencar paths que ja són percent-encoded.
+            const safe = url.replace(/ /g, '%20').replace(/\\/g, '/');
+            return `](${safe})`;
+        },
+    );
 
     // Sanitització de `[[` no aparellats: si la pàgina té un `[[xxx` que
     // no troba el seu `]]`, el regex de wikilinks pot capturar centenars de
