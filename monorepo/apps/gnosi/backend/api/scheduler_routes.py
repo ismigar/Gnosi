@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from backend.data.management_db import get_mgmt_db
 from backend.models.scheduler import TaskExecutionHistory, TaskHistoryResponse
 from backend.scheduler.manager import scheduler_manager
+from backend.utils.errors import safe_error_detail
 
 router = APIRouter(prefix="/api/schedulers", tags=["schedulers"])
 
@@ -27,7 +28,7 @@ async def clear_history() -> Dict[str, Any]:
     try:
         return scheduler_manager.clear_all_history()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="DELETE /api/schedulers/history"))
 
 
 @router.get("/history", response_model=Dict[str, Any])
@@ -73,7 +74,7 @@ async def update_task(name: str, update: TaskUpdate) -> Dict[str, Any]:
             enabled=update.enabled
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=safe_error_detail(e, context="PUT /api/schedulers/{name}"))
 
 
 @router.post("/{name}/run")
@@ -95,4 +96,4 @@ async def run_task(name: str, background_tasks: BackgroundTasks) -> Dict[str, An
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /api/schedulers/{name}/run"))
