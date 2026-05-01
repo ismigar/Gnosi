@@ -1,11 +1,12 @@
 import paramiko
 import json
 import os
+from pathlib import Path
 
-# Load configuration
-ENV_PATH = "../../../../../.env_shared"
+# Load configuration: project root is 7 levels up from this script
+ENV_PATH = str(Path(__file__).resolve().parents[7] / ".env_shared")
 
-def load.env_shared(path):
+def load_env_shared(path):
     config = {}
     try:
         with open(path, 'r') as f:
@@ -17,7 +18,7 @@ def load.env_shared(path):
         print(f"Error: Could not find {path}")
     return config
 
-config = load.env_shared(ENV_PATH)
+config = load_env_shared(ENV_PATH)
 
 HOST = config.get('SSH_HOST')
 USER = config.get('SSH_USER')
