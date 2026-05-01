@@ -439,6 +439,23 @@ def _load_page_index_from_disk(v_str: str):
             with _page_index_lock:
                 _page_index_entries[v_str] = data
                 _page_index_initialized[v_str] = True
+                # Reconstruïm el `_page_id_to_path` i actualitzem el
+                # `path_resolver` també a partir del cache. Sense això, el
+                # primer cop que algú cridi `path_resolver.list_all_files()`
+                # (a `_iter_linkable_page_documents`) farà fallback a rglob
+                # lent al OneDrive — perdrem tot el benefici del cache disc.
+                id_map = {}
+                files_ordered = []
+                for p_str, entry in data.items():
+                    files_ordered.append(Path(p_str))
+                    pid = entry.get("id")
+                    if pid:
+                        id_map[pid] = p_str
+                _page_id_to_path[v_str] = id_map
+                try:
+                    path_resolver.update_index(Path(v_str), id_map, files_ordered)
+                except Exception as e:
+                    log.warning(f"PathResolver update from disk cache failed: {e}")
             log.info(f"📂 Page index cache loaded from disk for {v_str} ({len(data)} entries)")
             return True
     except Exception as e:
