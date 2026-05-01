@@ -15,6 +15,7 @@ from backend.security.ai_credentials import (
     set_provider_api_key,
 )
 from backend.utils.errors import safe_error_detail
+from backend.utils.safe_io import safe_write_text
 
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
@@ -131,14 +132,13 @@ async def set_provider_credentials(provider_id: str, payload: ProviderCredential
     migrated_ai_cfg, _ = migrate_ai_provider_secrets(ai_cfg)
     current_config["ai"] = migrated_ai_cfg
 
-    with open(params_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(
-            current_config,
-            f,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=False,
-        )
+    # Atomic write: params.yaml conté tota la config principal de l'app
+    # (incluint provider AI). Un crash a meitat el deixaria corrupte.
+    yaml_text = yaml.safe_dump(
+        current_config, default_flow_style=False,
+        allow_unicode=True, sort_keys=False,
+    )
+    safe_write_text(params_path, yaml_text)
 
     return {
         "status": "success",
@@ -172,14 +172,11 @@ async def delete_provider(provider_id: str):
         ai_cfg["providers"] = providers
         current_config["ai"] = ai_cfg
 
-        with open(params_path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(
-                current_config,
-                f,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
+        yaml_text = yaml.safe_dump(
+            current_config, default_flow_style=False,
+            allow_unicode=True, sort_keys=False,
+        )
+        safe_write_text(params_path, yaml_text)
         return {"status": "success", "message": f"Provider {provider} deleted"}
     
     return {"status": "skipped", "message": f"Provider {provider} not found in config"}
@@ -207,13 +204,10 @@ async def update_provider_status(provider_id: str, payload: ProviderStatusPayloa
     ai_cfg["providers"] = providers
     current_config["ai"] = ai_cfg
 
-    with open(params_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(
-            current_config,
-            f,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=False,
-        )
+    yaml_text = yaml.safe_dump(
+        current_config, default_flow_style=False,
+        allow_unicode=True, sort_keys=False,
+    )
+    safe_write_text(params_path, yaml_text)
 
     return {"status": "success", "provider": provider, "enabled": payload.enabled}

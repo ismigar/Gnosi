@@ -15,7 +15,7 @@ import logging
 import yaml
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from pathlib import Path
 from email.utils import parsedate_to_datetime
@@ -796,7 +796,7 @@ async def save_draft(payload: dict = Body(...)):
     metadata = {
         "title": subject or "(Esborrany)", "id": draft_id, "gmail_id": draft_id,
         "thread_id": draft_id, "type": "Draft", "sender": email_account,
-        "recipients": to, "cc": cc, "bcc": bcc, "date": datetime.utcnow().isoformat(),
+        "recipients": to, "cc": cc, "bcc": bcc, "date": datetime.now(timezone.utc).isoformat(),
         "is_read": True, "is_starred": False, "has_attachments": False, "has_html": False,
         "category": "Main", "archived": False, "spam": False,
         "account": email_account, "database_table_id": "mail",

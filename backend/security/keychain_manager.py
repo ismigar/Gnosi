@@ -204,13 +204,15 @@ class KeychainManager:
 
             data[key] = value
 
+            from backend.utils.safe_io import safe_write_bytes, safe_write_json
             master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
             if master_key:
                 cipher = Fernet(
                     base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
                 )
-                with open(storage_path, "wb") as f:
-                    f.write(cipher.encrypt(json.dumps(data).encode()))
+                # Atomic write: aquest fitxer conté credencials encriptades,
+                # un crash entremig el deixaria buit/corrupte.
+                safe_write_bytes(storage_path, cipher.encrypt(json.dumps(data).encode()))
             else:
                 # Sense GNOSI_MASTER_KEY els credentials s'escriuen en
                 # CLAR a disc. Avisem perquè és una caiguda de seguretat
@@ -221,8 +223,7 @@ class KeychainManager:
                     f"escrita SENSE ENCRIPTAR a {storage_path}. Configura "
                     f"GNOSI_MASTER_KEY per protegir-la."
                 )
-                with open(storage_path, "w") as f:
-                    json.dump(data, f)
+                safe_write_json(storage_path, data)
 
             return True
         except Exception as e:
@@ -281,15 +282,14 @@ class KeychainManager:
 
             data.pop(key, None)
 
+            from backend.utils.safe_io import safe_write_bytes, safe_write_json
             if master_key:
                 cipher = Fernet(
                     base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
                 )
-                with open(storage_path, "wb") as f:
-                    f.write(cipher.encrypt(json.dumps(data).encode()))
+                safe_write_bytes(storage_path, cipher.encrypt(json.dumps(data).encode()))
             else:
-                with open(storage_path, "w") as f:
-                    json.dump(data, f)
+                safe_write_json(storage_path, data)
 
             return True
         except Exception:
