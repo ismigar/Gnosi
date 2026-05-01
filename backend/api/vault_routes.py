@@ -4271,9 +4271,14 @@ async def get_registry():
         )
 
 
-@router.post("/registry")
+@router.post("/registry", dependencies=[Depends(require_role("admin"))])
 async def update_registry(data: dict = Body(...)):
-    """Updates the entire registry (use with care)."""
+    """Updates the entire registry (use with care).
+
+    Auth: admin-only. Sobreescriu TOT el registry de cop, així que un
+    error o un atacant amb un rol més baix podria destruir totes les
+    databases/tables/views d'un workspace en una sola crida.
+    """
     save_registry(data)
     return {"status": "success"}
 
@@ -4361,8 +4366,11 @@ async def list_databases():
     return sorted(databases, key=_sort_key_name)
 
 
-@router.post("/databases")
+@router.post("/databases", dependencies=[Depends(require_role("editor"))])
 async def create_database(db: dict = Body(...)):
+    # Auth gate: crear/editar databases és una mutació estructural del
+    # registry (impacta totes les vistes i taules). Igual que `delete_database`
+    # més avall, ha de requerir mínim rol editor.
     registry = load_registry()
     if "id" not in db:
         db["id"] = str(uuid.uuid4())
