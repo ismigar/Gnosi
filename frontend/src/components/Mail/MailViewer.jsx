@@ -288,7 +288,16 @@ function MailBody({ bodyHtml, bodyText, messageId, email, folder }) {
     }
 
     const text = bodyText || '';
-    const linked = text.replace(
+    // XSS prevention: el text ve d'emails (atacant-controlable). Cal escapar
+    // HTML especials ABANS de fer el replace de URLs, si no `<script>...</script>`
+    // dins el text s'executaria al dangerouslySetInnerHTML.
+    const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    const linked = escaped.replace(
         /(https?:\/\/[^\s<>"']+)/g,
         '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#3b82f6">$1</a>'
     );
