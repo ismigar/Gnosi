@@ -108,11 +108,11 @@ class ToolRegistry:
     def search_existing(
         self, description: str, threshold: float = 0.7
     ) -> Optional[ToolRecord]:
-        self._ensure_init()
         """
         Search for an existing tool that matches the description.
         Uses simple keyword matching (can be upgraded to embeddings later).
         """
+        self._ensure_init()
         keywords = set(description.lower().split())
 
         with sqlite3.connect(self.db_path) as conn:
@@ -139,8 +139,8 @@ class ToolRegistry:
             return best_match
 
     def get_by_name(self, name: str) -> Optional[ToolRecord]:
-        self._ensure_init()
         """Get a tool by exact name."""
+        self._ensure_init()
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute("SELECT * FROM tools WHERE name = ?", (name,))
@@ -148,13 +148,13 @@ class ToolRegistry:
             return self._row_to_record(row) if row else None
 
     def list_pending(self) -> List[ToolRecord]:
-        self._ensure_init()
         """List all pending tools."""
+        self._ensure_init()
         return self._list_by_status(ToolStatus.PENDING)
 
     def list_approved(self) -> List[ToolRecord]:
-        self._ensure_init()
         """List all approved tools, including those from filesystem."""
+        self._ensure_init()
         db_approved = self._list_by_status(ToolStatus.APPROVED)
         fs_skills = self._get_filesystem_skills()
         return db_approved + fs_skills
@@ -171,8 +171,8 @@ class ToolRegistry:
     def create(
         self, name: str, description: str, code: str, risk_level: str
     ) -> ToolRecord:
-        self._ensure_init()
         """Create a new tool record (status: pending)."""
+        self._ensure_init()
         now = datetime.utcnow().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
@@ -195,8 +195,8 @@ class ToolRegistry:
         )
 
     def approve(self, name: str) -> bool:
-        self._ensure_init()
         """Approve a pending tool."""
+        self._ensure_init()
         now = datetime.utcnow().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
@@ -211,8 +211,8 @@ class ToolRegistry:
             return cursor.rowcount > 0
 
     def reject(self, name: str, reason: str = "") -> bool:
-        self._ensure_init()
         """Reject a pending tool."""
+        self._ensure_init()
         now = datetime.utcnow().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
@@ -293,8 +293,8 @@ class ToolRegistry:
         )
 
     def get_stats(self) -> Dict[str, Any]:
-        self._ensure_init()
         """Get statistics for analytics, unifiying DB and Filesystem."""
+        self._ensure_init()
         fs_skills = self._get_filesystem_skills()
         
         with sqlite3.connect(self.db_path) as conn:
