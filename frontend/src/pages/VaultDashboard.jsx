@@ -1648,27 +1648,32 @@ export default function VaultDashboard() {
     const executeDeletePage = useCallback(async () => {
         if (!pageToDelete) return;
         const { id } = pageToDelete;
-        try {
-            await axios.delete(`/api/vault/pages/${id}`);
-            
-            // Actualitzem l'estat local immediatament
+        // Helper: neteja l'estat local com si la pàgina ja no existís.
+        const removeFromState = () => {
             setPages(prev => prev.filter(page => page.id !== id));
             setTableNotes(prev => prev.filter(note => note.id !== id));
-            toast.success(t('success.page_deleted') || "Pàgina eliminada");
-
-            // Tanquem el tab i gestionem la navegació
             handleTabClose(id);
-            
-            // Si la pàgina que estem eliminant és la que tenim oberta a la URL, naveguem a l'arrel del vault
             if (nestedPath && nestedPath.includes(id)) {
                 navigate('/vault');
             }
-            
-            // Forcem una recàrrega de les pàgines en segon pla
+        };
+        try {
+            await axios.delete(`/api/vault/pages/${id}`);
+            removeFromState();
+            toast.success(t('success.page_deleted') || "Pàgina eliminada");
             void fetchPages();
         } catch (err) {
-            console.error("Error eliminant la pàgina:", err);
-            toast.error(t('errors.delete_page') || "Error eliminant la pàgina");
+            // Si el backend diu 404, la pàgina és un "fantasma" cachejat al
+            // frontend però el fitxer ja no existeix al disc. Tractem-ho com
+            // a èxit: netejem l'estat local i informem l'usuari.
+            if (err?.response?.status === 404) {
+                removeFromState();
+                toast.success(t('success.page_deleted_ghost') || "Pàgina eliminada (era un fantasma del cache)");
+                void fetchPages();
+            } else {
+                console.error("Error eliminant la pàgina:", err);
+                toast.error(t('errors.delete_page') || "Error eliminant la pàgina");
+            }
         } finally {
             setPageToDelete(null);
         }

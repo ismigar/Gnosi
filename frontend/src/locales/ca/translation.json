@@ -368,6 +368,7 @@
     "app_created": "App \"{{name}}\" creada",
     "table_created": "Taula \"{{name}}\" creada",
     "page_deleted": "Pàgina eliminada",
+    "page_deleted_ghost": "Pàgina eliminada (entrada fantasma del cache)",
     "title_updated": "Títol actualitzat",
     "db_updated": "Base de dades actualitzada",
     "db_deleted": "Base de dades eliminada",

@@ -2522,6 +2522,16 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
     # id) — saves a multi-second OneDrive rglob.
     if not allow_full_scan:
         return None
+    # Si la cache ja està inicialitzada i no hem trobat la pàgina, és un
+    # "fantasma": està cachejat al frontend però el fitxer s'ha eliminat
+    # externament. Fer un rglob complet de 3981 fitxers a OneDrive triga
+    # 30s+ i bloqueja DELETE/GET indefinidament. Confiem al cache: si no
+    # hi és, retornem None ràpidament.
+    if _page_index_initialized.get(v_str):
+        log.info(
+            f"🔍 Page {page_id} not in cache (initialized) — skipping rglob fallback "
+            f"(probably a deleted/renamed file).")
+        return None
     if vault_root and vault_root.exists():
         for md_file in vault_root.rglob("*.md"):
             try:
