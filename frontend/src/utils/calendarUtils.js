@@ -40,20 +40,24 @@ export const buildOccurrenceKey = (instanceStart, dateOnly, allDay, eventMeta) =
  */
 export const truncateRruleBefore = (rrule, splitDate) => {
     if (!rrule) return null;
-    
+
     // Eliminem qualsevol UNTIL o COUNT existent
     let parts = rrule.split(';').filter(p => !p.startsWith('UNTIL=') && !p.startsWith('COUNT='));
-    
-    // Calculem el dia anterior a splitDate
+
+    // Calculem el dia anterior a splitDate (en UTC).
+    // Abans s'usaven mètodes de data locals (getFullYear/getMonth/getDate)
+    // i s'afegia el sufix Z, generant UNTIL invàlids quan la zona horària
+    // de l'usuari estava prou lluny de UTC perquè el dia local i UTC no
+    // coincidissin (a EST, fins ~5h podia retrocedir un dia extra).
     const dt = new Date(splitDate);
-    dt.setDate(dt.getDate() - 1);
-    
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, '0');
-    const d = String(dt.getDate()).padStart(2, '0');
-    
+    dt.setUTCDate(dt.getUTCDate() - 1);
+
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dt.getUTCDate()).padStart(2, '0');
+
     const compactUntil = `${y}${m}${d}T235959Z`;
     parts.push(`UNTIL=${compactUntil}`);
-    
+
     return parts.join(';');
 };
