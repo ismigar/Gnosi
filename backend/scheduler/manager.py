@@ -692,22 +692,43 @@ class SchedulerManager:
 
         results = {}
 
+        # Subprocess timeout — sense això, un script penjat (Zotero DB
+        # lock, network hang) bloqueja l'scheduler indefinidament.
+        # 5 min és suficient per syncs grans.
+        SUBPROCESS_TIMEOUT = 300
         # Zotero → Vault
         try:
-            r = subprocess.run(["python3", str(scripts / "zotero_to_vault.py")], capture_output=True, text=True, cwd=str(base))
+            r = subprocess.run(
+                ["python3", str(scripts / "zotero_to_vault.py")],
+                capture_output=True, text=True, cwd=str(base),
+                timeout=SUBPROCESS_TIMEOUT,
+            )
             results["zotero_to_vault"] = "ok" if r.returncode == 0 else r.stderr.strip()
+        except subprocess.TimeoutExpired:
+            results["zotero_to_vault"] = f"timeout after {SUBPROCESS_TIMEOUT}s"
         except Exception as e:
             results["zotero_to_vault"] = str(e)
 
         # Vault → Zotero (only if Zotero is closed)
-        zotero_open = subprocess.run(["pgrep", "-x", "Zotero"], capture_output=True).returncode == 0
+        try:
+            zotero_open = subprocess.run(
+                ["pgrep", "-x", "Zotero"], capture_output=True, timeout=5,
+            ).returncode == 0
+        except subprocess.TimeoutExpired:
+            zotero_open = False  # pgrep penjat: assumim tancat i procedim
         if zotero_open:
             results["vault_to_zotero"] = "skipped — Zotero is open"
             log.info("⏰ Zotero sync: Vault→Zotero skipped (Zotero is running)")
         else:
             try:
-                r = subprocess.run(["python3", str(scripts / "gnosi_to_zotero.py")], capture_output=True, text=True, cwd=str(base))
+                r = subprocess.run(
+                    ["python3", str(scripts / "gnosi_to_zotero.py")],
+                    capture_output=True, text=True, cwd=str(base),
+                    timeout=SUBPROCESS_TIMEOUT,
+                )
                 results["vault_to_zotero"] = "ok" if r.returncode == 0 else r.stderr.strip()
+            except subprocess.TimeoutExpired:
+                results["vault_to_zotero"] = f"timeout after {SUBPROCESS_TIMEOUT}s"
             except Exception as e:
                 results["vault_to_zotero"] = str(e)
 
