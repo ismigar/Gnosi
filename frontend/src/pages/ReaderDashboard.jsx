@@ -346,7 +346,17 @@ const ReaderDashboard = () => {
                   prose-img:rounded-lg prose-img:max-w-full"
                             >
                                 {selectedArticle.content && selectedArticle.content.includes('<') ? (
-                                    <div dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+                                    // XSS prevention: el contingut RSS ve de fonts externes
+                                    // (atacant-controlables). En lloc d'injectar amb
+                                    // dangerouslySetInnerHTML al document principal —que
+                                    // executaria scripts incrustats— el renderitzem dins
+                                    // un iframe sandbox sense `allow-scripts`.
+                                    <iframe
+                                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>body{font-family:Inter,system-ui,sans-serif;color:#1e293b;line-height:1.7;padding:0;margin:0;}img{max-width:100%;height:auto;border-radius:8px}a{color:#4f46e5}</style></head><body>${selectedArticle.content}</body></html>`}
+                                        sandbox="allow-same-origin allow-popups"
+                                        title="article-content"
+                                        style={{ width: '100%', minHeight: '600px', border: 'none' }}
+                                    />
                                 ) : (
                                     selectedArticle.content?.split('\n').map((paragraph, idx) => (
                                         <p key={idx}>{paragraph}</p>

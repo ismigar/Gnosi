@@ -3039,18 +3039,12 @@ async def upload_icon(
     if not _is_image_upload(file):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image")
 
-    def debug_log(msg):
-        with open("/tmp/gnosi_upload_debug.log", "a") as f:
-            f.write(f"{datetime.now().isoformat()} | {msg}\n")
-            f.flush()
-
-    debug_log(f"START: upload_icon {file.filename} ({file.content_type})")
+    log.debug(f"upload_icon: START {file.filename} ({file.content_type})")
     try:
         payload = await file.read()
-        debug_log(f"READ: {len(payload)} bytes")
-        
+        log.debug(f"upload_icon: READ {len(payload)} bytes")
+
         if len(payload) > 10 * 1024 * 1024:
-            debug_log("ERROR: File too large")
             raise HTTPException(status_code=413, detail="Icon is too large (max 10MB)")
 
         icons_dir = get_p("ASSETS") / "Icons"
@@ -3062,13 +3056,12 @@ async def upload_icon(
         
         if not icon_path.exists():
             icon_path.write_bytes(payload)
-            debug_log(f"SAVED: {icon_path}")
+            log.debug(f"upload_icon: SAVED {icon_path}")
         else:
-            debug_log(f"EXISTS: {icon_path}")
+            log.debug(f"upload_icon: EXISTS {icon_path}")
 
         # Schedule thumbnail creation in the background
         background_tasks.add_task(_maybe_create_icon_thumbnail, icon_path, digest)
-        debug_log("SCHEDULED: thumbnail generation")
 
         icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
         result = {
@@ -3077,12 +3070,12 @@ async def upload_icon(
             "thumbnail_url": None,
             "thumbnail_path": None,
         }
-        
-        debug_log(f"FINISH: result URL {result.get('url')}")
+
+        log.debug(f"upload_icon: FINISH URL {result.get('url')}")
         return result
     except Exception as e:
-        debug_log(f"FATAL ERROR: {str(e)}")
-        raise e
+        log.error(f"upload_icon: FATAL {str(e)}")
+        raise
 
 
 def _is_safe_external_url(url: str) -> tuple[bool, str]:

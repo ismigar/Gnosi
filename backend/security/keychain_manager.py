@@ -70,7 +70,10 @@ class KeychainManager:
                 "-D",
                 "Gnosi Credential",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
                 # `security add-generic-password` falla amb returncode 45 si
                 # ja existeix; cau a `-U` (update). Si _macos_update també
@@ -99,7 +102,10 @@ class KeychainManager:
                 "Gnosi Credential",
                 "-U",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
                 log.error(
                     f"Keychain update failed for {key_name}: "
@@ -124,7 +130,10 @@ class KeychainManager:
                 key_name,
                 "-w",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
         except Exception as e:
@@ -143,7 +152,7 @@ class KeychainManager:
                 "-a",
                 key_name,
             ]
-            subprocess.run(cmd, capture_output=True, text=True)
+            subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             return True
         except Exception:
             return True
@@ -152,7 +161,10 @@ class KeychainManager:
         """List all credentials from macOS Keychain."""
         try:
             cmd = ["security", "dump-trust-settings", "-s", self.service_name]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             lines = result.stdout.split("\n")
             return [line.strip() for line in lines if "acct" in line.lower()]
         except Exception:

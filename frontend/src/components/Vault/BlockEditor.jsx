@@ -472,7 +472,7 @@ const INTERNAL_METADATA_KEY_SET = new Set(INTERNAL_METADATA_KEYS);
 const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
     const { t } = useTranslation();
     const context = React.useContext(VaultEditorContext);
-    const { idToTitle = {}, onOpenParallel = () => {} } = context || {};
+    const { idToTitle = {}, onOpenParallel = () => {}, onOpenPage = () => {} } = context || {};
     const target = String(block?.props?.target || '').trim();
     const alias = String(block?.props?.alias || '').trim();
     const section = String(block?.props?.section || '').trim();
@@ -527,13 +527,24 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
         };
     }, [resolvedId, section, t]);
 
+    // Resol entre obrir al tab actual (click normal) o en paral·lel (cmd-click).
+    // Convenció igual que els wikilinks: la transclusió és un link visual a una
+    // altra nota, així que un click hauria d'obrir-la com un link normal.
+    const openTarget = (e) => {
+        if (!resolvedId) return;
+        if ((e.metaKey || e.ctrlKey) && onOpenParallel) {
+            onOpenParallel(resolvedId);
+        } else if (onOpenPage) {
+            onOpenPage(resolvedId);
+        } else if (onOpenParallel) {
+            onOpenParallel(resolvedId);
+        }
+    };
     return (
         <div
             ref={ref}
             className="my-4 p-4 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 cursor-pointer hover:border-[var(--gnosi-primary)]/40 transition-colors"
-            onClick={() => {
-                if (resolvedId) onOpenParallel(resolvedId);
-            }}
+            onClick={openTarget}
             title={resolvedId ? t('editor.open_embedded_note') : t('editor.note_unresolved')}
         >
             <div className="flex items-center gap-2 text-[var(--gnosi-primary)] text-xs font-semibold uppercase tracking-wider mb-2">
@@ -544,8 +555,8 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
             {section ? <div className="text-[11px] text-[var(--gnosi-primary)] mb-1">#{section}</div> : null}
             <div className="text-xs text-[var(--text-tertiary)] leading-relaxed">{preview}</div>
             <div className="p-4 bg-[var(--bg-secondary)]/20 border border-dashed border-[var(--border-primary)] rounded-lg flex flex-col items-center gap-3 mt-3">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onOpenParallel(resolvedId); }}
+                <button
+                    onClick={(e) => { e.stopPropagation(); openTarget(e); }}
                     className="text-xs font-semibold text-[var(--gnosi-primary)] hover:underline flex items-center gap-1.5"
                 >
                     <ExternalLink size={14} />
