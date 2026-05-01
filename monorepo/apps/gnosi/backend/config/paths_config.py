@@ -36,10 +36,29 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         vault_path = project_root / vault_path
 
     # ── Derived paths (Standardized) ──
-    # USE SAFE FALLBACKS: If vault_path is None, we use a temporary dummy path 
+    # USE SAFE FALLBACKS: If vault_path is None, we use a temporary dummy path
     # to avoid "None / 'str'" crashes during startup.
     safe_base = vault_path if vault_path else Path("/tmp/gnosi_pending_vault")
-    
+
+    # ── Local-only data (NEVER on cloud-synced storage) ──
+    # SQLite databases, caches, indices, locks. These are per-instance and must
+    # not be uploaded to OneDrive/Dropbox/iCloud — cloud sync corrupts SQLite
+    # binary files and causes I/O bottlenecks. Override via env var if needed.
+    local_data_env = os.environ.get("GNOSI_LOCAL_DATA")
+    if local_data_env:
+        local_data = Path(local_data_env)
+    else:
+        # Default: /app/data inside the container (mounted as a Docker volume)
+        local_data = Path("/app/data")
+    try:
+        local_data.mkdir(parents=True, exist_ok=True)
+        (local_data / "cache").mkdir(parents=True, exist_ok=True)
+        (local_data / "system").mkdir(parents=True, exist_ok=True)
+        # Per-agent LangGraph checkpoints land here.
+        (local_data / "system" / "checkpoints").mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
     db_path = safe_base / "BD"
     newsletters_path = safe_base / "Newsletters"
     assets_path = safe_base / "Assets"
@@ -98,11 +117,22 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "TOOLS": agent_tools,
         "AGENT_INSTRUCTIONS": agent_instructions,
         "AGENT_TOOLS": agent_tools,
-        "CHECKPOINTS": data_path / "checkpoints",
+        # LangGraph agent checkpoints — SQLite per agent. Like the rest of the
+        # operational SQLite files, these MUST live on local-only storage,
+        # not on OneDrive. Per-instance state, not user content.
+        "CHECKPOINTS": local_data / "system" / "checkpoints",
         "BACKUPS": data_path / "backups",
         "OUT_DIR": data_path / "out",
         "STOPWORDS_PATH": project_root / "config" / "stopwords.json",
         "SECRETS": project_root / "pipeline" / "private_skills" / "secrets",
-        "MGMT_DB": safe_base / ".system" / "management.sqlite",
+        "MGMT_DB": local_data / "system" / "management.sqlite",
+        # SQLite of the generated-tools registry. Living on OneDrive (under
+        # AGENT_TOOLS) caused the same corruption pattern as management.sqlite
+        # — it must be a local-only file.
+        "TOOL_REGISTRY_DB": local_data / "system" / "tool_registry.sqlite",
+        "LOCAL_DATA": local_data,
+        "LOCAL_CACHE": local_data / "cache",
+        "PAGE_INDEX_CACHE": local_data / "cache" / "vault_page_index.json",
+        "INDEX_STATUS": local_data / "cache" / "indexer_status.json",
         "CONTACTS": safe_base / "Contacts",
     }

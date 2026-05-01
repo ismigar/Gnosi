@@ -30,12 +30,30 @@ def get_engine_for_path(vault_path: Path):
     v_str = str(vault_path)
     with _lock:
         if v_str not in _engines:
-            db_dir = vault_path / "data"
+            # SQLite must NEVER live on cloud-synced storage (OneDrive
+            # truncates SQLite mid-write → corruption). Even though this
+            # engine is per-vault and the DB is "about" the vault, the file
+            # itself stays on local-only storage. We name it after the vault
+            # so multiple vaults on the same machine don't collide.
+            import hashlib as _hashlib
+            from backend.config.app_config import load_params as _load_params
+            _cfg = _load_params(strict_env=False)
+            local_data = _cfg.paths.get("LOCAL_DATA")
+            if not local_data:
+                # Fallback when LOCAL_DATA isn't wired yet.
+                local_data = Path("/app/data")
+            vault_hash = _hashlib.sha1(v_str.encode("utf-8")).hexdigest()[:12]
+            db_dir = Path(local_data) / "system" / "vault_dbs"
             db_dir.mkdir(parents=True, exist_ok=True)
-            db_path = db_dir / "gnosi_vault.db"
+            db_path = db_dir / f"gnosi_vault_{vault_hash}.db"
 
             engine = create_engine(
-                f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
+                f"sqlite:///{db_path}",
+                connect_args={"check_same_thread": False},
+                pool_size=20,
+                max_overflow=30,
+                pool_pre_ping=True,
+                pool_recycle=1800,
             )
             Base.metadata.create_all(bind=engine)
 
@@ -66,5 +84,15 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        # Roll back any pending transaction so the session can be returned
+        # to a clean state — without this, `close()` keeps the txn open and
+        # the next reuse of the engine inherits dirty state.
+        db.rollback()
+        raise
     finally:
+        try:
+            db.rollback()
+        except Exception:
+            pass
         db.close()
