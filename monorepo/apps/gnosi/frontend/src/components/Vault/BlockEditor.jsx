@@ -1717,6 +1717,19 @@ export function EditorInner({
                     padding-left: 0 !important;
                     padding-right: 0 !important;
                     background: transparent !important;
+                    /* BlockNote/Mantine usa #3F3F3F per defecte (gris). Forcem
+                       el color del text al token primari del tema (--text-primary)
+                       perquè el contingut es vegi negre tant en mode clar com
+                       contrastat blanc en mode fosc. Aplicat amb !important
+                       perquè la cascada del tema Mantine és molt específica. */
+                    color: var(--text-primary) !important;
+                }
+                .bn-editor *,
+                .bn-editor [data-content-type] {
+                    /* Heretem el color a tots els blocs (paragraph, heading,
+                       list, table cells, etc.). Excloem nodes amb color propi
+                       gestionats per BlockNote (text colors, link colors). */
+                    color: inherit;
                 }
                 .bn-container,
                 .bn-mantine,
