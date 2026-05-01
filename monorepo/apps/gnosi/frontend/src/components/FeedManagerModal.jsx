@@ -105,7 +105,12 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         if (!confirmModal.id) return;
         try {
             const res = await fetch(`${API_BASE}/reader/sources/${confirmModal.id}`, { method: 'DELETE' });
-            if (res.ok) fetchSources();
+            if (!res.ok) {
+                // Sense aquesta branca, una resposta 4xx/5xx feia que la
+                // font es quedés a la llista però l'usuari ja havia confirmat.
+                throw new Error(`HTTP ${res.status}`);
+            }
+            fetchSources();
         } catch (e) {
             console.error('Error deleting source:', e);
         } finally {
