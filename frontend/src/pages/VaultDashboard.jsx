@@ -2349,7 +2349,7 @@ export default function VaultDashboard() {
                 initialContent={tab.content}
                 initialMetadata={tab.metadata}
                 isCodeView={Boolean(codeViewByTabId[tab.id])}
-                onToggleCodeView={() => setCodeViewByTabId(prev => ({ ...prev, [tab.id]: !Boolean(prev[tab.id]) }))}
+                onToggleCodeView={() => setCodeViewByTabId(prev => ({ ...prev, [tab.id]: !prev[tab.id] }))}
                 onUpdate={handleEditorUpdate}
                 historyOpenSignal={tab.id === activeTabId ? historyOpenSignal : 0}
                 folder="Universal"
@@ -2579,7 +2579,7 @@ export default function VaultDashboard() {
                 if (!canToggleCodeView || !currentActiveTab?.id) return;
                 setCodeViewByTabId(prev => ({
                     ...prev,
-                    [currentActiveTab.id]: !Boolean(prev[currentActiveTab.id]),
+                    [currentActiveTab.id]: !prev[currentActiveTab.id],
                 }));
             }}
         >
