@@ -6,9 +6,8 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, asdict
-import asyncio
 import threading
 from backend.config.app_config import load_params
 from backend.data.management_db import get_mgmt_session

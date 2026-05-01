@@ -910,7 +910,8 @@ class ImapMailSyncService:
                                 f.unlink(missing_ok=True)
                                 h = f.with_suffix(".html")
                                 if h.exists(): h.unlink(missing_ok=True)
-                        except Exception: pass
+                        except Exception as ex:
+                            log.debug(f"[IMAP] Failed to clean local file {f}: {ex}")
                 return True
             except Exception as e:
                 log.error(f"[IMAP] Error buidant carpeta {folder_name}: {e}")
