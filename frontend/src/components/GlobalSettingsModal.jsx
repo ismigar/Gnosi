@@ -455,27 +455,42 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     const saveSocialNetworks = async (updated) => {
+        // Update optimistic; rollback si la xarxa falla.
+        const previous = socialNetworks;
         setSocialNetworks(updated);
         try {
-            await fetch('/api/social/networks', {
+            const res = await fetch('/api/social/networks', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated),
             });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             toast.success('Xarxes desades');
-        } catch { toast.error('Error desant xarxes'); }
+        } catch (err) {
+            // Sense aquesta restauració, l'UI mostrava els canvis com si
+            // s'haguessin desat tot i que el backend tenia l'estat antic.
+            setSocialNetworks(previous);
+            toast.error('Error desant xarxes');
+            console.error('[social] saveSocialNetworks failed', err);
+        }
     };
 
     const saveSocialStreams = async (updated) => {
+        const previous = socialStreams;
         setSocialStreams(updated);
         try {
-            await fetch('/api/social/streams', {
+            const res = await fetch('/api/social/streams', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated),
             });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             toast.success('Streams desats');
-        } catch { toast.error('Error desant streams'); }
+        } catch (err) {
+            setSocialStreams(previous);
+            toast.error('Error desant streams');
+            console.error('[social] saveSocialStreams failed', err);
+        }
     };
 
     const handleAddSocialStream = () => {
@@ -809,7 +824,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     await axios.post('/api/integrations/bulk', updatedIntegrations);
                     setIntegrations(updatedIntegrations);
                     setSavingStatus('saved');
-                    console.log("Compte eliminat correctament:", accountId);
                     setTimeout(() => setSavingStatus('idle'), 2000);
                 } catch (e) {
                     setSavingStatus('error');
