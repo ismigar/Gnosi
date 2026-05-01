@@ -3483,7 +3483,7 @@ async def unsplash_search(query: str = Query(...), page: int = Query(1)):
         raise HTTPException(status_code=502, detail="Error fetching from Unsplash API")
 
 
-@router.post("/pages/{page_id}/duplicate")
+@router.post("/pages/{page_id}/duplicate", dependencies=[Depends(require_role("editor"))])
 async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
     """Duplicates an existing page and returns the new ID."""
     source_path = find_page_path(page_id)
@@ -4463,7 +4463,7 @@ def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
     return new_view
 
 
-@router.post("/tables")
+@router.post("/tables", dependencies=[Depends(require_role("editor"))])
 async def create_table(table: dict = Body(...)):
     registry = load_registry()
     if "id" not in table:
@@ -4558,7 +4558,7 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
     return {"status": "success"}
 
 
-@router.put("/tables/{table_id}")
+@router.put("/tables/{table_id}", dependencies=[Depends(require_role("editor"))])
 async def rename_table(table_id: str, data: dict = Body(...)):
     registry = load_registry()
     for t in registry["tables"]:
@@ -4715,7 +4715,7 @@ async def list_views(table_id: Optional[str] = None):
     return sorted(views, key=_sort_key_name)
 
 
-@router.post("/views")
+@router.post("/views", dependencies=[Depends(require_role("editor"))])
 async def create_view(view: dict = Body(...)):
     registry = load_registry()
     if "id" not in view:
@@ -4778,7 +4778,7 @@ async def delete_view(view_id: str):
     return {"status": "success"}
 
 
-@router.put("/views/{view_id}")
+@router.put("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def update_view(view_id: str, data: dict = Body(...)):
     registry = load_registry()
     found = False
@@ -4804,7 +4804,7 @@ async def update_view(view_id: str, data: dict = Body(...)):
 
 
 # Ruta per retrocompatibilitat amb el frontend existent (SchemaConfigModal)
-@router.post("/schema")
+@router.post("/schema", dependencies=[Depends(require_role("editor"))])
 async def save_schema(folder: str, schema: dict = Body(...)):
     """
     Legacy route to save schemas per folder.
@@ -4909,7 +4909,7 @@ async def get_drawing(drawing_id: str):
         raise HTTPException(status_code=500, detail="Error reading target file")
 
 
-@router.put("/drawings/{drawing_id}")
+@router.put("/drawings/{drawing_id}", dependencies=[Depends(require_role("editor"))])
 async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
     """Saves or updates a Tldraw drawing."""
     get_p("DIBUIXOS").mkdir(parents=True, exist_ok=True)
@@ -5021,7 +5021,7 @@ async def get_page_version_content(page_id: str, timestamp: str):
         raise HTTPException(status_code=500, detail="Error reading the version")
 
 
-@router.post("/pages/{page_id}/history/restore/{timestamp}")
+@router.post("/pages/{page_id}/history/restore/{timestamp}", dependencies=[Depends(require_role("editor"))])
 async def restore_page_version(page_id: str, timestamp: str, background_tasks: BackgroundTasks):
     """Restores a page to a previous version."""
     version_path = get_p("VAULT") / ".history" / page_id / f"{timestamp}.md"
