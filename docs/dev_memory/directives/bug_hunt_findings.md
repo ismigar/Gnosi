@@ -47,6 +47,8 @@
 | `a53f18ceb` | `frontend/components/GlobalSettingsModal.jsx` | `saveSocialNetworks`/`saveSocialStreams` mostraven `toast.success` sense comprovar `res.ok` i no rollbackejaven l'optimistic update si la xarxa fallava → l'usuari veia "desat" tot i errors 500. Tret també `console.log` que polluïa producció. |
 | `77c53d295` | `frontend/pages/GraphPage.jsx` | Block `else { }` buit dins `setInterval` (noise lint). |
 | `60dc6c2c8` | `frontend/utils/calendarUtils.js` | `truncateRruleBefore` extreia data amb mètodes locals (`getFullYear`, etc.) però posava sufix `Z` (UTC) → en zones horàries lluny de UTC, el dia anterior calculat es desviava. Fix: `getUTCDate`/`setUTCDate`. |
+| `8f44be344` | `frontend/components/Contacts/ContactDetail.jsx` | `contact.name.split(' ')` crashejava amb TypeError si `name` era null/undefined (contactes incomplets de Google sync, CardDAV sense nom). Fallback a '?'. |
+| `201a0c92a` | `frontend/pages/ContentCalendar.jsx` | `cancelPost` només actualitzava la UI si `res.ok` però no avisava si fallava → l'usuari veia el post encara al calendari sense saber que la cancel·lació havia fallat. |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
