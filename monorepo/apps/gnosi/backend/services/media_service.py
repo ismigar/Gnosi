@@ -107,7 +107,11 @@ class MediaService:
                     if decoded == "DateTimeOriginal":
                         try:
                             results["date_taken"] = datetime.strptime(value, "%Y:%m:%d %H:%M:%S").isoformat()
-                        except: pass
+                        except (ValueError, TypeError) as e:
+                            # Format de data EXIF malformat — ho ignorem però
+                            # ho loggem perquè algun proveïdor pot estar
+                            # produint dades fora d'spec.
+                            log.debug(f"EXIF date parse failed for {path}: {e}")
                     elif decoded == "GPSInfo":
                         gps_data = {GPSTAGS.get(t, t): value[t] for t in value}
                         lat = gps_data.get("GPSLatitude")
@@ -117,7 +121,8 @@ class MediaService:
                         if lat and lat_ref and lng and lng_ref:
                             results["lat"] = self._convert_to_degrees(lat) * (1 if lat_ref == "N" else -1)
                             results["lng"] = self._convert_to_degrees(lng) * (1 if lng_ref == "E" else -1)
-        except Exception: pass
+        except Exception as e:
+            log.debug(f"EXIF read failed for {path}: {e}")
         return results
 
     def _convert_to_degrees(self, value):

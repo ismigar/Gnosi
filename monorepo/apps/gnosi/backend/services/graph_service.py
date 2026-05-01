@@ -798,22 +798,21 @@ class GraphService:
                     G.add_edge(tag_node_id, p_id, kind="tag_connection", color="#f59e0b", size=0.8, dashed=True)
 
     def accept_suggestion(self, source_id: str, target_id: str, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Accepts an AI suggestion. Currently disabled — SuggestionHandler
+        module no és present en aquest build.
+
+        Bug previ: el cos sencer estava dins una triple-comilla com a
+        "docstring" → la funció retornava None i el caller crashejava
+        amb TypeError quan feia `result["success"]`. Ara retorna un
+        dict explícit perquè el caller mostri l'error 400 net.
         """
-        # DISABLED: SuggestionHandler missing
+        _ = (source_id, target_id, reason)
         return {
             "success": False,
-            "message": "SuggestionHandler module missing in this build",
+            "message": "SuggestionHandler module not available in this build",
             "updated_file": None,
-            "new_relations": []
+            "new_relations": [],
         }
-        """
-        
-        # Original logic commented out
-        # try:
-        #     relation_key = cfg.params.get("graph", {}).get("relation_key", "📀 Connexions")
-        #     handler = SuggestionHandler(vault_path, relation_key=relation_key, dry_run=False)
-        #     result = handler.accept_suggestion(source_id, target_id, reason=reason, auto_backup=True)
-        #     ...
 
 
     def get_node_count(self) -> int:
@@ -843,23 +842,25 @@ class GraphService:
                 if img_path and img_path.exists():
                     try:
                         media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
-                    except Exception: pass
+                    except Exception as e:
+                        log.debug(f"media scan (cached path) failed at {img_path}: {e}")
                 count += media_count
             else:
                 # Fallback to disk scan - EFFICIENT
                 cfg = load_params(strict_env=False)
                 vault_path = cfg.paths.get("VAULT")
-                
+
                 if vault_path and vault_path.exists():
                     all_md = get_markdown_files_efficient(vault_path)
                     md_count = len(all_md)
-                    
+
                     img_path = vault_path / "Images"
                     media_count = 0
                     if img_path.exists():
                         try:
                             media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
-                        except Exception: pass
+                        except Exception as e:
+                            log.debug(f"media scan (fallback) failed at {img_path}: {e}")
                     count += md_count + media_count
 
             GraphService._node_count_cache = count

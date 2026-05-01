@@ -4807,7 +4807,14 @@ async def get_schema(folder: str):
     schema_path = get_p('VAULT') / folder / "schema.json"
     if not schema_path.exists():
         return {}
-    return json.loads(schema_path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(schema_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        # Schema corrupte (write a meitat des d'altres processos / sync OneDrive)
+        # → retornem {} en lloc de 500 perquè la UI pugui obrir la taula
+        # i sobreescriure-la des de SchemaConfigModal.
+        log.warning(f"Schema {schema_path} corrupte o no llegible: {e}")
+        return {}
 
 
 # --------------------------------------------------------------------------
