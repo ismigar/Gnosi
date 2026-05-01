@@ -4,6 +4,18 @@ This skill is responsible for the management and maintenance of the Drupal serve
 
 > ID: DRUPAL-OPS-20260408
 > Status: ACTIVE
+> Location: `pipeline/private_skills/` (handles SSH credentials — NOT public)
+
+---
+
+## Restrictions / Edge Cases
+
+- **Credencials SSH al `.env_shared`**: aquest skill llegeix `SSH_HOST`, `SSH_USER`, `SSH_PASSWORD`, `SSH_PORT` i `DRUPAL_PATH`. Per això viu sota `pipeline/private_skills/` i mai s'ha de moure a `pipeline/skills/` (carpeta pública).
+- **Resolució de `.env_shared`**: els scripts usen `Path(__file__).resolve().parents[7] / ".env_shared"`. Si reorganitzes la jerarquia de carpetes, actualitza `parents[N]` en consequència.
+- **Runtime fora de Docker**: aquest skill executa via SSH remot, no Docker. Les directives `environment_integrity.md` (port 5173, `docker-compose build`, etc.) **no apliquen aquí**.
+- **Idempotència parcial**: els scripts pugen un PHP temporal a `/tmp/<nom>.php` i el netegen al final. Si el procés crasha enmig, queda un `.php` orfe a `/tmp/` del servidor remot — convé revisar-ho manualment després d'errors.
+- **Caches**: després de qualsevol canvi de traducció, executa `flush_cache.py` perquè `config:views`, `rendered` i `http_response` es regenerin.
+- **Aplicació repetida**: les escriptures a `language.config_factory_override` són idempotents — repetir `translate_views.py` no causa duplicats, només sobreescriu amb el mateix valor.
 
 ---
 
