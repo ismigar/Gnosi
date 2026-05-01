@@ -84,27 +84,38 @@ async def login(type: str = None):
 async def callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
-    
+
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code not found")
-        
+
+    # Validar `state` contra els pending — prevenció CSRF. Sense aquesta
+    # validació, un atacant podia muntar un callback URL amb un code propi
+    # i fer que la víctima vinculés el seu compte al del atacant. PKCE
+    # mitiga part del risc, però només si tenim el code_verifier — i
+    # aquest només existeix si `state` coincideix.
+    if not state or state not in pending_auths:
+        log.warning(f"OAuth callback amb state invàlid o expirat: {state!r}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired OAuth state. Please retry the login.",
+        )
+
     config = get_google_config()
     flow = Flow.from_client_config(
         config,
         scopes=SCOPES,
         redirect_uri=config["web"]["redirect_uris"][0]
     )
-    
-    # Retrieve the code_verifier if it exists
+
+    # Retrieve the code_verifier (state ja validat sobre)
+    auth_info = pending_auths.pop(state)
     auth_type = "calendar"
-    if state and state in pending_auths:
-        auth_info = pending_auths.pop(state)
-        if isinstance(auth_info, dict):
-            flow.code_verifier = auth_info.get("code_verifier")
-            auth_type = auth_info.get("type", "calendar")
-        else:
-            flow.code_verifier = auth_info
-    
+    if isinstance(auth_info, dict):
+        flow.code_verifier = auth_info.get("code_verifier")
+        auth_type = auth_info.get("type", "calendar")
+    else:
+        flow.code_verifier = auth_info
+
     try:
         flow.fetch_token(code=code)
         credentials = flow.credentials

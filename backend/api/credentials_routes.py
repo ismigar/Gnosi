@@ -173,13 +173,18 @@ async def migrate_from_env():
                 key, _, value = line.partition("=")
                 env_vars[key.strip()] = value.strip()
 
-    for key, value in env_vars.items():
-        if key in CREDENTIAL_KEYS and value:
-            success = keychain.save_credential(key, value)
+    # Mapping case-insensitive: les env vars són UPPERCASE (NOTION_TOKEN), els
+    # CREDENTIAL_KEYS són lowercase (notion_token). Sense aquesta normalització,
+    # la migració silenciosament no movia res.
+    cred_keys_lower = {k.lower(): k for k in CREDENTIAL_KEYS}
+    for env_key, value in env_vars.items():
+        canonical = cred_keys_lower.get(env_key.lower())
+        if canonical and value:
+            success = keychain.save_credential(canonical, value)
             if success:
-                migrated.append(key)
+                migrated.append(canonical)
             else:
-                failed.append(key)
+                failed.append(canonical)
 
     return {
         "status": "success",

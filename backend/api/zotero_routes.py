@@ -85,8 +85,10 @@ def load_json(path: Path, default: Any = None) -> Any:
 
 def save_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    # Atomic write: zotero_db_config.json conté target_table_id i mapping;
+    # un crash a meitat de json.dump deixaria la integració trencada.
+    from backend.utils.safe_io import safe_write_json
+    safe_write_json(path, data, indent=2, ensure_ascii=False)
 
 
 @router.get("/config")
