@@ -3053,7 +3053,7 @@ def _is_safe_external_url(url: str) -> tuple[bool, str]:
     return True, ""
 
 
-@router.post("/import-icon-url")
+@router.post("/import-icon-url", dependencies=[Depends(require_role("editor"))])
 async def import_icon_from_url(request: IconUrlImportRequest):
     """Downloads an external icon URL and stores it in Assets/Icons."""
     url = str(request.url or "").strip()
@@ -3103,7 +3103,7 @@ async def import_icon_from_url(request: IconUrlImportRequest):
     return _store_icon_bytes(payload, source_name, content_type)
 
 
-@router.post("/assets/upload")
+@router.post("/assets/upload", dependencies=[Depends(require_role("editor"))])
 async def upload_asset(file: UploadFile = File(...), table_id: Optional[str] = Query(None)):
     """Puja una imatge o PDF a Assets/Inline o Assets/Files i retorna la URL.
     Si s'indica table_id, desa a Assets/<DB>/<Taula>/Inline/ o .../Files/.
@@ -3175,7 +3175,7 @@ async def get_albums():
     return media_service.get_albums()
 
 
-@router.post("/media/upload")
+@router.post("/media/upload", dependencies=[Depends(require_role("editor"))])
 async def upload_media(
     file: UploadFile = File(...),
     album: str = Query("General"),
@@ -3186,7 +3186,7 @@ async def upload_media(
     return result
 
 
-@router.patch("/media/metadata")
+@router.patch("/media/metadata", dependencies=[Depends(require_role("editor"))])
 async def update_media_metadata(
     filename: str = Body(...),
     album: str = Body(...),
@@ -3264,7 +3264,7 @@ async def get_custom_icons():
     return {"icons": _load_custom_icons()}
 
 
-@router.put("/custom-icons")
+@router.put("/custom-icons", dependencies=[Depends(require_role("editor"))])
 async def save_custom_icons(request: CustomIconsRequest):
     """Persists the shared custom icon library for Vault icon picker."""
     saved = _save_custom_icons(request.icons)
@@ -3303,7 +3303,7 @@ def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict:
         return {"path": str(dest_path), "url": None, "storage": "absolute"}
 
 
-@router.post("/upload-property-file")
+@router.post("/upload-property-file", dependencies=[Depends(require_role("editor"))])
 async def upload_property_file(
     table_id: str = Query(...),
     property_name: str = Query(...),
@@ -3345,7 +3345,7 @@ def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path) -> Path:
     return destination
 
 
-@router.post("/link-existing-file")
+@router.post("/link-existing-file", dependencies=[Depends(require_role("editor"))])
 async def link_existing_file(body: dict):
     """Variant B: register an existing local file path without copying it.
 
@@ -3903,7 +3903,7 @@ def get_unlinked_mentions(id: str):
     return results
 
 
-@router.post("/link-unlinked-mentions")
+@router.post("/link-unlinked-mentions", dependencies=[Depends(require_role("editor"))])
 async def link_unlinked_mentions(request: LinkMentionsRequest):
     """Converts plain mentions of target title into internal links in one source note or all notes."""
     target_id = str(request.target_id or "").strip()
