@@ -162,6 +162,9 @@ async def trigger_sync(background_tasks: BackgroundTasks):
     if not config.get("target_table"):
         raise HTTPException(status_code=400, detail="No hi ha cap taula de destí configurada.")
 
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+
     def run_sync():
         try:
             result = subprocess.run(
@@ -169,11 +172,14 @@ async def trigger_sync(background_tasks: BackgroundTasks):
                 capture_output=True,
                 text=True,
                 cwd=str(BASE_DIR),
+                timeout=300,  # 5 min — biblioteca Zotero gran pot trigar
             )
             if result.returncode != 0:
-                print(f"Zotero→Vault sync failed: {result.stderr}")
+                _log.error(f"Zotero→Vault sync failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            _log.error("Zotero→Vault sync timeout (5 min)")
         except Exception as e:
-            print(f"Zotero sync error: {e}")
+            _log.error(f"Zotero sync error: {e}")
 
     background_tasks.add_task(run_sync)
     return {"status": "started", "direction": "zotero→vault"}
@@ -186,9 +192,16 @@ async def trigger_sync_back(background_tasks: BackgroundTasks):
     if not config.get("enabled"):
         raise HTTPException(status_code=400, detail="La integració Zotero no està activada.")
 
-    check = subprocess.run(["pgrep", "-x", "Zotero"], capture_output=True)
-    if check.returncode == 0:
+    try:
+        check = subprocess.run(["pgrep", "-x", "Zotero"], capture_output=True, timeout=5)
+    except subprocess.TimeoutExpired:
+        # pgrep penjat — assumim que Zotero no està obert i continuem
+        check = None
+    if check is not None and check.returncode == 0:
         return {"status": "zotero_open", "message": "Tanca Zotero abans de sincronitzar els canvis de Gnosi cap a Zotero."}
+
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
 
     def run_sync_back():
         try:
@@ -197,11 +210,14 @@ async def trigger_sync_back(background_tasks: BackgroundTasks):
                 capture_output=True,
                 text=True,
                 cwd=str(BASE_DIR),
+                timeout=300,
             )
             if result.returncode != 0:
-                print(f"Vault→Zotero sync failed: {result.stderr}")
+                _log.error(f"Vault→Zotero sync failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            _log.error("Vault→Zotero sync timeout (5 min)")
         except Exception as e:
-            print(f"Zotero sync-back error: {e}")
+            _log.error(f"Zotero sync-back error: {e}")
 
     background_tasks.add_task(run_sync_back)
     return {"status": "started", "direction": "vault→zotero"}

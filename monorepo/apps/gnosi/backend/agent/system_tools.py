@@ -60,11 +60,14 @@ def create_git_branch(branch_name: str) -> str:
             capture_output=True,
             text=True,
             cwd=str(BASE_DIR),
+            timeout=30,
         )
         if result.returncode == 0:
             return f"Success: Created and switched to branch '{branch_name}'"
         else:
             return f"Error creating branch: {result.stderr}"
+    except subprocess.TimeoutExpired:
+        return "System Error: git checkout timeout (30s)"
     except Exception as e:
         return f"System Error: {str(e)}"
 
@@ -77,7 +80,8 @@ def commit_changes(message: str) -> str:
     try:
         # 1. Add
         add_res = subprocess.run(
-            ["git", "add", "."], capture_output=True, text=True, cwd=str(BASE_DIR)
+            ["git", "add", "."], capture_output=True, text=True,
+            cwd=str(BASE_DIR), timeout=60,
         )
         if add_res.returncode != 0:
             return f"Error adding files: {add_res.stderr}"
@@ -88,6 +92,7 @@ def commit_changes(message: str) -> str:
             capture_output=True,
             text=True,
             cwd=str(BASE_DIR),
+            timeout=30,
         )
         if commit_res.returncode == 0:
             return f"Success: Committed changes with message '{message}'"
@@ -151,14 +156,18 @@ def run_tests(path: str = "backend") -> str:
         if not str(target_path).startswith(str(BASE_DIR)):
             return "Error: Access denied."
 
-        # Run pytest
-        # capture_output ensures we get stdout/stderr
-        result = subprocess.run(
-            ["python", "-m", "pytest", str(target_path)],
-            capture_output=True,
-            text=True,
-            cwd=str(BASE_DIR),
-        )
+        # Run pytest amb timeout per evitar bloquejar l'agent si tests
+        # tenen un loop infinit o connexions penjades.
+        try:
+            result = subprocess.run(
+                ["python", "-m", "pytest", str(target_path)],
+                capture_output=True,
+                text=True,
+                cwd=str(BASE_DIR),
+                timeout=300,  # 5 min, prou per la majoria de suites
+            )
+        except subprocess.TimeoutExpired:
+            return "Error: pytest timeout (5 min). Tests poden tenir un loop infinit."
 
         output = f"Exit Code: {result.returncode}\n"
         output += f"STDOUT:\n{result.stdout}\n"
