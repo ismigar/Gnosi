@@ -1,8 +1,9 @@
 import asyncio
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 from backend.services.graph_service import GraphService
+from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
@@ -33,7 +34,7 @@ async def get_vault_graph() -> Dict[str, Any]:
         log.exception(f"Error generating the vault graph: {e}")
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /api/graph"))
 
-@router.post("/accept-suggestion")
+@router.post("/accept-suggestion", dependencies=[Depends(require_role("editor"))])
 async def accept_suggestion(req: SuggestionRequest) -> Dict[str, Any]:
     """
     Accepts a suggested AI connection and saves it to the .md file frontmatter.

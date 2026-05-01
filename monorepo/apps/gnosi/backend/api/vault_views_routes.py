@@ -12,12 +12,13 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from backend.config.app_config import load_params
 from backend.utils.safe_io import safe_write_json
 from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -108,7 +109,7 @@ async def get_page_views(page_id: str):
         )
 
 
-@router.post("/pages/{page_id}/views")
+@router.post("/pages/{page_id}/views", dependencies=[Depends(require_role("editor"))])
 async def upsert_page_view(page_id: str, view: ViewSection):
     """
     Afegeix o actualitza una vista per a una pàgina concreta.
@@ -171,7 +172,7 @@ async def upsert_page_view(page_id: str, view: ViewSection):
         )
 
 
-@router.delete("/pages/{page_id}/views/{heading}")
+@router.delete("/pages/{page_id}/views/{heading}", dependencies=[Depends(require_role("editor"))])
 async def delete_page_view(page_id: str, heading: str):
     """Elimina una vista d'una pàgina i re-sincronitza el .md."""
     try:
