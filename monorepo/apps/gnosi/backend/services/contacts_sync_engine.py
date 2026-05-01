@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 import yaml
 from pathlib import Path
 from backend.config.paths_config import get_paths
+from backend.utils.safe_io import safe_write_text
 
 from backend.models.contact import Contact, ContactType, ContactSource
 from backend.services.google_contacts_service import (
@@ -382,6 +383,10 @@ class ContactsSyncEngine:
         provider_name = self.integration.get("provider")
         integration_email = self.integration.get("email")
 
+        # Idempotency: track which contact IDs were successfully pushed in this run
+        # so we don't double-count or recommit on partial failures.
+        synced_ids: set = set()
+
         for contact in local_contacts:
             remote_id = contact.google_resource_name
 
@@ -411,13 +416,16 @@ class ContactsSyncEngine:
                     # Update existing remote contact
                     updated = self.provider.update_contact(remote_id, contact_data)
                     if updated:
-                        results["updated"] += 1
                         contact.last_synced_at = datetime.now(timezone.utc)
-                        self.db.commit()
+                        # Flush ensures the change is staged for the final commit
+                        # without persisting yet (allows atomic rollback on error).
+                        self.db.flush()
+                        synced_ids.add(contact.id)
+                        results["updated"] += 1
                 elif contact.source == "local" or contact.source == integration_email:
                     # Case contact.source == integration_email and not remote_id should be skipped above,
                     # but if it reached here, it means we WANT to create it in this account.
-                    
+
                     # Push genuinely new local contact to remote
                     created = self.provider.create_contact(contact_data)
                     if created:
@@ -426,12 +434,31 @@ class ContactsSyncEngine:
                         contact.last_synced_at = datetime.now(timezone.utc)
                         # Store the specific account email as source
                         contact.source = integration_email or provider_name
-                        self.db.commit()
+                        self.db.flush()
+                        synced_ids.add(contact.id)
                         results["created"] += 1
 
             except Exception as e:
                 log.error(f"Error syncing contact {contact.name}: {e}")
                 results["errors"].append(f"Error syncing {contact.name}: {e}")
+                # Per-contact failure is non-blocking: continue with the next.
+                # The contact is NOT added to synced_ids so it won't be counted.
+
+        # Single commit at the end of the loop with robust rollback.
+        # If the commit fails, we revert the in-memory state of all synced contacts
+        # and report the error. The remote calls have already happened (cannot be undone)
+        # but the DB stays consistent with the previous run's state.
+        try:
+            self.db.commit()
+        except Exception as e:
+            log.error(f"Error committing sync_gnosi_to_remote: {e}")
+            self.db.rollback()
+            results["errors"].append(f"DB commit failed: {e}")
+            # Reset counters because the DB state was rolled back: from the
+            # caller's point of view nothing was persisted, even though the
+            # remote provider already received the changes.
+            results["created"] = 0
+            results["updated"] = 0
 
         return results
 
@@ -449,6 +476,10 @@ class ContactsSyncEngine:
             results["errors"].append(f"Error fetching remote contacts: {e}")
             return results
 
+        # Track per-iteration result so a final commit failure rolls back counters too.
+        pending_imported = 0
+        pending_updated = 0
+
         for remote_person in remote_contacts:
             try:
                 parsed = self.provider.parse_to_internal(remote_person)
@@ -462,18 +493,17 @@ class ContactsSyncEngine:
                     email = parsed.get("email")
                     if email:
                         existing = self.contacts_service.get_contact_by_email(email)
-                
+
                 # NEW: If still not found, try by Name
                 if not existing:
                     name = parsed.get("name")
                     if name and name != "Unknown":
                         existing = self.contacts_service.get_contact_by_name(name)
-                
+
                 if existing:
                     # Link existing contact to this remote ID if not already linked
                     if not existing.google_resource_name:
                         existing.google_resource_name = remote_id
-                        self.db.commit()
 
                 if existing:
                     updated_data = {
@@ -488,7 +518,7 @@ class ContactsSyncEngine:
                     }
                     self.contacts_service.update_contact(existing.id, updated_data)
                     existing.last_synced_at = datetime.now(timezone.utc)
-                    results["updated"] += 1
+                    pending_updated += 1
                 else:
                     self.contacts_service.create_contact(
                         {
@@ -504,13 +534,27 @@ class ContactsSyncEngine:
                             "source": self.integration.get("email") or self.integration.get("provider"),
                         }
                     )
-                    results["imported"] += 1
+                    pending_imported += 1
 
-                self.db.commit()
+                # Flush per item to surface DB constraint errors early without
+                # committing yet. Final commit happens once after the loop.
+                self.db.flush()
 
             except Exception as e:
                 log.error(f"Error processing remote contact: {e}")
                 results["errors"].append(f"Error processing contact: {e}")
+                # Non-blocking: continue with the next remote contact.
+
+        # Single commit at the end of the loop. If it fails, rollback and
+        # zero the counters so the caller doesn't believe items were persisted.
+        try:
+            self.db.commit()
+            results["imported"] = pending_imported
+            results["updated"] = pending_updated
+        except Exception as e:
+            log.error(f"Error committing sync_remote_to_gnosi: {e}")
+            self.db.rollback()
+            results["errors"].append(f"DB commit failed: {e}")
 
         return results
 
@@ -568,7 +612,7 @@ class ContactsSyncEngine:
                     
                     content = f"---\n{yaml.dump(metadata, sort_keys=False, allow_unicode=True)}---\n\n{contact.notes or ''}\n"
                     
-                    file_path.write_text(content, encoding="utf-8")
+                    safe_write_text(file_path, content)
                     results["exported"] += 1
                 except Exception as e:
                     results["errors"].append(f"Error exporting {contact.name}: {e}")
@@ -591,7 +635,12 @@ class ContactsSyncEngine:
             if success:
                 contact.google_resource_name = None
                 contact.source = ContactSource.LOCAL.value
-                self.db.commit()
+                try:
+                    self.db.commit()
+                except Exception as e:
+                    log.error(f"Error committing delete_contact_from_remote: {e}")
+                    self.db.rollback()
+                    return False
             return success
 
         return True

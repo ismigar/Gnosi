@@ -4,6 +4,7 @@ import yaml
 from pathlib import Path
 from backend.services.google_mail_service import get_gmail_service
 from backend.config.app_config import load_params
+from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
 
@@ -148,11 +149,11 @@ class VaultMailSyncService:
             }
 
             yaml_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
-            file_path.write_text(f"---\n{yaml_front}---\n\n{text_body}\n", encoding="utf-8")
+            safe_write_text(file_path, f"---\n{yaml_front}---\n\n{text_body}\n")
 
             if html_body:
                 html_path = file_path.with_suffix('.html')
-                html_path.write_text(html_body, encoding="utf-8")
+                safe_write_text(html_path, html_body)
 
             log.info(f"Synced email to Vault: {filename}")
             return True
