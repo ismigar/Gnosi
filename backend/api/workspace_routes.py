@@ -10,13 +10,14 @@ from backend.models.management import (
 from backend.services.workspace_service import require_role, get_workspace_context, WorkspaceContext, require_capability
 from typing import List
 import json
+import logging
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 
 @router.post("", response_model=WorkspaceResponse)
 async def create_workspace(
     request: WorkspaceBase,
-    x_user_id: str = Header("ismael-legacy"),
+    x_user_id: str = Header(...),
     db: Session = Depends(get_mgmt_db)
 ):
     # 1. Trobar o crear usuari
@@ -67,7 +68,7 @@ async def create_workspace(
 
 @router.get("", response_model=List[WorkspaceResponse])
 async def list_workspaces(
-    x_user_id: str = Header("ismael-legacy"),
+    x_user_id: str = Header(...),
     db: Session = Depends(get_mgmt_db)
 ):
     # Obtenir tots els membres de l'usuari amb el seu workspace
@@ -119,8 +120,9 @@ async def list_workspace_members(
         try:
             if m.permissions:
                 permissions_dict = json.loads(m.permissions)
-        except:
-            pass
+        except (ValueError, TypeError) as _e:
+            log = logging.getLogger(__name__)
+            log.warning(f"Invalid permissions JSON for membership {m.user_id}: {_e}")
 
         results.append({
             "user_id": m.user_id,
@@ -232,7 +234,7 @@ async def remove_workspace_member(
 @router.get("/{workspace_id}", response_model=WorkspaceResponse)
 async def get_workspace(
     workspace_id: str,
-    x_user_id: str = "ismael-legacy",
+    x_user_id: str = Header(...),
     db: Session = Depends(get_mgmt_db)
 ):
     # Validar que l'usuari té accés

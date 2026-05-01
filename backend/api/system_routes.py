@@ -8,6 +8,8 @@ from pathlib import Path
 from backend.data.management_db import get_mgmt_db
 from backend.models.notification import Notification, NotificationResponse
 from backend.services.graph_service import GraphService
+from backend.services.workspace_service import require_role
+from backend.utils.errors import safe_error_detail
 
 router = APIRouter()
 
@@ -32,7 +34,7 @@ async def get_notifications(
     }
 
 
-@router.delete("/notifications")
+@router.delete("/notifications", dependencies=[Depends(require_role("admin"))])
 async def clear_notifications(db: Session = Depends(get_mgmt_db)):
     """Deletes all system notifications."""
     try:
@@ -41,7 +43,10 @@ async def clear_notifications(db: Session = Depends(get_mgmt_db)):
         return {"success": True, "message": "All notifications deleted"}
     except Exception as e:
         db.rollback()
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "error": safe_error_detail(e, "DELETE /notifications"),
+        }
 
 
 class BrowseRequest(BaseModel):
@@ -72,7 +77,7 @@ async def get_system_stats():
             "ram_percent": 0.0,
             "memory_items": 0,
             "status": "degraded",
-            "error": str(e)
+            "error": safe_error_detail(e, "GET /stats"),
         }
 
 
@@ -86,18 +91,53 @@ async def get_graph_viz():
     return {"nodes": [], "edges": []}
 
 
-@router.post("/browse")
+@router.post("/browse", dependencies=[Depends(require_role("admin"))])
 async def browse_directory(body: BrowseRequest = Body(...)):
-    """Browse directory contents for folder picker."""
+    """Browse directory contents for folder picker.
+
+    Security: this endpoint can list arbitrary directories, which is a
+    potential information-disclosure vector if exposed without auth. We
+    require admin and constrain navigation to a small allow-list of roots
+    (the vault and the home directory mount).
+    """
     target_path = body.path
 
+    # Allow-list of roots that can be browsed. Anything outside is rejected.
+    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
+    home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
+    allowed_roots = []
+    for raw in (vault_internal, home_internal):
+        if raw:
+            try:
+                allowed_roots.append(Path(raw).resolve())
+            except Exception:
+                pass
+    # Sensible fallback: vault parent (so the picker can step up one level)
+    try:
+        if vault_internal:
+            allowed_roots.append(Path(vault_internal).resolve().parent)
+    except Exception:
+        pass
+
     if not target_path:
-        target_path = "/"
+        # Default to the vault root, not "/"
+        target_path = vault_internal or home_internal or "/"
 
     try:
         target = Path(target_path).resolve()
     except Exception:
         return {"error": "Invalid path"}
+
+    # Containment check — prevents `/etc`, `/root`, traversal, etc.
+    # If we couldn't build any allowed roots, deny by default (fail-closed)
+    # rather than open the filesystem to arbitrary browsing.
+    if not allowed_roots:
+        return {"error": "Server misconfigured: no allowed roots resolved"}
+
+    if not any(
+        target == root or target.is_relative_to(root) for root in allowed_roots
+    ):
+        return {"error": "Path is outside of allowed roots"}
 
     if not target.exists():
         return {"error": "Path does not exist"}
@@ -136,7 +176,11 @@ async def browse_directory(body: BrowseRequest = Body(...)):
         # If the root directory lacks permission
         return {"error": f"Permission denied at {target}. Check macroscopic Mac permissions.", "current_path": str(target), "display_path": display_path}
     except Exception as e:
-        return {"error": f"Error accessing path: {str(e)}", "current_path": str(target), "display_path": display_path}
+        return {
+            "error": safe_error_detail(e, "POST /browse access path"),
+            "current_path": str(target),
+            "display_path": display_path,
+        }
 
     directories.sort(key=lambda s: s.lower())
 

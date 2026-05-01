@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pipeline.utils.vault_writer import create_local_note
+from backend.utils.errors import safe_error_detail
 
 input_bp = Blueprint("input_routes", __name__)
 
@@ -48,4 +49,4 @@ def create_note_endpoint():
         ), 201
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": safe_error_detail(e, context="POST /note")}), 500
