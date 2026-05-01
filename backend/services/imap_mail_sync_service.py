@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Optional, Union, List, Tuple, Dict, Set
 from backend.config.app_config import load_params
 from backend.services.integration_manager import integration_manager
+from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
 
@@ -325,9 +326,27 @@ class ImapMailSyncService:
         return count
 
     def _reconcile_folder(self, email_account: str, folder_name: str, server_uids: set):
-        """Remove vault files whose imap_uid is no longer present on server."""
+        """Remove vault files whose imap_uid is no longer present on server.
+
+        Note: this iterates filesystem operations, not DB rows. There is no
+        SQL transaction to wrap. If the process crashes mid-loop, the next
+        sync will reconcile any leftover files (idempotent by design).
+        """
         if not self.mail_folder:
             return
+
+        # Normalise server_uids to a set of strings so comparison is unambiguous.
+        # imap.uid("search") returns bytes, but downstream code may pass strings.
+        normalized_server_uids: set = set()
+        for sid in server_uids:
+            if isinstance(sid, bytes):
+                try:
+                    normalized_server_uids.add(sid.decode())
+                except Exception:
+                    continue
+            else:
+                normalized_server_uids.add(str(sid))
+
         removed = 0
         for file_path in list(self.mail_folder.glob("*.md")):
             try:
@@ -338,7 +357,7 @@ class ImapMailSyncService:
                 if meta.get("imap_folder") != folder_name:
                     continue
                 uid = meta.get("imap_uid")
-                if uid and uid.encode() not in server_uids and str(uid).encode() not in server_uids:
+                if uid and str(uid) not in normalized_server_uids:
                     file_path.unlink(missing_ok=True)
                     html = file_path.with_suffix(".html")
                     if html.exists():
@@ -416,7 +435,7 @@ class ImapMailSyncService:
                 if changed:
                     body = content.split("---\n", 2)[-1] if "---" in content else content
                     new_front = yaml.dump(meta, default_flow_style=False, sort_keys=False, allow_unicode=True)
-                    file_path.write_text(f"---\n{new_front}---\n\n{body.lstrip()}", encoding="utf-8")
+                    safe_write_text(file_path, f"---\n{new_front}---\n\n{body.lstrip()}")
             except Exception:
                 pass
 
@@ -481,9 +500,9 @@ class ImapMailSyncService:
             }
 
             yaml_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
-            file_path.write_text(f"---\n{yaml_front}---\n\n{body_text}\n", encoding="utf-8")
+            safe_write_text(file_path, f"---\n{yaml_front}---\n\n{body_text}\n")
             if body_html:
-                file_path.with_suffix(".html").write_text(body_html, encoding="utf-8")
+                safe_write_text(file_path.with_suffix(".html"), body_html)
 
             log.info(f"[IMAP] Nou: {filename} [{category}]")
             return True
@@ -560,7 +579,7 @@ class ImapMailSyncService:
         body = body_parts[-1] if len(body_parts) >= 3 else ""
         meta.update(updates)
         new_front = yaml.dump(meta, default_flow_style=False, sort_keys=False, allow_unicode=True)
-        file_path.write_text(f"---\n{new_front}---\n\n{body.lstrip()}", encoding="utf-8")
+        safe_write_text(file_path, f"---\n{new_front}---\n\n{body.lstrip()}")
 
     def _move_on_server(self, imap, uid: str, from_folder: str, to_folder: str) -> bool:
         """COPY + STORE \Deleted + EXPUNGE (compatible with all IMAP servers)."""
@@ -675,12 +694,45 @@ class ImapMailSyncService:
                 "archived": target_type in ("Deleted", "Archived"),
                 "spam": target_type == "Spam",
             }
-            # We need to get the new UID after MOVE (server assigns new UID in destination)
-            # For now, remove old UID so reconciliation doesn't delete it
-            updates["imap_uid"] = ""
+            # After MOVE the destination server assigns a new UID. Recover it
+            # by searching the destination folder with the original Message-ID.
+            new_uid = self._lookup_uid_by_message_id(imap, target_folder, message_id)
+            updates["imap_uid"] = new_uid if new_uid else ""
+            if not new_uid:
+                log.warning(
+                    f"[IMAP] No s'ha pogut recuperar el nou UID a {target_folder} "
+                    f"per Message-ID {message_id}; reconciliació posterior el reassignarà."
+                )
             self._update_vault_file(vault_file, updates)
             log.info(f"[IMAP] Missatge {message_id} mogut de {from_folder} a {target_folder}")
         return True
+
+    def _lookup_uid_by_message_id(self, imap, folder_name: str, message_id: str) -> Optional[str]:
+        """Look up the IMAP UID of a message in a folder by its RFC822 Message-ID.
+
+        Used after a MOVE to recover the new UID assigned by the destination
+        server within the same IMAP transaction. Returns None on failure.
+        """
+        try:
+            status, _ = imap.select(_imap_name(folder_name))
+            if status != "OK":
+                return None
+            # Build the full <Message-ID> header value (with angle brackets if missing)
+            mid = message_id
+            if not mid.startswith("<"):
+                mid = f"<{mid}>"
+            status, data = imap.uid("search", None, "HEADER", "Message-ID", mid)
+            if status != "OK" or not data or not data[0]:
+                return None
+            uids = data[0].split()
+            if not uids:
+                return None
+            # Return the highest UID (most recent match) decoded as string
+            last = uids[-1]
+            return last.decode() if isinstance(last, bytes) else str(last)
+        except Exception as e:
+            log.debug(f"[IMAP] Error buscant UID per Message-ID {message_id} a {folder_name}: {e}")
+            return None
 
     def move_message_by_uid(self, email_account: str, uid: str, from_folder: str, target_folder: str) -> bool:
         """Move a message directly by UID and folder (no vault lookup required)."""

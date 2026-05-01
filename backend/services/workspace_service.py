@@ -61,7 +61,11 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     if not user:
         user = User(id=user_id, name="User", email="user@example.com")
         db.add(user)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     # 2. Cercar membresia 'Personal'
     membership = db.query(Membership).filter(
@@ -76,19 +80,26 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
         if not ws:
             ws = Workspace(id=ws_id, name="Personal Workspace")
             db.add(ws)
-        
+
         # Crear Vault
         rel_vault = str(vault_path)
         v = Vault(id=str(uuid.uuid4()), workspace_id=ws_id, name="Main Vault", path_override=rel_vault)
         db.add(v)
-        
+
         # Crear Membresia
         membership = Membership(user_id=user_id, workspace_id=ws_id, role="owner")
         db.add(membership)
-        
-        db.commit()
+
+        try:
+            db.commit()
+        except Exception:
+            # Without rollback the session stays "dirty" and any further
+            # query on this session silently fails. Roll back and re-raise
+            # so the caller sees the error instead of a corrupted session.
+            db.rollback()
+            raise
         return ws_id
-    
+
     return membership.workspace_id
 
 def get_workspace_context(
@@ -169,7 +180,8 @@ def get_workspace_context(
         try:
             perms = json.loads(membership.permissions)
             capabilities = perms.get("capabilities", ["read"])
-        except:
+        except (ValueError, TypeError, AttributeError):
+            # Malformed permissions JSON — fall back to read-only.
             pass
     
     # Si és admin o owner, té totes per defecte si no s'especifica

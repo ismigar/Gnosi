@@ -3,10 +3,11 @@ import os
 import json
 import yaml
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any, Set
 from backend.services.google_calendar_service import get_google_calendar_service
 from backend.config.app_config import load_params
+from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
 
@@ -47,9 +48,14 @@ class VaultCalendarSyncService:
             return 0
 
         try:
-            now = datetime.utcnow()
-            time_min = (now - timedelta(days=days_back)).isoformat() + "Z"
-            time_max = (now + timedelta(days=days_forward)).isoformat() + "Z"
+            # Use timezone-aware UTC; Google Calendar API expects RFC3339.
+            # `.utcnow()` is deprecated and produces naive datetimes that
+            # silently break comparisons with timezoned datetimes.
+            now = datetime.now(timezone.utc)
+            time_min = now - timedelta(days=days_back)
+            time_max = now + timedelta(days=days_forward)
+            time_min = time_min.isoformat().replace("+00:00", "Z")
+            time_max = time_max.isoformat().replace("+00:00", "Z")
 
             # Get the list of all calendars (including shared ones)
             calendar_list_result = service.calendarList().list().execute()
@@ -166,7 +172,7 @@ class VaultCalendarSyncService:
             full_content = f"---\n{yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n\n{description}\n"
             
             # Only write if changed? (Optimistic overwrite for now for simplicity)
-            file_path.write_text(full_content, encoding="utf-8")
+            safe_write_text(file_path, full_content)
             return file_path
 
         except Exception as e:
