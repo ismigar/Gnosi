@@ -60,7 +60,9 @@ const ReaderDashboard = () => {
                 setPodcastInfo(null);
             }
         } catch (error) {
-
+            // Errors aquí (404 podcast no generat encara, 5xx) són esperats
+            // — el podcast info és opcional. Loggeja sense alarmar.
+            console.debug('podcast info fetch failed:', error?.message);
         }
     };
 
