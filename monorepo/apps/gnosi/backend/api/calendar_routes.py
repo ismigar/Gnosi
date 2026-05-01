@@ -251,7 +251,7 @@ async def get_event(
 
 # ── POST /events ───────────────────────────────────────────────────────────────
 
-@router.post("/events")
+@router.post("/events", dependencies=[Depends(require_role("editor"))])
 async def post_event(
     email: str = Query(...),
     calendar_id: str = Query("primary"),
@@ -271,7 +271,7 @@ async def post_event(
 
 # ── PATCH /events/{event_id} ───────────────────────────────────────────────────
 
-@router.patch("/events/{event_id}")
+@router.patch("/events/{event_id}", dependencies=[Depends(require_role("editor"))])
 async def patch_event(
     event_id: str,
     email: str = Query(...),
@@ -395,7 +395,7 @@ def get_ics_feed(
 
 # ── POST /sync (no-op — l'arquitectura híbrida no necessita sync) ──────────────
 
-@router.post("/sync")
+@router.post("/sync", dependencies=[Depends(require_role("editor"))])
 async def sync_calendar_accounts(email: Optional[str] = Query(None)):
     """
     Amb l'arquitectura híbrida el sync al vault ja no és necessari.
@@ -448,7 +448,7 @@ async def search_attendees(q: str = Query(..., min_length=1)):
 
 # ── POST /events/{event_id}/rsvp ──────────────────────────────────────────────
 
-@router.post("/events/{event_id}/rsvp")
+@router.post("/events/{event_id}/rsvp", dependencies=[Depends(require_role("editor"))])
 async def rsvp_event(event_id: str, body: dict = Body(...)):
     """Accepta, rebutja o marca com a tentativa una invitació de Google Calendar."""
     email = body.get("email")

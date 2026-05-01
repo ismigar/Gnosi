@@ -463,7 +463,7 @@ async def get_thread(thread_id: str, email: str = Query(...)):
     return {"messages": messages}
 
 
-@router.post("/sync")
+@router.post("/sync", dependencies=[Depends(require_role("editor"))])
 async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50):
     """Triggers a manual synchronization for one or all mail accounts."""
     try:
@@ -520,7 +520,7 @@ async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50
         )
 
 
-@router.patch("/messages/{message_id}")
+@router.patch("/messages/{message_id}", dependencies=[Depends(require_role("editor"))])
 async def update_message(message_id: str, update: dict = Body(...)):
     """Updates metadata fields in Vault and propagates flag changes to IMAP server."""
     mail_path = get_mail_vault_path()
@@ -582,7 +582,7 @@ def _resolve_gmail_id(message_id: str) -> str:
     return message_id
 
 
-@router.post("/messages/{message_id}/trash")
+@router.post("/messages/{message_id}/trash", dependencies=[Depends(require_role("editor"))])
 async def trash_msg(message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)):
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
@@ -601,7 +601,7 @@ async def trash_msg(message_id: str, email: str = Query(...), folder: Optional[s
     raise HTTPException(status_code=500, detail="Error trashing message")
 
 
-@router.post("/messages/{message_id}/archive")
+@router.post("/messages/{message_id}/archive", dependencies=[Depends(require_role("editor"))])
 async def archive_msg(message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)):
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
@@ -615,7 +615,7 @@ async def archive_msg(message_id: str, email: str = Query(...), folder: Optional
     raise HTTPException(status_code=500, detail="Error archiving message")
 
 
-@router.post("/messages/{message_id}/star")
+@router.post("/messages/{message_id}/star", dependencies=[Depends(require_role("editor"))])
 async def star_msg(
     message_id: str, email: str = Query(...), starred: bool = Body(..., embed=True)
 ):
@@ -640,7 +640,7 @@ async def star_msg(
     raise HTTPException(status_code=500, detail="Error updating star")
     
 
-@router.post("/messages/{message_id}/spam")
+@router.post("/messages/{message_id}/spam", dependencies=[Depends(require_role("editor"))])
 async def spam_msg(message_id: str, email: str = Query(...), spam: bool = Body(..., embed=True)):
     """Marca o desmarca un missatge com a spam (correu brossa)."""
     if _is_imap_account(email):
