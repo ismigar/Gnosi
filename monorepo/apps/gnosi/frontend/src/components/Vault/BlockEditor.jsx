@@ -1,40 +1,41 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { 
-    FileText, 
-    Calendar, 
-    Tag, 
-    Hash, 
-    Type, 
-    CheckSquare, 
-    ChevronDown, 
-    ChevronRight, 
-    Plus, 
-    X, 
-    Loader2, 
+import {
+    FileText,
+    Calendar,
+    Tag,
+    Hash,
+    Type,
+    CheckSquare,
+    ChevronDown,
+    ChevronRight,
+    Plus,
+    X,
+    Loader2,
     Search,
     Database,
     Table as TableIcon,
     LayoutGrid,
     List as ListIcon,
     LayoutPanelLeft,
-    Share2, 
-    Trash2, 
-    ExternalLink, 
-    Maximize2, 
-    Columns, 
-    MessageSquare, 
+    Share2,
+    Trash2,
+    ExternalLink,
+    Maximize2,
+    Columns,
+    MessageSquare,
     Settings,
     Link2,
     AtSign,
-    Smile
+    Smile,
+    Code2
 } from 'lucide-react';
 import axios from 'axios';
-import { 
+import {
     useCreateBlockNote,
     getDefaultReactSlashMenuItems,
     SuggestionMenuController,
     createReactBlockSpec,
-    createReactInlineContentSpec
+    createReactInlineContentSpec,
 } from "@blocknote/react";
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultStyleSpecs } from "@blocknote/core";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
@@ -47,6 +48,7 @@ import { useTranslation, Trans } from 'react-i18next';
 import { useApi } from '../../hooks/use-api';
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from 'react-hot-toast';
+import { notifyError, logError } from '../../lib/notifyError';
 import { useTheme } from '../../hooks/useTheme';
 import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
@@ -58,6 +60,8 @@ import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuU
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
+import { RichLinkInsertModal } from './RichLinkInsert';
+import { blocknoteCa } from '../../locales/blocknote/ca';
 
 const normalizeVaultAssetUrl = (value) => {
     if (typeof value !== 'string') return value;
@@ -452,6 +456,17 @@ const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
 });
 InlineDatabase.displayName = 'InlineDatabase';
 
+// Module-level constant: keys that the editor manages internally (never shown
+// as ad-hoc properties). Lifted here so we don't re-allocate this array on
+// every render of BlockEditor — it's frozen for the lifetime of the bundle.
+const INTERNAL_METADATA_KEYS = Object.freeze([
+    'title', 'table_id', 'database_id', 'database_table_id', 'id',
+    'parent_id', 'source_id', 'resolved_table_id', 'last_modified',
+    'created_time', 'last_edited_time', 'source_parent_id',
+    'is_default_template', 'path', 'filename', 'cover', 'cover_manual', 'icon',
+]);
+const INTERNAL_METADATA_KEY_SET = new Set(INTERNAL_METADATA_KEYS);
+
 const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
     const { t } = useTranslation();
     const context = React.useContext(VaultEditorContext);
@@ -474,7 +489,7 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
     const [preview, setPreview] = useState('');
 
     useEffect(() => {
-        let cancelled = false;
+        const controller = new AbortController();
         const loadPreview = async () => {
             if (!resolvedId) {
                 setError(t('editor.note_not_found'));
@@ -482,29 +497,31 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
             }
 
             try {
-                const response = await axios.get(`/api/vault/pages/${encodeURIComponent(resolvedId)}`);
+                const response = await axios.get(
+                    `/api/vault/pages/${encodeURIComponent(resolvedId)}`,
+                    { signal: controller.signal },
+                );
                 const raw = String(response?.data?.content || '');
                 const scopedSection = section ? extractSectionPreview(raw, section) : '';
                 const clean = scopedSection || markdownToPlainText(raw);
 
-                if (!cancelled) {
-                    if (section && !scopedSection) {
-                        setError(t('editor.section_not_found'));
-                        return;
-                    }
+                if (controller.signal.aborted) return;
 
-                    setPreview(clean.slice(0, 300) || t('editor.no_content'));
+                if (section && !scopedSection) {
+                    setError(t('editor.section_not_found'));
+                    return;
                 }
+
+                setPreview(clean.slice(0, 300) || t('editor.no_content'));
             } catch (error) {
-                if (!cancelled) {
-                    setError(t('editor.preview_load_error'));
-                }
+                if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
+                setError(t('editor.preview_load_error'));
             }
         };
 
         loadPreview();
         return () => {
-            cancelled = true;
+            controller.abort();
         };
     }, [resolvedId, section, t]);
 
@@ -552,8 +569,8 @@ class ErrorBoundary extends React.Component {
                 <div className="p-12 border-2 border-dashed border-[var(--status-error)]/30 rounded-xl bg-[var(--status-error)]/5 flex flex-col items-center gap-4 text-center my-10">
                     <div className="p-4 bg-[var(--status-error)]/10 rounded-full text-[var(--status-error)]"><X size={32} /></div>
                     <div className="max-w-md">
-                        <h3 className="text-lg font-bold text-[var(--text-primary)]">{t('editor.error_occurred')}</h3>
-                        <p className="text-sm text-[var(--text-tertiary)] mt-1">{t('editor.unsupported_blocks_hint')}</p>
+                        <h3 className="text-lg font-bold text-[var(--text-primary)]">S'ha produït un error</h3>
+                        <p className="text-sm text-[var(--text-tertiary)] mt-1">Hi ha blocs no suportats o s'ha produït un error a l'editor.</p>
                         <div className="bg-[var(--bg-secondary)] p-3 rounded-lg text-left mt-4 overflow-auto max-h-40 border border-[var(--border-primary)] shadow-inner">
                             <code className="text-[10px] text-[var(--text-tertiary)] leading-relaxed whitespace-pre-wrap">
                                 {this.state.error?.toString()}
@@ -568,11 +585,41 @@ class ErrorBoundary extends React.Component {
 }
 
 const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes }) => {
-    const [markdownText, setMarkdownText] = useState(String(initialContent || ''));
+    const { t } = useTranslation();
+    // Defensiva: si initialContent NO és string (algun update upstream l'ha
+    // emboirat com a objecte) intentem extreure'n una versió raonable abans
+    // que el textarea mostri "[object Object]".
+    const safeInitial = (() => {
+        if (typeof initialContent === 'string') return initialContent;
+        if (initialContent == null) return '';
+        if (typeof initialContent === 'object') {
+            if (typeof initialContent.content === 'string') return initialContent.content;
+            try { return JSON.stringify(initialContent, null, 2); } catch { return ''; }
+        }
+        return String(initialContent);
+    })();
+    const [markdownText, setMarkdownText] = useState(safeInitial);
     const saveTimerRef = useRef(null);
+    // Dirty flag — only autosave when the USER has edited the text. Without
+    // this, opening any note triggers a PATCH 900ms later with the exact
+    // content the server just sent us, which races against external edits
+    // (sync from another device) and produces spurious 409 etag conflicts.
+    const hasUserEditedRef = useRef(false);
 
     useEffect(() => {
-        setMarkdownText(String(initialContent || ''));
+        // Switching to a different note: reset content AND clear dirty flag.
+        // Reaprofitem la coerció defensiva (mai escriure "[object Object]").
+        const safe = (() => {
+            if (typeof initialContent === 'string') return initialContent;
+            if (initialContent == null) return '';
+            if (typeof initialContent === 'object') {
+                if (typeof initialContent.content === 'string') return initialContent.content;
+                try { return JSON.stringify(initialContent, null, 2); } catch { return ''; }
+            }
+            return String(initialContent);
+        })();
+        setMarkdownText(safe);
+        hasUserEditedRef.current = false;
     }, [initialContent, noteFilename]);
 
     const saveMarkdown = useCallback(async (nextText, { silent = true } = {}) => {
@@ -585,17 +632,22 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
                 metadata: metadata || {},
             };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
-            if (onUpdate) onUpdate(data.content, { metadata: data.metadata, title: data.title });
+            if (onUpdate) onUpdate(noteFilename, data.content, { metadata: data.metadata, title: data.title });
             if (onRefreshNotes) onRefreshNotes();
             if (!silent) toast.success(t('editor.markdown_saved'));
             return true;
         } catch (err) {
-            if (!silent) toast.error(t('editor.markdown_save_error'));
+            // Always log, but only toast for user-initiated saves. Silent
+            // (autosave) failures still surface in the console + app-error
+            // event so they're investigable.
+            if (silent) logError('save-markdown', err);
+            else notifyError('save-markdown', err, t('editor.markdown_save_error'));
             return false;
         }
     }, [noteFilename, metadata, onUpdate, onRefreshNotes]);
 
     useEffect(() => {
+        if (!hasUserEditedRef.current) return;  // skip the open-note pseudo-edit
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(() => {
             void saveMarkdown(markdownText);
@@ -625,7 +677,7 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
 
             <textarea
                 value={markdownText}
-                onChange={(e) => setMarkdownText(e.target.value)}
+                onChange={(e) => { hasUserEditedRef.current = true; setMarkdownText(e.target.value); }}
                 onKeyDown={(e) => {
                     if ((e.metaKey || e.ctrlKey) && String(e.key || '').toLowerCase() === 's') {
                         e.preventDefault();
@@ -648,6 +700,8 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
     const [jsonText, setJsonText] = useState(String(initialContent || '{\n  \n}'));
     const [jsonError, setJsonError] = useState('');
     const saveTimerRef = useRef(null);
+    // Same dirty-flag guard as MarkdownCodeEditor — see comment there.
+    const hasUserEditedRef = useRef(false);
     const textareaRef = useRef(null);
     const highlightRef = useRef(null);
     const gutterRef = useRef(null);
@@ -725,6 +779,7 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
     useEffect(() => {
         setJsonText(String(initialContent || '{\n  \n}'));
         setJsonError('');
+        hasUserEditedRef.current = false;
     }, [initialContent, noteFilename]);
 
     const validateJson = useCallback((value) => {
@@ -756,17 +811,18 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
                 },
             };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
-            if (onUpdate) onUpdate(data.content, { metadata: data.metadata, title: data.title });
+            if (onUpdate) onUpdate(noteFilename, data.content, { metadata: data.metadata, title: data.title });
             if (onRefreshNotes) onRefreshNotes();
             if (!silent) toast.success(t('editor.json_saved'));
             return true;
         } catch (err) {
-            toast.error(t('editor.json_save_error'));
+            notifyError('save-json', err, t('editor.json_save_error'));
             return false;
         }
     }, [noteFilename, metadata, onUpdate, onRefreshNotes, validateJson, t]);
 
     useEffect(() => {
+        if (!hasUserEditedRef.current) return;  // skip the open-note pseudo-edit
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(() => {
             void saveJson(jsonText);
@@ -865,6 +921,7 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
                     ref={textareaRef}
                     value={jsonText}
                     onChange={(e) => {
+                        hasUserEditedRef.current = true;
                         const next = e.target.value;
                         setJsonText(next);
                         validateJson(next);
@@ -922,14 +979,15 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
     );
 };
 
-export function EditorInner({ 
-    noteFilename, 
-    initialContent, 
-    metadata, 
-    onUpdate, 
-    idToTitle, 
-    onRefreshNotes, 
-    effectiveTheme, 
+export function EditorInner({
+    noteFilename,
+    initialContent,
+    metadata,
+    onUpdate,
+    idToTitle,
+    onRefreshNotes,
+    onUpdatePageMetadata,
+    effectiveTheme,
     contextValue,
     saveStatus,
     setSaveStatus,
@@ -1060,6 +1118,7 @@ export function EditorInner({
 
     const [blocks, setBlocks] = useState(null);
     const [isParsing, setIsParsing] = useState(true);
+    const [isRichLinkOpen, setIsRichLinkOpen] = useState(false);
     const linkableNotes = useMemo(() => {
         const titleMap = idToTitle || {};
         const registry = contextValue?.registry || {};
@@ -1096,18 +1155,35 @@ export function EditorInner({
 
     const tableId = metadata?.table_id || metadata?.database_table_id || '';
 
+    // Ref estable: el valor de tableId pot canviar entre renders però la
+    // funció uploadFileToAssets ha de mantenir SEMPRE la mateixa referència
+    // perquè useCreateBlockNote no recreï l'editor (cosa que esborraria el
+    // contingut en curs d'edició).
+    const tableIdRef = useRef(tableId);
+    useEffect(() => { tableIdRef.current = tableId; }, [tableId]);
+
+    const uploadFileToAssets = useCallback(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const tid = tableIdRef.current;
+        const url = tid ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tid)}` : '/api/vault/assets/upload';
+        const res = await fetch(url, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        return data.url;
+    }, []);
+
     const editor = useCreateBlockNote({
         schema,
         initialContent: blocks || undefined,
         dropCursor: multiColumnDropCursor,
-        uploadFile: async (file) => {
-            const formData = new FormData();
-            formData.append('file', file);
-            const url = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
-            const res = await fetch(url, { method: 'POST', body: formData });
-            if (!res.ok) throw new Error('Upload failed');
-            const data = await res.json();
-            return data.url;
+        uploadFile: uploadFileToAssets,
+        dictionary: blocknoteCa,
+        tables: {
+            splitCells: true,
+            cellBackgroundColor: true,
+            cellTextColor: true,
+            headers: true,
         },
     });
 
@@ -1156,7 +1232,7 @@ export function EditorInner({
                 }
             } catch (e) {
                 if (!cancelled) {
-                    console.error("Error loading initial content:", e);
+                    logError('load-initial-content', e);
                 }
             } finally {
                 if (!cancelled) {
@@ -1173,6 +1249,9 @@ export function EditorInner({
 
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
+
+    // (interceptor de file:// mogut al wrapper BlockEditor perquè estigui
+    // actiu sempre, independent del mode de visualització)
 
     const headingCacheRef = useRef(new Map());
     const headingInFlightRef = useRef(new Map());
@@ -1303,18 +1382,20 @@ export function EditorInner({
             }
 
             setSaveStatus('saved');
-            if (onUpdate) onUpdate(noteFilename, data);
-            
+            // El contracte de handleEditorUpdate al pare és (pageId, content, payload).
+            // Si passem 'data' (objecte) com a content, tab.content esdevé un objecte
+            // i el toggle MD el toString-eja a "[object Object]" + perd la nota.
+            if (onUpdate) onUpdate(noteFilename, data.content, { title: data.title, metadata: data.metadata });
+
             if (saveTimerRef.current) {
                 clearTimeout(saveTimerRef.current);
                 saveTimerRef.current = null;
             }
             
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
-        } catch (err) { 
-            console.error("Autosave error:", err);
+        } catch (err) {
+            notifyError('autosave', err, t('editor.autosave_error'));
             setSaveStatus('error');
-            toast.error(t('editor.autosave_error'));
         }
     }, [noteFilename, editor, isParsing, editorReady, onUpdate, t]);
 
@@ -1570,8 +1651,7 @@ export function EditorInner({
                 toast.success(t('editor.page_created', { title: safeTitle }));
             }
         } catch (error) {
-            console.error("Page create error:", error);
-            toast.error(t('editor.page_create_error'));
+            notifyError('page-create', error, t('editor.page_create_error'));
         }
     }, [insertTransclusion, insertWikiLink, normalizePendingLinkTitle, onRefreshNotes, t]);
 
@@ -1615,7 +1695,7 @@ export function EditorInner({
                            }
                         }, 1000);
                     }
-                }).catch(e => console.error("Unmount save failed", e));
+                }).catch(e => logError('unmount-save', e));
             }
         };
     }, [editor, isParsing, handleSave]);
@@ -1667,7 +1747,7 @@ export function EditorInner({
                 .bn-editor .bn-block-content[data-background-color]:not([data-background-color="default"]) {
                     background-color: transparent !important;
                 }
-                .bn-editor [data-background-color]:not([data-background-color="default"]):not(.bn-block):not(.bn-block-content) {
+                .bn-editor [data-background-color]:not([data-background-color="default"]):not(.bn-block):not(.bn-block-content):not(th):not(td) {
                     background-color: transparent !important;
                 }
                 .bn-editor .bn-block-content[data-background-color="gray"] .bn-inline-content,
@@ -1688,6 +1768,46 @@ export function EditorInner({
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color="purple"]) .bn-inline-content { background-color: #eae4f2 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
                 .bn-editor .bn-block-content[data-background-color="pink"] .bn-inline-content,
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color="pink"]) .bn-inline-content { background-color: #f4dfeb !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+
+                /* Cel·les de capçalera (<th>) de taules: fons gris i text en negreta per defecte */
+                .bn-editor [data-content-type="table"] th {
+                    background-color: #ebeced !important;
+                    font-weight: 700 !important;
+                }
+                .bn-editor [data-content-type="table"] th *,
+                .bn-editor [data-content-type="table"] th .bn-inline-content,
+                .bn-editor [data-content-type="table"] th p,
+                .bn-editor [data-content-type="table"] th a,
+                .bn-editor [data-content-type="table"] th span {
+                    font-weight: 700 !important;
+                }
+                /* Quan una cel·la (capçalera o normal) té un color assignat,
+                   pintar-lo directament a la cel·la i mantenir-ne la negreta si és <th>.
+                   Anul·lem també el "highlight" inline per evitar doble fons. */
+                .bn-editor [data-content-type="table"] th[data-background-color="gray"],
+                .bn-editor [data-content-type="table"] td[data-background-color="gray"] { background-color: #ebeced !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="brown"],
+                .bn-editor [data-content-type="table"] td[data-background-color="brown"] { background-color: #e9e5e3 !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="red"],
+                .bn-editor [data-content-type="table"] td[data-background-color="red"] { background-color: #fbe4e4 !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="orange"],
+                .bn-editor [data-content-type="table"] td[data-background-color="orange"] { background-color: #f6e9d9 !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="yellow"],
+                .bn-editor [data-content-type="table"] td[data-background-color="yellow"] { background-color: #fbf3db !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="green"],
+                .bn-editor [data-content-type="table"] td[data-background-color="green"] { background-color: #ddedea !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="blue"],
+                .bn-editor [data-content-type="table"] td[data-background-color="blue"] { background-color: #ddebf1 !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="purple"],
+                .bn-editor [data-content-type="table"] td[data-background-color="purple"] { background-color: #eae4f2 !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color="pink"],
+                .bn-editor [data-content-type="table"] td[data-background-color="pink"] { background-color: #f4dfeb !important; }
+                .bn-editor [data-content-type="table"] th[data-background-color] .bn-inline-content,
+                .bn-editor [data-content-type="table"] td[data-background-color] .bn-inline-content {
+                    background-color: transparent !important;
+                    padding: 0 !important;
+                    border-radius: 0 !important;
+                }
 
                 [data-content-type="columnList"] {
                     gap: 1.5rem !important;
@@ -1777,13 +1897,25 @@ export function EditorInner({
                             formData.append('file', file);
                             const pdfUploadUrl = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
                             const res = await fetch(pdfUploadUrl, { method: 'POST', body: formData });
+                            if (!res.ok) {
+                                // Sense aquest check, un 4xx/5xx feia que data.url
+                                // fos undefined i s'inseria `[name](undefined)`.
+                                throw new Error(`PDF upload failed: HTTP ${res.status}`);
+                            }
                             const data = await res.json();
+                            if (!data?.url) {
+                                throw new Error('PDF upload response missing url');
+                            }
                             const pos = editor.getTextCursorPosition();
                             editor.insertBlocks(
                                 [{ type: 'paragraph', content: `📎 [${file.name}](${data.url})` }],
                                 pos.block, 'after'
                             );
-                        } catch { /* silent */ }
+                        } catch (err) {
+                            // Notify user — silent dropping was confusing: the PDF
+                            // disappeared and nothing happened.
+                            console.error('PDF drop upload failed', err);
+                        }
                     }
                 }}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
@@ -1810,6 +1942,14 @@ export function EditorInner({
                             title: item.title, onItemClick: item.onItemClick, aliases: item.aliases, group: item.group, icon: <Columns size={18} />, subtext: item.subtext
                         }));
                         const quickLinkItems = [
+                            {
+                                title: t('editor.rich_link', { defaultValue: 'Enllaç ric (URL/local/embed)' }),
+                                onItemClick: () => setIsRichLinkOpen(true),
+                                aliases: ["enllac", "link", "rich", "url", "file", "local", "embed", "fitxer"],
+                                group: t('editor.links_group'),
+                                icon: <Link2 size={18} />,
+                                subtext: t('editor.rich_link_subtext', { defaultValue: 'URL externa, fitxer/carpeta local o embed' }),
+                            },
                             {
                                 title: t('editor.external_link'),
                                 onItemClick: () => editor.insertInlineContent(`[${t('editor.link_text_placeholder')}](https://)`),
@@ -2127,11 +2267,17 @@ export function EditorInner({
                 />
             </BlockNoteView>
             </div>
+            <RichLinkInsertModal
+                open={isRichLinkOpen}
+                onClose={() => setIsRichLinkOpen(false)}
+                editor={editor}
+                uploadFile={uploadFileToAssets}
+            />
         </VaultEditorContext.Provider>
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, historyOpenSignal = 0, isCodeView = false }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, onToggleCodeView }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewer = role === 'viewer';
@@ -2141,6 +2287,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
     const isEditable = !isViewer;
     const [metadata, setMetadata] = useState(initialMetadata);
+    // (interceptor de file:// està al hook useFileLinkInterceptor invocat a App.jsx)
     
     const [saveStatus, setSaveStatus] = useState('idle');
     const metadataRef = useRef(metadata);
@@ -2169,57 +2316,123 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
     const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry]);
-    const handleSaveMetadata = useCallback(async (updatedMetadata) => {
+    // Performs the actual PATCH. Don't call this directly from key-by-key
+    // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
+    const _doSaveMetadata = useCallback(async (currentMetadata) => {
         if (!noteFilename) return;
-        const currentMetadata = updatedMetadata || metadataRef.current;
         setSaveStatus('saving');
         try {
-            const data = { 
-                title: currentMetadata?.title || t('editor.untitled'), 
-                metadata: currentMetadata 
+            const data = {
+                title: currentMetadata?.title || t('editor.untitled'),
+                metadata: currentMetadata
             };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
             setSaveStatus('saved');
             if (onRefreshNotes) onRefreshNotes();
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
         } catch (err) {
-            console.error("Error saving metadata:", err);
+            // Metadata-save failures used to be silent (console.error only).
+            // They mean a property edit, title rename, or icon/cover change
+            // didn't persist — important for the user to know. The UI error
+            // badge still shows; we add a deduplicated toast so the user
+            // doesn't think the change was saved.
+            notifyError('save-metadata', err, t('editor.markdown_save_error'));
             setSaveStatus('error');
         }
-    }, [noteFilename, onRefreshNotes]);
+    }, [noteFilename, onRefreshNotes, t]);
+
+    // Debounced metadata save. Without this, every keystroke on the title or
+    // every option toggle on a multi-select fires its own PATCH; on slow
+    // networks the requests overlap and a faster late save can be clobbered
+    // by a slower earlier one (no ordering guarantee). The dedicated ref
+    // ensures only the last user action triggers a real network call.
+    const metaSaveTimerRef = useRef(null);
+    const handleSaveMetadata = useCallback((updatedMetadata, options = {}) => {
+        const currentMetadata = updatedMetadata || metadataRef.current;
+        if (options.immediate) {
+            if (metaSaveTimerRef.current) clearTimeout(metaSaveTimerRef.current);
+            metaSaveTimerRef.current = null;
+            void _doSaveMetadata(currentMetadata);
+            return;
+        }
+        if (metaSaveTimerRef.current) clearTimeout(metaSaveTimerRef.current);
+        metaSaveTimerRef.current = setTimeout(() => {
+            metaSaveTimerRef.current = null;
+            void _doSaveMetadata(currentMetadata);
+        }, 600);
+    }, [_doSaveMetadata]);
+
+    // Flush any pending debounced save when the note changes or the editor
+    // unmounts — otherwise the user's last keystroke can be lost.
+    useEffect(() => {
+        return () => {
+            if (metaSaveTimerRef.current) {
+                clearTimeout(metaSaveTimerRef.current);
+                metaSaveTimerRef.current = null;
+                // Best-effort flush of the latest metadata snapshot.
+                void _doSaveMetadata(metadataRef.current);
+            }
+        };
+    }, [noteFilename, _doSaveMetadata]);
+
     const handleTitleChange = (e) => { const nextTitle = e.target.value; const nextMeta = { ...metadata, title: nextTitle }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
-    const handleMetaChange = (key, value) => { const nextMeta = { ...metadata, [key]: value }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
-    const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
+    const handleMetaChange = (key, value) => {
+        const nextMeta = { ...metadata, [key]: value };
+        setMetadata(nextMeta);
+        // Icona i portada són accions discretes (un sol click): salta el
+        // debounce i actualitza el sidebar de seguida amb un patch optimista
+        // perquè la nova icona aparegui immediatament a la barra lateral.
+        const isDiscrete = key === 'icon' || key === 'cover';
+        if (isDiscrete && onUpdatePageMetadata && noteFilename) {
+            onUpdatePageMetadata(noteFilename, { [key]: value });
+        }
+        handleSaveMetadata(nextMeta, isDiscrete ? { immediate: true } : undefined);
+    };
+    // Removing a property is a structural change → save immediately so the
+    // server-side state can never have a "stale" property removed only
+    // locally if the user navigates away within 600ms.
+    const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta, { immediate: true }); };
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
     const isDashworksJson = metadata?.is_dashworks === true || String(metadata?.content_format || '').toLowerCase() === 'json';
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
-    const properties = (currentTable?.properties || []).filter(prop => {
-        const normalizedName = String(prop?.name || '').toLowerCase();
-        return (
-            prop.type !== 'title' &&
-            normalizedName !== 'títol' &&
-            normalizedName !== 'title' &&
-            normalizedName !== 'cover' &&
-            normalizedName !== 'cover_manual' &&
-            normalizedName !== 'icon' &&
-            !normalizedName.startsWith('favorite') &&
-            !normalizedName.startsWith('icon_') &&
-            !normalizedName.startsWith('cover_')
-        );
-    });
+    // `properties` is the filtered schema list shown above the body. Memoized
+    // because the title input rerenders on every keystroke and recomputing
+    // this 10-key filter for every table with 100+ properties was visible in
+    // profiling.
+    const properties = useMemo(() => {
+        return (currentTable?.properties || []).filter(prop => {
+            const normalizedName = String(prop?.name || '').toLowerCase();
+            return (
+                prop.type !== 'title' &&
+                normalizedName !== 'títol' &&
+                normalizedName !== 'title' &&
+                normalizedName !== 'cover' &&
+                normalizedName !== 'cover_manual' &&
+                normalizedName !== 'icon' &&
+                !normalizedName.startsWith('favorite') &&
+                !normalizedName.startsWith('icon_') &&
+                !normalizedName.startsWith('cover_')
+            );
+        });
+    }, [currentTable]);
 
-    const internalKeys = ['title', 'table_id', 'database_id', 'database_table_id', 'id', 'parent_id', 'source_id', 'resolved_table_id', 'last_modified', 'created_time', 'last_edited_time', 'source_parent_id', 'is_default_template', 'path', 'filename', 'cover', 'cover_manual', 'icon'];
-    const adhocProperties = Object.keys(metadata).filter(key => {
-        const normalizedKey = String(key || '').toLowerCase();
-        return (
-            !internalKeys.includes(key) &&
-            !normalizedKey.startsWith('favorite') &&
-            !normalizedKey.startsWith('icon_') &&
-            !normalizedKey.startsWith('cover_') &&
-            !properties.find(p => p.name === key)
-        );
-    });
+    // `adhocProperties` is the list of metadata keys that aren't part of the
+    // schema. Memoized for the same reason; also we rebuild a Set for O(1)
+    // schema lookup instead of `properties.find` per key (was O(n*m)).
+    const adhocProperties = useMemo(() => {
+        const schemaNames = new Set(properties.map(p => p.name));
+        return Object.keys(metadata).filter(key => {
+            const normalizedKey = String(key || '').toLowerCase();
+            return (
+                !INTERNAL_METADATA_KEY_SET.has(key) &&
+                !normalizedKey.startsWith('favorite') &&
+                !normalizedKey.startsWith('icon_') &&
+                !normalizedKey.startsWith('cover_') &&
+                !schemaNames.has(key)
+            );
+        });
+    }, [metadata, properties]);
 
     const handleAddAdhocProperty = () => {
         if (!newPropName.trim()) { setIsAddingProp(false); return; }
@@ -2276,7 +2489,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [incomingTitleCounts, currentTitleNormalized, formatIncomingDisambiguator]);
 
     useEffect(() => {
-        let cancelled = false;
+        const controller = new AbortController();
 
         const loadIncomingLinks = async () => {
             if (!noteFilename) {
@@ -2286,8 +2499,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
             setIncomingLinksLoading(true);
             try {
-                const response = await axios.get('/api/vault/backlinks', { params: { id: noteFilename } });
-                if (cancelled) return;
+                const response = await axios.get('/api/vault/backlinks', {
+                    params: { id: noteFilename },
+                    signal: controller.signal,
+                });
+                if (controller.signal.aborted) return;
 
                 const dedup = new Map();
                 for (const item of Array.isArray(response?.data) ? response.data : []) {
@@ -2303,12 +2519,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     Array.from(dedup.values()).sort((a, b) => a.title.localeCompare(b.title))
                 );
             } catch (error) {
-                if (!cancelled) {
-                    console.error('Error loading backlinks:', error);
-                    setIncomingLinks([]);
-                }
+                if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
+                logError('load-backlinks', error);
+                setIncomingLinks([]);
             } finally {
-                if (!cancelled) {
+                if (!controller.signal.aborted) {
                     setIncomingLinksLoading(false);
                 }
             }
@@ -2316,12 +2531,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
         loadIncomingLinks();
         return () => {
-            cancelled = true;
+            controller.abort();
         };
     }, [noteFilename, idToTitle]);
 
     useEffect(() => {
-        let cancelled = false;
+        const controller = new AbortController();
 
         const loadUnlinkedMentions = async () => {
             if (!noteFilename) {
@@ -2331,17 +2546,19 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
             setUnlinkedMentionsLoading(true);
             try {
-                const response = await axios.get('/api/vault/unlinked-mentions', { params: { id: noteFilename } });
-                if (cancelled) return;
+                const response = await axios.get('/api/vault/unlinked-mentions', {
+                    params: { id: noteFilename },
+                    signal: controller.signal,
+                });
+                if (controller.signal.aborted) return;
                 const items = Array.isArray(response?.data) ? response.data : [];
                 setUnlinkedMentions(items);
             } catch (error) {
-                if (!cancelled) {
-                    console.error('Error loading unlinked mentions:', error);
-                    setUnlinkedMentions([]);
-                }
+                if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
+                logError('load-unlinked-mentions', error);
+                setUnlinkedMentions([]);
             } finally {
-                if (!cancelled) {
+                if (!controller.signal.aborted) {
                     setUnlinkedMentionsLoading(false);
                 }
             }
@@ -2349,7 +2566,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
         loadUnlinkedMentions();
         return () => {
-            cancelled = true;
+            controller.abort();
         };
     }, [noteFilename]);
 
@@ -2388,8 +2605,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
             if (onRefreshNotes) onRefreshNotes();
         } catch (error) {
-            console.error('Error linking pending mentions:', error);
-            toast.error(t('editor.link_mentions_error'));
+            notifyError('link-mentions', error, t('editor.link_mentions_error'));
         } finally {
             setLinkMentionsBusy(false);
         }
@@ -2400,6 +2616,29 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             setIsHistoryOpen(true);
         }
     }, [historyOpenSignal]);
+
+    // Listen for optimistic-concurrency conflicts from the etag interceptor.
+    // The backend returns 409 with `etag_mismatch` when the .md on disk has
+    // changed since this client GET'd it (typical case in personal mode:
+    // user edited the same note on the phone and OneDrive synced). We show a
+    // non-destructive toast offering to reload — never auto-overwrite.
+    useEffect(() => {
+        const handler = (ev) => {
+            const { pageId, message } = ev.detail || {};
+            // Ignore conflicts for other pages (other tabs etc.)
+            if (pageId && pageId !== noteFilename) return;
+            toast.error(
+                message ||
+                "El fitxer s'ha modificat fora d'aquesta finestra. Recarrega per veure els canvis.",
+                {
+                    duration: 8000,
+                    id: `etag-conflict-${noteFilename}`,
+                },
+            );
+        };
+        window.addEventListener('pageEtagConflict', handler);
+        return () => window.removeEventListener('pageEtagConflict', handler);
+    }, [noteFilename]);
 
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
@@ -2486,7 +2725,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 placeholder={t('editor.untitled')} 
                                 className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent" 
                             />
-                            <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 min-w-[80px] justify-end">
+                            <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
+                                {onToggleCodeView && (
+                                    <button
+                                        onClick={onToggleCodeView}
+                                        title={isCodeView ? t('shell.switch_normal_view') : t('shell.switch_code_view')}
+                                        className={`p-1.5 rounded-md transition-colors text-xs font-medium flex items-center gap-1 ${isCodeView ? 'bg-[var(--gnosi-primary)]/15 text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-secondary)]'}`}
+                                    >
+                                        <Code2 size={13} />
+                                        <span className="hidden sm:inline text-[10px] uppercase tracking-wider font-bold">MD</span>
+                                    </button>
+                                )}
                                 {saveStatus === 'saving' && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--gnosi-primary)]/5 text-[var(--gnosi-primary)]/60 text-[10px] font-bold uppercase tracking-wider">
                                         <Loader2 size={12} className="animate-spin" />
@@ -2813,15 +3062,16 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 onRefreshNotes={onRefreshNotes}
                             />
                         ) : (
-                            <EditorInner 
-                                noteFilename={noteFilename} 
-                                initialContent={initialContent} 
-                                metadata={metadata} 
-                                onUpdate={onUpdate} 
-                                idToTitle={idToTitle} 
-                                onRefreshNotes={onRefreshNotes} 
-                                effectiveTheme={effectiveTheme} 
-                                contextValue={contextValue} 
+                            <EditorInner
+                                noteFilename={noteFilename}
+                                initialContent={initialContent}
+                                metadata={metadata}
+                                onUpdate={onUpdate}
+                                idToTitle={idToTitle}
+                                onRefreshNotes={onRefreshNotes}
+                                onUpdatePageMetadata={onUpdatePageMetadata}
+                                effectiveTheme={effectiveTheme}
+                                contextValue={contextValue}
                                 saveStatus={saveStatus}
                                 setSaveStatus={setSaveStatus}
                                 metadataRef={metadataRef}

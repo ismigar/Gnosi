@@ -3371,9 +3371,20 @@ async def link_existing_file(body: dict):
     }
 
 
+def _run_osascript_picker(script: str) -> str:
+    """Helper sync per usar amb asyncio.to_thread."""
+    import subprocess
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True, text=True, timeout=60,
+    )
+    return result.stdout.strip()
+
+
 @router.post("/pick-folder")
 async def pick_folder():
     """Open a native macOS folder-picker dialog and return the chosen path."""
+    import asyncio as _asyncio
     import subprocess
     script = (
         'tell application "System Events"\n'
@@ -3383,16 +3394,17 @@ async def pick_folder():
         'return POSIX path of chosen'
     )
     try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=60
-        )
-        chosen = result.stdout.strip()
+        # subprocess.run amb timeout=60 dins un endpoint async bloqueja
+        # tot l'event loop fins a 1 minut mentre l'usuari pensa al diàleg
+        # del Finder. Off-thread per servir altres requests en paral·lel.
+        chosen = await _asyncio.to_thread(_run_osascript_picker, script)
         if not chosen:
             raise HTTPException(status_code=204, detail="No folder selected")
         return {"path": chosen}
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=408, detail="Folder picker timed out")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -3403,6 +3415,7 @@ async def pick_folder():
 @router.post("/pick-file")
 async def pick_file():
     """Open a native macOS file-picker dialog and return the chosen file path."""
+    import asyncio as _asyncio
     import subprocess
     script = (
         'tell application "System Events"\n'
@@ -3412,17 +3425,15 @@ async def pick_file():
         'return POSIX path of chosen'
     )
     try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=60
-        )
-        chosen = result.stdout.strip()
+        chosen = await _asyncio.to_thread(_run_osascript_picker, script)
         if not chosen:
             raise HTTPException(status_code=204, detail="No file selected")
         p = Path(chosen)
         return {"path": chosen, "name": p.name, "size": p.stat().st_size if p.exists() else 0}
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=408, detail="File picker timed out")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
