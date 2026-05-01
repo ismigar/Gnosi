@@ -25,6 +25,11 @@
 | `0f5e63f35` | `backend/api/vault_graph_routes.py` | `build_unified_graph` (rglob + Fruchterman-Reingold) síncron dins async → bloquejava event loop segons. |
 | `047748450` | `backend/api/social_routes.py` | `interact_with_post` retornava 500 enganyós si network/action invàlid → ara 400 amb llistat d'opcions vàlides. |
 | `b60941e45` | `backend/data/management_db.py` | Sense lock a `_get_or_init_mgmt_engine` → dos requests concurrents al primer arrencada podien crear engines paral·lels. Afegit double-checked locking. |
+| `dfb2331da` | `backend/api/virtual_fields.py` | Mètriques NX (betweenness, pagerank, etc.) tornaven valors caducats després del refresh del graf perquè la invalidació es feia a `_get_nx_graph` cridada DESPRÉS del check al cache. |
+| `dfb2331da` | `backend/services/rule_engine.py` | RuleEngine cachejat per vault i compartit entre requests, però `process_updates` resetejava `_current_note_id`/caches sense lock → fórmules concurrents intercanviaven resultats. |
+| `dfb2331da` | `backend/services/audio_summarizer.py` | `start_generation_async` check-then-act sense lock → dos clients podien arrencar dues generacions Groq simultànies (~5 min cadascuna, cost real). |
+| `dfb2331da` | `frontend/src/components/Vault/VaultTable.jsx` | `handleCellSave`: `if (response.ok)` sense `else` engolia 4xx/5xx. `metadata.hasOwnProperty(k)` substituït per `Object.prototype.hasOwnProperty.call`. |
+| `a656d0b23` | `backend/server.py` | global_exception_handler retornava `str(exc)` al client (paths absoluts, SQL fragments, tokens). Ara només `error_id` per cross-ref amb log local. CORS misconfig spec-incompatible (origin=* + credentials=true). |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
@@ -123,6 +128,20 @@ Codi mort — l'if sempre és True. El comentari diu que es va treure el filtre 
 
 ### 16. `backend/api/workspace_routes.py:247-250` — `WorkspaceResponse.from_orm(None)`
 Si la membership existeix però el workspace s'ha eliminat (cas corrupte), `from_orm(None)` crashejaria. Cas marginal però val la pena un None check.
+
+### 17. `backend/agent/generated_tools/dry_run.py:52` — `hash() % 10000` collision risk
+```python
+execution_id = f"{tool_name}_{hash(json.dumps(arguments, default=str)) % 10000}"
+```
+Dos tool calls diferents poden col·lidir amb només 100 pendents (paradoxa de l'aniversari, ~40%) i sobreescriuen-se al `_pending_executions`. Substituir per `uuid.uuid4().hex[:8]`.
+
+### 18. `backend/api/env_routes.py` i `config_routes.py` — sense auth
+Cap dels dos routers té `Depends(require_role(...))` ni a router-level ni a endpoint-level. En personal mode (mono-usuari local) no afecta, però si s'activa "organitzacio" mode, qualsevol usuari pot llegir/escriure env vars i config (path del vault, providers AI, etc.).
+
+**Recomanació:** afegir `dependencies=[Depends(require_role("admin"))]` als routers o validar `gnosi_mode == "organitzacio"` per requerir auth.
+
+### 19. `backend/agent/generated_tools/test_sandbox.py:149-150` i `loader.py:110-111` — falsa positivització
+Mateix patró `callable(attr) and hasattr(attr, 'name')`. Pot retornar callables aleatoris amb `.name` abans de trobar el `BaseTool`. Recomanació: marcar els tools amb un atribut explícit `__tool__ = True`.
 
 ## Patrons recurrents a vigilar
 
