@@ -216,18 +216,36 @@ export default function CalendarPage() {
         },
     });
 
-    // Fetch d'events externs (Google Calendar / CalDAV) pel rang visible
+    // Fetch d'events externs (Google Calendar / CalDAV) pel rang visible.
+    // Si canvia el rang/cerca mentre una request està en vol, s'avorta la
+    // anterior per evitar que setExternalEvents rebi dades obsoletes (race).
+    const externalEventsAbortRef = useRef(null);
     const fetchExternalEvents = async (timeMin, timeMax, search = '') => {
+        if (externalEventsAbortRef.current) {
+            externalEventsAbortRef.current.abort();
+        }
+        const controller = new AbortController();
+        externalEventsAbortRef.current = controller;
         try {
             const params = { include_vault: false };
             if (timeMin) params.time_min = timeMin;
             if (timeMax) params.time_max = timeMax;
             if (search) params.search = search;
-            const res = await axios.get('/api/calendar/events', { params, timeout: 30000 });
+            const res = await axios.get('/api/calendar/events', {
+                params,
+                timeout: 30000,
+                signal: controller.signal,
+            });
+            if (controller.signal.aborted) return;
             const converted = (res.data || []).map(convertHybridEvent);
             setExternalEvents(converted);
         } catch (err) {
+            if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
             console.warn('fetchExternalEvents error:', err);
+        } finally {
+            if (externalEventsAbortRef.current === controller) {
+                externalEventsAbortRef.current = null;
+            }
         }
     };
 
@@ -296,6 +314,16 @@ export default function CalendarPage() {
 
     useEffect(() => {
         fetchPages();
+    }, []);
+
+    // Avortar la request d'events externs si el component es desmunta.
+    useEffect(() => {
+        return () => {
+            if (externalEventsAbortRef.current) {
+                externalEventsAbortRef.current.abort();
+                externalEventsAbortRef.current = null;
+            }
+        };
     }, []);
 
     // Re-fetch events externs quan canvia el rang de dates o la cerca

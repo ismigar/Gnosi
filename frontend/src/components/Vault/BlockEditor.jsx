@@ -1594,6 +1594,10 @@ export function EditorInner({
                     }
                     return;
                 } catch (error) {
+                    // Si replaceBlocks/updateBlock fallen (per exemple, el bloc
+                    // ja no existeix per cancel·lació), continuem al fallback
+                    // de sota que insereix una transclusion al final del doc.
+                    console.debug('transclusion inline replace fallback:', error?.message);
                 }
             }
         }
@@ -1644,7 +1648,8 @@ export function EditorInner({
                 window.setTimeout(() => {
                     try {
                         onRefreshNotes();
-                    } catch {
+                    } catch (e) {
+                        console.debug('onRefreshNotes failed:', e?.message);
                     }
                 }, 1400);
             }

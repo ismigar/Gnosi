@@ -189,7 +189,9 @@
     "switch_normal_view": "Canviar a vista normal",
     "switch_code_view": "Canviar a vista codi (md/json)",
     "view_history": "Veure històric",
-    "delete_current_page": "Eliminar pàgina actual"
+    "delete_current_page": "Eliminar pàgina actual",
+    "hide_sidebar": "Amagar barra lateral",
+    "show_sidebar": "Mostrar barra lateral"
   },
   "table": {
     "new_record": "Nou registre",
