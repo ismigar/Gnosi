@@ -3,6 +3,7 @@ import json
 import yaml
 import re
 import math
+import threading
 from datetime import datetime
 from pathlib import Path
 from collections import deque
@@ -22,6 +23,13 @@ class RuleEngine:
         self._lookup_cache: Dict[Tuple[str, str, str], Any] = {}
         self._query_cache: Dict[Tuple[str, str, Optional[str]], Any] = {}
         self._current_note_id: Optional[str] = None
+        # L'instància de RuleEngine és cachejada per vault a vault_routes.py i
+        # compartida entre requests. Sense lock, dos `process_updates` concurrents
+        # es trepitgen `_current_note_id` i les caches `_lookup_cache`/`_query_cache`
+        # → fórmules retornen valors d'una altra nota. El lock serialitza
+        # l'evaluació; com que això només passa en saves (no reads), no és coll
+        # d'ampolla pràctic.
+        self._eval_lock = threading.Lock()
 
     def _setup_evaluator(self):
         """Register custom functions for formula evaluation."""
@@ -749,6 +757,11 @@ class RuleEngine:
 
     def process_updates(self, note_id: str, old_metadata: Dict[str, Any], request_metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate formulas and automations for a record, respecting manual overrides."""
+        with self._eval_lock:
+            return self._process_updates_locked(note_id, old_metadata, request_metadata)
+
+    def _process_updates_locked(self, note_id: str, old_metadata: Dict[str, Any], request_metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Implementació real de process_updates. Cridada amb el lock pres."""
         # Registry can change at runtime when schema is edited from frontend.
         # Reload per update to keep formula definitions fresh.
         self.registry = self._load_registry()
