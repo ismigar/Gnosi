@@ -4,13 +4,14 @@ Provides endpoints for the Dashboard to approve/reject pending tools.
 """
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
 from backend.agent.generated_tools.registry import registry, ToolStatus
 from backend.agent.generated_tools.loader import loader
 from backend.config.app_config import load_params
+from backend.services.workspace_service import require_role
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
@@ -90,7 +91,7 @@ async def get_approved_tools():
     ]
 
 
-@router.post("/approve")
+@router.post("/approve", dependencies=[Depends(require_role("admin"))])
 async def approve_tool(request: ApproveRequest):
     """
     Approve a pending tool.
@@ -119,7 +120,7 @@ async def approve_tool(request: ApproveRequest):
     return {"status": "approved", "name": request.name}
 
 
-@router.post("/reject")
+@router.post("/reject", dependencies=[Depends(require_role("admin"))])
 async def reject_tool(request: RejectRequest):
     """
     Reject a pending tool.

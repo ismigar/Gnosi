@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 import json
 import os
 
-from backend.services.workspace_service import get_workspace_context, WorkspaceContext
+from backend.services.workspace_service import get_workspace_context, WorkspaceContext, require_role
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_json
@@ -46,7 +46,7 @@ async def get_identity():
         log.error(f"Error reading identity: {e}")
         return IdentityProfile().dict()
 
-@router.post("/api/identity")
+@router.post("/api/identity", dependencies=[Depends(require_role("editor"))])
 async def save_identity(profile: IdentityProfile):
     path = get_identity_path()
     try:

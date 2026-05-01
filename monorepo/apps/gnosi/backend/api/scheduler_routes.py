@@ -6,6 +6,7 @@ from backend.data.management_db import get_mgmt_db
 from backend.models.scheduler import TaskExecutionHistory, TaskHistoryResponse
 from backend.scheduler.manager import scheduler_manager
 from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
 
 router = APIRouter(prefix="/api/schedulers", tags=["schedulers"])
 
@@ -22,7 +23,7 @@ async def list_tasks() -> List[Dict[str, Any]]:
 
 
 
-@router.delete("/history")
+@router.delete("/history", dependencies=[Depends(require_role("admin"))])
 async def clear_history() -> Dict[str, Any]:
     """Clear execution history for all tasks."""
     try:
@@ -64,7 +65,7 @@ async def get_task(name: str) -> Dict[str, Any]:
     return task
 
 
-@router.put("/{name}")
+@router.put("/{name}", dependencies=[Depends(require_role("admin"))])
 async def update_task(name: str, update: TaskUpdate) -> Dict[str, Any]:
     """Update a task's configuration."""
     try:
@@ -77,7 +78,7 @@ async def update_task(name: str, update: TaskUpdate) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=safe_error_detail(e, context="PUT /api/schedulers/{name}"))
 
 
-@router.post("/{name}/run")
+@router.post("/{name}/run", dependencies=[Depends(require_role("admin"))])
 async def run_task(name: str, background_tasks: BackgroundTasks) -> Dict[str, Any]:
     """Run a task immediately in the background."""
     try:
