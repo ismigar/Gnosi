@@ -53,4 +53,59 @@ Si no retorna res, el contenidor té el codi antic i cal reconstruir.
 ### Restriccions / Edge Cases
 - `docker-compose up -d backend` sense `build` previ **reutilitza la imatge cacheada** — els canvis segueixen sense aplicar-se.
 - Si el canvi afecta dependències Python (`requirements.txt`), cal afegir `--no-cache`: `docker-compose build --no-cache backend`.
-- El frontend SÍ usa hot-reload via volum, per tant `restart` o `up -d` sense `build` és suficient per al frontend.
+- El frontend SÍ usa hot-reload via volum, per tant `restart` o `up -d` sense `build` és suficient per al frontend **per canvis de codi**, però **no per a dependències noves** (vegeu la regla següent).
+
+---
+
+## Regla Crítica: Noves Dependències npm al Frontend
+
+### Problema
+Afegir un paquet a `frontend/package.json` **no el fa disponible al contenidor frontend**. Vite mostrarà un error com:
+```
+[plugin:vite:import-analysis] Failed to resolve import "<paquet>" from "src/.../X.jsx".
+Does the file exist?
+```
+
+Símptoma típic: el `package.json` declara la dependència, però `node_modules/<paquet>` no existeix dins del contenidor.
+
+### Causa
+A `docker-compose.yml`, el servei `frontend` usa **dos volums**:
+```yaml
+volumes:
+  - .:/app                          # codi font (hot-reload)
+  - /app/frontend/node_modules      # volum anonymous que aïlla node_modules
+```
+El segon volum (`/app/frontend/node_modules`) és **anonymous**: es crea la primera vegada que s'arrenca el contenidor amb el `npm install` del Dockerfile, i des d'aleshores **persisteix**. Si edites `package.json` des de fora, el `node_modules` del contenidor queda desfasat fins que es reconstrueix explícitament.
+
+Aquesta arquitectura és intencional: evita conflictes entre el `node_modules` macOS/local i el `node_modules` Linux/contenidor (binaris natius incompatibles).
+
+### Regla
+Després d'afegir o actualitzar dependències a `frontend/package.json`, cal executar **una de** les opcions següents (per ordre de preferència):
+
+**Opció A — Instal·lació in-place (ràpida, ~10s)**:
+```bash
+docker exec gnosi_frontend sh -c "cd /app/frontend && npm install"
+```
+Recomanada per al cas habitual: només afegeixes 1-2 paquets. No cal reiniciar Vite — detecta el canvi automàticament.
+
+**Opció B — Reconstrucció de la imatge (lenta, ~2min)**:
+```bash
+docker-compose build frontend && docker-compose up -d frontend
+```
+Necessària si el `Dockerfile.frontend` ha canviat o si vols un `node_modules` totalment net (per exemple després de canvis dràstics al `package-lock.json`).
+
+### Verificació
+Confirma que el paquet és accessible des del contenidor:
+```bash
+docker exec gnosi_frontend ls /app/frontend/node_modules/<paquet>
+```
+Si retorna error "No such file", la regla A o B encara no s'ha aplicat.
+
+### Restriccions / Edge Cases
+- **Mai** facis `npm install <paquet>` al host (macOS) sense fer-ho també al contenidor: el `package-lock.json` quedarà actualitzat però el contenidor no veurà el paquet.
+- Si Vite continua donant error després de l'opció A, **fes un hard reload del navegador** (Cmd+Shift+R) — Vite cacheja l'arbre d'imports en memòria del client.
+- Aquesta regla **no aplica al backend** (Python): allà cal `docker-compose build` (vegeu la secció anterior).
+- Si veus aquest error en un `git pull` net (sense haver tocat `package.json`), pot ser que un company hagi afegit dependencies — aplica l'opció A i tornarà a funcionar.
+
+### Causa-Efecte (memoritzar)
+> Afegir paquet a `package.json` → `node_modules` del contenidor desfasat → Vite no pot resoldre l'import → cal `docker exec ... npm install` o `docker-compose build frontend`.
