@@ -62,24 +62,34 @@ class DockerMCPClient:
         if self._reader_task:
             self._reader_task.cancel()
 
-    async def send_request(self, method: str, params: Optional[Dict] = None) -> Any:
+    async def send_request(self, method: str, params: Optional[Dict] = None, timeout: float = 30.0) -> Any:
         self._msg_id += 1
         current_id = self._msg_id
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": current_id,
             "method": method,
             "params": params or {}
         }
-        
+
         # get_running_loop() és la API moderna dins funcions async
         # (get_event_loop està deprecat des de Python 3.10).
         future = asyncio.get_running_loop().create_future()
         self._pending_requests[current_id] = future
-        
+
         await self._send_json(request)
-        return await future
+        try:
+            # Timeout: si el servidor MCP es penja o crasheja, abans
+            # `await future` quedava penjat indefinidament i bloquejava
+            # el caller (típicament un endpoint d'agent_routes o factory).
+            return await asyncio.wait_for(future, timeout=timeout)
+        except asyncio.TimeoutError:
+            # Netegem la pendent perquè no acumuli memòria
+            self._pending_requests.pop(current_id, None)
+            raise RuntimeError(
+                f"MCP request {method} on {self.server_name} timed out after {timeout}s"
+            )
 
     async def send_notification(self, method: str, params: Optional[Dict] = None):
         request = {
