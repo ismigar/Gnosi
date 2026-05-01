@@ -1166,13 +1166,17 @@ const AvailabilityTool = ({ calendars }) => {
         }
     };
 
-    const copySlotsAsText = () => {
+    const copySlotsAsText = async () => {
         if (freeSlots.length === 0) return;
         const text = `Hola! Estic disponible el dia ${date} en aquests horaris:\n` +
             freeSlots.map(s => `- ${s.start} a ${s.end}`).join('\n') +
             ` \n\nQuin et va millor?`;
-        navigator.clipboard.writeText(text);
-        toast.success("Horaris copiats al porta-retalls!");
+        try {
+            await navigator.clipboard.writeText(text);
+            toast.success("Horaris copiats al porta-retalls!");
+        } catch {
+            toast.error("No s'ha pogut copiar al porta-retalls");
+        }
     };
 
     return (
