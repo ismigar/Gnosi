@@ -89,13 +89,20 @@ const PageTreeItem = ({
             }
         };
 
+        // Without `tid`, the cleanup ran before the timeout fired, so
+        // `removeEventListener` had nothing to remove and the listeners
+        // accumulated forever — every menu open added two more global
+        // listeners. After enough toggles the page got sluggish and old
+        // handlers fired on unrelated components.
+        let tid;
         if (isMenuOpen) {
-            setTimeout(() => {
+            tid = setTimeout(() => {
                 document.addEventListener('click', handleClickOutside);
                 document.addEventListener('keydown', handleKeyDown);
             }, 10);
         }
         return () => {
+            if (tid) clearTimeout(tid);
             document.removeEventListener('click', handleClickOutside);
             document.removeEventListener('keydown', handleKeyDown);
         };
@@ -397,13 +404,18 @@ export const VaultSidebar = ({
             }
         };
 
+        // Same listener-leak pattern as in the page-row menu above: track the
+        // timeout id and clear it in the cleanup so we never end up with
+        // listeners attached after the menu has already closed.
+        let tid;
         if (menuState && (menuState.type === 'database' || menuState.type === 'table')) {
-            setTimeout(() => {
+            tid = setTimeout(() => {
                 document.addEventListener('click', handleClickOutside);
                 document.addEventListener('keydown', handleKeyDown);
             }, 10);
         }
         return () => {
+            if (tid) clearTimeout(tid);
             document.removeEventListener('click', handleClickOutside);
             document.removeEventListener('keydown', handleKeyDown);
         };

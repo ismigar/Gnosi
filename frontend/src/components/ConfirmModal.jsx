@@ -29,19 +29,66 @@ export const ConfirmModal = ({
     useEffect(() => {
         if (!isOpen) return;
 
+        // Save the previously focused element so we can restore focus when
+        // the modal closes (accessibility best practice — keyboard users
+        // should return to where they were).
+        const previouslyFocused = document.activeElement;
+
+        const getFocusable = () => {
+            if (!modalRef.current) return [];
+            return Array.from(
+                modalRef.current.querySelectorAll(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ),
+            );
+        };
+
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
                 if (isSubmitting) return;
                 onClose();
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                handleConfirm();
+                return;
+            }
+            if (e.key === 'Enter') {
+                // Only trigger Enter→confirm when focus is INSIDE the modal
+                // (otherwise pressing Enter on a background input could
+                // accidentally fire a destructive action).
+                if (modalRef.current?.contains(document.activeElement)) {
+                    e.preventDefault();
+                    handleConfirm();
+                }
+                return;
+            }
+            // Focus trap on Tab: cycle within the modal.
+            if (e.key === 'Tab') {
+                const items = getFocusable();
+                if (items.length === 0) return;
+                const first = items[0];
+                const last = items[items.length - 1];
+                const active = document.activeElement;
+                if (e.shiftKey) {
+                    if (active === first || !modalRef.current?.contains(active)) {
+                        e.preventDefault();
+                        last.focus();
+                    }
+                } else {
+                    if (active === last || !modalRef.current?.contains(active)) {
+                        e.preventDefault();
+                        first.focus();
+                    }
+                }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            // Restore focus to the trigger element on close.
+            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                try { previouslyFocused.focus(); } catch { /* element gone */ }
+            }
+        };
     }, [isOpen, onClose, handleConfirm, isSubmitting]);
 
     useEffect(() => {
@@ -52,8 +99,19 @@ export const ConfirmModal = ({
 
     if (!isOpen) return null;
 
+    const handleBackdropClick = () => {
+        if (isSubmitting) return; // never abort an in-flight destructive op
+        onClose();
+    };
+
     return (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 99999 }}>
+        <div
+            className="fixed inset-0 flex items-center justify-center"
+            style={{ zIndex: 99999 }}
+            onClick={handleBackdropClick}
+            role="dialog"
+            aria-modal="true"
+        >
             <div className="absolute inset-0 bg-[var(--bg-primary)]/40 backdrop-blur-sm transition-opacity" />
 
             <div

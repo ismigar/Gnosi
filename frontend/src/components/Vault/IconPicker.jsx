@@ -7,6 +7,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { toast } from 'react-hot-toast';
+import { logError } from '../../lib/notifyError';
 
 export const VAULT_COLORS = [
     { name: 'default', color: '#37352f', label: 'Default' },
@@ -183,7 +184,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             onClose();
             toast.success(t('icon_picker.toast.upload_success'));
         } catch (error) {
-            console.error(error);
+            logError('icon-picker', error);
             const errorMessage = error.code === 'ECONNABORTED' ? 'Temps d\'espera esgotat (Timeout)' : t('icon_picker.toast.upload_error');
             toast.error(errorMessage);
         } finally {
@@ -209,7 +210,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             onClose();
             toast.success(t('icon_picker.toast.import_success'));
         } catch (error) {
-            console.error(error);
+            logError('icon-picker', error);
             toast.error(t('icon_picker.toast.import_error'));
         } finally {
             setIsImportingLink(false);

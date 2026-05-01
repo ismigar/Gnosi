@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, Menu, Trash2, History, Code2 } from 'lucide-react';
+import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2 } from 'lucide-react';
 import { AppHeader } from '../AppHeader';
 
 export const VaultShell = ({
@@ -46,16 +46,8 @@ export const VaultShell = ({
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-indigo-100 italic-none transition-colors duration-300">
             <aside
-                className={`${isSidebarOpen ? 'w-[240px]' : 'w-0'} transition-all duration-300 ease-in-out border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex flex-col shrink-0 overflow-hidden relative group`}
+                className={`${isSidebarOpen ? 'w-[240px]' : 'w-0'} transition-all duration-300 ease-in-out border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex flex-col shrink-0 overflow-hidden relative`}
             >
-                {/* Close sidebar button */}
-                <button
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="absolute top-4 right-2 p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded opacity-0 group-hover:opacity-100 transition-all"
-                >
-                    <ChevronRight className="rotate-180" size={16} />
-                </button>
-
                 <div className="flex-1 flex flex-col min-w-[240px] min-h-0">
                     {sidebarContent}
                 </div>
@@ -67,15 +59,14 @@ export const VaultShell = ({
                 <header className="h-12 flex items-center justify-between px-4 shrink-0 z-20 border-b border-[var(--border-primary)]">
                     <div className="flex items-center gap-1 overflow-hidden">
 
-                        {/* Open sidebar button (if closed) */}
-                        {!isSidebarOpen && (
-                            <button
-                                onClick={() => setIsSidebarOpen(true)}
-                                className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-colors mr-2"
-                            >
-                                <Menu size={18} />
-                            </button>
-                        )}
+                        {/* Sidebar toggle (always visible) */}
+                        <button
+                            onClick={() => setIsSidebarOpen(prev => !prev)}
+                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors shrink-0"
+                            title={isSidebarOpen ? t('shell.hide_sidebar', 'Amagar barra lateral') : t('shell.show_sidebar', 'Mostrar barra lateral')}
+                        >
+                            <PanelLeft size={16} />
+                        </button>
 
                         <div className="flex items-center gap-1 overflow-hidden ml-2">
                             {/* Navigation buttons */}

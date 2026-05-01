@@ -4,6 +4,7 @@ import { Image as ImageIcon, Link2, Upload, Search, X, Loader2 } from 'lucide-re
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
+import { logError } from '../../lib/notifyError';
 
 const PREDEFINED_COVERS = {
     'Colors i Degradats': [
@@ -80,7 +81,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
             const res = await axios.get(`/api/vault/unsplash/search?query=${encodeURIComponent(query)}`);
             setUnsplashResults(res.data.results || []);
         } catch (error) {
-            console.error(error);
+            logError('cover-picker', error);
             toast.error(t('cover_picker.toast.unsplash_error'));
         } finally {
             setIsSearching(false);
@@ -101,7 +102,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
             onClose();
             toast.success(t('cover_picker.toast.upload_success'));
         } catch (error) {
-            console.error(error);
+            logError('cover-picker', error);
             toast.error(t('cover_picker.toast.upload_error'));
         } finally {
             setIsUploading(false);

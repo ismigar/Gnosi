@@ -100,8 +100,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
     useEffect(() => {
         if (!drawingId) { setIsLoading(false); return; }
 
-        axios.get(`/api/vault/drawings/${drawingId}`)
+        const controller = new AbortController();
+        axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
             .then(res => {
+                if (controller.signal.aborted) return;
                 const data = res.data;
                 if (data && typeof data === 'object') {
                     try {
@@ -111,10 +113,17 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                     }
                 }
             })
-            .catch(() => {
+            .catch((err) => {
+                if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
                 // El dibuix no existeix yet → pissarra buida
             })
-            .finally(() => setIsLoading(false));
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false);
+            });
+
+        return () => {
+            controller.abort();
+        };
     }, [drawingId, store]);
 
     // Guardar dibuix (auto-save)
