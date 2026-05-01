@@ -29,6 +29,12 @@ generation_status = {
     "result_filename": None,
 }
 
+# Lock per evitar que dos clients arrenquin dues generacions simultànies (cada
+# generació triga ~5 min i fa crides Groq de pagament). Sense lock, dos
+# requests molt seguits passaven el check `running:False` abans que el primer
+# tingués temps de marcar-ho.
+_generation_lock = threading.Lock()
+
 # --- Batch configuration for Groq free tier ---
 MAX_SNIPPET_CHARS = 500  # Content chars per article
 MAX_BATCH_CHARS = 20000  # ~5k input tokens per batch
@@ -268,8 +274,12 @@ def generate_daily_podcast():
 
 def start_generation_async():
     """Llança la generació en un thread de fons. Retorna immediatament."""
-    if generation_status["running"]:
-        return False  # Ja hi ha una generació en curs
+    with _generation_lock:
+        if generation_status["running"]:
+            return False  # Ja hi ha una generació en curs
+        # Marca el flag DINS el lock per que ningú més passi el check abans
+        # que el thread comenci. El thread mateix sobreescriurà el progrés.
+        generation_status["running"] = True
     thread = threading.Thread(target=generate_daily_podcast, daemon=True)
     thread.start()
     return True

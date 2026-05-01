@@ -76,6 +76,7 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { notifyError, logError } from '../../lib/notifyError';
 
 export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
     const { t, i18n } = useTranslation();
@@ -132,7 +133,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     const viewConfig = {
         filters: activeView?.filters || [],
-        sorts: activeSort,
+        sort: activeSort.field ? [activeSort] : [],
         search: searchTerm
     };
 
@@ -297,7 +298,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         if (Array.isArray(mapped)) {
             // If we have an array of fallbacks, look for the first key that exists in the metadata
             if (!note?.metadata) return field;
-            const existingKey = mapped.find(k => note.metadata.hasOwnProperty(k));
+            // Object.prototype.hasOwnProperty.call evita falsos positius si
+            // metadata té una propietat anomenada "hasOwnProperty".
+            const existingKey = mapped.find(k => Object.prototype.hasOwnProperty.call(note.metadata, k));
             if (existingKey) return existingKey;
 
             // If none exist exactly, look by normalization
@@ -543,20 +546,26 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     metadata: updatedMetadata
                 })
             });
-            if (response.ok) {
-                // Propagate changes to parent if this is a child
-                if (!skipPropagation) {
-                    const parentId = note.metadata?.parent_id || note.parent_id;
-                    if (parentId) {
-                        await propagateToParent(parentId, field, noteId, newValue);
-                    }
-                }
-                // Refresh data to reflect changes in UI
-                if (onCellSaved) await onCellSaved();
-                else if (onUpdateView) onUpdateView(activeView);
+            if (!response.ok) {
+                // fetch només llança a errors de xarxa, no a 4xx/5xx → si no ho
+                // gestionem aquí, l'usuari no veu res però la cel·la no s'ha desat.
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload?.detail || `HTTP ${response.status}`);
             }
+            // Propagate changes to parent if this is a child
+            if (!skipPropagation) {
+                const parentId = note.metadata?.parent_id || note.parent_id;
+                if (parentId) {
+                    await propagateToParent(parentId, field, noteId, newValue);
+                }
+            }
+            // Refresh data to reflect changes in UI
+            if (onCellSaved) await onCellSaved();
+            else if (onUpdateView) onUpdateView(activeView);
         } catch (error) {
-            console.error("Error saving cell:", error);
+            // Cell save failures used to be silent. Surface them so the user
+            // doesn't believe the change was persisted when it wasn't.
+            notifyError('table-save-cell', error, t('table.save_cell_error', 'Error desant la cel·la'));
         }
     }, [safeNotes, activeView, onUpdateView]);
 
@@ -675,8 +684,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 toast.success(t('table.subitem_created'));
             }
         } catch (error) {
-            console.error("Error creating subitem:", error);
-            toast.error(t('table.subitem_create_error'));
+            notifyError('table-create-subitem', error, t('table.subitem_create_error'));
         } finally {
             setAddingSubitemFor(null);
             setNewSubitemTitle('');
@@ -725,9 +733,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 toast.success(t('table.record_created'));
             }
         } catch (error) {
-            console.error("VaultTable: Error creating fast record:", error);
             const errorMsg = error.response?.data?.detail || t('table.record_create_error');
-            toast.error(errorMsg);
+            notifyError('table-create-record', error, errorMsg);
         }
     }, [newRowTitle, safeNotes, activeView, onUpdateView, schema, resolveNoteTableId]);
 
@@ -893,6 +900,22 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         }
     }, [parseResourceValue, t]);
 
+    const getRelationContext = (field) => {
+        const config = getFieldConfig(schema, field);
+        const relatedTableId = config?.relation_database_id;
+        const relatedNotes = relatedTableId
+            ? allNotes.filter(n => {
+                const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                return nTableId === relatedTableId;
+            })
+            : [];
+        const displayMap = {
+            ...idToTitle,
+            ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])),
+        };
+        return { relatedTableId, relatedNotes, displayMap };
+    };
+
     const renderCellContent = (value, type, noteId, field, originalMetaKey) => {
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
         const note = safeNotes.find(n => n.id === noteId);
@@ -926,14 +949,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 let options;
                 let displayMap = idToTitle;
                 if (type === 'relation') {
-                    const config = getFieldConfig(schema, field);
-                    const relatedTableId = config?.relation_database_id;
-                    const relatedNotes = allNotes.filter(n => {
-                        const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
-                        return nTableId === relatedTableId;
-                    });
+                    const { relatedNotes, displayMap: enriched } = getRelationContext(field);
                     options = relatedNotes.map(n => n.id);
-                    displayMap = { ...idToTitle, ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])) };
+                    displayMap = enriched;
                 } else {
                     options = getAvailableOptions(field, type);
                 }
@@ -1018,11 +1036,12 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             case 'multi_select':
             case 'relation': {
                 const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
+                const displayMap = type === 'relation' ? getRelationContext(field).displayMap : idToTitle;
                 return (
                     <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-1 py-0.5">
                         {items.map((it, idx) => (
                             <span key={idx} className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] whitespace-nowrap border border-[var(--gnosi-primary)]/20" title={it}>
-                                {idToTitle[it] || (it.length > 20 ? it.substring(0, 8) + '...' : it)}
+                                {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '...' : it)}
                             </span>
                         ))}
                     </div>
