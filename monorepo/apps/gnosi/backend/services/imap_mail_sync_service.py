@@ -984,13 +984,15 @@ def imap_smtp_send(
 
     try:
         ctx = ssl.create_default_context()
+        # timeout=30 evita que un servidor SMTP penjat bloquegi el thread
+        # de FastAPI fins minuts (l'usuari fa "Send" i no torna res).
         if smtp_enc == "ssl":
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx) as server:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=30) as server:
                 if smtp_user and smtp_pass:
                     server.login(smtp_user, smtp_pass)
                 server.sendmail(sender_email, recipients, msg.as_bytes())
         else:
-            with smtplib.SMTP(smtp_host, smtp_port) as server:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
                 server.ehlo()
                 if smtp_enc == "starttls":
                     server.starttls(context=ctx)

@@ -329,7 +329,7 @@ class CardDAVContactsProvider(BaseContactsProvider):
         if notes:
             lines.append(f"NOTE:{notes}")
 
-        from datetime import datetime, timezone
+        # datetime/timezone ja importats al top del mòdul.
         lines.append(f"REV:{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}")
         lines.append("END:VCARD")
 
