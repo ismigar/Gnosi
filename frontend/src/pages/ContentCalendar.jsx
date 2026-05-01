@@ -29,10 +29,15 @@ const ContentCalendar = () => {
 
         try {
             const res = await fetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
-            if (res.ok) {
-                setScheduledPosts(prev => prev.filter(p => p.id !== postId));
+            if (!res.ok) {
+                // Sense aquest else, una resposta 4xx/5xx feia que el post
+                // continués apareixent però l'usuari pensava que ja s'havia
+                // cancel·lat (el confirm s'havia tancat). Ara avisem.
+                throw new Error(`HTTP ${res.status}`);
             }
+            setScheduledPosts(prev => prev.filter(p => p.id !== postId));
         } catch (error) {
+            console.error('cancelPost failed', error);
             alert('Error cancelling post');
         }
     };
