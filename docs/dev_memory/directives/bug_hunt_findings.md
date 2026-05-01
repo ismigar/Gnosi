@@ -36,6 +36,11 @@
 | `c5ac926d5` | `backend/api/zotero_routes.py` | `save_json` no atòmic → zotero_db_config.json corrupte si crash a meitat. |
 | `c5ac926d5` | `backend/api/reader.py` | `/podcast/info`: llistava mp3 a pod_dir però construïa file_path amb AUDIO_OUTPUT_DIR → FileNotFoundError. |
 | `c5ac926d5` | `backend/api/tools_routes.py` | Mateix bug que creator.py: usava `Path(__file__).parent.parent` però loader llegeix de `cfg.paths.AGENT_TOOLS` → aprovar tools els movia a un directori que ningú llegia. |
+| `41c45272e` | `backend/api/vault_routes.py` (pick-folder/pick-file) | subprocess.run amb timeout=60s síncron dins async → event loop bloquejat fins a 1 minut mentre l'usuari mira el diàleg Finder. Off-thread amb to_thread. |
+| `41c45272e` | `frontend/components/Vault/BlockEditor.jsx` (PDF drop) | fetch sense `if (!res.ok)` check + catch silenciós → si l'upload fallava, s'inseria `[name](undefined)` al document i l'usuari no veia error. |
+| `41c45272e` | `frontend/components/Mail/MailComposer.jsx` (saveDraft) | Auto-save fallit silenciat cada 2s → usuari pensava que els drafts es guardaven quan no era així. Ara loggeja a console.warn. |
+| `1b5011092` | `frontend/components/Mail/MailViewer.jsx` | **XSS**: `bodyText` del cos d'email injectat amb `dangerouslySetInnerHTML` sense escapar → un email amb `<script>` s'executava. Ara escapa HTML abans del replace de URLs. |
+| `d324acb92` | `frontend/components/Vault/BlockEditor.jsx` | **ReferenceError runtime**: `setIsPageViewModalOpen`+`setPageViewPreselectedTable` cridats a EditorInner però declarats a BlockEditor (component pare) → /vista crashejava. Fix: callback prop. També MultiSelectPills i SingleSelectPill cridaven `t()` sense `useTranslation()`. |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
