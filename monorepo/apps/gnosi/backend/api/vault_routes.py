@@ -45,6 +45,7 @@ from backend.services.path_resolver import path_resolver
 from backend.utils.safe_io import (
     safe_write_text,
     safe_write_json,
+    safe_write_bytes,
     file_etag,
     file_mtime_ns,
 )
@@ -553,7 +554,7 @@ def _store_icon_bytes(
     icon_path = icons_dir / filename
 
     if not icon_path.exists():
-        icon_path.write_bytes(payload)
+        safe_write_bytes(icon_path, payload)
 
     # Thumbnail generation moved to background task in the route
     
@@ -1408,7 +1409,9 @@ def _save_data_url_image_to_assets(value: str, target_dir: Path) -> Optional[str
     target_dir.mkdir(parents=True, exist_ok=True)
     filename = f"image-{uuid.uuid4().hex[:12]}{ext}"
     destination = target_dir / filename
-    destination.write_bytes(decoded)
+    # safe_write_bytes (write to .tmp + atomic rename): si el procés crashea
+    # mig camí, l'asset queda complet o no existeix — mai truncat.
+    safe_write_bytes(destination, decoded)
     return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
 
 
@@ -3055,7 +3058,7 @@ async def upload_icon(
         icon_path = icons_dir / filename
         
         if not icon_path.exists():
-            icon_path.write_bytes(payload)
+            safe_write_bytes(icon_path, payload)
             log.debug(f"upload_icon: SAVED {icon_path}")
         else:
             log.debug(f"upload_icon: EXISTS {icon_path}")

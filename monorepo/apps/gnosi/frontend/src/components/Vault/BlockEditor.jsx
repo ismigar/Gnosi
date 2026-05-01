@@ -102,7 +102,7 @@ const markdownToPlainText = (markdown) => {
         .replace(/\[\[[^\]]+\]\]/g, '')
         .replace(/```[\s\S]*?```/g, '')
         .replace(/<[^>]+>/g, '')
-        .replace(/[#>*_`~\-]/g, ' ')
+        .replace(/[#>*_`~-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 };
@@ -294,7 +294,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
         try {
             const parsed = JSON.parse(value);
             return Array.isArray(parsed) ? parsed : [parsed];
-        } catch (e) {
+        } catch {
             return value ? [value] : [];
         }
     }, [value]);
