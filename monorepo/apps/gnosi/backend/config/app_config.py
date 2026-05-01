@@ -121,11 +121,12 @@ def load_params(strict_env: bool = True) -> Config:
                 providers[p_id]["credential_ref"] = credential_ref
                 migrated = True
 
-    # Si hi ha hagut canvis, guardem el YAML actualitzat
+    # Si hi ha hagut canvis, guardem el YAML actualitzat (atomic write)
     if migrated:
         try:
-            with open(params_path, "w", encoding="utf-8") as f:
-                yaml.dump(params, f, default_flow_style=False, allow_unicode=True)
+            from backend.utils.safe_io import safe_write_text
+            yaml_text = yaml.dump(params, default_flow_style=False, allow_unicode=True)
+            safe_write_text(params_path, yaml_text)
         except Exception as e:
             log.error(f"Error guardant configuració migrada: {e}")
 

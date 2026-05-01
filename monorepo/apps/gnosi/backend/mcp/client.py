@@ -73,7 +73,9 @@ class DockerMCPClient:
             "params": params or {}
         }
         
-        future = asyncio.get_event_loop().create_future()
+        # get_running_loop() és la API moderna dins funcions async
+        # (get_event_loop està deprecat des de Python 3.10).
+        future = asyncio.get_running_loop().create_future()
         self._pending_requests[current_id] = future
         
         await self._send_json(request)

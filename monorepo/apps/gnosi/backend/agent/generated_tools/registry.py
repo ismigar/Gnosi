@@ -9,7 +9,7 @@ Features:
 
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, asdict
@@ -173,7 +173,7 @@ class ToolRegistry:
     ) -> ToolRecord:
         """Create a new tool record (status: pending)."""
         self._ensure_init()
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -197,7 +197,7 @@ class ToolRegistry:
     def approve(self, name: str) -> bool:
         """Approve a pending tool."""
         self._ensure_init()
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
@@ -213,7 +213,7 @@ class ToolRegistry:
     def reject(self, name: str, reason: str = "") -> bool:
         """Reject a pending tool."""
         self._ensure_init()
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
