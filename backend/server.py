@@ -80,6 +80,49 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.error(f"❌ Error during startup: {e}")
 
+    # 4. Warm up the vault page index in a background thread so the first
+    #    user request doesn't have to wait for a full filesystem scan over
+    #    cloud-mounted storage. The endpoint /api/vault/indexer-status lets
+    #    the UI poll progress.
+    try:
+        from backend.api.vault_routes import kickoff_index_warmup
+        from backend.config.app_config import load_params
+        cfg = load_params(strict_env=False)
+        v_path = cfg.paths.get("VAULT")
+        if v_path:
+            kickoff_index_warmup(v_path)
+            log.info(f"🔥 Indexer warmup launched in background for {v_path}")
+    except Exception as e:
+        log.warning(f"⚠️ Could not launch indexer warmup: {e}")
+
+    # 5. Repair invariant: every table in the registry must own at least
+    #    one main view. Tables created before the auto-create logic landed
+    #    (or whose only view was deleted before the delete-protection was
+    #    added) can end up with zero views, leaving the table unrenderable.
+    try:
+        from backend.api.vault_routes import (
+            load_registry,
+            save_registry,
+            _ensure_main_view,
+        )
+        registry = load_registry()
+        repaired = []
+        for tbl in registry.get("tables", []):
+            tid = tbl.get("id")
+            if not tid:
+                continue
+            created = _ensure_main_view(registry, tid)
+            if created:
+                repaired.append(tbl.get("name") or tid)
+        if repaired:
+            save_registry(registry)
+            log.info(
+                f"🛠️ Repaired {len(repaired)} table(s) without a main view: "
+                f"{', '.join(repaired)}"
+            )
+    except Exception as e:
+        log.warning(f"⚠️ Could not run main-view repair pass: {e}")
+
     yield
 
     # SHUTDOWN
@@ -91,11 +134,19 @@ async def lifespan(app: FastAPI):
 # Instance creation
 app = FastAPI(title="Gnosi Agent", version="0.2.0", lifespan=lifespan)
 
-# CORS
+# CORS — `allow_origins=["*"]` + `allow_credentials=True` és invàlid per
+# spec (el navegador rebutja la resposta amb CORS error). Si en algun moment
+# es necessiten cookies/credentials, cal posar origins explícits aquí.
+# En personal mode no usem credentials cross-origin, així que és segur deixar
+# wildcard amb credentials=False. CORS_ORIGINS env var permet un override
+# explícit (separar amb comes) sense haver de redeploy.
+_cors_origins_env = os.environ.get("CORS_ORIGINS", "").strip()
+_cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] or ["*"]
+_cors_credentials = bool(_cors_origins_env)  # només si l'usuari ha llistat origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -116,9 +167,9 @@ async def global_exception_handler(request: _Request, exc: Exception):
     route = f"{request.method} {request.url.path}"
     error_detail = str(exc)
     tb = traceback.format_exc()
-    
+
     log.error(f"❌ Unhandled exception on {route}: {error_detail}\n{tb}")
-    
+
     if _notify_fn:
         try:
             short_tb = tb.split('\n')[-3] if tb else error_detail
@@ -130,9 +181,14 @@ async def global_exception_handler(request: _Request, exc: Exception):
         except Exception:
             pass  # No deixem que el handler de logs causi un altre error
 
+    # No retornem `error_detail` al client: pot contenir paths absoluts, fragments
+    # de queries SQL, tokens. Tot ja està al log per debugging. El client només
+    # rep un missatge genèric + un identificador per poder buscar al log si cal.
+    error_id = hex(abs(hash((route, error_detail))) & 0xFFFFFFFF)[2:]
+    log.error(f"   error_id={error_id}")
     return _JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "error": error_detail}
+        content={"detail": "Internal server error", "error_id": error_id},
     )
 
 # --- Register Routers (Order matters!) ---
