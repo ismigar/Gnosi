@@ -175,6 +175,19 @@ class IntegrationManager:
             self._update_single_key(config, key, data)
             self._save(config)
 
+    def replace_key(self, key: str, value):
+        """Reemplaça completament el valor de `key` (sense merge per ID).
+
+        A diferència de `update()` que fa merge intel·ligent per llista
+        d'items amb `id`, aquest mètode és útil per coleccions on l'usuari
+        vol reemplaç total (p.ex. social_streams editats a la UI: si un
+        stream s'elimina, el merge per ID el mantindria ressuscitat).
+        """
+        with self._lock:
+            config = self._load()
+            config[key] = value
+            self._save(config)
+
     def bulk_update(self, updates: dict):
         """Updates multiple integration keys and saves once."""
         with self._lock:

@@ -1113,6 +1113,10 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
 /* ─── Eina de Disponibilitat (Availability Tool) ─── */
 const AvailabilityTool = ({ calendars }) => {
+    // Sense aquest hook, els literals `t('calendar.availability....')` dins
+    // el JSX llançaven ReferenceError quan l'usuari obria el sidebar de
+    // disponibilitat → tot el sidebar quedava trencat amb un toast d'error.
+    const { t } = useTranslation();
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [freeSlots, setFreeSlots] = useState([]);
