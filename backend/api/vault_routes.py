@@ -3559,62 +3559,82 @@ def trigger_n8n_webhook(filename: str, folder: str, content: str):
         log.warning(f"Could not notify event to n8n: {e}")
 
 
+# Cache TTL pel id_title_index: el fan servir /backlinks, /unlinked-mentions
+# i /global-index, tots a la càrrega d'una pàgina. Reusem `_iter_linkable_page_documents`
+# (que ja té cau pròpia) per construir-lo.
 def build_id_title_index() -> Dict[str, str]:
     """Builds a global mapping page_id -> title for vault and dashworks."""
     index: Dict[str, str] = {}
-
-    if get_p("VAULT") and get_p("VAULT").exists():
-        for file_path in get_p("VAULT").rglob("*.md"):
-            if ".history" in file_path.parts:
-                continue
-            try:
-                raw_content = file_path.read_text(encoding="utf-8")
-                metadata, _ = parse_frontmatter(raw_content, file_path)
+    for file_path, metadata, _body, is_dashworks in _iter_linkable_page_documents():
+        try:
+            if is_dashworks:
+                page_id = str(metadata.get("id") or file_path.stem)
+            else:
                 page_id = str(
                     metadata.get("id") or metadata.get("migration_id") or file_path.stem
                 )
-                title = str(metadata.get("title") or file_path.stem)
-                index[page_id] = title
-            except Exception as e:
-                log.warning(f"Error indexant {file_path.name}: {e}")
-
-    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
-        for file_path in get_p("DASHWORKS").rglob("*.json"):
-            try:
-                metadata, _ = _read_dashworks_file(file_path)
-                page_id = str(metadata.get("id") or file_path.stem)
-                title = str(metadata.get("title") or file_path.stem)
-                index[page_id] = title
-            except Exception as e:
-                log.warning(f"Error indexant {file_path.name}: {e}")
-
+            title = str(metadata.get("title") or file_path.stem)
+            index[page_id] = title
+        except Exception as e:
+            log.warning(f"Error indexant {file_path.name}: {e}")
     return index
 
 
+# Cache amb TTL per `_iter_linkable_page_documents`. Cada crida iterava
+# 3000+ fitxers al OneDrive (rglob + read_text + parse_frontmatter), trigant
+# 30+ segons en muntatges lents. Els endpoints /backlinks i /unlinked-mentions
+# es criden alhora al carregar una pàgina, doblant la càrrega i fent timeout
+# al frontend (axios.defaults.timeout = 30s). Amb un TTL de 60s reusem la
+# llista entre crides consecutives. Els backlinks queden lleugerament
+# desactualitzats (60s) — acceptable pel cas d'ús.
+_iter_docs_cache: dict = {"docs": None, "ts": 0.0}
+_iter_docs_lock = threading.Lock()
+_ITER_DOCS_TTL = 60.0
+
+
 def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, bool]]:
-    """Yields page documents as (path, metadata, body, is_dashworks)."""
-    docs: List[tuple[Path, Dict[str, Any], str, bool]] = []
+    """Yields page documents as (path, metadata, body, is_dashworks).
 
-    if get_p("VAULT") and get_p("VAULT").exists():
-        for file_path in get_p("VAULT").rglob("*.md"):
-            if ".history" in file_path.parts:
-                continue
-            try:
-                raw_content = file_path.read_text(encoding="utf-8")
-                metadata, body = parse_frontmatter(raw_content, file_path)
-                docs.append((file_path, metadata, body, False))
-            except Exception as e:
-                log.warning(f"Error parsing linkable page {file_path.name}: {e}")
+    Cached per `_ITER_DOCS_TTL` seconds per evitar I/O massiu repetit als
+    endpoints /backlinks, /unlinked-mentions i /global-index.
+    """
+    now = time.time()
+    cached = _iter_docs_cache.get("docs")
+    cached_ts = _iter_docs_cache.get("ts", 0.0)
+    if cached is not None and (now - cached_ts) < _ITER_DOCS_TTL:
+        return cached
 
-    if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
-        for file_path in get_p("DASHWORKS").rglob("*.json"):
-            try:
-                metadata, body = _read_dashworks_file(file_path)
-                docs.append((file_path, metadata, body, True))
-            except Exception as e:
-                log.warning(f"Error parsing dashworks page {file_path.name}: {e}")
+    with _iter_docs_lock:
+        # Re-check sota lock per evitar dues construccions concurrents
+        cached = _iter_docs_cache.get("docs")
+        cached_ts = _iter_docs_cache.get("ts", 0.0)
+        if cached is not None and (time.time() - cached_ts) < _ITER_DOCS_TTL:
+            return cached
 
-    return docs
+        docs: List[tuple[Path, Dict[str, Any], str, bool]] = []
+
+        if get_p("VAULT") and get_p("VAULT").exists():
+            for file_path in get_p("VAULT").rglob("*.md"):
+                if ".history" in file_path.parts:
+                    continue
+                try:
+                    raw_content = file_path.read_text(encoding="utf-8")
+                    metadata, body = parse_frontmatter(raw_content, file_path)
+                    docs.append((file_path, metadata, body, False))
+                except Exception as e:
+                    log.warning(f"Error parsing linkable page {file_path.name}: {e}")
+
+        if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
+            for file_path in get_p("DASHWORKS").rglob("*.json"):
+                try:
+                    metadata, body = _read_dashworks_file(file_path)
+                    docs.append((file_path, metadata, body, True))
+                except Exception as e:
+                    log.warning(f"Error parsing dashworks page {file_path.name}: {e}")
+
+        _iter_docs_cache["docs"] = docs
+        _iter_docs_cache["ts"] = time.time()
+        return docs
 
 
 @router.get("/global-index")
