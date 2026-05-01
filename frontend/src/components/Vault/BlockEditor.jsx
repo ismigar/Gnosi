@@ -284,6 +284,7 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
 };
 
 const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, fieldKey }) => {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef(null);
@@ -374,6 +375,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
 };
 
 const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) => {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
 
@@ -991,7 +993,8 @@ export function EditorInner({
     contextValue,
     saveStatus,
     setSaveStatus,
-    metadataRef
+    metadataRef,
+    onOpenPageViewModal,
 }) {
     const { t } = useTranslation();
     const schema = useMemo(() => {
@@ -1930,7 +1933,7 @@ export function EditorInner({
                     getItems={async (query) => {
                         if (!editor) return [];
                         const defaultItems = getDefaultReactSlashMenuItems(editor);
-                        const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { setPageViewPreselectedTable(tableId); setIsPageViewModalOpen(true); } }).map(item => ({
+                        const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { onOpenPageViewModal?.(tableId); } }).map(item => ({
                             title: item.title,
                             onItemClick: item.onItemClick,
                             aliases: item.aliases,
@@ -3075,6 +3078,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 saveStatus={saveStatus}
                                 setSaveStatus={setSaveStatus}
                                 metadataRef={metadataRef}
+                                onOpenPageViewModal={(tableId = '') => {
+                                    setPageViewPreselectedTable(tableId);
+                                    setIsPageViewModalOpen(true);
+                                }}
                             />
                         )}
                     </ErrorBoundary>
