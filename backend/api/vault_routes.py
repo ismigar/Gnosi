@@ -3440,7 +3440,7 @@ def _run_osascript_picker(script: str) -> str:
     return result.stdout.strip()
 
 
-@router.post("/pick-folder")
+@router.post("/pick-folder", dependencies=[Depends(require_role("editor"))])
 async def pick_folder():
     """Open a native macOS folder-picker dialog and return the chosen path."""
     import asyncio as _asyncio
@@ -3471,7 +3471,7 @@ async def pick_folder():
         )
 
 
-@router.post("/pick-file")
+@router.post("/pick-file", dependencies=[Depends(require_role("editor"))])
 async def pick_file():
     """Open a native macOS file-picker dialog and return the chosen file path."""
     import asyncio as _asyncio

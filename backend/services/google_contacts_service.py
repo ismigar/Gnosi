@@ -128,7 +128,7 @@ def list_google_contacts(email: str, page_size: int = 200):
         return results.get("connections", [])
     except Exception as e:
         log.error(f"Error listing Google contacts for {email}: {e}")
-        raise e
+        raise
 
 
 def get_google_contact_by_resource(email: str, resource_name: str):
@@ -192,7 +192,7 @@ def create_google_contact(email: str, contact_data: dict):
         return created
     except Exception as e:
         log.error(f"Error creating Google contact: {e}")
-        raise e
+        raise
 
 
 def update_google_contact(email: str, resource_name: str, contact_data: dict):
@@ -261,7 +261,7 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
         return response.json()
     except Exception as e:
         log.error(f"Error updating Google contact {resource_name}: {e}")
-        raise e
+        raise
 
 
 def delete_google_contact(email: str, resource_name: str) -> bool:
@@ -275,7 +275,7 @@ def delete_google_contact(email: str, resource_name: str) -> bool:
         return True
     except Exception as e:
         log.error(f"Error deleting Google contact {resource_name}: {e}")
-        raise e
+        raise
 
 
 def parse_google_contact_to_dict(person: dict) -> dict:

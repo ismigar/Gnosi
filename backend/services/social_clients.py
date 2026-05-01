@@ -185,7 +185,7 @@ class MastodonClient:
             log.error(f"Mastodon post error: {e}")
             if hasattr(e, 'response') and e.response:
                  log.error(f"Response body: {e.response.text}")
-            raise e
+            raise
 
 
 class BlueskyClient:
@@ -344,7 +344,7 @@ class BlueskyClient:
                 return response.json()
         except Exception as e:
             log.error(f"Bluesky create post error: {e}")
-            raise e
+            raise
     
     def _transform_posts(self, feed: List[Dict]) -> List[Dict]:
         """Transform Bluesky posts to our unified format."""
