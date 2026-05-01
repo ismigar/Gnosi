@@ -46,6 +46,7 @@
 | `c11893d03` | `backend/agent/factory.py` | 7 `print(f"DEBUG: ...")` substituits per `log.debug(...)` per no contaminar stdout. |
 | `a53f18ceb` | `frontend/components/GlobalSettingsModal.jsx` | `saveSocialNetworks`/`saveSocialStreams` mostraven `toast.success` sense comprovar `res.ok` i no rollbackejaven l'optimistic update si la xarxa fallava → l'usuari veia "desat" tot i errors 500. Tret també `console.log` que polluïa producció. |
 | `77c53d295` | `frontend/pages/GraphPage.jsx` | Block `else { }` buit dins `setInterval` (noise lint). |
+| `60dc6c2c8` | `frontend/utils/calendarUtils.js` | `truncateRruleBefore` extreia data amb mètodes locals (`getFullYear`, etc.) però posava sufix `Z` (UTC) → en zones horàries lluny de UTC, el dia anterior calculat es desviava. Fix: `getUTCDate`/`setUTCDate`. |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
