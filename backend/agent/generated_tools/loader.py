@@ -63,22 +63,44 @@ class ToolLoader:
         """
         Dynamically load a tool from code string.
         Uses importlib to create a module and extract the tool.
+
+        Security: this loads tools that have already been APPROVED via the
+        validator + sandbox + human review pipeline — that gate is the
+        primary defense. As defense-in-depth we still strip the most obvious
+        sandbox-escape primitives (`eval`, `exec`, `compile`, `type`) from
+        the execution namespace. `__import__` is left in place because real
+        tools need to import standard libraries.
         """
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
         try:
             # Create a temporary module
             module_name = f"generated_tool_{name}"
             spec = importlib.util.spec_from_loader(module_name, loader=None)
             if spec is None:
                 return None
-                
+
             module = importlib.util.module_from_spec(spec)
-            
+
+            log.info(f"🛠️  Loading approved generated tool: {name}")
+
+            # Restrict builtins as defense-in-depth. Tools may still use
+            # `__import__` to pull in stdlib modules (which is required for
+            # most useful tools), so this is not a real sandbox — just a
+            # tripwire against the most direct escapes.
+            import builtins as _builtins
+            unsafe_names = {"eval", "exec", "compile", "type"}
+            safe_builtins = {
+                k: v for k, v in vars(_builtins).items() if k not in unsafe_names
+            }
+            module.__dict__["__builtins__"] = safe_builtins
+
             # Execute the code in the module's namespace
             exec(code, module.__dict__)
-            
+
             # Register the module
             sys.modules[module_name] = module
-            
+
             # Find the tool function (decorated with @tool)
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
@@ -87,11 +109,11 @@ class ToolLoader:
                 # Also check for StructuredTool or functions with __tool__ marker
                 if callable(attr) and hasattr(attr, 'name'):
                     return attr
-            
+
             return None
-            
+
         except Exception as e:
-            pass
+            log.exception(f"Failed to load generated tool {name!r}: {e}")
             return None
     
     def is_loaded(self, name: str) -> bool:

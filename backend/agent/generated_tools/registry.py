@@ -55,18 +55,20 @@ class ToolRegistry:
     def _ensure_init(self):
         if self._initialized:
             return
-            
+
         db_path = self._db_path_override
         if db_path is None:
             cfg = load_params(strict_env=False)
-            # Use persistent storage if available
-            tools_dir = cfg.paths.get("AGENT_TOOLS")
-            if not tools_dir:
-                 # Fallback to local data dir if Vault is not yet configured
-                 project_root = Path(__file__).resolve().parents[4]
-                 tools_dir = project_root / "data" / "Tools"
-            
-            db_path = tools_dir / "tool_registry.sqlite"
+            # CRITICAL: this SQLite file MUST live on local-only storage,
+            # never on OneDrive. The generated tool *.py files can stay on
+            # the cloud-synced AGENT_TOOLS folder (they're plain text and
+            # benefit from sync between devices), but the registry DB needs
+            # POSIX semantics that FUSE-mounted clouds don't honour.
+            db_path = cfg.paths.get("TOOL_REGISTRY_DB")
+            if not db_path:
+                # Fallback when LOCAL_DATA isn't configured for some reason.
+                project_root = Path(__file__).resolve().parents[4]
+                db_path = project_root / "data" / "tool_registry.sqlite"
 
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,8 +76,10 @@ class ToolRegistry:
             self._init_db_schema()
             self._initialized = True
         except Exception as e:
-            pass
-            # Fallback to memory
+            from backend.config.logger_config import get_logger
+            get_logger(__name__).warning(
+                f"Could not init tool_registry SQLite at {db_path}: {e}; falling back to in-memory."
+            )
             self.db_path = ":memory:"
             self._init_db_schema()
             self._initialized = True
