@@ -212,11 +212,13 @@ class ImapMailSyncService:
         encryption = account_data.get("imap_encryption", "ssl").lower()
         imap = None
         try:
-            socket.setdefaulttimeout(30)
+            # imaplib accepta timeout=N als constructors (Python 3.9+). Abans
+            # fèiem `socket.setdefaulttimeout(30)` que canviava el timeout
+            # GLOBAL del procés (afectant graph fetches, calendar APIs, etc).
             if encryption == "ssl":
-                imap = imaplib.IMAP4_SSL(imap_host, imap_port)
+                imap = imaplib.IMAP4_SSL(imap_host, imap_port, timeout=30)
             else:
-                imap = imaplib.IMAP4(imap_host, imap_port)
+                imap = imaplib.IMAP4(imap_host, imap_port, timeout=30)
                 if encryption == "starttls":
                     imap.starttls()
             imap.login(imap_user, imap_password)

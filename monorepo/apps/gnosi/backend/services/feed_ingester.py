@@ -66,45 +66,47 @@ def fetch_and_store_feeds():
                     
                     if not pub_date:
                         pub_date = datetime.now(timezone.utc) # fallback
-                        
-                    # Process only recent articles (removed 24h filter to allow full history ingestion)
-                    if True: # pub_date > target_time:
-                        # Extract URL and check uniqueness
-                        article_link = entry.get('link', '')
-                        if not article_link:
+
+                    # Removed 24h filter to allow full history ingestion.
+                    # `target_time` queda al closure però no s'usa — mantenim
+                    # la variable per si en el futur volem reactivar-lo.
+                    _ = target_time
+                    # Extract URL and check uniqueness
+                    article_link = entry.get('link', '')
+                    if not article_link:
+                        continue
+
+                    # Normalize URL
+                    article_link = article_link.strip()
+
+                    if article_link in processed_urls:
+                        continue
+
+                    existing = db.query(Article).filter(Article.url == article_link).first()
+
+                    if not existing:
+                        try:
+                            processed_urls.add(article_link)
+                            # Clean HTML content
+                            content_raw = entry.get('content', [{'value': entry.get('summary', '')}])[0]['value']
+                            soup = BeautifulSoup(content_raw, 'html.parser')
+                            text_content = soup.get_text(separator=' ', strip=True)
+
+                            new_article = Article(
+                                source_id=source.id,
+                                title=entry.get('title', 'Untitled'),
+                                url=article_link,
+                                content=text_content,
+                                published_at=pub_date,
+                                is_read=False
+                            )
+                            db.add(new_article)
+                            db.flush() # Catch IntegrityError early
+                            new_articles_count += 1
+                        except Exception as e:
+                            log.warning(f"  ⚠️ Skipping article due to insertion error: {article_link} - {e}")
+                            db.rollback()
                             continue
-                            
-                        # Normalize URL
-                        article_link = article_link.strip()
-                        
-                        if article_link in processed_urls:
-                            continue
-                            
-                        existing = db.query(Article).filter(Article.url == article_link).first()
-                        
-                        if not existing:
-                            try:
-                                processed_urls.add(article_link)
-                                # Clean HTML content
-                                content_raw = entry.get('content', [{'value': entry.get('summary', '')}])[0]['value']
-                                soup = BeautifulSoup(content_raw, 'html.parser')
-                                text_content = soup.get_text(separator=' ', strip=True)
-                                
-                                new_article = Article(
-                                    source_id=source.id,
-                                    title=entry.get('title', 'Untitled'),
-                                    url=article_link,
-                                    content=text_content,
-                                    published_at=pub_date,
-                                    is_read=False
-                                )
-                                db.add(new_article)
-                                db.flush() # Catch IntegrityError early
-                                new_articles_count += 1
-                            except Exception as e:
-                                log.warning(f"  ⚠️ Skipping article due to insertion error: {article_link} - {e}")
-                                db.rollback()
-                                continue
 
             except Exception as e:
                 log.error(f"❌ Error processing feed entries for {source.url}: {e}")

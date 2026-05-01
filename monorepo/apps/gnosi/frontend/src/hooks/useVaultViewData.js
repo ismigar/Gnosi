@@ -14,7 +14,11 @@ import { matchesFilters, matchesSearch } from '../utils/vaultFilters';
  * @param {string} params.searchTerm  - Text de cerca
  * @returns {{ filteredPages: Array, sortedPages: Array }}
  */
-export function useVaultViewData({ pages = [], schema = {}, view = {}, searchTerm = '' }) {
+// Nota: el param `schema` no s'usa actualment però es manté a la signatura
+// perquè diversos consumers ja el passen — eliminar-lo trencaria callers.
+// Marcat amb sufix `_unused` perquè ESLint no flagi.
+// eslint-disable-next-line no-unused-vars
+export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, searchTerm = '' }) {
     const filteredPages = useMemo(() => {
         let result = [...pages];
 
