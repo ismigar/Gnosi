@@ -72,7 +72,11 @@ class KeychainManager:
             ]
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
-                self._macos_update(key, value)
+                # `security add-generic-password` falla amb returncode 45 si
+                # ja existeix; cau a `-U` (update). Si _macos_update també
+                # falla, hem de retornar False — abans retornava sempre True
+                # i emmascarava errors reals (Keychain bloquejat, etc.).
+                return self._macos_update(key, value)
             return True
         except Exception as e:
             log.error(f"Failed to save to Keychain: {e}")
@@ -95,7 +99,13 @@ class KeychainManager:
                 "Gnosi Credential",
                 "-U",
             ]
-            subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                log.error(
+                    f"Keychain update failed for {key_name}: "
+                    f"rc={result.returncode} stderr={result.stderr.strip()[:200]}"
+                )
+                return False
             return True
         except Exception as e:
             log.error(f"Failed to update Keychain: {e}")
@@ -202,6 +212,15 @@ class KeychainManager:
                 with open(storage_path, "wb") as f:
                     f.write(cipher.encrypt(json.dumps(data).encode()))
             else:
+                # Sense GNOSI_MASTER_KEY els credentials s'escriuen en
+                # CLAR a disc. Avisem perquè és una caiguda de seguretat
+                # silenciosa (l'usuari assumiria que el fitxer .enc està
+                # encriptat com diu el nom).
+                log.warning(
+                    f"⚠️ GNOSI_MASTER_KEY no configurat — credencial '{key}' "
+                    f"escrita SENSE ENCRIPTAR a {storage_path}. Configura "
+                    f"GNOSI_MASTER_KEY per protegir-la."
+                )
                 with open(storage_path, "w") as f:
                     json.dump(data, f)
 
