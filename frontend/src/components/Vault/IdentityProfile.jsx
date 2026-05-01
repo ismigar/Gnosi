@@ -7,7 +7,10 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
     const { t } = useTranslation();
 
     const handleChange = (field, value) => {
-        setProfile({ ...profile, [field]: value });
+        // Functional update: usar `profile` del closure pot perdre canvis
+        // si l'usuari escriu ràpid a dos camps i el segon onChange usa
+        // un snapshot abans que React aplique el primer.
+        setProfile(prev => ({ ...prev, [field]: value }));
     };
 
     return (
