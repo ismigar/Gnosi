@@ -333,6 +333,7 @@
   },
   "errors": {
     "load_pages": "Error carregant pàgines",
+    "move_page": "Error movent pàgina",
     "connection": "Error de connexió amb el backend. Verifica que el servidor estigui actiu.",
     "load_page": "Error carregant pàgina",
     "save_note": "Error desant nota",
@@ -369,6 +370,7 @@
     "table_created": "Taula \"{{name}}\" creada",
     "page_deleted": "Pàgina eliminada",
     "page_deleted_ghost": "Pàgina eliminada (entrada fantasma del cache)",
+    "page_moved": "Pàgina moguda",
     "title_updated": "Títol actualitzat",
     "db_updated": "Base de dades actualitzada",
     "db_deleted": "Base de dades eliminada",

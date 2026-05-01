@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/use-api';
 import { toast } from 'react-hot-toast';
 import { createPortal } from 'react-dom';
-import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical } from 'lucide-react';
+import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
 import { isCalendarPage, isAppContent } from './schemaUtils';
@@ -59,9 +59,11 @@ const PageTreeItem = ({
     onDeletePage,
     onRankPage,
     onToggleFavorite,
+    onMovePage,
     menuState,
     setMenuState,
-    canCreateChild = true
+    canCreateChild = true,
+    isDragLocked = false,
 }) => {
     const { t } = useTranslation();
     const isViewer = role === 'viewer';
@@ -71,9 +73,11 @@ const PageTreeItem = ({
     const isExpanded = Boolean(expandedNodes?.[page.id]);
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameValue, setRenameValue] = useState(page.title);
+    const [isDropTarget, setIsDropTarget] = useState(false);
     const isActive = activePageId === page.id;
     const isFavorite = page.metadata?.favorite === true || page.metadata?.favorite === 'true';
     const menuRef = useRef(null);
+    const canReorder = !isDragLocked && !isViewer && typeof onMovePage === 'function';
 
     const isMenuOpen = menuState?.id === page.id;
 
@@ -121,20 +125,70 @@ const PageTreeItem = ({
         <div className="select-none relative">
             <div
                 title={page.title}
-                className={`group flex items-center gap-1 py-1 text-sm rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'}`}
+                className={`group flex items-center gap-1 py-1 text-sm rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'} ${isDropTarget ? 'ring-2 ring-[var(--gnosi-primary)]/50 bg-[var(--gnosi-primary)]/10' : ''}`}
                 style={{ paddingLeft: `${depth * 12 + 8}px`, paddingRight: '8px' }}
                 onClick={() => {
                     if (!isRenaming) onPageSelect(page.id);
                 }}
-                draggable={!isRenaming}
+                draggable={!isRenaming && canReorder}
                 onDragStart={(e) => {
+                    // Doble protocol al dataTransfer:
+                    //   - 'application/gnosi-note': format antic (insertem l'ID
+                    //     com a wikilink dins l'editor en deixar anar a una nota)
+                    //   - 'application/gnosi-page-move': nou, indica que estem
+                    //     reordenant l'arbre de la sidebar (canvi de parent_id)
                     e.dataTransfer.setData('application/gnosi-note', JSON.stringify({
                         id: page.id,
                         title: page.title
                     }));
-                    // Optional: Set drag image or effect
-                    e.dataTransfer.effectAllowed = 'copy';
+                    if (canReorder) {
+                        e.dataTransfer.setData('application/gnosi-page-move', JSON.stringify({
+                            id: page.id,
+                            currentParentId: page.parent_id || null,
+                        }));
+                    }
+                    e.dataTransfer.effectAllowed = canReorder ? 'copyMove' : 'copy';
                 }}
+                onDragOver={canReorder ? (e) => {
+                    // Només acceptem drops del mateix sidebar (no de l'editor)
+                    if (!Array.from(e.dataTransfer.types).includes('application/gnosi-page-move')) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (!isDropTarget) setIsDropTarget(true);
+                } : undefined}
+                onDragLeave={canReorder ? () => {
+                    if (isDropTarget) setIsDropTarget(false);
+                } : undefined}
+                onDrop={canReorder ? (e) => {
+                    if (!Array.from(e.dataTransfer.types).includes('application/gnosi-page-move')) return;
+                    e.preventDefault();
+                    setIsDropTarget(false);
+                    try {
+                        const raw = e.dataTransfer.getData('application/gnosi-page-move');
+                        if (!raw) return;
+                        const payload = JSON.parse(raw);
+                        const sourceId = payload?.id;
+                        if (!sourceId || sourceId === page.id) return;
+                        // Evitem que una pàgina es converteixi en filla d'una
+                        // pròpia descendent (cicle a l'arbre).
+                        const isDescendant = (() => {
+                            const queue = [page.id];
+                            const seen = new Set();
+                            while (queue.length) {
+                                const cur = queue.shift();
+                                if (seen.has(cur)) continue;
+                                seen.add(cur);
+                                if (cur === sourceId) return true;
+                                const kids = childrenMap[cur] || [];
+                                for (const k of kids) queue.push(k.id);
+                            }
+                            return false;
+                        })();
+                        if (isDescendant) return;
+                        onMovePage(sourceId, page.id);
+                    } catch { /* noop */ }
+                } : undefined}
+                onDragEnd={() => setIsDropTarget(false)}
             >
                 <button
                     className="p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 mr-1 text-[var(--text-secondary)]/60"
@@ -313,9 +367,11 @@ const PageTreeItem = ({
                             onDuplicatePage={onDuplicatePage}
                             onDeletePage={onDeletePage}
                             onToggleFavorite={onToggleFavorite}
+                            onMovePage={onMovePage}
                             menuState={menuState}
                             setMenuState={setMenuState}
                             canCreateChild={canCreateChild}
+                            isDragLocked={isDragLocked}
                         />
                     ))}
                 </div>
@@ -377,6 +433,20 @@ export const VaultSidebar = ({
     const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
     const [isDashworksExpanded, setIsDashworksExpanded] = useState(true);
     const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
+    // Candau del Wiki: quan està tancat (true), no es poden arrossegar pàgines
+    // per reordenar/anidar. Persistit a localStorage. Per defecte tancat per
+    // evitar moviments accidentals (l'usuari ha de "desbloquejar" abans).
+    const [isWikiDragLocked, setIsWikiDragLocked] = useState(() => {
+        try {
+            const raw = localStorage.getItem('gnosi.sidebar.wikiDragLocked');
+            if (raw !== null) return raw === 'true';
+        } catch (e) { /* noop */ }
+        return true;
+    });
+    useEffect(() => {
+        try { localStorage.setItem('gnosi.sidebar.wikiDragLocked', String(isWikiDragLocked)); }
+        catch (e) { /* noop */ }
+    }, [isWikiDragLocked]);
     // Ordenació de favorits: {mode, manualOrder}. Persistit a localStorage.
     // mode pot ser 'manual' | 'alpha-asc' | 'alpha-desc' | 'recent' | 'oldest'.
     const [favoritesSort, setFavoritesSort] = useState(() => {
@@ -1047,24 +1117,48 @@ export const VaultSidebar = ({
                 </div>
             )}
 
-            <SectionHeader
-                label="Wiki"
-                isExpanded={isWorkspaceExpanded}
-                onToggle={() => {
-                    setIsWorkspaceExpanded((prev) => {
-                        const next = !prev;
-                        if (next) {
-                            setWikiScrollTop(0);
-                            requestAnimationFrame(() => {
-                                if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0;
-                            });
-                        }
-                        return next;
-                    });
-                    setExpandedWikiNodes({});
-                }}
-                onAdd={() => isEditor && onCreatePage(null)}
-            />
+            <div className="group relative flex items-center px-3 mt-6 mb-1">
+                <button
+                    onClick={() => {
+                        setIsWorkspaceExpanded((prev) => {
+                            const next = !prev;
+                            if (next) {
+                                setWikiScrollTop(0);
+                                requestAnimationFrame(() => {
+                                    if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0;
+                                });
+                            }
+                            return next;
+                        });
+                        setExpandedWikiNodes({});
+                    }}
+                    className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
+                >
+                    {isWorkspaceExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    Wiki
+                </button>
+                <div className="flex items-center gap-0.5">
+                    <button
+                        onClick={() => setIsWikiDragLocked((v) => !v)}
+                        className={`p-0.5 rounded transition-all ${
+                            isWikiDragLocked
+                                ? 'opacity-60 hover:opacity-100 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                                : 'opacity-100 text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 hover:bg-[var(--gnosi-primary)]/20'
+                        }`}
+                        title={isWikiDragLocked ? t('sidebar.wiki_unlock', 'Desbloqueja per reordenar (drag&drop)') : t('sidebar.wiki_lock', 'Bloqueja l\'arrossegament')}
+                    >
+                        {isWikiDragLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                    </button>
+                    {isEditor && (
+                        <button
+                            onClick={() => onCreatePage(null)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                        >
+                            <Plus size={14} />
+                        </button>
+                    )}
+                </div>
+            </div>
             {isWorkspaceExpanded && (
                 <div
                     ref={wikiViewportRef}
@@ -1101,9 +1195,11 @@ export const VaultSidebar = ({
                                     onDuplicatePage={onDuplicatePage}
                                     onDeletePage={onDeletePage}
                                     onToggleFavorite={onToggleFavorite}
+                                    onMovePage={onMovePage}
                                     role={role}
                                     menuState={menuState}
                                     setMenuState={setMenuState}
+                                    isDragLocked={isWikiDragLocked}
                                 />
                             ))}
 

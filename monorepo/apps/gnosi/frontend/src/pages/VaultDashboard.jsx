@@ -605,6 +605,31 @@ export default function VaultDashboard() {
         }
     }, [fetchPages, fetchPagesByTable, pages, resolvePageTableId]);
 
+    // Mou una pàgina del wiki sota un nou pare (drag & drop a la sidebar).
+    // Si newParentId és null, la pàgina passa a ser root.
+    const handleMovePage = useCallback(async (pageId, newParentId) => {
+        if (!pageId) return;
+        if (pageId === newParentId) return;
+        // Update optimista del state local: la sidebar reflecteix immediatament
+        // el canvi mentre el PATCH viatja.
+        setPages(prev => prev.map(p => p.id === pageId
+            ? { ...p, parent_id: newParentId, metadata: { ...(p.metadata || {}), parent_id: newParentId } }
+            : p
+        ));
+        try {
+            await axios.patch(`/api/vault/pages/${pageId}`, {
+                parent_id: newParentId,
+                metadata: { parent_id: newParentId },
+            });
+            toast.success(t('success.page_moved') || 'Pàgina moguda');
+            void fetchPages();
+        } catch (err) {
+            notifyError('move-page', err, t('errors.move_page'));
+            // Roll back optimistic update on error
+            void fetchPages();
+        }
+    }, [fetchPages, t]);
+
     const fetchSchema = useCallback(async (databaseId) => {
         try {
             const res = await axios.get(`/api/vault/schema?folder=${databaseId}`);
@@ -2044,6 +2069,7 @@ export default function VaultDashboard() {
             onDuplicatePage={handleDuplicatePage}
             onRenamePage={handleRenamePage}
             onToggleFavorite={handleToggleFavorite}
+            onMovePage={handleMovePage}
             currentView={viewMode}
             databases={registry.databases}
             tables={registry.tables}
