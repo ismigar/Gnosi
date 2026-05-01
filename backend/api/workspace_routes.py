@@ -245,8 +245,13 @@ async def get_workspace(
     
     if not membership:
         raise HTTPException(status_code=403, detail="No tens permís per accedir a aquest workspace")
-        
+
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        # Cas corrupte: la membership existeix però el workspace ha estat
+        # eliminat. `from_orm(None)` crashejaria amb un 500. Retornem 404
+        # explícit perquè el frontend pugui reaccionar (refrescar llista, etc.).
+        raise HTTPException(status_code=404, detail="Workspace no trobat (membresia òrfena)")
     ws_data = WorkspaceResponse.from_orm(workspace)
     ws_data.role = membership.role
     return ws_data

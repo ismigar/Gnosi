@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
@@ -43,10 +43,13 @@ async def clear_notifications(db: Session = Depends(get_mgmt_db)):
         return {"success": True, "message": "All notifications deleted"}
     except Exception as e:
         db.rollback()
-        return {
-            "success": False,
-            "error": safe_error_detail(e, "DELETE /notifications"),
-        }
+        # Abans retornava 200 amb body {success: False}, així el frontend no
+        # podia distingir-ho d'un èxit. Ara HTTPException(500) perquè axios
+        # rebuig la promesa i el caller pot reaccionar.
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "DELETE /notifications"),
+        )
 
 
 class BrowseRequest(BaseModel):
