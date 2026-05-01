@@ -61,7 +61,8 @@ class IntegrationManager:
                 self._cache_mtime = 0
         except Exception as e:
             log.error(f"Error saving integrations: {e}")
-            raise e
+            # `raise` (no `raise e`) preserva el traceback original
+            raise
 
     def _mask_dict(self, d: dict) -> dict:
         safe_d = {}

@@ -449,14 +449,13 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // `convertToWikilinks`.
     const balancedText = (() => {
         const opens = [];
-        const closes = new Set();
         for (let i = 0; i < protectedText.length - 1; i++) {
             if (protectedText[i] === '[' && protectedText[i + 1] === '[') {
                 opens.push(i);
                 i++;
             } else if (protectedText[i] === ']' && protectedText[i + 1] === ']') {
                 if (opens.length > 0) {
-                    closes.add(opens.pop());
+                    opens.pop();
                 }
                 i++;
             }

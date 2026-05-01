@@ -200,6 +200,6 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                 media_type="application/x-ndjson",
                 status_code=200,
             )
-        raise e
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /api/agent/chat"))
