@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Body, Request
+from fastapi import Depends, APIRouter, HTTPException, Body, Request
 import asyncio
 import logging
 from backend.services.integration_manager import integration_manager
 from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
 import imaplib
 import smtplib
 from email.parser import BytesParser
@@ -43,7 +44,7 @@ def _test_email_sync(imap_server: str, smtp_server: str, username: str, password
     return result
 
 
-@router.post("/test-email")
+@router.post("/test-email", dependencies=[Depends(require_role("editor"))])
 async def test_email_connection(payload: dict = Body(...)):
     """Tests IMAP/SMTP connection for an email account."""
     try:
@@ -67,7 +68,7 @@ async def test_email_connection(payload: dict = Body(...)):
         return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-email")}
 
 
-@router.post("/test-contacts")
+@router.post("/test-contacts", dependencies=[Depends(require_role("editor"))])
 async def test_contacts_connection(payload: dict = Body(...)):
     """Tests CardDAV connection for a contacts account."""
     try:
@@ -104,7 +105,7 @@ async def test_contacts_connection(payload: dict = Body(...)):
         return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-contacts")}
 
 
-@router.post("/test-calendar")
+@router.post("/test-calendar", dependencies=[Depends(require_role("editor"))])
 async def test_calendar_connection(payload: dict = Body(...)):
     """Tests CalDAV connection for a calendar account."""
     try:
@@ -147,7 +148,7 @@ async def test_calendar_connection(payload: dict = Body(...)):
         return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-calendar")}
 
 
-@router.put("/{integration_id}")
+@router.put("/{integration_id}", dependencies=[Depends(require_role("editor"))])
 async def update_integration(integration_id: str, payload: dict = Body(...)):
     """Updates a specific integration (e.g. 'email', 'ai')"""
     try:
@@ -158,7 +159,7 @@ async def update_integration(integration_id: str, payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context=f"PUT /api/integrations/{integration_id}"))
 
 
-@router.put("/calendar_colors")
+@router.put("/calendar_colors", dependencies=[Depends(require_role("editor"))])
 async def update_calendar_colors(payload: dict = Body(...)):
     """Saves custom colors for specific calendar sources."""
     try:
@@ -169,7 +170,7 @@ async def update_calendar_colors(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_colors"))
 
 
-@router.put("/calendar_aliases")
+@router.put("/calendar_aliases", dependencies=[Depends(require_role("editor"))])
 async def update_calendar_aliases(payload: dict = Body(...)):
     """Saves custom names/aliases for specific calendar sources."""
     try:
@@ -180,7 +181,7 @@ async def update_calendar_aliases(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_aliases"))
 
 
-@router.put("/calendar_selection")
+@router.put("/calendar_selection", dependencies=[Depends(require_role("editor"))])
 async def update_calendar_selection(payload: Any = Body(...)):
     """Saves the list of visible/selected calendar sources."""
     try:
@@ -195,7 +196,7 @@ async def update_calendar_selection(payload: Any = Body(...)):
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_selection"))
 
 
-@router.put("/default_calendar")
+@router.put("/default_calendar", dependencies=[Depends(require_role("editor"))])
 async def update_default_calendar(payload: dict = Body(...)):
     """Desa el calendari predeterminat per a noves cites."""
     try:
@@ -206,7 +207,7 @@ async def update_default_calendar(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_calendar"))
 
 
-@router.put("/default_mail")
+@router.put("/default_mail", dependencies=[Depends(require_role("editor"))])
 async def update_default_mail(payload: dict = Body(...)):
     """Desa el compte de correu predeterminat."""
     try:
