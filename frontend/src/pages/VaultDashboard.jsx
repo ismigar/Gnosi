@@ -2364,6 +2364,7 @@ export default function VaultDashboard() {
                 onRefreshRegistry={fetchRegistry}
                 onNoteSelect={loadPage}
                 onOpenParallel={handleOpenParallel}
+                onOpenPage={loadPage}
                 onEditSchema={(table) => handleEditSchema(table, tab.metadata)}
                 onDeletePage={handleDeletePage}
                 onCreateRecord={handleAddNewNote}

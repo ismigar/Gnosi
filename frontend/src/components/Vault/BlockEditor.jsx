@@ -1033,13 +1033,26 @@ export function EditorInner({
                 content: "none",
             }, {
                 render: (props) => (
-                    <span 
+                    <span
                         className="wikilink-inline text-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary-hover)] underline decoration-[var(--gnosi-primary)]/30 underline-offset-4 cursor-pointer transition-all font-semibold"
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (props.inlineContent.props.target) {
-                                contextValue.onOpenParallel(props.inlineContent.props.target);
+                            const target = props.inlineContent.props.target;
+                            if (!target) return;
+                            // Convenció: click normal obre la pàgina al tab
+                            // actiu (com Notion/Obsidian); Cmd/Ctrl-click obre
+                            // en paral·lel (split). Abans qualsevol click
+                            // obria sempre en paral·lel, però quan l'usuari ja
+                            // tenia 4 panes oberts (MAX_PANES), el click feia
+                            // un no-op silenciós i semblava que el wikilink
+                            // estigués mort.
+                            if ((e.metaKey || e.ctrlKey) && contextValue.onOpenParallel) {
+                                contextValue.onOpenParallel(target);
+                            } else if (contextValue.onOpenPage) {
+                                contextValue.onOpenPage(target);
+                            } else if (contextValue.onOpenParallel) {
+                                contextValue.onOpenParallel(target);
                             }
                         }}
                     >
@@ -2298,7 +2311,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, onToggleCodeView }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, onToggleCodeView }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewer = role === 'viewer';
@@ -2336,7 +2349,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const headerHoverRef = useRef(null);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
-    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry]);
+    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, idToTitle, registry]);
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
     const _doSaveMetadata = useCallback(async (currentMetadata) => {
