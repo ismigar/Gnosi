@@ -2,6 +2,13 @@
 import os
 from pathlib import Path
 
+try:
+    from backend.utils.safe_io import safe_write_text
+except Exception:
+    # Standalone fallback when run outside the package
+    def safe_write_text(path, text, encoding="utf-8"):
+        Path(path).write_text(text, encoding=encoding)
+
 # Path to the calendar folder in the vault (using the mount point in the host for simplicity in this script, or I can use the container path)
 # Since I'll run this inside the container:
 vault_path = Path("/vault")
@@ -20,7 +27,7 @@ def patch_files():
         
         if old_line in content:
             new_content = content.replace(old_line, new_line)
-            file_path.write_text(new_content, encoding="utf-8")
+            safe_write_text(file_path, new_content)
             count += 1
     
     print(f"Patched {count} files in {calendar_dir}")
