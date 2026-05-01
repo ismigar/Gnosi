@@ -65,12 +65,15 @@ class ContactsService:
     def get_contact_by_email(self, email: str) -> Optional[Contact]:
         if not email or "@" not in email:
             return None
-        
-        # 1. Exact match on main email
+
+        # 1. Case-insensitive match on main email. Abans era `Contact.email == email`
+        # estrictament case-sensitive: si l'usuari escrivia "Joan@gmail.com" i la
+        # BD tenia "joan@gmail.com", no es trobava i feia fallback a l'escan
+        # complet O(N) tot i que el contacte ja existia.
         existing = (
             self.db.query(Contact)
             .filter(
-                Contact.email == email,
+                Contact.email.ilike(email),
                 Contact.workspace_id == self.workspace_id,
             )
             .first()
