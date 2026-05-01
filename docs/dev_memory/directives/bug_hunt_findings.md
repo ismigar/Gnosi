@@ -44,6 +44,8 @@
 | `363a3b07e` | `backend/security/keychain_manager.py` | `_macos_save` retornava sempre True ignorant el resultat de `_macos_update`, emmascarant errors reals (Keychain bloquejat). Afegit warn explícit quan GNOSI_MASTER_KEY no està configurat (credentials en clar a disc). |
 | `363a3b07e` | `backend/services/contacts_service.py` | `get_contact_by_email` feia exact match `Contact.email == email` case-sensitive → emails amb majúscules no es trobaven i feien O(N) scan. Ara `ilike(email)`. |
 | `c11893d03` | `backend/agent/factory.py` | 7 `print(f"DEBUG: ...")` substituits per `log.debug(...)` per no contaminar stdout. |
+| `a53f18ceb` | `frontend/components/GlobalSettingsModal.jsx` | `saveSocialNetworks`/`saveSocialStreams` mostraven `toast.success` sense comprovar `res.ok` i no rollbackejaven l'optimistic update si la xarxa fallava → l'usuari veia "desat" tot i errors 500. Tret també `console.log` que polluïa producció. |
+| `77c53d295` | `frontend/pages/GraphPage.jsx` | Block `else { }` buit dins `setInterval` (noise lint). |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
