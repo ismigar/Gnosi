@@ -30,6 +30,12 @@
 | `dfb2331da` | `backend/services/audio_summarizer.py` | `start_generation_async` check-then-act sense lock → dos clients podien arrencar dues generacions Groq simultànies (~5 min cadascuna, cost real). |
 | `dfb2331da` | `frontend/src/components/Vault/VaultTable.jsx` | `handleCellSave`: `if (response.ok)` sense `else` engolia 4xx/5xx. `metadata.hasOwnProperty(k)` substituït per `Object.prototype.hasOwnProperty.call`. |
 | `a656d0b23` | `backend/server.py` | global_exception_handler retornava `str(exc)` al client (paths absoluts, SQL fragments, tokens). Ara només `error_id` per cross-ref amb log local. CORS misconfig spec-incompatible (origin=* + credentials=true). |
+| `c5ac926d5` | `backend/api/google_auth_routes.py` | **Security**: callback OAuth no validava `state` contra `pending_auths` → CSRF: atacant podia forçar la víctima a vincular el seu compte al d'ell (PKCE només protegeix si tenim el code_verifier). |
+| `c5ac926d5` | `backend/api/microsoft_auth_routes.py` | requests.* bloquejant dins async (15s + 10s) → asyncio.to_thread. URL params construïts amb concat manual sense urlencode → encoding incorrecte de `:` i espais a SCOPES. |
+| `c5ac926d5` | `backend/api/credentials_routes.py` | `/migrate` comparava CREDENTIAL_KEYS (lowercase) amb env vars (UPPERCASE) → no migrava res silenciosament. Ara case-insensitive. |
+| `c5ac926d5` | `backend/api/zotero_routes.py` | `save_json` no atòmic → zotero_db_config.json corrupte si crash a meitat. |
+| `c5ac926d5` | `backend/api/reader.py` | `/podcast/info`: llistava mp3 a pod_dir però construïa file_path amb AUDIO_OUTPUT_DIR → FileNotFoundError. |
+| `c5ac926d5` | `backend/api/tools_routes.py` | Mateix bug que creator.py: usava `Path(__file__).parent.parent` però loader llegeix de `cfg.paths.AGENT_TOOLS` → aprovar tools els movia a un directori que ningú llegia. |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
