@@ -49,6 +49,8 @@
 | `60dc6c2c8` | `frontend/utils/calendarUtils.js` | `truncateRruleBefore` extreia data amb mètodes locals (`getFullYear`, etc.) però posava sufix `Z` (UTC) → en zones horàries lluny de UTC, el dia anterior calculat es desviava. Fix: `getUTCDate`/`setUTCDate`. |
 | `8f44be344` | `frontend/components/Contacts/ContactDetail.jsx` | `contact.name.split(' ')` crashejava amb TypeError si `name` era null/undefined (contactes incomplets de Google sync, CardDAV sense nom). Fallback a '?'. |
 | `201a0c92a` | `frontend/pages/ContentCalendar.jsx` | `cancelPost` només actualitzava la UI si `res.ok` però no avisava si fallava → l'usuari veia el post encara al calendari sense saber que la cancel·lació havia fallat. |
+| `aac4e2e8f` | `frontend/components/Vault/IdentityProfile.jsx` | `handleChange` usava `setProfile({ ...profile, ... })` (closure stale) en lloc de functional update → escriure ràpid a dos camps podia perdre el primer canvi quan React batchejava. |
+| `45e07d2fe` | `frontend/components/FeedManagerModal.jsx` | `executeDeleteSource` no avisava si delete fallava → font seguia a la llista sense feedback. |
 
 ## Bugs detectats — NO arreglats (decisió/revisió manual)
 
