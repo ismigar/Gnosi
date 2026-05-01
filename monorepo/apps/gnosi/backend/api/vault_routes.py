@@ -4278,9 +4278,15 @@ async def update_registry(data: dict = Body(...)):
     return {"status": "success"}
 
 
-@router.post("/open-resource")
+@router.post("/open-resource", dependencies=[Depends(require_role("editor"))])
 async def open_resource(payload: OpenResourceRequest):
-    """Open a Zotero URI or local attachment path with the OS default handler."""
+    """Open a Zotero URI or local attachment path with the OS default handler.
+
+    Auth gate: igual que /open-local-path. Aquest endpoint acaba invocant
+    `subprocess.Popen(["open", target])` (macOS) o equivalents — és una
+    superfície d'execució de comandes que no hauria de ser disponible per
+    rols `viewer` en organitzacio mode.
+    """
     zotero_uri = (payload.zotero_uri or "").strip()
 
     if zotero_uri:
