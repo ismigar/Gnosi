@@ -257,8 +257,15 @@ const convertToWikilinks = (content) => {
     content.forEach(item => {
         if (item.type === "text") {
             const text = item.text;
-            // Regex for [[Title]] or [[Title#Section]] or [[Title|Alias]]
-            const regex = /\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
+            // Regex for [[Title]] or [[Title#Section]] or [[Title|Alias]].
+            // Excloem `[` dels grups de captura: si no, un `[[` no tancat seguit
+            // d'un wikilink ben format més endavant a la mateixa línia consumeix
+            // tot el text intermedi com a target. Ex.: `[[port. ... [[id|Alias]]`
+            // ha de matchar només el wikilink intern; el `[[port. ` queda com a
+            // text. Sense aquesta exclusió, el target del wikilink resultant
+            // contenia 400+ chars amb `[[` inside, i BlockNote es bloquejava
+            // serialitzant/rendering-lo.
+            const regex = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
             let lastIndex = 0;
             let match;
             while ((match = regex.exec(text)) !== null) {
@@ -414,11 +421,58 @@ const parsePlainMarkdownBlock = async (text, editor) => {
             `](${FILE_PROTOCOL_SENTINEL}`,
         );
 
+    // Sanitització de `[[` no aparellats: si la pàgina té un `[[xxx` que
+    // no troba el seu `]]`, el regex de wikilinks pot capturar centenars de
+    // chars de text (incloent un wikilink ben format intern), creant un
+    // wikilink amb target malformat que penja BlockNote al render. Aquí
+    // escapem els `[[` orfes a `\[\[` perquè markdown-it els tracti com a
+    // text literal i només els `[[...]]` ben aparellats arribin a
+    // `convertToWikilinks`.
+    const balancedText = (() => {
+        const opens = [];
+        const closes = new Set();
+        for (let i = 0; i < protectedText.length - 1; i++) {
+            if (protectedText[i] === '[' && protectedText[i + 1] === '[') {
+                opens.push(i);
+                i++;
+            } else if (protectedText[i] === ']' && protectedText[i + 1] === ']') {
+                if (opens.length > 0) {
+                    closes.add(opens.pop());
+                }
+                i++;
+            }
+        }
+        if (opens.length === 0) return protectedText;
+        // opens conté índexs de `[[` SENSE tancament — els escapem.
+        const openSet = new Set(opens);
+        let result = '';
+        for (let i = 0; i < protectedText.length; i++) {
+            if (openSet.has(i)) {
+                result += '\\[\\[';
+                i++; // Saltem el segon `[`
+            } else {
+                result += protectedText[i];
+            }
+        }
+        return result;
+    })();
+
     let blocks = [];
     if (editor?.tryParseMarkdownToBlocks) {
         try {
-            blocks = await editor.tryParseMarkdownToBlocks(protectedText);
+            // Race amb timeout: si el parser de BlockNote/markdown-it entra en
+            // un estat patològic (URLs amb backslash escapats, brackets no
+            // aparellats, etc.), no volem que bloquegi el thread principal
+            // per sempre i pengi el "Carregant editor...". 5s és més que
+            // suficient per qualsevol pàgina raonable.
+            blocks = await Promise.race([
+                editor.tryParseMarkdownToBlocks(balancedText),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('parse-timeout')), 5000),
+                ),
+            ]);
         } catch (e) {
+            console.warn('parsePlainMarkdownBlock fallback:', e?.message);
             blocks = [{ type: "paragraph", content: text }];
         }
     } else {

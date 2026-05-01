@@ -172,17 +172,37 @@ export function useFileLinkInterceptor() {
             ).forEach(normalizeAnchor);
         };
         scanRoot(document.body);
+        // Throttle: en pàgines amb molts <a href="file://...">, BlockNote
+        // dispara una allau de mutacions al render inicial. Sense rate-limit,
+        // cada una crida `scanRoot(node)` que fa `querySelectorAll(...)` a tot
+        // el subarbre — el cost és O(M*N) i bloqueja el thread principal.
+        // Acumulem les mutacions i les processem amb requestIdleCallback per
+        // no competir amb el render del editor.
+        let pendingNodes = new Set();
+        let scheduledScan = null;
+        const flushScan = () => {
+            scheduledScan = null;
+            const nodes = pendingNodes;
+            pendingNodes = new Set();
+            for (const node of nodes) {
+                if (!node || node.nodeType !== 1) continue;
+                if (node.tagName === 'A') normalizeAnchor(node);
+                else scanRoot(node);
+            }
+        };
+        const scheduleScan = () => {
+            if (scheduledScan) return;
+            const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 32));
+            scheduledScan = idle(flushScan, { timeout: 200 });
+        };
         const observer = new MutationObserver((mutations) => {
             for (const m of mutations) {
-                m.addedNodes.forEach(node => {
-                    if (node.nodeType !== 1) return;
-                    if (node.tagName === 'A') normalizeAnchor(node);
-                    scanRoot(node);
-                });
+                m.addedNodes.forEach(node => pendingNodes.add(node));
                 if (m.type === 'attributes' && m.target?.tagName === 'A') {
-                    normalizeAnchor(m.target);
+                    pendingNodes.add(m.target);
                 }
             }
+            scheduleScan();
         });
         observer.observe(document.body, {
             childList: true, subtree: true,
