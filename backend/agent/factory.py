@@ -154,7 +154,7 @@ def get_llm(
     try:
         if provider == "ollama":
             from langchain_ollama import ChatOllama
-            print(f"DEBUG: Instantiating ChatOllama with model {model or 'llama3.2'}")
+            log.debug(f"Instantiating ChatOllama with model {model or 'llama3.2'}")
             return ChatOllama(
                 model=model or "llama3.2",
                 base_url=base_url or "http://host.docker.internal:11434",
@@ -165,21 +165,21 @@ def get_llm(
             from langchain_openai import ChatOpenAI
             key = api_key or os.environ.get(f"{provider.upper()}_API_KEY")
             if not key and provider == "openai":
-                print("DEBUG: OpenAI API Key missing")
+                log.debug("OpenAI API Key missing")
                 return None
-            
+
             default_urls = {
                 "openai": "https://api.openai.com/v1",
                 "deepseek": "https://api.deepseek.com",
                 "mistral": "https://api.mistral.ai/v1",
                 "openrouter": "https://openrouter.ai/api/v1"
             }
-            
-            print(f"DEBUG: Instantiating {provider} via OpenAI interface with model {model}")
+
+            log.debug(f"Instantiating {provider} via OpenAI interface with model {model}")
             return ChatOpenAI(
                 model=model or (
-                    "gpt-4o" if provider == "openai" else 
-                    "deepseek-chat" if provider == "deepseek" else 
+                    "gpt-4o" if provider == "openai" else
+                    "deepseek-chat" if provider == "deepseek" else
                     "mistral-large-latest" if provider == "mistral" else
                     "openai/gpt-4o-mini"
                 ),
@@ -190,11 +190,11 @@ def get_llm(
         if provider == "groq":
             key = api_key if api_key and api_key.strip() else os.environ.get("GROQ_API_KEY")
             if not key:
-                print(f"DEBUG: Groq API Key missing.")
+                log.debug("Groq API Key missing.")
                 return None
-            
+
             from langchain_openai import ChatOpenAI
-            print(f"DEBUG: Instantiating Groq via OpenAI shim with model {model or 'llama-3.3-70b-versatile'}")
+            log.debug(f"Instantiating Groq via OpenAI shim with model {model or 'llama-3.3-70b-versatile'}")
             return ChatOpenAI(
                 model=model or "llama-3.3-70b-versatile",
                 api_key=key,
@@ -205,9 +205,9 @@ def get_llm(
             from langchain_anthropic import ChatAnthropic
             key = api_key if api_key and api_key.strip() else os.environ.get("ANTHROPIC_API_KEY")
             if not key:
-                print(f"DEBUG: Anthropic API Key missing.")
+                log.debug("Anthropic API Key missing.")
                 return None
-            print(f"DEBUG: Instantiating ChatAnthropic with model {model or 'claude-3-5-sonnet-latest'}")
+            log.debug(f"Instantiating ChatAnthropic with model {model or 'claude-3-5-sonnet-latest'}")
             return ChatAnthropic(
                 model=model or "claude-3-5-sonnet-latest",
                 api_key=key,
@@ -216,7 +216,7 @@ def get_llm(
         # Generic OpenAI compatible (Local, LM Studio, etc.) or unknown provider with base_url
         if provider in {"local", "generic", "lmstudio", "llama-cpp"} or base_url:
             from langchain_openai import ChatOpenAI
-            print(f"DEBUG: Instantiating Generic/Universal ChatOpenAI (Provider: {provider})")
+            log.debug(f"Instantiating Generic/Universal ChatOpenAI (Provider: {provider})")
             return ChatOpenAI(
                 model=model or "local-model",
                 api_key=api_key or "no-key",
