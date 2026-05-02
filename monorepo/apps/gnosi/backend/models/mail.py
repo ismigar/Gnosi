@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Any
 from datetime import datetime, timezone
 import uuid
@@ -87,8 +87,8 @@ class MailMessageSchema(BaseModel):
     category: Optional[str]
     labels: Optional[str]
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MailUpdateSchema(BaseModel):
@@ -139,8 +139,8 @@ class MailViewSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Tag Schemas ─────────────────────────────────────────────────────────────────
@@ -161,8 +161,8 @@ class MailTagSchema(BaseModel):
     color: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MailMessageTagsSetSchema(BaseModel):

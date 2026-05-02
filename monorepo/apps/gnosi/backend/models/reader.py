@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, T
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from backend.data.db import Base
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 
 # --- SQLAlchemy Models ---
@@ -48,8 +48,8 @@ class FeedSourceResponse(FeedSourceBase):
     id: int
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 class ArticleBase(BaseModel):
     title: str
@@ -67,5 +67,5 @@ class ArticleResponse(ArticleBase):
     created_at: datetime
     source_name: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
