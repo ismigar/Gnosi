@@ -9,7 +9,7 @@ import os
 import xml.etree.ElementTree as ET
 from fastapi.responses import FileResponse
 from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR, generate_daily_podcast
-from backend.services.workspace_service import get_workspace_context
+from backend.services.workspace_service import get_workspace_context, require_role
 from fastapi import Depends
 
 # Taules i models ara es gestionen automàticament per cada vault a db.py
@@ -23,7 +23,7 @@ def get_sources(db: Session = Depends(get_db)):
     sources = db.query(models.FeedSource).all()
     return sources
 
-@router.post("/sources", response_model=models.FeedSourceResponse)
+@router.post("/sources", response_model=models.FeedSourceResponse, dependencies=[Depends(require_role("editor"))])
 def create_source(source: models.FeedSourceCreate, db: Session = Depends(get_db)):
     """Add a new feed source"""
     db_source = db.query(models.FeedSource).filter(models.FeedSource.url == source.url).first()
@@ -36,7 +36,7 @@ def create_source(source: models.FeedSourceCreate, db: Session = Depends(get_db)
     db.refresh(new_source)
     return new_source
 
-@router.delete("/sources/{source_id}")
+@router.delete("/sources/{source_id}", dependencies=[Depends(require_role("editor"))])
 def delete_source(source_id: int, db: Session = Depends(get_db)):
     """Delete a source and its articles"""
     db_source = db.query(models.FeedSource).filter(models.FeedSource.id == source_id).first()
@@ -47,7 +47,7 @@ def delete_source(source_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Source deleted successfully"}
 
-@router.post("/sources/opml")
+@router.post("/sources/opml", dependencies=[Depends(require_role("editor"))])
 async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Upload an OPML file to import feeds"""
     if not file.filename.endswith('.opml') and not file.filename.endswith('.xml'):
@@ -103,7 +103,7 @@ def get_articles(unread_only: bool = True, source_id: int = None, limit: int = 5
         result.append(data)
     return result
 
-@router.patch("/articles/{article_id}/read")
+@router.patch("/articles/{article_id}/read", dependencies=[Depends(require_role("editor"))])
 def mark_article_read(article_id: int, read: bool = True, db: Session = Depends(get_db)):
     """Mark an article as read or unread"""
     db_article = db.query(models.Article).filter(models.Article.id == article_id).first()
@@ -116,7 +116,7 @@ def mark_article_read(article_id: int, read: bool = True, db: Session = Depends(
 
 # -- Podcast --
 
-@router.post("/podcast/generate")
+@router.post("/podcast/generate", dependencies=[Depends(require_role("editor"))])
 def trigger_podcast_generation():
     """Launches podcast generation in the background"""
     from backend.services.audio_summarizer import start_generation_async, generation_status

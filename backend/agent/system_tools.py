@@ -4,6 +4,8 @@ from typing import List, Optional
 from langchain_core.tools import tool
 from pathlib import Path
 
+from backend.utils.safe_io import safe_write_text
+
 # Definir arrel del projecte per seguretat (Sandbox bàsic)
 BASE_DIR = Path(os.getcwd()).resolve()
 
@@ -134,8 +136,10 @@ def apply_patch(file_path: str, search_text: str, replace_text: str) -> str:
 
         new_content = content.replace(search_text, replace_text)
 
-        with open(target_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
+        # Atomic write — l'agent edita codi font (.py); un crash a meitat
+        # del write deixaria el fitxer corromput i potencialment trencaria
+        # el backend al següent reload.
+        safe_write_text(target_path, new_content)
 
         return f"Success: Patched {file_path}"
 
