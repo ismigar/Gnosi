@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import uuid
 from backend.data.management_db import Base
 from backend.models.management import Workspace
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 class Notification(Base):
@@ -36,5 +36,5 @@ class NotificationResponse(NotificationBase):
     is_read: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)

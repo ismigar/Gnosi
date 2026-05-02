@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, DateTime, Text, Float
 from datetime import datetime, timezone
 import uuid
 from backend.data.management_db import Base
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 class TaskExecutionHistory(Base):
@@ -28,5 +28,5 @@ class TaskHistoryResponse(BaseModel):
     finished_at: Optional[datetime]
     duration_seconds: Optional[float]
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)

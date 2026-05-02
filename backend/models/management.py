@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import enum
 import uuid
 from backend.data.management_db import Base
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, List
 
 class UserRole(str, enum.Enum):
@@ -90,15 +90,15 @@ class WorkspaceResponse(WorkspaceBase):
     created_at: datetime
     role: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 class UserResponse(UserBase):
     id: str
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 class MemberResponse(BaseModel):
     user_id: str
@@ -108,8 +108,8 @@ class MemberResponse(BaseModel):
     permissions: Optional[dict] = None
     joined_at: datetime
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 class RoleUpdateRequest(BaseModel):
     role: Optional[UserRole] = None
@@ -130,5 +130,5 @@ class VaultAccessResponse(BaseModel):
     vault_name: str
     permissions: dict
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
