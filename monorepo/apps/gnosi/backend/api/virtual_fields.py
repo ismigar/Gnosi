@@ -33,42 +33,55 @@ _graph_cache: Optional[Dict[str, Any]] = None
 _graph_cache_mtime: float = 0.0
 _graph_cache_ts: float = 0.0
 _GRAPH_TTL_SECONDS = 60  # in-memory TTL
+import threading
+_graph_cache_lock = threading.Lock()
 
 
 def _load_graph(graph_path: Path) -> Dict[str, Any]:
-    """Loads vault_graph.json with TTL cache and stale-cache fallback."""
+    """Loads vault_graph.json with TTL cache and stale-cache fallback.
+
+    Thread-safe: el lock evita que dos requests concurrents llegeixin el JSON
+    en paral·lel quan el cache expira (estalvia I/O redundant a OneDrive).
+    """
     global _graph_cache, _graph_cache_mtime, _graph_cache_ts
 
+    # Fast-path sense lock (lectura atòmica de referències a Python amb GIL)
     now = time.monotonic()
     if _graph_cache is not None and (now - _graph_cache_ts) < _GRAPH_TTL_SECONDS:
         return _graph_cache
 
-    if not graph_path or not graph_path.exists():
-        return _graph_cache or {"nodes": [], "edges": []}
-
-    try:
-        mtime = graph_path.stat().st_mtime
-        if _graph_cache is not None and mtime <= _graph_cache_mtime:
-            _graph_cache_ts = now
+    with _graph_cache_lock:
+        # Re-check sota lock per evitar dues construccions concurrents
+        now = time.monotonic()
+        if _graph_cache is not None and (now - _graph_cache_ts) < _GRAPH_TTL_SECONDS:
             return _graph_cache
-    except Exception as e:
-        if _graph_cache is not None:
-            log.warning(f"⚠️ virtual_fields: graph stat failed ({e}); serving stale cache")
-            return _graph_cache
-        return {"nodes": [], "edges": []}
 
-    try:
-        data = json.loads(graph_path.read_text(encoding="utf-8"))
-        _graph_cache = data
-        _graph_cache_ts = now
+        if not graph_path or not graph_path.exists():
+            return _graph_cache or {"nodes": [], "edges": []}
+
         try:
-            _graph_cache_mtime = graph_path.stat().st_mtime
-        except Exception:
-            pass
-        return data
-    except Exception as e:
-        log.error(f"❌ virtual_fields: failed to load graph: {e}")
-        return _graph_cache or {"nodes": [], "edges": []}
+            mtime = graph_path.stat().st_mtime
+            if _graph_cache is not None and mtime <= _graph_cache_mtime:
+                _graph_cache_ts = now
+                return _graph_cache
+        except Exception as e:
+            if _graph_cache is not None:
+                log.warning(f"⚠️ virtual_fields: graph stat failed ({e}); serving stale cache")
+                return _graph_cache
+            return {"nodes": [], "edges": []}
+
+        try:
+            data = json.loads(graph_path.read_text(encoding="utf-8"))
+            _graph_cache = data
+            _graph_cache_ts = now
+            try:
+                _graph_cache_mtime = graph_path.stat().st_mtime
+            except Exception:
+                pass
+            return data
+        except Exception as e:
+            log.error(f"❌ virtual_fields: failed to load graph: {e}")
+            return _graph_cache or {"nodes": [], "edges": []}
 
 
 def _build_degree_index(graph: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
