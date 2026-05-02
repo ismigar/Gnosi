@@ -200,7 +200,9 @@
     "view_history": "Veure històric",
     "delete_current_page": "Eliminar pàgina actual",
     "hide_sidebar": "Amagar barra lateral",
-    "show_sidebar": "Mostrar barra lateral"
+    "show_sidebar": "Mostrar barra lateral",
+    "lock_edit": "Bloqueja edició (només lectura)",
+    "unlock_edit": "Desbloqueja per editar"
   },
   "table": {
     "new_record": "Nou registre",

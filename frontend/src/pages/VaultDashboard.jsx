@@ -44,6 +44,22 @@ export default function VaultDashboard() {
     const [tabs, setTabs] = useState([]);
     const [activeTabId, setActiveTabId] = useState(null);
     const [codeViewByTabId, setCodeViewByTabId] = useState({});
+    // Bloqueig d'edició per pàgina (per ID). Persistit a localStorage perquè
+    // el lock sobrevisqui reload del navegador. Quan està tancat (true), el
+    // BlockEditor renderitza com a read-only i bloqueja totes les
+    // modificacions (text, propietats, drag-drop, slash menu).
+    const [editLockedByPageId, setEditLockedByPageId] = useState(() => {
+        try {
+            const raw = localStorage.getItem('gnosi.vault.editLockedPages');
+            if (raw) return JSON.parse(raw);
+        } catch (e) { /* noop */ }
+        return {};
+    });
+    useEffect(() => {
+        try {
+            localStorage.setItem('gnosi.vault.editLockedPages', JSON.stringify(editLockedByPageId));
+        } catch (e) { /* noop */ }
+    }, [editLockedByPageId]);
     const [splitTabIds, setSplitTabIds] = useState([]);
     const [splitTableIds, setSplitTableIds] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -2350,6 +2366,7 @@ export default function VaultDashboard() {
                 initialMetadata={tab.metadata}
                 isCodeView={Boolean(codeViewByTabId[tab.id])}
                 onToggleCodeView={() => setCodeViewByTabId(prev => ({ ...prev, [tab.id]: !prev[tab.id] }))}
+                isEditLocked={Boolean(editLockedByPageId[tab.id])}
                 onUpdate={handleEditorUpdate}
                 historyOpenSignal={tab.id === activeTabId ? historyOpenSignal : 0}
                 folder="Universal"
@@ -2581,6 +2598,20 @@ export default function VaultDashboard() {
                     ...prev,
                     [currentActiveTab.id]: !prev[currentActiveTab.id],
                 }));
+            }}
+            canToggleEditLock={Boolean(currentActiveTab?.id) && viewMode === 'editor'}
+            isEditLocked={Boolean(currentActiveTab?.id && editLockedByPageId[currentActiveTab.id])}
+            onToggleEditLock={() => {
+                if (!currentActiveTab?.id) return;
+                setEditLockedByPageId(prev => {
+                    const next = { ...prev };
+                    if (next[currentActiveTab.id]) {
+                        delete next[currentActiveTab.id];
+                    } else {
+                        next[currentActiveTab.id] = true;
+                    }
+                    return next;
+                });
             }}
         >
             <div className="h-full bg-[var(--bg-primary)] flex flex-col min-w-0">
