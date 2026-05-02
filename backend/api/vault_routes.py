@@ -1717,7 +1717,11 @@ def _read_frontmatter_partial(file_path: Path):
     frontmatter_started = False
     frontmatter_count = 0
     
-    retries = 2
+    # OneDrive sync pot bloquejar el fitxer fins a uns segons. Backoff
+    # exponencial fins a 4s — més que el partial read amb 60 línies hauria
+    # de necessitar mai en condicions normals.
+    retries = 7
+    delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.5]
     last_error = None
     for attempt in range(retries + 1):
         try:
@@ -1755,7 +1759,7 @@ def _read_frontmatter_partial(file_path: Path):
             if e.errno == 35: # Resource deadlock
                 last_error = e
                 if attempt < retries:
-                    time.sleep(0.05) # Small wait
+                    time.sleep(delays[attempt])
                     continue
             log.warning(f"Error in partial read of {file_path}: {e}")
             return {}, ""
@@ -2566,17 +2570,20 @@ async def get_page(page_id: str):
         if _is_dashworks_file_path(file_path):
             return _read_dashworks_file(file_path)
         # OneDrive sync pot retornar Errno 35 (Resource deadlock avoided)
-        # quan el fitxer està sent re-escrit pel sync extern. Reintenta amb
-        # backoff curt — normalment al segon intent ja està lliure.
+        # durant fins a 5 segons quan està estabilitzant un fitxer. Reintenta
+        # fins a 8 cops amb backoff exponencial: 0.05, 0.1, 0.2, 0.4, 0.8,
+        # 1.0, 1.0, 1.0 (4.55s total). Si fins i tot així falla, és que
+        # OneDrive té un problema seriós i ho retornem com a 500.
         last_error = None
-        for attempt in range(3):
+        delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
+        for attempt in range(len(delays) + 1):
             try:
                 raw_content = file_path.read_text(encoding="utf-8")
                 return parse_frontmatter(raw_content, file_path)
             except OSError as e:
                 last_error = e
-                if e.errno == 35 and attempt < 2:
-                    time.sleep(0.1 * (attempt + 1))
+                if e.errno == 35 and attempt < len(delays):
+                    time.sleep(delays[attempt])
                     continue
                 raise
         if last_error:
