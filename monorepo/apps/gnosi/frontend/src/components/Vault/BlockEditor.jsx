@@ -1044,33 +1044,54 @@ export function EditorInner({
                 },
                 content: "none",
             }, {
-                render: (props) => (
-                    <span
-                        className="wikilink-inline text-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary-hover)] underline decoration-[var(--gnosi-primary)]/30 underline-offset-4 cursor-pointer transition-all font-semibold"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const target = props.inlineContent.props.target;
-                            if (!target) return;
-                            // Convenció: click normal obre la pàgina al tab
-                            // actiu (com Notion/Obsidian); Cmd/Ctrl-click obre
-                            // en paral·lel (split). Abans qualsevol click
-                            // obria sempre en paral·lel, però quan l'usuari ja
-                            // tenia 4 panes oberts (MAX_PANES), el click feia
-                            // un no-op silenciós i semblava que el wikilink
-                            // estigués mort.
-                            if ((e.metaKey || e.ctrlKey) && contextValue.onOpenParallel) {
-                                contextValue.onOpenParallel(target);
-                            } else if (contextValue.onOpenPage) {
-                                contextValue.onOpenPage(target);
-                            } else if (contextValue.onOpenParallel) {
-                                contextValue.onOpenParallel(target);
-                            }
-                        }}
-                    >
-                        {props.inlineContent.props.title}
-                    </span>
-                )
+                render: (props) => {
+                    // ATENCIÓ: BlockNote/Tiptap (ProseMirror) processa el
+                    // `mousedown` ABANS que el `click` de React. Sense aturar
+                    // el mousedown a la fase de captura, ProseMirror posiciona
+                    // el cursor al wikilink i potser previne el click. Per
+                    // això:
+                    //   - mousedown/mouseup → stopPropagation (no arribi a PM)
+                    //   - click → la navegació real
+                    const target = props.inlineContent.props.target;
+                    const handleNavigate = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (typeof e.stopImmediatePropagation === 'function') {
+                            e.stopImmediatePropagation();
+                        }
+                        if (!target) return;
+                        // Click normal → tab actual (com Notion/Obsidian);
+                        // Cmd/Ctrl-click → split. Abans qualsevol click feia
+                        // sempre split, però amb 4 panes oberts era no-op
+                        // silenciós (semblava wikilink mort).
+                        if ((e.metaKey || e.ctrlKey) && contextValue.onOpenParallel) {
+                            contextValue.onOpenParallel(target);
+                        } else if (contextValue.onOpenPage) {
+                            contextValue.onOpenPage(target);
+                        } else if (contextValue.onOpenParallel) {
+                            contextValue.onOpenParallel(target);
+                        }
+                    };
+                    const stopBubble = (e) => {
+                        e.stopPropagation();
+                        if (typeof e.stopImmediatePropagation === 'function') {
+                            e.stopImmediatePropagation();
+                        }
+                    };
+                    return (
+                        <span
+                            className="wikilink-inline text-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary-hover)] underline decoration-[var(--gnosi-primary)]/30 underline-offset-4 cursor-pointer transition-all font-semibold"
+                            data-wikilink-target={target}
+                            onMouseDown={stopBubble}
+                            onMouseUp={stopBubble}
+                            onClick={handleNavigate}
+                            onAuxClick={handleNavigate}
+                            contentEditable={false}
+                        >
+                            {props.inlineContent.props.title}
+                        </span>
+                    );
+                }
             }),
             alert: createReactBlockSpec({
                 type: "alert",
