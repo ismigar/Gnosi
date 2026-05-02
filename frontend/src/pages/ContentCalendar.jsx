@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
 
 const ContentCalendar = () => {
@@ -25,7 +26,10 @@ const ContentCalendar = () => {
     };
 
     const cancelPost = async (postId) => {
-        if (!confirm('Cancel this scheduled post?')) return;
+        // window.confirm bloqueja la UI; ho mantenim per compatibilitat
+        // (no hi ha modal de confirmació al ContentCalendar) però usem
+        // toast.error en lloc d'alert (que també bloqueja).
+        if (!window.confirm('Cancel this scheduled post?')) return;
 
         try {
             const res = await fetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
@@ -36,9 +40,10 @@ const ContentCalendar = () => {
                 throw new Error(`HTTP ${res.status}`);
             }
             setScheduledPosts(prev => prev.filter(p => p.id !== postId));
+            toast.success('Post cancellat');
         } catch (error) {
             console.error('cancelPost failed', error);
-            alert('Error cancelling post');
+            toast.error('Error cancelling post');
         }
     };
 

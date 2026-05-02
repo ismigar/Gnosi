@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Clock, BookOpen, Filter, History, ChevronRight } from 'lucide-react';
 import { FeedManagerModal } from '../components/FeedManagerModal';
 import { AppHeader } from '../components/AppHeader';
@@ -101,7 +102,7 @@ const ReaderDashboard = () => {
                         clearInterval(pollingRef.current);
                         pollingRef.current = null;
                         if (error) {
-                            alert(`Error: ${error}`);
+                            toast.error(`Error: ${error}`);
                         } else if (result_filename) {
                             setPodcastUrl(`${API_BASE}/reader/podcast/latest?t=${Date.now()}`);
                             checkPodcast();
@@ -114,7 +115,7 @@ const ReaderDashboard = () => {
                 }
             }, 5000);
         } catch (error) {
-            alert("Error iniciant la generació del podcast.");
+            toast.error("Error iniciant la generació del podcast.");
             console.error(error);
             setGeneratingPodcast(false);
             setPodcastProgress('');
