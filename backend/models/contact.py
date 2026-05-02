@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import enum
 import uuid
 from backend.data.management_db import Base
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, List
 
 
@@ -119,8 +119,8 @@ class ContactResponse(ContactBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2: ConfigDict en lloc de class Config
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ContactSyncStatus(BaseModel):
