@@ -1006,6 +1006,7 @@ export function EditorInner({
     setSaveStatus,
     metadataRef,
     onOpenPageViewModal,
+    isEditable = true,
 }) {
     const { t } = useTranslation();
     const schema = useMemo(() => {
@@ -1967,6 +1968,7 @@ export function EditorInner({
             >
             <BlockNoteView
                 editor={editor}
+                editable={isEditable}
                 slashMenu={false}
                 theme={effectiveTheme}
             >
@@ -2322,12 +2324,16 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, onToggleCodeView }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, onToggleCodeView, isEditLocked = false }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
-    const isViewer = role === 'viewer';
+    const isViewerRole = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
-    const isEditor = role === 'editor' || isAdmin;
+    // `isViewer`/`isEditor` representen la combinació: rol-viewer O candau de
+    // l'usuari (`isEditLocked` per pàgina). Quan l'usuari tanca el candau,
+    // l'editor es comporta com si fos un viewer per aquesta pàgina concreta.
+    const isViewer = isViewerRole || isEditLocked;
+    const isEditor = !isEditLocked && (role === 'editor' || isAdmin);
     const { effectiveTheme } = useTheme();
 
     const isEditable = !isViewer;
@@ -2771,16 +2777,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent" 
                             />
                             <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
-                                {onToggleCodeView && (
-                                    <button
-                                        onClick={onToggleCodeView}
-                                        title={isCodeView ? t('shell.switch_normal_view') : t('shell.switch_code_view')}
-                                        className={`p-1.5 rounded-md transition-colors text-xs font-medium flex items-center gap-1 ${isCodeView ? 'bg-[var(--gnosi-primary)]/15 text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-secondary)]'}`}
-                                    >
-                                        <Code2 size={13} />
-                                        <span className="hidden sm:inline text-[10px] uppercase tracking-wider font-bold">MD</span>
-                                    </button>
-                                )}
+                                {/* El toggle MD/Normal s'ha consolidat al menú "page options"
+                                    del VaultShell (botó MoreHorizontal a la barra superior)
+                                    perquè col·lisionava amb el títol llarg de la pàgina i
+                                    duplicava la mateixa funció al menu dropdown. */}
                                 {saveStatus === 'saving' && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--gnosi-primary)]/5 text-[var(--gnosi-primary)]/60 text-[10px] font-bold uppercase tracking-wider">
                                         <Loader2 size={12} className="animate-spin" />
@@ -3120,6 +3120,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 saveStatus={saveStatus}
                                 setSaveStatus={setSaveStatus}
                                 metadataRef={metadataRef}
+                                isEditable={isEditable}
                                 onOpenPageViewModal={(tableId = '') => {
                                     setPageViewPreselectedTable(tableId);
                                     setIsPageViewModalOpen(true);

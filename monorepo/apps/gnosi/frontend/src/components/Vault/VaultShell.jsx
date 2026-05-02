@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2 } from 'lucide-react';
+import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2, Lock, Unlock } from 'lucide-react';
 import { AppHeader } from '../AppHeader';
 
 export const VaultShell = ({
@@ -20,6 +20,9 @@ export const VaultShell = ({
     onToggleCodeView,
     canToggleCodeView = false,
     isCodeView = false,
+    onToggleEditLock,
+    canToggleEditLock = false,
+    isEditLocked = false,
     children
 }) => {
     const { t } = useTranslation();
@@ -131,6 +134,26 @@ export const VaultShell = ({
                                 <button
                                     onClick={() => {
                                         setIsPageMenuOpen(false);
+                                        if (canToggleEditLock && onToggleEditLock) {
+                                            onToggleEditLock();
+                                        }
+                                    }}
+                                    disabled={!canToggleEditLock}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed ${
+                                        isEditLocked
+                                            ? 'text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10'
+                                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                                    }`}
+                                >
+                                    {isEditLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                                    <span>{isEditLocked
+                                        ? t('shell.unlock_edit', 'Desbloqueja per editar')
+                                        : t('shell.lock_edit', 'Bloqueja edició (només lectura)')
+                                    }</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsPageMenuOpen(false);
                                         if (canToggleCodeView && onToggleCodeView) {
                                             onToggleCodeView();
                                         }
@@ -154,6 +177,7 @@ export const VaultShell = ({
                                     <History size={14} />
                                     <span>{t('shell.view_history')}</span>
                                 </button>
+                                <div className="border-t border-[var(--border-primary)] my-1" />
                                 <button
                                     onClick={() => {
                                         setIsPageMenuOpen(false);
