@@ -2565,8 +2565,23 @@ async def get_page(page_id: str):
     def _read_and_parse():
         if _is_dashworks_file_path(file_path):
             return _read_dashworks_file(file_path)
-        raw_content = file_path.read_text(encoding="utf-8")
-        return parse_frontmatter(raw_content, file_path)
+        # OneDrive sync pot retornar Errno 35 (Resource deadlock avoided)
+        # quan el fitxer està sent re-escrit pel sync extern. Reintenta amb
+        # backoff curt — normalment al segon intent ja està lliure.
+        last_error = None
+        for attempt in range(3):
+            try:
+                raw_content = file_path.read_text(encoding="utf-8")
+                return parse_frontmatter(raw_content, file_path)
+            except OSError as e:
+                last_error = e
+                if e.errno == 35 and attempt < 2:
+                    time.sleep(0.1 * (attempt + 1))
+                    continue
+                raise
+        if last_error:
+            raise last_error
+        return {}, ""
 
     try:
         metadata, body = await asyncio.to_thread(_read_and_parse)

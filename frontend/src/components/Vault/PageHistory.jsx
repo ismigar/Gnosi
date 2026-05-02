@@ -140,12 +140,24 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
               ) : (
                 <div className="divide-y divide-[var(--border-primary)]">
                   {history.map((version) => (
-                    <button
+                    // ATENCIÓ: NO transformar el wrapper en <button>: tindríem
+                    // <button> dins <button> (HTML invàlid → React hydration
+                    // warning + click bubble erràtic). Usem <div role="button"
+                    // tabIndex=0> + handler de teclat per accessibilitat.
+                    <div
                       key={version.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handlePreview(version)}
-                      className={`w-full px-5 py-4 text-left flex items-center justify-between group transition-all ${
-                        previewVersion?.id === version.id 
-                          ? 'bg-[var(--bg-primary)] border-l-4 border-l-[var(--gnosi-primary)]' 
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handlePreview(version);
+                        }
+                      }}
+                      className={`w-full px-5 py-4 text-left flex items-center justify-between group transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)]/40 ${
+                        previewVersion?.id === version.id
+                          ? 'bg-[var(--bg-primary)] border-l-4 border-l-[var(--gnosi-primary)]'
                           : 'hover:bg-[var(--bg-tertiary)]'
                       }`}
                     >
@@ -157,7 +169,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                           {(version.size / 1024).toFixed(1)} KB • {version.author || 'Sistema'}
                         </p>
                       </div>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRestore(version);
@@ -167,7 +179,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                       >
                         <RotateCcw size={14} />
                       </button>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
