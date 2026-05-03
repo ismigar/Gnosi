@@ -3691,7 +3691,18 @@ _STALE_CHECK_TTL = 30.0
 
 
 def _get_body_for_path(file_path: Path) -> str:
-    """Retorna el body d'un .md aprofitant cache amb invalidació per mtime."""
+    """Retorna el body d'un .md aprofitant cache amb invalidació per mtime.
+
+    Iterem TOTS els .md del Vault per a /backlinks i /unlinked-mentions.
+    Quan OneDrive està re-sincronitzant, molts fitxers retornen Errno 35
+    en paral·lel. SENSE retry, aquests bodies es perden del cache i les
+    crides subsegüents els tornen a intentar (cascada). AMB retry, els
+    cachejem un cop i la 2a crida és instantània.
+
+    Per evitar saturar el thread amb retries × 3988 fitxers, fem un
+    backoff curt (només 0.05/0.1s = 0.15s total). Si encara falla, el
+    fitxer queda fora d'aquest run però el següent intent ho recupera.
+    """
     path_str = str(file_path)
     try:
         mtime_ns = file_path.stat().st_mtime_ns
@@ -3703,10 +3714,23 @@ def _get_body_for_path(file_path: Path) -> str:
         if cached and cached[0] == mtime_ns:
             return cached[1]
 
-    try:
-        raw_content = file_path.read_text(encoding="utf-8")
-    except Exception as e:
-        log.warning(f"Error reading body of {file_path.name}: {e}")
+    raw_content = None
+    delays = [0.05, 0.1]
+    for attempt in range(len(delays) + 1):
+        try:
+            raw_content = file_path.read_text(encoding="utf-8")
+            break
+        except OSError as e:
+            if e.errno == 35 and attempt < len(delays):
+                time.sleep(delays[attempt])
+                continue
+            log.warning(f"Error reading body of {file_path.name}: {e}")
+            return ""
+        except Exception as e:
+            log.warning(f"Error reading body of {file_path.name}: {e}")
+            return ""
+
+    if raw_content is None:
         return ""
 
     with _body_cache_lock:
