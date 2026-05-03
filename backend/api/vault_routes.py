@@ -1300,13 +1300,27 @@ def _delete_asset_files_for_page(
             continue
         # Normalize to list to treat single and multiple values identically
         paths = value if isinstance(value, list) else [value]
+        vault_root = get_p("VAULT").resolve()
+        assets_root = (vault_root / "Assets").resolve()
         for raw_path in paths:
             if not isinstance(raw_path, str):
                 continue
             rel = raw_path.strip()
             if not rel.startswith("Assets/"):
                 continue
-            abs_path = get_p("VAULT") / rel
+            # Defensa contra path traversal: si una nota legítima conté
+            # frontmatter manipulat (`Assets/../../etc/passwd`), el
+            # `startswith("Assets/")` passa però `resolve()` apuntaria fora
+            # del Vault. `unlink()` correria com a root al contenidor →
+            # podríem esborrar fitxers arbitraris del filesystem del host.
+            try:
+                abs_path = (vault_root / rel).resolve()
+                abs_path.relative_to(assets_root)  # raises ValueError si fora
+            except (ValueError, OSError):
+                log.warning(
+                    f"Asset path traversal bloquejat: {rel!r} no és sota Assets/"
+                )
+                continue
             if abs_path.is_file():
                 try:
                     abs_path.unlink()
@@ -2450,6 +2464,45 @@ def _canonicalize_id(page_id: Any) -> str:
     """
     s = str(page_id or "").strip().lower().replace("-", "")
     return s
+
+
+# Strict allow-list per a IDs que s'utilitzen com a SEGMENT de path al
+# filesystem. Bloqueja path traversal (`..`, `/`, `\`, NUL, leading dot).
+# Raó: rutes com `/pages/{page_id}/history` construeixen `VAULT / .history /
+# {page_id}` i, sense validació, `page_id="..".rmtree()` esborraria tot el
+# Vault. Defensa en profunditat encara que les rutes estiguin gated per role.
+_PAGE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+# Format de timestamp d'historial: `YYYYMMDD_HHMMSS` (vegeu `_create_page_version`).
+_HISTORY_TIMESTAMP_RE = re.compile(r"^\d{8}_\d{6}$")
+
+
+def _validate_safe_page_id(page_id: str) -> str:
+    """Valida que page_id és segur per usar com a segment de path.
+
+    Rebutja:
+      - Buit / només whitespace.
+      - Conté `..`, `/`, `\\`, NUL byte.
+      - Comença per `.` (fitxers ocults) o és exactament `.` o `..`.
+      - Caràcters fora de `[A-Za-z0-9_-]`.
+
+    Retorna l'id strippejat. Llança HTTPException(400) si invàlid.
+    """
+    pid = str(page_id or "").strip()
+    if not pid or not _PAGE_ID_RE.match(pid) or pid.startswith("."):
+        raise HTTPException(status_code=400, detail="Invalid page_id")
+    return pid
+
+
+def _validate_history_timestamp(timestamp: str) -> str:
+    """Valida que un timestamp d'historial té format `YYYYMMDD_HHMMSS`.
+
+    Sense això, `timestamp="../foo"` permetria llegir o sobreescriure
+    fitxers .md fora del directori d'historial de la pàgina.
+    """
+    ts = str(timestamp or "").strip()
+    if not ts or not _HISTORY_TIMESTAMP_RE.match(ts):
+        raise HTTPException(status_code=400, detail="Invalid timestamp")
+    return ts
 
 
 def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Path]:
@@ -4976,6 +5029,24 @@ async def update_view(view_id: str, data: dict = Body(...)):
     return {"status": "success"}
 
 
+def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
+    """Resolve `VAULT/folder/segments...` and ensure it stays under VAULT.
+
+    Raises HTTPException(400) si el `folder` que arriba per query string
+    intenta sortir del Vault (`../etc`, paths absoluts, símbolic links, etc.).
+    """
+    vault_root = get_p("VAULT").resolve()
+    rel = str(folder or "").strip()
+    if not rel:
+        raise HTTPException(status_code=400, detail="Empty folder")
+    try:
+        target = (vault_root / rel).joinpath(*segments).resolve()
+        target.relative_to(vault_root)
+    except (ValueError, OSError):
+        raise HTTPException(status_code=400, detail="Invalid folder path")
+    return target
+
+
 # Ruta per retrocompatibilitat amb el frontend existent (SchemaConfigModal)
 @router.post("/schema", dependencies=[Depends(require_role("editor"))])
 async def save_schema(folder: str, schema: dict = Body(...)):
@@ -4983,7 +5054,7 @@ async def save_schema(folder: str, schema: dict = Body(...)):
     Legacy route to save schemas per folder.
     Now we redirect it to table creation if needed, or save it as a local file.
     """
-    schema_path = get_p('VAULT') / folder / "schema.json"
+    schema_path = _resolve_subpath_within_vault(folder, "schema.json")
     schema_path.parent.mkdir(parents=True, exist_ok=True)
     safe_write_json(schema_path, schema, indent=2)
     return {"status": "success"}
@@ -4991,7 +5062,7 @@ async def save_schema(folder: str, schema: dict = Body(...)):
 
 @router.get("/schema")
 async def get_schema(folder: str):
-    schema_path = get_p('VAULT') / folder / "schema.json"
+    schema_path = _resolve_subpath_within_vault(folder, "schema.json")
     if not schema_path.exists():
         return {}
     try:
@@ -5150,6 +5221,7 @@ def _create_page_version(page_id: str, file_path: Path):
 @router.get("/pages/{page_id}/history")
 async def get_page_history(page_id: str):
     """Returns the list of available versions for a page."""
+    page_id = _validate_safe_page_id(page_id)
     history_base = get_p("VAULT") / ".history" / page_id
     if not history_base.exists():
         return []
@@ -5176,6 +5248,8 @@ async def get_page_history(page_id: str):
 @router.get("/pages/{page_id}/history/{timestamp}")
 async def get_page_version_content(page_id: str, timestamp: str):
     """Returns the content of a specific version."""
+    page_id = _validate_safe_page_id(page_id)
+    timestamp = _validate_history_timestamp(timestamp)
     version_path = get_p("VAULT") / ".history" / page_id / f"{timestamp}.md"
     if not version_path.exists():
         raise HTTPException(status_code=404, detail="Version not found")
@@ -5197,6 +5271,8 @@ async def get_page_version_content(page_id: str, timestamp: str):
 @router.post("/pages/{page_id}/history/restore/{timestamp}", dependencies=[Depends(require_role("editor"))])
 async def restore_page_version(page_id: str, timestamp: str, background_tasks: BackgroundTasks):
     """Restores a page to a previous version."""
+    page_id = _validate_safe_page_id(page_id)
+    timestamp = _validate_history_timestamp(timestamp)
     version_path = get_p("VAULT") / ".history" / page_id / f"{timestamp}.md"
     if not version_path.exists():
         raise HTTPException(status_code=404, detail="Version not found")
@@ -5227,7 +5303,13 @@ async def restore_page_version(page_id: str, timestamp: str, background_tasks: B
 
 @router.delete("/pages/{page_id}/history", dependencies=[Depends(require_role("admin"))])
 async def purge_page_history(page_id: str):
-    """Deletes all version history of a page."""
+    """Deletes all version history of a page.
+
+    Important: `page_id` ha de passar `_validate_safe_page_id` ABANS de
+    construir el path. Sense això, `page_id=".."` faria
+    `shutil.rmtree(VAULT/.history/..)` = esborrar el Vault sencer.
+    """
+    page_id = _validate_safe_page_id(page_id)
     history_base = get_p("VAULT") / ".history" / page_id
     if not history_base.exists():
         return {"status": "success", "message": "No history to delete"}
