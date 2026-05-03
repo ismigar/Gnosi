@@ -1053,6 +1053,25 @@ export function EditorInner({
                     //   - mousedown/mouseup → stopPropagation (no arribi a PM)
                     //   - click → la navegació real
                     const target = props.inlineContent.props.target;
+                    // UUID v4 detectat: 8-4-4-4-12 hex chars. Si NO ho és,
+                    // assumim que és un títol i fem lookup invers a idToTitle.
+                    // Sense això, `[[Resum estructurat del DVA]]` (target =
+                    // títol literal) feia GET /api/vault/pages/Resum%20...
+                    // → 404 perquè el backend espera UUIDs.
+                    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    const resolveTarget = (raw) => {
+                        if (!raw) return raw;
+                        if (UUID_RE.test(raw)) return raw;
+                        // Lookup invers títol → ID al globalIndex
+                        const idToTitle = contextValue.idToTitle || {};
+                        const lower = raw.toLowerCase().trim();
+                        for (const [id, t] of Object.entries(idToTitle)) {
+                            if (String(t || '').toLowerCase().trim() === lower) {
+                                return id;
+                            }
+                        }
+                        return raw; // Sense match — passem el raw, backend retornarà 404
+                    };
                     const handleNavigate = (e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -1060,16 +1079,17 @@ export function EditorInner({
                             e.stopImmediatePropagation();
                         }
                         if (!target) return;
+                        const resolved = resolveTarget(target);
                         // Click normal → tab actual (com Notion/Obsidian);
                         // Cmd/Ctrl-click → split. Abans qualsevol click feia
                         // sempre split, però amb 4 panes oberts era no-op
                         // silenciós (semblava wikilink mort).
                         if ((e.metaKey || e.ctrlKey) && contextValue.onOpenParallel) {
-                            contextValue.onOpenParallel(target);
+                            contextValue.onOpenParallel(resolved);
                         } else if (contextValue.onOpenPage) {
-                            contextValue.onOpenPage(target);
+                            contextValue.onOpenPage(resolved);
                         } else if (contextValue.onOpenParallel) {
-                            contextValue.onOpenParallel(target);
+                            contextValue.onOpenParallel(resolved);
                         }
                     };
                     const stopBubble = (e) => {
