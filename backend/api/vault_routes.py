@@ -3006,7 +3006,12 @@ async def patch_page(
                     log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
             with _body_cache_lock:
                 _body_cache.pop(str(file_path), None)
-            _iter_docs_cache["docs"] = None
+            # Invalidate iter_docs cache amb el lock corresponent. Sense
+            # lock, hi ha una race molt petita on un read concurrent al
+            # cache podria veure None mid-reset i refer la feina O(N) sense
+            # necessitat. Adquirir-lo aquí no és costós (write esporàdic).
+            with _iter_docs_lock:
+                _iter_docs_cache["docs"] = None
         except Exception as e:
             log.debug(f"Cache invalidation after PATCH failed: {e}")
 
