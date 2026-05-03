@@ -1462,7 +1462,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             boxShadow: shadow, border: 'none', cursor: 'pointer',
                                                             transition: 'all 0.2s', color: 'white', fontSize: '0.95rem'
                                                         });
-                                                        const iconBox = (r) => ({ background: 'white', padding: '7px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: r || '10px' });
+                                                        const iconBox = (r) => ({ background: 'white', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: r || '10px' });
 
                                                         const GoogleBtn = () => (
                                                             <button onClick={() => window.location.href = `/api/auth/google/login?type=${activeTab}`} style={btnStyle('#4285f4', '0 8px 16px rgba(66,133,244,0.25)')}>
