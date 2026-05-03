@@ -1106,7 +1106,12 @@ export function EditorInner({
                             onMouseUp={stopBubble}
                             onClick={handleNavigate}
                             onAuxClick={handleNavigate}
-                            contentEditable={false}
+                            // contentEditable={false} feia que ProseMirror
+                            // tractés el node com a atòmic i en alguns
+                            // browsers mai disparava el handler React. El
+                            // suprimim i protegim només via stopPropagation
+                            // dels events pointer.
+                            style={{ pointerEvents: 'auto' }}
                         >
                             {props.inlineContent.props.title}
                         </span>
