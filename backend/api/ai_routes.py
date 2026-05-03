@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.config.app_config import load_params
@@ -13,6 +13,7 @@ from backend.security.ai_credentials import (
     sanitize_ai_config,
     set_provider_api_key,
 )
+from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
 
@@ -26,7 +27,7 @@ class ValidatePayload(BaseModel):
     base_url: Optional[str] = None
     model: Optional[str] = None
 
-@router.post("/providers/{provider_id}/validate")
+@router.post("/providers/{provider_id}/validate", dependencies=[Depends(require_role("admin"))])
 async def validate_provider(provider_id: str, payload: ValidatePayload):
     """
     Attempts to validate the provider by making a simple 'ping' request.
@@ -99,7 +100,7 @@ async def get_ai_catalog():
     }
 
 
-@router.post("/providers/{provider_id}/credentials")
+@router.post("/providers/{provider_id}/credentials", dependencies=[Depends(require_role("admin"))])
 async def set_provider_credentials(provider_id: str, payload: ProviderCredentialPayload):
     provider = (provider_id or "").strip().lower()
     if not provider:
@@ -150,7 +151,7 @@ class ProviderStatusPayload(BaseModel):
     enabled: bool
 
 
-@router.delete("/providers/{provider_id}")
+@router.delete("/providers/{provider_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_provider(provider_id: str):
     provider = (provider_id or "").strip().lower()
     if not provider:
@@ -181,7 +182,7 @@ async def delete_provider(provider_id: str):
     return {"status": "skipped", "message": f"Provider {provider} not found in config"}
 
 
-@router.patch("/providers/{provider_id}/status")
+@router.patch("/providers/{provider_id}/status", dependencies=[Depends(require_role("admin"))])
 async def update_provider_status(provider_id: str, payload: ProviderStatusPayload):
     provider = (provider_id or "").strip().lower()
     if not provider:
