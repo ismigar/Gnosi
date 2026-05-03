@@ -3694,14 +3694,12 @@ def _get_body_for_path(file_path: Path) -> str:
     """Retorna el body d'un .md aprofitant cache amb invalidació per mtime.
 
     Iterem TOTS els .md del Vault per a /backlinks i /unlinked-mentions.
-    Quan OneDrive està re-sincronitzant, molts fitxers retornen Errno 35
-    en paral·lel. SENSE retry, aquests bodies es perden del cache i les
-    crides subsegüents els tornen a intentar (cascada). AMB retry, els
-    cachejem un cop i la 2a crida és instantània.
-
-    Per evitar saturar el thread amb retries × 3988 fitxers, fem un
-    backoff curt (només 0.05/0.1s = 0.15s total). Si encara falla, el
-    fitxer queda fora d'aquest run però el següent intent ho recupera.
+    NO fem retry per Errno 35: amb 3988 fitxers, si N retornen deadlock
+    en paral·lel, fer retry × N empitjora dramàticament l'iteració (60+
+    segons enlloc de 5). Saltem el fitxer; la propera invocació de
+    /backlinks (TTL expirat) tornarà a intentar i agafarà els que faltaven.
+    Si un fitxer falla repetidament, els seus backlinks queden fora del
+    resultat — degradació gradual acceptable.
     """
     path_str = str(file_path)
     try:
@@ -3714,23 +3712,18 @@ def _get_body_for_path(file_path: Path) -> str:
         if cached and cached[0] == mtime_ns:
             return cached[1]
 
-    raw_content = None
-    delays = [0.05, 0.1]
-    for attempt in range(len(delays) + 1):
-        try:
-            raw_content = file_path.read_text(encoding="utf-8")
-            break
-        except OSError as e:
-            if e.errno == 35 and attempt < len(delays):
-                time.sleep(delays[attempt])
-                continue
+    try:
+        raw_content = file_path.read_text(encoding="utf-8")
+    except OSError as e:
+        if e.errno == 35:
+            # Errno 35 (deadlock) silenciós — log.debug en lloc de warning
+            # per no saturar logs amb 3988 missatges quan OneDrive sync.
+            log.debug(f"Body skip (Errno 35): {file_path.name}")
+        else:
             log.warning(f"Error reading body of {file_path.name}: {e}")
-            return ""
-        except Exception as e:
-            log.warning(f"Error reading body of {file_path.name}: {e}")
-            return ""
-
-    if raw_content is None:
+        return ""
+    except Exception as e:
+        log.warning(f"Error reading body of {file_path.name}: {e}")
         return ""
 
     with _body_cache_lock:
