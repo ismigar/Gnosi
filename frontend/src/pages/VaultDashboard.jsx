@@ -562,9 +562,31 @@ export default function VaultDashboard() {
             return;
         }
 
-        // Avortem qualsevol loadPage anterior abans de començar el nou: si
-        // l'usuari clica diverses pàgines ràpidament, només volem que la
-        // darrera "guanyi" i sobrescrigui els tabs/active state.
+        // ATENCIÓ: si l'usuari fa doble-click al MATEIX wikilink, abans
+        // avortàvem el primer loadPage i el segon reutilitzava la
+        // requestPromise avortada → loadPage fallava silenciosament i
+        // calia 2-3 clicks més perquè finalment funcionés. Si el mateix
+        // pageId ja s'està carregant, no avortem; deixem que la primera
+        // crida acabi i sortim sense fer res.
+        const inFlightForSamePage = pageRequestInFlightRef.current.has(pageId);
+        if (inFlightForSamePage) {
+            // Esperem el resultat de la primera crida i, quan acabi,
+            // setActiveTabId per assegurar el focus a la pàgina nova.
+            try {
+                const res = await pageRequestInFlightRef.current.get(pageId);
+                if (res?.data) {
+                    setActiveTabId(tabId);
+                    setViewMode('editor');
+                    setActiveTableId(null);
+                    if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
+                }
+            } catch { /* la primera crida ja informarà errors */ }
+            return;
+        }
+
+        // Avortem només si la càrrega anterior era d'un pageId DIFERENT
+        // (l'usuari ha canviat de target). Per al mateix pageId acabem
+        // de tractar-ho a sobre.
         if (activeLoadAbortRef.current) {
             activeLoadAbortRef.current.abort();
         }
