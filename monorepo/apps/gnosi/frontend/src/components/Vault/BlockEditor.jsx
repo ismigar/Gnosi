@@ -1061,16 +1061,23 @@ export function EditorInner({
                     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
                     const resolveTarget = (raw) => {
                         if (!raw) return raw;
-                        if (UUID_RE.test(raw)) return raw;
+                        // Strip section anchor `#Section` abans de resoldre.
+                        // El backend no entén /api/vault/pages/UUID#Section
+                        // (la part `#` no arriba al servidor de totes maneres,
+                        // però la concatenació rompia el lookup UUID/títol).
+                        const hashIdx = raw.indexOf('#');
+                        const base = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
+                        if (!base) return raw;
+                        if (UUID_RE.test(base)) return base;
                         // Lookup invers títol → ID al globalIndex
                         const idToTitle = contextValue.idToTitle || {};
-                        const lower = raw.toLowerCase().trim();
+                        const lower = base.toLowerCase().trim();
                         for (const [id, t] of Object.entries(idToTitle)) {
                             if (String(t || '').toLowerCase().trim() === lower) {
                                 return id;
                             }
                         }
-                        return raw; // Sense match — passem el raw, backend retornarà 404
+                        return base; // Sense match — passem el base, backend retornarà 404
                     };
                     const handleNavigate = (e) => {
                         e.preventDefault();
