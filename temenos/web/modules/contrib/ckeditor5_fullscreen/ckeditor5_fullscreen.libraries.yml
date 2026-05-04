@@ -1,0 +1,16 @@
+fullscreen:
+  version: 1.x
+  css:
+    theme:
+      css/fullscreen.css: { }
+  js:
+    js/build/fullscreen.js: { preprocess: false, minified: true }
+  dependencies:
+    - core/ckeditor5
+    - core/drupal.displace
+
+fullscreen.admin:
+  version: 1.x
+  css:
+    theme:
+      css/fullscreen.admin.css: { }

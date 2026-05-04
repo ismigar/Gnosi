@@ -1,0 +1,35 @@
+name: Multi-Remote Sync
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'monorepo/**'
+      - 'scripts/sync_repos.py'
+      - '.github/workflows/sync.yml'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "Github Action"
+          git config --global user.email "action@github.com"
+          git config --global --unset-all credential.helper || true
+
+      - name: Run Sync Script
+        env:
+          SYNC_PAT: ${{ secrets.SYNC_PAT }}
+        run: python3 scripts/sync_repos.py

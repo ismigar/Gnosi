@@ -1,0 +1,47 @@
+uuid: 11ca415f-ecb4-4af5-b1ab-0a1afe872f19
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_image
+    - node.type.article
+  module:
+    - content_translation
+    - image
+third_party_settings:
+  content_translation:
+    translation_sync:
+      file: file
+      alt: '0'
+      title: '0'
+_core:
+  default_config_hash: j0riO_-77ZFWNLtj0iJ31HnohiNjdn8HUL86RueCF-M
+id: node.article.field_image
+field_name: field_image
+entity_type: node
+bundle: article
+label: Imagen
+description: ''
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:file'
+  handler_settings: {  }
+  file_directory: images-blog
+  file_extensions: 'png gif jpg jpeg webp'
+  max_filesize: ''
+  max_resolution: 2340x1320
+  min_resolution: 2340x13320
+  alt_field: true
+  alt_field_required: true
+  title_field: false
+  title_field_required: false
+  default_image:
+    uuid: 870203da-02c5-45b6-b773-a3b9beda8732
+    alt: 'Imatge per defecte amb logo de Temenos.'
+    title: ''
+    width: 2340
+    height: 1320
+field_type: image

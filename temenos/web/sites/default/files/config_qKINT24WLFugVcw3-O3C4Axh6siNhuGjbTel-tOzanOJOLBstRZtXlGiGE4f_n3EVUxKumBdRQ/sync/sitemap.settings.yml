@@ -1,0 +1,56 @@
+_core:
+  default_config_hash: GUKBlXIBQ2d0H8Q7M_Rqn1Q93tRxLPfs9cG-VeQC9NI
+langcode: ca
+page_title: 'Mapa del lloc'
+path: /sitemap
+message:
+  value: ''
+  format: plain_text
+plugins:
+  'menu:legal':
+    base_plugin: menu
+    enabled: true
+    weight: 0
+    settings:
+      title: Legal
+      show_disabled: false
+    id: 'menu:legal'
+    provider: sitemap
+  'menu:main':
+    base_plugin: menu
+    enabled: true
+    weight: 0
+    settings:
+      title: 'Navegación principal'
+      show_disabled: false
+    id: 'menu:main'
+    provider: sitemap
+  frontpage:
+    base_plugin: frontpage
+    enabled: true
+    weight: 0
+    settings:
+      title: 'Página de Inicio'
+      rss: /rss.xml
+    id: frontpage
+    provider: sitemap
+  'vocabulary:tags':
+    base_plugin: vocabulary
+    enabled: true
+    weight: 0
+    settings:
+      title: Etiquetas
+      show_description: false
+      show_count: false
+      display_unpublished: false
+      term_depth: 9
+      term_count_threshold: 0
+      customize_link: false
+      term_link: entity.taxonomy_term.canonical|taxonomy_term
+      always_link: false
+      enable_rss: false
+      rss_link: view.taxonomy_term.feed_1|arg_0
+      rss_depth: 9
+    id: 'vocabulary:tags'
+    provider: sitemap
+include_css: true

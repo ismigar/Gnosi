@@ -1,0 +1,27 @@
+{
+    "name": "drupal/tvp",
+    "description": "This module helps you to use language specific aliases for View Paths defined using Drupal core Url Alias Module.",
+    "license": "GPL-2.0-or-later",
+    "type": "drupal-module",
+    "require": {
+        "php": ">=8",
+        "drupal/core": "^8.8.0 || ^9 || ^10 || ^11"
+    },
+    "require-dev": {
+        "drupal/pathauto": "^1.0",
+        "drush/drush": "^11 || ^12 || ^13",
+        "ergebnis/composer-normalize": "^2.47"
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://packages.drupal.org/8"
+        }
+    ],
+    "minimum-stability": "dev",
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true
+        }
+    }
+}

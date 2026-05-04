@@ -1,0 +1,13 @@
+uuid: e0616683-108a-4407-9091-f57fb257baa0
+langcode: ca
+status: true
+dependencies:
+  module:
+    - node
+_core:
+  default_config_hash: KgGJDZFpMaz_8bTv6fN1bXS3Qi5LWmRJI9R53kEGsNQ
+id: node.teaser
+label: Resum
+description: ''
+targetEntityType: node
+cache: true

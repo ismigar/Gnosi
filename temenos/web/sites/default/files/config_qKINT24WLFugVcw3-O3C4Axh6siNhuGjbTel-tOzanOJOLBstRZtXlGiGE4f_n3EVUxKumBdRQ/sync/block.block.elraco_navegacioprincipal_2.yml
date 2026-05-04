@@ -1,0 +1,25 @@
+uuid: 61dc2c65-d301-4e95-984c-7080162ceed8
+langcode: ca
+status: true
+dependencies:
+  config:
+    - system.menu.main
+  module:
+    - system
+  theme:
+    - elraco
+id: elraco_navegacioprincipal_2
+theme: elraco
+region: footer_first
+weight: 0
+provider: null
+plugin: 'system_menu_block:main'
+settings:
+  id: 'system_menu_block:main'
+  label: 'Navegació principal'
+  label_display: '0'
+  provider: system
+  level: 1
+  depth: 0
+  expand_all_items: false
+visibility: {  }

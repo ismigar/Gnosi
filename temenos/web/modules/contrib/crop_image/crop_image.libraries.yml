@@ -1,0 +1,7 @@
+image_browser:
+  version: 1.0
+  css:
+    theme:
+      css/image-browser.css: {}
+  js:
+    js/image-browser.js: {}

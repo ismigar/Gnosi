@@ -1,0 +1,10 @@
+type: simplenews_issue
+name: Newsletter Issue
+description: 'Use <em>Newsletter Issue</em> for newsletters.'
+help: ''
+preview_mode: 1
+display_submitted: false
+status: true
+new_revision: false
+langcode: en
+dependencies: {  }

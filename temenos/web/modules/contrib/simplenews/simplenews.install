@@ -1,0 +1,760 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the simplenews module.
+ */
+
+use Drupal\Core\Config\FileStorage;
+use Drupal\Core\Database\Database;
+use Drupal\Core\Entity\ContentEntityType;
+use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\simplenews\Entity\Newsletter;
+use Drupal\simplenews\Entity\Subscriber;
+use Drupal\simplenews\Entity\SubscriberHistory;
+use Drupal\simplenews\SubscriberInterface;
+use Drupal\simplenews\Subscription\SubscriptionStorageSchema;
+
+/**
+ * Implements hook_schema().
+ */
+function simplenews_schema() {
+  $schema['simplenews_mail_spool'] = [
+    'description' => 'Spool for temporary storage of newsletter emails.',
+    'fields' => [
+      'msid' => [
+        'description' => 'The primary identifier for a mail spool record.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'entity_type' => [
+        'description' => 'The entity type of this newsletter issue.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'entity_id' => [
+        'description' => 'The entity id of this newsletter issue.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'newsletter_id' => [
+        'description' => 'The {simplenews_newsletter}.id this email belongs to.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'status' => [
+        'description' => 'The sent status of the email (0 = hold, 1 = pending, 2 = done, 3 = in progress, 4 = skipped, 5 = failed).',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ],
+      'timestamp' => [
+        'description' => 'The time status was set or changed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'data' => [
+        'description' => 'A serialized array of name value pairs that define a temporary subscriber.',
+        'type' => 'text',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+      ],
+      'snid' => [
+        'description' => 'Foreign key for subscriber table ({simplenews_subscriber}.id).',
+        'type' => 'int',
+        'not null' => FALSE,
+      ],
+    ],
+    'primary key' => ['msid'],
+    'indexes' => [
+      'newsletter_id' => ['newsletter_id'],
+      'status' => ['status'],
+      'snid_newsletter_id' => ['snid', 'newsletter_id'],
+    ],
+    'foreign keys' => [
+      'newsletter_id' => [
+        'table' => 'simplenews_newsletter',
+        'columns' => ['newsletter_id'],
+      ],
+      'snid_newsletter_id' => [
+        'table' => 'simplenews_subscription',
+        'columns' => [
+          'snid' => 'snid',
+          'newsletter_id' => 'newsletter_id',
+        ],
+      ],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function simplenews_install() {
+  if (\Drupal::service('config.installer')->isSyncing()) {
+    return;
+  }
+
+  // Set the default values for test_address, from_address and from_name.
+  $site_mail = \Drupal::config('system.site')->get('mail');
+  $site_name = \Drupal::config('system.site')->get('name');
+
+  $config = \Drupal::configFactory()->getEditable('simplenews.settings');
+  if (empty($site_mail)) {
+    $site_mail = ini_get('sendmail_from');
+  }
+  $config->set('newsletter.from_address', $site_mail);
+
+  if (empty($site_name)) {
+    $site_name = 'Drupal';
+  }
+  $config->set('newsletter.from_name', $site_name);
+  $config->save(TRUE);
+
+  user_role_grant_permissions(AccountInterface::ANONYMOUS_ROLE, ['subscribe to newsletters']);
+  user_role_grant_permissions(AccountInterface::AUTHENTICATED_ROLE, ['subscribe to newsletters']);
+
+  // Init the default newsletter.
+  $newsletter = Newsletter::load('default');
+  $newsletter->from_name = $site_name;
+  $newsletter->from_address = $site_mail;
+  $newsletter->trustData();
+  $newsletter->save();
+}
+
+/**
+ * Update simplenews_mail_spool table.
+ */
+function simplenews_update_8201() {
+  $db_schema = Database::getConnection()->schema();
+  $db_schema->changeField('simplenews_mail_spool', 'snid', 'snid', [
+    'description' => 'Foreign key for subscriber table ({simplenews_subscriber}.id).',
+    'type' => 'int',
+    'not null' => FALSE,
+  ]);
+  $db_schema->dropField('simplenews_mail_spool', 'mail');
+}
+
+/**
+ * Initialise newsletter allowed handlers field.
+ */
+function simplenews_update_8202() {
+  foreach (Newsletter::loadMultiple() as $newsletter) {
+    if (!isset($newsletter->allowed_handlers)) {
+      $newsletter->allowed_handlers = [];
+      $newsletter->save();
+    }
+  }
+}
+
+/**
+ * Convert simplenews_subscriber.subscriptions to base field.
+ */
+function simplenews_update_8203() {
+  // Add new field definition.
+  $field_definition = BaseFieldDefinition::create('simplenews_subscription')
+    ->setCardinality(FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED)
+    ->setLabel(t('Subscriptions'))
+    ->setSetting('target_type', 'simplenews_newsletter')
+    ->setDisplayOptions('form', [
+      'type' => 'simplenews_subscription_select',
+      'weight' => '0',
+      'settings' => [],
+      'third_party_settings' => [],
+    ]);
+
+  \Drupal::entityDefinitionUpdateManager()->installFieldStorageDefinition('subscriptions', 'simplenews_subscriber', 'simplenews', $field_definition);
+
+  // Remove old configuration.
+  // Cannot use FieldStorageConfig because it throws an exception due to the
+  // clashing base field.
+  $configurations_to_delete = ['field.field.simplenews_subscriber.simplenews_subscriber.subscriptions', 'field.storage.simplenews_subscriber.subscriptions'];
+
+  $config_factory = \Drupal::configFactory();
+  $dependents = \Drupal::service('config.manager')->findConfigEntityDependencies('config', $configurations_to_delete);
+
+  foreach ($dependents as $config_name => $config_entity) {
+    $config_entity = $config_factory->getEditable($config_name);
+    $dependencies = $config_entity->get('dependencies.config');
+    $dependencies = array_diff($dependencies, $configurations_to_delete);
+    $config_entity->set('dependencies.config', $dependencies);
+    $config_entity->save();
+  }
+
+  foreach ($configurations_to_delete as $config) {
+    $config_factory->getEditable($config)->delete();
+  }
+}
+
+/**
+ * Update all existing views using simplenews_subscriber.subscriptions.
+ */
+function simplenews_update_8204() {
+  $config_factory = \Drupal::configFactory();
+  foreach ($config_factory->listAll('views.view.') as $view_config_name) {
+    $view = $config_factory->getEditable($view_config_name);
+    $displays = $view->get('display');
+    foreach ($displays as $display_name => $display) {
+
+      if (!empty($display['display_options']['fields'])) {
+        foreach ($display['display_options']['fields'] as $field_name => $field) {
+          if (($field_name == 'subscriptions') && ($field['table'] == 'simplenews_subscriber__subscriptions')) {
+            // Update the field.
+            $key = "display.$display_name.display_options.fields.$field_name";
+            $view->clear($key);
+            $key .= '_target_id';
+            $field['id'] .= '_target_id';
+            $field['field'] .= '_target_id';
+            $view->set($key, $field);
+          }
+        }
+      }
+    }
+    $view->save(TRUE);
+  }
+}
+
+/**
+ * Add simplenews_issue error_count property.
+ */
+function simplenews_update_8205() {
+  $manager = \Drupal::entityDefinitionUpdateManager();
+  $storage_definition = $manager->getFieldStorageDefinition('simplenews_issue', 'node');
+  $table_mapping = \Drupal::service('entity_type.manager')->getStorage('node')->getTableMapping();
+  $table_names[] = $table_mapping->getDedicatedDataTableName($storage_definition);
+  $table_names[] = $table_mapping->getDedicatedRevisionTableName($storage_definition);
+  $column_name = $table_mapping->getFieldColumnName($storage_definition, 'error_count');
+
+  $schema = Database::getConnection()->schema();
+  $new_property = [
+    'description' => 'Counter of already sent newsletters.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => FALSE,
+  ];
+
+  foreach ($table_names as $table_name) {
+    if (!$schema->fieldExists($table_name, $column_name)) {
+      $schema->addField($table_name, $column_name, $new_property);
+    }
+  }
+
+  $manager->updateFieldStorageDefinition($storage_definition);
+}
+
+/**
+ * Remove simplenews_mail_spool error field.
+ */
+function simplenews_update_8206() {
+  $schema = Database::getConnection()->schema();
+  $schema->dropField('simplenews_mail_spool', 'error');
+}
+
+/**
+ * Initialize tidy unconfirmed subscribers setting.
+ */
+function simplenews_update_8207() {
+  $config = \Drupal::configFactory()->getEditable('simplenews.settings');
+  $config->set('subscription.tidy_unconfirmed', 0);
+  $config->save();
+}
+
+/**
+ * Remove redundant view mode 'email_textalt'.
+ */
+function simplenews_update_830001() {
+  \Drupal::entityTypeManager()->getStorage('entity_view_mode')->load('node.email_textalt')->delete();
+}
+
+/**
+ * Initialize plain-text alternative setting.
+ */
+function simplenews_update_830002() {
+  $config = \Drupal::configFactory()->getEditable('simplenews.settings');
+  $config->set('mail.textalt', TRUE);
+  $config->save();
+}
+
+/**
+ * Initialize skip_verification setting, remove single-confirmation emails.
+ * Convert newsletter field opt_inout to 'access'.
+ */
+function simplenews_update_830003() {
+  $config = \Drupal::configFactory()->getEditable('simplenews.settings');
+
+  $config->set('subscription.skip_verification', FALSE);
+
+  $config->clear('subscription.use_combined');
+  $config->clear('subscription.confirm_subscribe_subject');
+  $config->clear('subscription.confirm_subscribe_unsubscribed');
+  $config->clear('subscription.confirm_subscribe_subscribed');
+  $config->clear('subscription.confirm_unsubscribe_subscribed');
+  $config->clear('subscription.confirm_unsubscribe_unsubscribed');
+
+  $config->save();
+
+  $newsletter_types = \Drupal::service('entity_type.manager')->getStorage('simplenews_newsletter')->loadMultiple();
+  foreach ($newsletter_types as $type) {
+    $type->set('access', $type->get('opt_inout') != 'hidden' ? 'default' : 'hidden');
+    $type->set('opt_inout', NULL);
+    $type->save();
+  }
+}
+
+/**
+ * Initialize subscription validate settings.
+ */
+function simplenews_update_830004() {
+  $config = \Drupal::configFactory()->getEditable('simplenews.settings');
+  $config->set('subscription.validate_subject', "Manage your subscriptions at [site:name]");
+  $config->set('subscription.validate_body', "We have received a request to manage your subscriptions for [simplenews-subscriber:mail] at [site:url]. To proceed please use the link below.\r\n\r\n[simplenews-subscriber:manage-url]");
+
+  $config->clear('subscription.confirm_combined_line_subscribe_subscribed');
+  $config->clear('subscription.confirm_combined_line_subscribe_unsubscribed');
+  $config->clear('subscription.confirm_combined_line_unsubscribe_subscribed');
+  $config->clear('subscription.confirm_combined_line_unsubscribe_unsubscribed');
+
+  if ($config->get('subscription.confirm_combined_body') == "We have received a request for the following subscription changes for [simplenews-subscriber:mail] at [site:url]:\r\n\r\n[changes-list]\r\n\r\nTo confirm please use the link below.\r\n\r\n[simplenews-subscriber:combined-url]") {
+    $config->set('subscription.confirm_combined_body', "We have received a request to subscribe [simplenews-subscriber:mail] at [site:url]. To confirm please use the link below.\r\n\r\n[simplenews-subscriber:combined-url]");
+  }
+  if ($config->get('subscription.confirm_combined_body_unchanged') == "We have received a request for the following subscription changes for [simplenews-subscriber:mail] at [site:url]:\r\n\r\n[changes-list]\r\n\r\nNo confirmation necessary because all requested changes equal the current state.") {
+    $config->set('subscription.confirm_combined_body_unchanged', "We have received a request to subscribe [simplenews-subscriber:mail] at [site:url]. No confirmation necessary because you are already subscribed.");
+  }
+
+  $config->save();
+}
+
+/**
+ * Initialize new settings on subscription block.
+ */
+function simplenews_update_830005() {
+  $config_factory = \Drupal::configFactory();
+
+  foreach ($config_factory->listAll('block.block.') as $block_config_name) {
+    $block_config = $config_factory->getEditable($block_config_name);
+    if ($block_config->get('plugin') == 'simplenews_subscription_block') {
+      $newsletters = $block_config->get('settings.newsletters');
+      if (count(array_filter($block_config->get('settings.newsletters'))) == 1) {
+        $block_config->set('settings.default_newsletters', $newsletters)
+          ->set('settings.newsletters', []);
+      }
+      else {
+        $block_config->set('settings.default_newsletters', []);
+      }
+
+      $block_config->set('settings.show_manage', TRUE)->save(TRUE);
+    }
+  }
+}
+
+/**
+ * Changes field simplenews_issue to non-translatable.
+ */
+function simplenews_update_830006() {
+  $fields = \Drupal::entityTypeManager()
+    ->getStorage('field_config')
+    ->loadByProperties([
+      'field_type' => 'simplenews_issue',
+    ]);
+  foreach ($fields as $field) {
+    $updated_field = FieldConfig::create($field->toArray() + [
+      'translatable' => FALSE,
+    ]);
+    $updated_field->original = $field;
+    $updated_field->enforceIsNew(FALSE);
+    $updated_field->save();
+  }
+}
+
+/**
+ * Initialize issue_tokens setting.
+ */
+function simplenews_update_830007() {
+  $config = \Drupal::configFactory()->getEditable('simplenews.settings');
+  $config->set('newsletter.issue_tokens', FALSE);
+  $config->save();
+}
+
+/**
+ * Add a 'uuid' entity key to subscriber.
+ */
+function simplenews_update_830008() {
+  $entity_type = \Drupal::entityDefinitionUpdateManager()->getEntityType('simplenews_subscriber');
+  $entity_keys = $entity_type->getKeys();
+  $entity_keys['uuid'] = 'uuid';
+  $entity_type->set('entity_keys', $entity_keys);
+  \Drupal::entityDefinitionUpdateManager()->updateEntityType($entity_type);
+}
+
+/**
+ * Fix 'uuid' entity key for subscriber.
+ */
+function simplenews_update_830009() {
+  // The code in simplenews_update_830008() should be enough, but we have to
+  // update the field storage too, see https://www.drupal.org/node/2554097.
+  $manager = \Drupal::entityDefinitionUpdateManager();
+  $manager->updateFieldStorageDefinition($manager->getFieldStorageDefinition('uuid', 'simplenews_subscriber'));
+}
+
+/**
+ * Update simplenews_subscriber definition.
+ */
+function simplenews_update_840001() {
+  $definition_manager = \Drupal::entityDefinitionUpdateManager();
+
+  $changes = $definition_manager->getFieldStorageDefinition('changes', 'simplenews_subscriber');
+  $definition_manager->uninstallFieldStorageDefinition($changes);
+
+  $status = BaseFieldDefinition::create('list_tiny_integer')
+    ->setLabel(t('Status'))
+    ->setDescription(t('Status of the subscriber.'))
+    ->setDefaultValue(SubscriberInterface::ACTIVE)
+    ->setRequired(TRUE)
+    ->setSetting('allowed_values', simplenews_subscriber_status_options())
+    ->setTargetEntityTypeId('simplenews_subscriber')
+    ->setName('status')
+    ->setProvider('simplenews');
+  $definition_manager->updateFieldStorageDefinition($status);
+
+  \Drupal::configFactory()->getEditable('simplenews.settings')
+    ->clear('subscription.confirm_combined_body_unchanged')
+    ->save();
+}
+
+/**
+ * Update simplenews_subscriber entities.
+ */
+function simplenews_update_840002() {
+  // Bypass Entity API for better performance.
+  // Delete unconfirmed subscriptions.
+  $database = \Drupal::database();
+  $database->delete('simplenews_subscriber__subscriptions')
+    ->condition('subscriptions_status', 2)
+    ->execute();
+
+  // Set all subscribers without a subscription to unconfirmed.
+  $no_subscriptions = $database->query('SELECT id FROM {simplenews_subscriber} s LEFT JOIN {simplenews_subscriber__subscriptions} ss ON ss.entity_id = s.id WHERE ss.entity_id IS NULL')->fetchCol();
+  if (!empty($no_subscriptions)) {
+    $database->update('simplenews_subscriber')
+      ->condition('id', $no_subscriptions, 'IN')
+      ->fields(['status' => SubscriberInterface::UNCONFIRMED])
+      ->execute();
+  }
+}
+
+/**
+ * Add new indexes for simplenews_subscriber.
+ */
+function simplenews_update_840003() {
+  $entity_type_manager = \Drupal::entityTypeManager();
+  $definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+
+  // Set the storage schema.
+  $entity_type = $entity_type_manager->getDefinition('simplenews_subscriber')
+    ->setHandlerClass('storage_schema', SubscriptionStorageSchema::class);
+  $definition_update_manager->updateEntityType($entity_type);
+}
+
+/**
+ * Update subscription settings.
+ */
+function simplenews_update_840004() {
+  $config = \Drupal::configFactory()->getEditable('simplenews.settings');
+
+  if ($subject = $config->get('subscription.confirm_combined_subject')) {
+    $config->clear('subscription.confirm_combined_subject');
+    $config->set('subscription.confirm_subject', $subject);
+  }
+
+  if ($body = $config->get('subscription.confirm_combined_body')) {
+    $body = preg_replace('/\[simplenews-subscriber:combined-url\]/', '[simplenews-subscriber:confirm-url]', $body);
+    $config->clear('subscription.confirm_combined_body');
+    $config->set('subscription.confirm_body', $body);
+  }
+
+  $config->save();
+}
+
+/**
+ * Install subscriber history entity type.
+ */
+function simplenews_update_840005() {
+  $changeList = \Drupal::entityDefinitionUpdateManager()->getChangeList();
+
+  if (!array_key_exists('simplenews_subscriber_history', $changeList)) {
+    return 'Skipped. The simplenews_subscriber_history entity type is already installed.';
+  }
+
+  $entity_type = new ContentEntityType([
+    'id' => 'simplenews_subscriber_history',
+    'label' => t('Simplenews subscriber history'),
+    'base_table' => 'simplenews_subscriber_history',
+    'entity_keys' => ['id' => 'id'],
+  ]);
+  $entity_type->setClass(SubscriberHistory::class);
+
+  $fields['id'] = BaseFieldDefinition::create('integer')
+    ->setLabel(t('ID'))
+    ->setReadOnly(TRUE)
+    ->setSetting('unsigned', TRUE);
+
+  $fields['mail'] = BaseFieldDefinition::create('email')
+    ->setLabel(t('Email'))
+    ->setRequired(TRUE);
+
+  $fields['timestamp'] = BaseFieldDefinition::create('timestamp')
+    ->setLabel(t('Timestamp'))
+    ->setRequired(TRUE);
+
+  $fields['uid'] = BaseFieldDefinition::create('entity_reference')
+    ->setLabel(t('Author'))
+    ->setDescription(t('The user who made the change.'))
+    ->setRequired(TRUE)
+    ->setSetting('target_type', 'user');
+
+  $fields['source'] = BaseFieldDefinition::create('string')
+    ->setLabel(t('Source'))
+    ->setDescription(t('How the change was made.'))
+    ->setRequired(TRUE);
+
+  $fields['subscriptions'] = BaseFieldDefinition::create('entity_reference')
+    ->setCardinality(FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED)
+    ->setLabel(t('Subscriptions'))
+    ->setRequired(TRUE)
+    ->setSetting('target_type', 'simplenews_newsletter');
+
+  \Drupal::entityDefinitionUpdateManager()->installFieldableEntityType($entity_type, $fields);
+}
+
+/**
+ * Migrate subscriber history to new format.
+ */
+function simplenews_update_840006(&$sandbox) {
+  if (!isset($sandbox['total'])) {
+    $ids = \Drupal::entityQuery('simplenews_subscriber')->accessCheck(FALSE)->execute();
+    $sandbox['total'] = count($ids);
+    $sandbox['current'] = 0;
+  }
+
+  $ids = \Drupal::entityQuery('simplenews_subscriber')
+    ->range($sandbox['current'], 50)
+    ->accessCheck(FALSE)
+    ->execute();
+  if (empty($ids)) {
+    $sandbox['#finished'] = 1;
+    return;
+  }
+
+  $now = \Drupal::time()->getCurrentTime();
+  foreach ($ids as $id) {
+    $subscriber = Subscriber::load($id);
+
+    // Get the subscriptions sorted by increasing time. We can't use the
+    // field API because it misses out the properties from the old table that
+    // have been deleted in the new table.
+    $subscriptions = \Drupal::database()->select('simplenews_subscriber__subscriptions', 's')
+      ->condition('entity_id', $id)
+      ->fields('s', ['delta', 'subscriptions_target_id', 'subscriptions_status', 'subscriptions_timestamp', 'subscriptions_source'])
+      ->orderBy('subscriptions_timestamp')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+
+    $previous = NULL;
+    $history = $final = [];
+    foreach ($subscriptions as $item) {
+      // Even for an unsubscribed record, the time and source apply to the
+      // original subscription. Create a subscription here, then unsubscribe
+      // at the end.
+      $history[$item['delta']] = $item['subscriptions_target_id'];
+      if ($item['subscriptions_status'] == 1) {
+        $final[$item['delta']] = $item['subscriptions_target_id'];
+      }
+
+      $values = [
+        'mail' => $subscriber->getMail(),
+        'timestamp' => $item['subscriptions_timestamp'],
+        'uid' => 0,
+        'source' => 'migrated:' . $item['subscriptions_source'],
+        'subscriptions' => $history,
+      ];
+
+      if ($previous && $values['timestamp'] == $previous->getTimestamp() && $values['source'] == $previous->getSource()) {
+        // Update the identical record from last time.
+        $previous->set('subscriptions', $history)->save();
+      }
+      else {
+        // Create a new record.
+        $previous = SubscriberHistory::create($values);
+        $previous->save();
+      }
+    }
+
+    if ($history != $final) {
+      // Unsubscribe. We don't know the actual times so create a single record.
+      $values = [
+        'mail' => $subscriber->getMail(),
+        'timestamp' => $now,
+        'uid' => 0,
+        'source' => 'migrated:unsubscribe',
+        'subscriptions' => $final,
+      ];
+      SubscriberHistory::create($values)->save();
+    }
+
+    $sandbox['current']++;
+  }
+
+  $sandbox['#finished'] = min(0.99, $sandbox['current'] / $sandbox['total']);
+  \Drupal::messenger()->addMessage($sandbox['#finished'] * 100 . '% complete.');
+}
+
+/**
+ * Delete unsubscribed subscriptions.
+ */
+function simplenews_update_840007() {
+  $database = \Drupal::database();
+  $database->delete('simplenews_subscriber__subscriptions')
+    ->condition('subscriptions_status', 0)
+    ->execute();
+}
+
+/**
+ * Update subscriber subscriptions field.
+ */
+function simplenews_update_840008() {
+  $field_storage_definition = \Drupal::entityDefinitionUpdateManager()->getFieldStorageDefinition('subscriptions', 'simplenews_subscriber');
+  $schema = \Drupal::database()->schema();
+  $table_mapping = \Drupal::entityTypeManager()->getStorage('simplenews_subscriber')->getTableMapping();
+  $table = $table_mapping->getDedicatedDataTableName($field_storage_definition);
+
+  // Load the installed field schema so that it can be updated.
+  $entity_storage_schema_sql = \Drupal::keyValue('entity.storage_schema.sql');
+  $schema_key = 'simplenews_subscriber.field_schema_data.subscriptions';
+  $field_schema_data = $entity_storage_schema_sql->get($schema_key);
+
+  // Loop over each removed column.
+  foreach (['status', 'timestamp', 'source'] as $column_id) {
+    // Remove the column.
+    $column = $table_mapping->getFieldColumnName($field_storage_definition, $column_id);
+    $schema->dropField($table, $column);
+
+    // Remove the column from the installed field schema.
+    if (!empty($field_schema_data)) {
+      unset($field_schema_data[$table]['fields'][$column]);
+    }
+  }
+
+  // Save changes to the installed field schema.
+  if (!empty($field_schema_data)) {
+    $entity_storage_schema_sql->set($schema_key, $field_schema_data);
+  }
+
+  $entity_definitions_installed = \Drupal::keyValue('entity.definitions.installed');
+  $key = 'simplenews_subscriber.field_storage_definitions';
+  if ($definitions = $entity_definitions_installed->get($key)) {
+    $definitions['subscriptions'] = BaseFieldDefinition::create('entity_reference')
+      ->setCardinality(FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED)
+      ->setSetting('target_type', 'simplenews_newsletter')
+      ->setName('subscriptions')
+      ->setTargetEntityTypeId('simplenews_subscriber')
+      ->setProvider('simplenews')
+      ->setTargetBundle(NULL);
+    $entity_definitions_installed->set($key, $definitions);
+  }
+}
+
+/**
+ * Update subscriber views.
+ */
+function simplenews_update_840009() {
+  $config_factory = \Drupal::configFactory();
+  foreach ($config_factory->listAll('views.view.') as $view_config_name) {
+    $view = $config_factory->getEditable($view_config_name);
+    $displays = $view->get('display');
+
+    foreach ($displays as $display_name => $display) {
+      if (!empty($display['display_options']['fields'])) {
+        foreach ($display['display_options']['fields'] as $name => $field) {
+          if (($field['field'] == 'subscriptions_target_id') && ($field['table'] == 'simplenews_subscriber__subscriptions')) {
+            $field['type'] = 'entity_reference_label';
+            $field['settings'] = ['link' => FALSE];
+            $view->set("display.$display_name.display_options.fields.$name", $field);
+          }
+          elseif (($field['field'] == 'status') && ($field['table'] == 'simplenews_subscriber')) {
+            $field['type'] = 'list_default';
+            $field['label'] = 'Status';
+            $field['plugin_id'] = 'field';
+            $view->set("display.$display_name.display_options.fields.$name", $field);
+          }
+        }
+      }
+
+      if (!empty($display['display_options']['filters'])) {
+        foreach ($display['display_options']['filters'] as $name => $filter) {
+          if (($filter['field'] == 'subscriptions_status') && ($filter['table'] == 'simplenews_subscriber__subscriptions')) {
+            // Remove the filter.
+            $view->clear("display.$display_name.display_options.filters.$name");
+          }
+          elseif (($filter['field'] == 'status') && ($filter['table'] == 'simplenews_subscriber')) {
+            $filter['expose']['label'] = 'Status';
+            $filter['plugin_id'] = 'in_operator';
+            $filter['operator'] = 'in';
+            $filter['value'] = [1 => '1'];
+            $view->set("display.$display_name.display_options.filters.$name", $filter);
+          }
+        }
+      }
+    }
+    $view->save(TRUE);
+  }
+}
+
+/**
+ * Initialise newsletter reason field.
+ */
+function simplenews_update_840010() {
+  foreach (Newsletter::loadMultiple() as $newsletter) {
+    if (empty($newsletter->reason)) {
+      $newsletter->reason = '';
+      $newsletter->save();
+    }
+  }
+}
+
+/**
+ * Update langcode for field.storage.node.simplenews_issue.yml
+ */
+function simplenews_update_940000() {
+  $storage_config = FieldStorageConfig::loadByName('node', 'simplenews_issue');
+  $storage_config->set('langcode', 'en');
+  $storage_config->save();
+}
+
+/**
+ * Install config system.action.simplenews_subscriber_delete_action.
+ */
+function simplenews_update_940001() {
+  $config_name = 'system.action.simplenews_subscriber_delete_action';
+
+  $config_path = \Drupal::moduleHandler()->getModule('simplenews')->getPath() . '/config/install';
+  $source = new FileStorage($config_path);
+  $config_storage = \Drupal::service('config.storage');
+  $config_storage->write($config_name, $source->read($config_name));
+}

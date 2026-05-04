@@ -1,0 +1,64 @@
+<?php
+
+/**
+ * @file
+ * Installer for the Vault bridge module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+/**
+ * Implements hook_schema().
+ */
+function vault_migration_schema() {
+  $schema['vault_migration_mapping'] = [
+    'description' => 'Tracks the known state of each Vault page and its mapping to a Drupal node.',
+    'fields' => [
+      'vault_id' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => 'Vault page ID.',
+      ],
+      'database_id' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => 'Vault database ID.',
+      ],
+      'nid' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Drupal node ID associated with this Vault page.',
+      ],
+      'last_synced' => [
+        'type' => 'datetime',
+        'mysql_type' => 'datetime',
+        'not null' => TRUE,
+        'description' => 'Last time this status was synchronized.',
+      ],
+    ],
+    'primary key' => ['vault_id', 'database_id'],
+    'indexes' => [
+      'nid' => ['nid'],
+      'database_id' => ['database_id'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function vault_migration_uninstall() {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('vault_migration_mapping')) {
+    $schema->dropTable('vault_migration_mapping');
+  }
+
+  \Drupal::configFactory()->getEditable('vault_migration.settings')->delete();
+  \Drupal::state()->delete('vault_migration.last_synced_time');
+}

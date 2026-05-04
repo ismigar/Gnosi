@@ -1,0 +1,10 @@
+uuid: 381c8bea-1610-4a93-ac21-900da154b979
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: AlzeyytA8InBgxIG9H2UDJYs3CG98Zj6yRsDKmlbZwA
+id: short
+label: 'Format predeterminat per a la data curta'
+locked: false
+pattern: 'd/m/Y - H:i'

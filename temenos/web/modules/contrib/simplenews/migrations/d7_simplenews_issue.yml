@@ -1,0 +1,35 @@
+id: d7_simplenews_issue
+dependencies:
+  module:
+    - simplenews
+label: Simplenews issues
+migration_tags:
+  - Drupal 7
+  - Content
+source:
+  plugin: simplenews_issue
+process:
+  nid: nid
+  simplenews_issue/target_id:
+    plugin: migration_lookup
+    migration: d7_simplenews_newsletter
+    source: tid
+  simplenews_issue/handler:
+    plugin: default_value
+    default_value: 'simplenews_all'
+  simplenews_issue/handler_settings:
+    plugin: default_value
+    default_value: []
+  simplenews_issue/status: status
+  simplenews_issue/sent_count: sent_subscriber_count
+  simplenews_issue/error_count:
+    plugin: default_value
+    default_value: 0
+  simplenews_issue/subscribers: sent_subscriber_count
+destination:
+  plugin: entity:node
+  destination_module: simplenews
+migration_dependencies:
+  required:
+    - d7_node
+    - d7_simplenews_newsletter

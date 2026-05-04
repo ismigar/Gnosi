@@ -1,0 +1,31 @@
+<?php
+
+namespace Drupal\simplenews;
+
+use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
+use Drupal\Core\Entity\EntityInterface;
+
+/**
+ * Defines a class to build a listing of simplenews newsletter entities.
+ *
+ * @see \Drupal\simplenews\Entity\Newsletter
+ */
+class NewsletterListBuilder extends ConfigEntityListBuilder {
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildHeader() {
+    $header['name'] = $this->t('Newsletter name');
+    return $header + parent::buildHeader();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildRow(EntityInterface $entity) {
+    $row['name'] = $entity->label();
+    return $row + parent::buildRow($entity);
+  }
+
+}

@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * @file
+ * multilingual_menu_urls.install
+ */
+
+/**
+ * Implements hook_install().
+ */
+function multilingual_menu_urls_install() {
+  /** @var \Drupal\Core\Entity\EntityFieldManagerInterface $field_manager */
+  $field_manager = \Drupal::service('entity_field.manager');
+
+  /** @var \Drupal\Core\Field\FieldDefinitionListenerInterface $field_definition_listener */
+  $field_definition_listener = \Drupal::service('field_storage_definition.listener');
+  $definition = $field_manager->getFieldStorageDefinitions('menu_link_content')['translated_link_on'];
+  $field_definition_listener->onFieldStorageDefinitionCreate($definition);
+
+  $definition = $field_manager->getFieldStorageDefinitions('menu_link_content')['translated_link_url'];
+  $field_definition_listener->onFieldStorageDefinitionCreate($definition);
+}

@@ -1,0 +1,7 @@
+services:
+  tvp.page_path_processor:
+    class: Drupal\tvp\PathProcessor\TvpProcessor
+    tags:
+      - { name: path_processor_inbound, priority: 1000 }
+      - { name: path_processor_outbound, priority: -1000 }
+    arguments: ['@path_alias.manager','@language_manager','@path_alias.repository','@cache.default', '@request_stack']

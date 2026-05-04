@@ -1,0 +1,19 @@
+orphaned_files.page:
+  path: '/admin/orphaned-files'
+  defaults:
+    _controller: '\Drupal\orphaned_files\Controller\OrphanedFilesPageController::page'
+    _title: 'Orphaned Files'
+  requirements:
+    _permission: 'administer site configuration'
+
+orphaned_files.delete:
+  path: '/admin/orphaned-files/delete/{fid}'
+  defaults:
+    _form: '\Drupal\orphaned_files\Form\OrphanedFilesDeleteForm'
+    _title: 'Delete File'
+  requirements:
+    _permission: 'administer site configuration'
+  options:
+    parameters:
+      fid:
+        type: 'integer'

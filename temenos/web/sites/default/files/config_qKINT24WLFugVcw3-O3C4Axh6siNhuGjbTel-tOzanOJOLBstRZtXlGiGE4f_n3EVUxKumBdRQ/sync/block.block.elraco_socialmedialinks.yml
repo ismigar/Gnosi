@@ -1,0 +1,177 @@
+uuid: f092f6f9-7874-4788-a62d-9ad94c0d82df
+langcode: ca
+status: true
+dependencies:
+  module:
+    - social_media_links
+  theme:
+    - elraco
+id: elraco_socialmedialinks
+theme: elraco
+region: footer_fourth
+weight: 0
+provider: null
+plugin: social_media_links_block
+settings:
+  id: social_media_links_block
+  label: 'Segueix-me a'
+  label_display: visible
+  provider: social_media_links
+  platforms:
+    vkontakte:
+      value: ''
+      description: ''
+      weight: '-10'
+    patreon:
+      value: ''
+      description: ''
+      weight: '-9'
+    youtube_channel:
+      value: ''
+      description: ''
+      weight: '-8'
+    whatsapp:
+      value: ''
+      description: ''
+      weight: '-7'
+    glassdoor:
+      value: ''
+      description: ''
+      weight: '-6'
+    mastodon:
+      value: mastodon.social/@temenosismael
+      description: Mastodon
+      weight: '-5'
+    drupal:
+      value: ''
+      description: ''
+      weight: '-4'
+    slideshare:
+      value: ''
+      description: ''
+      weight: '-3'
+    yandex_zen:
+      value: ''
+      description: ''
+      weight: '-2'
+    github:
+      value: ''
+      description: ''
+      weight: '-1'
+    facebook:
+      value: temenosismael
+      description: Facebook
+      weight: '0'
+    twitter:
+      value: ''
+      description: ''
+      weight: '1'
+    telegram:
+      value: temenosismael
+      description: Telegram
+      weight: '2'
+    vimeo:
+      value: ''
+      description: ''
+      weight: '3'
+    googleplay:
+      value: ''
+      description: ''
+      weight: '4'
+    youtube:
+      value: ''
+      description: ''
+      weight: '5'
+    behance:
+      value: ''
+      description: ''
+      weight: '6'
+    email:
+      value: ''
+      description: ''
+      weight: '7'
+    amazon:
+      value: ''
+      description: ''
+      weight: '8'
+    xing:
+      value: ''
+      description: ''
+      weight: '9'
+    pinterest:
+      value: ''
+      description: ''
+      weight: '10'
+    contact:
+      value: ''
+      description: ''
+      weight: '11'
+    bitbucket:
+      value: ''
+      description: ''
+      weight: '12'
+    gitlab:
+      value: ''
+      description: ''
+      weight: '13'
+    flickr:
+      value: ''
+      description: ''
+      weight: '14'
+    website:
+      value: ''
+      description: ''
+      weight: '15'
+    instagram:
+      value: ''
+      description: ''
+      weight: '16'
+    meetup:
+      value: ''
+      description: ''
+      weight: '17'
+    linkedin:
+      value: company/temenosismael
+      description: LinkedIn
+      weight: '18'
+    goodreads:
+      value: ''
+      description: ''
+      weight: '19'
+    googleplus:
+      value: ''
+      description: ''
+      weight: '20'
+    tumblr:
+      value: ''
+      description: ''
+      weight: '21'
+    whatsapp_channel:
+      value: ''
+      description: ''
+      weight: '22'
+    tiktok:
+      value: ''
+      description: ''
+      weight: '23'
+    soundcloud:
+      value: ''
+      description: ''
+      weight: '24'
+    rss:
+      value: rss.xml
+      description: RSS
+      weight: '25'
+  appearance:
+    orientation: h
+    show_name: 0
+    suggestion: ''
+  link_attributes:
+    target: _blank
+    rel: '<none>'
+  iconset:
+    style: 'fontawesome:2x'
+    installed_iconsets:
+      fontawesome:
+        examples: ''
+visibility: {  }

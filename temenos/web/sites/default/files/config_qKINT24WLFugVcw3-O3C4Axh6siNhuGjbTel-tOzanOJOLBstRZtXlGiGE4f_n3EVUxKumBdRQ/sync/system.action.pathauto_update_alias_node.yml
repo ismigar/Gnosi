@@ -1,0 +1,16 @@
+uuid: bc3a575c-ea5b-4bba-8954-3a9f9978df7d
+langcode: ca
+status: true
+dependencies:
+  module:
+    - pathauto
+  enforced:
+    module:
+      - node
+_core:
+  default_config_hash: Cr0CsPUSuio4ClP7bOTqHBefJOLtN5KPyKyYj9E4qvQ
+id: pathauto_update_alias_node
+label: "Actualitza l'àlies URL"
+type: node
+plugin: pathauto_update_alias
+configuration: {  }

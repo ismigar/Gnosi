@@ -1,0 +1,26 @@
+uuid: 1e8d8885-6da4-42ee-84fb-2fcad64163b8
+langcode: ca
+status: true
+dependencies:
+  module:
+    - simplenews
+  theme:
+    - elraco
+id: elraco_simplenewssubscription
+theme: elraco
+region: footer_fourth
+weight: 0
+provider: null
+plugin: simplenews_subscription_block
+settings:
+  id: simplenews_subscription_block
+  label: 'Subscriu-te al butlletí'
+  label_display: visible
+  provider: simplenews
+  newsletters: {  }
+  default_newsletters:
+    default: default
+  message: ''
+  show_manage: false
+  unique_id: 3db155fa-7488-42bb-bfb6-b2179fe6219c
+visibility: {  }

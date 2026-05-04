@@ -1,0 +1,12 @@
+sitemap.admin:
+  js:
+    js/sitemap.admin.js: {}
+  dependencies:
+    - core/jquery
+    - core/once
+    - core/drupal
+
+sitemap.theme:
+  css:
+    theme:
+      css/sitemap.theme.css: {}

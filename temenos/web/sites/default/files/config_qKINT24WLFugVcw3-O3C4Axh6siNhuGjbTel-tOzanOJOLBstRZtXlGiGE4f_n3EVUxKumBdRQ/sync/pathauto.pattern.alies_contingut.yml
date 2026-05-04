@@ -1,0 +1,34 @@
+uuid: f565395b-1c6b-4889-b9dd-afaa539167c6
+langcode: ca
+status: true
+dependencies:
+  module:
+    - language
+    - node
+id: alies_contingut
+label: 'Alies pàgina bàsica'
+type: 'canonical_entities:node'
+pattern: '[node:title]'
+selection_criteria:
+  bfa0d3c2-b3d7-4b91-b4d7-6e4853e65a47:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: bfa0d3c2-b3d7-4b91-b4d7-6e4853e65a47
+    context_mapping:
+      node: node
+    bundles:
+      page: page
+  c45b936b-39bd-4cfd-823f-aa116d2aea38:
+    id: language
+    negate: false
+    uuid: c45b936b-39bd-4cfd-823f-aa116d2aea38
+    context_mapping:
+      language: 'node:langcode:language'
+    langcodes:
+      ca: ca
+      es: es
+selection_logic: and
+weight: -10
+relationships:
+  'node:langcode:language':
+    label: Llengua

@@ -1,0 +1,13 @@
+uuid: 82d70712-c24c-4467-96e5-72fede5f8a6a
+langcode: ca
+status: true
+dependencies:
+  module:
+    - simplenews
+_core:
+  default_config_hash: ZNiTMgBURMLUyp3dwxIn7Zz_hREzPRpyF2M-Dm3e1BI
+id: simplenews_subscriber.page
+label: Pàgina
+description: ''
+targetEntityType: simplenews_subscriber
+cache: true

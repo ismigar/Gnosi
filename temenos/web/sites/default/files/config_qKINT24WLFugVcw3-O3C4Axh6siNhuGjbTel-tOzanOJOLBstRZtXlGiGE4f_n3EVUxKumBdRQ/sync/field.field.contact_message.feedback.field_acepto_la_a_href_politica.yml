@@ -1,0 +1,21 @@
+uuid: b419612f-ed6b-41e1-953b-052329c585c7
+langcode: ca
+status: true
+dependencies:
+  config:
+    - contact.form.feedback
+    - field.storage.contact_message.field_acepto_la_a_href_politica
+id: contact_message.feedback.field_acepto_la_a_href_politica
+field_name: field_acepto_la_a_href_politica
+entity_type: contact_message
+bundle: feedback
+label: 'Accepto la <a href="/politica-de-privacitat">política de privacitat</a>'
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: Actiu
+  off_label: Inactiu
+field_type: boolean

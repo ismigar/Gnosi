@@ -1,0 +1,33 @@
+uuid: 273d093f-ddba-42ed-8a15-806f51951cea
+langcode: ca
+status: true
+dependencies:
+  module:
+    - language
+    - node
+id: alies_pagina_articuloss
+label: 'Alies pàgina artículos'
+type: 'canonical_entities:node'
+pattern: '/articulos/[node:title]'
+selection_criteria:
+  7fef48b3-7d9f-4191-a4d0-5ff060c0478d:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: 7fef48b3-7d9f-4191-a4d0-5ff060c0478d
+    context_mapping:
+      node: node
+    bundles:
+      article: article
+  cfb8ca4a-c234-4be7-a753-5e592aa13d7d:
+    id: language
+    negate: false
+    uuid: cfb8ca4a-c234-4be7-a753-5e592aa13d7d
+    context_mapping:
+      language: 'node:langcode:language'
+    langcodes:
+      es: es
+selection_logic: and
+weight: -10
+relationships:
+  'node:langcode:language':
+    label: Llengua

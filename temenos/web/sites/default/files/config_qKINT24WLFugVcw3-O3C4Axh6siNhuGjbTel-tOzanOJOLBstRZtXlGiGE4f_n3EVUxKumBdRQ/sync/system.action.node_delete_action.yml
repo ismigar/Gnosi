@@ -1,0 +1,13 @@
+uuid: 6f9fd08e-4103-4fda-92b4-43063bb848dc
+langcode: ca
+status: true
+dependencies:
+  module:
+    - node
+_core:
+  default_config_hash: t43OqwzP3CTbcAagSsWKNy6KwMm_zShXo3c4-So6rQg
+id: node_delete_action
+label: 'Suprimeix el contingut'
+type: node
+plugin: 'entity:delete_action:node'
+configuration: {  }

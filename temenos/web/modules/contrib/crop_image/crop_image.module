@@ -1,0 +1,47 @@
+<?php
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\views\ViewExecutable;
+
+/**
+ * Implements hook_entity_presave()
+ */
+function crop_image_entity_presave(EntityInterface $entity) {
+  \Drupal::service('crop_image.manager')->validateCropImages($entity);
+}
+
+/**
+ * Implements hook_entity_delete()
+ */
+function crop_image_entity_delete(EntityInterface $entity) {
+  \Drupal::service('crop_image.manager')->removeCropImages($entity);
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function crop_image_entity_insert(EntityInterface $entity) {
+  \Drupal::service('crop_image.manager')->moveOriginalFile($entity);
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function crop_image_module_implements_alter(&$implementations, $hook) {
+  if ($hook === 'entity_insert') {
+    // Ensure that this module's implementation of hook_entity_insert() runs
+    // last
+    $group = $implementations['crop_image'];
+    unset($implementations['crop_image']);
+    $implementations['crop_image'] = $group;
+  }
+}
+
+/**
+ * Implements hook_views_pre_render().
+ */
+function crop_image_views_pre_render(ViewExecutable $view) {
+  if (isset($view) && ($view->storage->id() == 'image_browser')) {
+    $view->element['#attached']['library'][] = 'crop_image/image_browser';
+  }
+}

@@ -1,0 +1,21 @@
+uuid: a1fa14a5-568d-4548-89c6-513ca9e8e4d4
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: wg5cCxB554rXZx4TIzUACcXRXe-VSodwqcq-_QS4Tv0
+name: 'Butlletí per defecte'
+id: default
+description: 'This is an example newsletter. Change it.'
+format: plain
+priority: 0
+receipt: true
+from_name: "El Racó de l'Ismael"
+subject: '[[simplenews-newsletter:name]] [node:title]'
+from_address: ismigar@pangea.org
+hyperlinks: false
+allowed_handlers: {  }
+new_account: none
+access: default
+reason: ''
+weight: 0

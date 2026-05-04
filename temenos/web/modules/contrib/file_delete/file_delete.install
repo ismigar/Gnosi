@@ -1,0 +1,44 @@
+<?php
+
+/**
+ * @file
+ * Install hook for the File Delete module.
+ */
+
+use Drupal\user\Entity\Role;
+
+/**
+ * Import new file_delete actions.
+ */
+function file_delete_update_400001(): void {
+  \Drupal::service('config.installer')->installDefaultConfig('module', 'file_delete');
+}
+
+/**
+ * Remove un-needed file_delete permission now that it's in core.
+ */
+function file_delete_update_400002(): void {
+  $roles = Role::loadMultiple();
+  foreach ($roles as $role) {
+    if ($role->hasPermission('delete file')) {
+      $role->revokePermission('delete file');
+      $role->grantPermission('delete own files');
+      $role->grantPermission('delete any file');
+      $role->save();
+    }
+  }
+}
+
+/**
+ * Add new permissions to users.
+ */
+function file_delete_update_400003(): void {
+  $roles = Role::loadMultiple();
+  foreach ($roles as $role) {
+    if ($role->hasPermission('delete files') || $role->hasPermission('delete own files') || $role->hasPermission('delete any files')) {
+      $role->grantPermission('delete files override usage');
+      $role->grantPermission('delete files immediately');
+      $role->save();
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{# themes/custom/elraco/templates/field/file-link.html.twig #}
+{% set f = file %}
+
+{# formatació simple de mida en KB/MB sense filtres extra #}
+{% set size = f.getSize() %}
+{% set size_label = (size < 1048576)
+  ? ( (size / 1024)|round(1) ~ ' KB')
+  : ( (size / 1048576)|round(2) ~ ' MB') %}
+
+<td>{{ f.getFilename() }}</td>
+<td>{{ f.getMimeType() }}</td>
+<td>{{ size_label }}</td>
+<td>
+  <a href="{{ file_url(f.getFileUri()) }}" download>
+    {{ 'Baixa'|t }}
+  </a>
+</td>

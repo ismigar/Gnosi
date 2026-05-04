@@ -1,0 +1,31 @@
+# Schema for configuration files of the Crop Image module.
+
+
+crop_image.settings:
+  type: config_object
+  label: 'Crop Image settings'
+  mapping:
+    entity_browser_image_crop:
+      type: mapping
+      mapping:
+        preview_image_style:
+          type: string
+          label: 'Preview image style'
+        crop_preview_image_style:
+          type: string
+          label: 'Crop preview image style'
+        show_crop_area:
+          type: boolean
+          label: 'Show crop area'
+        show_default_crop:
+          type: boolean
+          label: 'Show default crop'
+        field_widget_remove:
+          type: boolean
+          label: 'Show remove button'
+        field_widget_replace:
+          type: boolean
+          label: 'Show replace button'
+    automatic_crop:
+      type: boolean
+      label: 'Automatic crop'

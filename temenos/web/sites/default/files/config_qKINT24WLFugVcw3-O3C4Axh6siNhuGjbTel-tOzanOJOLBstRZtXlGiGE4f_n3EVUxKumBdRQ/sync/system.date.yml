@@ -1,0 +1,11 @@
+_core:
+  default_config_hash: IVsFTD1mvR2NGBP_1myt9kFIFmGepH4PyaN5aQBYpno
+first_day: 1
+country:
+  default: ES
+timezone:
+  default: Europe/Madrid
+  user:
+    configurable: true
+    default: 2
+    warn: false

@@ -1,0 +1,19 @@
+uuid: a0d96ed9-ede5-4acf-a7ae-f10e979273d9
+langcode: ca
+status: true
+dependencies:
+  module:
+    - menu_ui
+third_party_settings:
+  menu_ui:
+    available_menus: {  }
+    parent: ''
+_core:
+  default_config_hash: Fe3N1uqaAyyKJbVkqT-btXy3t98puW8GCRD822xjl10
+name: Article
+type: article
+description: 'Utilitzeu els <em>articles</em> per a contingut sensible en el temps com notícies, comunicats de premsa o entrades de blog.'
+help: null
+new_revision: true
+preview_mode: 1
+display_submitted: true

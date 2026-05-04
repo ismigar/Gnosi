@@ -1,0 +1,24 @@
+simplenews.settings:
+  title: Simplenews
+  description: 'Configure your sites newsletters.'
+  parent: system.admin_config_services
+  route_name: simplenews.newsletter_list
+
+simplenews.subscriber_settings:
+  title: Subscriber settings
+  description: 'Administer your subscriber settings.'
+  parent: user.admin_index
+  route_name: simplenews.settings_subscriber
+
+simplenews.subscribers:
+  title: Subscribers
+  description: 'Administer your subscribers.'
+  parent: entity.user.collection
+  route_name: entity.simplenews_subscriber.collection
+
+# @todo Put this back after fixing https://www.drupal.org/project/simplenews/issues/3053111
+#simplenews.newsletters:
+#  title: Newsletter issues
+#  description: 'Find and manage newsletter issues.'
+#  parent: system.admin_content
+#  route_name: view.simplenews_newsletters.page_1

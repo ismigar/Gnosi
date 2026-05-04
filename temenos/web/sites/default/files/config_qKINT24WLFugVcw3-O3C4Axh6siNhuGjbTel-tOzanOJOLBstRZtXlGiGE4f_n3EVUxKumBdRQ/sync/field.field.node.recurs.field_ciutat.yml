@@ -1,0 +1,19 @@
+uuid: 7136d223-ef35-4bd7-9dca-55a298078ef8
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_ciutat
+    - node.type.recurs
+id: node.recurs.field_ciutat
+field_name: field_ciutat
+entity_type: node
+bundle: recurs
+label: Ciutat
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

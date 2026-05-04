@@ -1,0 +1,13 @@
+name: AddToAny
+type: module
+description: 'Share buttons by AddToAny, including the AddToAny universal sharing button, Facebook, Mastodon, Pinterest, and many more on the <a href="https://www.addtoany.com/" target="_blank">AddToAny</a> platform.'
+package: Other
+core_version_requirement: ^10.1 || ^11
+dependencies:
+  - drupal:node
+configure: addtoany.admin_settings
+
+# Information added by Drupal.org packaging script on 2024-11-19
+version: '2.0.7'
+project: 'addtoany'
+datestamp: 1731984031

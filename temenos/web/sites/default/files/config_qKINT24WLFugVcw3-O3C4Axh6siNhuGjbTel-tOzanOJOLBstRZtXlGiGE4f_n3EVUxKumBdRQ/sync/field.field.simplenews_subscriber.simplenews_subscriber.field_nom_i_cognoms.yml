@@ -1,0 +1,20 @@
+uuid: 6f66bb4b-4797-4f74-867e-82a01df260b6
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.storage.simplenews_subscriber.field_nom_i_cognoms
+  module:
+    - simplenews
+id: simplenews_subscriber.simplenews_subscriber.field_nom_i_cognoms
+field_name: field_nom_i_cognoms
+entity_type: simplenews_subscriber
+bundle: simplenews_subscriber
+label: 'Nom i cognoms'
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

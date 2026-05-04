@@ -1,0 +1,11 @@
+uuid: 0cbfddfe-2895-4546-bc66-719b7654ef94
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: eNX6lLCKDaY83nCMh20My---y03KbiFlv802DKCCpvg
+id: und
+label: 'Sense especificar'
+direction: ltr
+weight: 2
+locked: true

@@ -1,0 +1,21 @@
+uuid: 6fe3a3e8-7dbe-42fd-a10f-cb6f68d6a345
+langcode: ca
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_ciutat
+field_name: field_ciutat
+entity_type: node
+type: string
+settings:
+  max_length: 255
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

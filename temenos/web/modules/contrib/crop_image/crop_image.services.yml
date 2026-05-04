@@ -1,0 +1,4 @@
+services:
+  crop_image.manager:
+    class: Drupal\crop_image\CropImageManager
+    arguments: ['@entity_type.manager', '@config.factory']

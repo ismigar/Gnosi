@@ -1,0 +1,15 @@
+_core:
+  default_config_hash: ijfbzDTN4CbE7Sr-6ubWzy_t1vH4OtU1doNCLssVz-4
+langcode: ca
+uuid: bccccb22-cf0e-467f-a35c-daf3d90d206e
+name: Temenos
+mail: ismigar@pangea.org
+slogan: "Reflexions sobre la violència simbòlica i la construcció d'espais habitables"
+page:
+  403: ''
+  404: ''
+  front: /node
+admin_compact_mode: false
+weight_select_max: 100
+default_langcode: ca
+mail_notification: null

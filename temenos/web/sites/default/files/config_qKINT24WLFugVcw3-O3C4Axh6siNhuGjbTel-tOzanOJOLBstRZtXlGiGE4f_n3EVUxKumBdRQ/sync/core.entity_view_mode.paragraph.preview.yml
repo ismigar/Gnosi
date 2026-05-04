@@ -1,0 +1,13 @@
+uuid: 55e20a1b-36f2-449f-a46a-f7bc8c192997
+langcode: ca
+status: true
+dependencies:
+  module:
+    - paragraphs
+_core:
+  default_config_hash: h3BeHVei4Lnyqbkao3YiF4KqoY-DhRvUNfEgKG8Rgjg
+id: paragraph.preview
+label: Previsualitza
+description: ''
+targetEntityType: paragraph
+cache: true

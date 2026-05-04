@@ -1,0 +1,22 @@
+uuid: c1c8979e-5a8e-44a8-91f7-85b0d1ea71be
+langcode: ca
+status: true
+dependencies:
+  theme:
+    - elraco
+_core:
+  default_config_hash: 2L0geP-ixCbCkEpW6BVF6H7vDUZN4ea07_Y9CociQm4
+id: elraco_secondary_local_tasks
+theme: elraco
+region: content_top
+weight: -8
+provider: null
+plugin: local_tasks_block
+settings:
+  id: local_tasks_block
+  label: 'Pestanyes secundàries'
+  label_display: '0'
+  provider: core
+  primary: false
+  secondary: true
+visibility: {  }

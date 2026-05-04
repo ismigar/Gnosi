@@ -1,0 +1,25 @@
+uuid: 2a35a3c3-44d4-4266-91b9-279375ea42de
+langcode: ca
+status: true
+dependencies:
+  content:
+    - 'block_content:basic:2cb57c5c-6475-40b7-a40c-7826b498b978'
+  module:
+    - block_content
+  theme:
+    - elraco
+id: elraco_collabora_2
+theme: elraco
+region: footer_second
+weight: -9
+provider: null
+plugin: 'block_content:2cb57c5c-6475-40b7-a40c-7826b498b978'
+settings:
+  id: 'block_content:2cb57c5c-6475-40b7-a40c-7826b498b978'
+  label: Col·labora
+  label_display: '0'
+  provider: block_content
+  status: true
+  info: ''
+  view_mode: full
+visibility: {  }

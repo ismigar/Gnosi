@@ -1,0 +1,10 @@
+uuid: 1993b437-2f81-4bef-b7c1-fec2caf9fff4
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: nzL5d024NjXIX_8TlT6uFAu973lmfkmHklJC-2i9rAE
+id: medium
+label: 'Format predeterminat per a la data mitjana'
+locked: false
+pattern: 'D, d/m/Y - H:i'

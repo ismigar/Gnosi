@@ -1,0 +1,13 @@
+uuid: e2a86a7f-a347-4951-bd17-4fd750611be8
+langcode: ca
+status: true
+dependencies:
+  module:
+    - user
+_core:
+  default_config_hash: 5pE_4hurqtIlZN3XDi7eTo5RG13BMG0Rh9HYlRI3h8U
+id: user.register
+label: Registra
+description: ''
+targetEntityType: user
+cache: true

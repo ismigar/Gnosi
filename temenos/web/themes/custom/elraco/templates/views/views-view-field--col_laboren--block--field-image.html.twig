@@ -1,0 +1,22 @@
+{# Aquest template rep {{ output }} = la imatge renderitzada #}
+
+{# 1) Agafa el llistat del camp enllaç de l'entitat de la fila #}
+{% set link_list = attribute(row._entity, 'field_enllac') ?? null %}
+
+{# 2) Primer ítem SENSE cridar first(): fes servir l’índex [0] #}
+{% set link_item = (link_list and link_list|length > 0) ? link_list[0] : null %}
+
+{# 3) Extreu la URI SENSE mètodes: propietat directa #}
+{% set href = link_item ? (link_item.uri ?? '') : '' %}
+
+{# 4) Converteix internal:/... a camí relatiu (si s’escau) #}
+{% if href starts with 'internal:' %}
+  {% set href = href|replace({'internal:': ''}) %}
+{% endif %}
+
+{# 5) Pinta la imatge enllaçada (o sola si no hi ha href) #}
+{% if href %}
+  <a href="{{ href }}" target="_blank" rel="noopener">{{ output }}</a>
+{% else %}
+  {{ output }}
+{% endif %}

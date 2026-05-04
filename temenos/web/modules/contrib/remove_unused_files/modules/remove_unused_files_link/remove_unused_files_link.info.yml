@@ -1,0 +1,9 @@
+name: "Remove Unused Files Link (Deprecated)"
+description: 'This submodule is deprecated because it starts processing at the same time as the menu link click. Use "Remove Unused Files Form" instead."'
+type: "module"
+core_version_requirement: ">=10"
+
+# Information added by Drupal.org packaging script on 2024-06-28
+version: '2.1.0'
+project: 'remove_unused_files'
+datestamp: 1719592871

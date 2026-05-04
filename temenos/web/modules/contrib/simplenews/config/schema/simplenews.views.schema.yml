@@ -1,0 +1,11 @@
+views.field.simplenews_user_name:
+  type: views_field
+  label: 'Username field'
+  mapping:
+    text:
+      type: label
+      label: 'Text to display'
+
+views.access.simplenews_subscribers_list_access:
+  type: mapping
+  label: 'Simplenews: subscribers list'

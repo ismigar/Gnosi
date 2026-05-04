@@ -1,0 +1,13 @@
+uuid: ced2e872-d9d5-48ed-a639-59114777d026
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: i0snV8Wj--OkRW12UdachUiYiz3FbeMwHu_pZYfzKLc
+name: 'Pàgina bàsica'
+type: page
+description: "Utilitzeu les <em>pàgines bàsiques</em> per al vostre contingut estàtic, com una pàgina de 'Qui som'."
+help: null
+new_revision: true
+preview_mode: 1
+display_submitted: false

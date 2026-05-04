@@ -1,0 +1,17 @@
+uuid: 2b36d04c-57bd-4eca-a51d-65e0016635eb
+langcode: ca
+status: true
+dependencies:
+  module:
+    - focal_point
+name: article_desktop
+label: article_desktop
+effects:
+  cd3891f0-d7d7-41eb-a3c2-0acbe94ce7f6:
+    uuid: cd3891f0-d7d7-41eb-a3c2-0acbe94ce7f6
+    id: focal_point_scale_and_crop
+    weight: 2
+    data:
+      width: 1170
+      height: 658
+      crop_type: focal_point

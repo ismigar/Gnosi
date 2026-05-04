@@ -1,0 +1,38 @@
+global-css:
+  version: VERSION
+  css:
+    theme:
+      includes/flexslider/flexslider.css: {}
+      css/style.css: {}
+  js:
+    js/script.js: {}
+    js/sticky-header.js: {}
+    includes/flexslider/jquery.flexslider.js: {}
+  dependencies:
+    - elraco/bootstrap-lib
+    - core/jquery
+    - core/drupal.ajax
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+
+bootstrap-lib:
+  version: 1.x
+  css:
+    theme:
+      includes/bootstrap/css/bootstrap.min.css: {}
+  js:
+    includes/bootstrap/js/bootstrap.min.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal.ajax
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+
+search_toggle:
+  version: 1.x
+  js:
+    js/search-toggle.js: {}
+  dependencies:
+    - core/jquery

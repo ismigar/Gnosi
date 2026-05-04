@@ -1,0 +1,15 @@
+uuid: 2ffc4627-abc7-4a38-9791-a374083b2a3e
+langcode: es
+status: true
+dependencies: {  }
+name: article_desktop_fit
+label: article_desktop_fit
+effects:
+  f8054d97-51fb-42e3-8c02-fa42a5c4c5eb:
+    uuid: f8054d97-51fb-42e3-8c02-fa42a5c4c5eb
+    id: image_scale
+    weight: 1
+    data:
+      width: 1170
+      height: 431
+      upscale: true

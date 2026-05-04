@@ -1,0 +1,9 @@
+.imce-filefield-link::before {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  content: "";
+  vertical-align: middle;
+  background: url(images/browse.png) no-repeat 50% 50%;
+}

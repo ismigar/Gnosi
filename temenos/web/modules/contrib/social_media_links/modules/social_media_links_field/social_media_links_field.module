@@ -1,0 +1,30 @@
+<?php
+
+/**
+ * @file
+ * Contains social_media_links_field.module.
+ */
+
+/**
+ * Implements hook_theme_registry_alter().
+ */
+function social_media_links_field_theme_registry_alter(&$theme_registry) {
+  $theme_registry['social_media_links_platforms']['variables']['entity_type'] = NULL;
+  $theme_registry['social_media_links_platforms']['variables']['entity_bundle'] = NULL;
+  $theme_registry['social_media_links_platforms']['variables']['field_name'] = NULL;
+}
+
+/**
+ * Implements hook_theme_suggestions_HOOK_alter().
+ */
+function social_media_links_field_theme_suggestions_social_media_links_platforms_alter(array &$suggestions, array $variables) {
+  $suggestions = [];
+  if (isset($variables['field_name'])) {
+    $suggestions[] = 'social_media_links_platforms__' . $variables['field_name'];
+    $suggestions[] = 'social_media_links_platforms__' . $variables['entity_type'] . '__' . $variables['entity_bundle'];
+    $suggestions[] = 'social_media_links_platforms__' . $variables['entity_type'] . '__' . $variables['field_name'];
+    $suggestions[] = 'social_media_links_platforms__' . $variables['entity_type'] . '__' . $variables['field_name'] . '__' . $variables['entity_bundle'];
+  }
+
+  return $suggestions;
+}

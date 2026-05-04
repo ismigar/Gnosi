@@ -1,0 +1,13 @@
+uuid: 79cc6b21-fd8f-41a7-80ba-29e8b0fd8018
+langcode: ca
+status: true
+dependencies:
+  module:
+    - node
+_core:
+  default_config_hash: N0RDBTqiK4dKoN4p4oW2j0SGWycdHyALUe9M-Ofp89U
+id: node_promote_action
+label: 'Promou el contingut a la portada'
+type: node
+plugin: node_promote_action
+configuration: {  }

@@ -1,0 +1,13 @@
+uuid: bc54944d-720b-4a7a-ba5d-e268ad6b9de4
+langcode: ca
+status: false
+dependencies:
+  module:
+    - node
+_core:
+  default_config_hash: r_A0T3aTqGDwLyvoH7wLps-0PM--RHlS8UsiJe_Ac64
+id: node.search_index
+label: 'Índex de la cerca'
+description: ''
+targetEntityType: node
+cache: true

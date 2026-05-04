@@ -1,0 +1,22 @@
+uuid: 3b4107b3-2408-4fa1-b5b9-3b8d6d2b69e3
+langcode: ca
+status: true
+dependencies:
+  module:
+    - help
+  theme:
+    - elraco
+_core:
+  default_config_hash: jccFSSVqV0WCDb6NtML1VWAWTtDbZ-zn5YgTRMgMrIM
+id: elraco_help
+theme: elraco
+region: help
+weight: -4
+provider: null
+plugin: help_block
+settings:
+  id: help_block
+  label: Ajuda
+  label_display: '0'
+  provider: help
+visibility: {  }

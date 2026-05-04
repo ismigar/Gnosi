@@ -1,5 +1,40 @@
-.env_shared.shared.backup.*
-apps/gnosi/config/params.yaml
+# --- DEPENDÈNCIES I ENTORNS ---
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# --- SECRETS (PROHIBIT PUJAR) ---
+.env
+.env.*
+!.env_shared_example
+.env_shared
+monorepo/apps/gnosi/pipeline/private_skills/
+
+# --- IDE I SISTEMA ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.cursor/
+.ruff_cache/
+monorepo.bfg-report/
+.gemini/
+
+# --- ARXIUS GRANS I ESCOMBRARIES ---
+*.zip
+*.tar.gz
+*.mp4
+*.webp
+.tmp/
+out/
+build/
+dist/
+coverage/
+
+# --- ESPECÍFICS DEL PROJECTE GNOSI ---
+# Podem permetre testejar però no pujar temporalitats
+monorepo/apps/gnosi/pipeline/sandbox/
+!monorepo/apps/gnosi/pipeline/sandbox/.gitkeep
 monorepo/apps/gnosi/config/params.yaml
-monorepo/scripts/sync_notion_bulk.py
-scripts/sync_notion_bulk.py

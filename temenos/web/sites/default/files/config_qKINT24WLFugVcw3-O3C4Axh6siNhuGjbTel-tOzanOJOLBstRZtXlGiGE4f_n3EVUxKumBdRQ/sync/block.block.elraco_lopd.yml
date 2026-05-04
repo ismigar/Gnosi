@@ -1,0 +1,25 @@
+uuid: 843ab1b5-0ec3-49c6-9616-cc83178120eb
+langcode: ca
+status: true
+dependencies:
+  content:
+    - 'block_content:basic:45b83d92-e72f-4114-a6da-f8c9000d12ce'
+  module:
+    - block_content
+  theme:
+    - elraco
+id: elraco_lopd
+theme: elraco
+region: footer_fifth
+weight: 0
+provider: null
+plugin: 'block_content:45b83d92-e72f-4114-a6da-f8c9000d12ce'
+settings:
+  id: 'block_content:45b83d92-e72f-4114-a6da-f8c9000d12ce'
+  label: LOPD
+  label_display: '0'
+  provider: block_content
+  status: true
+  info: ''
+  view_mode: full
+visibility: {  }

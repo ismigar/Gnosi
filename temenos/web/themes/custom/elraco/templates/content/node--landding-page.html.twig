@@ -1,0 +1,36 @@
+<page {{ attributes }}>
+    <h1 class="title visually-hidden">{{ label }}</h1>
+
+    {# Imatge al principi #}
+    {% if content.field_image %}
+        <div class="field--image">
+            {{ content.field_image }}
+        </div>
+    {% endif %}
+
+    {# Autoria i data després de la imatge #}
+    {% if display_submitted %}
+        <div class="submitted">
+            {{ 'Escrit per'|t }} 
+            <span class="field-nom-i-cognoms">
+                {% if node.uid.entity.field_nom_i_cognoms.value is not empty %}
+                    {{ node.uid.entity.field_nom_i_cognoms.value }}
+                {% else %}
+                    {{ node.uid.entity.getDisplayName() }}
+                {% endif %}
+            </span>
+                {{ '  -  ' }} {{ node.getCreatedTime()|format_date('custom', 'd M Y') }}
+        </div>
+    {% endif %}
+
+
+    {# Cos del node #}
+    <div class="content">
+        {{ content.body }}
+    </div>
+
+
+    <div class="content-extra">
+        {{ content|without('field_image', 'body') }}
+    </div>
+</page>

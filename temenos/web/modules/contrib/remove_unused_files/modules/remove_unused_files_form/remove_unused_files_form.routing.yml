@@ -1,0 +1,10 @@
+remove_unused_files_form.form:
+  path: "/admin/config/media/remove-unused-files"
+  defaults:
+    _form: "\\Drupal\\remove_unused_files_form\\Form\\RemoveUnusedFilesForm"
+    _title: "Remove Unused Files"
+  requirements:
+    _permission: "access to remove unused files form"
+  options:
+    _admin_route: true
+    no_cache: true

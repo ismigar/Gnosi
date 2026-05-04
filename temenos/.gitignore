@@ -1,0 +1,3 @@
+sites/default/settings.local.php
+vendor/
+web/sites/default/files/*/sync/

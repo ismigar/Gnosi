@@ -1,0 +1,28 @@
+services:
+  plugin.manager.simplenews_recipient_handler:
+    class: Drupal\simplenews\RecipientHandler\RecipientHandlerManager
+    parent: default_plugin_manager
+  simplenews.spool_storage:
+    class: Drupal\simplenews\Spool\SpoolStorage
+    arguments: ['@database', '@lock', '@config.factory', '@module_handler', '@plugin.manager.simplenews_recipient_handler']
+  Drupal\simplenews\Spool\SpoolStorageInterface: '@simplenews.spool_storage'
+  logger.channel.simplenews:
+    parent: logger.channel_base
+    arguments: ['simplenews']
+  simplenews.mailer:
+    class: Drupal\simplenews\Mail\Mailer
+    arguments: ['@simplenews.spool_storage', '@plugin.manager.mail', '@state', '@logger.channel.simplenews', '@account_switcher', '@lock', '@config.factory', '@entity_type.manager', '@language_manager', '@simplenews.mail_cache', '@module_handler']
+  Drupal\simplenews\Mail\MailerInterface: '@simplenews.mailer'
+  simplenews.mail_builder:
+    class: Drupal\simplenews\Mail\MailBuilder
+    arguments: ['@token', '@config.factory', '@simplenews.subscription_manager']
+  simplenews.subscription_manager:
+    class: Drupal\simplenews\Subscription\SubscriptionManager
+    arguments: ['@language_manager', '@config.factory', '@entity_type.manager', '@current_route_match', '@datetime.time', '@current_user']
+  simplenews.mail_cache:
+    class: Drupal\simplenews\Mail\MailCacheBuild
+  simplenews.migration_subscriber:
+    class: Drupal\simplenews\EventSubscriber\MigrationSubscriber
+    arguments: ['@entity_field.manager', '@entity_display.repository']
+    tags:
+      - { name: event_subscriber }

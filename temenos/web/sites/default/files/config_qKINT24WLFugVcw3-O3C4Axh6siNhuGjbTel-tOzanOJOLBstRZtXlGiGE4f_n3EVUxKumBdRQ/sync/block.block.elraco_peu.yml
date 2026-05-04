@@ -1,0 +1,25 @@
+uuid: 31792c46-3390-4ab4-8625-4581e544f3c7
+langcode: ca
+status: true
+dependencies:
+  config:
+    - system.menu.footer
+  module:
+    - system
+  theme:
+    - elraco
+id: elraco_peu
+theme: elraco
+region: footer_second
+weight: -10
+provider: null
+plugin: 'system_menu_block:footer'
+settings:
+  id: 'system_menu_block:footer'
+  label: Peu
+  label_display: '0'
+  provider: system
+  level: 1
+  depth: 0
+  expand_all_items: false
+visibility: {  }

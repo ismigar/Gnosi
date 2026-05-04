@@ -1,0 +1,62 @@
+<?php
+
+/**
+ * @file
+ * Hook implementations for the Simplenews Test module.
+ */
+
+use Drupal\simplenews\AbortSendingException;
+use Drupal\simplenews\SkipMailException;
+use Drupal\simplenews\SubscriberInterface;
+
+/**
+ * Implements hook_mail_alter().
+ */
+function simplenews_test_mail_alter(&$message) {
+  if ($message['id'] == 'simplenews_node') {
+    /** @var \Drupal\simplenews\Mail\MailInterface $mail */
+    $mail = $message['params']['simplenews_mail'];
+    $issue = $mail->getIssue();
+    if (!empty($issue->body->value)) {
+      if ($issue->body->value == 'Nothing interesting') {
+        throw new SkipMailException('There was nothing interesting to send.');
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_simplenews_mail_result_alter().
+ */
+function simplenews_test_simplenews_mail_result_alter(&$result, array $message) {
+  if ($results_alter = \Drupal::state()->get('simplenews.test_result_alter')) {
+    $result = array_shift($results_alter);
+    \Drupal::state()->set('simplenews.test_result_alter', $results_alter);
+
+    if ($result == -1) {
+      throw new AbortSendingException('Testing abort sending');
+    }
+  }
+}
+
+/**
+ * Implements hook_simplenews_subscribe().
+ */
+function simplenews_test_simplenews_subscribe(SubscriberInterface $subscriber, string $newsletter_id) {
+  $results = \Drupal::state()->get('simplenews.test_hook_results');
+  if (!is_null($results)) {
+    $results[] = ['add', $subscriber->getMail(), $newsletter_id];
+    \Drupal::state()->set('simplenews.test_hook_results', $results);
+  }
+}
+
+/**
+ * Implements hook_simplenews_unsubscribe().
+ */
+function simplenews_test_simplenews_unsubscribe(SubscriberInterface $subscriber, string $newsletter_id) {
+  $results = \Drupal::state()->get('simplenews.test_hook_results');
+  if (!is_null($results)) {
+    $results[] = ['remove', $subscriber->getMail(), $newsletter_id];
+    \Drupal::state()->set('simplenews.test_hook_results', $results);
+  }
+}

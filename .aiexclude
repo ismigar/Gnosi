@@ -1,0 +1,16 @@
+# Exclude heavy directories from AI indexing
+node_modules/
+**/node_modules/
+.venv/
+**/__pycache__/
+.git/
+.tmp/
+dist/
+build/
+.cache/
+.gemini/
+Library/
+pipeline/private_skills/
+.env*
+*.db
+*.log

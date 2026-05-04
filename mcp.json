@@ -1,0 +1,17 @@
+{
+    "mcpServers": {
+        "n8n": {
+            "command": "/usr/local/bin/node",
+            "args": [
+                "/Users/ismaelgarciafernandez/Projectes/monorepo/packages/n8n/index.js"
+            ],
+            "env": {
+                "MCP_MODE": "stdio",
+                "LOG_LEVEL": "error",
+                "DISABLE_CONSOLE_OUTPUT": "true",
+                "N8N_MCP_TELEMETRY_DISABLED": "true",
+                "N8N_API_URL": "http://localhost:5678"
+            }
+        }
+    }
+}

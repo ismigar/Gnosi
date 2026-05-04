@@ -1,0 +1,32 @@
+.crop-image-image-browser .view-content {
+  display: grid;
+  grid-template-columns: 25% 25% 25% 25%;
+}
+
+.crop-image-image-browser .image-browser-item {
+  position: relative;
+}
+
+.crop-image-image-browser .image-and-label {
+  /* width: 25%; */
+  cursor: pointer;
+  background-color: #ebebeb;
+  margin: 0.5rem;
+  border: 1px solid #dbdbdb;
+  display: table;
+}
+
+.crop-image-image-browser .image-and-label .label {
+  background-color: #fff;
+  display: block;
+  padding: 0.2rem;
+  font-weight: normal;
+}
+
+.image-browser-item .views-field-entity-browser-select {
+  position: absolute;
+  z-index: 1;
+  top: 5px;
+  left: 15px;
+  display: block;
+}

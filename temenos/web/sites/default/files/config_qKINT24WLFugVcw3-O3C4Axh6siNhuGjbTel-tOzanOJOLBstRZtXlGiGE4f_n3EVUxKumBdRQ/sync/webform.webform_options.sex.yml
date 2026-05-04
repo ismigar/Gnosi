@@ -1,0 +1,16 @@
+uuid: 81923374-6ce0-49be-a8e6-7cd98b8a59af
+langcode: ca
+status: true
+dependencies:
+  enforced:
+    module:
+      - webform
+_core:
+  default_config_hash: WRpxpwYpfcO_i0so7BV4QXxXlbPiSVppYmAV6DAz4c0
+id: sex
+label: Sexe
+category: Demogràfic
+likert: false
+options: |
+  Male: Male
+  Female: Female

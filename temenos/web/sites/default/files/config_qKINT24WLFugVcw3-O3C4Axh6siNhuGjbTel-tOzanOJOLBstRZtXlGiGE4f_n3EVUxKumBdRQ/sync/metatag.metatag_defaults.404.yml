@@ -1,0 +1,11 @@
+uuid: 79f9feea-6803-49a9-ad4a-c83e6a29520a
+langcode: ca
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: puBstSLDz8mbaWU357zaqQDBGMGsJzG0j-TQNQkjg20
+id: '404'
+label: "No s'ha trobat la pàgina 404"
+tags:
+  canonical_url: '[site:url]'
+  shortlink: '[site:url]'

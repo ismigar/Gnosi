@@ -1,0 +1,35 @@
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.env*
+.env*.*
+
+# Data
+# Data
+backend/data/*.db
+backend/data/*.json
+backend/data/logs/
+
+# Node
+node_modules/
+dist/
+
+# Outputs
+out/markdown_backup/
+.env.example
+
+# Security & storage
+pipeline/private_skills/
+pipeline/backups/
+data/chroma_db/
+*.log
+*.bak
+.DS_Store
+.macos-secrets/
+debug_mcp_spawn.py
+reproduce_issue.py
+start_server.sh
+mastodon_test.py

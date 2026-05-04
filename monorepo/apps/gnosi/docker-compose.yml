@@ -1,0 +1,67 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gnosi_backend
+    ports:
+      - "5002:5002"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi:/vault
+      # $HOME is read-only: the backend reads project files (analytics scans
+      # docs/dev_memory/directives, system /browse navigates user directories,
+      # scratch_sync imports modules) but does not need to write outside the
+      # vault, /app/backend and the named gnosi_local_data volume.
+      - /Users/ismaelgarciafernandez:/Users/ismaelgarciafernandez:ro
+      # Only the agent mailbox archive needs write access (system_maintenance
+      # task purges old messages). Scoped explicitly so a process inside the
+      # container can't tamper with the rest of $HOME.
+      - /Users/ismaelgarciafernandez/Projectes/monorepo/.antigravity:/Users/ismaelgarciafernandez/Projectes/monorepo/.antigravity:rw
+      - /Users/ismaelgarciafernandez/.gnosi:/root/.gnosi:ro
+      - ./backend:/app/backend
+      # Local-only data (SQLite, caches, indices). NEVER point at cloud-synced
+      # storage — SQLite + cloud sync = corruption. See paths_config.py.
+      - gnosi_local_data:/app/data
+    env_file:
+      - ../../../.env_shared # 1. Variables compartides
+      - .env # 2. Variables locals (sobreescriuen)
+    environment:
+      - LOGGING_LEVEL=debug
+      - DIGITAL_BRAIN_VAULT_PATH=/vault
+      - VAULT_HOST_PATH=/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi
+      - HOME_HOST_PATH=/Users/ismaelgarciafernandez
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      # Variables calculades dinàmicament o especials
+      - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
+      - TZ=Europe/Madrid
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; urllib.request.urlopen('http://localhost:5002/api/health', timeout=3); sys.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: gnosi_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/frontend/node_modules
+    environment:
+      - VITE_BACKEND_HOST=backend
+      - VITE_BACKEND_PORT=5002
+      - CHOKIDAR_USEPOLLING=true
+      - TZ=Europe/Madrid
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  gnosi_local_data:
+    driver: local

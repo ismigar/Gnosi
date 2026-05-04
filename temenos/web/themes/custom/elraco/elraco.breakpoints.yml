@@ -1,0 +1,17 @@
+elraco.mobile:
+  label: Mobile
+  mediaQuery: '(max-width: 767px)'
+  multipliers: [1x, 2x]   # inclou la versió retina automàticament
+  weight: 0
+
+elraco.tablet:
+  label: Tablet
+  mediaQuery: 'all and (min-width: 768px) and (max-width: 1023px)'
+  multipliers: [1x, 2x]
+  weight: 1
+
+elraco.desktop:
+  label: Desktop
+  mediaQuery: 'all and (min-width: 1024px)'
+  multipliers: [1x, 2x]
+  weight: 2

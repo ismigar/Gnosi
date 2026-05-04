@@ -1,0 +1,20 @@
+# Adds a local tab under /admin/content for triggering manual Vault bridge.
+vault_migration.execute_tab:
+  route_name: vault_migration.execute         # Refers to the form at /admin/content/vault-migration
+  title: 'Vault bridge'                    # Tab title
+  base_route: system.admin_content        # Attach the tab under the main Content admin page
+  weight: 100                             # Push it to the bottom of the tab list
+
+# Adds a top-level tab under /admin/config/vault-migration (must match an existing base route)
+vault_migration.config_tab:
+  route_name: vault_migration.config          # Make sure this route exists and points to a config form
+  title: 'Configuration'                  # Tab label
+  base_route: vault_migration.admin           # This route should wrap several tabs (e.g. /admin/config/vault-migration)
+  weight: 0                               # First tab in the group
+
+# Adds a "bridge Status" tab under the same admin section
+vault_migration.status_tab:
+  route_name: vault_migration.status
+  title: 'Bridge Status'
+  base_route: vault_migration.admin
+  weight: 1

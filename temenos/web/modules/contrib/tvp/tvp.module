@@ -1,0 +1,21 @@
+<?php
+
+/**
+ * @file
+ * File for custom hooks and code.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function tvp_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.tvp':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t("The Translate View Path module allows you to translate the View Path's which is required in case of multilingual pages with facets using facets pretty path module") . '</p>';
+      return $output;
+  }
+}

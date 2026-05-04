@@ -1,0 +1,16 @@
+# Library definition for the Vault bridge filter form styles
+vault_migration_filter_form:
+  version: 1.x
+  css:
+    theme:
+      css/vault_migration_filter.css: {}  # Custom styles applied to the filter form UI
+
+# Library definition for the Vault bridge password hidden
+show_password:
+  version: 1.x
+  js:
+    js/show_password.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once

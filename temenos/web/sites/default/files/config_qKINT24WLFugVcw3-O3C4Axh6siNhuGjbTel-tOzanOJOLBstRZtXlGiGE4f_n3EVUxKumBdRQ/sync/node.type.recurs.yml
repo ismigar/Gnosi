@@ -1,0 +1,18 @@
+uuid: ee14604b-fb2f-4c66-9524-7ae1b380a068
+langcode: ca
+status: true
+dependencies:
+  module:
+    - menu_ui
+third_party_settings:
+  menu_ui:
+    available_menus:
+      - main
+    parent: 'main:'
+name: Recurs
+type: recurs
+description: "Artícles d'investigació, relats, TFM..."
+help: null
+new_revision: true
+preview_mode: 1
+display_submitted: false

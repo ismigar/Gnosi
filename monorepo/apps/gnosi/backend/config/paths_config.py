@@ -1,0 +1,138 @@
+from pathlib import Path
+import os
+from typing import Dict, Optional
+
+# --- Early Boot Paths (Safe Fallbacks) ---
+# This allows logger_config to import LOG_DIR safely before get_paths() is called.
+_tmp_base = Path("/tmp/gnosi_pending_vault")
+LOG_DIR = _tmp_base / "data" / "logs"
+
+def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[Path]]:
+    """
+    Returns a dictionary of absolute paths for the whole project.
+    
+    NO DEFAULT VAULT FOLDER: If no path is provided in overrides (Settings), 
+    the vault_path will be None and the system should handle it gracefully.
+    """
+    if overrides is None:
+        overrides = {}
+
+    from .env_config import load_env
+    load_env()
+
+    _this_file = Path(__file__).resolve()
+    project_root = _this_file.parents[2]  # backend/config -> gnosi
+
+    # ── Resolve Vault Path ──
+    # Prioritat: Variable d'entorn (Docker) > params.yaml (Settings UI)
+    env_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
+    if env_vault:
+        vault_path = Path(env_vault)
+    else:
+        vault_raw = overrides.get("vault")
+        vault_path = Path(vault_raw) if vault_raw else None
+    
+    if vault_path and not vault_path.is_absolute():
+        vault_path = project_root / vault_path
+
+    # ── Derived paths (Standardized) ──
+    # USE SAFE FALLBACKS: If vault_path is None, we use a temporary dummy path
+    # to avoid "None / 'str'" crashes during startup.
+    safe_base = vault_path if vault_path else Path("/tmp/gnosi_pending_vault")
+
+    # ── Local-only data (NEVER on cloud-synced storage) ──
+    # SQLite databases, caches, indices, locks. These are per-instance and must
+    # not be uploaded to OneDrive/Dropbox/iCloud — cloud sync corrupts SQLite
+    # binary files and causes I/O bottlenecks. Override via env var if needed.
+    local_data_env = os.environ.get("GNOSI_LOCAL_DATA")
+    if local_data_env:
+        local_data = Path(local_data_env)
+    else:
+        # Default: /app/data inside the container (mounted as a Docker volume)
+        local_data = Path("/app/data")
+    try:
+        local_data.mkdir(parents=True, exist_ok=True)
+        (local_data / "cache").mkdir(parents=True, exist_ok=True)
+        (local_data / "system").mkdir(parents=True, exist_ok=True)
+        # Per-agent LangGraph checkpoints land here.
+        (local_data / "system" / "checkpoints").mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    db_path = safe_base / "BD"
+    newsletters_path = safe_base / "Newsletters"
+    assets_path = safe_base / "Assets"
+    calendar_path = safe_base / "Calendar"
+    mail_path = safe_base / "Mail"
+    plantilles_path = safe_base / "Plantilles"
+    dibuixos_path = safe_base / "Dibuixos"
+    wiki_path = safe_base / "Wiki"
+    dashworks_path = safe_base / ".Dashworks"
+    data_path = safe_base / "data"
+
+    # Files and specific sub-dirs
+    out_json = db_path / "vault_pages.json"
+    out_graph = db_path / "vault_graph.json"
+    registry = db_path / "vault_db_registry.json"
+
+    # ── Persistent App Data (Vault-first) ──
+    # This stores configs and agent states inside the Vault for backups.
+    persistent_base = safe_base / ".gnosi"
+    agent_instructions = persistent_base / "agent" / "instructions"
+    agent_tools = persistent_base / "agent" / "generated_tools"
+
+    # ── Ensure foundational directories exist (Safe mode) ──
+    if vault_path:
+        out_dir = data_path / "out"
+        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashworks_path, data_path, out_dir, persistent_base, agent_instructions, agent_tools]:
+            if p:
+                try:
+                    if not p.exists():
+                        p.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    pass
+
+    return {
+        "PROJECT_DIR": project_root,
+        "VAULT": vault_path, # Keep original as None if not set
+        "DATABASES": db_path,
+        "NEWSLETTERS": newsletters_path,
+        "ASSETS": assets_path,
+        "CALENDAR": calendar_path,
+        "MAIL": mail_path,
+        "PLANTILLES": plantilles_path,
+        "DIBUIXOS": dibuixos_path,
+        "WIKI": wiki_path,
+        "DASHWORKS": dashworks_path,
+        "DATA": data_path,
+        "OUT_JSON": out_json,
+        "OUT_GRAPH": out_graph,
+        "REGISTRY": registry,
+        "LOGS": data_path / "logs",
+        "LOG_DIR": data_path / "logs",
+        "CHROMA": data_path / "chroma_db",
+        "AUDIO": data_path / "audio",
+        "SCHEDULER": data_path / "scheduler_config.json",
+        "CACHE": data_path / "content_cache.json",
+        "TOOLS": agent_tools,
+        "AGENT_INSTRUCTIONS": agent_instructions,
+        "AGENT_TOOLS": agent_tools,
+        # LangGraph agent checkpoints — SQLite per agent. Like the rest of the
+        # operational SQLite files, these MUST live on local-only storage,
+        # not on OneDrive. Per-instance state, not user content.
+        "CHECKPOINTS": local_data / "system" / "checkpoints",
+        "BACKUPS": data_path / "backups",
+        "OUT_DIR": data_path / "out",
+        "STOPWORDS_PATH": project_root / "config" / "stopwords.json",
+        "SECRETS": project_root / "pipeline" / "private_skills" / "secrets",
+        "MGMT_DB": local_data / "system" / "management.sqlite",
+        # SQLite of the generated-tools registry. Living on OneDrive (under
+        # AGENT_TOOLS) caused the same corruption pattern as management.sqlite
+        # — it must be a local-only file.
+        "TOOL_REGISTRY_DB": local_data / "system" / "tool_registry.sqlite",
+        "LOCAL_DATA": local_data,
+        "LOCAL_CACHE": local_data / "cache",
+        "PAGE_INDEX_CACHE": local_data / "cache" / "vault_page_index.json",
+        "INDEX_STATUS": local_data / "cache" / "indexer_status.json",
+        "CONTACTS": safe_base / "Contacts",
+    }

@@ -1,0 +1,305 @@
+<?php
+
+/**
+ * @file
+ * Functions to support theming in the Btheme.
+ */
+define('THEME_PATH', base_path() . \Drupal::service('extension.list.theme')->getPath('elraco'));
+// Change the value to increase the slideshow.
+define('SLIDESHOW_COUNT', 5);
+
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Component\Utility\Xss;
+use Drupal\Core\Template\Attribute;
+use Drupal\file\Entity\File;
+use Drupal\file\Plugin\Core\Entity\FileInterface;
+use Drupal\Core\Render\Markup;
+use Drupal\Core\Url;
+
+/**
+ * Preprocess per construir el carrusel de la home.
+ */
+function elraco_preprocess_page(array &$variables) {
+  $is_front = \Drupal::service('path.matcher')->isFrontPage();
+  $enabled  = (bool) theme_get_setting('slideshow_display', 'elraco');
+  if (!$is_front || !$enabled) { return; }
+
+  $allowed = ['br','strong','em','b','i','u','a'];  // ajusta si vols
+  $slides = [];
+  $max = defined('SLIDESHOW_COUNT') ? SLIDESHOW_COUNT : 5;
+  $file_url_generator = \Drupal::service('file_url_generator');
+
+  for ($i = 1; $i <= $max; $i++) {
+    $fid_arr = theme_get_setting("slide_image_{$i}", 'elraco');
+    $fid = is_array($fid_arr) && !empty($fid_arr[0]) ? (int) $fid_arr[0] : (is_numeric($fid_arr) ? (int) $fid_arr : NULL);
+    if (!$fid) { continue; }
+    if ($file = File::load($fid)) {
+      $uri = $file->getFileUri();
+      // Captura la frase; permet etiquetes bàsiques i transforma \n a <br>
+      $raw_caption = theme_get_setting("slide_title_{$i}", 'elraco') ?: '';
+      $clean_caption = Xss::filter(nl2br($raw_caption), $allowed);
+
+      $slides[] = [
+        'src'     => $file_url_generator->generateString($uri),
+        'url'     => theme_get_setting("slide_url_{$i}", 'elraco') ?: '#',
+        'caption' => $clean_caption,   // <-- ja “segur” per a |raw
+      ];
+    }
+  }
+  if ($slides) { $variables['slider'] = $slides; }
+}
+
+/**
+ * Add class to language switcher (interface).
+ *
+ * @param array $variables
+ * @return void
+ */
+function elraco_preprocess_links__language_block(array &$variables) {
+  foreach ($variables['links'] as &$link) {
+    if (empty($link['link']['#options']['attributes']['class']) || !is_array($link['link']['#options']['attributes']['class'])) {
+      $link['link']['#options']['attributes']['class'] = [];
+    }
+    $link['link']['#options']['attributes']['class'][] = 'btn';
+    $link['link']['#options']['attributes']['class'][] = 'btn-secondary';
+  }
+}
+
+/**
+ * Afegeix classes Bootstrap al primer <a> dins d'un container .more-link.
+ * 1) Drupal-way: modifica el render array si troba el primer link.
+ * 2) Fallback: regex sobre HTML renderitzat, amb control d'errors.
+ *
+ * @param array $variables
+ * @return void
+ */
+function elraco_preprocess_container(array &$variables) {
+  // --- 1) Comprova que el container tingui la classe "more-link" ---
+  $has_more_link = false;
+  if (isset($variables['attributes'])) {
+    $attr = $variables['attributes'];
+    if ($attr instanceof Attribute) {
+      $has_more_link = $attr->hasClass('more-link');
+    } elseif (is_object($attr) && method_exists($attr, 'getValue')) {
+      $val = $attr->getValue(); // array associatiu
+      $classes = isset($val['class']) ? (array)$val['class'] : [];
+      $has_more_link = in_array('more-link', $classes, true);
+    } elseif (is_array($attr)) {
+      $classes = isset($attr['class']) ? (array)$attr['class'] : [];
+      $has_more_link = in_array('more-link', $classes, true);
+    }
+  }
+  if (!$has_more_link) {
+    return;
+  }
+
+  if (!isset($variables['children'])) {
+    return;
+  }
+
+  // --- 2) Intent Drupal-way: tocar el primer link del render array ---
+  if (is_array($variables['children'])) {
+    if (elraco__add_btn_classes_to_first_link($variables['children'])) {
+      // Ja hem modificat el render array correctament.
+      return;
+    }
+    // Si no ha trobat cap link en el render array, farem fallback a regex.
+  }
+
+  // --- 3) Fallback segur: regex sobre string, i tornar a render array ---
+  // Converteix children a string sense deixar Markup com a retorn.
+  $html = '';
+  $saved_attached = [];
+  $saved_cache = [];
+
+  if (is_string($variables['children'])) {
+    $html = $variables['children'];
+  } elseif (is_array($variables['children'])) {
+    $saved_attached = $variables['children']['#attached'] ?? [];
+    $saved_cache = $variables['children']['#cache'] ?? [];
+    $renderer = \Drupal::service('renderer');
+    $html = (string)$renderer->render($variables['children']);
+  } else {
+    $html = (string)$variables['children']; // Markup u objecte → string
+  }
+
+  if ($html === '') {
+    return;
+  }
+
+  // IMPORTANT: inicialitza sempre $html2.
+  $html2 = $html;
+
+  // Si ja té 'btn', només garanteix 'btn-secondary'; si no, afegeix amb elegància.
+  if (preg_match('/<a\b[^>]*\bclass="[^"]*\bbtn\b/i', $html)) {
+    if (!preg_match('/<a\b[^>]*\bclass="[^"]*\bbtn-secondary\b/i', $html)) {
+      $tmp = preg_replace('/(<a\b[^>]*\bclass=")([^"]*)"/i', '$1$2 btn-secondary"', $html, 1);
+      if ($tmp !== null) {
+        $html2 = $tmp;
+      }
+    }
+  } else {
+    $tmp = preg_replace('/(<a\b[^>]*\bclass=")([^"]*)"/i', '$1$2 btn btn-secondary"', $html, 1);
+    if ($tmp !== null && $tmp !== $html) {
+      $html2 = $tmp;
+    } else {
+      $tmp2 = preg_replace('/<a\b(?![^>]*\bclass=)/i', '<a class="btn btn-secondary"', $html, 1);
+      if ($tmp2 !== null) {
+        $html2 = $tmp2;
+      }
+    }
+  }
+
+  // Deixa sempre un render array (no un objecte Markup).
+  $new = [
+    '#type' => 'inline_template',
+    '#template' => '{{ html|raw }}',
+    '#context' => ['html' => $html2],
+  ];
+  if (!empty($saved_attached)) {
+    $new['#attached'] = $saved_attached;
+  }
+  if (!empty($saved_cache)) {
+    $new['#cache'] = $saved_cache;
+  }
+
+  $variables['children'] = $new;
+}
+
+/**
+ * Recorre un render array i afegeix 'btn' 'btn-secondary' al primer link que trobi.
+ * Retorna TRUE si ha modificat algun link; FALSE si no n'ha trobat cap.
+ */
+function elraco__add_btn_classes_to_first_link(array &$element): bool
+{
+  // Detecta un link segons patrons típics de render arrays de link.
+  $is_link = (isset($element['#type']) && $element['#type'] === 'link')
+    || (isset($element['#url']) && isset($element['#title']));
+
+  if ($is_link) {
+    // Assegura bloc d'atributs i classes.
+    if (!isset($element['#attributes']) || !is_array($element['#attributes'])) {
+      $element['#attributes'] = [];
+    }
+    if (!isset($element['#attributes']['class']) || !is_array($element['#attributes']['class'])) {
+      $element['#attributes']['class'] = [];
+    }
+
+    // Afegeix classes si no hi són.
+    if (!in_array('btn', $element['#attributes']['class'], true)) {
+      $element['#attributes']['class'][] = 'btn';
+    }
+    if (!in_array('btn-secondary', $element['#attributes']['class'], true)) {
+      $element['#attributes']['class'][] = 'btn-secondary';
+    }
+    return true;
+  }
+
+  // Recorre fills (ignora claus que comencen per #).
+  foreach ($element as $key => &$child) {
+    if ($key === '' || $key[0] === '#') {
+      continue;
+    }
+    if (is_array($child)) {
+      if (elraco__add_btn_classes_to_first_link($child)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * If your block is the "locale block" instead of the language block.
+ * Enable this if in Twig debug you see HOOK: 'links__locale_block'
+ *
+ * @param array $variables
+ * @return void
+ */
+function elraco_preprocess_links__locale_block(array &$variables) {
+  foreach ($variables['links'] as &$link) {
+    if (isset($link['link']['#attributes']['class']) && is_array($link['link']['#attributes']['class'])) {
+      $link['link']['#attributes']['class'][] = 'btn';
+      $link['link']['#attributes']['class'][] = 'btn-secondary';
+    }
+    else {
+      $link['link']['#attributes']['class'] = ['btn', 'btn-secondary'];
+    }
+  }
+}
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * @param $form
+ *   The form.
+ * @param $form_state
+ *   The form state.
+ */
+function elraco_form_system_theme_settings_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+    $form['busi_settings']['slideshow'] = array(
+        '#type' => 'details',
+        '#title' => t('Front Page Slideshow'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+    );
+    $form['busi_settings']['slideshow']['slideshow_display'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Show slideshow'),
+        '#default_value' => theme_get_setting('slideshow_display', 'elraco'),
+        '#description' => t("Check this option to show Slideshow in front page. Uncheck to hide."),
+    );
+    $form['busi_settings']['slideshow']['slide'] = array(
+        '#markup' => t('You can change the title, url and image of each slide in the following Slide Setting fieldsets.'),
+    );
+
+    for ($i = 1; $i <= SLIDESHOW_COUNT; $i++) {
+        $form['busi_settings']['slideshow']['slide' . $i] = array(
+            '#type' => 'details',
+            '#title' => t('Slide ' . $i),
+            '#collapsible' => TRUE,
+            '#collapsed' => TRUE,
+        );
+        $form['busi_settings']['slideshow']['slide' . $i]['slide_title_' . $i] = array(
+            '#type' => 'textfield',
+            '#title' => t('Slide ' . $i . ' Title'),
+            '#default_value' => theme_get_setting("slide_title_{$i}", "elraco"),
+        );
+        $form['busi_settings']['slideshow']['slide' . $i]['slide_image_' . $i] = array(
+            '#type' => 'managed_file',
+            '#title' => t('Slide ' . $i . ' Image'),
+            '#description' => t('Use same size for all the slideshow images(Recommented size : 1920 X 603).'),
+            '#default_value' => theme_get_setting("slide_image_{$i}", "elraco"),
+            '#upload_location' => 'public://',
+        );
+        $form['busi_settings']['slideshow']['slide' . $i]['slide_url_' . $i] = array(
+            '#type' => 'textfield',
+            '#title' => t('Slide ' . $i . ' URL'),
+            '#default_value' => theme_get_setting("slide_url_{$i}", "elraco"),
+        );
+    }
+
+    // Custom submit to save the file permenant.
+    $form['#submit'][] = 'elraco_settings_form_submit';
+}
+
+/**
+ * Custom submit handler for integrity settings form.
+ */
+function elraco_settings_form_submit(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+    $account = \Drupal::currentUser();
+    $values = $form_state->getValues();
+    for ($i = 0; $i <= SLIDESHOW_COUNT; $i++) {
+        if (isset($values["slide_image_{$i}"]) && !empty($values["slide_image_{$i}"])) {
+            if ($values) {
+                // Load the file via file.fid.
+                $file = File::load($values["slide_image_{$i}"][0]);
+                // Change status to permanent.
+                $file->setPermanent();
+                $file->save();
+                $file_usage = \Drupal::service('file.usage');
+                $file_usage->add($file, 'user', 'user', $account->id());
+            }
+        }
+    }
+}

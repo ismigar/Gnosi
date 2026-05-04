@@ -1,0 +1,15 @@
+uuid: 0a34f30e-f6b1-43df-9a70-6927791579bb
+langcode: es
+status: true
+dependencies: {  }
+name: article_tablet_fit
+label: article_tablet_fit
+effects:
+  119870b5-d02c-48bf-8496-d085664c2a9d:
+    uuid: 119870b5-d02c-48bf-8496-d085664c2a9d
+    id: image_scale
+    weight: 1
+    data:
+      width: 1023
+      height: 575
+      upscale: true

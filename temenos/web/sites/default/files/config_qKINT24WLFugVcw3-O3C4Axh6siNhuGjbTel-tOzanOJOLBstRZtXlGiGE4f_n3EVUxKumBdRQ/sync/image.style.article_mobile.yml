@@ -1,0 +1,17 @@
+uuid: 16c5547b-1a08-4c4a-923f-5bd21b48275e
+langcode: ca
+status: true
+dependencies:
+  module:
+    - focal_point
+name: article_mobile
+label: article_mobile
+effects:
+  b320fb1e-3920-434a-b1e1-2e079ed2d69d:
+    uuid: b320fb1e-3920-434a-b1e1-2e079ed2d69d
+    id: focal_point_scale_and_crop
+    weight: 1
+    data:
+      width: 480
+      height: 270
+      crop_type: focal_point

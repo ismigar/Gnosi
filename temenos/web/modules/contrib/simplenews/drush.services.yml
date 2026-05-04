@@ -1,0 +1,6 @@
+services:
+  simplenews.commands:
+    class: \Drupal\simplenews\Commands\SimplenewsCommands
+    arguments: ['@config.factory', '@simplenews.spool_storage', '@simplenews.mailer']
+    tags:
+      - { name: drush.command }

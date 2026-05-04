@@ -1,0 +1,17 @@
+simplenews.newsletter_add:
+  route_name: simplenews.newsletter_add
+  title: 'Add newsletter'
+  appears_on:
+    - simplenews.newsletter_list
+
+simplenews.subscriber_add:
+  route_name: entity.simplenews_subscriber.add_form
+  title: 'Add subscriber'
+  appears_on:
+    - entity.simplenews_subscriber.collection
+
+simplenews.newsletter_issue_add:
+  route_name: node.add
+  appears_on:
+    - view.simplenews_newsletters.page_1
+  deriver: 'Drupal\simplenews\Plugin\Derivative\AddSimplenewsIssueActionLinks'

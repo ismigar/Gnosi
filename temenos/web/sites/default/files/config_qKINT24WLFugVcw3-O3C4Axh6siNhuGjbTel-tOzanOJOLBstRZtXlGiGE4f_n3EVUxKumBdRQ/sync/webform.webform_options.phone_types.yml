@@ -1,0 +1,14 @@
+uuid: 9962b8a2-d70c-4692-bdab-6869f2686c13
+langcode: ca
+status: true
+dependencies:
+  enforced:
+    module:
+      - webform
+_core:
+  default_config_hash: LkO63Zl2cP_l9YdjzWI8dWoD9uD0pytkPiUiUM2bo9A
+id: phone_types
+label: 'Tipus de telèfon'
+category: Demogràfic
+likert: false
+options: "Casa: Casa\r\nOficina: Oficina\r\nMòbil: Mòbil\n"

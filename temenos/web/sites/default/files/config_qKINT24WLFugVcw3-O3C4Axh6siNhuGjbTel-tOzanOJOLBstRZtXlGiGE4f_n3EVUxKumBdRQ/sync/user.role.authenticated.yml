@@ -1,0 +1,40 @@
+uuid: 54aceca5-990e-493d-8401-4bf94dcde220
+langcode: ca
+status: true
+dependencies:
+  config:
+    - filter.format.basic_html
+    - filter.format.webform_default
+  module:
+    - comment
+    - contact
+    - eu_cookie_compliance
+    - file
+    - filter
+    - media
+    - search
+    - shortcut
+    - simplenews
+    - sitemap
+    - system
+_core:
+  default_config_hash: cFrlqjtkTfvY3RGccjJkPf1SGIfJ942IrxTLWAO4mgA
+id: authenticated
+label: 'Usuari autenticat'
+weight: 1
+is_admin: false
+permissions:
+  - 'access comments'
+  - 'access content'
+  - 'access shortcuts'
+  - 'access site-wide contact form'
+  - 'access sitemap'
+  - 'delete own files'
+  - 'display eu cookie compliance popup'
+  - 'post comments'
+  - 'search content'
+  - 'skip comment approval'
+  - 'subscribe to newsletters'
+  - 'use text format basic_html'
+  - 'use text format webform_default'
+  - 'view media'

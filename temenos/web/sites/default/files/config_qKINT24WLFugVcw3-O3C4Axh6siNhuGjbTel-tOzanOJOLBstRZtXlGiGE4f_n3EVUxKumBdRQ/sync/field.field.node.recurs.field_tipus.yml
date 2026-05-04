@@ -1,0 +1,23 @@
+uuid: 3bdad450-ae99-420e-93dd-b55b5bd75219
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_tipus
+    - node.type.recurs
+  module:
+    - options
+id: node.recurs.field_tipus
+field_name: field_tipus
+entity_type: node
+bundle: recurs
+label: Tipus
+description: ''
+required: true
+translatable: false
+default_value:
+  -
+    value: altres
+default_value_callback: ''
+settings: {  }
+field_type: list_string

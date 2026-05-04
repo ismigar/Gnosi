@@ -1,0 +1,16 @@
+uuid: 30a469d2-8eb3-4ab1-b466-7031e8f425d6
+langcode: ca
+status: false
+dependencies:
+  module:
+    - node
+  enforced:
+    module:
+      - simplenews
+_core:
+  default_config_hash: iQNOEsNlbBFbVMOoSwtfUd8YC0XpRLzTjXv48HYfxwE
+id: node.email_html
+label: 'Correu electrònic: HTML'
+description: ''
+targetEntityType: node
+cache: true

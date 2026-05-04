@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - file
+id: mark_file_for_deletion
+label: 'Mark file for deletion'
+type: file
+plugin: mark_file_for_deletion
+configuration: {  }

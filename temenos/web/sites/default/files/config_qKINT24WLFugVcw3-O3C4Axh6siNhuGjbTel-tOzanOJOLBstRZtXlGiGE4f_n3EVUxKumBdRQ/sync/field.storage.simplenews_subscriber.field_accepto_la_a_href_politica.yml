@@ -1,0 +1,18 @@
+uuid: 3647c15a-28e6-4201-90a8-9b9101b62de5
+langcode: ca
+status: true
+dependencies:
+  module:
+    - simplenews
+id: simplenews_subscriber.field_accepto_la_a_href_politica
+field_name: field_accepto_la_a_href_politica
+entity_type: simplenews_subscriber
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

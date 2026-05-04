@@ -1,0 +1,23 @@
+uuid: 4fc79b94-9e00-41d5-a0dd-8ca7e7c5a353
+langcode: ca
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_any
+    - node.type.recurs
+id: node.recurs.field_any
+field_name: field_any
+entity_type: node
+bundle: recurs
+label: Any
+description: 'Any que es va escriure.'
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

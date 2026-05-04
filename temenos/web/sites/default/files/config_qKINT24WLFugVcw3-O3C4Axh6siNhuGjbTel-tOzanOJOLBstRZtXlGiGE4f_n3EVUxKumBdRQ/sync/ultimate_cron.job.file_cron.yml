@@ -1,0 +1,17 @@
+uuid: 7057b1a4-21e8-472e-9fb2-aed64649430a
+langcode: ca
+status: true
+dependencies:
+  module:
+    - file
+title: 'Delete temporary files'
+id: file_cron
+weight: 0
+module: file
+callback: 'file#cron'
+scheduler:
+  id: simple
+launcher:
+  id: serial
+logger:
+  id: database

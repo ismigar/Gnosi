@@ -1,0 +1,20 @@
+{#
+/**
+ * @file
+ * Default theme implementation of AddToAny follow buttons.
+ *
+ * Available variables:
+ * - addtoany_html: HTML for AddToAny buttons.
+ * - buttons_size: Size of buttons.
+ *
+ * Whitespace is removed between tags for even spacing between buttons.
+ *
+ * @ingroup themeable
+ */
+#}
+
+<span class="a2a_kit a2a_kit_size_{{ buttons_size }} a2a_follow addtoany_list">
+  {%- if addtoany_html -%}
+    {{- addtoany_html|raw -}}
+  {%- endif -%}
+</span>

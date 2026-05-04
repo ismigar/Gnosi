@@ -1,0 +1,16 @@
+uuid: 67386bed-fbcc-457d-b0e8-edcbfc8498e9
+langcode: ca
+status: false
+dependencies:
+  module:
+    - node
+  enforced:
+    module:
+      - simplenews
+_core:
+  default_config_hash: rCDGCl6pMFu6zZuErLQggKvmawfFDysFcZNCDL72U4M
+id: node.email_plain
+label: 'Correu electrònic: Pla'
+description: ''
+targetEntityType: node
+cache: true

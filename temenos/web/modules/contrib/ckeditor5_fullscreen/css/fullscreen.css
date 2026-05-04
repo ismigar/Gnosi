@@ -1,0 +1,64 @@
+/* redeclare the displace variables when fullscreen is triggered */
+html:has([data-fullscreen="fullscreenoverlay"]) {
+  --ck-z-default: 1;
+  --ck-z-panel: calc(var(--ck-z-default) + 999);
+  --drupal-displace-offset-top: 0px !important;
+  --drupal-displace-offset-left: 0px !important;
+  --drupal-displace-offset-right: 0px !important;
+  --drupal-displace-offset-bottom: 0px !important;
+  --fullscreen-editor-z: calc(var(--ck-z-panel) - 2);
+  --fullscreen-overlay-z: calc(var(--ck-z-panel) - 1) !important;
+}
+
+/* disable page scroll */
+[data-fullscreen="fullscreenoverlay"] {
+  overflow: hidden;
+}
+
+/* position the editor at top of page */
+[data-fullscreen="fullscreeneditor"] {
+  display: flex !important;
+  flex-direction: column !important;
+  position: fixed !important;
+  z-index: var(--fullscreen-editor-z) !important;
+  top: var(--drupal-displace-offset-top, 0px) !important;
+  right: var(--drupal-displace-offset-right, 0px) !important;
+  bottom: var(--drupal-displace-offset-bottom, 0px) !important;
+  left: var(--drupal-displace-offset-left, 0px) !important;
+}
+
+[data-fullscreen="fullscreeneditor"] .ck-sticky-panel__content {
+  top: 0 !important;
+}
+
+/* make sure content wrapper takes up available height */
+[data-fullscreen="fullscreeneditor"] .ck.ck-editor__main {
+  flex: 1;
+  overflow-y: scroll;
+}
+
+/* then set content within the wrapper to be at least that high and vertically scroll when higher */
+[data-fullscreen="fullscreeneditor"] .ck.ck-editor__editable,
+[data-fullscreen="fullscreeneditor"] .ck-source-editing-area,
+[data-fullscreen="fullscreeneditor"] .CodeMirror-wrap {
+  height: 100%;
+}
+
+/* redeclare the --ck-z-modal variable so that it's greater than [data-fullscreen="fullscreeneditor"]
+https://www.drupal.org/project/drupal/issues/3328425#comment-14845336 */
+[data-fullscreen="fullscreenoverlay"] .ck-body-wrapper {
+  --ck-z-panel: var(--fullscreen-overlay-z);
+}
+
+/* temporarily hide all elements that are using Drupal.displace, which includes the toolbars - https://www.drupal.org/node/3275981 */
+[data-fullscreen="fullscreenoverlay"] [data-offset-top],
+[data-fullscreen="fullscreenoverlay"] [data-offset-right],
+[data-fullscreen="fullscreenoverlay"] [data-offset-left] {
+  z-index: 1;
+}
+
+/* ckeditor toolbar conflict with admin toolbar and node edit vertical tabs */
+/* unsure if this is still required after data-offset rules added (above) */
+[data-fullscreen="fullscreenoverlay"] .vertical-tabs__panes {
+  z-index: auto !important;
+}
