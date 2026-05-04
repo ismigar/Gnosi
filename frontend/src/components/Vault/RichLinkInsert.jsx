@@ -16,6 +16,7 @@ import { FolderOpen, Image as ImageIcon, X, Globe, FileText, Upload, Link as Lin
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { fileUrlToSentinel } from './markdown-mapper';
+import { FilesystemPickerModal } from '../FilesystemPickerModal';
 
 const TABS = [
     { key: 'url', icon: Globe, labelKey: 'editor.link_tab_url', fallback: 'URL' },
@@ -60,7 +61,10 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
     const [localPath, setLocalPath] = useState('');
     // Mode dins la pestanya Local: 'link' (file://) o 'upload' (puja a Assets)
     const [localMode, setLocalMode] = useState('link');
-    const fileInputRef = useRef(null);
+    // Picker UI per evitar copy-paste manual de la ruta. null o 'file'/'folder'.
+    const [pickerMode, setPickerMode] = useState(null);
+    // Drag-and-drop al mode "Pujar a Assets"
+    const [dragOver, setDragOver] = useState(false);
     const uploadInputRef = useRef(null);
 
     // Reset i captura de selecció a l'obrir/tancar
@@ -79,13 +83,49 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
         }
     }, [open, editor]);
 
-    // Tanca amb Escape
+    // Navegació de teclat:
+    //   - Escape: tanca el modal
+    //   - ⌘/Ctrl+1/2/3: salta a URL/Local/Embed
+    //   - ⌘/Ctrl+←/→: tab anterior/següent (cíclic)
+    //   - Dins la pestanya Local: ⌘/Ctrl+L/U commuta entre "Enllaçar" i "Pujar"
+    // Sense `preventDefault` el ⌘+1..9 del navegador canviaria de pestanya;
+    // l'usuari espera que dins el modal els atalls es quedin al modal.
     useEffect(() => {
         if (!open) return;
-        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+        const onKey = (e) => {
+            if (e.key === 'Escape') { onClose?.(); return; }
+            const mod = e.metaKey || e.ctrlKey;
+            if (!mod) return;
+            const order = TABS.map(t => t.key); // ['url','local','embed']
+            if (e.key === '1' || e.key === '2' || e.key === '3') {
+                const idx = Number(e.key) - 1;
+                if (order[idx]) {
+                    e.preventDefault();
+                    setTab(order[idx]);
+                }
+                return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                setTab(prev => {
+                    const i = order.indexOf(prev);
+                    const delta = e.key === 'ArrowRight' ? 1 : -1;
+                    return order[(i + delta + order.length) % order.length];
+                });
+                return;
+            }
+            const k = String(e.key || '').toLowerCase();
+            if (k === 'l' || k === 'u') {
+                // Només té sentit a la pestanya Local
+                if (tab === 'local') {
+                    e.preventDefault();
+                    setLocalMode(k === 'l' ? 'link' : 'upload');
+                }
+            }
+        };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [open, onClose]);
+    }, [open, onClose, tab]);
 
     const insertInlineLink = useCallback((href, label) => {
         if (!editor) return;
@@ -123,6 +163,25 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
             console.warn('embed block insertion failed, fallback to link', err);
         }
     }, [editor, insertInlineLink]);
+
+    const handleUploadFile = useCallback(async (file) => {
+        if (!file) return;
+        if (!uploadFile) {
+            toast.error(t('editor.upload_unavailable', { defaultValue: 'Pujada de fitxers no disponible' }));
+            return;
+        }
+        setBusy(true);
+        try {
+            const href = await uploadFile(file);
+            insertInlineLink(href, linkText || file.name);
+            onClose?.();
+        } catch (err) {
+            console.error('upload error', err);
+            toast.error(t('editor.upload_failed', { defaultValue: 'Error pujant el fitxer' }));
+        } finally {
+            setBusy(false);
+        }
+    }, [uploadFile, t, insertInlineLink, linkText, onClose]);
 
     const handleSubmitUrl = (e) => {
         e?.preventDefault?.();
@@ -186,6 +245,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                 }}
             >
                 <div style={{ display: 'flex', gap: 4, marginBottom: 12, borderBottom: '1px solid var(--border-primary, #eee)' }}>
+                    {/* eslint-disable-next-line no-unused-vars -- `Icon` s'usa al JSX més avall però alguna versió del plugin react no ho detecta amb destructuring renamed */}
                     {TABS.map(({ key, icon: Icon, labelKey, fallback }) => (
                         <button
                             key={key}
@@ -300,51 +360,26 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                     value={linkText} onChange={(e) => setLinkText(e.target.value)} style={inputStyle}
                                 />
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    {/* Picker de fitxer: <input type="file"> simple — NO desencadena
-                                        el diàleg "Penjar X fitxers" perquè és un sol fitxer i no es puja. */}
-                                    <input
-                                        ref={fileInputRef} type="file" style={{ display: 'none' }}
-                                        onChange={(e) => {
-                                            const f = e.target.files?.[0]; if (!f) return;
-                                            setLocalPath(prev => prev || f.name);
-                                            toast(t('editor.link_local_browser_path_hint', {
-                                                defaultValue: "El navegador no et dóna la ruta absoluta. Completa-la al camp.",
-                                            }), { icon: 'ℹ️' });
-                                        }}
-                                    />
+                                    {/* Picker de fitxer: obre un explorador propi servit per
+                                        /api/system/browse (el navegador no exposa la ruta absoluta
+                                        amb <input type="file">; el backend en Docker no pot obrir
+                                        diàlegs natius). El path retornat ja és el del host. */}
                                     <button
-                                        type="button" onClick={() => fileInputRef.current?.click()}
+                                        type="button"
+                                        onClick={() => setPickerMode('file')}
                                         style={{ ...btnStyle, flex: 1, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
                                     >
                                         <FileText size={14} style={{ marginRight: 4 }} />
                                         {t('editor.link_local_pick_file', { defaultValue: 'Fitxer…' })}
                                     </button>
-                                    {/* Picker de carpeta: usem File System Access API quan estigui
-                                        disponible (Chrome/Edge) per evitar el diàleg "Penjar X fitxers"
-                                        que provoca <input webkitdirectory>. Fallback: amaguem el botó. */}
-                                    {typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function' && (
-                                        <button
-                                            type="button"
-                                            onClick={async () => {
-                                                try {
-                                                    const handle = await window.showDirectoryPicker();
-                                                    if (!handle?.name) return;
-                                                    setLocalPath(prev => prev || handle.name);
-                                                    toast(t('editor.link_local_browser_path_hint', {
-                                                        defaultValue: "El navegador no et dóna la ruta absoluta. Completa-la al camp.",
-                                                    }), { icon: 'ℹ️' });
-                                                } catch (err) {
-                                                    if (err?.name !== 'AbortError') {
-                                                        console.warn('showDirectoryPicker error', err);
-                                                    }
-                                                }
-                                            }}
-                                            style={{ ...btnStyle, flex: 1, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
-                                        >
-                                            <FolderOpen size={14} style={{ marginRight: 4 }} />
-                                            {t('editor.link_local_pick_folder', { defaultValue: 'Carpeta…' })}
-                                        </button>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setPickerMode('folder')}
+                                        style={{ ...btnStyle, flex: 1, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+                                    >
+                                        <FolderOpen size={14} style={{ marginRight: 4 }} />
+                                        {t('editor.link_local_pick_folder', { defaultValue: 'Carpeta…' })}
+                                    </button>
                                 </div>
                                 <button
                                     type="submit" disabled={!localPath.trim()}
@@ -376,35 +411,44 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                     onChange={async (e) => {
                                         const file = e.target.files?.[0];
                                         if (!file) return;
-                                        if (!uploadFile) {
-                                            toast.error(t('editor.upload_unavailable', { defaultValue: 'Pujada de fitxers no disponible' }));
-                                            return;
-                                        }
-                                        setBusy(true);
-                                        try {
-                                            const href = await uploadFile(file);
-                                            insertInlineLink(href, linkText || file.name);
-                                            onClose?.();
-                                        } catch (err) {
-                                            console.error('upload error', err);
-                                            toast.error(t('editor.upload_failed', { defaultValue: 'Error pujant el fitxer' }));
-                                        } finally {
-                                            setBusy(false);
-                                        }
+                                        await handleUploadFile(file);
                                     }}
                                 />
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => uploadInputRef.current?.click()}
-                                    className="btn btn-gnosi-primary"
-                                    style={{ ...btnStyle, opacity: busy ? 0.6 : 1 }}
+                                {/* Zona de drop: el browser no exposa la ruta absoluta del
+                                    fitxer arrossegat, però sí en dóna el File. Per al mode
+                                    "Pujar a Assets" això n'hi ha prou (es puja directament
+                                    al backend i s'insereix l'enllaç intern). */}
+                                <div
+                                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDragOver(true); }}
+                                    onDragLeave={() => setDragOver(false)}
+                                    onDrop={async (e) => {
+                                        e.preventDefault();
+                                        setDragOver(false);
+                                        const file = e.dataTransfer.files?.[0];
+                                        if (file) await handleUploadFile(file);
+                                    }}
+                                    onClick={() => !busy && uploadInputRef.current?.click()}
+                                    style={{
+                                        border: `2px dashed ${dragOver ? 'var(--gnosi, #4f46e5)' : 'var(--border-primary, #d4d4d8)'}`,
+                                        borderRadius: 10,
+                                        padding: '22px 14px',
+                                        textAlign: 'center',
+                                        background: dragOver ? 'rgba(79, 70, 229, 0.06)' : 'var(--bg-secondary, #fafafa)',
+                                        cursor: busy ? 'wait' : 'pointer',
+                                        transition: 'all 0.15s ease',
+                                        opacity: busy ? 0.6 : 1,
+                                    }}
                                 >
-                                    <Upload size={14} style={{ marginRight: 6 }} />
-                                    {busy
-                                        ? t('common.loading', { defaultValue: 'Pujant…' })
-                                        : t('editor.link_upload_pick', { defaultValue: 'Triar fitxer i pujar' })}
-                                </button>
+                                    <Upload size={22} style={{ color: dragOver ? 'var(--gnosi, #4f46e5)' : 'var(--text-tertiary, #888)', marginBottom: 6 }} />
+                                    <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
+                                        {busy
+                                            ? t('common.loading', { defaultValue: 'Pujant…' })
+                                            : t('editor.link_upload_drop_title', { defaultValue: 'Arrossega un fitxer aquí' })}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-tertiary, #888)', marginTop: 4 }}>
+                                        {t('editor.link_upload_drop_or_click', { defaultValue: 'o fes clic per triar-lo' })}
+                                    </div>
+                                </div>
                                 <p style={{ fontSize: 11, color: 'var(--text-tertiary, #888)', margin: 0, fontStyle: 'italic' }}>
                                     {t('editor.link_upload_note_folder', {
                                         defaultValue: 'Les carpeges no es poden pujar; usa el mode "Enllaçar" per a carpetes.',
@@ -443,6 +487,16 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                     </div>
                 )}
             </div>
+
+            <FilesystemPickerModal
+                isOpen={pickerMode !== null}
+                mode={pickerMode || 'file'}
+                onClose={() => setPickerMode(null)}
+                onSelect={(absoluteHostPath) => {
+                    setLocalPath(absoluteHostPath);
+                    setPickerMode(null);
+                }}
+            />
         </div>
     );
 }

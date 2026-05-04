@@ -29,6 +29,29 @@ function writeCache(id, data) {
 }
 
 /**
+ * Invalida el preview cachejat d'una pàgina (o tot el cache si no passes id).
+ * Cal cridar-la quan la pàgina ha canviat per evitar mostrar "Pàgina buida"
+ * o un extracte obsolet a hovers posteriors fins que expiri el TTL de 5 min.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- helper exposat al costat del component perquè comparteixen el mateix cache local
+export function invalidatePreviewCache(pageId) {
+    if (!pageId) {
+        PREVIEW_CACHE.clear();
+        return;
+    }
+    PREVIEW_CACHE.delete(pageId);
+}
+
+// Invalidació via DOM event perquè qualsevol capa (interceptor d'axios,
+// botons de "recarrega", cron de refresc) pugui demanar-ho sense haver
+// d'importar aquest mòdul. detail.pageId opcional → si falta, neteja tot.
+if (typeof window !== 'undefined') {
+    window.addEventListener('gnosi:invalidatePreview', (ev) => {
+        invalidatePreviewCache(ev?.detail?.pageId);
+    });
+}
+
+/**
  * Popup estil Wikipedia per al hover de wikilinks.
  * Mostra títol, icon (si existeix) i extracte (primer paràgraf).
  *
