@@ -56,6 +56,7 @@ import { CoverPicker } from './CoverPicker';
 import { IconRenderer } from './IconRenderer';
 
 import { VaultEditorContext } from './VaultEditorContext';
+import { WikilinkInline } from './WikilinkInline';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
@@ -1043,86 +1044,16 @@ export function EditorInner({
                 },
                 content: "none",
             }, {
-                render: (props) => {
-                    // ATENCIÓ: BlockNote/Tiptap (ProseMirror) processa el
-                    // `mousedown` ABANS que el `click` de React. Sense aturar
-                    // el mousedown a la fase de captura, ProseMirror posiciona
-                    // el cursor al wikilink i potser previne el click. Per
-                    // això:
-                    //   - mousedown/mouseup → stopPropagation (no arribi a PM)
-                    //   - click → la navegació real
-                    const target = props.inlineContent.props.target;
-                    // UUID v4 detectat: 8-4-4-4-12 hex chars. Si NO ho és,
-                    // assumim que és un títol i fem lookup invers a idToTitle.
-                    // Sense això, `[[Resum estructurat del DVA]]` (target =
-                    // títol literal) feia GET /api/vault/pages/Resum%20...
-                    // → 404 perquè el backend espera UUIDs.
-                    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                    const resolveTarget = (raw) => {
-                        if (!raw) return raw;
-                        // Strip section anchor `#Section` abans de resoldre.
-                        // El backend no entén /api/vault/pages/UUID#Section
-                        // (la part `#` no arriba al servidor de totes maneres,
-                        // però la concatenació rompia el lookup UUID/títol).
-                        const hashIdx = raw.indexOf('#');
-                        const base = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
-                        if (!base) return raw;
-                        if (UUID_RE.test(base)) return base;
-                        // Lookup invers títol → ID al globalIndex
-                        const idToTitle = contextValue.idToTitle || {};
-                        const lower = base.toLowerCase().trim();
-                        for (const [id, t] of Object.entries(idToTitle)) {
-                            if (String(t || '').toLowerCase().trim() === lower) {
-                                return id;
-                            }
-                        }
-                        return base; // Sense match — passem el base, backend retornarà 404
-                    };
-                    const handleNavigate = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (typeof e.stopImmediatePropagation === 'function') {
-                            e.stopImmediatePropagation();
-                        }
-                        if (!target) return;
-                        const resolved = resolveTarget(target);
-                        // Click normal → tab actual (com Notion/Obsidian);
-                        // Cmd/Ctrl-click → split. Abans qualsevol click feia
-                        // sempre split, però amb 4 panes oberts era no-op
-                        // silenciós (semblava wikilink mort).
-                        if ((e.metaKey || e.ctrlKey) && contextValue.onOpenParallel) {
-                            contextValue.onOpenParallel(resolved);
-                        } else if (contextValue.onOpenPage) {
-                            contextValue.onOpenPage(resolved);
-                        } else if (contextValue.onOpenParallel) {
-                            contextValue.onOpenParallel(resolved);
-                        }
-                    };
-                    const stopBubble = (e) => {
-                        e.stopPropagation();
-                        if (typeof e.stopImmediatePropagation === 'function') {
-                            e.stopImmediatePropagation();
-                        }
-                    };
-                    return (
-                        <span
-                            className="wikilink-inline text-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary-hover)] underline decoration-[var(--gnosi-primary)]/30 underline-offset-4 cursor-pointer transition-all font-semibold"
-                            data-wikilink-target={target}
-                            onMouseDown={stopBubble}
-                            onMouseUp={stopBubble}
-                            onClick={handleNavigate}
-                            onAuxClick={handleNavigate}
-                            // contentEditable={false} feia que ProseMirror
-                            // tractés el node com a atòmic i en alguns
-                            // browsers mai disparava el handler React. El
-                            // suprimim i protegim només via stopPropagation
-                            // dels events pointer.
-                            style={{ pointerEvents: 'auto' }}
-                        >
-                            {props.inlineContent.props.title}
-                        </span>
-                    );
-                }
+                render: (props) => (
+                    <WikilinkInline
+                        title={props.inlineContent.props.title}
+                        target={props.inlineContent.props.target}
+                        idToTitle={contextValue.idToTitle}
+                        onOpenInCurrentTab={contextValue.onOpenInCurrentTab}
+                        onOpenInNewTab={contextValue.onOpenInNewTab || contextValue.onOpenPage}
+                        onOpenParallel={contextValue.onOpenParallel}
+                    />
+                )
             }),
             alert: createReactBlockSpec({
                 type: "alert",
@@ -2385,7 +2316,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewerRole = role === 'viewer';
@@ -2428,7 +2359,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const titleInputRef = useRef(null);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
-    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, idToTitle, registry]);
+    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry]);
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
     const _doSaveMetadata = useCallback(async (currentMetadata) => {
