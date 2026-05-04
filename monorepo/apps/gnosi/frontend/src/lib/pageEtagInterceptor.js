@@ -93,12 +93,22 @@ export function installPageEtagInterceptor() {
                 if (!pageId) return response;
                 const etag = response?.data?.etag;
                 if (etag) etagByPage.set(pageId, etag);
+                // Invalida el preview cache del WikilinkHoverPreview en
+                // PATCH/PUT exitós: sense això, l'extracte cachejat (TTL 5
+                // min) sobreviu al canvi i el hover mostra "Pàgina buida"
+                // o text obsolet fins que caduqui.
+                const method = (response?.config?.method || 'get').toLowerCase();
+                if (method === 'patch' || method === 'put') {
+                    window.dispatchEvent(
+                        new CustomEvent('gnosi:invalidatePreview', { detail: { pageId } }),
+                    );
+                }
             } catch (e) {
                 console.warn('pageEtagInterceptor response hook failed:', e);
             }
             return response;
         },
-        (error) => {
+        async (error) => {
             // On 409 etag_mismatch, broadcast an event so the UI can react
             try {
                 const status = error?.response?.status;
@@ -112,6 +122,30 @@ export function installPageEtagInterceptor() {
                     // saves won't keep failing if the user picks "overwrite".
                     if (pageId && detail?.current_etag) {
                         etagByPage.set(pageId, detail.current_etag);
+                    }
+                    // Auto-retry UNA VEGADA per request amb el nou etag. Sense
+                    // això, quan diversos PATCH es queden encavalcats (autosave
+                    // amb timeout que despenja la cadena, OneDrive tocant el
+                    // mtime sense canvis reals), tots porten l'etag vell i tots
+                    // tornen 409 — l'usuari veu el toast però els canvis no es
+                    // guarden. Aquí reintentem amb `current_etag` perquè el
+                    // PATCH "guanyi" si encara és vàlid; només broadcastegem
+                    // el conflicte si el reintent també falla.
+                    const cfg = error?.config;
+                    const canRetry = cfg && !cfg._etagRetried && pageId && detail?.current_etag;
+                    if (canRetry) {
+                        cfg._etagRetried = true;
+                        try {
+                            const nextBody = (cfg.data && typeof cfg.data === 'object')
+                                ? { ...cfg.data, expected_etag: detail.current_etag }
+                                : cfg.data;
+                            cfg.data = nextBody;
+                            return await axios.request(cfg);
+                        } catch (retryErr) {
+                            // Si el reintent també falla amb etag, deixem que
+                            // surti pel camí normal (toast de conflicte).
+                            error = retryErr;
+                        }
                     }
                     window.dispatchEvent(
                         new CustomEvent('pageEtagConflict', {

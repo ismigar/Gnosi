@@ -177,11 +177,12 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             content = block.type === "image" ? `![${caption}](${url})` : `[${block.type}: ${url}](${url})`;
             break;
         }
-        case "alert": // BlockNote calls callouts 'alert'
+        case "alert": { // BlockNote calls callouts 'alert'
             const alertType = block.props?.type || "info";
             const alertContent = inlineContentToMarkdown(block.content);
             return `> [!${alertType}]\n> ${alertContent.replace(/\n/g, "\n> ")}`;
-        case "table":
+        }
+        case "table": {
             // GFM Table serialization
             // Support native BlockNote table format (block.content.rows) or fallback to custom nested children
             let tableRows = [];
@@ -190,9 +191,9 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             } else if (Array.isArray(block.children) && block.children.length > 0) {
                 tableRows = block.children;
             }
-            
+
             if (tableRows.length === 0) return "";
-            
+
             const markdownRows = tableRows.map(row => {
                 const cellDataRow = row.cells || row.children || [];
                 const markdownCells = cellDataRow.map(cell => {
@@ -201,9 +202,9 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
                 });
                 return `| ${markdownCells.join(" | ")} |`;
             });
-            
+
             if (markdownRows.length === 0) return "";
-            
+
             // Add separator row after header
             let headerCellsCount = 1;
             if (tableRows[0].cells) {
@@ -211,11 +212,12 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             } else if (tableRows[0].children) {
                 headerCellsCount = tableRows[0].children.length;
             }
-            
+
             const separator = `| ${Array(headerCellsCount).fill("---").join(" | ")} |`;
-            
+
             markdownRows.splice(1, 0, separator);
             return markdownRows.join("\n");
+        }
         case "paragraph":
         default:
             content = inlineContentToMarkdown(block.content);
@@ -375,7 +377,12 @@ const inlineContentToMarkdown = (content) => {
             // al disc, perquè els lectors externs (Obsidian, etc.) entenguin
             // l'enllaç local original.
             const safeHref = sentinelToFileUrl(rawHref);
-            return `[${innerText}](${safeHref})`;
+            // CommonMark: si la URL té espais o parèntesis no balancejats, cal
+            // envoltar-la amb <...>. Sense això, [text](file:///foo bar.docx)
+            // es trenca al primer espai i el link queda inservible.
+            const needsAngleBrackets = /[\s<>]/.test(safeHref);
+            const finalHref = needsAngleBrackets ? `<${safeHref}>` : safeHref;
+            return `[${innerText}](${finalHref})`;
         }
         if (item.type === "wikilink") {
             const target = item.props?.target || "";
@@ -410,33 +417,42 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // actual. Sense aquesta normalització, el parser veu un href trencat
     // i renderitza `[text](url)` com a markdown literal.
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Captura tant `](file://` com `](<file://` (URL envoltada amb angle
+    // brackets per CommonMark quan té espais o non-ASCII). Sense capturar el
+    // `<` opcional, file:// arriba intacte al parser de Tiptap, que el rebutja
+    // per esquema no permès i descarta el link silenciosament; el round-trip
+    // següent escriu el text sense href, perdent l'enllaç.
     let protectedText = text
-        .replace(/\]\(file:\/\//g, `](${FILE_PROTOCOL_SENTINEL}`)
+        .replace(/\]\((<?)file:\/\//g, `]($1${FILE_PROTOCOL_SENTINEL}`)
         .replace(
-            new RegExp(`\\]\\(${escapeRe(LEGACY_FILE_PROTOCOL_SENTINEL)}`, 'g'),
-            `](${FILE_PROTOCOL_SENTINEL}`,
+            new RegExp(`\\]\\((<?)${escapeRe(LEGACY_FILE_PROTOCOL_SENTINEL)}`, 'g'),
+            `]($1${FILE_PROTOCOL_SENTINEL}`,
         )
         .replace(
-            new RegExp(`\\]\\(${escapeRe(CORRUPTED_FILE_PROTOCOL_SENTINEL)}`, 'g'),
-            `](${FILE_PROTOCOL_SENTINEL}`,
+            new RegExp(`\\]\\((<?)${escapeRe(CORRUPTED_FILE_PROTOCOL_SENTINEL)}`, 'g'),
+            `]($1${FILE_PROTOCOL_SENTINEL}`,
         );
 
-    // Codifica espais (i altres caràcters problemàtics) dins de URLs en
-    // markdown links `[text](url)`. Markdown-it només accepta URLs amb espais
-    // si estan envoltades de `<...>`; sense això, `[Doc](https://host/Pla de
-    // futur/Finances/foo.docx)` es renderitza com a text literal en lloc de
-    // link clicable. Codifiquem només dins el grup `(...)` per no afectar la
-    // resta del text. També tractem `\` (escape paths Unix) i altres ASCII
-    // control chars que markdown-it rebutja.
+    // Sanititza URLs en markdown links `[text](url)`. Markdown-it només
+    // accepta URLs amb espais si estan envoltades de `<...>`. A més, l'extensió
+    // Link de Tiptap rebutja URLs amb UTF-8 al path (Administració, Pla, etc.)
+    // i descarta el link silenciosament. Solució més robusta: envoltar SEMPRE
+    // amb `<...>` quan la URL té caràcters problemàtics (espais o non-ASCII).
+    // CommonMark accepta qualsevol caràcter dins de `<...>` excepte `<`, `>` i
+    // line breaks; així el parser respecta la URL literal i no la valida.
     protectedText = protectedText.replace(
         /\]\(([^)]*)\)/g,
         (m, url) => {
-            // Si la URL ja està entre angle brackets, no la tornem a codificar
+            // Si la URL ja està entre angle brackets, no fem res.
             if (url.startsWith('<') && url.endsWith('>')) return m;
-            // Codifiquem espais com a %20. Mantenim els altres caràcters per
-            // no trencar paths que ja són percent-encoded.
-            const safe = url.replace(/ /g, '%20').replace(/\\/g, '/');
-            return `](${safe})`;
+            // Backslashes Windows-style → slashes (paths Unix).
+            const normalized = url.replace(/\\/g, '/');
+            // Si conté espais o caràcters non-ASCII, envolta amb <...>.
+            // eslint-disable-next-line no-control-regex
+            if (/[\s<>]|[^\x00-\x7F]/.test(normalized)) {
+                return `](<${normalized}>)`;
+            }
+            return `](${normalized})`;
         },
     );
 
