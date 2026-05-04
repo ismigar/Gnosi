@@ -4,14 +4,13 @@ import { AppSidebar } from './components/AppSidebar';
 import GraphPage from './pages/GraphPage';
 import Dashboard from './pages/Dashboard';
 import SocialDashboard from './pages/SocialDashboard';
-import ContentCalendar from './pages/ContentCalendar';
 import CalendarPage from './pages/CalendarPage';
-import PostHistory from './pages/PostHistory';
 import VaultDashboard from './pages/VaultDashboard';
 import ReaderDashboard from './pages/ReaderDashboard';
 import HomePage from './pages/HomePage';
 import MailPage from './pages/MailPage';
 import MediaCenter from './pages/MediaCenter';
+import ContactsPage from './pages/ContactsPage';
 
 import SchedulerPage from './pages/SchedulerPage';
 import ComposerPage from './pages/ComposerPage';
@@ -19,9 +18,13 @@ import { Toaster } from 'react-hot-toast';
 
 import AgentChat from './components/AgentChat';
 import { useTheme } from './hooks/useTheme';
+import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 
 function App() {
   const { effectiveTheme } = useTheme();
+  // Captura clicks a file:// arreu i els redirigeix al shell del sistema
+  // via el backend, en lloc de deixar que Chrome obri pestanyes en blanc.
+  useFileLinkInterceptor();
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -38,7 +41,7 @@ function App() {
       <AppSidebar />
 
       {/* Contingut principal */}
-      <div className="flex-1 overflow-y-auto bg-[var(--bg-secondary)] transition-colors duration-300">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[var(--bg-secondary)] transition-colors duration-300">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -50,9 +53,8 @@ function App() {
           <Route path="/scheduler" element={<SchedulerPage />} />
           <Route path="/composer" element={<ComposerPage />} />
           <Route path="/social-dashboard" element={<SocialDashboard />} />
-          <Route path="/social/calendar" element={<ContentCalendar />} />
-          <Route path="/social/history" element={<PostHistory />} />
           <Route path="/media" element={<MediaCenter />} />
+          <Route path="/contacts" element={<ContactsPage />} />
         </Routes>
       </div>
       <Toaster position="bottom-right" />

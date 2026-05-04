@@ -38,7 +38,7 @@ export const IconRenderer = ({ icon, size = 16, className = "" }) => {
         const iconName = parts[1];
         const colorName = parts[2] || 'default';
 
-        // Mapeig de colors Notion-style a classes CSS o colors hex
+        // Color map for icons
         const colorMap = {
             'default': 'currentColor',
             'gray': '#787774',

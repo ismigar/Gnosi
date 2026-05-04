@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Plus, Trash2, Upload, Rss, Mail, Clock, RefreshCw, AlertCircle, Check } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from './ConfirmModal';
 
 const API_BASE = '/api';
 
 export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
-    const { t } = useTranslation();
     const [sources, setSources] = useState([]);
     const [schedulerTasks, setSchedulerTasks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -396,10 +394,9 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                     isOpen={confirmModal.isOpen}
                     onClose={() => setConfirmModal({ isOpen: false, id: null })}
                     onConfirm={executeDeleteSource}
-                    title={t('Delete Feed')}
-                    message={t('Delete feed confirmation')}
-                    confirmText={t('Delete')}
-                    cancelText={t('Cancel')}
+                    title="Eliminar Feed"
+                    message="Segur que vols eliminar aquest feed i tots els seus articles? Aquesta acció no es pot desfer."
+                    confirmText="Eliminar"
                     isDestructive={true}
                 />
             </div>

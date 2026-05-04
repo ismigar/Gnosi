@@ -103,9 +103,9 @@ export function VisualizationSection({
                 </label>
                 <input
                     type="range"
-                    min="0.5"
+                    min="0.1"
                     max="3"
-                    step="0.1"
+                    step="0.05"
                     value={nodeSize}
                     onChange={(e) => onNodeSizeChange(Number(e.target.value))}
                     style={sliderStyle}
@@ -120,9 +120,9 @@ export function VisualizationSection({
                 </label>
                 <input
                     type="range"
-                    min="0.5"
+                    min="0.1"
                     max="3"
-                    step="0.1"
+                    step="0.05"
                     value={edgeThickness}
                     onChange={(e) => onEdgeThicknessChange(Number(e.target.value))}
                     style={sliderStyle}

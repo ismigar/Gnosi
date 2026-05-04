@@ -1,23 +1,23 @@
-# Directive: Sistema Híbrid AI (Ollama + Groq)
+# Directive: Hybrid AI System (Ollama + Groq)
 
-## Objectiu
-Configurar i mantenir el sistema híbrid d'AI que usa Ollama (local) com a primari i Groq (cloud) com a fallback.
+## Objective
+Configure and maintain the hybrid AI system that uses Ollama (local) as primary and Groq (cloud) as fallback.
 
 ## Context
-El Digital Brain utilitza AI per:
-1. **Pipeline**: Suggerir connexions entre notes (suggest_connections_digital_brain.py)
-2. **Agent**: Xat multi-agent amb eines (backend/agent/)
+Gnosi uses AI for:
+1. **Pipeline**: Suggesting connections between notes (suggest_connections_digital_brain.py)
+2. **Agent**: Multi-agent chat with tools (backend/agent/)
 
-## Procediment
+## Procedure
 
-### 1. Verificar Ollama
+### 1. Verify Ollama
 ```bash
 ollama --version
-ollama run llama3.2 "Hola"  # Test ràpid
+ollama run llama3.2 "Hello"  # Quick test
 ```
 
-### 2. Configuració Pipeline
-Fitxer: `config/params.yaml`
+### 2. Pipeline Configuration
+File: `config/params.yaml`
 ```yaml
 ai:
   primary_provider: ollama
@@ -34,30 +34,30 @@ ai:
       timeout: 300
 ```
 
-### 3. Configuració Agent
-Fitxer: `backend/agent/factory.py`
-- `_get_hybrid_llm()`: Prova Ollama → Groq → OpenAI (ordre de preferència)
+### 3. Agent Configuration
+File: `backend/agent/factory.py`
+- `_get_hybrid_llm()`: Tries Ollama → Groq → OpenAI (order of preference)
 
-Fitxer: `backend/agent/memory.py`
-- Usa HuggingFace embeddings locals (`all-MiniLM-L6-v2`)
+File: `backend/agent/memory.py`
+- Uses local HuggingFace embeddings (`all-MiniLM-L6-v2`)
 
-## Restriccions / Edge Cases
+## Restrictions / Edge Cases
 
 ### ⚠️ Ollama Timeouts
-- **Problema**: Ollama pot fer timeout amb notes llargues (>2000 chars)
-- **Solució**: El sistema trunca el contingut i usa Groq com a fallback
-- **Timeout actual**: 60 segons per Ollama, 300 per Groq
+- **Problem**: Ollama can timeout with long notes (>2000 chars)
+- **Solution**: The system truncates the content and uses Groq as fallback
+- **Current Timeout**: 60 seconds for Ollama, 300 for Groq
 
-### ⚠️ Límits Groq (Free Tier)
-- **Límit diari**: 100,000 tokens/dia
-- **Límit per minut**: 12,000 tokens
-- **Solució**: Executar pipeline en dies consecutius per processar totes les notes
+### ⚠️ Groq Limits (Free Tier)
+- **Daily Limit**: 100,000 tokens/day
+- **Per-minute Limit**: 12,000 tokens
+- **Solution**: Run pipeline on consecutive days to process all notes
 
-### ⚠️ Primera execució lenta
-- Ollama triga ~10s a carregar el model la primera vegada
-- HuggingFace descarrega el model d'embeddings (~90MB) la primera vegada
+### ⚠️ Slow First Execution
+- Ollama takes ~10s to load the model the first time
+- HuggingFace downloads the embeddings model (~90MB) the first time
 
-## Verificació
+## Verification
 ```python
 # Test pipeline
 from pipeline.ai_client import get_available_providers
@@ -72,8 +72,8 @@ from backend.agent.memory import MemoryStore
 store = MemoryStore()  # ✅ Memory using HuggingFace embeddings (local)
 ```
 
-## Fitxers Relacionats
-- `pipeline/ai_client.py` - Client híbrid multi-proveïdor
-- `pipeline/utils/ai_analysis_cache.py` - Cache de notes analitzades
-- `backend/agent/factory.py` - Factory de l'agent amb LLM híbrid
-- `backend/agent/memory.py` - Memòria vectorial amb embeddings locals
+## Related Files
+- `pipeline/ai_client.py` - Multi-provider hybrid client
+- `pipeline/utils/ai_analysis_cache.py` - Analyzed notes cache
+- `backend/agent/factory.py` - Agent factory with hybrid LLM
+- `backend/agent/memory.py` - Vector memory with local embeddings

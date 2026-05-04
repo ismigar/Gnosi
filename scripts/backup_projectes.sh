@@ -3,7 +3,7 @@
 # Configuration
 SOURCE_DIR="/Users/ismaelgarciafernandez/Projectes/"
 DEST_DIR="/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
-LOG_FILE="/Users/ismaelgarciafernandez/Projectes/monorepo/apps/digital-brain/pipeline/sandbox/backup_projectes.log"
+LOG_FILE="/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/sandbox/backup_projectes.log"
 
 # Exclusions
 EXCLUDES=(

@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 log = logging.getLogger(__name__)
 

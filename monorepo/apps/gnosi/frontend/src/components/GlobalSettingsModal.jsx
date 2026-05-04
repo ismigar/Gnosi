@@ -1,292 +1,625 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen, Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon, Sliders, Calendar, Mail, Trash2, Plus } from 'lucide-react';
+import {
+    X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen,
+    Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
+    Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
+    ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
+    PenTool, Image, Paperclip, Eye, EyeOff, User
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
-import { IconPicker, NOTION_COLORS } from './Vault/IconPicker';
+import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
+import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
+import MailBlockEditor from './Mail/MailBlockEditor';
+import IdentityProfile from './Vault/IdentityProfile';
+import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
     { code: 'ca', label: 'Català', icon: '🏴󠁥󠁳󠁣󠁡󠁿' },
     { code: 'es', label: 'Español', icon: '🇪🇸' },
     { code: 'en', label: 'English', icon: '🇬🇧' },
-    { code: 'fr', label: 'Français', icon: '🇫🇷' },
 ];
 
-const THEME_OPTIONS = [
-    { id: 'light', label: 'Clar', previewClass: 'settings-theme-preview--light', disabled: false },
-    { id: 'dark', label: 'Fosc', previewClass: 'settings-theme-preview--dark', disabled: false },
-    { id: 'system', label: 'Sistema', icon: Monitor, disabled: false },
+const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
+const DECIMAL_SYMBOLS = [',', '.'];
+
+const NOTION_COLORS = [
+    { name: 'default', color: 'currentColor' },
+    { name: 'gray', color: '#9b9a97' },
+    { name: 'brown', color: '#64473a' },
+    { name: 'orange', color: '#d9730d' },
+    { name: 'yellow', color: '#dfab01' },
+    { name: 'green', color: '#0f7b6c' },
+    { name: 'blue', color: '#0b6e99' },
+    { name: 'purple', color: '#6940a5' },
+    { name: 'pink', color: '#ad1a72' },
+    { name: 'red', color: '#e03e3e' }
 ];
 
-function getStoredTheme() {
-    return localStorage.getItem('db-theme') || 'system';
-}
+// -- REUSABLE UI COMPONENTS --
+export const Section = ({ title, icon: Icon, children, extra }) => (
+    <div className="settings-section animate-in">
+        <div className="settings-section-title-wrap">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                {Icon && <div className="settings-section-icon-wrap"><Icon size={20} /></div>}
+                <h3 className="settings-section-title">{title}</h3>
+            </div>
+            {extra && <div style={{ flexShrink: 0 }}>{extra}</div>}
+        </div>
+        <div className="settings-section-content">
+            {children}
+        </div>
+    </div>
+);
 
-const LLM_PROVIDERS_META = {
-    opencode_zen: { name: 'OpenCode Zen', icon: '🧠', color: '#2563eb', description: 'Models validats per l’equip d’OpenCode.', baseUrl: '' },
-    opencode_go: { name: 'OpenCode Go', icon: '🚀', color: '#0ea5e9', description: 'Pla low-cost amb models de coding verificats.', baseUrl: '' },
-    '302_ai': { name: '302.AI', icon: '🔗', color: '#0891b2', description: 'Accés multi-model via API.', baseUrl: '' },
-    'amazon-bedrock': { name: 'Amazon Bedrock', icon: '☁️', color: '#f59e0b', description: 'Models via AWS Bedrock.', baseUrl: '' },
-    groq: { name: 'Groq', icon: '⚡', color: '#f59e0b', description: 'Inferència ultra-ràpida amb Llama 3 i Mixtral.', baseUrl: 'https://api.groq.com/openai/v1' },
-    openai: { name: 'OpenAI', icon: '🤖', color: '#10b981', description: 'Models GPT-4o i GPT-4-turbo originals.', baseUrl: 'https://api.openai.com/v1' },
-    anthropic: { name: 'Anthropic', icon: '🎨', color: '#d97706', description: 'Models Claude 3.5 Sonnet i Opus.', baseUrl: '' },
-    'azure-openai': { name: 'Azure OpenAI', icon: '🟦', color: '#2563eb', description: 'OpenAI desplegat a Azure.', baseUrl: '' },
-    'azure-cognitive-services': { name: 'Azure Cognitive Services', icon: '🧩', color: '#1d4ed8', description: 'Models servits des de Cognitive Services.', baseUrl: '' },
-    baseten: { name: 'Baseten', icon: '📦', color: '#7c3aed', description: 'Inferència i hosting de models.', baseUrl: '' },
-    cerebras: { name: 'Cerebras', icon: '🧮', color: '#ea580c', description: 'Inferència d’alta velocitat.', baseUrl: '' },
-    'cloudflare-ai-gateway': { name: 'Cloudflare AI Gateway', icon: '🛡️', color: '#f97316', description: 'Gateway unificat multi-proveïdor.', baseUrl: '' },
-    'cloudflare-workers-ai': { name: 'Cloudflare Workers AI', icon: '🌩️', color: '#fb923c', description: 'Models al edge de Cloudflare.', baseUrl: '' },
-    cortecs: { name: 'Cortecs', icon: '🧪', color: '#db2777', description: 'Provider de models fundacionals.', baseUrl: '' },
-    deepseek: { name: 'DeepSeek', icon: '🔍', color: '#0f766e', description: 'Models DeepSeek API.', baseUrl: '' },
-    'deep-infra': { name: 'Deep Infra', icon: '🏗️', color: '#0ea5e9', description: 'Infraestructura d’inferència multi-model.', baseUrl: '' },
-    firmware: { name: 'Firmware', icon: '🧱', color: '#6d28d9', description: 'Provider compatible OpenAI.', baseUrl: '' },
-    fireworks: { name: 'Fireworks AI', icon: '🎆', color: '#ef4444', description: 'Inferència accelerada.', baseUrl: '' },
-    'gitlab-duo': { name: 'GitLab Duo', icon: '🦊', color: '#f97316', description: 'Duo Agent Platform / OAuth o PAT.', baseUrl: '' },
-    'github-copilot': { name: 'GitHub Copilot', icon: '🐙', color: '#111827', description: 'Subscripció Copilot via login OAuth.', baseUrl: '' },
-    'google-vertex-ai': { name: 'Google Vertex AI', icon: '🛰️', color: '#2563eb', description: 'Models a Google Cloud Vertex.', baseUrl: '' },
-    'hugging-face': { name: 'Hugging Face', icon: '🤗', color: '#eab308', description: 'Inference Providers de Hugging Face.', baseUrl: '' },
-    helicone: { name: 'Helicone', icon: '📊', color: '#7c3aed', description: 'Gateway + observabilitat LLM.', baseUrl: 'https://ai-gateway.helicone.ai' },
-    'llama-cpp': { name: 'llama.cpp', icon: '🦙', color: '#4b5563', description: 'Servidor local compatible OpenAI.', baseUrl: 'http://127.0.0.1:8080/v1' },
-    'io-net': { name: 'IO.NET', icon: '🌐', color: '#06b6d4', description: 'Plataforma d’inferència de models.', baseUrl: '' },
-    lmstudio: { name: 'LM Studio', icon: '💻', color: '#6366f1', description: 'Models locals via LM Studio.', baseUrl: 'http://127.0.0.1:1234/v1' },
-    moonshot: { name: 'Moonshot AI', icon: '🌙', color: '#4338ca', description: 'Kimi i altres models Moonshot.', baseUrl: '' },
-    minimax: { name: 'MiniMax', icon: '🧠', color: '#14b8a6', description: 'Models MiniMax.', baseUrl: '' },
-    nebius: { name: 'Nebius Token Factory', icon: '🏭', color: '#0f766e', description: 'Token Factory per inferència.', baseUrl: '' },
-    ollama: { name: 'Ollama', icon: '🏠', color: '#71717a', description: 'Models locals sense privacitat compromesa.', baseUrl: 'http://localhost:11434' },
-    'ollama-cloud': { name: 'Ollama Cloud', icon: '☁️', color: '#4f46e5', description: 'Models cloud d’Ollama.', baseUrl: '' },
-    openrouter: { name: 'OpenRouter', icon: '🌐', color: '#3b82f6', description: 'Accés a centenars de models via API unificada.', baseUrl: 'https://openrouter.ai/api/v1' },
-    google: { name: 'Google Gemini', icon: '✨', color: '#4285f4', description: 'Models Gemini Pro i Flash via Google AI Studio.', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/' },
-    'sap-ai-core': { name: 'SAP AI Core', icon: '🏢', color: '#0ea5e9', description: 'Models via service key JSON de SAP.', baseUrl: '' },
-    stackit: { name: 'STACKIT', icon: '🇪🇺', color: '#2563eb', description: 'Hosting sobirà europeu de models.', baseUrl: '' },
-    ovhcloud: { name: 'OVHcloud AI Endpoints', icon: '🌍', color: '#1d4ed8', description: 'Endpoints AI d’OVHcloud.', baseUrl: '' },
-    scaleway: { name: 'Scaleway', icon: '🛰️', color: '#7c3aed', description: 'Generative APIs de Scaleway.', baseUrl: '' },
-    together: { name: 'Together AI', icon: '🤝', color: '#0f766e', description: 'Models open i propietaris.', baseUrl: '' },
-    venice: { name: 'Venice AI', icon: '🏛️', color: '#be123c', description: 'Models via API de Venice.', baseUrl: '' },
-    vercel: { name: 'Vercel AI Gateway', icon: '▲', color: '#111827', description: 'Gateway multi-proveïdor de Vercel.', baseUrl: '' },
-    xai: { name: 'xAI', icon: '❌', color: '#111827', description: 'Models Grok via xAI.', baseUrl: '' },
-    z_ai: { name: 'Z.AI', icon: '🧬', color: '#16a34a', description: 'Models GLM i pla coding.', baseUrl: '' },
-    zenmux: { name: 'ZenMux', icon: '🔀', color: '#1d4ed8', description: 'Router multi-model compatible.', baseUrl: '' },
-    custom: { name: 'Personalitzat', icon: '⚙️', color: '#8b5cf6', description: 'Qualsevol endpoint compatible amb OpenAI.', baseUrl: '' }
+export const FormGroup = ({ label, children, description, horizontal = false }) => (
+    <div className="settings-form-group" style={{ 
+        display: horizontal ? 'flex' : 'block', 
+        alignItems: horizontal ? 'center' : 'stretch',
+        justifyContent: horizontal ? 'space-between' : 'flex-start',
+        gap: horizontal ? '20px' : '0'
+    }}>
+        <div style={{ flex: horizontal ? 1 : 'none' }}>
+            <label className="settings-label">{label}</label>
+            {description && <div className="settings-desc">{description}</div>}
+        </div>
+        <div style={{ flex: horizontal ? '0 0 auto' : 'none' }}>
+            {children}
+        </div>
+    </div>
+);
+
+const PasswordInput = ({ value, onChange, placeholder = 'Introdueix la contrasenya...', className = 'gnosi-input', style }) => {
+    const [show, setShow] = React.useState(false);
+    return (
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+                type={show ? 'text' : 'password'}
+                className={className}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                style={{ paddingRight: '40px', width: '100%', boxSizing: 'border-box', ...style }}
+            />
+            <button
+                type="button"
+                onClick={() => setShow(s => !s)}
+                tabIndex={-1}
+                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0', display: 'flex', alignItems: 'center' }}
+            >
+                {show ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+        </div>
+    );
 };
 
-const PROVIDERS_REQUIREMENTS = {
-    opencode_zen: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    opencode_go: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    '302_ai': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    'amazon-bedrock': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'AWS Credentials / Bearer Token' },
-    groq: { needsApiKey: true, needsBaseUrl: false },
-    openai: { needsApiKey: true, needsBaseUrl: false },
-    anthropic: { needsApiKey: true, needsBaseUrl: false },
-    'azure-openai': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Azure Resource Name' },
-    'azure-cognitive-services': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Cognitive Resource Name' },
-    baseten: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    cerebras: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    'cloudflare-ai-gateway': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Account ID + Gateway ID' },
-    'cloudflare-workers-ai': { needsApiKey: true, needsBaseUrl: false, needsSecret: true, secretLabel: 'Cloudflare Account ID' },
-    cortecs: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    deepseek: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    'deep-infra': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    firmware: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    fireworks: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    'gitlab-duo': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'OAuth o GitLab PAT' },
-    'github-copilot': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'OAuth Device Login' },
-    'google-vertex-ai': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'Project ID + Credentials' },
-    'hugging-face': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    helicone: { needsApiKey: true, needsBaseUrl: true, needsSecret: false },
-    'llama-cpp': { needsApiKey: false, needsBaseUrl: true, needsSecret: false },
-    'io-net': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    lmstudio: { needsApiKey: false, needsBaseUrl: true, needsSecret: false },
-    moonshot: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    minimax: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    nebius: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    ollama: { needsApiKey: false, needsBaseUrl: true, needsSecret: false },
-    'ollama-cloud': { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    openrouter: { needsApiKey: true, needsBaseUrl: true, needsSecret: false },
-    google: { needsApiKey: true, needsBaseUrl: false },
-    'sap-ai-core': { needsApiKey: false, needsBaseUrl: false, needsSecret: true, secretLabel: 'Service Key JSON' },
-    stackit: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    ovhcloud: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    scaleway: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    together: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    venice: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    vercel: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    xai: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    z_ai: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    zenmux: { needsApiKey: true, needsBaseUrl: false, needsSecret: false },
-    custom: { needsApiKey: true, needsBaseUrl: true, needsSecret: false }
+const AliasEditor = ({ aliases, onChange }) => {
+    const [expandedIdx, setExpandedIdx] = React.useState(null);
+    const update = (i, patch) => {
+        const updated = [...aliases];
+        updated[i] = { ...updated[i], ...patch };
+        onChange(updated);
+    };
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {aliases.map((alias, i) => (
+                <div key={i} style={{ border: '1px solid var(--settings-border)', borderRadius: '10px', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', padding: '6px 8px' }}>
+                        <input
+                            type="email"
+                            className="gnosi-input"
+                            style={{ flex: 2 }}
+                            value={alias.email}
+                            placeholder="alias@domini.org"
+                            onChange={e => update(i, { email: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            className="gnosi-input"
+                            style={{ flex: 2 }}
+                            value={alias.display_name || ''}
+                            placeholder="Nom (opcional)"
+                            onChange={e => update(i, { display_name: e.target.value })}
+                        />
+                        <button
+                            type="button"
+                            title="Signatura"
+                            onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
+                            style={{ padding: '6px 8px', border: '1px solid var(--settings-border)', borderRadius: '6px', background: expandedIdx === i ? 'var(--gnosi-blue)' : 'transparent', color: expandedIdx === i ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+                        >
+                            Sig
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { onChange(aliases.filter((_, j) => j !== i)); if (expandedIdx === i) setExpandedIdx(null); }}
+                            style={{ padding: '6px', border: 'none', background: 'transparent', color: 'var(--status-error)', cursor: 'pointer', borderRadius: '6px' }}
+                        >✕</button>
+                    </div>
+                    {expandedIdx === i && (
+                        <div style={{ padding: '8px', borderTop: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)' }}>
+                            <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '6px' }}>
+                                Signatura de l'àlies
+                            </label>
+                            <MailBlockEditor
+                                initialContent={alias.signature || ''}
+                                onChange={html => update(i, { signature: html })}
+                                minHeight="80px"
+                            />
+                        </div>
+                    )}
+                </div>
+            ))}
+            <button
+                type="button"
+                onClick={() => onChange([...aliases, { email: '', display_name: '', signature: '' }])}
+                style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.78rem', border: '1px dashed var(--settings-border)', borderRadius: '8px', background: 'transparent', color: 'var(--gnosi-blue)', cursor: 'pointer', fontWeight: '700' }}
+            >
+                + Afegir àlies
+            </button>
+        </div>
+    );
 };
 
-const PROVIDER_CATEGORY_ORDER = [
-    'OpenCode',
-    'Major LLMs',
-    'Cloud Platforms',
-    'Gateways & Routing',
-    'Specialized APIs',
-    'Enterprise',
-    'Local'
-];
+const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => (
+    <div className="account-row hover-scale" style={{
+        padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)',
+        background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        opacity: enabled ? 1 : 0.5
+    }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)' }}>
+                {type === 'calendar' ? <Calendar size={22} /> : (type === 'mail' ? <Mail size={22} /> : <Users size={22} />)}
+            </div>
+            <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>{name || description}</div>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8 }}>{(name && name !== description) ? description : (provider === 'manual' ? 'Configuració manual' : 'Compte connectat')}</div>
+            </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
+                {enabled && (
+                    <span style={{
+                        fontSize: '0.68rem', padding: '5px 14px', borderRadius: '20px',
+                        background: status === 'connected' ? 'rgba(16, 185, 129, 0.12)' : status === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                        color: status === 'connected' ? '#10b981' : status === 'error' ? '#ef4444' : '#f59e0b', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
+                    }}>
+                        {status === 'connected' ? 'Connectat' : status === 'error' ? 'Error' : 'Pendent'}
+                    </span>
+                )}
+                {enabled && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onSync && onSync(); }}
+                        disabled={isSyncing}
+                        className="icon-btn hover-bg"
+                        title="Sincronitzar aquest compte"
+                        style={{ padding: '8px', borderRadius: '10px', color: 'var(--gnosi-blue)' }}
+                    >
+                        <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+                    </button>
+                )}
+            </div>
+            <button
+                onClick={(e) => { e.stopPropagation(); onToggleEnabled && onToggleEnabled(!enabled); }}
+                className="icon-btn hover-bg"
+                title={enabled ? 'Desactivar compte' : 'Activar compte'}
+                style={{ padding: '8px', borderRadius: '10px', color: enabled ? 'var(--text-secondary)' : 'var(--gnosi-blue)' }}
+            >
+                {enabled ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+            <button onClick={onEdit} className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
+            <button onClick={onDelete} className="icon-btn hover-bg-danger" style={{ color: '#ef4444', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
+        </div>
+    </div>
+);
 
-const PROVIDER_CATEGORY_MAP = {
-    opencode_zen: 'OpenCode',
-    opencode_go: 'OpenCode',
-    openai: 'Major LLMs',
-    anthropic: 'Major LLMs',
-    google: 'Major LLMs',
-    groq: 'Major LLMs',
-    xai: 'Major LLMs',
-    deepseek: 'Major LLMs',
-    moonshot: 'Major LLMs',
-    minimax: 'Major LLMs',
-    z_ai: 'Major LLMs',
-    'amazon-bedrock': 'Cloud Platforms',
-    'google-vertex-ai': 'Cloud Platforms',
-    'azure-openai': 'Cloud Platforms',
-    'azure-cognitive-services': 'Cloud Platforms',
-    'cloudflare-workers-ai': 'Cloud Platforms',
-    openrouter: 'Gateways & Routing',
-    vercel: 'Gateways & Routing',
-    zenmux: 'Gateways & Routing',
-    helicone: 'Gateways & Routing',
-    'cloudflare-ai-gateway': 'Gateways & Routing',
-    '302_ai': 'Specialized APIs',
-    baseten: 'Specialized APIs',
-    cerebras: 'Specialized APIs',
-    cortecs: 'Specialized APIs',
-    'deep-infra': 'Specialized APIs',
-    firmware: 'Specialized APIs',
-    fireworks: 'Specialized APIs',
-    'hugging-face': 'Specialized APIs',
-    'io-net': 'Specialized APIs',
-    nebius: 'Specialized APIs',
-    ovhcloud: 'Specialized APIs',
-    scaleway: 'Specialized APIs',
-    stackit: 'Specialized APIs',
-    together: 'Specialized APIs',
-    venice: 'Specialized APIs',
-    'sap-ai-core': 'Enterprise',
-    'gitlab-duo': 'Enterprise',
-    'github-copilot': 'Enterprise',
-    ollama: 'Local',
-    'ollama-cloud': 'Local',
-    'llama-cpp': 'Local',
-    lmstudio: 'Local'
-};
+const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
+    <button 
+        className={`settings-sidebar__item ${active ? 'active' : ''}`} 
+        onClick={onClick}
+    >
+        <Icon size={18} strokeWidth={active ? 2.5 : 2} />
+        <span style={{ flex: 1 }}>{label}</span>
+        {active && <ChevronRight size={14} style={{ opacity: 0.5 }} />}
+    </button>
+);
 
 export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
     const { t, i18n } = useTranslation();
-    const [syncing, setSyncing] = useState(false);
-    const [syncMessage, setSyncMessage] = useState('');
-    const [theme, setTheme] = useState(getStoredTheme);
-    const [zoteroConfig, setZoteroConfig] = useState(null);
-    const [zoteroTables, setZoteroTables] = useState([]);
-    const [zoteroFields, setZoteroFields] = useState([]);
-    const [zoteroSyncing, setZoteroSyncing] = useState(false);
-    const [databases, setDatabases] = useState([]);
-    const [tables, setTables] = useState([]);
-    const [integrations, setIntegrations] = useState({});
-    const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
+    
+    // -- UNIFIED DRAFT STATE --
+    const [draft, setDraft] = useState({
+        settings: {
+            user_name: '', workspace_name: '', gnosi_mode: 'personal',
+            org_user: '', org_password: '', org_workspace: '',
+            language: 'ca', week_start: 1, currency: 'EUR (€)', decimal_symbol: ',',
+            theme: 'system', reduce_animations: false
+        },
+        paths: { vault: '', databases: '', newsletters: '' },
+        graph: {
+            visible_databases: [], visible_tables: [], visible_fields: [],
+            show_arrows: true, label_threshold: 10, node_size: 1.0, edge_thickness: 1.0,
+            physics: { gravity: 0.1, repulsion: 1000, friction: 10 }
+        },
+        ai: { agents: [], providers: {}, active_agent_id: '' },
+        zotero: { enabled: false, zotero_db: '~/Zotero/zotero.sqlite', user: '', pwd: '', workspace: '', target_table: '', mapping: {} },
+        identity: {
+            full_name: '', first_name: '', last_name: '', email: '',
+            phone: '', address: '', city: '', zip_code: '', dni_nie: '', notes: ''
+        }
+    });
 
     const [activeTab, setActiveTab] = useState(initialTab);
-    const [fullConfig, setFullConfig] = useState(null);
-    const [localSettings, setLocalSettings] = useState({
-        language: '',
-        timezone: '',
-        currency: '',
-        week_start: 1,
-        use_system_defaults: true
-    });
-    const [calendarWizard, setCalendarWizard] = useState(null); // { step: 'ask_email' | 'configure', email: '', provider: 'google' | 'icloud' | 'custom' }
-    const [emailWizard, setEmailWizard] = useState(null); // { step: 'ask_email' | 'configure', email: '', provider: 'google' | 'icloud' | 'pangea' | 'custom' }
+    const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
+    const integrationsLoadedRef = useRef(false); // Evita que auto-save dispari amb dades buides
+    const [googleSubCalendars, setGoogleSubCalendars] = useState([]);
+    const [databases, setDatabases] = useState([]);
+    const [tables, setTables] = useState([]);
+    const [aiCatalog, setAiCatalog] = useState({});
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState('');
+    const [zoteroSyncing, setZoteroSyncing] = useState(null);
+    const [zoteroSyncMsg, setZoteroSyncMsg] = useState('');
+
+    const language = draft.settings.language || 'ca';
+
+    const translations = useMemo(() => ({
+        ca: {
+            databases: "Bases de dades",
+            systemEntities: "Entitats del Sistema",
+            filter_exposed: "Filtre exposat"
+        },
+        es: {
+            databases: "Bases de datos",
+            systemEntities: "Entidades del Sistema",
+            filter_exposed: "Filtro expuesto"
+        },
+        en: {
+            databases: "Databases",
+            systemEntities: "System Entities",
+            filter_exposed: "Exposed Filter"
+        }
+    }), []);
+
+    const systemEntities = useMemo(() => [
+        { 
+            id: 'attachments', 
+            name: 'Adjunts', 
+            icon: Paperclip, 
+            color: '#6366f1', 
+            fields: [
+                { name: 'mimetype', type: 'select' }, 
+                { name: 'extension', type: 'text' }
+            ] 
+        },
+        { 
+            id: 'calendars', 
+            name: 'Calendaris', 
+            icon: LucideIcons.Calendar, 
+            color: '#ef4444', 
+            subItems: (integrations.calendars || []).map(c => ({ id: c.id, name: c.name })), 
+            fields: [
+                { name: 'status', type: 'select' }, 
+                { name: 'location', type: 'text' }
+            ] 
+        },
+        { 
+            id: 'contacts', 
+            name: 'Contactes', 
+            icon: LucideIcons.Users, 
+            color: '#10b981', 
+            subItems: (integrations.contacts || []).map(c => ({ id: c.id, name: c.name })), 
+            fields: [
+                { name: 'company', type: 'text' }, 
+                { name: 'job_title', type: 'text' }
+            ] 
+        },
+        { 
+            id: 'drawings', 
+            name: 'Dibuixos', 
+            icon: PenTool, 
+            color: '#f59e0b', 
+            fields: [{ name: 'tool', type: 'select' }] 
+        },
+        { 
+            id: 'images', 
+            name: 'Imatges', 
+            icon: Image, 
+            color: '#ec4899', 
+            fields: [{ name: 'dimensions', type: 'text' }] 
+        },
+        { 
+            id: 'mails', 
+            name: 'Mails', 
+            icon: LucideIcons.Mail, 
+            color: '#3b82f6', 
+            subItems: (integrations.mail_accounts || []).map(m => ({ id: m.id, name: m.email })), 
+            fields: [
+                { name: 'subject', type: 'text' }, 
+                { name: 'is_read', type: 'checkbox' }
+            ] 
+        },
+        { 
+            id: 'wiki', 
+            name: 'Wiki', 
+            icon: FileText, 
+            color: '#8b5cf6', 
+            fields: [
+                { name: 'category', type: 'text' }, 
+                { name: 'priority', type: 'number' }
+            ] 
+        }
+    ], [integrations]);
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [pickerField, setPickerField] = useState(null);
+    const [aiValidationStatus, setAiValidationStatus] = useState({});
+    const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
+
+    // AI Editing Modals
+    const [editingAgent, setEditingAgent] = useState(null);
+    const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+    const [providerToEdit, setProviderToEdit] = useState(null);
+
+    // Newsletter State
     const [newsletterSources, setNewsletterSources] = useState([]);
-    const [newsletterLoading, setNewsletterLoading] = useState(false);
     const [newsletterName, setNewsletterName] = useState('');
     const [newsletterAddress, setNewsletterAddress] = useState('');
     const [newsletterType, setNewsletterType] = useState('rss');
     const [newsletterStatus, setNewsletterStatus] = useState('');
-    const [newsletterOpmlLoading, setNewsletterOpmlLoading] = useState(false);
     const newsletterOpmlRef = useRef(null);
-    const [localPaths, setLocalPaths] = useState({
-        vault: '',
-        databases: '',
-        newsletters: ''
+    
+    // Account Integration State
+    const [addAccountType, setAddAccountType] = useState(null); // 'calendar' | 'contacts' | 'mail' | null
+    const [addAccountEmail, setAddAccountEmail] = useState('');
+    const [addAccountEmailBlurred, setAddAccountEmailBlurred] = useState(false);
+    const [isManualGoogle, setIsManualGoogle] = useState(false);
+    const [manualServer, setManualServer] = useState('');
+    const [manualPassword, setManualPassword] = useState('');
+    const [editingAccountId, setEditingAccountId] = useState(null); // ID del compte en edició
+    const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
+    const [syncErrorAccounts, setSyncErrorAccounts] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('gnosi_mail_sync_errors') || '[]')); } catch { return new Set(); }
+    }); // Emails amb error de sync (persistit a localStorage)
+    
+    // Mail Snippets State
+    const SNIPPETS_KEY = 'gnosi_mail_snippets';
+    const DEFAULT_SNIPPETS = [
+        { id: 'snip_default_1', title: 'Salutació formal',    content: 'Benvolgut/da,\n\nEspero que es trobi bé.' },
+        { id: 'snip_default_2', title: 'Gràcies per la resposta', content: 'Moltes gràcies per la seva resposta.' },
+        { id: 'snip_default_3', title: 'Comiat formal',        content: 'Atentament,\n\n' },
+        { id: 'snip_default_4', title: 'Proposta reunió',      content: 'Li proposo una reunió per tractar aquest tema.' },
+        { id: 'snip_default_5', title: 'Seguiment',            content: 'Em poso en contacte per fer seguiment del tema anterior.' },
+    ];
+    const [snippets, setSnippets] = useState(() => {
+        try {
+            const stored = JSON.parse(localStorage.getItem(SNIPPETS_KEY) || 'null');
+            return stored ?? DEFAULT_SNIPPETS;
+        } catch { return DEFAULT_SNIPPETS; }
     });
-    const [graphConfig, setGraphConfig] = useState({
-        visible_databases: [],
-        visible_tables: [],
-        visible_fields: [],
-        graph_table_filters: [],
-        show_arrows: true,
-        label_threshold: 10,
-        node_size: 1.0,
-        edge_thickness: 1.0,
-        physics: {
-            gravity: 0.1,
-            repulsion: 1000,
-            friction: 10,
-            edge_influence: 0,
-            lin_log_mode: false
-        }
-    });
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('');
+    const [snippetDraft, setSnippetDraft] = useState({ title: '', content: '' });
+    const [editingSnippetId, setEditingSnippetId] = useState(null);
 
-    const [aiAgents, setAiAgents] = useState([]);
-    const [aiProviders, setAiProviders] = useState({});
-    const [aiCatalog, setAiCatalog] = useState({});
-    const [activeAgentId, setActiveAgentId] = useState('');
-    const [editingAgent, setEditingAgent] = useState(null);
-
-    const [pickerOpen, setPickerOpen] = useState(false);
-    const [pickerField, setPickerField] = useState(null); // 'vault', 'databases', 'newsletters'
-    const [editingProvider, setEditingProvider] = useState(null); // { id, name, api_key, base_url, source, ... }
-    const [isAddProviderOpen, setIsAddProviderOpen] = useState(false);
-    const [newProviderDraft, setNewProviderDraft] = useState({ providerId: 'groq', apiKey: '', secretValue: '', baseUrl: '' });
-    const [providerSearchQuery, setProviderSearchQuery] = useState('');
-    const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
-    const [highlightedProviderId, setHighlightedProviderId] = useState('');
-
-    // Theme application is now handled globally in App.jsx via db-theme-changed event
-    const handleThemeChange = (newTheme) => {
-        setTheme(newTheme);
-        localStorage.setItem('db-theme', newTheme);
-        window.dispatchEvent(new Event('db-theme-changed'));
+    const saveSnippets = (list) => {
+        setSnippets(list);
+        localStorage.setItem(SNIPPETS_KEY, JSON.stringify(list));
     };
+
+    const handleAddSnippet = () => {
+        if (!snippetDraft.title.trim() || !snippetDraft.content.trim()) return;
+        if (editingSnippetId) {
+            saveSnippets(snippets.map(s => s.id === editingSnippetId ? { ...s, ...snippetDraft } : s));
+            setEditingSnippetId(null);
+        } else {
+            saveSnippets([...snippets, { id: `snip_${Date.now()}`, ...snippetDraft }]);
+        }
+        setSnippetDraft({ title: '', content: '' });
+    };
+
+    const handleEditSnippet = (s) => {
+        setEditingSnippetId(s.id);
+        setSnippetDraft({ title: s.title, content: s.content });
+    };
+
+    const handleDeleteSnippet = (id) => {
+        saveSnippets(snippets.filter(s => s.id !== id));
+        if (editingSnippetId === id) { setEditingSnippetId(null); setSnippetDraft({ title: '', content: '' }); }
+    };
+
+    // Social State
+    const SOCIAL_NETWORK_DEFAULTS = [
+        { id: 'mastodon', name: 'Mastodon', icon: '🐘', enabled: true },
+        { id: 'bluesky',  name: 'Bluesky',  icon: '🦋', enabled: true },
+        { id: 'linkedin', name: 'LinkedIn', icon: '💼', enabled: true },
+        { id: 'facebook', name: 'Facebook', icon: '📘', enabled: false },
+        { id: 'telegram', name: 'Telegram', icon: '✈️', enabled: false },
+    ];
+    const [socialNetworks, setSocialNetworks] = useState(SOCIAL_NETWORK_DEFAULTS);
+    const [socialStreams, setSocialStreams] = useState([]);
+    const [newStreamForm, setNewStreamForm] = useState({ id: '', title: '', icon: '📡', network: 'mastodon' });
+    const [showAddStream, setShowAddStream] = useState(false);
+
+    const loadSocialSettings = async () => {
+        try {
+            const [nRes, sRes] = await Promise.all([
+                fetch('/api/social/networks'),
+                fetch('/api/social/streams'),
+            ]);
+            if (nRes.ok) setSocialNetworks(await nRes.json());
+            if (sRes.ok) setSocialStreams(await sRes.json());
+        } catch { /* silent */ }
+    };
+
+    const saveSocialNetworks = async (updated) => {
+        // Update optimistic; rollback si la xarxa falla.
+        const previous = socialNetworks;
+        setSocialNetworks(updated);
+        try {
+            const res = await fetch('/api/social/networks', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            toast.success('Xarxes desades');
+        } catch (err) {
+            // Sense aquesta restauració, l'UI mostrava els canvis com si
+            // s'haguessin desat tot i que el backend tenia l'estat antic.
+            setSocialNetworks(previous);
+            toast.error('Error desant xarxes');
+            console.error('[social] saveSocialNetworks failed', err);
+        }
+    };
+
+    const saveSocialStreams = async (updated) => {
+        const previous = socialStreams;
+        setSocialStreams(updated);
+        try {
+            const res = await fetch('/api/social/streams', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            toast.success('Streams desats');
+        } catch (err) {
+            setSocialStreams(previous);
+            toast.error('Error desant streams');
+            console.error('[social] saveSocialStreams failed', err);
+        }
+    };
+
+    const handleAddSocialStream = () => {
+        if (!newStreamForm.id.trim() || !newStreamForm.title.trim()) return;
+        const updated = [...socialStreams, { ...newStreamForm }];
+        saveSocialStreams(updated);
+        setNewStreamForm({ id: '', title: '', icon: '📡', network: 'mastodon' });
+        setShowAddStream(false);
+    };
+
+    // Mail Specialized State
+    const [mailImapHost, setMailImapHost] = useState('');
+    const [mailImapPort, setMailImapPort] = useState('993');
+    const [mailImapUser, setMailImapUser] = useState('');
+    const [mailImapPass, setMailImapPass] = useState('');
+    const [mailImapEnc, setMailImapEnc] = useState('ssl');
+    const [mailSmtpHost, setMailSmtpHost] = useState('');
+    const [mailSmtpPort, setMailSmtpPort] = useState('465');
+    const [mailSmtpUser, setMailSmtpUser] = useState('');
+    const [mailSmtpPass, setMailSmtpPass] = useState('');
+    const [mailSmtpEnc, setMailSmtpEnc] = useState('ssl');
+    const [mailSignature, setMailSignature] = useState('');
+    const [mailCertificate, setMailCertificate] = useState('');
+    const [mailDisplayName, setMailDisplayName] = useState('');
+    const [mailSubjectPrefix, setMailSubjectPrefix] = useState('');
+    const [mailAliases, setMailAliases] = useState([]);
+    const [mailTestStatus, setMailTestStatus] = useState(null); // null | 'testing' | 'ok' | 'error'
+    const identityAutoSaveRef = useRef(null); // debounce timer
+    const identityLoadedForRef = useRef(null); // tracks which account was last loaded (skip initial save)
+
+    // Auto-save identity fields (signature, name, aliases, subject_prefix) when editing an account
+    useEffect(() => {
+        if (!editingAccountId) return;
+        // Skip the first run right after handleEditAccount populates the fields
+        if (identityLoadedForRef.current !== editingAccountId) {
+            identityLoadedForRef.current = editingAccountId;
+            return;
+        }
+        clearTimeout(identityAutoSaveRef.current);
+        identityAutoSaveRef.current = setTimeout(async () => {
+            const currentList = integrations.mail_accounts || [];
+            const newList = currentList.map(a => a.id !== editingAccountId ? a : {
+                ...a,
+                display_name: mailDisplayName,
+                subject_prefix: mailSubjectPrefix,
+                signature: mailSignature,
+                certificate: mailCertificate,
+                aliases: mailAliases,
+            });
+            try {
+                await axios.post('/api/integrations/bulk', { ...integrations, mail_accounts: newList });
+                setIntegrations(prev => ({ ...prev, mail_accounts: newList }));
+            } catch { /* silent */ }
+        }, 1200);
+        return () => clearTimeout(identityAutoSaveRef.current);
+    }, [mailSignature, mailDisplayName, mailSubjectPrefix, mailAliases, mailCertificate, editingAccountId]);
+
+    // -- AUTO-SAVE CONTROLS --
+    const autoSaveTimeoutRef = useRef(null);
+    const lastSavedData = useRef(null);
+    const [savingStatus, setSavingStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+    const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+    const [isAddingTable, setIsAddingTable] = useState(false);
+    const [editingTableColor, setEditingTableColor] = useState(null); // { id, name, color }
+    const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
+    const [isSystemEntitiesExpanded, setIsSystemEntitiesExpanded] = useState(true);
 
     useEffect(() => {
         if (isOpen) {
+            integrationsLoadedRef.current = false; // Reset al obrir el modal
+            lastSavedData.current = null; // Reset baseline per evitar saves espuris
             loadConfig();
             loadAiCatalog();
             loadZoteroData();
             loadIntegrations();
             loadNewsletterSources();
-
-            // Check Google Auth Status
-            fetch('/api/auth/google/status')
-                .then(res => res.json())
-                .then(data => setGoogleAuthConfigured(data.configured))
-                .catch(err => console.error("Error checking Google Auth status:", err));
+            checkGoogleAuth();
+            loadIdentity();
+            loadSocialSettings();
         }
     }, [isOpen]);
 
-    useEffect(() => {
-        setActiveTab(initialTab);
-    }, [initialTab]);
-
-    useEffect(() => {
-        if (!isOpen || activeTab !== 'newsletters') return;
-        loadNewsletterSources();
-    }, [isOpen, activeTab]);
-
-    const loadIntegrations = async () => {
+    const loadIdentity = async () => {
         try {
-            const res = await fetch('/api/integrations');
-            if (res.ok) {
-                setIntegrations(await res.json());
+            const res = await axios.get('/api/identity');
+            if (res.data) {
+                setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...res.data } }));
             }
-        } catch (err) {
-            console.error("Error loading integrations:", err);
+        } catch (err) { console.error("Error loading identity:", err); }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'calendar' && isOpen) {
+            fetch('/api/calendar/calendars')
+                .then(r => r.ok ? r.json() : [])
+                .then(setGoogleSubCalendars)
+                .catch(() => {});
         }
+    }, [activeTab, isOpen]);
+
+    useEffect(() => {
+        try { localStorage.setItem('gnosi_mail_sync_errors', JSON.stringify([...syncErrorAccounts])); } catch { /* quota */ }
+    }, [syncErrorAccounts]);
+
+    // Keyboard support - Escape/Enter to close
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            if (!isOpen) return;
+            
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                if (document.activeElement.isContentEditable) return;
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [isOpen, onClose]);
+
+    const checkGoogleAuth = async () => {
+        try {
+            const res = await fetch('/api/auth/google/status');
+            if (res.ok) {
+                const data = await res.json();
+                setGoogleAuthConfigured(data.configured);
+            }
+        } catch (err) { console.error("Error checking Google Auth:", err); }
     };
 
     const loadConfig = async () => {
@@ -294,2269 +627,2470 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const res = await fetch('/api/config');
             if (res.ok) {
                 const cfg = await res.json();
-                setFullConfig(cfg);
-                if (cfg.settings) setLocalSettings(prev => ({ ...prev, ...cfg.settings }));
-                if (cfg.paths) setLocalPaths(prev => ({ ...prev, ...cfg.paths }));
-                if (cfg.graph) setGraphConfig(prev => ({ ...prev, ...cfg.graph }));
-                
-                // AI Config
-                if (cfg.ai) {
-                    setAiAgents(cfg.ai.agents || []);
-                    setActiveAgentId(cfg.ai.active_agent_id || '');
-                }
+                setDraft(prev => ({
+                    ...prev,
+                    settings: { ...prev.settings, ...(cfg.settings || {}) },
+                    paths: { ...prev.paths, ...(cfg.paths || {}) },
+                    graph: { ...prev.graph, ...(cfg.graph || {}) },
+                    ai: { 
+                        ...prev.ai, 
+                        agents: cfg.ai?.agents || [], 
+                        active_agent_id: cfg.ai?.active_agent_id || '' 
+                    }
+                }));
             }
-        } catch (err) {
-            console.error("Error loading config:", err);
-        }
+        } catch (err) { console.error("Error loading config:", err); }
+    };
+
+    const loadIntegrations = async () => {
+        try {
+            const res = await fetch(`/api/integrations?t=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                setIntegrations(data);
+                lastSavedData.current = JSON.stringify({
+                    settings: draft.settings,
+                    paths: draft.paths,
+                    graph: draft.graph,
+                    ai: { 
+                        agents: draft.ai.agents, 
+                        active_agent_id: draft.ai.active_agent_id,
+                        providers: draft.ai.providers
+                    },
+                    integrations: data,
+                    zotero: draft.zotero
+                });
+                // Marcar com a carregat només DESPRÉS de setIntegrations
+                setTimeout(() => {
+                    integrationsLoadedRef.current = true;
+                }, 100);
+            }
+        } catch (err) { console.error("Error loading integrations:", err); }
     };
 
     const loadAiCatalog = async () => {
         try {
             const res = await fetch('/api/ai/catalog');
-            if (!res.ok) return;
-            const payload = await res.json();
-            const providers = Array.isArray(payload?.catalog?.providers) ? payload.catalog.providers : [];
-            const catalogMap = providers.reduce((acc, provider) => {
-                acc[provider.id] = provider;
-                return acc;
-            }, {});
-            setAiCatalog(catalogMap);
-
-            if (payload?.config?.providers) {
-                const persistedProviders = Object.entries(payload.config.providers).reduce((acc, [providerId, providerCfg]) => {
-                    if (!providerCfg || providerCfg.source !== 'user') {
-                        return acc;
-                    }
-                    acc[providerId] = providerCfg;
-                    return acc;
-                }, {});
-                setAiProviders(persistedProviders);
+            if (res.ok) {
+                const payload = await res.json();
+                const providers = payload?.catalog?.providers || [];
+                setAiCatalog(providers.reduce((acc, p) => ({ ...acc, [p.id]: p }), {}));
+                if (payload?.config?.providers) {
+                    setDraft(prev => ({
+                        ...prev,
+                        ai: { ...prev.ai, providers: payload.config.providers }
+                    }));
+                }
             }
-        } catch (err) {
-            console.error('Error loading AI catalog:', err);
-        }
-    };
-
-    const loadNewsletterSources = async () => {
-        setNewsletterLoading(true);
-        try {
-            const res = await fetch('/api/reader/sources');
-            if (!res.ok) {
-                setNewsletterStatus('No s\'han pogut carregar les subscripcions.');
-                return;
-            }
-            const sources = await res.json();
-            setNewsletterSources((sources || []).filter((source) => ['rss', 'newsletter', 'youtube'].includes(source.type)));
-            setNewsletterStatus('');
-        } catch (err) {
-            console.error('Error loading newsletter sources:', err);
-            setNewsletterStatus('Error de connexió carregant les subscripcions.');
-        } finally {
-            setNewsletterLoading(false);
-        }
-    };
-
-    const handleAddNewsletter = async () => {
-        const sourceAddress = newsletterAddress.trim();
-        const sourceName = newsletterName.trim() || sourceAddress;
-
-        if (!sourceAddress) {
-            setNewsletterStatus('Cal indicar l\'adreça o identificador de la subscripció.');
-            return;
-        }
-
-        const normalizeYoutubeUrl = (rawValue) => {
-            const value = String(rawValue || '').trim();
-            if (!value) return value;
-            if (value.includes('feeds/videos.xml?channel_id=')) return value;
-            const channelMatch = value.match(/youtube\.com\/channel\/(UC[\w-]+)/i);
-            if (channelMatch?.[1]) {
-                return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
-            }
-            return value;
-        };
-
-        const normalizedAddress = newsletterType === 'youtube'
-            ? normalizeYoutubeUrl(sourceAddress)
-            : sourceAddress;
-
-        const normalizedCategory = newsletterType === 'rss'
-            ? 'RSS'
-            : newsletterType === 'youtube'
-                ? 'YouTube'
-                : 'Newsletters';
-
-        setNewsletterStatus('Afegint subscripció...');
-        try {
-            const res = await fetch('/api/reader/sources', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: sourceName,
-                    url: normalizedAddress,
-                    category: normalizedCategory,
-                    type: newsletterType
-                })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                setNewsletterStatus(errorData?.detail || 'No s\'ha pogut afegir la subscripció.');
-                return;
-            }
-
-            setNewsletterName('');
-            setNewsletterAddress('');
-            setNewsletterType('rss');
-            setNewsletterStatus('Subscripció afegida correctament.');
-            await loadNewsletterSources();
-        } catch (err) {
-            console.error('Error adding newsletter source:', err);
-            setNewsletterStatus('Error de connexió afegint la subscripció.');
-        }
-    };
-
-    const handleDeleteNewsletter = async (sourceId) => {
-        try {
-            const res = await fetch(`/api/reader/sources/${sourceId}`, { method: 'DELETE' });
-            if (!res.ok) {
-                setNewsletterStatus('No s\'ha pogut eliminar la subscripció.');
-                return;
-            }
-            setNewsletterStatus('Subscripció eliminada.');
-            await loadNewsletterSources();
-        } catch (err) {
-            console.error('Error deleting newsletter source:', err);
-            setNewsletterStatus('Error de connexió eliminant la subscripció.');
-        }
-    };
-
-    const handleNewsletterOpmlUpload = async (file) => {
-        if (!file) return;
-
-        setNewsletterOpmlLoading(true);
-        setNewsletterStatus('Important subscripcions OPML...');
-
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await fetch('/api/reader/sources/opml', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await res.json().catch(() => ({}));
-
-            if (!res.ok) {
-                setNewsletterStatus(data?.detail || 'No s\'ha pogut importar l\'OPML.');
-                return;
-            }
-
-            setNewsletterStatus(data?.message || 'Importació OPML completada.');
-            await loadNewsletterSources();
-        } catch (err) {
-            console.error('Error importing OPML newsletters:', err);
-            setNewsletterStatus('Error de connexió important l\'OPML.');
-        } finally {
-            setNewsletterOpmlLoading(false);
-            if (newsletterOpmlRef.current) {
-                newsletterOpmlRef.current.value = '';
-            }
-        }
+        } catch (err) { console.error("Error loading AI catalog:", err); }
     };
 
     const loadZoteroData = async () => {
         try {
-            const [cRes, tRes, fRes, dRes] = await Promise.all([
-                fetch('/api/zotero/config'),
-                fetch('/api/zotero/tables'),
-                fetch('/api/zotero/fields'),
-                fetch('/api/vault/databases')
-            ]);
-            if (cRes.ok) {
-                const config = await cRes.json();
-                if (!config.mapping) config.mapping = {};
-                setZoteroConfig(config);
-            }
-            if (tRes.ok) setZoteroTables(await tRes.json());
-            if (fRes.ok) setZoteroFields(await fRes.json());
-            if (dRes.ok) setDatabases(await dRes.json());
-
-            // Fetch all vault tables for calendar selection
-            const vtRes = await fetch('/api/vault/tables');
-            if (vtRes.ok) setTables(await vtRes.json());
-        } catch (err) {
-            console.error("Error loading Zotero data:", err);
-        }
-    };
-
-    const handleLanguageChange = (code) => {
-        i18n.changeLanguage(code);
-        setLocalSettings(prev => ({ ...prev, language: code }));
-    };
-
-    const handleSaveGlobal = async () => {
-        setIsSaving(true);
-        setSaveStatus('Guardant...');
-        try {
-            const persistedProviders = Object.entries(aiProviders).reduce((acc, [providerId, providerCfg]) => {
-                const cfg = { ...(providerCfg || {}) };
-                delete cfg.api_key;
-                delete cfg.has_api_key;
-                delete cfg.pending_api_key;
-                acc[providerId] = cfg;
-                return acc;
-            }, {});
-
-            const updatedConfig = {
-                ...fullConfig,
-                settings: localSettings,
-                paths: localPaths,
-                graph: graphConfig,
-                ai: {
-                    agents: aiAgents,
-                    providers: persistedProviders,
-                    active_agent_id: activeAgentId
+            // Fetch Zotero configuració de manera independent
+            fetch('/api/zotero/config').then(async res => {
+                if (res.ok) {
+                    const cfg = await res.json();
+                    setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, ...cfg } }));
                 }
-            };
+            }).catch(e => console.error("Zotero fetch error:", e));
 
-            const savePromises = [
-                // Save main config
-                axios.post('/api/config', updatedConfig),
-                // Save all integrations (bulk)
-                axios.post('/api/integrations/bulk', integrations)
-            ];
+            // Fetch Tables de manera independent
+            fetch('/api/vault/tables').then(async res => {
+                if (res.ok) setTables(await res.json());
+            }).catch(e => console.error("Tables fetch error:", e));
 
-            // Save Zotero config if available
-            if (zoteroConfig) {
-                savePromises.push(axios.post('/api/zotero/config', zoteroConfig));
+            // Fetch Databases de manera independent
+            fetch('/api/vault/databases').then(async res => {
+                if (res.ok) setDatabases(await res.json());
+            }).catch(e => console.error("Databases fetch error:", e));
+
+        } catch (err) { console.error("General loading error:", err); }
+    };
+
+    const loadNewsletterSources = async () => {
+        try {
+            const res = await fetch('/api/reader/sources');
+            if (res.ok) {
+                const sources = await res.json();
+                setNewsletterSources((sources || []).filter(s => ['rss', 'newsletter', 'youtube', 'newsletter_account'].includes(s.type)));
             }
+        } catch (err) { console.error("Error loading newsletters:", err); }
+    };
 
-            const results = await Promise.all(savePromises);
-            const allOk = results.every(res => res.status >= 200 && res.status < 300);
 
-            if (allOk) {
-                setSaveStatus('✅ Guardat!');
-                setTimeout(() => {
-                    setSaveStatus('');
-                    window.location.reload();
-                }, 1000);
-            } else {
-                setSaveStatus('❌ Error al guardar');
-            }
-        } catch (err) {
-            console.error("Error saving global config:", err);
-            setSaveStatus('❌ Error de connexió');
+    // -- UNIFIED SAVE LOGIC --
+    const triggerAutoSave = async (silent = true) => {
+        if (isSaving) return;
+        
+        const currentData = JSON.stringify({
+            settings: draft.settings,
+            paths: draft.paths,
+            graph: draft.graph,
+            ai: { 
+                agents: draft.ai.agents, 
+                active_agent_id: draft.ai.active_agent_id,
+                providers: draft.ai.providers
+            },
+            integrations,
+            zotero: draft.zotero,
+            identity: draft.identity
+        });
+
+        // Initialize baseline on first load
+        if (lastSavedData.current === null) {
+            lastSavedData.current = currentData;
+            return;
+        }
+
+        // Protecció crítica: no desar integrations si encara no s'han carregat del servidor
+        if (!integrationsLoadedRef.current) {
+            console.warn('[AutoSave] Ignorant desa: integrations encara no carregades.');
+            return;
+        }
+
+        // Prevent redundant saves
+        if (lastSavedData.current === currentData) return;
+
+        setSavingStatus('saving');
+        setIsSaving(true);
+        
+        try {
+            await Promise.all([
+                axios.post('/api/config', {
+                    settings: draft.settings,
+                    paths: draft.paths,
+                    graph: draft.graph,
+                    ai: { 
+                        agents: draft.ai.agents, 
+                        active_agent_id: draft.ai.active_agent_id,
+                        providers: draft.ai.providers
+                    }
+                }),
+                axios.post('/api/integrations/bulk', integrations),
+                axios.post('/api/zotero/config', draft.zotero),
+                axios.post('/api/identity', draft.identity)
+            ]);
+            
+            lastSavedData.current = currentData;
+            setSavingStatus('saved');
+            setTimeout(() => setSavingStatus('idle'), 3000);
+        } catch (err) { 
+            console.error("Auto-save error:", err);
+            setSavingStatus('error');
         } finally {
             setIsSaving(false);
         }
     };
 
+    // Auto-save Effect
+    useEffect(() => {
+        if (!isOpen) return;
+        
+        if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+        
+        autoSaveTimeoutRef.current = setTimeout(() => {
+            triggerAutoSave();
+        }, 800); // 800ms debounce
 
+        return () => {
+            if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+        };
+    }, [draft, integrations]);
 
-    const handleSync = async () => {
-        if (syncing) return;
-        setSyncing(true);
-        setSyncMessage('');
-        try {
-            const res = await fetch('/api/sync', { method: 'POST' });
-            if (res.status === 429) {
-                setSyncMessage('⏳ Ja en curs...');
-            } else if (res.ok) {
-                setSyncMessage('✅ Sincronització completada!');
-            } else {
-                setSyncMessage('❌ Error al sincronitzar');
+    const handleDeleteAccount = (category, accountId) => {
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Eliminar Compte',
+            message: 'Estàs segur que vols eliminar aquest compte? Es deixarà de sincronitzar immediatament.',
+            onConfirm: async () => {
+                const updatedIntegrations = { ...integrations };
+                let changed = false;
+
+                // Eliminació agressiva de TOTES les llistes de l'objecte
+                Object.keys(updatedIntegrations).forEach(key => {
+                    if (Array.isArray(updatedIntegrations[key])) {
+                        const originalLen = updatedIntegrations[key].length;
+                        updatedIntegrations[key] = updatedIntegrations[key].filter(a => (a.id !== accountId && a.email !== accountId));
+                        if (updatedIntegrations[key].length !== originalLen) {
+                            changed = true;
+                        }
+                    }
+                });
+
+                setSavingStatus('saving');
+                try {
+                    // Forcem el guardat fins i tot si 'changed' és false per netejar possibles inconsistències
+                    await axios.post('/api/integrations/bulk', updatedIntegrations);
+                    setIntegrations(updatedIntegrations);
+                    setSavingStatus('saved');
+                    setTimeout(() => setSavingStatus('idle'), 2000);
+                } catch (e) {
+                    setSavingStatus('error');
+                    console.error("Error crític eliminant compte:", e);
+                }
+                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
             }
-        } catch {
-            setSyncMessage('❌ No s\'ha pogut connectar');
-        } finally {
-            setSyncing(false);
+        });
+    };
+
+    const handleEditAccount = (category, account) => {
+        setAddAccountType(category);
+        setEditingAccountId(account.id);
+        setAddAccountEmail(account.email || account.username || '');
+        setAddAccountEmailBlurred(true);
+        if (account.provider === 'manual') {
+            setManualServer(account.server_url || '');
+            setManualPassword(account.password || '');
+        } else {
+            setIsManualGoogle(false);
+        }
+
+        if (category === 'mail') {
+            setMailSignature(account.signature || '');
+            setMailCertificate(account.certificate || '');
+            setMailDisplayName(account.display_name || '');
+            setMailSubjectPrefix(account.subject_prefix || '');
+            setMailAliases(account.aliases || []);
+            if (account.provider === 'manual') {
+                setMailImapHost(account.imap_host || '');
+                setMailImapPort(account.imap_port || '993');
+                setMailImapUser(account.imap_user || '');
+                setMailImapPass(account.imap_password || '');
+                setMailImapEnc(account.imap_encryption || 'ssl');
+                setMailSmtpHost(account.smtp_host || '');
+                setMailSmtpPort(account.smtp_port || '465');
+                setMailSmtpUser(account.smtp_user || '');
+                setMailSmtpPass(account.smtp_password || '');
+                setMailSmtpEnc(account.smtp_encryption || 'ssl');
+            } else {
+                setMailImapHost(''); setMailImapPort('993'); setMailImapUser(''); setMailImapPass(''); setMailImapEnc('ssl');
+                setMailSmtpHost(''); setMailSmtpPort('465'); setMailSmtpUser(''); setMailSmtpPass(''); setMailSmtpEnc('ssl');
+            }
         }
     };
 
-
-    const handleZoteroSync = async () => {
-        if (zoteroSyncing) return;
-        setZoteroSyncing(true);
+    const handleSyncAccount = async (category, account) => {
+        const accountId = account?.id || account;
+        if (!accountId) return;
+        const email = account?.email || account?.username || '';
+        setSyncingAccounts(prev => ({ ...prev, [accountId]: true }));
+        setSavingStatus('saving');
         try {
-            const res = await fetch('/api/zotero/sync', { method: 'POST' });
+            let res;
+            if (category === 'contacts') {
+                const provider = account?.provider || 'manual';
+                res = await axios.post('/api/contacts/sync', { provider, email, server_url: account?.server_url, password: account?.password, username: account?.username });
+            } else if (category === 'calendar') {
+                res = await axios.post(`/api/calendar/sync?email=${encodeURIComponent(email)}`);
+            } else {
+                res = await axios.post(`/api/mail/sync?email=${encodeURIComponent(email)}`);
+            }
+
+            const ok = res.data.status === 'success' || res.data.status === 'ok';
+            const partial = res.data.status === 'partial';
+            if (ok || partial) {
+                const failedEmails = res.data.failed || [];
+                setSyncErrorAccounts(prev => {
+                    const next = new Set(prev);
+                    if (email) failedEmails.includes(email) ? next.add(email) : next.delete(email);
+                    return next;
+                });
+                setSavingStatus(partial ? 'error' : 'saved');
+                loadIntegrations();
+                if (partial && failedEmails.length) {
+                    alert(`Alguns comptes no s'han pogut sincronitzar: ${failedEmails.join(', ')}. Comprova les credencials IMAP a Configuració.`);
+                }
+            } else {
+                setSavingStatus('error');
+                if (email) setSyncErrorAccounts(prev => new Set(prev).add(email));
+                alert(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
+            }
+        } catch (e) {
+            console.error("Sync error:", e);
+            setSavingStatus('error');
+            if (email) setSyncErrorAccounts(prev => new Set(prev).add(email));
+            const detail = e?.response?.data?.detail || e?.message || 'Error desconegut';
+            alert(`Error en la sincronització: ${detail}`);
+        } finally {
+            setSyncingAccounts(prev => ({ ...prev, [accountId]: false }));
+            setTimeout(() => setSavingStatus('idle'), 3000);
+        }
+    };
+
+    const validateAIProvider = async (id, manualKey = null) => {
+        setAiValidationStatus(prev => ({ ...prev, [id]: 'validating' }));
+        try {
+            const providerCfg = draft.ai.providers[id] || {};
+            const res = await axios.post(`/api/ai/providers/${id}/validate`, {
+                api_key: manualKey || '',
+                base_url: providerCfg.base_url || ''
+            });
+            setAiValidationStatus(prev => ({ ...prev, [id]: res.data.success ? 'success' : 'error' }));
+            if (!res.data.success) {
+                console.warn(`Validation failed for ${id}:`, res.data.error);
+            }
+        } catch (e) {
+            console.error("AI Validation error:", e);
+            setAiValidationStatus(prev => ({ ...prev, [id]: 'error' }));
+        }
+    };
+
+    const handleToggleAIProvider = async (pId, enabled) => {
+        try {
+            await axios.patch(`/api/ai/providers/${pId}/status`, { enabled });
+            setDraft(prev => ({
+                ...prev,
+                ai: {
+                    ...prev.ai,
+                    providers: {
+                        ...prev.ai.providers,
+                        [pId]: { ...prev.ai.providers[pId], enabled }
+                    }
+                }
+            }));
+        } catch (e) {
+            console.error("Error toggling provider:", e);
+        }
+    };
+
+    const handleDeleteAIProvider = async (pId) => {
+        setConfirmConfig({
+            isOpen: true,
+            title: "Eliminar Proveïdor",
+            message: `Estàs segur que vols eliminar la configuració de ${pId.toUpperCase()}? Aquesta acció no es pot desfer.`,
+            onConfirm: async () => {
+                try {
+                    await axios.delete(`/api/ai/providers/${pId}`);
+                    setDraft(prev => {
+                        const newProviders = { ...prev.ai.providers };
+                        delete newProviders[pId];
+                        return {
+                            ...prev,
+                            ai: { ...prev.ai, providers: newProviders }
+                        };
+                    });
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                } catch (e) {
+                    console.error("Error deleting provider:", e);
+                }
+            }
+        });
+    };
+
+    const handleAddNewsletter = async () => {
+        if (!newsletterAddress.trim()) return;
+        setNewsletterStatus('Afegint...');
+        try {
+            const res = await fetch('/api/reader/sources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newsletterName || newsletterAddress, url: newsletterAddress, type: newsletterType })
+            });
             if (res.ok) {
-                alert('Sincronització de Zotero iniciada!');
-            } else {
-                alert('Error al iniciar la sincronització');
-            }
-        } catch {
-            alert('Error de connexió');
-        } finally {
-            setZoteroSyncing(false);
-        }
+                setNewsletterName(''); setNewsletterAddress(''); loadNewsletterSources();
+                setNewsletterStatus('Fet!');
+            } else { setNewsletterStatus('Error'); }
+        } catch { setNewsletterStatus('Error'); }
     };
 
-
-    const handleRemoveIntegrationItem = (type, index) => {
-        setIntegrations(prev => {
-            const currentList = Array.isArray(prev[type]) ? prev[type] : [];
-            const newList = [...currentList];
-            newList.splice(index, 1);
-            return { ...prev, [type]: newList };
-        });
-    };
-
-    const handleUpdateIntegrationItem = (type, index, field, value) => {
-        setIntegrations(prev => {
-            const list = [...(prev[type] || [])];
-            list[index] = { ...list[index], [field]: value };
-            return { ...prev, [type]: list };
-        });
-    };
-
-    // Helper to get properties for the current selected table
-    const getAvailableProperties = () => {
-        if (!zoteroConfig?.target_table || !zoteroTables?.length) return [];
-        const selectedTable = zoteroTables.find(t => t.id === zoteroConfig.target_table);
-        return selectedTable?.properties || [];
-    };
-
-    const availableProperties = getAvailableProperties();
-
-    const getProviderModels = (providerId) => {
-        const entry = aiCatalog[providerId];
-        return Array.isArray(entry?.models) ? entry.models : [];
-    };
-
-    const getProviderRequirements = (providerId) => {
-        return PROVIDERS_REQUIREMENTS[providerId] || PROVIDERS_REQUIREMENTS.custom;
-    };
-
-    const getProviderRequirementLabels = (providerId) => {
-        const req = getProviderRequirements(providerId);
-        const labels = [];
-        if (req.needsApiKey) labels.push('API Key');
-        if (req.needsSecret) labels.push(req.secretLabel || 'Secret');
-        if (req.needsBaseUrl) labels.push('Base URL');
-        if (providerId === 'google') labels.push('Project Key');
-        return labels;
-    };
-
-    const getProviderName = (providerId) => {
-        return LLM_PROVIDERS_META[providerId]?.name || providerId;
-    };
-
-    const getProviderCategory = (providerId) => {
-        return PROVIDER_CATEGORY_MAP[providerId] || 'Specialized APIs';
-    };
-
-    const getFilteredProviderIds = (query) => {
-        const q = (query || '').trim().toLowerCase();
-        const ids = Object.keys(LLM_PROVIDERS_META).filter(p => p !== 'custom');
-        if (!q) return ids;
-        return ids.filter((providerId) => {
-            const meta = LLM_PROVIDERS_META[providerId] || {};
-            return [providerId, meta.name, meta.description]
-                .filter(Boolean)
-                .some(value => String(value).toLowerCase().includes(q));
-        });
-    };
-
-    const getGroupedProviderOptions = (query) => {
-        const filteredIds = getFilteredProviderIds(query);
-        const grouped = PROVIDER_CATEGORY_ORDER.map((category) => {
-            const options = filteredIds
-                .filter(providerId => getProviderCategory(providerId) === category)
-                .sort((a, b) => getProviderName(a).localeCompare(getProviderName(b)));
-            return { category, options };
-        }).filter(group => group.options.length > 0);
-        return grouped;
-    };
-
-    const groupedProviderOptions = useMemo(
-        () => getGroupedProviderOptions(providerSearchQuery),
-        [providerSearchQuery]
-    );
-
-    const flatProviderOptionIds = useMemo(
-        () => groupedProviderOptions.flatMap(group => group.options),
-        [groupedProviderOptions]
-    );
-
-    const selectProviderFromDropdown = (providerId) => {
-        setNewProviderDraft(prev => ({
-            ...prev,
-            providerId,
-            apiKey: '',
-            secretValue: '',
-            baseUrl: LLM_PROVIDERS_META[providerId]?.baseUrl || ''
-        }));
-        setProviderSearchQuery('');
-        setIsProviderDropdownOpen(false);
-    };
-
-    const handleProviderDropdownKeyDown = (event) => {
-        if (!isProviderDropdownOpen) return;
-
-        if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            if (!flatProviderOptionIds.length) return;
-            const currentIndex = flatProviderOptionIds.indexOf(highlightedProviderId);
-            const nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, flatProviderOptionIds.length - 1);
-            setHighlightedProviderId(flatProviderOptionIds[nextIndex]);
-            return;
-        }
-
-        if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            if (!flatProviderOptionIds.length) return;
-            const currentIndex = flatProviderOptionIds.indexOf(highlightedProviderId);
-            const nextIndex = currentIndex <= 0 ? 0 : currentIndex - 1;
-            setHighlightedProviderId(flatProviderOptionIds[nextIndex]);
-            return;
-        }
-
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            if (highlightedProviderId) {
-                selectProviderFromDropdown(highlightedProviderId);
-            }
-            return;
-        }
-
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            setIsProviderDropdownOpen(false);
-        }
-    };
-
-    useEffect(() => {
-        if (!isProviderDropdownOpen) return;
-
-        if (!flatProviderOptionIds.length) {
-            setHighlightedProviderId('');
-            return;
-        }
-
-        setHighlightedProviderId((prev) => {
-            if (prev && flatProviderOptionIds.includes(prev)) {
-                return prev;
-            }
-            if (flatProviderOptionIds.includes(newProviderDraft.providerId)) {
-                return newProviderDraft.providerId;
-            }
-            return flatProviderOptionIds[0];
-        });
-    }, [isProviderDropdownOpen, flatProviderOptionIds, newProviderDraft.providerId]);
-
-    useEffect(() => {
-        if (!isProviderDropdownOpen || !highlightedProviderId) return;
-
-        const optionElement = document.getElementById(`provider-option-${highlightedProviderId}`);
-        if (optionElement) {
-            optionElement.scrollIntoView({ block: 'nearest' });
-        }
-    }, [isProviderDropdownOpen, highlightedProviderId]);
-
-    const renderHighlightedText = (text, query) => {
-        const value = String(text || '');
-        const q = String(query || '').trim();
-        if (!q) return value;
-        const lowerValue = value.toLowerCase();
-        const lowerQuery = q.toLowerCase();
-        const start = lowerValue.indexOf(lowerQuery);
-        if (start < 0) return value;
-        const end = start + q.length;
-        return (
-            <>
-                {value.slice(0, start)}
-                <mark style={{ background: 'rgba(59,130,246,0.2)', color: 'var(--text-primary)', borderRadius: '4px', padding: '0 2px' }}>
-                    {value.slice(start, end)}
-                </mark>
-                {value.slice(end)}
-            </>
-        );
-    };
-
-    const openAddProviderModal = () => {
-        const firstProvider = Object.keys(LLM_PROVIDERS_META).find(p => p !== 'custom') || 'groq';
-        setNewProviderDraft({
-            providerId: firstProvider,
-            apiKey: '',
-            secretValue: '',
-            baseUrl: LLM_PROVIDERS_META[firstProvider]?.baseUrl || ''
-        });
-        setProviderSearchQuery('');
-        setIsProviderDropdownOpen(false);
-        setIsAddProviderOpen(true);
-    };
-
-    if (!isOpen) return null;
+    // if (!draft.settings) return null; // Eliminar per evitar que el pare no renderitzi res
 
     return (
         <>
-            <div className="settings-overlay" onClick={onClose}>
-                <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-                    {/* Header */}
-                    <div className="settings-modal__header" style={{
-                        background: 'var(--settings-header-bg)',
-                        borderBottom: '1px solid var(--settings-border)',
-                        padding: '16px 20px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <h2 className="settings-modal__title" style={{ color: 'var(--settings-title)', margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <SettingsIcon size={20} />
-                            {t('settings_title')}
-                        </h2>
-                        <button className="settings-modal__close" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                            <X size={20} />
-                        </button>
+            <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
+            <div className={`settings-modal ${isOpen ? 'active' : ''}`}>
+                {!draft.settings ? (
+                    <div className="flex items-center justify-center h-full">
+                        <RefreshCw size={32} className="animate-spin text-[var(--gnosi-blue)]" />
                     </div>
-
-                    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                        {/* Sidebar Tabs */}
-                        <div className="settings-sidebar" style={{
-                            width: '220px',
-                            borderRight: '1px solid var(--settings-border)',
-                            padding: '20px 12px',
-                            background: 'var(--settings-sidebar-bg)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '6px'
-                        }}>
-                            {[
-                                { id: 'general', label: 'General', icon: Globe },
-                                { id: 'integrations', label: 'Integracions', icon: Zap },
-                                { id: 'newsletters', label: 'Subscripcions', icon: Mail },
-                                { id: 'graph', label: 'Graf', icon: Database },
-                                { id: 'ai', label: 'AI', icon: Cpu },
-                                { id: 'notion', label: 'Notion', icon: RefreshCw },
-                                { id: 'zotero', label: 'Zotero', icon: BookOpen }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '10px',
-                                        padding: '12px 14px',
-                                        border: 'none',
-                                        borderRadius: '10px',
-                                        background: activeTab === tab.id ? 'var(--settings-sidebar-active)' : 'transparent',
-                                        color: activeTab === tab.id ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)',
-                                        cursor: 'pointer',
-                                        textAlign: 'left',
-                                        fontWeight: activeTab === tab.id ? '600' : '500',
-                                        fontSize: '0.9rem',
-                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                                    }}
-                                >
-                                    <tab.icon size={18} />
-                                    {tab.label}
-                                </button>
-                            ))}
+                ) : (
+                    <div className="settings-inner">
+                    
+                    {/* SIDEBAR */}
+                    <aside className="settings-sidebar">
+                        <div className="settings-sidebar-header">
+                            <div className="settings-sidebar-brand">
+                                <div className="settings-section-icon-wrap">
+                                    <SettingsIcon size={20} strokeWidth={2} />
+                                </div>
+                                <h2 className="settings-sidebar-title">Configuració</h2>
+                            </div>
+                            
+                            {/* INDICADOR DE SAVING */}
+                            <div className={`settings-status-indicator ${savingStatus}`} style={{ 
+                                marginTop: '20px', padding: '10px 14px', borderRadius: '14px', 
+                                background: 'rgba(59, 130, 246, 0.05)', border: '1px solid var(--settings-border)', 
+                                display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.3s'
+                            }}>
+                                {savingStatus === 'saving' ? (
+                                    <RefreshCw size={14} className="animate-spin text-[var(--gnosi-blue)]" />
+                                ) : (
+                                    <Check size={14} style={{ color: savingStatus === 'error' ? '#ef4444' : '#10b981', opacity: savingStatus === 'idle' ? 0.4 : 1 }} />
+                                )}
+                                <span style={{ 
+                                    fontSize: '0.72rem', fontWeight: '800', 
+                                    color: savingStatus === 'error' ? '#ef4444' : 'var(--text-secondary)',
+                                    opacity: savingStatus === 'idle' ? 0.6 : 1
+                                }}>
+                                    {savingStatus === 'saving' ? 'Desant...' : 
+                                     (savingStatus === 'error' ? 'Error' : 
+                                     (savingStatus === 'saved' ? 'Desat' : 'Al dia'))}
+                                </span>
+                            </div>
                         </div>
 
-                        {/* Content Area */}
-                        <div className="settings-modal__content" style={{ flex: 1, overflowY: 'auto', padding: '25px', background: 'var(--settings-bg)' }}>
+                        <div className="settings-sidebar-nav">
+                            <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
+                            
+                            <div className="settings-sidebar-hr" />
 
-                            {activeTab === 'general' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    {/* Language */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Globe size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('language_label')}</h3>
-                                        </div>
-                                        <div>
-                                            <select
-                                                value={i18n.language?.split('-')[0] || 'ca'}
-                                                onChange={(e) => handleLanguageChange(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid var(--settings-border)',
-                                                    background: 'var(--settings-input-bg)',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: '0.95rem',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                {LANGUAGES.map(({ code, label, icon }) => (
-                                                    <option key={code} value={code}>
-                                                        {icon} {label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </section>
+                            <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
+                            <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
+                            <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
+                            
+                            <div className="settings-sidebar-hr" />
+                            
+                            <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />
+                            <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />
+                            <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
+                            
+                            <div className="settings-sidebar-hr" />
 
-                                    {/* Theme */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Palette size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('theme_label')}</h3>
-                                        </div>
-                                        <div className="settings-theme-row" style={{ display: 'flex', gap: '15px' }}>
-                                            {THEME_OPTIONS.map(({ id, label, icon: Icon, disabled }) => (
-                                                <button
-                                                    key={id}
-                                                    onClick={() => !disabled && handleThemeChange(id)}
-                                                    disabled={disabled}
-                                                    style={{
-                                                        flex: 1,
-                                                        padding: '15px',
-                                                        borderRadius: '12px',
-                                                        border: '2px solid',
-                                                        borderColor: theme === id ? 'var(--gnosi-blue)' : 'var(--settings-border)',
-                                                        background: theme === id ? 'var(--settings-sidebar-active)' : 'var(--settings-btn-bg)',
-                                                        cursor: disabled ? 'not-allowed' : 'pointer',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        opacity: disabled ? 0.5 : 1,
-                                                        transition: 'all 0.2s',
-                                                        color: theme === id ? 'var(--settings-sidebar-active-text)' : 'var(--text-primary)',
-                                                        boxShadow: theme === id ? '0 0 0 1px var(--gnosi-blue)' : 'none'
-                                                    }}
-                                                >
-                                                    {Icon ? <Icon size={24} /> : <div className={`theme-preview ${id}`} style={{ width: '40px', height: '24px', borderRadius: '4px', background: id === 'dark' ? '#1e293b' : '#f8fafc', border: '1px solid var(--settings-border)' }} />}
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: theme === id ? '600' : '400' }}>{label}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </section>
+                            <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
+                            <SidebarItem id="social" icon={Share2} label="Social" active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
+                            <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
+                            <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
+                            <SidebarItem id="zotero" icon={BookOpen} label={t('settings.tabs.zotero') || 'Zotero'} active={activeTab === 'zotero'} onClick={() => { setActiveTab('zotero'); setAddAccountType(null); }} />
+                        </div>
 
-                                    {/* Storage Paths */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <FolderOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('storage_paths_title')}</h3>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            {[
-                                                { id: 'vault', label: t('vault_path_label') }
-                                            ].map(field => (
-                                                <div key={field.id}>
-                                                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                                                        {field.label}
-                                                    </label>
-                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                        <input
-                                                            type="text"
-                                                            value={localPaths[field.id] || ''}
-                                                            onChange={(e) => setLocalPaths(prev => ({ ...prev, [field.id]: e.target.value }))}
-                                                            style={{
-                                                                flex: 1,
-                                                                padding: '10px 12px',
-                                                                borderRadius: '8px',
-                                                                border: '1px solid var(--settings-border)',
-                                                                background: 'var(--settings-input-bg)',
-                                                                color: 'var(--text-primary)',
-                                                                fontSize: '0.9rem'
-                                                            }}
-                                                        />
-                                                        <button
-                                                            onClick={() => { setPickerField(field.id); setPickerOpen(true); }}
-                                                            style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', cursor: 'pointer', color: 'var(--text-primary)' }}
-                                                        >
-                                                            <FolderOpen size={18} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </section>
+                    </aside>
+
+                    {/* CONTENT AREA */}
+                    <main className="settings-main">
+                        <button onClick={onClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
+                            <X />
+                        </button>
+
+                        <div className="settings-content-wrap">
+                            
+                             {/* PERFIL D'IDENTITAT */}
+                             {activeTab === 'profile' && (
+                                <div className="animate-in">
+                                    <IdentityProfile 
+                                        userName={draft.settings.user_name} 
+                                        setUserName={(val) => setDraft({...draft, settings: {...draft.settings, user_name: val}})}
+                                        profile={draft.identity}
+                                        setProfile={(val) => setDraft({...draft, identity: val})}
+                                    />
                                 </div>
-                            )}
+                             )}
 
-                            {activeTab === 'integrations' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura aquí de forma segura els comptes externs. Cada compte desa les credencials de forma independent.</p>
+                             {/* GENERAL */}
+                            {activeTab === 'general' && (
+                                <Section title="Configuració del Sistema" icon={SettingsIcon}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
+                                        <FormGroup label="Nom del Workspace" description="Identificador del teu cervell digital.">
+                                            <input type="text" className="gnosi-input" value={draft.settings.workspace_name} onChange={e => setDraft({...draft, settings: {...draft.settings, workspace_name: e.target.value}})} placeholder="Meu Cervell Digital" />
+                                        </FormGroup>
                                     </div>
 
-                                    {/* Email Settings */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Comptes de Correu (IMAP/SMTP)</h3>
-                                            </div>
-                                            {!emailWizard && (
-                                                <button onClick={() => setEmailWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Compte</button>
-                                            )}
-                                        </div>
-
-                                        {emailWizard && (
-                                            <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
-                                                {emailWizard.step === 'ask_email' ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu</label>
-                                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                                            <input
-                                                                type="email"
-                                                                autoFocus
-                                                                placeholder="exemple@gmail.com, usuari@pangea.org..."
-                                                                value={emailWizard.email}
-                                                                onChange={(e) => setEmailWizard({ ...emailWizard, email: e.target.value })}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        const email = emailWizard.email.toLowerCase();
-                                                                        let provider = 'custom';
-                                                                        if (email.includes('gmail.com')) provider = 'google';
-                                                                        else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-                                                                        else if (email.includes('pangea.org') || email.includes('temenosismael.org')) provider = 'pangea';
-
-                                                                        setEmailWizard({ ...emailWizard, step: 'configure', provider });
-                                                                    }
-                                                                }}
-                                                                style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    const email = emailWizard.email.toLowerCase();
-                                                                    let provider = 'custom';
-                                                                    if (email.includes('gmail.com')) provider = 'google';
-                                                                    else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-                                                                    else if (email.includes('pangea.org') || email.includes('temenosismael.org')) provider = 'pangea';
-
-                                                                    setEmailWizard({ ...emailWizard, step: 'configure', provider });
-                                                                }}
-                                                                disabled={!emailWizard.email}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: emailWizard.email ? 1 : 0.5 }}
-                                                            >
-                                                                Continuar
-                                                            </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <span style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                {emailWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
-                                                                {emailWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
-                                                                {emailWizard.provider === 'pangea' && <span style={{ fontSize: '1.2rem' }}>📧</span>}
-                                                                Configurant compte {emailWizard.email}
-                                                            </span>
-                                                            <button onClick={() => setEmailWizard({ ...emailWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
-                                                        </div>
-
-                                                        {emailWizard.provider === 'google' && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
-                                                                    <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
-                                                                    </div>
-                                                                    Evita les configuracions manuals i connecta amb Google OAuth2.
-                                                                    {!googleAuthConfigured ? (
-                                                                        <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides al fitxer <code>.env_shared</code>. Configura el <code>CLIENT_ID</code> i <code>CLIENT_SECRET</code> per activar-ho.
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div style={{ marginTop: '12px' }}>
-                                                                            <button
-                                                                                onClick={() => window.location.href = '/api/auth/google/login'}
-                                                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'white', color: '#3c4043', border: '1px solid #dadce0', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}
-                                                                            >
-                                                                                <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.49h4.84c-.21 1.12-.84 2.07-1.79 2.71v2.25h2.91c1.71-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4" /><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.25c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.92v2.33C2.41 16.03 5.46 18 9 18z" fill="#34A853" /><path d="M3.96 10.71c-.18-.54-.28-1.12-.28-1.71s.1-1.17.28-1.71V4.96H.92C.33 6.13 0 7.53 0 9s.33 2.87.92 4.04l3.04-2.33z" fill="#FBBC05" /><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.8 11.43 0 9 0 5.46 0 2.41 1.97.92 4.96l3.04 2.33C4.67 5.16 6.66 3.58 9 3.58z" fill="#EA4335" /></svg>
-                                                                                Sign in with Google
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — o bé manualment —
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {emailWizard.provider === 'icloud' && (
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
-                                                                <strong>Nota:</strong> Has d'utilitzar una <strong>Contrasenya d'Aplicació</strong>.
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
-                                                            </div>
-                                                        )}
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor IMAP</label>
-                                                                <input
-                                                                    type="text"
-                                                                    id="email_wizard_imap"
-                                                                    defaultValue={emailWizard.provider === 'google' ? 'imap.gmail.com' : (emailWizard.provider === 'icloud' ? 'imap.mail.me.com' : (emailWizard.provider === 'pangea' ? 'mail.pangea.org' : ''))}
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor SMTP</label>
-                                                                <input
-                                                                    type="text"
-                                                                    id="email_wizard_smtp"
-                                                                    defaultValue={emailWizard.provider === 'google' ? 'smtp.gmail.com' : (emailWizard.provider === 'icloud' ? 'smtp.mail.me.com' : (emailWizard.provider === 'pangea' ? 'smtp.pangea.org' : ''))}
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div style={{ gridColumn: 'span 2' }}>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
-                                                                <input
-                                                                    type="password"
-                                                                    id="email_wizard_password"
-                                                                    placeholder="••••••••"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                                                            <button
-                                                                onClick={() => {
-                                                                    const imap = document.getElementById('email_wizard_imap').value;
-                                                                    const smtp = document.getElementById('email_wizard_smtp').value;
-                                                                    const password = document.getElementById('email_wizard_password').value;
-
-                                                                    if (!imap || !smtp || !password) {
-                                                                        alert('Cal omplir tots els camps');
-                                                                        return;
-                                                                    }
-
-                                                                    const newEmail = {
-                                                                        id: 'new_mail_' + Date.now().toString(),
-                                                                        username: emailWizard.email,
-                                                                        imap_server: imap,
-                                                                        smtp_server: smtp,
-                                                                        password: password,
-                                                                        provider: emailWizard.provider
-                                                                    };
-
-                                                                    setIntegrations(prev => ({
-                                                                        ...prev,
-                                                                        emails: [...(Array.isArray(prev.emails) ? prev.emails : []), newEmail]
-                                                                    }));
-                                                                    setEmailWizard(null);
-                                                                }}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
-                                                            >
-                                                                Afegir Compte
-                                                            </button>
-                                                            <button onClick={() => setEmailWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {(integrations?.emails || []).map((account, index) => (
-                                                <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Compte {index + 1} {account.password_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
-                                                        <button onClick={() => handleRemoveIntegrationItem('emails', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
-                                                    </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>IMAP Server</label>
-                                                            <input type="text" value={account.imap_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'imap_server', e.target.value)} placeholder="imap.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>SMTP Server</label>
-                                                            <input type="text" value={account.smtp_server || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'smtp_server', e.target.value)} placeholder="smtp.gmail.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Adreça Email</label>
-                                                            <input type="email" value={account.username || ''} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'username', e.target.value)} placeholder="nom@exemple.com" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Contrasenya / App Password</label>
-                                                            <input type="password" placeholder={account.password_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('emails', index, 'password', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div style={{ gridColumn: 'span 2' }}>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Signatura (HTML)</label>
-                                                            <textarea
-                                                                value={account.html_signature || ''}
-                                                                onChange={(e) => handleUpdateIntegrationItem('emails', index, 'html_signature', e.target.value)}
-                                                                placeholder="<p>Atentament, <b>Ismael</b></p>"
-                                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'monospace' }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                    <FormGroup label="Tipus de Workspace" description="El mode organització permet configurar múltiples usuaris i polítiques de dades.">
+                                        <div className="segmented-control" style={{ display: 'flex', background: 'var(--settings-sidebar-bg)', padding: '6px', borderRadius: '18px', border: '1px solid var(--settings-border)' }}>
+                                            {['personal', 'org'].map(m => (
+                                                <button key={m} onClick={() => setDraft({...draft, settings: {...draft.settings, gnosi_mode: m}})} style={{
+                                                    flex: 1, padding: '12px', borderRadius: '14px', border: 'none', cursor: 'pointer',
+                                                    background: draft.settings.gnosi_mode === m ? 'var(--gnosi-blue)' : 'transparent',
+                                                    color: draft.settings.gnosi_mode === m ? 'white' : 'var(--text-secondary)',
+                                                    fontWeight: '800', fontSize: '0.95rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                                }}>{m === 'personal' ? 'Ús Personal' : 'Organització'}</button>
                                             ))}
-                                            {!(integrations?.emails?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap compte de correu configurat. Prem "+ Afegir Compte" per començar.</p>}
                                         </div>
-                                    </section>
+                                    </FormGroup>
 
-                                    {/* Calendar Settings */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Calendar size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Calendaris (Google / CalDAV)</h3>
+                                    {draft.settings.gnosi_mode === 'org' && (
+                                        <div className="animate-in" style={{ marginTop: '30px', padding: '30px', borderRadius: '24px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                                <FormGroup label="Usuari Admin Org"><input type="text" className="gnosi-input" value={draft.settings.org_user} onChange={e => setDraft({...draft, settings: {...draft.settings, org_user: e.target.value}})} /></FormGroup>
+                                                <FormGroup label="Pasword Admin"><PasswordInput value={draft.settings.org_password} onChange={e => setDraft({...draft, settings: {...draft.settings, org_password: e.target.value}})} /></FormGroup>
                                             </div>
-                                            {!calendarWizard && (
-                                                <button onClick={() => setCalendarWizard({ step: 'ask_email', email: '' })} style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}>+ Afegir Calendari</button>
-                                            )}
                                         </div>
+                                    )}
 
-                                        {calendarWizard && (
-                                            <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--gnosi-blue)', marginBottom: '20px' }}>
-                                                {calendarWizard.step === 'ask_email' ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>Introdueix l'adreça de correu o identificador</label>
-                                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                                            <input
-                                                                type="email"
-                                                                autoFocus
-                                                                placeholder="exemple@gmail.com, usuari@icloud.com..."
-                                                                value={calendarWizard.email}
-                                                                onChange={(e) => setCalendarWizard({ ...calendarWizard, email: e.target.value })}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        const email = calendarWizard.email.toLowerCase();
-                                                                        let provider = 'custom';
-                                                                        if (email.includes('gmail.com')) provider = 'google';
-                                                                        else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-
-                                                                        setCalendarWizard({ ...calendarWizard, step: 'configure', provider });
-                                                                    }
-                                                                }}
-                                                                style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    const email = calendarWizard.email.toLowerCase();
-                                                                    let provider = 'custom';
-                                                                    if (email.includes('gmail.com')) provider = 'google';
-                                                                    else if (email.includes('icloud.com') || email.includes('me.com')) provider = 'icloud';
-
-                                                                    setCalendarWizard({ ...calendarWizard, step: 'configure', provider });
-                                                                }}
-                                                                disabled={!calendarWizard.email}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', opacity: calendarWizard.email ? 1 : 0.5 }}
-                                                            >
-                                                                Continuar
-                                                            </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <span style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                {calendarWizard.provider === 'google' && <span style={{ fontSize: '1.2rem' }}>🌐</span>}
-                                                                {calendarWizard.provider === 'icloud' && <span style={{ fontSize: '1.2rem' }}>☁️</span>}
-                                                                Configurant {calendarWizard.email} ({calendarWizard.provider})
-                                                            </span>
-                                                            <button onClick={() => setCalendarWizard({ ...calendarWizard, step: 'ask_email' })} style={{ fontSize: '0.8rem', color: 'var(--gnosi-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>Canviar email</button>
-                                                        </div>
-
-                                                        {calendarWizard.provider === 'google' && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #4285F4' }}>
-                                                                    <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <span style={{ fontSize: '1.2rem' }}>🌐</span> Recomanat: Connectar directament
-                                                                    </div>
-                                                                    Per evitar configurar contrasenyes d'aplicació manuals, pots connectar el teu compte de Google directament per sincronitzar calendaris i correu.
-                                                                    {!googleAuthConfigured ? (
-                                                                        <div style={{ marginTop: '12px', color: '#ef4444', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                                            ⚠️ <strong>Configuració requerida:</strong> No s'han trobat credencials de Google OAuth vàlides.
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div style={{ marginTop: '12px' }}>
-                                                                            <button
-                                                                                onClick={() => window.location.href = '/api/auth/google/login'}
-                                                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'white', color: '#3c4043', border: '1px solid #dadce0', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}
-                                                                            >
-                                                                                <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.49h4.84c-.21 1.12-.84 2.07-1.79 2.71v2.25h2.91c1.71-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4" /><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.25c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.92v2.33C2.41 16.03 5.46 18 9 18z" fill="#34A853" /><path d="M3.96 10.71c-.18-.54-.28-1.12-.28-1.71s.1-1.17.28-1.71V4.96H.92C.33 6.13 0 7.53 0 9s.33 2.87.92 4.04l3.04-2.33z" fill="#FBBC05" /><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.8 11.43 0 9 0 5.46 0 2.41 1.97.92 4.96l3.04 2.33C4.67 5.16 6.66 3.58 9 3.58z" fill="#EA4335" /></svg>
-                                                                                Sign in with Google
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                                                                    — o bé manualment —
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {calendarWizard.provider === 'icloud' && (
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
-                                                                <strong>Nota:</strong> Per a iCloud, necessites una contrasenya específica per a aplicacions.
-                                                                <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noreferrer" style={{ color: 'var(--gnosi-blue)', marginLeft: '5px', textDecoration: 'underline' }}>Gestiona el teu ID d'Apple <ExternalLink size={12} style={{ display: 'inline' }} /></a>
-                                                            </div>
-                                                        )}
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nom personalitzat (Ex: Feina, Personal...)</label>
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="Calendari Personal"
-                                                                    id="wizard_name"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Servidor / URL CalDAV</label>
-                                                                <input
-                                                                    type="text"
-                                                                    defaultValue={calendarWizard.provider === 'icloud' ? 'caldav.icloud.com' : (calendarWizard.provider === 'google' ? 'https://apidata.googleusercontent.com/caldav/v1/calendars/primary/events' : '')}
-                                                                    placeholder="https://servidor.com/caldav"
-                                                                    id="wizard_url"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Contrasenya / App Password</label>
-                                                                <input
-                                                                    type="password"
-                                                                    placeholder="••••••••"
-                                                                    id="wizard_token"
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                                                            <button
-                                                                onClick={() => {
-                                                                    const name = document.getElementById('wizard_name').value || calendarWizard.email;
-                                                                    const url = document.getElementById('wizard_url').value;
-                                                                    const token = document.getElementById('wizard_token').value;
-
-                                                                    if (!url || !token) {
-                                                                        alert('Cal omplir la URL i la contrasenya');
-                                                                        return;
-                                                                    }
-
-                                                                    const newCalendar = {
-                                                                        id: 'new_' + Date.now().toString(),
-                                                                        name,
-                                                                        url,
-                                                                        token,
-                                                                        username: calendarWizard.email,
-                                                                        provider: calendarWizard.provider
-                                                                    };
-
-                                                                    const updatedCalendars = [...(Array.isArray(integrations.calendars) ? integrations.calendars : []), newCalendar];
-                                                                    setIntegrations(prev => ({
-                                                                        ...prev,
-                                                                        calendars: updatedCalendars
-                                                                    }));
-                                                                    setCalendarWizard(null);
-                                                                }}
-                                                                style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600' }}
-                                                            >
-                                                                Afegir
-                                                            </button>
-                                                            <button onClick={() => setCalendarWizard(null)} style={{ padding: '10px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel·lar</button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {(integrations?.calendars || []).map((account, index) => (
-                                                <div key={account.id || index} style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>{account.name || account.email || account.username || `Calendari ${index + 1}`} {account.token_status === 'connected' && <span style={{ fontSize: '0.75rem', background: '#10b98122', color: '#059669', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px' }}>Connectat ✅</span>}</span>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={account.is_default || false}
-                                                                    onChange={(e) => {
-                                                                        const updated = (integrations?.calendars || []).map((c, i) => ({
-                                                                            ...c,
-                                                                            is_default: i === index ? e.target.checked : false
-                                                                        }));
-                                                                        setIntegrations(prev => ({ ...prev, calendars: updated }));
-                                                                    }}
-                                                                />
-                                                                Predeterminat
-                                                            </label>
-                                                            <input
-                                                                type="color"
-                                                                value={account.color || '#e5e7eb'}
-                                                                onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'color', e.target.value)}
-                                                                style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
-                                                            />
-                                                            <button onClick={() => handleRemoveIntegrationItem('calendars', index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Nom / Identificador</label>
-                                                            <input type="text" value={account.name || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'name', e.target.value)} placeholder="Ex: Feina, Personal..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Servidor / URL</label>
-                                                            <input type="text" value={account.url || ''} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'url', e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Token d'Açcés / Autenticació</label>
-                                                            <input type="password" placeholder={account.token_status === 'connected' ? '******** (Modifica per actualitzar)' : '••••••••'} onChange={(e) => handleUpdateIntegrationItem('calendars', index, 'token', e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
-                                                        </div>
-                                                    </div>
+                                    <div style={{ marginTop: '50px' }}>
+                                        <Section title="Estructura de Fitxers" icon={FolderOpen}>
+                                            <FormGroup label="Ruta del Vault" description="Carpeta principal on s'emmgatzemen totes les dades del sistema.">
+                                                <div style={{ display: 'flex', gap: '14px' }}>
+                                                    <input type="text" className="gnosi-input" value={draft.paths.vault || ''} readOnly style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
+                                                    <button onClick={() => { setPickerField('vault'); setPickerOpen(true); }} className="btn-gnosi-secondary" style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0 }}>
+                                                        <FolderOpen size={18} />
+                                                    </button>
                                                 </div>
-                                            ))}
-                                            {!(integrations?.calendars?.length > 0) && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '10px' }}>Cap calendari configurat. Prem "+ Afegir Calendari" per començar.</p>}
-                                        </div>
-                                    </section>
-
-                                    {/* Vault Tables for Calendar */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Taules de la Vault al Calendari</h3>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Color per defecte:</span>
-                                                <input
-                                                    type="color"
-                                                    value={integrations?.vault_calendar?.color || '#e57373'}
-                                                    onChange={(e) => {
-                                                        const newVal = e.target.value;
-                                                        const updated = { ...integrations.vault_calendar, color: newVal };
-                                                        setIntegrations(prev => ({ ...prev, vault_calendar: updated }));
-                                                    }}
-                                                    style={{ width: '20px', height: '20px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '4px' }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Selecciona quines taules vols que mostrin els seus registres amb data al calendari.</p>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '15px' }}>
-                                            {tables.map(table => (
-                                                <label key={table.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', cursor: 'pointer' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={(integrations?.vault_calendar?.enabled_tables || []).includes(table.id)}
-                                                        onChange={(e) => {
-                                                            const enabled = integrations?.vault_calendar?.enabled_tables || [];
-                                                            const newList = e.target.checked
-                                                                ? [...enabled, table.id]
-                                                                : enabled.filter(id => id !== table.id);
-                                                            setIntegrations(prev => ({
-                                                                ...prev,
-                                                                vault_calendar: { ...prev.vault_calendar, enabled_tables: newList }
-                                                            }));
-                                                        }}
-                                                    />
-                                                    <span style={{ fontSize: '0.9rem' }}>{table.name}</span>
-                                                </label>
-                                            ))}                                        </div>
-                                    </section>
-                                </div>
+                                            </FormGroup>
+                                        </Section>
+                                    </div>
+                                </Section>
                             )}
 
-                            {activeTab === 'graph' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Sliders size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visualització</h3>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={graphConfig.show_arrows}
-                                                        onChange={e => setGraphConfig(prev => ({ ...prev, show_arrows: e.target.checked }))}
-                                                    />
-                                                    Mostrar fletxes
-                                                </label>
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Mida dels nodes ({graphConfig.node_size.toFixed(1)})</label>
-                                                <input
-                                                    type="range" min="0.1" max="5" step="0.1"
-                                                    value={graphConfig.node_size}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, node_size: parseFloat(e.target.value) }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gruix dels enllaços ({graphConfig.edge_thickness.toFixed(1)})</label>
-                                                <input
-                                                    type="range" min="0.1" max="5" step="0.1"
-                                                    value={graphConfig.edge_thickness}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, edge_thickness: parseFloat(e.target.value) }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Llindar d'etiquetes ({graphConfig.label_threshold})</label>
-                                                <input
-                                                    type="range" min="0" max="50" step="1"
-                                                    value={graphConfig.label_threshold}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, label_threshold: parseInt(e.target.value) }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </section>
+                            {/* IDIOMA I REGIÓ */}
+                            {activeTab === 'language' && (
+                                <Section title="Idioma i Localització" icon={Globe}>
+                                    <FormGroup label="Seleccionar Idioma" description="L'idioma general de la interfície i dels agents d'IA.">
+                                        <select className="gnosi-select" value={draft.settings.language} onChange={e => {
+                                            const code = e.target.value;
+                                            setDraft({...draft, settings: {...draft.settings, language: code}});
+                                            i18n.changeLanguage(code);
+                                        }}>
+                                            {LANGUAGES.map(lang => (
+                                                <option key={lang.code} value={lang.code}>{lang.icon} {lang.label}</option>
+                                            ))}
+                                        </select>
+                                    </FormGroup>
 
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Forces (Física)</h3>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Gravetat ({graphConfig.physics.gravity})</label>
-                                                <input
-                                                    type="range" min="0" max="2" step="0.05"
-                                                    value={graphConfig.physics.gravity}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, gravity: parseFloat(e.target.value) } }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Repulsió ({graphConfig.physics.repulsion})</label>
-                                                <input
-                                                    type="range" min="0" max="10000" step="100"
-                                                    value={graphConfig.physics.repulsion}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, repulsion: parseInt(e.target.value) } }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px' }}>Fricció ({graphConfig.physics.friction})</label>
-                                                <input
-                                                    type="range" min="1" max="20" step="1"
-                                                    value={graphConfig.physics.friction}
-                                                    onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, friction: parseInt(e.target.value) } }))}
-                                                    style={{ width: '100%', accentColor: 'var(--gnosi-blue)' }}
-                                                />
-                                            </div>
-                                            <div className="setting-control">
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', marginTop: '25px' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={graphConfig.physics.lin_log_mode}
-                                                        onChange={e => setGraphConfig(prev => ({ ...prev, physics: { ...prev.physics, lin_log_mode: e.target.checked } }))}
-                                                    />
-                                                    Mode Lin-Log
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </section>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', borderTop: '1px solid var(--settings-border)', paddingTop: '44px' }}>
+                                        <FormGroup label="Primer dia de la setmana">
+                                            <select className="gnosi-select" value={draft.settings.week_start} onChange={e => setDraft({...draft, settings: {...draft.settings, week_start: parseInt(e.target.value)}})}>
+                                                <option value={1}>Dilluns (ISO)</option>
+                                                <option value={0}>Diumenge (US)</option>
+                                            </select>
+                                        </FormGroup>
+                                        <FormGroup label="Moneda de referència">
+                                            <select className="gnosi-select" value={draft.settings.currency} onChange={e => setDraft({...draft, settings: {...draft.settings, currency: e.target.value}})}>
+                                                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </FormGroup>
+                                        <FormGroup label="Símbol decimal">
+                                            <select className="gnosi-select" value={draft.settings.decimal_symbol} onChange={e => setDraft({...draft, settings: {...draft.settings, decimal_symbol: e.target.value}})}>
+                                                {DECIMAL_SYMBOLS.map(s => <option key={s} value={s}>{s === ',' ? 'Coma (,)' : 'Punt (.)'}</option>)}
+                                            </select>
+                                        </FormGroup>
+                                    </div>
+                                </Section>
+                            )}
 
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Database size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Visibilitat</h3>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            <div>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Selecció Jeràrquica</h4>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    {(databases || []).map(db => {
-                                                        const dbTables = (tables || []).filter(t => t.database_id === db.id);
-                                                        const isDbChecked = graphConfig.visible_databases.includes(db.id);
+                            {/* APARENÇA */}
+                            {activeTab === 'appearance' && (
+                                <Section title="Aparença i Estil" icon={Palette}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '56px' }}>
+                                        {[
+                                            { id: 'light', label: 'Clar', icon: Monitor, bg: '#ffffff' },
+                                            { id: 'dark', label: 'Fosc', icon: Monitor, bg: '#000000' },
+                                            { id: 'system', label: 'Sistema', icon: Monitor, bg: 'linear-gradient(135deg, #fff 50%, #000 50%)' }
+                                        ].map(opt => (
+                                            <button key={opt.id} onClick={() => setDraft({...draft, settings: {...draft.settings, theme: opt.id}})} style={{
+                                                padding: '12px', borderRadius: '24px', border: `2px solid ${draft.settings.theme === opt.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`,
+                                                background: draft.settings.theme === opt.id ? 'rgba(59, 130, 246, 0.05)' : 'transparent', cursor: 'pointer', transition: 'all 0.3s'
+                                            }}>
+                                                <div style={{ height: '80px', borderRadius: '16px', background: opt.bg, border: '1px solid var(--settings-border)', marginBottom: '12px', boxShadow: '0 8px 20px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Monitor size={24} color={opt.id === 'light' ? '#ccc' : (opt.id === 'dark' ? '#444' : '#888')} />
+                                                </div>
+                                                <div style={{ fontWeight: '800', fontSize: '0.9rem', color: 'var(--text-primary)', textAlign: 'center' }}>{opt.label}</div>
+                                            </button>
+                                        ))}
+                                    </div>
 
+                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Efectes i Animacions Neutres</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>Redueix la càrrega visual eliminant transicions innecessàries i optimitzant el rendiment.</div>
+                                        </div>
+                                        <div className={`gnosi-toggle ${draft.settings.reduce_animations ? 'active' : ''}`} onClick={() => setDraft({...draft, settings: {...draft.settings, reduce_animations: !draft.settings.reduce_animations}})} style={{ transform: 'scale(1.2)' }}>
+                                            <div className="gnosi-toggle-handle" />
+                                        </div>
+                                    </div>
+                                </Section>
+                            )}
+
+                            {/* CALENDAR, CONTACTS, MAIL */}
+                            {(activeTab === 'calendar' || activeTab === 'contacts' || activeTab === 'mail') && (
+                                <Section 
+                                    title={activeTab === 'calendar' ? 'Gestió de Calendaris' : (activeTab === 'contacts' ? 'Sincronització de Contactes' : 'Comptes de Correu')} 
+                                    icon={activeTab === 'calendar' ? Calendar : (activeTab === 'contacts' ? Users : Mail)}
+                                    extra={
+                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                            <div style={{ position: 'relative' }}>
+                                                <button 
+                                                    onClick={() => {
+                                                        if (activeTab === 'calendar') {
+                                                            if (!addAccountType && !isAddingTable) {
+                                                                setAddAccountType('menu');
+                                                            } else {
+                                                                setAddAccountType(null);
+                                                                setIsAddingTable(false);
+                                                            }
+                                                        } else {
+                                                            setAddAccountType(addAccountType === activeTab ? null : activeTab);
+                                                        }
+                                                        setIsManualGoogle(false);
+                                                    }}
+                                                    className="btn-gnosi-primary" 
+                                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                                                >
+                                                    {(addAccountType || isAddingTable) ? <X size={16} /> : <Plus size={16} />}
+                                                    {(addAccountType || isAddingTable) ? 'Cancel·lar' : 'Afegir Compte'}
+                                                </button>
+                                                
+                                                {addAccountType === 'menu' && (
+                                                    <div className="animate-in" style={{ 
+                                                        position: 'absolute', top: '100%', right: 0, marginTop: '10px', 
+                                                        background: 'var(--settings-bg)', border: '1px solid var(--settings-border)',
+                                                        borderRadius: '16px', boxShadow: '0 15px 40px rgba(0,0,0,0.2)', 
+                                                        zIndex: 1000, width: '220px', overflow: 'hidden', padding: '6px'
+                                                    }}>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setIsAddingTable(true); setAddAccountType(null); }}
+                                                            className="hover-bg"
+                                                            style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontWeight: '700' }}
+                                                        >
+                                                            <Database size={16} color="var(--gnosi-blue)" /> Taula del Vault
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setAddAccountType('calendar'); }}
+                                                            className="hover-bg"
+                                                            style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontWeight: '700' }}
+                                                        >
+                                                            <Globe size={16} color="var(--gnosi-blue)" /> Compte Extern
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    }
+                                >
+                                    <div style={{ minHeight: '340px', marginTop: '20px' }}>
+                                        {/* Calendari per defecte */}
+                                        {activeTab === 'contacts' && (() => {
+                                            const allContactSources = [
+                                                ...(integrations.contacts || []),
+                                                ...(integrations.mail_accounts || []),
+                                                ...(integrations.emails || []),
+                                            ];
+                                            const seenC = new Set();
+                                            const opts = allContactSources
+                                                .filter(c => { const id = c.email || c.username; if (!id || seenC.has(id)) return false; seenC.add(id); return true; })
+                                                .map(c => ({ id: c.email || c.username, label: c.name || c.email || c.username }));
+                                            if (opts.length === 0) return null;
+                                            return (
+                                                <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                    <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
+                                                        Compte per defecte
+                                                    </label>
+                                                    <select
+                                                        value={integrations.default_contacts || ''}
+                                                        onChange={(e) => {
+                                                            const email = e.target.value;
+                                                            const updated = { ...integrations, default_contacts: email };
+                                                            setIntegrations(updated);
+                                                            axios.put('/api/integrations/default_contacts', { email }).catch(console.error);
+                                                        }}
+                                                        className="gnosi-input"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {opts.map(opt => (
+                                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
+                                                        S'usarà per sincronitzar i crear nous contactes.
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                        {activeTab === 'mail' && (() => {
+                                            const allMail = [...(integrations.mail_accounts || []), ...(integrations.emails || [])];
+                                            const seen = new Set();
+                                            const opts = allMail
+                                                .filter(c => { const id = c.email || c.username; if (!id || seen.has(id)) return false; seen.add(id); return true; })
+                                                .map(c => ({ id: c.email || c.username, label: c.name || c.email || c.username }));
+                                            if (opts.length === 0) return null;
+                                            return (
+                                                <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                    <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
+                                                        Compte per defecte
+                                                    </label>
+                                                    <select
+                                                        value={integrations.default_mail || ''}
+                                                        onChange={(e) => {
+                                                            const email = e.target.value;
+                                                            const updated = { ...integrations, default_mail: email };
+                                                            setIntegrations(updated);
+                                                            axios.put('/api/integrations/default_mail', { email }).catch(console.error);
+                                                        }}
+                                                        className="gnosi-input"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {opts.map(opt => (
+                                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
+                                                        S'usarà per enviar correus i com a remitent per defecte.
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                        {activeTab === 'calendar' && (() => {
+                                            const subCalOpts = googleSubCalendars
+                                                .filter(c => c.id && c.name)
+                                                .map(c => ({ id: c.id, label: c.name, account: c.account }));
+                                            const seenIds = new Set(subCalOpts.map(o => o.id));
+                                            const accountOpts = (integrations.calendars || [])
+                                                .filter(c => {
+                                                    const id = c.email || c.username || c.name;
+                                                    return id && !seenIds.has(id);
+                                                })
+                                                .map(c => ({ id: c.email || c.username || c.name, label: c.name || c.email || c.username }));
+                                            const allCalOpts = [
+                                                ...(tables.filter(t => integrations.vault_calendar?.enabled_tables?.includes(t.id)).map(t => ({ id: t.id, label: t.name }))),
+                                                ...subCalOpts,
+                                                ...accountOpts,
+                                            ];
+                                            if (allCalOpts.length === 0) return null;
+                                            return (
+                                                <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                    <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
+                                                        Calendari per defecte
+                                                    </label>
+                                                    <select
+                                                        value={integrations.default_calendar || ''}
+                                                        onChange={async (e) => {
+                                                            const source = e.target.value;
+                                                            const updated = { ...integrations, default_calendar: source };
+                                                            setIntegrations(updated);
+                                                            axios.put('/api/integrations/default_calendar', { source }).catch(console.error);
+                                                        }}
+                                                        className="gnosi-input"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {allCalOpts.map(opt => (
+                                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
+                                                        S'assignarà automàticament a les noves cites creades al calendari.
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                        {isAddingTable && (
+                                            <div className="animate-in" style={{ 
+                                                marginBottom: '32px', padding: '28px', borderRadius: '28px', 
+                                                background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
+                                                boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selecciona una taula del Vault</span>
+                                                    <button onClick={() => setIsAddingTable(false)} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', maxHeight: '400px', overflowY: 'auto', padding: '4px' }}>
+                                                    {tables.filter(t => !integrations.vault_calendar?.enabled_tables?.includes(t.id)).map(tbl => (
+                                                        <button 
+                                                            key={tbl.id}
+                                                            onClick={async () => {
+                                                                const newList = [...(integrations.vault_calendar?.enabled_tables || []), tbl.id];
+                                                                const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
+                                                                setIntegrations(updated);
+                                                                axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                setIsAddingTable(false);
+                                                            }}
+                                                            style={{ 
+                                                                display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', 
+                                                                border: '1px solid var(--settings-border)', borderRadius: '16px', 
+                                                                background: 'var(--settings-bg)', cursor: 'pointer', fontWeight: '800', 
+                                                                color: 'var(--text-primary)', transition: 'all 0.2s', textAlign: 'left'
+                                                            }}
+                                                            className="hover-bg-strong"
+                                                        >
+                                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '8px', borderRadius: '10px' }}>
+                                                                <Database size={16} color="var(--gnosi-blue)" />
+                                                            </div>
+                                                            {tbl.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {addAccountType === activeTab && (
+                                            <div className="animate-in" style={{ 
+                                                marginBottom: '32px', padding: '28px', borderRadius: '28px', 
+                                                background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
+                                                boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Configuració del Compte</span>
+                                                    <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
+                                                </div>
+                                                
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    <FormGroup label="Adreça de Correu">
+                                                        <input
+                                                            type="email"
+                                                            className="gnosi-input"
+                                                            value={addAccountEmail}
+                                                            onChange={e => {
+                                                                setAddAccountEmail(e.target.value);
+                                                                setAddAccountEmailBlurred(false);
+                                                                setIsManualGoogle(false);
+                                                            }}
+                                                            onBlur={() => setAddAccountEmailBlurred(true)}
+                                                            placeholder="exemple@pangea.org"
+                                                            autoFocus
+                                                        />
+                                                    </FormGroup>
+
+                                                    {(() => {
+                                                        const emailLower = addAccountEmail.trim().toLowerCase();
+                                                        const isComplete = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower);
+                                                        if (!isComplete || (!addAccountEmailBlurred && !isManualGoogle)) return null;
+
+                                                        const isGoogle   = emailLower.endsWith('@gmail.com') || emailLower.endsWith('@googlemail.com') || isManualGoogle;
+                                                        const isMicrosoft = emailLower.endsWith('@outlook.com') || emailLower.endsWith('@hotmail.com') || emailLower.endsWith('@live.com') || emailLower.endsWith('@msn.com');
+                                                        const isICloud   = emailLower.endsWith('@icloud.com') || emailLower.endsWith('@me.com') || emailLower.endsWith('@mac.com');
+                                                        const isYahoo    = emailLower.endsWith('@yahoo.com') || emailLower.endsWith('@ymail.com') || emailLower.endsWith('@yahoo.es');
+                                                        const isAol      = emailLower.endsWith('@aol.com');
+
+                                                        const fillImap = (imap, smtp) => {
+                                                            setMailImapHost(imap.host); setMailImapPort(imap.port); setMailImapEnc(imap.enc);
+                                                            setMailSmtpHost(smtp.host); setMailSmtpPort(smtp.port); setMailSmtpEnc(smtp.enc);
+                                                            setMailImapUser(addAccountEmail); setMailSmtpUser(addAccountEmail);
+                                                        };
+
+                                                        const btnStyle = (bg, shadow) => ({
+                                                            width: '100%', background: bg, padding: '14px 16px',
+                                                            borderRadius: '14px', fontWeight: '800', display: 'flex',
+                                                            alignItems: 'center', gap: '12px',
+                                                            boxShadow: shadow, border: 'none', cursor: 'pointer',
+                                                            transition: 'all 0.2s', color: 'white', fontSize: '0.95rem'
+                                                        });
+                                                        const iconBox = (r) => ({ background: 'white', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: r || '10px' });
+
+                                                        const GoogleBtn = () => (
+                                                            <button onClick={() => window.location.href = `/api/auth/google/login?type=${activeTab}`} style={btnStyle('#4285f4', '0 8px 16px rgba(66,133,244,0.25)')}>
+                                                                <div style={iconBox()}><img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" style={{ width: '18px', height: '18px' }} alt="" /></div>
+                                                                Continuar amb Google
+                                                            </button>
+                                                        );
+                                                        const MicrosoftBtn = () => (
+                                                            <button onClick={() => window.location.href = '/api/auth/microsoft/login'} style={btnStyle('#0078d4', '0 8px 16px rgba(0,120,212,0.25)')}>
+                                                                <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg></div>
+                                                                Continuar amb Microsoft
+                                                            </button>
+                                                        );
+                                                        const ICloudBtn = () => (
+                                                            <button onClick={() => fillImap({ host: 'imap.mail.me.com', port: '993', enc: 'ssl' }, { host: 'smtp.mail.me.com', port: '587', enc: 'starttls' })} style={btnStyle('#555', '0 8px 16px rgba(0,0,0,0.15)')}>
+                                                                <div style={iconBox('8px')}><svg width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg></div>
+                                                                Continuar amb iCloud
+                                                            </button>
+                                                        );
+                                                        const YahooBtn = () => (
+                                                            <button onClick={() => fillImap({ host: 'imap.mail.yahoo.com', port: '993', enc: 'ssl' }, { host: 'smtp.mail.yahoo.com', port: '465', enc: 'ssl' })} style={btnStyle('#6001d2', '0 8px 16px rgba(96,1,210,0.2)')}>
+                                                                <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 24 24" fill="#6001d2"><path d="M14.2 2.9L12 9.3 9.8 2.9H6L10.6 14v7.1h2.8V14L18 2.9zM19.6 9.5l-2 5.7-2.1-5.7h-2.8l3.5 9-.1.2c-.4.9-.8 1.2-1.6 1.2-.3 0-.7-.1-1-.2l-.3 2.2c.5.2 1.1.3 1.7.3 2 0 3-.9 3.9-3.4l3.3-9.3h-2.5z"/></svg></div>
+                                                                Continuar amb Yahoo
+                                                            </button>
+                                                        );
+                                                        const AolBtn = () => (
+                                                            <button onClick={() => fillImap({ host: 'imap.aol.com', port: '993', enc: 'ssl' }, { host: 'smtp.aol.com', port: '465', enc: 'ssl' })} style={btnStyle('#ff0b00', '0 8px 16px rgba(255,11,0,0.2)')}>
+                                                                <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 24 24" fill="#ff0b00"><text x="0" y="16" fontSize="14" fontWeight="bold">AOL</text></svg></div>
+                                                                Continuar amb AOL
+                                                            </button>
+                                                        );
+
+                                                        // Domain clearly identified → single button
+                                                        if (isGoogle)    return <div className="animate-in" style={{ marginTop: '8px' }}><GoogleBtn /></div>;
+                                                        if (isMicrosoft) return <div className="animate-in" style={{ marginTop: '8px' }}><MicrosoftBtn /></div>;
+                                                        if (isICloud)    return <div className="animate-in" style={{ marginTop: '8px' }}><ICloudBtn /></div>;
+                                                        if (isYahoo)     return <div className="animate-in" style={{ marginTop: '8px' }}><YahooBtn /></div>;
+                                                        if (isAol)       return <div className="animate-in" style={{ marginTop: '8px' }}><AolBtn /></div>;
+
+                                                        // Unknown domain → show all options
                                                         return (
-                                                            <div key={db.id} className="hierarchical-db" style={{ border: '1px solid var(--settings-section-border)', borderRadius: '10px', padding: '10px', background: 'var(--settings-section-bg)' }}>
-                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', cursor: 'pointer', fontWeight: 'bold', marginBottom: dbTables.length > 0 && isDbChecked ? '10px' : 0 }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={isDbChecked}
-                                                                        onChange={e => {
-                                                                            const checked = e.target.checked;
-                                                                            setGraphConfig(prev => {
-                                                                                let newDbs = checked ? [...prev.visible_databases, db.id] : prev.visible_databases.filter(id => id !== db.id);
-                                                                                let newTables = [...prev.visible_tables];
-                                                                                let newFields = [...prev.visible_fields];
-
-                                                                                if (!checked) {
-                                                                                    // Uncheck all tables and fields of this DB
-                                                                                    const tableIds = dbTables.map(t => t.id);
-                                                                                    newTables = newTables.filter(id => !tableIds.includes(id));
-                                                                                    newFields = newFields.filter(f => !tableIds.some(tid => f.startsWith(`${tid}:`)));
-                                                                                }
-
-                                                                                return { ...prev, visible_databases: newDbs, visible_tables: newTables, visible_fields: newFields };
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                    <Database size={16} />
-                                                                    <span>{db.name}</span>
-                                                                </label>
-
-                                                                {isDbChecked && dbTables.length > 0 && (
-                                                                    <div style={{ marginLeft: '25px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                                        {dbTables.map(table => {
-                                                                            const isTableChecked = graphConfig.visible_tables.includes(table.id);
-                                                                            const properties = table.properties || [];
-
-                                                                            return (
-                                                                                <div key={table.id} className="hierarchical-table">
-                                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', marginBottom: isTableChecked && properties.length > 0 ? '5px' : 0 }}>
-                                                                                        <input
-                                                                                            type="checkbox"
-                                                                                            checked={isTableChecked}
-                                                                                            onChange={e => {
-                                                                                                const checked = e.target.checked;
-                                                                                                setGraphConfig(prev => {
-                                                                                                    let newTables = checked ? [...prev.visible_tables, table.id] : prev.visible_tables.filter(id => id !== table.id);
-                                                                                                    let newFields = [...prev.visible_fields];
-
-                                                                                                    if (!checked) {
-                                                                                                        // Uncheck all fields of this table
-                                                                                                        newFields = newFields.filter(f => !f.startsWith(`${table.id}:`));
-                                                                                                    }
-
-                                                                                                    return { ...prev, visible_tables: newTables, visible_fields: newFields };
-                                                                                                });
-                                                                                            }}
-                                                                                        />
-                                                                                        <span>{table.name}</span>
-                                                                                    </label>
-
-                                                                                    {isTableChecked && properties.length > 0 && (
-                                                                                        <div style={{ marginLeft: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '5px' }}>
-                                                                                            {properties.map(prop => {
-                                                                                                const fieldKey = `${table.id}:${prop.name}`;
-                                                                                                const isFieldChecked = graphConfig.visible_fields.includes(fieldKey);
-
-                                                                                                return (
-                                                                                                    <label key={prop.name} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', background: 'var(--settings-btn-bg)', opacity: 0.9 }}>
-                                                                                                        <input
-                                                                                                            type="checkbox"
-                                                                                                            checked={isFieldChecked}
-                                                                                                            onChange={e => {
-                                                                                                                const checked = e.target.checked;
-                                                                                                                setGraphConfig(prev => ({
-                                                                                                                    ...prev,
-                                                                                                                    visible_fields: checked ? [...prev.visible_fields, fieldKey] : prev.visible_fields.filter(f => f !== fieldKey)
-                                                                                                                }));
-                                                                                                            }}
-                                                                                                        />
-                                                                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prop.name}</span>
-                                                                                                    </label>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                )}
+                                                            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                                                                <p style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', margin: '0 0 4px', textAlign: 'center' }}>Selecciona el proveïdor</p>
+                                                                <GoogleBtn />
+                                                                <MicrosoftBtn />
+                                                                <ICloudBtn />
+                                                                <YahooBtn />
+                                                                <AolBtn />
+                                                                <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textAlign: 'center', margin: '4px 0 0' }}>
+                                                                    O configura manualment amb el formulari de sota
+                                                                </p>
                                                             </div>
                                                         );
-                                                    })}
+                                                    })()}
+                                                    {activeTab === 'mail' ? (
+                                                        <form onSubmit={async (e) => {
+                                                            e.preventDefault();
+                                                            if (!addAccountEmail) return;
+
+                                                            const mailAcc = {
+                                                                id: editingAccountId || `mail_${Date.now()}`,
+                                                                email: addAccountEmail,
+                                                                provider: 'manual',
+                                                                display_name: mailDisplayName,
+                                                                subject_prefix: mailSubjectPrefix,
+                                                                imap_host: mailImapHost,
+                                                                imap_port: mailImapPort,
+                                                                imap_user: mailImapUser,
+                                                                imap_password: mailImapPass,
+                                                                imap_encryption: mailImapEnc,
+                                                                smtp_host: mailSmtpHost,
+                                                                smtp_port: mailSmtpPort,
+                                                                smtp_user: mailSmtpUser,
+                                                                smtp_password: mailSmtpPass,
+                                                                smtp_encryption: mailSmtpEnc,
+                                                                signature: mailSignature,
+                                                                certificate: mailCertificate,
+                                                                aliases: mailAliases,
+                                                                type: 'mail'
+                                                            };
+                                                            const key = 'mail_accounts';
+                                                            const currentList = integrations[key] || [];
+                                                            const newList = editingAccountId
+                                                                ? currentList.map(a => a.id === editingAccountId ? mailAcc : a)
+                                                                : [...currentList, mailAcc];
+
+                                                            if (editingAccountId && mailImapHost) {
+                                                                // Mode edició: prova la connexió IMAP/SMTP
+                                                                setMailTestStatus('testing');
+                                                                try {
+                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
+                                                                    const res = await axios.post('/api/integrations/test-email', {
+                                                                        imap_server: mailImapHost,
+                                                                        smtp_server: mailSmtpHost,
+                                                                        username: mailImapUser || addAccountEmail,
+                                                                        password: mailImapPass,
+                                                                    });
+                                                                    const ok = res.data?.success;
+                                                                    setMailTestStatus(ok ? 'ok' : 'error');
+                                                                    toast[ok ? 'success' : 'error'](ok ? 'Connexió IMAP/SMTP correcta' : `Error: ${res.data?.error || 'No s\'ha pogut connectar'}`);
+                                                                    if (ok) loadIntegrations();
+                                                                } catch (err) {
+                                                                    setMailTestStatus('error');
+                                                                    toast.error(`Error provant connexió: ${err?.response?.data?.detail || err.message || 'Error desconegut'}`);
+                                                                }
+                                                            } else {
+                                                                // Mode nou compte: guarda i tanca
+                                                                setSavingStatus('saving');
+                                                                try {
+                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
+                                                                    setSavingStatus('saved');
+                                                                    toast.success('Compte connectat correctament');
+                                                                    setAddAccountType(null);
+                                                                    setAddAccountEmail('');
+                                                                    setMailDisplayName(''); setMailSubjectPrefix(''); setMailAliases([]);
+                                                                    setMailImapHost(''); setMailImapPort('993'); setMailImapUser(''); setMailImapPass(''); setMailImapEnc('ssl');
+                                                                    setMailSmtpHost(''); setMailSmtpPort('465'); setMailSmtpUser(''); setMailSmtpPass(''); setMailSmtpEnc('ssl');
+                                                                    setMailSignature(''); setMailCertificate('');
+                                                                    setEditingAccountId(null);
+                                                                    loadIntegrations();
+                                                                    setTimeout(() => setSavingStatus('idle'), 2000);
+                                                                } catch (err) {
+                                                                    setSavingStatus('error');
+                                                                    toast.error(`Error guardant: ${err?.response?.data?.detail || err.message || 'Error desconegut'}`);
+                                                                }
+                                                            }
+                                                        }} className="animate-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                            {/* NOM REMITENT + ÀLIES */}
+                                                            <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 20px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
+                                                                <div>
+                                                                    <FormGroup label="Nom del remitent" description="Com apareixerà al camp 'De' dels correus enviats.">
+                                                                        <input
+                                                                            type="text"
+                                                                            className="gnosi-input"
+                                                                            value={mailDisplayName}
+                                                                            onChange={e => setMailDisplayName(e.target.value)}
+                                                                            placeholder="Ismael García"
+                                                                        />
+                                                                    </FormGroup>
+                                                                </div>
+                                                                <div>
+                                                                    <FormGroup label="Àlies (adreces addicionals)" description="Cada àlies envia via el mateix SMTP i pot tenir la seva pròpia signatura.">
+                                                                        <AliasEditor aliases={mailAliases} onChange={setMailAliases} />
+                                                                    </FormGroup>
+                                                                </div>
+                                                                <div style={{ gridColumn: 'span 2' }}>
+                                                                    <FormGroup label="Assignatura per defecte" description="S'afegirà automàticament al camp 'Assumpte' en crear un correu nou.">
+                                                                        <input
+                                                                            type="text"
+                                                                            className="gnosi-input"
+                                                                            value={mailSubjectPrefix}
+                                                                            onChange={e => setMailSubjectPrefix(e.target.value)}
+                                                                            placeholder="Ex: [Departament TIC] "
+                                                                        />
+                                                                    </FormGroup>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* SECCIÓ IMAP */}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>Servidor IMAP (Recepció)</h4>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
+                                                                    <FormGroup label="Servidor"><input type="text" className="gnosi-input" value={mailImapHost} onChange={e => setMailImapHost(e.target.value)} placeholder="imap.pangea.org" /></FormGroup>
+                                                                    <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailImapPort} onChange={e => setMailImapPort(e.target.value)} placeholder="993" /></FormGroup>
+                                                                </div>
+                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailImapUser} onChange={e => setMailImapUser(e.target.value)} /></FormGroup>
+                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailImapPass} onChange={e => setMailImapPass(e.target.value)} /></FormGroup>
+                                                                <FormGroup label="Seguretat">
+                                                                    <select className="gnosi-select" value={mailImapEnc} onChange={e => setMailImapEnc(e.target.value)}>
+                                                                        <option value="ssl">SSL/TLS</option>
+                                                                        <option value="starttls">STARTTLS</option>
+                                                                        <option value="none">Cap</option>
+                                                                    </select>
+                                                                </FormGroup>
+                                                            </div>
+
+                                                            {/* SECCIÓ SMTP */}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>Servidor SMTP (Enviament)</h4>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
+                                                                    <FormGroup label="Servidor"><input type="text" className="gnosi-input" value={mailSmtpHost} onChange={e => setMailSmtpHost(e.target.value)} placeholder="smtp.pangea.org" /></FormGroup>
+                                                                    <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailSmtpPort} onChange={e => setMailSmtpPort(e.target.value)} placeholder="465" /></FormGroup>
+                                                                </div>
+                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailSmtpUser} onChange={e => setMailSmtpUser(e.target.value)} /></FormGroup>
+                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailSmtpPass} onChange={e => setMailSmtpPass(e.target.value)} /></FormGroup>
+                                                                <FormGroup label="Seguretat">
+                                                                    <select className="gnosi-select" value={mailSmtpEnc} onChange={e => setMailSmtpEnc(e.target.value)}>
+                                                                        <option value="ssl">SSL/TLS</option>
+                                                                        <option value="starttls">STARTTLS</option>
+                                                                        <option value="none">Cap</option>
+                                                                    </select>
+                                                                </FormGroup>
+                                                            </div>
+
+                                                            <div style={{ gridColumn: 'span 2' }}>
+                                                                <FormGroup label="Signatura HTML (Opcional)" description="Aquesta signatura s'afegirà automàticament als correus que enviïs.">
+                                                                    <div style={{ marginTop: '8px' }}>
+                                                                        <MailBlockEditor
+                                                                            key={editingAccountId || 'new'}
+                                                                            initialContent={mailSignature}
+                                                                            onChange={setMailSignature}
+                                                                            minHeight="120px"
+                                                                        />
+                                                                    </div>
+                                                                </FormGroup>
+                                                            </div>
+                                                            <div style={{ gridColumn: 'span 2' }}>
+                                                                <FormGroup label="Certificat / Ruta Clau (Opcional)">
+                                                                    <input type="text" className="gnosi-input" value={mailCertificate} onChange={e => setMailCertificate(e.target.value)} placeholder="/ruta/al/certificat.crt" />
+                                                                </FormGroup>
+                                                            </div>
+                                                            
+                                                            <div style={{ gridColumn: 'span 2', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                                                    {editingAccountId
+                                                                        ? '✓ Els canvis de signatura, nom i àlies es guarden automàticament.'
+                                                                        : 'Omple el servidor IMAP/SMTP i clica per connectar.'}
+                                                                </div>
+                                                                <button
+                                                                    type="submit"
+                                                                    className="btn-gnosi-primary"
+                                                                    style={{ padding: '12px 24px', fontSize: '0.9rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                                    disabled={mailTestStatus === 'testing'}
+                                                                >
+                                                                    {mailTestStatus === 'testing' && <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />}
+                                                                    {mailTestStatus === 'ok' && <Check size={15} />}
+                                                                    {editingAccountId
+                                                                        ? (mailTestStatus === 'ok' ? 'Connexió OK' : mailTestStatus === 'error' ? 'Error connexió' : 'Provar connexió')
+                                                                        : 'Connectar Compte'}
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    ) : (
+                                                        <form onSubmit={async (e) => {
+                                                            e.preventDefault();
+                                                            if (!addAccountEmail) return;
+                                                            if (activeTab !== 'mail' && (!manualServer || !manualPassword)) return;
+                                                            
+                                                            setSavingStatus('saving');
+                                                            try {
+                                                                const key = activeTab === 'calendar' ? 'calendars' : (activeTab === 'contacts' ? 'contacts' : 'mail_accounts');
+                                                                const currentList = integrations[key] || [];
+                                                                let newList;
+                                                                const newAcc = {
+                                                                    id: editingAccountId || `manual_${Date.now()}`,
+                                                                    email: addAccountEmail,
+                                                                    username: addAccountEmail,
+                                                                    provider: 'manual',
+                                                                    server_url: manualServer,
+                                                                    password: manualPassword,
+                                                                    type: activeTab
+                                                                };
+                                                                if (editingAccountId) {
+                                                                    newList = currentList.map(a => a.id === editingAccountId ? { ...a, ...newAcc } : a);
+                                                                } else {
+                                                                    newList = [...currentList, newAcc];
+                                                                }
+
+                                                                await axios.post('/api/integrations/bulk', {
+                                                                    ...integrations,
+                                                                    [key]: newList
+                                                                });
+
+                                                                setSavingStatus('saved');
+                                                                setAddAccountType(null);
+                                                                setAddAccountEmail('');
+                                                                setIsManualGoogle(false);
+                                                                setManualServer('');
+                                                                setManualPassword('');
+                                                                setEditingAccountId(null);
+                                                                
+                                                                loadIntegrations();
+                                                                setTimeout(() => setSavingStatus('idle'), 2000);
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                                setSavingStatus('error');
+                                                            }
+                                                        }} className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            <FormGroup label="Servidor URL" description="Ex: caldav.pangea.org o imap.pangea.org">
+                                                                <input 
+                                                                    type="text" 
+                                                                    className="gnosi-input" 
+                                                                    value={manualServer} 
+                                                                    onChange={e => setManualServer(e.target.value)} 
+                                                                    placeholder="https://..." 
+                                                                />
+                                                            </FormGroup>
+                                                            <FormGroup label="Contrasenya">
+                                                                <PasswordInput value={manualPassword} onChange={e => setManualPassword(e.target.value)} />
+                                                            </FormGroup>
+                                                            
+                                                            <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                                                                <button type="submit" className="btn-gnosi-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px 24px', flex: 1, fontWeight: '900', border: 'none', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(59, 130, 246, 0.2)' }}>
+                                                                    <Check size={18} />
+                                                                    {editingAccountId ? 'Actualitzar Compte' : 'Connectar Compte'}
+                                                                </button>
+
+                                                                {addAccountEmail.includes('@') && (
+                                                                    <button 
+                                                                        onClick={() => setIsManualGoogle(true)}
+                                                                        className="btn-gnosi-secondary"
+                                                                        style={{ padding: '14px', borderRadius: '14px', fontSize: '0.8rem' }}
+                                                                    >
+                                                                        És de Google?
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </form>
+                                                    )}
                                                 </div>
                                             </div>
-
-                                            <div style={{ marginTop: '10px' }}>
-                                                <h4 style={{ fontSize: '0.9rem', margin: '0 0 10px 0', color: 'var(--text-secondary)', borderBottom: '1px solid var(--settings-border)', paddingBottom: '5px' }}>Filtres de Taula (Barra lateral)</h4>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Selecciona quines taules voldràs filtrar individualment des de la barra lateral.</p>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
-                                                    {(tables || []).filter(t => graphConfig.visible_tables.includes(t.id)).map(table => (
-                                                        <label key={`filter-${table.id}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: 'var(--settings-btn-bg)', border: '1px solid var(--settings-section-border)' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={graphConfig.graph_table_filters?.includes(table.id)}
-                                                                onChange={e => {
-                                                                    const checked = e.target.checked;
-                                                                    const current = graphConfig.graph_table_filters || [];
-                                                                    setGraphConfig(prev => ({
-                                                                        ...prev,
-                                                                        graph_table_filters: checked ? [...current, table.id] : current.filter(id => id !== table.id)
-                                                                    }));
-                                                                }}
-                                                            />
-                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{table.name}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'newsletters' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <Mail size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Subscripcions de contingut</h3>
-                                        </div>
-
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                                            Gestiona subscripcions RSS, newsletters i canals de YouTube des d'un únic lloc.
-                                        </p>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 180px auto', gap: '10px', marginBottom: '16px' }}>
-                                            <input
-                                                type="text"
-                                                value={newsletterName}
-                                                onChange={(e) => setNewsletterName(e.target.value)}
-                                                placeholder="Nom (opcional)"
-                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={newsletterAddress}
-                                                onChange={(e) => setNewsletterAddress(e.target.value)}
-                                                placeholder={newsletterType === 'rss' ? 'URL del feed RSS' : newsletterType === 'youtube' ? 'URL de canal YouTube o feed' : 'Email o identificador'}
-                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                            />
-                                            <select
-                                                value={newsletterType}
-                                                onChange={(e) => setNewsletterType(e.target.value)}
-                                                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                            >
-                                                <option value="rss">RSS</option>
-                                                <option value="newsletter">Newsletter</option>
-                                                <option value="youtube">YouTube</option>
-                                            </select>
-                                            <button
-                                                onClick={handleAddNewsletter}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 14px', borderRadius: '8px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', cursor: 'pointer', fontWeight: 600 }}
-                                            >
-                                                <Plus size={16} />
-                                                Afegir
-                                            </button>
-                                        </div>
-
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                                            <input
-                                                ref={newsletterOpmlRef}
-                                                type="file"
-                                                accept=".opml,.xml"
-                                                onChange={(e) => handleNewsletterOpmlUpload(e.target.files?.[0])}
-                                                style={{ display: 'none' }}
-                                            />
-                                            <button
-                                                onClick={() => newsletterOpmlRef.current?.click()}
-                                                disabled={newsletterOpmlLoading}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-btn-bg)', color: 'var(--text-primary)', cursor: newsletterOpmlLoading ? 'not-allowed' : 'pointer', opacity: newsletterOpmlLoading ? 0.7 : 1, fontWeight: 500 }}
-                                            >
-                                                <Mail size={14} />
-                                                {newsletterOpmlLoading ? 'Important OPML...' : 'Importar fitxer OPML'}
-                                            </button>
-                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Puja un export OPML de newsletters i feeds.</span>
-                                        </div>
-
-                                        {newsletterStatus && (
-                                            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>{newsletterStatus}</p>
                                         )}
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            {newsletterLoading ? (
-                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Carregant subscripcions...</p>
-                                            ) : newsletterSources.length === 0 ? (
-                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Encara no tens subscripcions configurades.</p>
-                                            ) : (
-                                                newsletterSources.map((source) => (
-                                                    <div
-                                                        key={source.id}
-                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--settings-border)', borderRadius: '10px', padding: '12px' }}
-                                                    >
-                                                        <div style={{ minWidth: 0 }}>
-                                                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                {source.name}
-                                                                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em', borderRadius: '999px', padding: '2px 8px', background: source.type === 'youtube' ? '#ef444422' : source.type === 'newsletter' ? '#0ea5e922' : '#22c55e22', color: source.type === 'youtube' ? '#b91c1c' : source.type === 'newsletter' ? '#0369a1' : '#166534' }}>
-                                                                    {source.type || 'rss'}
-                                                                </span>
+                                        {(() => {
+                                            // Get all possible accounts that could be mail accounts
+                                            const currentAccounts = [
+                                                ...(integrations.mail_accounts || []),
+                                                ...(integrations.emails || []),
+                                                ...(integrations.calendars || []),
+                                                ...(integrations.contacts || [])
+                                            ].filter(acc => acc.email || acc.username);
+                                            
+                                            // Deduplicate by Email/ID
+                                            const seen = new Set();
+                                            const uniqueAccounts = currentAccounts.filter(acc => {
+                                                const email = acc.email || acc.username;
+                                                if (!email) return false;
+                                                const lowerEmail = email.toLowerCase();
+                                                if (seen.has(lowerEmail)) return false;
+                                                seen.add(lowerEmail);
+                                                return true;
+                                            });
+
+                                            const vaultCalendars = activeTab === 'calendar' ? (tables.filter(t => integrations.vault_calendar?.enabled_tables?.includes(t.id))) : [];
+                                            const hasAny = (uniqueAccounts.length > 0) || (vaultCalendars.length > 0);
+                                            
+                                            if (hasAny) {
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        {/* Comptes Externs / Integracions */}
+                                                        {uniqueAccounts.map((acc, idx) => (
+                                                            <AccountRow
+                                                                key={`acc-${idx}`}
+                                                                name={acc.name || acc.email}
+                                                                description={acc.username || acc.email}
+                                                                status={syncErrorAccounts.has(acc.email || acc.username) ? 'error' : 'connected'}
+                                                                type={activeTab}
+                                                                provider={acc.provider}
+                                                                enabled={acc.enabled !== false}
+                                                                onToggleEnabled={activeTab === 'mail' ? async (val) => {
+                                                                    const emailAddr = acc.email || acc.username;
+                                                                    await axios.patch(`/api/mail/accounts/${encodeURIComponent(emailAddr)}/enabled`, { enabled: val });
+                                                                    setIntegrations(prev => {
+                                                                        const updated = { ...prev };
+                                                                        for (const section of ['mail_accounts', 'emails']) {
+                                                                            if (updated[section]) {
+                                                                                updated[section] = updated[section].map(a =>
+                                                                                    (a.email || a.username) === emailAddr ? { ...a, enabled: val } : a
+                                                                                );
+                                                                            }
+                                                                        }
+                                                                        return updated;
+                                                                    });
+                                                                } : undefined}
+                                                                onSync={() => handleSyncAccount(activeTab, acc)}
+                                                                isSyncing={syncingAccounts[acc.id]}
+                                                                onEdit={() => handleEditAccount(activeTab, acc)}
+                                                                onDelete={() => handleDeleteAccount(activeTab, acc.id)}
+                                                                color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
+                                                            />
+                                                        ))}
+                                                        
+                                                        {/* Taules del Vault (només per a Calendari) */}
+                                                        {vaultCalendars.map((tbl, idx) => {
+                                                            const tblColor = integrations.calendar_colors?.[tbl.id] || integrations.calendar_colors?.[`${tbl.name}`] || '#6366f1';
+                                                            return (
+                                                                <AccountRow 
+                                                                    key={`vault-${idx}`} 
+                                                                    name={tbl.name} 
+                                                                    description="Taula del Vault" 
+                                                                    status="connected" 
+                                                                    type="calendar" 
+                                                                    provider="vault"
+                                                                    onEdit={() => setEditingTableColor({ id: tbl.id, name: tbl.name, color: tblColor })}
+                                                                    onDelete={() => {
+                                                                        const newList = integrations.vault_calendar?.enabled_tables?.filter(id => id !== tbl.id) || [];
+                                                                        const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
+                                                                        setIntegrations(updated);
+                                                                        axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                    }}
+                                                                    color={tblColor} 
+                                                                />
+                                                            );
+                                                        })}
+
+                                                        {/* Sub-modal per a canviar el color de la taula */}
+                                                        {editingTableColor && (
+                                                            <div className="account-edit-overlay" style={{
+                                                                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', 
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000
+                                                            }}>
+                                                                <div style={{ background: 'var(--settings-bg)', padding: '30px', borderRadius: '24px', width: '400px', boxShadow: '0 20px 50px rgba(0,0,0,0.2)' }}>
+                                                                    <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 800 }}>Color de {editingTableColor.name}</h3>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '25px' }}>
+                                                                        {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#71717a'].map(c => (
+                                                                            <button 
+                                                                                key={c} 
+                                                                                onClick={() => setEditingTableColor({ ...editingTableColor, color: c })}
+                                                                                style={{ 
+                                                                                    height: '40px', borderRadius: '10px', border: editingTableColor.color === c ? '3px solid var(--text-primary)' : 'none',
+                                                                                    background: c, cursor: 'pointer' 
+                                                                                }}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                const updatedColors = { ...(integrations.calendar_colors || {}), [editingTableColor.id]: editingTableColor.color };
+                                                                                const updated = { ...integrations, calendar_colors: updatedColors };
+                                                                                setIntegrations(updated);
+                                                                                axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                                setEditingTableColor(null);
+                                                                            }}
+                                                                            className="btn-gnosi-primary" style={{ flex: 1, padding: '12px' }}
+                                                                        >Guardar</button>
+                                                                        <button onClick={() => setEditingTableColor(null)} className="btn-gnosi-secondary" style={{ flex: 1, padding: '12px' }}>Cancel·lar</button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source.url}</div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            } else {
+                                                return !addAccountType && !isAddingTable && (
+                                                    <div style={{ textAlign: 'center', padding: '100px 40px', background: 'var(--settings-sidebar-bg)', borderRadius: '28px', border: '2px dashed var(--settings-border)', opacity: 0.6 }}>
+                                                        <div style={{ width: '80px', height: '80px', background: 'var(--settings-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 28px auto', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
+                                                            {activeTab === 'calendar' ? <Calendar size={40} strokeWidth={1.5} /> : (activeTab === 'contacts' ? <Users size={40} strokeWidth={1.5} /> : <Mail size={40} strokeWidth={1.5} />)}
                                                         </div>
+                                                        <div style={{ fontWeight: '900', fontSize: '1.3rem', color: 'var(--text-primary)' }}>No hi ha comptes connectats</div>
+                                                        <p style={{ fontSize: '0.95rem', marginTop: '12px', maxWidth: '300px', margin: '12px auto 0' }}>Connecta un servei per automatitzar el teu flux d'informació.</p>
+                                                    </div>
+                                                );
+                                            }
+                                        })()}
+                                    </div>
+                                </Section>
+                            )}
+
+                            {/* MAIL SNIPPETS */}
+                            {activeTab === 'mail' && (
+                                <Section title="Fragments de text" icon={FileText}>
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                                        Textos predefinits que pots insertar ràpidament quan redactes o respons correus.
+                                    </p>
+
+                                    {/* Llista de fragments existents */}
+                                    {snippets.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+                                            {snippets.map(s => (
+                                                <div key={s.id} style={{
+                                                    display: 'flex', alignItems: 'flex-start', gap: '12px',
+                                                    padding: '14px 16px', background: 'var(--settings-bg)',
+                                                    borderRadius: '14px', border: `1px solid ${editingSnippetId === s.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`
+                                                }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '4px' }}>{s.title}</div>
+                                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.4', overflow: 'hidden', maxHeight: '3.6em' }}>{s.content}</div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                                         <button
-                                                            onClick={() => handleDeleteNewsletter(source.id)}
-                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #ef444433', background: 'transparent', color: '#ef4444', borderRadius: '8px', padding: '8px 10px', cursor: 'pointer' }}
+                                                            onClick={() => handleEditSnippet(s)}
+                                                            style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--gnosi-blue)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                                        >
+                                                            Editar
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteSnippet(s.id)}
+                                                            style={{ padding: '6px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                                         >
                                                             <Trash2 size={14} />
-                                                            Eliminar
                                                         </button>
                                                     </div>
-                                                ))
-                                            )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    </section>
-                                </div>
-                            )}
+                                    )}
 
-                            {activeTab === 'notion' && (
-                                <section className="settings-section">
-                                    <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                        <RefreshCw size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Sincronització de Notion</h3>
-                                    </div>
-                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>{t('sync_desc')}</p>
-                                    <button
-                                        onClick={handleSync}
-                                        disabled={syncing}
-                                        style={{
-                                            width: '100%',
-                                            padding: '12px',
-                                            borderRadius: '10px',
-                                            border: '1px solid var(--settings-border)',
-                                            background: 'var(--settings-btn-bg)',
-                                            color: 'var(--text-primary)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '10px',
-                                            cursor: syncing ? 'not-allowed' : 'pointer',
-                                            fontWeight: '600',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        <RefreshCw size={18} className={syncing ? 'spin-anim' : ''} />
-                                        {syncing ? t('syncing_label') : t('sync_now_btn')}
-                                    </button>
-                                    {syncMessage && <p style={{ fontSize: '0.85rem', marginTop: '10px', textAlign: 'center', color: 'var(--gnosi-blue)', fontWeight: '500' }}>{syncMessage}</p>}
-                                </section>
-                            )}
-
-                            {activeTab === 'zotero' && zoteroConfig && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                            <BookOpen size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Zotero Sync</h3>
-                                        </div>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Configura la sincronització de la teva biblioteca local de Zotero.</p>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Taula Destí</label>
-                                                <select
-                                                    value={zoteroConfig.target_table || ''}
-                                                    onChange={e => setZoteroConfig(prev => ({ ...prev, target_table: e.target.value }))}
-                                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                                                >
-                                                    <option value="">Selecciona una taula...</option>
-                                                    {zoteroTables.map(t => (
-                                                        <option key={t.id} value={t.id}>{t.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-
-                                            <div className="settings-mapping-list" style={{ background: 'rgba(0,0,0,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid var(--settings-border)', maxHeight: '300px', overflowY: 'auto' }}>
-                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '12px' }}>Mapeig de Camps</h4>
-                                                {(zoteroFields || []).map(field => (
-                                                    <div key={field.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '15px' }}>
-                                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '500' }}>{field.label}</span>
-                                                        <select
-                                                            style={{ background: 'var(--settings-input-bg)', border: '1px solid var(--settings-border)', borderRadius: '6px', padding: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', width: '180px' }}
-                                                            value={zoteroConfig.mapping?.[field.id] || ''}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                setZoteroConfig(prev => ({
-                                                                    ...prev,
-                                                                    mapping: {
-                                                                        ...(prev.mapping || {}),
-                                                                        [field.id]: val
-                                                                    }
-                                                                }));
-                                                            }}
-                                                        >
-                                                            <option value="">-- No mapar --</option>
-                                                            {availableProperties.map(prop => (
-                                                                <option key={prop.name} value={prop.name}>{prop.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                ))}
-                                            </div>
-
+                                    {/* Formulari d'afegir/editar */}
+                                    <div style={{
+                                        padding: '20px', background: 'var(--settings-bg)',
+                                        borderRadius: '16px', border: '1px solid var(--settings-border)',
+                                        display: 'flex', flexDirection: 'column', gap: '14px'
+                                    }}>
+                                        <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                            {editingSnippetId ? 'Editar fragment' : 'Nou fragment'}
+                                        </h4>
+                                        <FormGroup label="Títol" description="Nom curt per identificar el fragment al menú.">
+                                            <input
+                                                type="text"
+                                                className="gnosi-input"
+                                                placeholder="Ex: Salutació formal"
+                                                value={snippetDraft.title}
+                                                onChange={e => setSnippetDraft(d => ({ ...d, title: e.target.value }))}
+                                                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                                            />
+                                        </FormGroup>
+                                        <FormGroup label="Contingut" description="Text que s'inserirà al correu.">
+                                            <textarea
+                                                className="gnosi-input"
+                                                rows={4}
+                                                placeholder="Escriu el text del fragment..."
+                                                value={snippetDraft.content}
+                                                onChange={e => setSnippetDraft(d => ({ ...d, content: e.target.value }))}
+                                                style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
+                                            />
+                                        </FormGroup>
+                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                            {editingSnippetId && (
                                                 <button
-                                                    onClick={handleZoteroSync}
-                                                    disabled={zoteroSyncing}
-                                                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: zoteroSyncing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                                    onClick={() => { setEditingSnippetId(null); setSnippetDraft({ title: '', content: '' }); }}
+                                                    style={{ padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
                                                 >
-                                                    <RefreshCw size={16} className={zoteroSyncing ? 'spin-anim' : ''} />
-                                                    Sincronitzar
+                                                    Cancel·lar
                                                 </button>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'ai' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', flex: 1, overflow: 'auto', paddingRight: '10px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px' }}>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configura els teus assistents d'IA i els proveïdors de models (Groq, OpenAI, Ollama, etc).</p>
-                                    </div>
-
-                                    {/* Providers Section */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Zap size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Proveïdors de LLM</h3>
-                                            </div>
-                                            <button 
-                                                onClick={openAddProviderModal}
-                                                style={{ 
-                                                    padding: '6px 12px', 
-                                                    borderRadius: '8px', 
-                                                    background: 'var(--gnosi-blue)', 
-                                                    color: 'white', 
-                                                    border: 'none', 
-                                                    cursor: 'pointer', 
-                                                    fontSize: '0.8rem', 
-                                                    fontWeight: '600',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px'
-                                                }}
+                                            )}
+                                            <button
+                                                onClick={handleAddSnippet}
+                                                disabled={!snippetDraft.title.trim() || !snippetDraft.content.trim()}
+                                                style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: (!snippetDraft.title.trim() || !snippetDraft.content.trim()) ? 0.5 : 1 }}
                                             >
-                                                <LucideIcons.Plus size={14} /> Afegir Proveïdor
+                                                <Plus size={16} />
+                                                {editingSnippetId ? 'Actualitzar' : 'Afegir fragment'}
                                             </button>
                                         </div>
-                                        
-                                        <div className="ai-provider-grid">
-                                            {Object.entries(aiProviders).map(([pId, config]) => {
-                                                const meta = LLM_PROVIDERS_META[pId] || LLM_PROVIDERS_META.custom;
-                                                
-                                                return (
-                                                    <div 
-                                                        key={pId} 
-                                                        className="provider-card"
-                                                        onClick={() => setEditingProvider({ id: pId, ...config, name: meta.name, pending_api_key: '' })}
+                                    </div>
+                                </Section>
+                            )}
+
+                            {/* SOCIAL */}
+                            {activeTab === 'social' && (
+                                <>
+                                    <Section title="Xarxes Socials" icon={Share2}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {socialNetworks.map(net => (
+                                                <div key={net.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <span style={{ fontSize: '1.4rem' }}>{net.icon}</span>
+                                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
+                                                    </div>
+                                                    <div
+                                                        className={`gnosi-toggle ${net.enabled ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
+                                                            saveSocialNetworks(updated);
+                                                        }}
                                                     >
-                                                        <div className="provider-card__header">
-                                                            <div className="provider-card__identity">
-                                                                <div className="provider-card__logo" style={{ color: meta.color }}>
-                                                                    {meta.icon}
-                                                                </div>
-                                                                <div className="provider-card__name">{meta.name}</div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                                                            {meta.description}
-                                                        </div>
+                                                        <div className="gnosi-toggle-handle" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Section>
 
-                                                                                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
-                                                                                                                    {getProviderRequirementLabels(pId).map((label) => (
-                                                                                                                        <span key={`${pId}-${label}`} style={{ fontSize: '0.7rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '2px 8px', color: 'var(--text-secondary)' }}>
-                                                                                                                            {label}
-                                                                                                                        </span>
-                                                                                                                    ))}
+                                    <Section title="Streams del Dashboard" icon={Rss} extra={
+                                        <button onClick={() => setShowAddStream(v => !v)} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem', borderRadius: '10px' }}>
+                                            {showAddStream ? <X size={15} /> : <Plus size={15} />}
+                                            {showAddStream ? 'Cancel·lar' : 'Afegir stream'}
+                                        </button>
+                                    }>
+                                        {showAddStream && (
+                                            <div style={{ padding: '16px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                    <div>
+                                                        <label className="settings-label">ID intern</label>
+                                                        <input className="gnosi-input" placeholder="ex: mastodon-hashtag" value={newStreamForm.id} onChange={e => setNewStreamForm(f => ({ ...f, id: e.target.value }))} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="settings-label">Títol</label>
+                                                        <input className="gnosi-input" placeholder="ex: #tech" value={newStreamForm.title} onChange={e => setNewStreamForm(f => ({ ...f, title: e.target.value }))} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="settings-label">Icona (emoji)</label>
+                                                        <input className="gnosi-input" placeholder="📡" value={newStreamForm.icon} onChange={e => setNewStreamForm(f => ({ ...f, icon: e.target.value }))} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="settings-label">Xarxa</label>
+                                                        <select className="gnosi-input" value={newStreamForm.network} onChange={e => setNewStreamForm(f => ({ ...f, network: e.target.value }))}>
+                                                            {socialNetworks.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                                            <option value="scheduled">Programats</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <button onClick={handleAddSocialStream} className="btn-gnosi-primary" style={{ alignSelf: 'flex-end', padding: '8px 20px', borderRadius: '10px', fontSize: '0.85rem' }}>
+                                                    Afegir
+                                                </button>
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {socialStreams.length === 0 && (
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '20px', textAlign: 'center' }}>
+                                                    No hi ha streams configurats.
+                                                </div>
+                                            )}
+                                            {socialStreams.map(stream => (
+                                                <div key={stream.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <span style={{ fontSize: '1.2rem' }}>{stream.icon}</span>
+                                                        <div>
+                                                            <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{stream.title}</div>
+                                                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{stream.network} · {stream.id}</div>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = socialStreams.filter(s => s.id !== stream.id);
+                                                            saveSocialStreams(updated);
+                                                        }}
+                                                        style={{ padding: '6px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                                        className="hover-bg"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Section>
+                                </>
+                            )}
+
+                            {/* NEWSLETTERS */}
+                            {activeTab === 'newsletters' && (
+                                <Section title="Fonts d'Informació" icon={Rss} extra={
+                                    <button onClick={() => newsletterOpmlRef.current?.click()} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap' }}><FileUp size={16} /> Importar OPML</button>
+                                }>
+                                    <input ref={newsletterOpmlRef} type="file" accept=".opml,.xml" style={{ display: 'none' }} />
+                                    
+                                    <div className="animate-in" style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '28px', border: '1px solid var(--settings-border)', marginBottom: '40px', boxShadow: '0 12px 40px rgba(0,0,0,0.05)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '28px' }}>
+                                            <FormGroup label="Nom de la Font"><input type="text" className="gnosi-input" value={newsletterName} onChange={e => setNewsletterName(e.target.value)} placeholder="Ej: TechCrunch / Perplexity" /></FormGroup>
+                                            <FormGroup label="URL del Feed"><input type="text" className="gnosi-input" value={newsletterAddress} onChange={e => setNewsletterAddress(e.target.value)} placeholder="https://..." /></FormGroup>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                {['rss', 'youtube', 'newsletter'].map(t => (
+                                                    <button key={t} onClick={() => setNewsletterType(t)} style={{
+                                                        padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--settings-border)',
+                                                        background: newsletterType === t ? 'var(--gnosi-blue)' : 'transparent',
+                                                        color: newsletterType === t ? 'white' : 'var(--text-secondary)',
+                                                        fontSize: '0.85rem', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em'
+                                                    }}>{t}</button>
+                                                ))}
+                                            </div>
+                                            <button onClick={handleAddNewsletter} className="btn-gnosi-primary" style={{ padding: '12px 32px', borderRadius: '14px' }}>Afegir Font</button>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                        {newsletterSources.map(s => (
+                                            <div key={s.id} className="account-row hover-scale" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderRadius: '24px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
+                                                    <div style={{ width: '56px', height: '56px', background: 'rgba(59,130,246,0.12)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem' }}>
+                                                        {s.type === 'rss' ? '📰' : (s.type === 'youtube' ? '📺' : '📧')}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{s.name}</div>
+                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.7, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.url}</div>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => {
+                                                    setConfirmConfig({
+                                                        isOpen: true,
+                                                        title: 'Eliminar Subscripció',
+                                                        message: `Estàs segur que vols eliminar la font "${s.name}"?`,
+                                                        onConfirm: async () => {
+                                                            try {
+                                                                await fetch(`/api/reader/sources/${s.id}`, { method: 'DELETE' });
+                                                                loadNewsletterSources();
+                                                                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                                                            } catch (e) {
+                                                                console.error("Error deleting source:", e);
+                                                            }
+                                                        }
+                                                    });
+                                                }} style={{ color: '#ef4444', border: 'none', background: 'transparent', cursor: 'pointer', padding: '12px', borderRadius: '12px' }} className="hover-bg-danger"><Trash2 size={24} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Section>
+                            )}
+
+                            {/* GRAF */}
+                            {activeTab === 'graph' && (
+                                <Section title="Motor Visual del Grafe" icon={Share2}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', marginBottom: '50px' }}>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                                                <Palette size={18} color="var(--gnosi-blue)" />
+                                                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estètica</h4>
+                                            </div>
+                                            <FormGroup label={`Mida del Node: ${draft.graph.node_size.toFixed(1)}`}>
+                                                <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.node_size} onChange={e => setDraft({...draft, graph: {...draft.graph, node_size: parseFloat(e.target.value)}})} />
+                                            </FormGroup>
+                                            <FormGroup label={`Gruix de l'Arc: ${draft.graph.edge_thickness.toFixed(1)}`}>
+                                                <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.edge_thickness} onChange={e => setDraft({...draft, graph: {...draft.graph, edge_thickness: parseFloat(e.target.value)}})} />
+                                            </FormGroup>
+                                            <div style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                                <FormGroup label="Direccionalitat" description="Mostra fletxes per indicar relacions pare-fill." horizontal>
+                                                    <div className={`gnosi-toggle ${draft.graph.show_arrows ? 'active' : ''}`} onClick={() => setDraft({...draft, graph: {...draft.graph, show_arrows: !draft.graph.show_arrows}})}>
+                                                        <div className="gnosi-toggle-handle" />
+                                                    </div>
+                                                </FormGroup>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                                                <Zap size={18} color="var(--gnosi-blue)" />
+                                                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Física Real-Time</h4>
+                                            </div>
+                                            <FormGroup label={`Gravetat: ${draft.graph.physics.gravity}`}>
+                                                <input type="range" className="gnosi-range" min="0" max="2" step="0.05" value={draft.graph.physics.gravity} onChange={e => setDraft({...draft, graph: {...draft.graph, physics: {...draft.graph.physics, gravity: parseFloat(e.target.value)}}})} />
+                                            </FormGroup>
+                                            <FormGroup label={`Repulsió: ${draft.graph.physics.repulsion}`}>
+                                                <input type="range" className="gnosi-range" min="0" max="10000" step="100" value={draft.graph.physics.repulsion} onChange={e => setDraft({...draft, graph: {...draft.graph, physics: {...draft.graph.physics, repulsion: parseInt(e.target.value)}}})} />
+                                            </FormGroup>
+                                            <FormGroup label={`Fricció: ${draft.graph.physics.friction}`}>
+                                                <input type="range" className="gnosi-range" min="1" max="20" step="1" value={draft.graph.physics.friction} onChange={e => setDraft({...draft, graph: {...draft.graph, physics: {...draft.graph.physics, friction: parseInt(e.target.value)}}})} />
+                                            </FormGroup>
+                                        </div>
+                                    </div>
+
+                                    <Section title="Estructures Visibles" icon={Database}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                                            {/* Bases de dades i Taules */}
+                                            <div style={{ background: 'var(--settings-bg)', borderRadius: '24px', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
+                                                <div 
+                                                    onClick={() => setIsDatabasesExpanded(!isDatabasesExpanded)}
+                                                    className="hover-bg"
+                                                    style={{ 
+                                                        padding: '16px 24px', 
+                                                        cursor: 'pointer', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'space-between',
+                                                        borderBottom: isDatabasesExpanded ? '1px solid var(--settings-border)' : 'none',
+                                                        transition: 'all 0.3s ease',
+                                                        background: isDatabasesExpanded ? 'var(--settings-sidebar-bg)' : 'transparent'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <Database size={18} color="var(--gnosi-blue)" />
+                                                        <h5 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>
+                                                            {translations[language].databases || "Bases de dades"}
+                                                        </h5>
+                                                    </div>
+                                                    <ChevronRight 
+                                                        size={18} 
+                                                        color="var(--text-secondary)" 
+                                                        style={{ 
+                                                            transform: isDatabasesExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                            opacity: 0.6
+                                                        }} 
+                                                    />
+                                                </div>
+
+                                                {isDatabasesExpanded && (
+                                                    <div className="animate-in" style={{ padding: '24px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            {/* Render formal databases */}
+                                                            {databases.map(db => {
+                                                                const isDbVisible = draft.graph.visible_databases?.includes(db.id);
+                                                                const dbTables = tables.filter(t => t.database_id === db.id);
+                                                                
+                                                                return (
+                                                                <div key={db.id} style={{ marginBottom: isDbVisible ? '12px' : '0' }}>
+                                                                    <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
+                                                                        <div className={`gnosi-toggle ${isDbVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const checked = !isDbVisible;
+                                                                            setDraft(prev => ({
+                                                                                ...prev,
+                                                                                graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), db.id] : (prev.graph.visible_databases||[]).filter(id => id !== db.id) }
+                                                                            }));
+                                                                        }} style={{ transform: 'scale(0.8)' }}>
+                                                                            <div className="gnosi-toggle-handle" />
+                                                                        </div>
+                                                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${db.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                            <Database size={16} color={db.color || '#3b82f6'} />
+                                                                        </div>
+                                                                        <span style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{db.name}</span>
+                                                                    </div>
+
+                                                                    {dbTables.length > 0 && (
+                                                                        <div style={{ marginLeft: '40px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                            {dbTables.map(table => {
+                                                                                const isTableVisible = draft.graph.visible_tables?.includes(table.id);
+                                                                                const tableFields = table.properties || [];
+                                                                                
+                                                                                return (
+                                                                                    <div key={table.id}>
+                                                                                        <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
+                                                                                            <div className={`gnosi-toggle ${isTableVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                const checked = !isTableVisible;
+                                                                                                setDraft(prev => ({
+                                                                                                    ...prev,
+                                                                                                    graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), table.id] : (prev.graph.visible_tables||[]).filter(id => id !== table.id) }
+                                                                                                }));
+                                                                                            }} style={{ transform: 'scale(0.7)' }}>
+                                                                                                <div className="gnosi-toggle-handle" />
+                                                                                            </div>
+                                                                                            <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{table.name}</span>
+                                                                                        </div>
+
+                                                                                        {isTableVisible && tableFields.length > 0 && (
+                                                                                            <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                {tableFields.map(field => {
+                                                                                                    const fieldKey = `${table.id}:${field.name}`;
+                                                                                                    const isExposed = draft.graph.visible_fields?.includes(fieldKey);
+                                                                                                    const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
+                                                                                                    return (
+                                                                                                        <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                                                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
+                                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
+                                                                                                                    const checked = !isExposed;
+                                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: checked ? [...(p.graph.visible_fields||[]), fieldKey] : (p.graph.visible_fields||[]).filter(f => f !== fieldKey) } }));
+                                                                                                                }}>
+                                                                                                                    <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
                                                                                                                 </div>
+                                                                                                                <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor fix / defecte" value={defaultVal} onChange={e => {
+                                                                                                                    const v = e.target.value;
+                                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, field_defaults: { ...(p.graph.field_defaults||{}), [fieldKey]: v } } }));
+                                                                                                                }} />
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                );
+                                                            })}
 
-                                                        <div className="provider-card__footer">
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <div className={`provider-card__indicator ${config.has_api_key ? 'provider-card__indicator--active' : ''}`} />
-                                                                <span>{config.has_api_key ? 'Connectat' : 'Sense configurar'}</span>
+                                                            {/* Orphan Tables / Altres Estructures */}
+                                                            {(() => {
+                                                                const orphanTables = (tables || []).filter(t => !databases.some(db => db.id === t.database_id));
+                                                                if (orphanTables.length === 0) return null;
+                                                                
+                                                                return (
+                                                                    <div style={{ marginTop: '24px', borderTop: '1px dashed var(--settings-border)', paddingTop: '24px' }}>
+                                                                        <h6 style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                                                                            {translations[language].other_structures || "Altres Taules i Estructures"}
+                                                                        </h6>
+                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr)', gap: '14px' }}>
+                                                                            {orphanTables.map(table => {
+                                                                                const isTableVisible = draft.graph.visible_tables?.includes(table.id);
+                                                                                const tableFields = table.properties || [];
+                                                                                return (
+                                                                                    <div key={table.id}>
+                                                                                        <div className="hover-scale" style={{ padding: '14px 18px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                                            <div className={`gnosi-toggle ${isTableVisible ? 'active' : ''}`} onClick={() => {
+                                                                                                const checked = !isTableVisible;
+                                                                                                setDraft(p => ({ ...p, graph: { ...p.graph, visible_tables: checked ? [...(p.graph.visible_tables||[]), table.id] : (p.graph.visible_tables||[]).filter(id => id !== table.id) } }));
+                                                                                            }} style={{ transform: 'scale(0.75)' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                            <div style={{ flex: 1 }}>
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                                    <Database size={14} color="var(--text-secondary)" opacity={0.5} />
+                                                                                                    <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{table.name}</span>
+                                                                                                </div>
+                                                                                                {table.folder && <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', opacity: 0.6, marginLeft: '22px' }}>{table.folder}</span>}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        {isTableVisible && tableFields.length > 0 && (
+                                                                                            <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                {tableFields.map(field => {
+                                                                                                    const key = `${table.id}:${field.name}`;
+                                                                                                    const exposed = draft.graph.visible_fields?.includes(key);
+                                                                                                    return (
+                                                                                                        <div key={field.name} style={{ padding: '8px 12px', borderRadius: '10px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{field.name}</span>
+                                                                                                            <div onClick={() => {
+                                                                                                                const chk = !exposed;
+                                                                                                                setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: chk ? [...(p.graph.visible_fields||[]), key] : (p.graph.visible_fields||[]).filter(f => f !== key) } }));
+                                                                                                            }} className={`gnosi-toggle ${exposed ? 'active' : ''}`} style={{ transform: 'scale(0.5)' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Entitats del Sistema */}
+                                            <div style={{ background: 'var(--settings-bg)', borderRadius: '24px', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
+                                                <div 
+                                                    onClick={() => setIsSystemEntitiesExpanded(!isSystemEntitiesExpanded)}
+                                                    className="hover-bg"
+                                                    style={{ 
+                                                        padding: '16px 24px', 
+                                                        cursor: 'pointer', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'space-between',
+                                                        borderBottom: isSystemEntitiesExpanded ? '1px solid var(--settings-border)' : 'none',
+                                                        transition: 'all 0.3s ease',
+                                                        background: isSystemEntitiesExpanded ? 'var(--settings-sidebar-bg)' : 'transparent'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <PenTool size={18} color="var(--gnosi-blue)" />
+                                                        <h5 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>
+                                                            {translations[language].systemEntities || "Entitats del Sistema"}
+                                                        </h5>
+                                                    </div>
+                                                    <ChevronRight 
+                                                        size={18} 
+                                                        color="var(--text-secondary)" 
+                                                        style={{ 
+                                                            transform: isSystemEntitiesExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                            opacity: 0.6
+                                                        }} 
+                                                    />
+                                                </div>
+
+                                                {isSystemEntitiesExpanded && (
+                                                    <div className="animate-in" style={{ padding: '24px' }}>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr)', gap: '14px' }}>
+                                                            {systemEntities.map(entity => {
+                                                                const isEntityVisible = draft.graph.visible_databases?.includes(entity.id);
+                                                                const subItems = entity.subItems || [];
+                                                                const entityFields = entity.fields || [];
+
+                                                                return (
+                                                                    <div key={entity.id} style={{ marginBottom: isEntityVisible ? '12px' : '0' }}>
+                                                                        <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
+                                                                            <div className={`gnosi-toggle ${isEntityVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const checked = !isEntityVisible;
+                                                                                setDraft(prev => ({
+                                                                                    ...prev,
+                                                                                    graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), entity.id] : (prev.graph.visible_databases||[]).filter(id => id !== entity.id) }
+                                                                                }));
+                                                                            }} style={{ transform: 'scale(0.8)' }}>
+                                                                                <div className="gnosi-toggle-handle" />
+                                                                            </div>
+                                                                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${entity.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                <entity.icon size={16} color={entity.color || '#3b82f6'} />
+                                                                            </div>
+                                                                            <span style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{entity.name}</span>
+                                                                        </div>
+
+                                                                        {/* Sub-items (like Calendars or Mail accounts) */}
+                                                                        {isEntityVisible && (subItems.length > 0 || entityFields.length > 0) && (
+                                                                            <div style={{ marginLeft: '40px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                                {subItems.map(item => {
+                                                                                    const isItemVisible = draft.graph.visible_tables?.includes(item.id);
+                                                                                    
+                                                                                    return (
+                                                                                        <div key={item.id}>
+                                                                                            <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
+                                                                                                <div className={`gnosi-toggle ${isItemVisible ? 'active' : ''}`} onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    const checked = !isItemVisible;
+                                                                                                    setDraft(prev => ({
+                                                                                                        ...prev,
+                                                                                                        graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), item.id] : (prev.graph.visible_tables||[]).filter(id => id !== item.id) }
+                                                                                                    }));
+                                                                                                }} style={{ transform: 'scale(0.7)' }}>
+                                                                                                    <div className="gnosi-toggle-handle" />
+                                                                                                </div>
+                                                                                                <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{item.name}</span>
+                                                                                            </div>
+                                                                                            
+                                                                                            {/* Nested Fields for sub-item */}
+                                                                                            {isItemVisible && entityFields.length > 0 && (
+                                                                                                <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                    {entityFields.map(field => {
+                                                                                                        const fieldKey = `${item.id}:${field.name}`;
+                                                                                                        const isExposed = draft.graph.visible_fields?.includes(fieldKey);
+                                                                                                        const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
+
+                                                                                                        return (
+                                                                                                            <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                                                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
+                                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
+                                                                                                                        const checked = !isExposed;
+                                                                                                                        setDraft(prev => ({
+                                                                                                                            ...prev,
+                                                                                                                            graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
+                                                                                                                        }));
+                                                                                                                    }}>
+                                                                                                                        <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}>
+                                                                                                                            <div className="gnosi-toggle-handle" />
+                                                                                                                        </div>
+                                                                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                                    </div>
+                                                                                                                    <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor defecte" value={defaultVal} onChange={(e) => {
+                                                                                                                        const val = e.target.value;
+                                                                                                                        setDraft(prev => ({ ...prev, graph: { ...prev.graph, field_defaults: { ...(prev.graph.field_defaults || {}), [fieldKey]: val } } }));
+                                                                                                                    }} />
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        );
+                                                                                                    })}
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+
+                                                                                {/* Fields for categories without sub-items (like Wiki) */}
+                                                                                {subItems.length === 0 && entityFields.length > 0 && (
+                                                                                    <div style={{ marginLeft: '30px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                        {entityFields.map(field => {
+                                                                                            const fieldKey = `${entity.id}:${field.name}`;
+                                                                                            const isExposed = draft.graph.visible_fields?.includes(fieldKey);
+                                                                                            const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
+
+                                                                                            return (
+                                                                                                <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
+                                                                                                            const checked = !isExposed;
+                                                                                                            setDraft(prev => ({
+                                                                                                                ...prev,
+                                                                                                                graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
+                                                                                                            }));
+                                                                                                        }}>
+                                                                                                            <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}>
+                                                                                                                <div className="gnosi-toggle-handle" />
+                                                                                                            </div>
+                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                        </div>
+                                                                                                        <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor defecte" value={defaultVal} onChange={(e) => {
+                                                                                                            const val = e.target.value;
+                                                                                                            setDraft(prev => ({ ...prev, graph: { ...prev.graph, field_defaults: { ...(prev.graph.field_defaults || {}), [fieldKey]: val } } }));
+                                                                                                        }} />
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Section>
+                                </Section>
+                            )}
+
+                            {/* IA */}
+                            {activeTab === 'ai' && (
+                                <>
+                                    <Section 
+                                        title="Proveïdors de Models" 
+                                        icon={Database} 
+                                        extra={
+                                            <button 
+                                                className="btn-gnosi-primary" 
+                                                onClick={() => { setProviderToEdit(null); setIsConnectModalOpen(true); }} 
+                                                style={{ 
+                                                    padding: '10px 20px', fontSize: '0.9rem', borderRadius: '14px',
+                                                    display: 'flex', alignItems: 'center', gap: '10px'
+                                                }}
+                                            >
+                                                <Plus size={18} /> Connectar Model
+                                            </button>
+                                        }
+                                    >
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            {Object.entries(draft.ai.providers).map(([pId, p]) => {
+                                                const catalogItem = aiCatalog[pId] || {};
+                                                const pName = catalogItem.name || pId.toUpperCase();
+                                                const pIcon = catalogItem.icon || p.icon;
+                                                return (
+                                                    <div key={pId} className="hover-scale" style={{ 
+                                                        padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', 
+                                                        background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between', 
+                                                        alignItems: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        opacity: p.enabled === false ? 0.6 : 1
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                                            <div 
+                                                                className={`gnosi-toggle ${p.enabled !== false ? 'active' : ''}`} 
+                                                                onClick={() => handleToggleAIProvider(pId, p.enabled === false)}
+                                                                style={{ transform: 'scale(1.1)', marginRight: '10px' }}
+                                                            >
+                                                                <div className="gnosi-toggle-handle" />
                                                             </div>
-                                                            <LucideIcons.ChevronRight size={14} style={{ opacity: 0.5 }} />
+                                                            <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'var(--settings-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)', boxShadow: '0 5px 15px rgba(0,0,0,0.05)' }}>
+                                                                {pIcon ? <img src={pIcon} style={{ width: '28px', height: '28px' }} alt="" /> : <Cpu size={28} />}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <div style={{ fontWeight: '900', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{pName}</div>
+                                                                    {p.enabled === false && <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--settings-border)', color: 'var(--text-secondary)', fontWeight: '800' }}>INACTIU</span>}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', opacity: 0.8 }}>
+                                                                    {p.has_api_key ? '✓ Credencials configurades' : '⚠ Falta clau API'} 
+                                                                    {p.base_url && ` • ${p.base_url}`}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '14px' }}>
+                                                            <button 
+                                                                onClick={() => validateAIProvider(pId)} 
+                                                                disabled={aiValidationStatus[pId] === 'validating' || p.enabled === false}
+                                                                className={`btn-gnosi-secondary ${aiValidationStatus[pId] || ''}`} 
+                                                                style={{ 
+                                                                    padding: '14px 28px', borderRadius: '18px', fontWeight: '900', border: 'none',
+                                                                    background: aiValidationStatus[pId] === 'success' ? '#10b98120' : (aiValidationStatus[pId] === 'error' ? '#ef444420' : 'var(--settings-border)'),
+                                                                    color: aiValidationStatus[pId] === 'success' ? '#10b981' : (aiValidationStatus[pId] === 'error' ? '#ef4444' : 'var(--text-primary)'),
+                                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                    opacity: p.enabled === false ? 0.5 : 1,
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                            >
+                                                                {aiValidationStatus[pId] === 'validating' ? <div className="spinner-small" style={{ borderTopColor: 'var(--gnosi-blue)' }} /> : (aiValidationStatus[pId] === 'success' ? 'Vàlid!' : (aiValidationStatus[pId] === 'error' ? 'Error' : 'Test Ping'))}
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setProviderToEdit(catalogItem);
+                                                                    setIsConnectModalOpen(true);
+                                                                }}
+                                                                className="icon-btn hover-bg-strong" 
+                                                                style={{ padding: '14px', borderRadius: '16px' }}
+                                                            >
+                                                                <SettingsIcon size={22} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteAIProvider(pId);
+                                                                }}
+                                                                className="icon-btn hover-bg-strong" 
+                                                                style={{ padding: '14px', borderRadius: '16px', color: '#ef4444' }}
+                                                            >
+                                                                <Trash2 size={22} />
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 );
                                             })}
-
-                                            {Object.keys(aiProviders).length === 0 && (
-                                                <div style={{ border: '1px dashed var(--settings-border)', borderRadius: '12px', padding: '16px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                                                    Encara no hi ha proveïdors afegits. Prem "Afegir Proveïdor" per configurar-ne un.
-                                                </div>
-                                            )}
                                         </div>
-                                    </section>
+                                    </Section>
 
-                                    {/* Agents Section */}
-                                    <section className="settings-section">
-                                        <div className="settings-section__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Cpu size={18} style={{ color: 'var(--gnosi-blue)' }} />
-                                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Perfils d'Agents</h3>
-                                            </div>
+                                    <div style={{ height: '30px' }} />
+
+                                    <Section 
+                                        title="Agents de Cognició" 
+                                        icon={Bot} 
+                                        extra={
                                             <button 
-                                                onClick={() => setEditingAgent({ id: 'agent_' + Date.now(), name: 'Nou Agent', icon: '🤖', persona: '', provider: 'groq', model: '', enabled: true })}
-                                                style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--settings-sidebar-bg)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '500' }}
+                                                className="btn-gnosi-primary" 
+                                                onClick={() => setEditingAgent({})} 
+                                                style={{ 
+                                                    padding: '10px 20px', fontSize: '0.85rem', borderRadius: '14px',
+                                                    display: 'flex', alignItems: 'center', gap: '10px'
+                                                }}
                                             >
-                                                + Nou Agent
+                                                <Plus size={16} /> Crear Agent
                                             </button>
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
-                                            {aiAgents.map((agent, idx) => (
-                                                <div 
-                                                    key={agent.id || idx} 
-                                                    onClick={() => setEditingAgent({...agent})}
-                                                    style={{ 
-                                                        background: activeAgentId === agent.id ? 'var(--settings-sidebar-active)' : 'var(--settings-sidebar-bg)', 
-                                                        padding: '15px', 
-                                                        borderRadius: '12px', 
-                                                        border: '1.5px solid',
-                                                        borderColor: activeAgentId === agent.id ? 'var(--gnosi-blue)' : 'var(--settings-border)',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s',
-                                                        position: 'relative',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '12px'
-                                                    }}
-                                                >
-                                                    <div style={{ fontSize: '2rem', minWidth: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}>
-                                                        {agent.icon?.startsWith('lucide:') ? (
-                                                            (() => {
-                                                                const [_, name, colorName] = agent.icon.split(':');
-                                                                const IconComp = LucideIcons[name];
-                                                                const color = colorName ? (NOTION_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
-                                                                return IconComp ? <IconComp size={24} color={color} /> : '🤖';
-                                                            })()
-                                                        ) : (agent.icon || '🤖')}
+                                        }
+                                    >
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                            {draft.ai.agents.map(agent => (
+                                                <div key={agent.id} className="hover-scale" style={{ padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', gap: '20px', transition: 'all 0.2s' }}>
+                                                    <div style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))' }}>{agent.icon || '🤖'}</div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
+                                                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{agent.provider} • {agent.model}</div>
                                                     </div>
-                                                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                        <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.name}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{agent.provider} • {agent.model || 'Auto'}</div>
+                                                    <div className={`gnosi-toggle ${agent.enabled ? 'active' : ''}`} onClick={() => {
+                                                        const newList = draft.ai.agents.map(a => a.id === agent.id ? {...a, enabled: !a.enabled} : a);
+                                                        setDraft({...draft, ai: {...draft.ai, agents: newList}});
+                                                    }} style={{ transform: 'scale(1.1)' }}>
+                                                        <div className="gnosi-toggle-handle" />
                                                     </div>
-                                                    {activeAgentId === agent.id && (
-                                                        <div style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--gnosi-blue)', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Check size={12} strokeWidth={3} />
-                                                        </div>
-                                                    )}
                                                 </div>
                                             ))}
                                         </div>
-
-                                    </section>
-
-                                    {/* Provider Editor Modal */}
-                                    {editingProvider && (
-                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                                            <div onClick={() => setEditingProvider(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
-                                            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Configura {editingProvider.name}</h3>
-                                                    <button onClick={() => setEditingProvider(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
-                                                </div>
-                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    {(getProviderRequirements(editingProvider.id).needsApiKey || getProviderRequirements(editingProvider.id).needsSecret) && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>
-                                                                {getProviderRequirements(editingProvider.id).needsSecret ? (getProviderRequirements(editingProvider.id).secretLabel || 'Secret') : 'API Key'}
-                                                            </label>
-                                                            <input 
-                                                                type="password" 
-                                                                placeholder="sk-..."
-                                                                value={editingProvider.pending_api_key || ''}
-                                                                onChange={(e) => setEditingProvider({...editingProvider, pending_api_key: e.target.value})}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                            <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                                {editingProvider.has_api_key ? 'Credencial guardada en almacenamiento seguro.' : 'La clave se guardará en keychain/secret store y no en params.yaml.'}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {getProviderRequirements(editingProvider.id).needsBaseUrl && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
-                                                            <input 
-                                                                type="text" 
-                                                                placeholder={LLM_PROVIDERS_META[editingProvider.id]?.baseUrl || 'https://api...'}
-                                                                value={editingProvider.base_url || ''}
-                                                                onChange={(e) => setEditingProvider({...editingProvider, base_url: e.target.value})}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                                                        <button 
-                                                            onClick={() => setEditingProvider(null)}
-                                                            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
-                                                        >
-                                                            Cancel·lar
-                                                        </button>
-                                                        <button 
-                                                            onClick={async () => {
-                                                                try {
-                                                                    const pendingApiKey = (editingProvider.pending_api_key || '').trim();
-                                                                        if (editingProvider.id !== 'ollama' && pendingApiKey) {
-                                                                        const credentialRes = await fetch(`/api/ai/providers/${editingProvider.id}/credentials`, {
-                                                                            method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json' },
-                                                                            body: JSON.stringify({ api_key: pendingApiKey, base_url: editingProvider.base_url || '' })
-                                                                        });
-                                                                        if (!credentialRes.ok) {
-                                                                            const payload = await credentialRes.json().catch(() => ({}));
-                                                                            throw new Error(payload?.detail || 'No s\'ha pogut guardar la credencial');
-                                                                        }
-                                                                    }
-
-                                                                    setAiProviders(prev => ({
-                                                                        ...prev,
-                                                                        [editingProvider.id]: {
-                                                                            ...prev[editingProvider.id],
-                                                                            source: 'user',
-                                                                            base_url: editingProvider.base_url,
-                                                                            credential_ref: editingProvider.credential_ref || prev[editingProvider.id]?.credential_ref,
-                                                                            has_api_key: pendingApiKey ? true : Boolean(prev[editingProvider.id]?.has_api_key)
-                                                                        }
-                                                                    }));
-                                                                    setEditingProvider(null);
-                                                                } catch (error) {
-                                                                    console.error('Error saving provider credentials:', error);
-                                                                    alert(error.message || 'Error guardant credencial del proveïdor');
-                                                                }
-                                                            }}
-                                                            style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer' }}
-                                                        >
-                                                            Guardar
-                                                        </button>
-                                                    </div>
-
-                                                    {aiProviders[editingProvider.id] && (
-                                                        <button 
-                                                            onClick={() => {
-                                                                const newProviders = { ...aiProviders };
-                                                                delete newProviders[editingProvider.id];
-                                                                setAiProviders(newProviders);
-                                                                setEditingProvider(null);
-                                                            }}
-                                                            style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', marginTop: '5px' }}
-                                                        >
-                                                            Eliminar configuració
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Add Provider Modal */}
-                                    {isAddProviderOpen && (
-                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                                            <div onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
-                                            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Afegir Proveïdor Personalitzat</h3>
-                                                    <button onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={18} /></button>
-                                                </div>
-                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Selecciona el proveïdor i completa només les credencials necessàries.</p>
-
-                                                    <div style={{ position: 'relative' }}>
-                                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Proveïdor</label>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setIsProviderDropdownOpen(prev => {
-                                                                    const nextState = !prev;
-                                                                    if (nextState) {
-                                                                        setProviderSearchQuery('');
-                                                                    }
-                                                                    return nextState;
-                                                                });
-                                                            }}
-                                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
-                                                        >
-                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                <span>{LLM_PROVIDERS_META[newProviderDraft.providerId]?.icon || '⚙️'}</span>
-                                                                <span>{getProviderName(newProviderDraft.providerId)}</span>
-                                                            </span>
-                                                            <LucideIcons.ChevronDown size={16} style={{ color: 'var(--text-secondary)', transform: isProviderDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
-                                                        </button>
-
-                                                        {isProviderDropdownOpen && (
-                                                            <>
-                                                                <div
-                                                                    onClick={() => setIsProviderDropdownOpen(false)}
-                                                                    style={{ position: 'fixed', inset: 0, zIndex: 1 }}
-                                                                />
-                                                                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 2, border: '1px solid var(--settings-border)', borderRadius: '10px', background: 'var(--settings-bg)', boxShadow: '0 14px 30px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
-                                                                    <div style={{ padding: '10px', borderBottom: '1px solid var(--settings-border)' }}>
-                                                                        <input
-                                                                            type="text"
-                                                                            autoFocus
-                                                                            placeholder="Buscar proveïdor..."
-                                                                            value={providerSearchQuery}
-                                                                            onChange={(e) => setProviderSearchQuery(e.target.value)}
-                                                                            onKeyDown={handleProviderDropdownKeyDown}
-                                                                            style={{ width: '100%', padding: '9px 10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                        />
-                                                                    </div>
-
-                                                                    <div style={{ maxHeight: '260px', overflowY: 'auto', padding: '8px' }}>
-                                                                        {groupedProviderOptions.length === 0 && (
-                                                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '8px' }}>
-                                                                                Sense resultats per aquesta cerca.
-                                                                            </div>
-                                                                        )}
-                                                                        {groupedProviderOptions.map((group) => (
-                                                                            <div key={group.category} style={{ marginBottom: '8px' }}>
-                                                                                <div style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', padding: '6px 8px' }}>
-                                                                                    {group.category}
-                                                                                </div>
-                                                                                {group.options.map((providerId) => (
-                                                                                    <button
-                                                                                        id={`provider-option-${providerId}`}
-                                                                                        key={providerId}
-                                                                                        type="button"
-                                                                                        onMouseEnter={() => setHighlightedProviderId(providerId)}
-                                                                                        onClick={() => selectProviderFromDropdown(providerId)}
-                                                                                        style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '7px 8px', borderRadius: '8px', border: 'none', background: highlightedProviderId === providerId ? 'var(--settings-sidebar-active)' : (newProviderDraft.providerId === providerId ? 'rgba(59,130,246,0.12)' : 'transparent'), color: 'var(--text-primary)', cursor: 'pointer' }}
-                                                                                    >
-                                                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                                            <span>{LLM_PROVIDERS_META[providerId]?.icon || '⚙️'}</span>
-                                                                                            <span>{renderHighlightedText(getProviderName(providerId), providerSearchQuery)}</span>
-                                                                                        </span>
-                                                                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{getProviderCategory(providerId)}</span>
-                                                                                    </button>
-                                                                                ))}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                        {getProviderRequirementLabels(newProviderDraft.providerId).map((label) => (
-                                                            <span key={`draft-${newProviderDraft.providerId}-${label}`} style={{ fontSize: '0.72rem', border: '1px solid var(--settings-border)', borderRadius: '999px', padding: '3px 9px', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)' }}>
-                                                                {label} requerit
-                                                            </span>
-                                                        ))}
-                                                    </div>
-
-                                                    {getProviderRequirements(newProviderDraft.providerId).needsApiKey && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>API Key</label>
-                                                            <input 
-                                                                type="password" 
-                                                                placeholder="sk-..."
-                                                                value={newProviderDraft.apiKey}
-                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, apiKey: e.target.value }))}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    {getProviderRequirements(newProviderDraft.providerId).needsSecret && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>
-                                                                {getProviderRequirements(newProviderDraft.providerId).secretLabel || 'Secret'}
-                                                            </label>
-                                                            <input
-                                                                type="password"
-                                                                placeholder="Introdueix el secret"
-                                                                value={newProviderDraft.secretValue}
-                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, secretValue: e.target.value }))}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    {getProviderRequirements(newProviderDraft.providerId).needsBaseUrl && (
-                                                        <div>
-                                                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '6px' }}>Base URL</label>
-                                                            <input 
-                                                                type="text" 
-                                                                placeholder="https://api..."
-                                                                value={newProviderDraft.baseUrl}
-                                                                onChange={(e) => setNewProviderDraft(prev => ({ ...prev, baseUrl: e.target.value }))}
-                                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        Les credencials es guarden en emmagatzematge segur (keychain/secret store).
-                                                    </div>
-
-                                                    <button 
-                                                        onClick={async () => {
-                                                            try {
-                                                                const providerId = newProviderDraft.providerId;
-                                                                const requirements = getProviderRequirements(providerId);
-                                                                const apiKey = (newProviderDraft.apiKey || '').trim();
-                                                                const secretValue = (newProviderDraft.secretValue || '').trim();
-                                                                const baseUrl = (newProviderDraft.baseUrl || '').trim();
-
-                                                                if (requirements.needsApiKey && !apiKey) {
-                                                                    throw new Error('Aquest proveïdor necessita API key');
-                                                                }
-                                                                if (requirements.needsSecret && !secretValue) {
-                                                                    throw new Error('Aquest proveïdor necessita secret addicional');
-                                                                }
-
-                                                                const credentialValue = apiKey || secretValue;
-
-                                                                if (credentialValue) {
-                                                                    const credentialRes = await fetch(`/api/ai/providers/${providerId}/credentials`, {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ api_key: credentialValue, base_url: baseUrl })
-                                                                    });
-                                                                    if (!credentialRes.ok) {
-                                                                        const payload = await credentialRes.json().catch(() => ({}));
-                                                                        throw new Error(payload?.detail || 'No s\'ha pogut connectar el proveïdor');
-                                                                    }
-                                                                }
-
-                                                                setAiProviders(prev => ({
-                                                                    ...prev,
-                                                                    [providerId]: {
-                                                                        ...prev[providerId],
-                                                                        source: 'user',
-                                                                        base_url: baseUrl,
-                                                                        has_api_key: Boolean(credentialValue)
-                                                                    }
-                                                                }));
-                                                                setIsProviderDropdownOpen(false);
-                                                                setIsAddProviderOpen(false);
-                                                            } catch (error) {
-                                                                console.error('Error adding AI provider:', error);
-                                                                alert(error.message || 'Error afegint el proveïdor');
-                                                            }
-                                                        }}
-                                                        style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', marginTop: '5px' }}
-                                                    >
-                                                        Afegir Proveïdor
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => { setIsProviderDropdownOpen(false); setIsAddProviderOpen(false); }}
-                                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }}
-                                                    >
-                                                        Cancel·lar
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {editingAgent && (
-                                        <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                                            <div onClick={() => setEditingAgent(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} />
-                                            <div style={{ position: 'relative', width: '100%', maxWidth: '600px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                                                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>Edita Perfil de l'Agent</h3>
-                                                    <button onClick={() => setEditingAgent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><LucideIcons.X size={20} /></button>
-                                                </div>
-                                                
-                                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', maxHeight: '70vh' }}>
-                                                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                                                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Icona</label>
-                                                            <button 
-                                                                id="agent-icon-trigger"
-                                                                onClick={() => {
-                                                                    setPickerField('agent_icon');
-                                                                    setPickerOpen(true);
-                                                                }}
-                                                                style={{ width: '80px', height: '80px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '2px solid var(--settings-border)', fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                                            >
-                                                                {editingAgent.icon?.startsWith('lucide:') ? (
-                                                                    (() => {
-                                                                        const [_, name, colorName] = editingAgent.icon.split(':');
-                                                                        const IconComp = LucideIcons[name];
-                                                                        const color = colorName ? (NOTION_COLORS.find(c => c.name === colorName)?.color || 'currentColor') : 'currentColor';
-                                                                        return IconComp ? <IconComp size={40} color={color} /> : editingAgent.icon;
-                                                                    })()
-                                                                ) : editingAgent.icon}
-                                                            </button>
-                                                        </div>
-                                                        
-                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                                            <div>
-                                                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Nom de l'Assistant</label>
-                                                                <input 
-                                                                    type="text" 
-                                                                    value={editingAgent.name}
-                                                                    onChange={(e) => setEditingAgent({...editingAgent, name: e.target.value})}
-                                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                                />
-                                                            </div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                                                <div>
-                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Proveïdor</label>
-                                                                    <select 
-                                                                        value={editingAgent.provider}
-                                                                        onChange={(e) => {
-                                                                            const nextProvider = e.target.value;
-                                                                            const models = getProviderModels(nextProvider);
-                                                                            const nextModel = models.includes(editingAgent.model) ? editingAgent.model : (models[0] || '');
-                                                                            setEditingAgent({...editingAgent, provider: nextProvider, model: nextModel});
-                                                                        }}
-                                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
-                                                                    >
-                                                                        {Object.keys(aiProviders).map(pId => (
-                                                                            <option key={pId} value={pId}>
-                                                                                {LLM_PROVIDERS_META[pId]?.name || pId}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
-                                                                </div>
-                                                                <div>
-                                                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Model</label>
-                                                                    <input 
-                                                                        type="text" 
-                                                                        list={`provider-models-${editingAgent.provider}`}
-                                                                        placeholder="llama-3.3-70b-versatile"
-                                                                        value={editingAgent.model}
-                                                                        onChange={(e) => setEditingAgent({...editingAgent, model: e.target.value})}
-                                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }} 
-                                                                    />
-                                                                    <datalist id={`provider-models-${editingAgent.provider}`}>
-                                                                        {getProviderModels(editingAgent.provider).map(modelId => (
-                                                                            <option key={modelId} value={modelId} />
-                                                                        ))}
-                                                                    </datalist>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Instruccions / Persona (System Prompt)</label>
-                                                        <textarea 
-                                                            value={editingAgent.persona}
-                                                            onChange={(e) => setEditingAgent({...editingAgent, persona: e.target.value})}
-                                                            placeholder="Ets un assistent útil que..."
-                                                            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)', minHeight: '150px', fontSize: '0.9rem', lineHeight: '1.5' }} 
-                                                        />
-                                                    </div>
-
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <input 
-                                                            type="checkbox" 
-                                                            id="agent_enabled" 
-                                                            checked={editingAgent.enabled} 
-                                                            onChange={(e) => setEditingAgent({...editingAgent, enabled: e.target.checked})} 
-                                                        />
-                                                        <label htmlFor="agent_enabled" style={{ fontSize: '0.85rem' }}>Habilitar aquest agent</label>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div style={{ padding: '16px 20px', borderTop: '1px solid var(--settings-border)', background: 'var(--settings-header-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <button 
-                                                        onClick={() => {
-                                                            setAiAgents(prev => prev.filter(a => a.id !== editingAgent.id));
-                                                            if (activeAgentId === editingAgent.id) setActiveAgentId(aiAgents[0]?.id || '');
-                                                            setEditingAgent(null);
-                                                        }}
-                                                        style={{ padding: '8px 16px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                                                    >
-                                                        Eliminar Agent
-                                                    </button>
-                                                    
-                                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                                        <button 
-                                                            onClick={() => {
-                                                                setActiveAgentId(editingAgent.id);
-                                                            }}
-                                                            style={{ padding: '8px 16px', borderRadius: '8px', background: activeAgentId === editingAgent.id ? '#10b981' : 'var(--settings-sidebar-bg)', color: activeAgentId === editingAgent.id ? 'white' : 'var(--text-primary)', border: '1px solid var(--settings-border)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                                                        >
-                                                            {activeAgentId === editingAgent.id ? 'Agent Actiu ✅' : 'Fer Actiu'}
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => {
-                                                                setAiAgents(prev => {
-                                                                    const idx = prev.findIndex(a => a.id === editingAgent.id);
-                                                                    if (idx > -1) {
-                                                                        const newList = [...prev];
-                                                                        newList[idx] = editingAgent;
-                                                                        return newList;
-                                                                    } else {
-                                                                        return [...prev, editingAgent];
-                                                                    }
-                                                                });
-                                                                setEditingAgent(null);
-                                                            }}
-                                                            style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--gnosi-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
-                                                        >
-                                                            Acceptar
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <IconPicker 
-                                        isOpen={pickerOpen && pickerField === 'agent_icon'} 
-                                        onClose={() => setPickerOpen(false)} 
-                                        onSelectIcon={(icon) => {
-                                            setEditingAgent(prev => ({ ...prev, icon }));
-                                            setPickerOpen(false);
-                                        }} 
-                                        currentIcon={editingAgent?.icon || ''}
-                                        triggerRef={{ current: document.getElementById('agent-icon-trigger') }} 
-                                    />
-                                </div>
+                                    </Section>
+                                </>
                             )}
 
-                        </div>
-                    </div>
+                            {/* ZOTERO */}
+                            {activeTab === 'zotero' && (() => {
+                                const runZoteroSync = async (direction) => {
+                                    setZoteroSyncing(direction);
+                                    setZoteroSyncMsg('');
+                                    try {
+                                        if (direction === 'z-to-g' || direction === 'both') {
+                                            const r = await fetch('/api/zotero/sync', { method: 'POST' });
+                                            if (!r.ok) {
+                                                const err = await r.json().catch(() => ({}));
+                                                setZoteroSyncMsg(err.detail || 'Error en Z→G');
+                                                setZoteroSyncing(null); return;
+                                            }
+                                        }
+                                        if (direction === 'g-to-z' || direction === 'both') {
+                                            const r = await fetch('/api/zotero/sync-back', { method: 'POST' });
+                                            const data = await r.json().catch(() => ({}));
+                                            if (!r.ok) { setZoteroSyncMsg(data.detail || 'Error en G→Z'); setZoteroSyncing(null); return; }
+                                            if (data.status === 'zotero_open') { setZoteroSyncMsg(data.message); setZoteroSyncing(null); return; }
+                                        }
+                                        setZoteroSyncMsg(direction === 'both' ? 'Sincronització bidireccional iniciada en segon pla.' : direction === 'z-to-g' ? 'Importació Z→G iniciada en segon pla.' : 'Exportació G→Z iniciada en segon pla.');
+                                    } catch (e) {
+                                        setZoteroSyncMsg(`Error: ${e.message}`);
+                                    }
+                                    setZoteroSyncing(null);
+                                };
+                                const btnStyle = { padding: '8px 14px', fontSize: '0.85rem', borderRadius: '12px', opacity: zoteroSyncing ? 0.6 : 1 };
+                                return (
+                                <Section title="Integració Zotero" icon={BookOpen} extra={draft.zotero.enabled && (
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {zoteroSyncMsg && <span style={{ fontSize: '0.8rem', color: zoteroSyncMsg.startsWith('Error') || zoteroSyncMsg.includes('Tanca') ? 'var(--color-error, #ef4444)' : 'var(--text-secondary)', maxWidth: '200px' }}>{zoteroSyncMsg}</span>}
+                                        <button title="Zotero → Gnosi" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('z-to-g')} className="btn-gnosi-secondary" style={btnStyle}>
+                                            {zoteroSyncing === 'z-to-g' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null} Z → G
+                                        </button>
+                                        <button title="Gnosi → Zotero" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('g-to-z')} className="btn-gnosi-secondary" style={btnStyle}>
+                                            {zoteroSyncing === 'g-to-z' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null} G → Z
+                                        </button>
+                                        <button title="Bidireccional G ↔ Z" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('both')} className="btn-gnosi-secondary" style={btnStyle}>
+                                            {zoteroSyncing === 'both' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={13} />} G ↔ Z
+                                        </button>
+                                    </div>
+                                )}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
 
-                    {/* Footer Actions */}
-                    <div className="settings-modal__footer" style={{
-                        padding: '16px 20px',
-                        borderTop: '1px solid var(--settings-border)',
-                        background: 'var(--settings-header-bg)',
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}>
-                        {saveStatus && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: saveStatus.includes('✅') ? '#10b981' : '#ef4444', fontSize: '0.9rem', marginRight: 'auto' }}>
-                                {saveStatus.includes('✅') ? <Check size={16} /> : <Info size={16} />}
-                                {saveStatus}
-                            </div>
-                        )}
-                        <button
-                            onClick={onClose}
-                            style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--settings-border)',
-                                background: 'transparent',
-                                cursor: 'pointer',
-                                color: 'var(--text-primary)',
-                                fontWeight: '500',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            Tancar
-                        </button>
-                        <button
-                            onClick={handleSaveGlobal}
-                            disabled={isSaving}
-                            style={{
-                                padding: '10px 24px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: 'var(--gnosi-blue)',
-                                color: 'white',
-                                fontWeight: '600',
-                                cursor: isSaving ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                            }}
-                        >
-                            {isSaving ? <RefreshCw size={18} className="spin-anim" /> : <Save size={18} />}
-                            Guardar Canvis
-                        </button>
-                    </div>
+                                        {/* Toggle activació */}
+                                        <div style={{ background: 'var(--settings-sidebar-bg)', padding: '28px 36px', borderRadius: '32px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: '1rem' }}>Activar integració Zotero</div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Sincronitza la teva biblioteca local de Zotero amb el Vault de Gnosi.</div>
+                                            </div>
+                                            <div
+                                                className={`gnosi-toggle ${draft.zotero.enabled ? 'active' : ''}`}
+                                                style={{ transform: 'scale(1.2)', flexShrink: 0 }}
+                                                onClick={async () => {
+                                                    const newEnabled = !draft.zotero.enabled;
+                                                    const newZotero = { ...draft.zotero, enabled: newEnabled };
+                                                    setDraft(prev => ({ ...prev, zotero: newZotero }));
+                                                    // Desar immediatament sense esperar el debounce
+                                                    await fetch('/api/zotero/config', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify(newZotero),
+                                                    }).catch(() => {});
+                                                    if (newEnabled && !draft.zotero.target_table) {
+                                                        try {
+                                                            const res = await fetch('/api/zotero/setup', { method: 'POST' });
+                                                            if (res.ok) {
+                                                                const data = await res.json();
+                                                                setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, enabled: true, target_table: data.table_id } }));
+                                                                fetch('/api/vault/tables').then(async r => { if (r.ok) setTables(await r.json()); });
+                                                            }
+                                                        } catch (e) { console.error('Zotero setup error:', e); }
+                                                    }
+                                                }}
+                                            >
+                                                <div className="gnosi-toggle-handle" />
+                                            </div>
+                                        </div>
+
+                                        {/* Configuració (només si activat) */}
+                                        {draft.zotero.enabled && (
+                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '32px', border: '1px solid var(--settings-border)', boxShadow: '0 10px 40px rgba(0,0,0,0.03)' }}>
+                                                <FormGroup label="Ruta de la BD Zotero" description="Camí absolut a la base de dades local de Zotero (zotero.sqlite).">
+                                                    <input type="text" className="gnosi-input" value={draft.zotero.zotero_db || ''} onChange={e => setDraft({...draft, zotero: {...draft.zotero, zotero_db: e.target.value}})} placeholder="~/Zotero/zotero.sqlite" />
+                                                </FormGroup>
+                                                <div style={{ marginTop: '28px' }}>
+                                                    <FormGroup label="Taula de Destí del Vault" description="Taula on s'emmagatzemaran les referències. Es pot reanomenar lliurement.">
+                                                        <select className="gnosi-select" value={draft.zotero.target_table} onChange={e => setDraft({...draft, zotero: {...draft.zotero, target_table: e.target.value}})}>
+                                                            <option value="">Selecciona una taula del Vault...</option>
+                                                            {tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                        </select>
+                                                    </FormGroup>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {draft.zotero.enabled && (
+                                            <div style={{ padding: '20px', borderRadius: '20px', background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                                <div style={{ width: '40px', height: '40px', background: 'var(--gnosi-blue)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}><Info size={20} /></div>
+                                                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>El sync és bidireccional: Zotero → Gnosi importa els ítems de Zotero, i Gnosi → Zotero exporta els canvis fets des de Gnosi. Zotero ha d'estar tancat per al sync de tornada.</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Section>
+                                );
+                            })()}
+
+                        </div>
+                    </main>
                 </div>
+              )}
             </div>
-            <FolderPickerModal
-                isOpen={pickerOpen && pickerField !== 'agent_icon'}
-                onClose={() => setPickerOpen(false)}
-                initialPath={localPaths[pickerField] || ''}
+
+            {/* FOLDER PICKER MODAL */}
+            <FolderPickerModal 
+                isOpen={pickerOpen} 
+                onClose={() => setPickerOpen(false)} 
+                initialPath={draft.paths[pickerField] || ''}
                 onSelect={(path) => {
-                    setLocalPaths(prev => ({ ...prev, [pickerField]: path }));
+                    setDraft(prev => ({
+                        ...prev,
+                        paths: { ...prev.paths, [pickerField]: path }
+                    }));
                     setPickerOpen(false);
+                }} 
+            />
+
+            <ConfirmModal 
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                isDestructive={true}
+            />
+
+
+            {/* AI AGENT MODAL */}
+            {editingAgent && (
+                <AIAgentModal 
+                    isOpen={!!editingAgent}
+                    onClose={() => setEditingAgent(null)}
+                    agent={editingAgent}
+                    onSave={(newAgent) => {
+                        const isNew = !newAgent.id;
+                        const id = isNew ? `agent_${Date.now()}` : newAgent.id;
+                        const agentToSave = { ...newAgent, id };
+                        
+                        let newList;
+                        if (isNew) {
+                            newList = [...draft.ai.agents, agentToSave];
+                        } else {
+                            newList = draft.ai.agents.map(a => a.id === id ? agentToSave : a);
+                        }
+                        
+                        setDraft(prev => ({
+                            ...prev,
+                            ai: { ...prev.ai, agents: newList }
+                        }));
+                    }}
+                    aiCatalog={aiCatalog}
+                />
+            )}
+            <UnifiedAIProviderModal 
+                isOpen={isConnectModalOpen}
+                onClose={() => setIsConnectModalOpen(false)}
+                aiCatalog={aiCatalog}
+                editingProvider={providerToEdit}
+                aiValidationStatus={aiValidationStatus}
+                onValidate={validateAIProvider}
+                onSave={(pId, data) => {
+                    setDraft(prev => ({
+                        ...prev,
+                        ai: {
+                            ...prev.ai,
+                            providers: {
+                                ...prev.ai.providers,
+                                [pId]: { ...data, enabled: true }
+                            }
+                        }
+                    }));
+                    triggerAutoSave(false);
+                    setIsConnectModalOpen(false);
                 }}
             />
         </>
+    );
+}
+
+// --- SUB-COMPONENTS FOR AI ---
+
+function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate, aiValidationStatus, editingProvider = null }) {
+    const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
+    const [apiKey, setApiKey] = useState('');
+    const [baseUrl, setBaseUrl] = useState(editingProvider?.base_url || '');
+    
+    useEffect(() => {
+        if (selectedId && aiCatalog[selectedId]) {
+            setBaseUrl(aiCatalog[selectedId].base_url || '');
+        }
+    }, [selectedId]);
+
+    const provider = aiCatalog[selectedId];
+    const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+            else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                onSave(selectedId, { api_key: apiKey, base_url: baseUrl });
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, onSave, selectedId, apiKey, baseUrl]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{ 
+            zIndex: 99999, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh'
+        }}>
+            <div className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{ 
+                width: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '40px', 
+                borderRadius: '32px', boxShadow: '0 30px 80px rgba(0,0,0,0.15)', border: '1px solid var(--settings-border)',
+                background: 'var(--settings-bg)', overflow: 'hidden', position: 'relative'
+            }}>
+                <button onClick={onClose} className="icon-btn hover-bg" style={{ 
+                    position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%', 
+                    color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
+                    width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}><X size={18} /></button>
+
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
+                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>
+                        {editingProvider ? `Configurar ${editingProvider.name}` : 'Connectar Proveïdor d\'IA'}
+                    </h3>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <FormGroup label="Proveïdor d'IA" description="Selecciona el servei que vols utilitzar.">
+                            <select 
+                                className="gnosi-select" 
+                                value={selectedId} 
+                                onChange={e => setSelectedId(e.target.value)}
+                                disabled={!!editingProvider}
+                            >
+                                <option value="">Tria un proveïdor...</option>
+                                {Object.values(aiCatalog).map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        </FormGroup>
+
+                        {selectedId && (
+                            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px', borderRadius: '20px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--settings-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {provider.icon ? <img src={provider.icon} style={{ width: '24px', height: '24px' }} alt="" /> : <Cpu size={20} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: '800', fontSize: '1rem' }}>{provider.name}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{provider.models?.length || 0} models disponibles</div>
+                                    </div>
+                                </div>
+
+                                <FormGroup label="API Key / Token" description="La teva clau secreta d'accés.">
+                                    <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
+                                </FormGroup>
+
+                                <FormGroup label="Base URL (Opcional)" description="Només si cal sobrescriure l'endpoint per defecte.">
+                                    <input type="text" className="gnosi-input" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder={provider.base_url || "https://api.openai.com/v1"} />
+                                </FormGroup>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '40px', display: 'flex', gap: '14px', flexShrink: 0 }}>
+                    <button 
+                        className="btn-gnosi-secondary" 
+                        onClick={() => onValidate(selectedId, apiKey)} 
+                        disabled={isValidating || !selectedId}
+                        style={{ flex: 1, padding: '14px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}
+                    >
+                        {isValidating ? <div className="spinner-small" /> : <Activity size={18} />} Test Ping
+                    </button>
+                    <button 
+                        className="btn-gnosi-primary" 
+                        disabled={!selectedId || (!apiKey && !editingProvider)}
+                        onClick={() => onSave(selectedId, { api_key: apiKey, base_url: baseUrl })} 
+                        style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
+                    >Desar</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
+    const [name, setName] = useState(agent.name || '');
+    const [provider, setProvider] = useState(agent.provider || '');
+    const [model, setModel] = useState(agent.model || '');
+    const [icon, setIcon] = useState(agent.icon || '🤖');
+
+    const availableModels = aiCatalog[provider]?.models || [];
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+            else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                onSave({ ...agent, name, provider, model, icon });
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, onSave, agent, name, provider, model, icon]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{ 
+            zIndex: 99999, 
+            backdropFilter: 'blur(8px)', 
+            background: 'rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh'
+        }}>
+            <div className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{ 
+                width: '500px', 
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '40px', 
+                borderRadius: '32px', 
+                boxShadow: '0 30px 80px rgba(0,0,0,0.15)', 
+                border: '1px solid var(--settings-border)',
+                background: 'var(--settings-bg)',
+                overflow: 'hidden',
+                position: 'relative'
+            }}>
+                <button 
+                    onClick={onClose} 
+                    className="icon-btn hover-bg" 
+                    style={{ 
+                        position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%', 
+                        color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
+                        width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <X size={18} />
+                </button>
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
+                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? 'Editar Agent' : 'Nou Agent de Cognició'}</h3>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1 }}>
+                                <FormGroup label="Nom de l'Agent">
+                                    <input type="text" className="gnosi-input" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Analista de Dades" />
+                                </FormGroup>
+                            </div>
+                            <div style={{ width: '80px' }}>
+                                <FormGroup label="Icona">
+                                    <input type="text" className="gnosi-input" value={icon} onChange={e => setIcon(e.target.value)} style={{ textAlign: 'center', fontSize: '1.5rem' }} />
+                                </FormGroup>
+                            </div>
+                        </div>
+
+                        <FormGroup label="Proveïdor d'IA">
+                            <select className="gnosi-select" value={provider} onChange={e => { setProvider(e.target.value); setModel(''); }}>
+                                <option value="">Selecciona un proveïdor...</option>
+                                {Object.values(aiCatalog).map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        </FormGroup>
+
+                        <FormGroup label="Model Específic">
+                            <select className="gnosi-select" value={model} onChange={e => setModel(e.target.value)} disabled={!provider}>
+                                <option value="">Selecciona un model...</option>
+                                {availableModels.map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                ))}
+                            </select>
+                        </FormGroup>
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '40px', display: 'flex', gap: '14px' }}>
+                    <button className="btn-gnosi-secondary" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '18px' }}>Cancel·lar</button>
+                    <button 
+                        className="btn-gnosi-primary" 
+                        disabled={!name || !provider || !model}
+                        onClick={() => {
+                            onSave({ ...agent, name, provider, model, icon });
+                            onClose();
+                        }} 
+                        style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
+                    >Desar Agent</button>
+                </div>
+            </div>
+        </div>
     );
 }

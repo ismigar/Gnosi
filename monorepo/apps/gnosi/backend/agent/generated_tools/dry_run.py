@@ -10,6 +10,7 @@ from typing import Callable, Any, Dict, Optional
 from functools import wraps
 from dataclasses import dataclass
 import json
+import uuid
 
 from .validator import RiskLevel
 
@@ -48,8 +49,11 @@ class DryRunManager:
         requires_confirmation = risk_level == RiskLevel.EXTERNAL_WRITE
         
         if requires_confirmation:
-            # Store for later execution
-            execution_id = f"{tool_name}_{hash(json.dumps(arguments, default=str)) % 10000}"
+            # Store for later execution. Abans usàvem `hash() % 10000` que
+            # col·lisionava ràpid (paradoxa de l'aniversari ~40% amb 100
+            # entrades) i feia que dos calls diferents s'sobreescrivissin
+            # al `_pending_executions`. uuid4 elimina les col·lisions.
+            execution_id = f"{tool_name}_{uuid.uuid4().hex[:8]}"
             self._pending_executions[execution_id] = {
                 "tool_name": tool_name,
                 "arguments": arguments,

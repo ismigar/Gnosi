@@ -1,8 +1,0 @@
-name: Notion Bridge
-type: module
-description: 'Synchronizes Drupal content with Notion databases via the Notion API.'
-core_version_requirement: ^9.4 || ^10
-package: Content import
-version: 1.0.0
-dependencies:
-  - serialization

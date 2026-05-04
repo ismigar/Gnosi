@@ -1,6 +1,26 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
 
+const normalizeVaultAssetUrl = (value) => {
+    if (typeof value !== 'string') return value;
+
+    if (value.startsWith('Assets/')) {
+        return `/api/vault/assets/${value.substring(7)}`;
+    }
+
+    if (value.startsWith('/api/vault/assets/')) {
+        return value;
+    }
+
+    // Some legacy uploads were stored as absolute backend URLs (localhost:5002).
+    const absAssetMatch = value.match(/^https?:\/\/[^/]+\/api\/vault\/assets\/(.+)$/i);
+    if (absAssetMatch?.[1]) {
+        return `/api/vault/assets/${absAssetMatch[1]}`;
+    }
+
+    return value;
+};
+
 /**
  * IconRenderer
  * 
@@ -40,17 +60,13 @@ export const IconRenderer = ({ icon, size = 16, className = "" }) => {
 
     // 2. Check if it's a URL or path
     if (typeof icon === 'string' && (icon.startsWith('http') || icon.startsWith('/') || icon.includes('.'))) {
-        let src = icon;
-        // Si és una ruta que comença per Assets/, li posem el prefix de l'API per si el backend no ho ha fet
-        if (icon.startsWith('Assets/')) {
-            src = `/api/vault/assets/${icon.substring(7)}`;
-        }
+        const src = normalizeVaultAssetUrl(icon);
 
         return (
             <img
                 src={src}
                 alt="page icon"
-                style={{ width: size, height: size, objectFit: 'contain' }}
+                style={{ width: size, height: size, objectFit: 'cover', display: 'block' }}
                 className={className}
             />
         );

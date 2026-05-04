@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Star, Paperclip, MoreVertical, RefreshCw, CheckCircle2, Circle } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek, parseISO } from 'date-fns';
-import { ca, enUS } from 'date-fns/locale';
-import { useTranslation } from 'react-i18next';
+import { ca } from 'date-fns/locale';
 
 export default function MailList({ account, onSelectMail, folder, category }) {
-    const { t, i18n } = useTranslation();
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedMsgId, setSelectedMsgId] = useState(null);
-
-    const dateLocale = i18n.language === 'ca' ? ca : enUS;
 
     const fetchMessages = () => {
         if (!account?.email) return;
@@ -43,17 +39,17 @@ export default function MailList({ account, onSelectMail, folder, category }) {
             if (!msg) return;
             const timestamp = msg.timestamp || (Date.now() / 1000);
             const date = parseISO(msg.date_obj || new Date(timestamp * 1000).toISOString());
-            let groupTitle = format(date, 'MMMM yyyy', { locale: dateLocale });
+            let groupTitle = format(date, 'MMMM yyyy', { locale: ca });
 
-            if (isToday(date)) groupTitle = t('today');
-            else if (isYesterday(date)) groupTitle = t('yesterday');
-            else if (isThisWeek(date)) groupTitle = t('this_week');
+            if (isToday(date)) groupTitle = 'Avui';
+            else if (isYesterday(date)) groupTitle = 'Ahir';
+            else if (isThisWeek(date)) groupTitle = 'Aquesta setmana';
 
             if (!groups[groupTitle]) groups[groupTitle] = [];
             groups[groupTitle].push(msg);
         });
         return groups;
-    }, [messages, t, dateLocale]);
+    }, [messages]);
 
     const handleSelect = (msg) => {
         setSelectedMsgId(msg.id);
@@ -64,7 +60,7 @@ export default function MailList({ account, onSelectMail, folder, category }) {
         <div className="w-[450px] flex flex-col h-full border-r border-slate-200 bg-white">
             <div className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">{t('inbox')}</h2>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Safata d'entrada</h2>
                     <button
                         onClick={fetchMessages}
                         className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-indigo-600 transition-all active:scale-95"
@@ -78,7 +74,7 @@ export default function MailList({ account, onSelectMail, folder, category }) {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
                     <input
                         type="text"
-                        placeholder={t('search_mail_placeholder')}
+                        placeholder="Cerca al correu..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400"
@@ -90,14 +86,14 @@ export default function MailList({ account, onSelectMail, folder, category }) {
                 {loading && messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 space-y-4">
                         <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-sm font-medium text-slate-500">{t('syncing_with_gnosi')}</p>
+                        <p className="text-sm font-medium text-slate-500">Sincronitzant amb Gnosi...</p>
                     </div>
                 ) : Object.keys(groupedMessages).length === 0 ? (
                     <div className="p-12 text-center">
                         <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
                             <Search className="text-slate-300" size={32} />
                         </div>
-                        <p className="text-slate-500 font-medium">{t('no_messages_here')}</p>
+                        <p className="text-slate-500 font-medium">No hi ha missatges aquí</p>
                     </div>
                 ) : (
                     Object.entries(groupedMessages).map(([groupTitle, msgs]) => (
@@ -121,7 +117,7 @@ export default function MailList({ account, onSelectMail, folder, category }) {
                                                     <div className="w-2 h-2 rounded-full bg-indigo-600 flex-shrink-0" />
                                                 )}
                                                 <span className={`text-[13px] truncate flex-1 ${!msg.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
-                                                    {(msg.sender || t('unknown')).split('<')[0].trim()}
+                                                    {(msg.sender || 'Desconegut').split('<')[0].trim()}
                                                 </span>
                                                 {msg.is_starred && (
                                                     <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0" />
@@ -133,7 +129,7 @@ export default function MailList({ account, onSelectMail, folder, category }) {
                                         </div>
 
                                         <h4 className={`text-[13px] mb-1 truncate leading-snug ${!msg.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
-                                            {msg.subject || t('no_subject')}
+                                            {msg.subject || '(Sense assumpte)'}
                                         </h4>
 
                                         <p className="text-[12px] text-slate-500 line-clamp-2 leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
@@ -152,7 +148,7 @@ export default function MailList({ account, onSelectMail, folder, category }) {
 
                                         <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                                             <div className="flex items-center gap-1 bg-white/80 backdrop-blur shadow-sm border border-slate-100 rounded-lg p-1">
-                                                <button className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 transition-colors" title={t('starred')}>
+                                                <button className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 transition-colors">
                                                     <Star size={14} />
                                                 </button>
                                                 <button className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 transition-colors">

@@ -158,7 +158,6 @@ export const DigitalBrainCalendar = ({
                         eventObj.allDay = isAllDay;
                     }
                 } else {
-
                     eventObj.start = dateStr;
                     eventObj.end = metadata.end_date || metadata.end_time || null;
                     eventObj.allDay = isAllDay;
@@ -299,7 +298,7 @@ export const DigitalBrainCalendar = ({
         >
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
-                    selectedCount={selectedIds.size}
+                    selectedIds={selectedIds}
                     totalCount={allEventIds.length}
                     onSelectAll={() => selectAll(allEventIds)}
                     onClearSelection={clearSelection}

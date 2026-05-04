@@ -48,6 +48,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     plantilles_path = safe_base / "Plantilles"
     dibuixos_path = safe_base / "Dibuixos"
     wiki_path = safe_base / "Wiki"
+    dashworks_path = safe_base / ".Dashworks"
     data_path = safe_base / "data"
 
     # Files and specific sub-dirs
@@ -57,7 +58,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
 
     # ── Ensure foundational directories exist (Safe mode) ──
     if vault_path:
-        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, data_path]:
+        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashworks_path, data_path]:
             if p:
                 try:
                     if not p.exists():
@@ -76,6 +77,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "PLANTILLES": plantilles_path,
         "DIBUIXOS": dibuixos_path,
         "WIKI": wiki_path,
+        "DASHWORKS": dashworks_path,
         "DATA": data_path,
         "OUT_JSON": out_json,
         "OUT_GRAPH": out_graph,

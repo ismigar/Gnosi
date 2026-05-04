@@ -4,10 +4,12 @@ import EmojiPicker from 'emoji-picker-react';
 import { icons } from 'lucide-react';
 import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { toast } from 'react-hot-toast';
+import { logError } from '../../lib/notifyError';
 
-export const NOTION_COLORS = [
+export const VAULT_COLORS = [
     { name: 'default', color: '#37352f', label: 'Default' },
     { name: 'gray', color: '#787774', label: 'Gray' },
     { name: 'brown', color: '#976d57', label: 'Brown' },
@@ -50,6 +52,7 @@ const readStoredCustomIcons = () => {
 };
 
 export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, triggerRef }) => {
+    const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [activeTab, setActiveTab] = useState('emoji');
     const [selectedColor, setSelectedColor] = useState('default');
@@ -171,9 +174,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         formData.append('file', file);
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-icon', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await axios.post('/api/vault/upload-icon', formData, { timeout: 30000 });
             const uploadedUrl = res.data?.url;
             if (typeof uploadedUrl !== 'string' || !uploadedUrl.trim()) {
                 throw new Error('Upload did not return a valid URL');
@@ -181,10 +182,11 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             rememberCustomIcon(uploadedUrl);
             onSelectIcon(uploadedUrl);
             onClose();
-            toast.success("Icona pujada correctament");
+            toast.success(t('icon_picker.toast.upload_success'));
         } catch (error) {
-            console.error(error);
-            toast.error("Error al pujar la icona");
+            logError('icon-picker', error);
+            const errorMessage = error.code === 'ECONNABORTED' ? 'Temps d\'espera esgotat (Timeout)' : t('icon_picker.toast.upload_error');
+            toast.error(errorMessage);
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -206,10 +208,10 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             rememberCustomIcon(importedUrl);
             onSelectIcon(importedUrl);
             onClose();
-            toast.success('Icona importada correctament');
+            toast.success(t('icon_picker.toast.import_success'));
         } catch (error) {
-            console.error(error);
-            toast.error('Error important la icona des de URL');
+            logError('icon-picker', error);
+            toast.error(t('icon_picker.toast.import_error'));
         } finally {
             setIsImportingLink(false);
         }
@@ -242,19 +244,19 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'emoji' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('emoji')}
                     >
-                        Emoji
+                        {t('icon_picker.tabs.emoji')}
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'icons' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('icons')}
                     >
-                        Icones
+                        {t('icon_picker.tabs.icons')}
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'custom' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('custom')}
                     >
-                        Personalitzat
+                        {t('icon_picker.tabs.custom')}
                     </button>
                     <div className="flex-1" />
                     {currentIcon && (
@@ -262,7 +264,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                             onClick={() => { onSelectIcon(''); onClose(); }}
                             className="text-[10px] text-[var(--status-error)] hover:text-[var(--status-error)]/80 hover:bg-[var(--status-error)]/10 px-2 py-1 rounded transition-colors mr-1 font-bold"
                         >
-                            ELIMINAR
+                            {t('icon_picker.delete_button')}
                         </button>
                     )}
                 </div>
@@ -296,12 +298,12 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                         autoFocus
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        placeholder="Cerca d'icones..."
+                                        placeholder={t('icon_picker.search_placeholder')}
                                         className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded text-xs outline-none focus:border-[var(--gnosi-primary)] transition-all text-[var(--text-primary)] shadow-sm"
                                     />
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 justify-center py-1">
-                                    {NOTION_COLORS.map(c => (
+                                    {VAULT_COLORS.map(c => (
                                         <button
                                             key={c.name}
                                             onClick={() => setSelectedColor(c.name)}
@@ -318,7 +320,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                 <div className="grid grid-cols-6 gap-1">
                                     {filteredIcons.map(name => {
                                         const IconComp = icons[name];
-                                        const colorObj = NOTION_COLORS.find(c => c.name === selectedColor);
+                                        const colorObj = VAULT_COLORS.find(c => c.name === selectedColor);
                                         return (
                                             <button
                                                 key={name}
@@ -335,7 +337,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                     })}
                                 </div>
                                 {filteredIcons.length === 0 && (
-                                    <div className="text-center text-[var(--text-tertiary)]/60 text-xs py-10">Sense icones</div>
+                                    <div className="text-center text-[var(--text-tertiary)]/60 text-xs py-10">{t('icon_picker.no_icons')}</div>
                                 )}
                             </div>
                         </div>
@@ -345,7 +347,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                         <div className="flex flex-col gap-6">
                             {customIcons.length > 0 && (
                                 <div className="flex flex-col gap-2">
-                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Recents</span>
+                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">{t('icon_picker.recent_section')}</span>
                                     <div className="grid grid-cols-6 gap-2">
                                         {customIcons.map((iconValue) => (
                                             <button
@@ -357,14 +359,14 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                                 className="relative group aspect-square border border-[var(--border-primary)] rounded-md overflow-hidden bg-[var(--bg-secondary)] hover:border-[var(--gnosi-primary)] transition-colors"
                                                 title={iconValue}
                                             >
-                                                <img src={iconValue} alt="icona personalitzada" className="w-full h-full object-cover" loading="lazy" />
+                                                <img src={iconValue} alt={t('icon_picker.custom_icon_alt')} className="w-full h-full object-cover" loading="lazy" />
                                                 <span
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         removeCustomIcon(iconValue);
                                                     }}
                                                     className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded-full bg-black/60 text-white cursor-pointer"
-                                                    title="Eliminar de recents"
+                                                    title={t('icon_picker.remove_recent_title')}
                                                 >
                                                     <X size={10} />
                                                 </span>
@@ -375,7 +377,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                             )}
 
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Pujar Arxiu</span>
+                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">{t('icon_picker.upload_section')}</span>
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -389,12 +391,12 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                     className="w-full border border-dashed border-[var(--border-primary)] hover:border-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/5 rounded-lg py-6 flex flex-col items-center gap-2 transition-all"
                                 >
                                     {isUploading ? <Loader2 size={24} className="animate-spin text-[var(--gnosi-primary)]" /> : <Upload size={24} className="text-[var(--text-tertiary)]/60" />}
-                                    <span className="text-xs text-[var(--text-secondary)]/60">{isUploading ? 'Pujant...' : 'Fes clic per pujar'}</span>
+                                    <span className="text-xs text-[var(--text-secondary)]/60">{isUploading ? t('icon_picker.uploading') : t('icon_picker.upload_instruction')}</span>
                                 </button>
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Enllaç de contingut</span>
+                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">{t('icon_picker.link_section')}</span>
                                 <div className="flex gap-2">
                                     <input
                                         value={linkInput}
@@ -407,7 +409,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                         disabled={isImportingLink}
                                         className="bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm"
                                     >
-                                        {isImportingLink ? 'Important...' : 'Importar'}
+                                        {isImportingLink ? t('icon_picker.importing') : t('icon_picker.import_button')}
                                     </button>
                                 </div>
                             </div>

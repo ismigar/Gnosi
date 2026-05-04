@@ -12,9 +12,11 @@ import { Controls } from '../components/Controls';
 import { Legend } from '../components/Legend';
 import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
+import Graph from 'graphology';
+import { applyFilters } from '../utils/graphFilters';
+
 
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
-import AgentChat from '../components/AgentChat';
 import '../viewer/style.css';
 
 function GraphPage() {
@@ -42,6 +44,7 @@ function GraphPage() {
     const [visibleFields, setVisibleFields] = useState([]); // Array of "tableId:fieldName"
     const [graphTableFiltersSettings, setGraphTableFiltersSettings] = useState([]); // Which tables HAVE a toggle
     const [activeTableFilters, setActiveTableFilters] = useState(new Set()); // Which table toggles are ON
+    const [activeMediaTags, setActiveMediaTags] = useState(new Set()); // New: Tags specifically for media
 
     // Dynamic Field Filters
     // Map of "tableId:fieldName" -> Set of active values
@@ -52,13 +55,14 @@ function GraphPage() {
     const [showArrows, setShowArrows] = useState(true);
     const [labelThreshold, setLabelThreshold] = useState(14);
     const [nodeSize, setNodeSize] = useState(1.0);
-    const [edgeThickness, setEdgeThickness] = useState(0.5);
+    const [edgeThickness, setEdgeThickness] = useState(1.2);
 
     // Physics State - UI (Instant feedback for sliders)
-    const [gravityUI, setGravityUI] = useState(0.005);   // Low Gravity
-    const [repulsionUI, setRepulsionUI] = useState(2000); // Low Repulsion
-    const [frictionUI, setFrictionUI] = useState(1.5);    // Very Fast
+    const [gravityUI, setGravityUI] = useState(0.01);   // Increased Gravity
+    const [repulsionUI, setRepulsionUI] = useState(15000); // Increased Repulsion
+    const [frictionUI, setFrictionUI] = useState(2.5);    // Increased Friction
     const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(5); // High Link Force
+
     const [linLogMode, setLinLogMode] = useState(false); // Vanilla
 
     // Sync State
@@ -113,6 +117,17 @@ function GraphPage() {
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);
     const [graphVersion, setGraphVersion] = useState(null);
+
+    const mediaTagsList = useMemo(() => {
+        if (!graphData?.nodes) return [];
+        const tags = new Set();
+        graphData.nodes.forEach(n => {
+            if (n.kind === 'media' && n.metadata?.tags) {
+                n.metadata.tags.forEach(t => tags.add(t));
+            }
+        });
+        return Array.from(tags).sort();
+    }, [graphData]);
 
     const fetchGraphData = (isBackground = false) => {
         if (!isBackground) setLoading(true);
@@ -283,6 +298,8 @@ function GraphPage() {
 
     const pathResult = useMemo(() => {
         if (!graphInstance || !pathSource || !pathTarget) return null;
+        if (!pathSource || !pathTarget) return null;
+
         const queue = [[pathSource]];
         const visited = new Set([pathSource]);
 
@@ -328,8 +345,28 @@ function GraphPage() {
         visibleTables,
         activeTableFilters,
         fieldFilters,
-        graphTableFiltersSettings
-    }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings]);
+        graphTableFiltersSettings,
+        activeMediaTags
+    }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
+    
+    // Efficiently calculate filtered counts as derived state (Clean v6)
+    const memoizedGraph = useMemo(() => {
+        if (!graphData?.nodes) return null;
+        const g = new Graph();
+        graphData.nodes.forEach(n => g.addNode(n.key, n));
+        graphData.edges.forEach(e => g.addEdge(e.source, e.target, e));
+        return g;
+    }, [graphData]);
+
+    const { filteredNodesCount, filteredEdgesCount } = useMemo(() => {
+        if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0 };
+        const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
+        return { 
+            filteredNodesCount: visibleNodes.size, 
+            filteredEdgesCount: visibleEdges.size 
+        };
+    }, [memoizedGraph, filters]);
+
 
 
 
@@ -471,6 +508,39 @@ function GraphPage() {
                             })}
                         </div>
                     </CollapsibleSection>
+
+                    {/* Media Tags Filters (New) */}
+                    {graphData?.nodes?.some(n => n.kind === 'media') && (
+                        <CollapsibleSection title="Filtre de Tags de Fotos" badge={activeMediaTags.size} defaultOpen={true}>
+                            <div className="filter-list">
+                                {mediaTagsList.map(tag => (
+                                    <div key={tag} className="filter-item-advanced">
+                                        <input
+                                            type="checkbox"
+                                            id={`media-tag-${tag}`}
+                                            checked={activeMediaTags.has(tag)}
+                                            onChange={() => {
+                                                const newSet = new Set(activeMediaTags);
+                                                if (newSet.has(tag)) newSet.delete(tag);
+                                                else newSet.add(tag);
+                                                setActiveMediaTags(newSet);
+                                            }}
+                                            style={{ display: 'none' }}
+                                        />
+                                        <label htmlFor={`media-tag-${tag}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                            <span className="custom-checkbox" style={{ backgroundColor: '#ec4899', opacity: activeMediaTags.has(tag) ? 1 : 0.3 }}>
+                                                {activeMediaTags.has(tag) && <Check size={10} color="white" />}
+                                            </span>
+                                            <span className="filter-label-text">#{tag}</span>
+                                        </label>
+                                    </div>
+                                ))}
+                                {Array.from(new Set(graphData.nodes.filter(n => n.kind === 'media').flatMap(n => n.metadata?.tags || []))).length === 0 && (
+                                    <p style={{ fontSize: '0.75rem', color: '#888', margin: '10px 0' }}>Cap etiqueta trobada en fotos</p>
+                                )}
+                            </div>
+                        </CollapsibleSection>
+                    )}
 
                     {/* Field Value Filters (dynamic) */}
                     {visibleFields.length > 0 && (
@@ -644,7 +714,14 @@ function GraphPage() {
                     edgeInfluence={edgeInfluence}
                     linLogMode={linLogMode}
                 />
-                <Legend graphData={graphData} isDarkMode={isDarkMode} colorMode={colorMode} />
+                <Legend 
+                    graphData={graphData} 
+                    isDarkMode={isDarkMode} 
+                    colorMode={colorMode} 
+                    filteredNodesCount={filteredNodesCount}
+                    filteredEdgesCount={filteredEdgesCount}
+                />
+
                 <Minimap
                     graph={graphInstance}
                     mainRenderer={rendererInstance}
@@ -659,8 +736,6 @@ function GraphPage() {
                     onClose={() => setSelectedNode(null)}
                 />
             </div>
-
-            <AgentChat />
         </Layout>
     );
 }

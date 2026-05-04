@@ -7,7 +7,7 @@ VENV="$BASE_DIR/.venv"
 BACKEND_DIR="$BASE_DIR/backend"
 FRONTEND_DIR="$BASE_DIR/frontend"
 
-echo "📦 Preparing and running Digital Brain (Production)..."
+echo "📦 Preparing and running Gnosi (Production)..."
 echo "Base directory: $BASE_DIR"
 echo
 

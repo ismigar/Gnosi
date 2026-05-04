@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 
 export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
     const { t } = useTranslation();
@@ -65,37 +66,14 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
             borderLeft: '1px solid var(--border-color, #eee)',
             color: 'var(--text-color, #333)'
         }}>
-            {/* Top Actions: Close and Notion Button */}
+            {/* Top Actions: Close */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '10px', gap: '10px' }}>
-                {data?.url && (
-                    <a
-                        href={data.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                            textDecoration: 'none',
-                            fontSize: '1.2rem',
-                            cursor: 'pointer',
-                            opacity: 0.7
-                        }}
-                        title="Obrir a Notion"
-                    >
-                        ↗
-                    </a>
-                )}
                 <button
                     onClick={onClose}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '1.5rem',
-                        cursor: 'pointer',
-                        color: 'inherit',
-                        padding: 0,
-                        lineHeight: 1
-                    }}
+                    className="gnosi-close-btn"
+                    aria-label="Tancar detalls"
                 >
-                    &times;
+                    <X />
                 </button>
             </div>
 

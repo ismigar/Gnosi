@@ -297,7 +297,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
-                    selectedCount={selectedIds.size}
+                    selectedIds={selectedIds}
                     totalCount={sortedAndFilteredNotes.length}
                     onSelectAll={() => selectAll(sortedAndFilteredNotes.map(n => n.id))}
                     onClearSelection={clearSelection}

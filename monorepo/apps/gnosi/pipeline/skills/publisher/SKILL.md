@@ -1,31 +1,55 @@
-# Skill: Publisher
+# SKILL: Publisher
 
-Aquesta skill s'encarrega d'automatitzar el flux de publicaci\u00f3 des del Vault de la Gnosi cap als canals p\u00fablics (Drupal i Xarxes Socials). Substitueix els workflows de n8n per scripts de Python deterministes.
+This skill handles the automation of the publishing flow from the Gnosi Vault to public channels (Drupal and Social Media).
 
-## Funcionalitats
+> **Technical Source of Truth**: This skill completely replaces the legacy n8n workflows.
 
-- **Sincronitzaci\u00f3 amb Drupal**: Converteix fitxers Markdown en nodes de Drupal (Articles, Dissenys, Recursos).
-- **Gesti\u00f3 de Traduccions**: Genera autom\u00e0ticament versions en Catal\u00e0, Castell\u00e0 i Angl\u00e8s fent servir OpenAI/DeepL.
-- **Publicaci\u00f3 en Xarxes Socials**: Envia el t\u00edtol i l'URL del contingut a LinkedIn, BlueSky i Mastodon.
+---
 
-## Requisits
+## 1. Data Mapping (Notion -> Drupal)
+Crucial for the operation of synchronization scripts. If these UUIDs change in Notion, they must be updated here:
 
-- Acc\u00e8s al **mcp-drupal-proxy** (Docker).
-- Variables d'entorn pr\u00e8viament configurades a `.env_shared`:
-  - `DRUPAL_URL`
-  - `OPENAI_API_KEY` o `DEEPL_API_KEY`
-  - Tokens de LinkedIn/BlueSky (Keychain).
+| Entity | Notion ID (UUID) | Target Drupal Table |
+| :--- | :--- | :--- |
+| **Articles** | `270268e5271480ca8b47fa9f28904287` | `articles` |
+| **Designs** | `22e268e527148061bdf0cc752b016e70` | `designs` |
+| **Resources** | `8c80f2a861b843b790da4f0e260b7db9` | `resources` |
+| **Collaborators** | `245268e52714801ab698cfa44429c2cb` | `collaborators` |
+| **XXSS** | `ebe282f0a2e145afbd76cd2036b37882` | `social_media` |
 
-## \u00das (CLI)
+---
+
+## 2. Core Features
+- **Drupal Synchronization**: Converts Markdown files into Drupal nodes (Articles, Designs, Resources).
+- **Translation Management**: Automatically generates versions in Catalan, Spanish, and English using OpenAI/DeepL via `sync_vault_to_drupal.py`.
+- **Social Media Publishing**: Sends the title and content URL to LinkedIn, BlueSky, and Mastodon via `broadcast_social.py`.
+
+---
+
+## 3. Requirements and Configuration
+- Access to **mcp-drupal-proxy** (Docker).
+- Environment variables in `.env_shared`:
+  - `DRUPAL_URL`, `OPENAI_API_KEY`, etc.
+  - Social media tokens managed via Keychain.
+
+---
+
+## 4. Usage (CLI)
 
 ```bash
-# Sincronitzar articles pendents cap a Drupal
-python scripts/sync_vault_to_drupal.py --status "Ready to Publish"
+# Sync pending articles to Drupal
+python monorepo/apps/gnosi/pipeline/skills/publisher/scripts/sync_vault_to_drupal.py --status "Ready to Publish"
 
-# Publicar un article espec\u00edfic a XXSS
-python scripts/broadcast_social.py --page-id "uuid-de-la-pagina"
+# Publish a specific article to Social Media
+python monorepo/apps/gnosi/pipeline/skills/publisher/scripts/broadcast_social.py --page-id "uuid-of-the-page"
 ```
 
-## Manteniment
+---
 
-Tota la l\u00f2gica de mapeig de camps residesix a `scripts/sync_vault_to_drupal.py`. Si Drupal canvia d'estructura (fields), cal actualitzar la funci\u00f3 `map_markdown_to_drupal_fields`.
+## 5. Restrictions and Lessons Learned (Live Memory)
+- **Drupal ID**: Never use the Notion UUID as the primary ID in Drupal (use the autoincremental node ID).
+- **Format**: Clean Notion blocks before pushing to avoid rendering errors in Drupal.
+- **Translations**: Do not publish if any mandatory languages (Catalan/Spanish) are missing.
+
+---
+*Maintenance: If the Drupal structure (fields) changes, the `map_markdown_to_drupal_fields` function in the scripts must be updated.*

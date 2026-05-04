@@ -72,7 +72,24 @@ Status: [DRAFT / ACTIVE / DEPRECATED]
 > Implementation Note: If you find a new error, first fix it in the script, then document the rule here to prevent future regressions.
 > 
 
-## 7. Examples of Use
+## 7. Rationalizations (Anti-Atajos)
+
+*Lista de excusas comunes u omisiones que el Agente / Desarrollador podría pensar para ahorrar tiempo y por qué son inválidas.*
+
+| Excusa / Racionalización | Refutación y Consecuencia |
+| --- | --- |
+| *"Puedo hacer commit sin hacer una prueba visual porque solo he cambiado variables o texto."* | **Falso.** Un error simple de tipeo romperá el build del Frontend. Obligatorio lanzar `npm run build` o verlo en el navegador. |
+| *"No documentaré este error temporal porque ya lo he arreglado en el código."* | **Falso.** Si pasó una vez, el próximo agente caerá en la misma trampa. Actualiza la Sección 6 inmediatamente. |
+
+## 8. Red Flags (Señales de Peligro)
+
+*Pausa el proceso y reevalúa el plan antes de continuar si ocurre alguna de estas condiciones:*
+
+- Estás reescribiendo más de 30-50 líneas de código que "parecía" que debían funcionar, sin investigar el *root cause*.
+- Estás intentando lanzar comandos `bash` fuera del contenedor de Docker en lugar de seguir la arquitectura de pipelines de Python en `sandbox/`.
+- Has encadenado 2 o 3 errores seguidos usando el mismo approach. Se requiere un paso de *diagnóstico* antes de continuar lanzando comandos parche.
+
+## 9. Examples of Use
 
 *Commands to invoke the associated script.*
 
@@ -82,21 +99,23 @@ python scripts/[script_name].py --input "value"
 
 ```
 
-## 8. Pre-Execution Checklist
+## 10. Pre-Execution Checklist
 
 - [ ]  Environment variables configured in `.env`
 - [ ]  Dependencies installed (`pip install -r requirements.txt`)
 - [ ]  Input files available and validated
 - [ ]  Necessary permissions granted (API, files, etc.)
 
-## 9. Post-Execution Checklist
+## 11. Post-Execution Checklist (Verification Gates)
 
-- [ ]  Outputs generated correctly
-- [ ]  Logs reviewed for errors/warnings
-- [ ]  Results validated against expected criteria
-- [ ]  Guideline updated with new learnings (if applicable)
+*CRÍTICO: No se puede dar la tarea por "Finalizada" sin poder presentar "Evidencias" tangibles.*
 
-## 10. Additional Notes
+- [ ]  Outputs generados e **inspeccionados explícitamente** (No asumas que se generó, léelo).
+- [ ]  Logs revisados y limpios de errores/warnings.
+- [ ]  Resultados validados contra el criterio de éxito empíricamente (Ej. Pantallazo del navegador confirmando UI, o CURL validando endpoint).
+- [ ]  Directiva actualizada con los nuevos aprendizajes y "Red Flags" encontradas en la sesión.
+
+## 12. Additional Notes
 
 Any context that does not fit into the previous sections.
 

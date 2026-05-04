@@ -1,40 +1,40 @@
-# Directive: Controls de Física del Graf (Sigma/ForceAtlas2)
+# Directive: Graph Physics Controls (Sigma/ForceAtlas2)
 
-## Objectiu
-Donar control a l'usuari sobre la distribució espacial del graf mitjançant paràmetres de simulació física.
+## Objective
+Give the user control over the spatial distribution of the graph using physical simulation parameters.
 
-## Arquitectura i Estabilitat (CRÍTIC)
+## Architecture and Stability (CRITICAL)
 
 ### 1. Debouncing (Anti-Crash)
-El worker de `ForceAtlas2` triga a reiniciar-se. Si enviem cada canvi del slider (centenars d'events per segon), el worker es satura i penja el navegador.
-**SOLUCIÓ: Patró d'Estat Dual**
+The `ForceAtlas2` worker takes time to restart. If we send every slider change (hundreds of events per second), the worker becomes saturated and hangs the browser.
+**SOLUTION: Dual State Pattern**
 ```javascript
-// A GraphPage.jsx
-const [gravityUI, setGravityUI] = useState(0.05); // Feedback instantani al slider
-const [gravity, setGravity] = useState(0.05);     // Valor real pel worker
-const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(0); // 0 = Màxima dispersió
+// In GraphPage.jsx
+const [gravityUI, setGravityUI] = useState(0.05); // Instant slider feedback
+const [gravity, setGravity] = useState(0.05);     // Actual value for the worker
+const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(0); // 0 = Maximum dispersion
 
 useEffect(() => {
-    const timer = setTimeout(() => setGravity(gravityUI), 300); // Debounce 300ms
+    const timer = setTimeout(() => setGravity(gravityUI), 300); // 300ms debounce
     return () => clearTimeout(timer);
 }, [gravityUI]);
 
-// Passeu 'gravity' a GraphViewer, NO gravityUI
+// Pass 'gravity' to GraphViewer, NOT gravityUI
 ```
 
-### 2. Edge Weight Influence (Dispersió)
-Per defecte, `ForceAtlas2` utilitza el pes de les arestes per atreure nodes. Si els pesos són alts (ex: 80-100), ni tan sols una repulsió màxima (50.000) separarà els nodes.
-**SOLUCIÓ: Slider d'Influència**
-- Afegir paràmetre `edgeWeightInfluence` a la configuració.
-- **Valor 0:** Ignora pesos de les arestes (Crucial per efecte "Núvol" / "obsidian-like").
-- **Valor 1:** Comportament normal.
+### 2. Edge Weight Influence (Dispersion)
+By default, `ForceAtlas2` uses edge weights to attract nodes. If weights are high (e.g., 80-100), even maximum repulsion (50,000) will not separate nodes.
+**SOLUTION: Influence Slider**
+- Add `edgeWeightInfluence` parameter to the configuration.
+- **Value 0:** Ignores edge weights (Crucial for "Cloud" / "obsidian-like" effect).
+- **Value 1:** Normal behavior.
 
-### 3. Rangs Desbloquejats
-Els valors per defecte de les llibreries són massa conservadors per a grafs grans o densos.
-- **Repulsió (Scaling Ratio):** Permetre fins a **50.000** (o més).
-- **Gravetat:** Permetre baixar fins a **0.00** (pas 0.01).
+### 3. Unlocked Ranges
+The default library values are too conservative for large or dense graphs.
+- **Repulsion (Scaling Ratio):** Allow up to **50,000** (or more).
+- **Gravity:** Allow dropping to **0.00** (step 0.01).
 
-## Implementació Tècnica (GraphViewer.jsx)
+## Technical Implementation (GraphViewer.jsx)
 
 ```javascript
 useEffect(() => {
@@ -43,9 +43,9 @@ useEffect(() => {
     const settings = {
         settings: {
             gravity: gravity,
-            scalingRatio: repulsion, // Pot ser 50000+
+            scalingRatio: repulsion, // Can be 50000+
             friction: friction,
-            edgeWeightInfluence: edgeInfluence, // 0 = Màxima dispersió (cloud mode)
+            edgeWeightInfluence: edgeInfluence, // 0 = Maximum dispersion (cloud mode)
             // ...
         }
     };
@@ -55,7 +55,7 @@ useEffect(() => {
 }, [gravity, repulsion, friction, edgeInfluence]);
 ```
 
-## Fitxers Relacionats
+## Related Files
 - `frontend/src/components/ForcesSection.jsx`
 - `frontend/src/pages/GraphPage.jsx`
 - `frontend/src/components/GraphViewer.jsx`

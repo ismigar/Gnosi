@@ -248,20 +248,24 @@ export const GraphViewer = forwardRef(({
     }));
 
     // 3. Initialize Sigma (Once)
+    const initializedRef = useRef(false);
     useEffect(() => {
-        if (!containerRef.current) return;
-        console.log("GraphViewer: Initialize Sigma (Once)");
+        if (!containerRef.current || initializedRef.current) return;
+        console.log("GraphViewer: Attempting to initialize Sigma");
 
         // Wait for container to have dimensions
         if (containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
-            console.warn("GraphViewer: Container has no dimensions, waiting for resize...");
+            console.warn("GraphViewer: Container has no dimensions, waiting for next opportunity...");
             return;
         }
+
+        console.log("GraphViewer: Initializing Sigma (Success)");
+        initializedRef.current = true;
 
         // Create Graph Instance
         const graph = new Graph();
         graphRef.current = graph;
-        setGraphInstance(graph);
+        if (setGraphInstance) setGraphInstance(graph);
 
         // Define Reducers
         let hoveredNode = null;
@@ -323,7 +327,7 @@ export const GraphViewer = forwardRef(({
 
             const isDark = isDarkModeRef.current;
             res.labelColor = isDark ? "#ffffff" : "#000000";
-            res.label = data.label;
+            res.label = String(data.label || "");
 
             if (hoveredNode) {
                 const d = hoverDistances[node] ?? 99;
@@ -395,24 +399,36 @@ export const GraphViewer = forwardRef(({
             }
 
             // Apply edge thickness multiplier and arrow toggle from visualization controls
-            const result = { ...data, color };
-            if (edgeThicknessRef.current !== 1.0) {
-                result.size = (result.size || data.size || 1) * edgeThicknessRef.current;
-            }
-            if (!showArrowsRef.current) {
-                result.type = 'line';  // Remove arrows
-            }
+            let finalColor = color || (isDarkModeRef.current ? '#888888' : '#666666');
+            
+            // Ensure a robust base visible size for edges in WebGL mode
+            const baseSize = data.size || 2.0; 
+            const result = { 
+                ...data, 
+                color: finalColor,
+                zIndex: 1
+            };
+            
+            const thickness = edgeThicknessRef.current || 1.0;
+            result.size = Math.max(1.0, baseSize * thickness);
+            
             return result;
+
+
+
         };
 
         // Initialize Sigma
         if (rendererRef.current) rendererRef.current.kill();
         const renderer = new Sigma(graph, containerRef.current, {
-            renderer: "canvas",
+            // WebGL is the default and more robust for standard setups
             nodeReducer,
             edgeReducer,
-            minArrowSize: 10,
-            maxArrowSize: 20,
+            renderEdges: true, // Native edge rendering
+            defaultEdgeType: "arrow", // Global arrows
+            minArrowSize: 8,
+            maxArrowSize: 15,
+
             labelColor: { color: isDarkMode ? "#ffffff" : "#000000" },
             labelRenderThreshold: labelThreshold,
             labelSizeRatio: 1.1,
@@ -425,15 +441,17 @@ export const GraphViewer = forwardRef(({
                     const bgColor = isDark ? "#000000" : "#ffffff";
                     const textColor = isDark ? "#ffffff" : "#000000";
                     ctx.font = `bold ${fontSize}px Arial`;
-                    const width = ctx.measureText(data.label).width;
+                    const labelText = String(data.label || "");
+                    const width = ctx.measureText(labelText).width;
                     ctx.fillStyle = bgColor;
                     ctx.fillRect(x - 2, y - fontSize, width + 4, fontSize + 4);
                     ctx.fillStyle = textColor;
-                    ctx.fillText(data.label, x, y);
+                    ctx.fillText(labelText, x, y);
                 } else {
                     ctx.font = `${fontSize}px Arial`;
                     ctx.fillStyle = isDark ? "#ffffff" : "#000000";
-                    ctx.fillText(data.label, x, y);
+                    const labelText = String(data.label || "");
+                    ctx.fillText(labelText, x, y);
                 }
             },
             defaultDrawNodeHover: (context, data, settings) => {
@@ -451,11 +469,12 @@ export const GraphViewer = forwardRef(({
                 context.arc(data.x, data.y, data.size + 2, 0, Math.PI * 2, true);
                 context.fill();
                 if (data.label) {
-                    const width = context.measureText(data.label).width;
+                    const labelText = String(data.label);
+                    const width = context.measureText(labelText).width;
                     context.fillStyle = labelBgColor;
                     context.fillRect(data.x + data.size + 3, data.y - size + 4, width, size);
                     context.fillStyle = textColor;
-                    context.fillText(data.label, data.x + data.size + 3, data.y + size / 3);
+                    context.fillText(labelText, data.x + data.size + 3, data.y + size / 3);
                 }
             }
         });
@@ -501,9 +520,10 @@ export const GraphViewer = forwardRef(({
                 try { renderer.kill(); } catch (e) { console.error(e); }
             }
             rendererRef.current = null;
+            initializedRef.current = false;
             if (setRendererInstance) setRendererInstance(null);
         };
-    }, []); // Only run once!
+    }, [graphData]); // Re-attempt initialization when graphData arrives (container might be ready then)
 
 
     // 4. Data Update Effect
@@ -535,10 +555,18 @@ export const GraphViewer = forwardRef(({
             const source = String(e.source);
             const target = String(e.target);
             if (!graph.hasNode(source) || !graph.hasNode(target)) return;
-            if (e.directed) {
-                graph.addDirectedEdge(source, target, e);
-            } else {
-                graph.addUndirectedEdge(source, target, e);
+            
+            // Prevent graphology crash on duplicate edges in simple graphs
+            if (graph.hasEdge(source, target)) return;
+            
+            try {
+                if (e.directed) {
+                    graph.addDirectedEdge(source, target, e);
+                } else {
+                    graph.addUndirectedEdge(source, target, e);
+                }
+            } catch(err) {
+                console.warn("GraphViewer edge add error:", err);
             }
         });
 

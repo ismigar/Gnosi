@@ -1,9 +1,19 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import Depends, APIRouter, HTTPException, Body, Request
+import asyncio
 import logging
 from backend.services.integration_manager import integration_manager
+from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import require_role
+import imaplib
+import smtplib
+from email.parser import BytesParser
+from email import policy
+import socket
+from typing import List, Any
 
 router = APIRouter(prefix="/api/integrations", tags=["integrations"])
 log = logging.getLogger(__name__)
+
 
 @router.get("")
 async def get_integrations():
@@ -12,17 +22,212 @@ async def get_integrations():
         return integration_manager.get_all_safe()
     except Exception as e:
         log.error(f"Error getting integrations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /api/integrations"))
 
-@router.put("/{integration_id}")
+
+def _test_email_sync(imap_server: str, smtp_server: str, username: str, password: str) -> dict:
+    result = {"imap": False, "smtp": False, "error": None}
+    try:
+        imap = imaplib.IMAP4_SSL(imap_server, timeout=10)
+        imap.login(username, password)
+        imap.logout()
+        result["imap"] = True
+    except Exception as e:
+        result["error"] = f"IMAP: {safe_error_detail(e, context='POST /api/integrations/test-email IMAP')}"
+    try:
+        smtp = smtplib.SMTP_SSL(smtp_server, timeout=10)
+        smtp.login(username, password)
+        smtp.quit()
+        result["smtp"] = True
+    except Exception as e:
+        result["error"] = f"SMTP: {safe_error_detail(e, context='POST /api/integrations/test-email SMTP')}"
+    return result
+
+
+@router.post("/test-email", dependencies=[Depends(require_role("editor"))])
+async def test_email_connection(payload: dict = Body(...)):
+    """Tests IMAP/SMTP connection for an email account."""
+    try:
+        imap_server = payload.get("imap_server")
+        smtp_server = payload.get("smtp_server")
+        username = payload.get("username")
+        password = payload.get("password")
+
+        if not all([imap_server, smtp_server, username, password]):
+            return {"success": False, "error": "Falten credencials"}
+
+        # imaplib/smtplib són bloquejants → off-thread per no congelar l'event loop.
+        result = await asyncio.to_thread(
+            _test_email_sync, imap_server, smtp_server, username, password
+        )
+        return {"success": result["imap"] and result["smtp"], **result}
+    except socket.timeout:
+        return {"success": False, "error": "Timeout de connexió"}
+    except Exception as e:
+        log.error(f"Error testing email connection: {e}")
+        return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-email")}
+
+
+@router.post("/test-contacts", dependencies=[Depends(require_role("editor"))])
+async def test_contacts_connection(payload: dict = Body(...)):
+    """Tests CardDAV connection for a contacts account."""
+    try:
+        url = payload.get("url")
+        username = payload.get("username")
+        password = payload.get("password")
+
+        if not all([url, username, password]):
+            return {"success": False, "error": "Falten credencials"}
+
+        import requests
+        from requests.auth import HTTPBasicAuth
+
+        try:
+            # requests.get bloqueja l'event loop fins a 10s → off-thread.
+            response = await asyncio.to_thread(
+                requests.get,
+                url,
+                auth=HTTPBasicAuth(username, password),
+                timeout=10,
+                headers={"Depth": "0"},
+            )
+
+            if response.status_code in (200, 207):
+                return {"success": True}
+            else:
+                return {"success": False, "error": f"Status: {response.status_code}"}
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Timeout de connexió"}
+        except requests.exceptions.RequestException as e:
+            return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-contacts request")}
+    except Exception as e:
+        log.error(f"Error testing contacts connection: {e}")
+        return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-contacts")}
+
+
+@router.post("/test-calendar", dependencies=[Depends(require_role("editor"))])
+async def test_calendar_connection(payload: dict = Body(...)):
+    """Tests CalDAV connection for a calendar account."""
+    try:
+        url = payload.get("url")
+        username = payload.get("username")
+        password = payload.get("password")
+
+        if not all([url, username, password]):
+            return {"success": False, "error": "Falten credencials"}
+
+        import requests
+        from requests.auth import HTTPBasicAuth
+
+        try:
+            # requests.* bloqueja l'event loop fins a 10s → off-thread.
+            response = await asyncio.to_thread(
+                requests.request,
+                "PROPFIND",
+                url,
+                auth=HTTPBasicAuth(username, password),
+                timeout=10,
+                headers={"Depth": "0"},
+            )
+
+            if response.status_code in (200, 207, 405):
+                return {"success": True}
+            else:
+                response = await asyncio.to_thread(
+                    requests.get, url, auth=HTTPBasicAuth(username, password), timeout=10
+                )
+                if response.status_code in (200, 207):
+                    return {"success": True}
+                return {"success": False, "error": f"Status: {response.status_code}"}
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Timeout de connexió"}
+        except requests.exceptions.RequestException as e:
+            return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-calendar request")}
+    except Exception as e:
+        log.error(f"Error testing calendar connection: {e}")
+        return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-calendar")}
+
+
+@router.put("/{integration_id}", dependencies=[Depends(require_role("editor"))])
 async def update_integration(integration_id: str, payload: dict = Body(...)):
-    """Updates a specific integration (e.g. 'email', 'ai', 'notion')"""
+    """Updates a specific integration (e.g. 'email', 'ai')"""
     try:
         integration_manager.update(integration_id, payload)
         return {"status": "success", "message": f"Integration {integration_id} updated"}
     except Exception as e:
         log.error(f"Error updating integration {integration_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context=f"PUT /api/integrations/{integration_id}"))
+
+
+@router.put("/calendar_colors", dependencies=[Depends(require_role("editor"))])
+async def update_calendar_colors(payload: dict = Body(...)):
+    """Saves custom colors for specific calendar sources."""
+    try:
+        integration_manager.update("calendar_colors", payload)
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating calendar colors: {e}")
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_colors"))
+
+
+@router.put("/calendar_aliases", dependencies=[Depends(require_role("editor"))])
+async def update_calendar_aliases(payload: dict = Body(...)):
+    """Saves custom names/aliases for specific calendar sources."""
+    try:
+        integration_manager.update("calendar_aliases", payload)
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating calendar aliases: {e}")
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_aliases"))
+
+
+@router.put("/calendar_selection", dependencies=[Depends(require_role("editor"))])
+async def update_calendar_selection(payload: Any = Body(...)):
+    """Saves the list of visible/selected calendar sources."""
+    try:
+        data = payload
+        if isinstance(payload, dict) and "selection" in payload:
+            data = payload["selection"]
+
+        integration_manager.update("calendar_selection", data)
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating calendar selection: {e}")
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/calendar_selection"))
+
+
+@router.put("/default_calendar", dependencies=[Depends(require_role("editor"))])
+async def update_default_calendar(payload: dict = Body(...)):
+    """Desa el calendari predeterminat per a noves cites."""
+    try:
+        integration_manager.update("default_calendar", payload.get("source", ""))
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating default calendar: {e}")
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_calendar"))
+
+
+@router.put("/default_mail", dependencies=[Depends(require_role("editor"))])
+async def update_default_mail(payload: dict = Body(...)):
+    """Desa el compte de correu predeterminat."""
+    try:
+        integration_manager.update("default_mail", payload.get("email", ""))
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating default mail: {e}")
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_mail"))
+
+
+@router.put("/default_contacts")
+async def update_default_contacts(payload: dict = Body(...)):
+    """Desa el compte de contactes predeterminat."""
+    try:
+        integration_manager.update("default_contacts", payload.get("email", ""))
+        return {"status": "success"}
+    except Exception as e:
+        log.error(f"Error updating default contacts: {e}")
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_contacts"))
+
 
 @router.post("/bulk")
 async def bulk_update_integrations(payload: dict = Body(...)):
@@ -32,5 +237,4 @@ async def bulk_update_integrations(payload: dict = Body(...)):
         return {"status": "success", "message": "Integrations updated in bulk"}
     except Exception as e:
         log.error(f"Error bulk updating integrations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /api/integrations/bulk"))

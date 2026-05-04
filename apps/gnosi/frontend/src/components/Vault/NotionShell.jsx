@@ -12,6 +12,8 @@ export const NotionShell = ({
     onForward,
     canGoBack,
     canGoForward,
+    onOpenHistory,
+    canOpenHistory = false,
     onDeleteCurrentPage,
     canDeleteCurrentPage = false,
     onToggleCodeView,
@@ -146,6 +148,19 @@ export const NotionShell = ({
                                 >
                                     <Code2 size={14} />
                                     <span>{isCodeView ? 'Canviar a vista normal' : 'Canviar a vista codi (md/json)'}</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsPageMenuOpen(false);
+                                        if (canOpenHistory && onOpenHistory) {
+                                            onOpenHistory();
+                                        }
+                                    }}
+                                    disabled={!canOpenHistory}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                                >
+                                    <History size={14} />
+                                    <span>Veure històric</span>
                                 </button>
                                 <button
                                     onClick={() => {

@@ -2,12 +2,13 @@
   --bg: #f6f3ec;
   --bg-accent: #e7dcc8;
   --bg-card: #fffdf8;
-  --ink: #22201c;
-  --muted: #5d574d;
+  --ink: #1e293b;
+  --muted: #64748b;
   --line: #d6c9b3;
   --shadow: 0 12px 30px rgba(34, 32, 28, 0.09);
-  --accent: #4a5568;
-  --accent-hover: #2d3748;
+  --gnosi-primary: #3b82f6;
+  --gnosi-primary-dark: #2563eb;
+  --gnosi-primary-rgb: 59, 130, 246;
   --radius: 14px;
   --radius-sm: 8px;
 }
@@ -79,6 +80,30 @@ h1, h2, h3, h4 {
   color: var(--ink);
 }
 
+.lang-switch {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.lang-switch a,
+.lang-switch span {
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+
+.lang-switch a:hover {
+  background: var(--bg-accent);
+  color: var(--ink);
+}
+
+.lang-switch span.active {
+  background: var(--gnosi-primary);
+  color: white;
+}
+
 /* Layout */
 main {
   max-width: 1100px;
@@ -143,14 +168,16 @@ main {
 }
 
 .btn-primary {
-  background: var(--ink);
-  color: var(--bg);
-  border: 1px solid var(--ink);
+  background: var(--gnosi-primary);
+  color: white;
+  border: 1px solid var(--gnosi-primary);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
 .btn-primary:hover {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--gnosi-primary-dark);
+  border-color: var(--gnosi-primary-dark);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
 }
 
 .btn-secondary {
@@ -221,21 +248,22 @@ main {
   position: absolute;
   width: 24px;
   height: 24px;
-  background: var(--ink);
+  background: var(--gnosi-primary);
   border-radius: 50%;
-  opacity: 0.8;
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
 }
 
 .node.n1 { top: 20%; left: 30%; }
 .node.n2 { top: 10%; left: 60%; }
 .node.n3 { top: 40%; left: 15%; }
-.node.n4 { top: 50%; left: 50%; width: 32px; height: 32px; }
+.node.n4 { top: 50%; left: 50%; width: 32px; height: 32px; box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5); }
 .node.n5 { top: 70%; left: 35%; }
 .node.n6 { top: 80%; left: 65%; }
 
 .edge {
   position: absolute;
-  background: var(--line);
+  background: rgba(59, 130, 246, 0.4);
   height: 2px;
   transform-origin: left center;
 }

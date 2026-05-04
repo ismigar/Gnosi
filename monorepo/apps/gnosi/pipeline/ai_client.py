@@ -4,14 +4,14 @@ Hybrid AI Client supporting multiple providers (Ollama local + Groq cloud).
 Implements fallback logic: tries primary provider first, falls back to secondary on failure.
 """
 import requests
-from config.logger_config import setup_logging, get_logger
-from config.app_config import load_params
-from config.env_config import get_env
+from backend.config.logger_config import setup_logging, get_logger
+from backend.config.app_config import load_params
+from backend.config.env_config import get_env
 import json
 import hashlib
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
-from config.paths_config import get_paths
+from backend.config.paths_config import get_paths
 from backend.security.ai_credentials import resolve_provider_api_key
 
 paths = get_paths()

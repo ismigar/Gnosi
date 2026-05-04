@@ -12,6 +12,7 @@ from fastapi import (
     UploadFile,
     Query,
 )
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -19,6 +20,7 @@ import logging
 import urllib.parse
 import mimetypes
 import base64
+import hashlib
 import yaml
 import re
 import json
@@ -29,8 +31,13 @@ import threading
 import time
 import sys
 import subprocess
-from config.app_config import load_params
+try:
+    from PIL import Image
+except Exception:
+    Image = None
+from backend.config.app_config import load_params
 from backend.services.rule_engine import RuleEngine
+from backend.services.media_service import media_service
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +70,9 @@ MAIL_PATH = cfg.paths.get("MAIL")
 PLANTILLES_PATH = cfg.paths.get("PLANTILLES")
 DIBUIXOS_PATH = cfg.paths.get("DIBUIXOS")
 WIKI_PATH = cfg.paths.get("WIKI")
+DASHWORKS_PATH = cfg.paths.get("DASHWORKS")
 NEWSLETTERS_PATH = cfg.paths.get("NEWSLETTERS")
+DATA_PATH = cfg.paths.get("DATA")
 
 # Ensure BD exists (for registry) only if the path is defined
 if BD_PATH:
@@ -93,6 +102,9 @@ _table_recalc_state = {}
 _TABLE_RECALC_COOLDOWN_SECONDS = 0.5
 _page_index_lock = threading.Lock()
 _page_index_entries: Dict[str, Dict[str, Any]] = {}
+_custom_icons_lock = threading.Lock()
+
+CUSTOM_ICONS_PATH = (DATA_PATH or BD_PATH or Path("/tmp")) / "vault_custom_icons.json"
 
 
 def _clear_page_index_cache():
@@ -203,6 +215,185 @@ class TablePagesSnapshot(BaseModel):
     pages: List[PageInfo]
 
 
+class CustomIconsRequest(BaseModel):
+    icons: List[str] = []
+
+
+class IconUrlImportRequest(BaseModel):
+    url: str
+
+
+class LinkMentionsRequest(BaseModel):
+    target_id: str
+    source_id: Optional[str] = None
+
+
+def _normalize_custom_icons(values: Any, limit: int = 100) -> List[str]:
+    if not isinstance(values, list):
+        return []
+
+    seen = set()
+    normalized: List[str] = []
+
+    for raw in values:
+        if not isinstance(raw, str):
+            continue
+        icon = raw.strip()
+        if not icon or len(icon) > 2048:
+            continue
+        if icon in seen:
+            continue
+
+        seen.add(icon)
+        normalized.append(icon)
+
+        if len(normalized) >= limit:
+            break
+
+    return normalized
+
+
+def _load_custom_icons() -> List[str]:
+    with _custom_icons_lock:
+        try:
+            if not CUSTOM_ICONS_PATH.exists():
+                return []
+
+            raw = json.loads(CUSTOM_ICONS_PATH.read_text(encoding="utf-8"))
+            return _normalize_custom_icons(raw, limit=100)
+        except Exception:
+            return []
+
+
+def _save_custom_icons(values: List[str]) -> List[str]:
+    normalized = _normalize_custom_icons(values, limit=100)
+
+    with _custom_icons_lock:
+        try:
+            CUSTOM_ICONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            CUSTOM_ICONS_PATH.write_text(
+                json.dumps(normalized, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not save custom icons: {exc}",
+            )
+
+    return normalized
+
+
+def _is_image_upload(file: UploadFile) -> bool:
+    content_type = str(file.content_type or "").strip().lower()
+    if content_type.startswith("image/"):
+        return True
+
+    guessed_type, _ = mimetypes.guess_type(file.filename or "")
+    return bool(guessed_type and guessed_type.startswith("image/"))
+
+
+def _upload_image_to_assets_subdir(file: UploadFile, subdir: str) -> Dict[str, str]:
+    if not _is_image_upload(file):
+        raise HTTPException(status_code=400, detail="Uploaded file must be an image")
+
+    target_path = ASSETS_PATH / subdir
+    target_path.mkdir(parents=True, exist_ok=True)
+
+    try:
+        relative_path = _save_uploaded_file_to_assets(file, target_path)
+    except Exception as e:
+        log.error(f"Error uploading image to {subdir}: {e}")
+        raise HTTPException(status_code=500, detail="Could not save image")
+
+    url = f"/api/vault/assets/{relative_path[len('Assets/') :]}"
+    return {"url": url, "path": relative_path}
+
+
+def _normalize_icon_extension(filename: str, content_type: str) -> str:
+    ext = (Path(filename or "").suffix or "").strip().lower()
+    if ext in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg"}:
+        return ".jpg" if ext == ".jpeg" else ext
+
+    ctype = str(content_type or "").split(";")[0].strip().lower()
+    mapped = {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+        "image/bmp": ".bmp",
+        "image/svg+xml": ".svg",
+    }.get(ctype)
+    return mapped or ".png"
+
+
+def _store_icon_bytes(
+    payload: bytes, source_name: str, content_type: str
+) -> Dict[str, Optional[str]]:
+    if not payload:
+        raise HTTPException(status_code=400, detail="Empty icon payload")
+
+    icons_dir = ASSETS_PATH / "Icons"
+    icons_dir.mkdir(parents=True, exist_ok=True)
+
+    digest = hashlib.sha256(payload).hexdigest()[:12]
+    ext = _normalize_icon_extension(source_name, content_type)
+    filename = f"icon-{digest}{ext}"
+    icon_path = icons_dir / filename
+
+    if not icon_path.exists():
+        icon_path.write_bytes(payload)
+
+    thumbnail_rel = _maybe_create_icon_thumbnail(icon_path, digest)
+    icon_rel = str(icon_path.relative_to(VAULT_PATH)).replace("\\", "/")
+
+    response = {
+        "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
+        "path": icon_rel,
+        "thumbnail_url": None,
+        "thumbnail_path": None,
+    }
+
+    if thumbnail_rel:
+        response["thumbnail_path"] = thumbnail_rel
+        response["thumbnail_url"] = (
+            f"/api/vault/assets/{thumbnail_rel[len('Assets/') :]}"
+        )
+
+    return response
+
+
+def _maybe_create_icon_thumbnail(icon_path: Path, digest: str) -> Optional[str]:
+    if Image is None:
+        return None
+
+    # Raster-only thumbnails; skip vectors such as SVG.
+    if icon_path.suffix.lower() == ".svg":
+        return None
+
+    try:
+        with Image.open(icon_path) as img:
+            width, height = img.size
+            if max(width, height) <= 256:
+                return None
+
+            side = min(width, height)
+            left = (width - side) // 2
+            top = (height - side) // 2
+            cropped = img.crop((left, top, left + side, top + side))
+            thumb = cropped.resize((128, 128), Image.LANCZOS)
+
+            thumbs_dir = ASSETS_PATH / "Icons" / "Thumbnails"
+            thumbs_dir.mkdir(parents=True, exist_ok=True)
+            thumb_path = thumbs_dir / f"icon-{digest}-thumb.png"
+
+            thumb.save(thumb_path, format="PNG")
+            return str(thumb_path.relative_to(VAULT_PATH)).replace("\\", "/")
+    except Exception:
+        return None
+
+
 def _normalize_resource_title(value: str) -> str:
     normalized = unicodedata.normalize("NFD", str(value or ""))
     normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
@@ -293,7 +484,7 @@ def init_vault():
         
     paths_to_create = [
         VAULT_PATH, ASSETS_PATH, CALENDAR_PATH, DIBUIXOS_PATH, BD_PATH, 
-        DEFAULT_DB_PATH, DEFAULT_TABLE_PATH, NEWSLETTERS_PATH
+        DEFAULT_DB_PATH, DEFAULT_TABLE_PATH, NEWSLETTERS_PATH, WIKI_PATH, DASHWORKS_PATH
     ]
     
     for p in paths_to_create:
@@ -465,6 +656,14 @@ def normalize_table_context(metadata: dict) -> dict:
     table_id = metadata.get("table_id")
     database_table_id = metadata.get("database_table_id")
 
+    # Legacy compatibility: wiki pages must not behave as DB rows.
+    if str(table_id or "").strip().lower() == "wiki":
+        metadata.pop("table_id", None)
+        table_id = None
+    if str(database_table_id or "").strip().lower() == "wiki":
+        metadata.pop("database_table_id", None)
+        database_table_id = None
+
     if table_id and not database_table_id:
         metadata["database_table_id"] = table_id
     elif database_table_id and not table_id:
@@ -477,11 +676,14 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
     """Moves notes between Wiki/Templates/Calendar/BD based on metadata."""
     is_template = metadata.get("is_template") is True
     is_calendar = is_calendar_entry(metadata)
+    is_dashworks = metadata.get("is_dashworks") is True
 
     if is_template:
         target_dir = PLANTILLES_PATH
     elif is_calendar:
         target_dir = CALENDAR_PATH
+    elif is_dashworks:
+        target_dir = DASHWORKS_PATH
     else:
         table_folder = _resolve_table_folder_from_metadata(metadata)
         if table_folder:
@@ -497,6 +699,7 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
         or file_path.parent == PLANTILLES_PATH
         or file_path.parent == CALENDAR_PATH
         or file_path.parent == WIKI_PATH
+        or file_path.parent == DASHWORKS_PATH
     )
 
     if can_relocate and file_path.parent != target_dir:
@@ -538,29 +741,146 @@ def _sanitize_asset_segment(value: str, fallback: str) -> str:
     return cleaned[:120]
 
 
+def _sanitize_filename_base(title: str) -> str:
+    """Sanitize a title into a filesystem-safe filename base (without extension)."""
+    safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", str(title or "")).strip()
+    safe = re.sub(r"\s+", " ", safe)
+    if not safe:
+        safe = "Untitled"
+    if len(safe) > 200:
+        safe = safe[:200].strip()
+    return safe
+
+
+def _resolve_unique_filename(
+    target_dir: Path,
+    base_name: str,
+    exclude_path: Optional[Path] = None,
+    extension: str = ".md",
+) -> str:
+    """Returns a unique filename base in target_dir, optionally ignoring exclude_path."""
+    candidate = base_name
+    counter = 2
+
+    while True:
+        candidate_path = target_dir / f"{candidate}{extension}"
+        if not candidate_path.exists():
+            return candidate
+
+        if exclude_path is not None:
+            try:
+                if candidate_path.resolve() == exclude_path.resolve():
+                    return candidate
+            except Exception:
+                if candidate_path == exclude_path:
+                    return candidate
+
+        candidate = f"{base_name} ({counter})"
+        counter += 1
+
+
+def _rename_page_file_to_match_title(file_path: Path, title: str) -> Path:
+    """Renames page file so the filename matches title while preserving uniqueness."""
+    target_dir = file_path.parent
+    base_name = _sanitize_filename_base(title)
+    extension = file_path.suffix or ".md"
+    desired_name = _resolve_unique_filename(
+        target_dir,
+        base_name,
+        exclude_path=file_path,
+        extension=extension,
+    )
+    desired_path = target_dir / f"{desired_name}{extension}"
+
+    if desired_path == file_path:
+        return file_path
+
+    file_path.rename(desired_path)
+    return desired_path
+
+
 def _safe_filename(title: str, target_dir: Path) -> str:
     """Generate a safe filename from a title, handling collisions.
 
     Returns the filename WITHOUT extension.
     """
-    # Sanitize: remove invalid filesystem characters
-    safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", str(title or "")).strip()
-    safe = re.sub(r"\s+", " ", safe)
-    if not safe:
-        safe = "Untitled"
+    safe = _sanitize_filename_base(title)
+    return _resolve_unique_filename(target_dir, safe)
 
-    # Truncate to avoid filesystem limits
-    if len(safe) > 200:
-        safe = safe[:200].strip()
 
-    # Handle collisions: if file exists, append counter
-    candidate = safe
-    counter = 2
-    while (target_dir / f"{candidate}.md").exists():
-        candidate = f"{safe} ({counter})"
-        counter += 1
+def _is_dashworks_file_path(file_path: Path) -> bool:
+    if not file_path or file_path.suffix.lower() != ".json" or not DASHWORKS_PATH:
+        return False
+    try:
+        file_path.resolve().relative_to(DASHWORKS_PATH.resolve())
+        return True
+    except Exception:
+        return False
 
-    return candidate
+
+def _read_dashworks_file(file_path: Path) -> tuple[dict, str]:
+    data = json.loads(file_path.read_text(encoding="utf-8"))
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    metadata = dict(metadata)
+
+    file_id = data.get("id") or metadata.get("id") or file_path.stem
+    title = data.get("title") or metadata.get("title") or file_path.stem
+    parent_id = data.get("parent_id")
+
+    metadata["id"] = file_id
+    metadata["title"] = title
+    if parent_id is not None:
+        metadata["parent_id"] = parent_id
+    metadata["is_dashworks"] = True
+    metadata.setdefault("content_format", "json")
+
+    body = data.get("content")
+    if body is None:
+        body = "{}"
+    elif not isinstance(body, str):
+        body = json.dumps(body, ensure_ascii=False, indent=2)
+
+    return metadata, body
+
+
+def _write_dashworks_file(
+    file_path: Path,
+    page_id: str,
+    title: str,
+    metadata: dict,
+    content: str,
+    parent_id: Optional[str] = None,
+    is_database: bool = False,
+):
+    payload = {
+        "id": page_id,
+        "title": title,
+        "parent_id": parent_id,
+        "is_database": is_database,
+        "metadata": metadata,
+        "content": content,
+    }
+    file_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _ensure_page_extension(file_path: Path, is_dashworks: bool) -> Path:
+    desired_extension = ".json" if is_dashworks else ".md"
+    if file_path.suffix.lower() == desired_extension:
+        return file_path
+
+    base_name = _sanitize_filename_base(file_path.stem)
+    desired_name = _resolve_unique_filename(
+        file_path.parent,
+        base_name,
+        exclude_path=file_path,
+        extension=desired_extension,
+    )
+    desired_path = file_path.parent / f"{desired_name}{desired_extension}"
+    file_path.rename(desired_path)
+    return desired_path
 
 
 def _is_asset_property(prop: Dict[str, Any]) -> bool:
@@ -981,7 +1301,10 @@ def _resolve_table_id_from_context(
 
 
     # Fallback for legacy/template notes outside table folders.
-    return metadata.get("table_id") or metadata.get("database_table_id")
+    res_id = metadata.get("table_id") or metadata.get("database_table_id")
+    if str(res_id or "").strip().lower() == "wiki":
+        return None
+    return res_id
 
 
 def _resolve_table_folder_from_metadata(metadata: dict) -> Optional[Path]:
@@ -1126,9 +1449,12 @@ def _recompute_cross_record_formulas_for_table(
 
 def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     try:
-        raw_content = file_path.read_text(encoding="utf-8")
-        metadata, _ = parse_frontmatter(raw_content, file_path)
-        metadata = _process_metadata_paths(metadata)
+        if _is_dashworks_file_path(file_path):
+            metadata, _ = _read_dashworks_file(file_path)
+        else:
+            raw_content = file_path.read_text(encoding="utf-8")
+            metadata, _ = parse_frontmatter(raw_content, file_path)
+            metadata = _process_metadata_paths(metadata)
     except Exception as e:
         log.warning(f"Error parsing frontmatter for {file_path.name}: {e}")
         metadata = {}
@@ -1159,8 +1485,13 @@ def _get_cached_page_entries() -> List[Dict[str, Any]]:
     with _page_index_lock:
         current_paths = set()
 
-        for file_path in VAULT_PATH.rglob("*.md"):
-            if any(part.startswith('.') for part in file_path.relative_to(VAULT_PATH).parts):
+        candidate_files = list(VAULT_PATH.rglob("*.md"))
+        if DASHWORKS_PATH and DASHWORKS_PATH.exists():
+            candidate_files.extend(DASHWORKS_PATH.rglob("*.json"))
+
+        for file_path in candidate_files:
+            is_dashworks_file = _is_dashworks_file_path(file_path)
+            if not is_dashworks_file and any(part.startswith('.') for part in file_path.relative_to(VAULT_PATH).parts):
                 continue
 
             path_str = str(file_path)
@@ -1292,10 +1623,10 @@ async def list_sidebar_summary():
     ]
 
 
-def _get_unique_filepath(target_dir: Path, name: str) -> Path:
+def _get_unique_filepath(target_dir: Path, name: str, extension: str = ".md") -> Path:
     """Returns a unique filepath by appending (n) if it already exists."""
     safe_name = _safe_filename(str(name), target_dir)
-    file_path = target_dir / f"{safe_name}.md"
+    file_path = target_dir / f"{safe_name}{extension}"
     
     if not file_path.exists():
         return file_path
@@ -1304,7 +1635,7 @@ def _get_unique_filepath(target_dir: Path, name: str) -> Path:
     counter = 1
     while True:
         candidate_name = f"{safe_name} ({counter})"
-        file_path = target_dir / f"{candidate_name}.md"
+        file_path = target_dir / f"{candidate_name}{extension}"
         if not file_path.exists():
             return file_path
         counter += 1
@@ -1325,6 +1656,8 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         metadata["parent_id"] = request.parent_id
     if request.is_database:
         metadata["is_database"] = True
+    if metadata.get("is_dashworks") is True:
+        metadata["content_format"] = "json"
 
     # Apply automations and formulas during creation as well (old_metadata empty)
     try:
@@ -1335,12 +1668,15 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     metadata = _persist_metadata_assets(metadata)
 
     is_template = metadata.get("is_template") is True
+    is_dashworks = metadata.get("is_dashworks") is True
 
     # Determinar directori destí
     if is_template:
         target_dir = PLANTILLES_PATH
     elif is_calendar_entry(metadata):
         target_dir = CALENDAR_PATH
+    elif is_dashworks:
+        target_dir = DASHWORKS_PATH
     else:
         table_folder = _resolve_table_folder_from_metadata(metadata)
         target_dir = table_folder if table_folder else WIKI_PATH
@@ -1348,7 +1684,8 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     target_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate filename from title (not UUID)
-    file_path = _get_unique_filepath(target_dir, request.title)
+    file_extension = ".json" if is_dashworks else ".md"
+    file_path = _get_unique_filepath(target_dir, request.title, extension=file_extension)
     
     log.info(f"Creating new page at: {file_path.absolute()}")
 
@@ -1356,7 +1693,18 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     full_content = f"{frontmatter}\n{request.content}"
 
     try:
-        file_path.write_text(full_content, encoding="utf-8")
+        if is_dashworks:
+            _write_dashworks_file(
+                file_path=file_path,
+                page_id=page_id,
+                title=request.title,
+                metadata=metadata,
+                content=request.content,
+                parent_id=request.parent_id,
+                is_database=request.is_database,
+            )
+        else:
+            file_path.write_text(full_content, encoding="utf-8")
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
         )
@@ -1396,11 +1744,19 @@ def find_page_path(page_id: str) -> Optional[Path]:
     if direct_path.exists():
         return direct_path
 
+    dashworks_direct_path = DASHWORKS_PATH / f"{page_id}.json" if DASHWORKS_PATH else None
+    if dashworks_direct_path and dashworks_direct_path.exists():
+        return dashworks_direct_path
+
     # 2. Cercar a l'arrel si el fitxer es diu directament id.md (ja cobert per rglob però útil)
 
     # 3. Fast recursive search by filename (UUID.md)
     for p in VAULT_PATH.rglob(f"{page_id}.md"):
         return p
+
+    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
+        for p in DASHWORKS_PATH.rglob(f"{page_id}.json"):
+            return p
 
     # 4. Fallback: Search within .md files if the 'id' in frontmatter matches
     # Since this is slow, it's only done if the ID doesn't match any filename.
@@ -1414,6 +1770,15 @@ def find_page_path(page_id: str) -> Optional[Path]:
                 return p
         except Exception:
             continue
+
+    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
+        for p in DASHWORKS_PATH.rglob("*.json"):
+            try:
+                metadata, _ = _read_dashworks_file(p)
+                if metadata.get("id") == page_id:
+                    return p
+            except Exception:
+                continue
 
     return None
 
@@ -1429,8 +1794,11 @@ async def get_page(page_id: str):
         )
 
     try:
-        raw_content = file_path.read_text(encoding="utf-8")
-        metadata, body = parse_frontmatter(raw_content, file_path)
+        if _is_dashworks_file_path(file_path):
+            metadata, body = _read_dashworks_file(file_path)
+        else:
+            raw_content = file_path.read_text(encoding="utf-8")
+            metadata, body = parse_frontmatter(raw_content, file_path)
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
         )
@@ -1464,24 +1832,32 @@ async def save_page(
 
     if request.is_database:
         metadata["is_database"] = True
+    if metadata.get("is_dashworks") is True:
+        metadata["content_format"] = "json"
 
     is_template = metadata.get("is_template") is True
+    is_dashworks = metadata.get("is_dashworks") is True
     if not file_path:
         # If it doesn't exist, we create it in the correct folder according to metadata.
         if is_template:
             target_dir = PLANTILLES_PATH
         elif is_calendar_entry(metadata):
             target_dir = CALENDAR_PATH
+        elif is_dashworks:
+            target_dir = DASHWORKS_PATH
         else:
             table_folder = _resolve_table_folder_from_metadata(metadata)
             target_dir = table_folder if table_folder else WIKI_PATH
 
         target_dir.mkdir(parents=True, exist_ok=True)
         safe_name = _safe_filename(request.title, target_dir)
-        file_path = target_dir / f"{safe_name}.md"
+        file_extension = ".json" if is_dashworks else ".md"
+        file_path = target_dir / f"{safe_name}{file_extension}"
     else:
         # Ensure it's in the correct folder
         file_path = ensure_correct_page_location(file_path, metadata)
+        file_path = _ensure_page_extension(file_path, is_dashworks)
+        file_path = _rename_page_file_to_match_title(file_path, request.title)
 
     # Read previous metadata to detect manual overrides
     old_metadata = {}
@@ -1507,8 +1883,19 @@ async def save_page(
     try:
         if file_path and file_path.exists():
             _create_page_version(page_id, file_path)
-            
-        file_path.write_text(full_content, encoding="utf-8")
+
+        if is_dashworks:
+            _write_dashworks_file(
+                file_path=file_path,
+                page_id=page_id,
+                title=request.title,
+                metadata=metadata,
+                content=request.content,
+                parent_id=request.parent_id,
+                is_database=request.is_database,
+            )
+        else:
+            file_path.write_text(full_content, encoding="utf-8")
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
         )
@@ -1546,8 +1933,11 @@ async def patch_page(
         raise HTTPException(status_code=404, detail="Page not found")
 
     try:
-        raw_content = file_path.read_text(encoding="utf-8")
-        metadata, body = parse_frontmatter(raw_content, file_path)
+        if _is_dashworks_file_path(file_path):
+            metadata, body = _read_dashworks_file(file_path)
+        else:
+            raw_content = file_path.read_text(encoding="utf-8")
+            metadata, body = parse_frontmatter(raw_content, file_path)
 
         if request.title is not None:
             metadata["title"] = request.title
@@ -1564,9 +1954,14 @@ async def patch_page(
         # Normalitzar IDs legacy
         metadata = normalize_metadata_ids(metadata)
         metadata = normalize_table_context(metadata)
+        if metadata.get("is_dashworks") is True:
+            metadata["content_format"] = "json"
 
         # Move if type changes (template / non-template)
         file_path = ensure_correct_page_location(file_path, metadata)
+        file_path = _ensure_page_extension(file_path, metadata.get("is_dashworks") is True)
+        if request.title is not None:
+            file_path = _rename_page_file_to_match_title(file_path, request.title)
 
         # Apply automations and formulas
         try:
@@ -1583,7 +1978,18 @@ async def patch_page(
         full_content = f"{frontmatter}\n{content.lstrip()}"
 
         _create_page_version(page_id, file_path)
-        file_path.write_text(full_content, encoding="utf-8")
+        if metadata.get("is_dashworks") is True:
+            _write_dashworks_file(
+                file_path=file_path,
+                page_id=page_id,
+                title=metadata.get("title", "Untitled"),
+                metadata=metadata,
+                content=content,
+                parent_id=metadata.get("parent_id"),
+                is_database=bool(metadata.get("is_database")),
+            )
+        else:
+            file_path.write_text(full_content, encoding="utf-8")
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", content
         )
@@ -1664,17 +2070,151 @@ async def delete_page(page_id: str):
 @router.post("/upload-cover")
 async def upload_cover(file: UploadFile = File(...)):
     """Uploads an image to the Assets/Covers folder and returns the URL."""
-    covers_path = ASSETS_PATH / "Covers"
-    covers_path.mkdir(parents=True, exist_ok=True)
+    return _upload_image_to_assets_subdir(file, "Covers")
+
+
+@router.post("/upload-icon")
+async def upload_icon(file: UploadFile = File(...)):
+    """Uploads an image to the Assets/Icons folder and returns the URL."""
+    if not _is_image_upload(file):
+        raise HTTPException(status_code=400, detail="Uploaded file must be an image")
+
+    payload = await file.read()
+    if len(payload) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Icon is too large (max 10MB)")
+
+    return _store_icon_bytes(payload, file.filename or "icon", file.content_type or "")
+
+
+@router.post("/import-icon-url")
+async def import_icon_from_url(request: IconUrlImportRequest):
+    """Downloads an external icon URL and stores it in Assets/Icons."""
+    url = str(request.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="URL is required")
+
+    if not re.match(r"^https?://", url, re.IGNORECASE):
+        raise HTTPException(status_code=400, detail="URL must be http(s)")
 
     try:
-        relative_path = _save_uploaded_file_to_assets(file, covers_path)
-    except Exception as e:
-        log.error(f"Error uploading image: {e}")
-        raise HTTPException(status_code=500, detail="Could not save image")
+        response = requests.get(url, timeout=12, stream=True)
+        response.raise_for_status()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not fetch icon URL: {exc}")
 
-    url = f"http://localhost:5002/api/vault/assets/{relative_path[len('Assets/') :]}"
-    return {"url": url, "path": relative_path}
+    content_type = str(response.headers.get("Content-Type") or "").split(";")[0].lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="URL does not point to an image")
+
+    max_size = 10 * 1024 * 1024
+    chunks = []
+    total = 0
+    try:
+        for chunk in response.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > max_size:
+                raise HTTPException(status_code=413, detail="Icon is too large (max 10MB)")
+            chunks.append(chunk)
+    finally:
+        response.close()
+
+    payload = b"".join(chunks)
+    source_name = Path(urllib.parse.urlparse(url).path).name or "remote-icon"
+    return _store_icon_bytes(payload, source_name, content_type)
+
+
+@router.get("/assets/{asset_path:path}")
+async def get_asset(asset_path: str):
+    """Serves files from the Vault Assets directory."""
+    if not ASSETS_PATH:
+        raise HTTPException(status_code=500, detail="Assets path is not configured")
+
+    try:
+        assets_root = ASSETS_PATH.resolve()
+        requested = (ASSETS_PATH / asset_path).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid asset path")
+
+    if not str(requested).startswith(str(assets_root)):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not requested.exists() or not requested.is_file():
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    media_type, _ = mimetypes.guess_type(str(requested))
+    return FileResponse(path=str(requested), media_type=media_type)
+
+
+# --- Media Manager (ARXIU AVANÇAT) ---
+
+@router.get("/media")
+async def get_all_media(album: Optional[str] = Query(None)):
+    """Llista tots els mitjans, opcionalment filtrats per àlbum."""
+    return media_service.get_all_media(album)
+
+
+@router.get("/media/albums")
+async def get_albums():
+    """Retorna la llista d'àlbums (carpetes)."""
+    return media_service.get_albums()
+
+
+@router.post("/media/upload")
+async def upload_media(
+    file: UploadFile = File(...),
+    album: str = Query("General"),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    """Puja un fitxer de mitjans a un àlbum."""
+    result = media_service.upload_media(file, album)
+    return result
+
+
+@router.patch("/media/metadata")
+async def update_media_metadata(
+    filename: str = Body(...),
+    album: str = Body(...),
+    metadata: Dict[str, Any] = Body(...)
+):
+    """Actualitza tags, descripció o data manualment."""
+    success = media_service.update_metadata(filename, album, metadata)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error de persistència")
+    return {"status": "ok"}
+
+
+@router.get("/images/{image_path:path}")
+async def serve_vault_image(image_path: str):
+    """Serveix imatges directament des de VAULT/Images."""
+    if not VAULT_PATH:
+        raise HTTPException(status_code=500, detail="Vault not configured")
+        
+    img_root = (VAULT_PATH / "Images").resolve()
+    requested = (img_root / image_path).resolve()
+    
+    if not str(requested).startswith(str(img_root)):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not requested.exists() or not requested.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    media_type, _ = mimetypes.guess_type(str(requested))
+    return FileResponse(path=str(requested), media_type=media_type)
+
+
+@router.get("/custom-icons")
+async def get_custom_icons():
+    """Returns the shared custom icon library for Vault icon picker."""
+    return {"icons": _load_custom_icons()}
+
+
+@router.put("/custom-icons")
+async def save_custom_icons(request: CustomIconsRequest):
+    """Persists the shared custom icon library for Vault icon picker."""
+    saved = _save_custom_icons(request.icons)
+    return {"icons": saved}
 
 
 @router.post("/upload-property-file")
@@ -1752,8 +2292,11 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
         )
 
     try:
-        raw_content = source_path.read_text(encoding="utf-8")
-        metadata, body = parse_frontmatter(raw_content, source_path)
+        if _is_dashworks_file_path(source_path):
+            metadata, body = _read_dashworks_file(source_path)
+        else:
+            raw_content = source_path.read_text(encoding="utf-8")
+            metadata, body = parse_frontmatter(raw_content, source_path)
 
         # Nou UUID i ajustos de metadata
         new_page_id = str(uuid.uuid4())
@@ -1765,12 +2308,23 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
         new_title = f"{old_title} (Copy)"
         new_metadata["title"] = new_title
 
-        frontmatter = generate_frontmatter(new_metadata)
-        full_content = f"{frontmatter}\n{body.lstrip()}"
-
         # Copies are created in the same directory as the original
-        new_file_path = source_path.parent / f"{new_page_id}.md"
-        new_file_path.write_text(full_content, encoding="utf-8")
+        if _is_dashworks_file_path(source_path):
+            new_file_path = source_path.parent / f"{new_page_id}.json"
+            _write_dashworks_file(
+                file_path=new_file_path,
+                page_id=new_page_id,
+                title=new_title,
+                metadata=new_metadata,
+                content=body,
+                parent_id=new_metadata.get("parent_id"),
+                is_database=bool(new_metadata.get("is_database")),
+            )
+        else:
+            frontmatter = generate_frontmatter(new_metadata)
+            full_content = f"{frontmatter}\n{body.lstrip()}"
+            new_file_path = source_path.parent / f"{new_page_id}.md"
+            new_file_path.write_text(full_content, encoding="utf-8")
 
         background_tasks.add_task(
             trigger_n8n_webhook, new_file_path.name, "Universal", body
@@ -1803,74 +2357,194 @@ def trigger_n8n_webhook(filename: str, folder: str, content: str):
         log.warning(f"Could not notify event to n8n: {e}")
 
 
+def build_id_title_index() -> Dict[str, str]:
+    """Builds a global mapping page_id -> title for vault and dashworks."""
+    index: Dict[str, str] = {}
+
+    if VAULT_PATH and VAULT_PATH.exists():
+        for file_path in VAULT_PATH.rglob("*.md"):
+            if ".history" in file_path.parts:
+                continue
+            try:
+                raw_content = file_path.read_text(encoding="utf-8")
+                metadata, _ = parse_frontmatter(raw_content, file_path)
+                page_id = str(
+                    metadata.get("id") or metadata.get("notion_id") or file_path.stem
+                )
+                title = str(metadata.get("title") or file_path.stem)
+                index[page_id] = title
+            except Exception as e:
+                log.warning(f"Error indexant {file_path.name}: {e}")
+
+    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
+        for file_path in DASHWORKS_PATH.rglob("*.json"):
+            try:
+                metadata, _ = _read_dashworks_file(file_path)
+                page_id = str(metadata.get("id") or file_path.stem)
+                title = str(metadata.get("title") or file_path.stem)
+                index[page_id] = title
+            except Exception as e:
+                log.warning(f"Error indexant {file_path.name}: {e}")
+
+    return index
+
+
+def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, bool]]:
+    """Yields page documents as (path, metadata, body, is_dashworks)."""
+    docs: List[tuple[Path, Dict[str, Any], str, bool]] = []
+
+    if VAULT_PATH and VAULT_PATH.exists():
+        for file_path in VAULT_PATH.rglob("*.md"):
+            if ".history" in file_path.parts:
+                continue
+            try:
+                raw_content = file_path.read_text(encoding="utf-8")
+                metadata, body = parse_frontmatter(raw_content, file_path)
+                docs.append((file_path, metadata, body, False))
+            except Exception as e:
+                log.warning(f"Error parsing linkable page {file_path.name}: {e}")
+
+    if DASHWORKS_PATH and DASHWORKS_PATH.exists():
+        for file_path in DASHWORKS_PATH.rglob("*.json"):
+            try:
+                metadata, body = _read_dashworks_file(file_path)
+                docs.append((file_path, metadata, body, True))
+            except Exception as e:
+                log.warning(f"Error parsing dashworks page {file_path.name}: {e}")
+
+    return docs
+
+
 @router.get("/global-index")
 async def get_global_index():
     """Returns a global mapping id -> title for the entire Vault."""
-    index = {}
-
-    if not VAULT_PATH.exists():
-        return index
-
-    for file_path in VAULT_PATH.rglob("*.md"):
-        try:
-            raw_content = file_path.read_text(encoding="utf-8")
-            metadata, _ = parse_frontmatter(raw_content, file_path)
-            page_id = metadata.get("id") or metadata.get("notion_id") or file_path.stem
-
-            # Prioritize title from frontmatter, then filename
-            title = metadata.get("title") or file_path.stem
-            index[page_id] = title
-        except Exception as e:
-            log.warning(f"Error indexant {file_path.name}: {e}")
-
-    return index
+    return build_id_title_index()
 
 
 @router.get("/backlinks")
 async def get_backlinks(id: str):
     """Finds all notes linking to a specific ID (both in metadata and body)."""
     backlinks = []
+    seen_backlink_ids: set[str] = set()
 
-    if not VAULT_PATH.exists():
+    target_id = str(id or "").strip()
+    if not target_id:
         return backlinks
 
-    # Busquem per tot el Vault notes que referenciïn aquest ID
-    for file_path in VAULT_PATH.rglob("*.md"):
-        try:
-            raw_content = file_path.read_text(encoding="utf-8")
-            metadata, body = parse_frontmatter(raw_content, file_path)
+    id_title_index = build_id_title_index()
+    target_title = str(id_title_index.get(target_id) or "").strip().lower()
+    title_to_ids = {}
+    for page_id, title in id_title_index.items():
+        key = str(title or "").strip().lower()
+        if not key:
+            continue
+        title_to_ids.setdefault(key, set()).add(str(page_id))
 
+    def _candidate_targets_from_ref(raw_ref: str) -> set[str]:
+        candidates: set[str] = set()
+        text = str(raw_ref or "").strip()
+        if not text:
+            return candidates
+
+        try:
+            text = urllib.parse.unquote(text)
+        except Exception:
+            pass
+
+        base = text.split("#", 1)[0].strip()
+        if not base:
+            return candidates
+
+        candidates.add(base)
+
+        vault_page_match = re.search(r"(?:https?://[^/]+)?/vault/page/([^/?#]+)", base, re.IGNORECASE)
+        if vault_page_match and vault_page_match.group(1):
+            try:
+                candidates.add(urllib.parse.unquote(vault_page_match.group(1).strip()))
+            except Exception:
+                candidates.add(vault_page_match.group(1).strip())
+
+        api_page_match = re.search(r"(?:https?://[^/]+)?/api/vault/pages/([^/?#]+)", base, re.IGNORECASE)
+        if api_page_match and api_page_match.group(1):
+            try:
+                candidates.add(urllib.parse.unquote(api_page_match.group(1).strip()))
+            except Exception:
+                candidates.add(api_page_match.group(1).strip())
+
+        lowered = base.lower()
+        for matched_id in title_to_ids.get(lowered, set()):
+            candidates.add(matched_id)
+
+        return {c.strip() for c in candidates if str(c).strip()}
+
+    def _matches_target(raw_ref: str) -> bool:
+        for candidate in _candidate_targets_from_ref(raw_ref):
+            if candidate == target_id:
+                return True
+            if target_title and candidate.lower() == target_title:
+                return True
+            for resolved_id in title_to_ids.get(candidate.lower(), set()):
+                if resolved_id == target_id:
+                    return True
+        return False
+
+    documents = _iter_linkable_page_documents()
+    if not documents:
+        return backlinks
+
+    # Busquem per tot el Vault/Dashworks notes que referenciïn aquest ID
+    for file_path, metadata, body, _is_dashworks_doc in documents:
+        try:
             # Do not count ourselves as backlink
-            current_id = metadata.get("id", file_path.stem)
-            if current_id == id:
+            current_id = str(metadata.get("id", file_path.stem) or file_path.stem).strip()
+            if not current_id:
+                continue
+            if current_id == target_id:
+                continue
+            if current_id in seen_backlink_ids:
                 continue
 
             found = False
             # 1. Check Metadata
             for val in metadata.values():
-                if val == id:
+                if val == target_id:
                     found = True
                     break
-                if isinstance(val, list) and id in val:
+                if isinstance(val, list):
+                    for item in val:
+                        item_str = str(item).strip()
+                        if item_str == target_id:
+                            found = True
+                            break
+                        if isinstance(item, str) and _matches_target(item):
+                            found = True
+                            break
+                    if found:
+                        break
+                if isinstance(val, str) and _matches_target(val):
                     found = True
                     break
 
             # 2. Check Body (WikiLinks and MD Links)
             if not found:
-                # Obsidian style [[ID]] or [[ID|Alias]]
-                # We relax the regex to match either ID or Title if it matches our id
-                if re.search(r"\[\[([^\]|]*?)(?:\|.*?)?\]\]", body):
-                    wiki_links = re.findall(r"\[\[([^\]|]*?)(?:\|.*?)?\]\]", body)
-                    if id in wiki_links:
+                # Obsidian style [[ID]] / [[Title]] / [[Title#Section|Alias]] (and ![[...]]).
+                wiki_links = re.findall(r"!?\[\[([^\]|]+(?:#[^\]|]+)?)(?:\|.*?)?\]\]", body)
+                for raw_link in wiki_links:
+                    base_target = str(raw_link or "").split("#", 1)[0].strip()
+                    if _matches_target(base_target):
                         found = True
+                        break
 
                 # Standard MD links [text](ID)
-                if not found and re.search(r"\[.*?\]\((.*?)\)", body):
+                if not found:
                     md_links = re.findall(r"\[.*?\]\((.*?)\)", body)
-                    if id in md_links:
-                        found = True
+                    for raw_link in md_links:
+                        if _matches_target(raw_link):
+                            found = True
+                            break
 
             if found:
+                seen_backlink_ids.add(current_id)
                 backlinks.append(
                     {"id": current_id, "title": metadata.get("title") or file_path.stem}
                 )
@@ -1879,6 +2553,218 @@ async def get_backlinks(id: str):
             continue
 
     return backlinks
+
+
+def _build_unlinked_mention_regex(target_title: str) -> Optional[re.Pattern]:
+    safe_title = str(target_title or "").strip()
+    if len(safe_title) < 2:
+        return None
+
+    escaped = re.escape(safe_title)
+    return re.compile(rf"(?<!\w){escaped}(?!\w)", re.IGNORECASE)
+
+
+def _strip_existing_links_for_mentions_scan(text: str) -> str:
+    source = str(text or "")
+    source = re.sub(r"```[\s\S]*?```", " ", source)
+    source = re.sub(r"!?\[\[[^\]]+\]\]", " ", source)
+    source = re.sub(r"\[[^\]]*\]\([^)]+\)", " ", source)
+    return source
+
+
+def _count_unlinked_mentions(text: str, target_title: str) -> int:
+    pattern = _build_unlinked_mention_regex(target_title)
+    if not pattern:
+        return 0
+    sanitized = _strip_existing_links_for_mentions_scan(text)
+    return len(list(pattern.finditer(sanitized)))
+
+
+def _first_unlinked_mention_snippet(text: str, target_title: str, radius: int = 48) -> str:
+    pattern = _build_unlinked_mention_regex(target_title)
+    if not pattern:
+        return ""
+
+    sanitized = _strip_existing_links_for_mentions_scan(text)
+    match = pattern.search(sanitized)
+    if not match:
+        return ""
+
+    start = max(0, match.start() - radius)
+    end = min(len(sanitized), match.end() + radius)
+    snippet = sanitized[start:end].replace("\n", " ").strip()
+    return re.sub(r"\s+", " ", snippet)
+
+
+def _link_mentions_in_plain_segments(body: str, target_title: str, target_id: str) -> tuple[str, int]:
+    pattern = _build_unlinked_mention_regex(target_title)
+    if not pattern:
+        return str(body or ""), 0
+
+    source = str(body or "")
+    link_token = f"/vault/page/{urllib.parse.quote(str(target_id or '').strip())}"
+    existing_link_pattern = re.compile(r"!?\[\[[^\]]+\]\]|\[[^\]]*\]\([^)]+\)")
+
+    parts = []
+    last_index = 0
+    replacements = 0
+
+    for match in existing_link_pattern.finditer(source):
+        plain_segment = source[last_index:match.start()]
+
+        def _replace_title(m: re.Match) -> str:
+            nonlocal replacements
+            replacements += 1
+            return f"[{m.group(0)}]({link_token})"
+
+        linked_segment = pattern.sub(_replace_title, plain_segment)
+        parts.append(linked_segment)
+        parts.append(match.group(0))
+        last_index = match.end()
+
+    tail = source[last_index:]
+
+    def _replace_title_tail(m: re.Match) -> str:
+        nonlocal replacements
+        replacements += 1
+        return f"[{m.group(0)}]({link_token})"
+
+    parts.append(pattern.sub(_replace_title_tail, tail))
+
+    return "".join(parts), replacements
+
+
+@router.get("/unlinked-mentions")
+async def get_unlinked_mentions(id: str):
+    """Finds notes mentioning target title in plain text without an actual link."""
+    target_id = str(id or "").strip()
+    if not target_id:
+        return []
+
+    id_title_index = build_id_title_index()
+    target_title = str(id_title_index.get(target_id) or "").strip()
+    if not target_title:
+        target_path = find_page_path(target_id)
+        if target_path and target_path.exists():
+            if _is_dashworks_file_path(target_path):
+                target_metadata, _ = _read_dashworks_file(target_path)
+            else:
+                raw_target = target_path.read_text(encoding="utf-8")
+                target_metadata, _ = parse_frontmatter(raw_target, target_path)
+            target_title = str(target_metadata.get("title") or "").strip()
+
+    if len(target_title) < 2:
+        return []
+
+    results = []
+    documents = _iter_linkable_page_documents()
+    if not documents:
+        return results
+
+    for file_path, metadata, body, _is_dashworks_doc in documents:
+        try:
+            current_id = str(metadata.get("id") or file_path.stem)
+            if current_id == target_id:
+                continue
+
+            count = _count_unlinked_mentions(body, target_title)
+            if count <= 0:
+                continue
+
+            results.append(
+                {
+                    "id": current_id,
+                    "title": metadata.get("title") or file_path.stem,
+                    "count": count,
+                    "snippet": _first_unlinked_mention_snippet(body, target_title),
+                }
+            )
+        except Exception as e:
+            log.warning(f"Error processing unlinked mentions for {file_path.name}: {e}")
+
+    results.sort(key=lambda item: (-int(item.get("count") or 0), str(item.get("title") or "")))
+    return results
+
+
+@router.post("/link-unlinked-mentions")
+async def link_unlinked_mentions(request: LinkMentionsRequest):
+    """Converts plain mentions of target title into internal links in one source note or all notes."""
+    target_id = str(request.target_id or "").strip()
+    source_id = str(request.source_id or "").strip()
+    if not target_id:
+        raise HTTPException(status_code=400, detail="target_id is required")
+
+    id_title_index = build_id_title_index()
+    target_title = str(id_title_index.get(target_id) or "").strip()
+    if len(target_title) < 2:
+        raise HTTPException(status_code=400, detail="Target page title not found or too short")
+
+    changed_notes = []
+    total_replacements = 0
+
+    if source_id:
+        source_path = find_page_path(source_id)
+        if not source_path or not source_path.exists():
+            raise HTTPException(status_code=404, detail=f"Source page not found (ID: {source_id})")
+        candidates = [source_path]
+    else:
+        candidates = [doc[0] for doc in _iter_linkable_page_documents()]
+
+    for file_path in candidates:
+        try:
+            is_dashworks_doc = _is_dashworks_file_path(file_path)
+            if is_dashworks_doc:
+                metadata, body = _read_dashworks_file(file_path)
+            else:
+                raw_content = file_path.read_text(encoding="utf-8")
+                metadata, body = parse_frontmatter(raw_content, file_path)
+            current_id = str(metadata.get("id") or file_path.stem)
+            if current_id == target_id:
+                continue
+            if source_id and current_id != source_id:
+                continue
+
+            updated_body, replacements = _link_mentions_in_plain_segments(
+                body, target_title, target_id
+            )
+            if replacements <= 0:
+                continue
+
+            _create_page_version(current_id, file_path)
+            if is_dashworks_doc:
+                _write_dashworks_file(
+                    file_path=file_path,
+                    page_id=current_id,
+                    title=str(metadata.get("title") or file_path.stem),
+                    metadata=metadata,
+                    content=updated_body,
+                    parent_id=metadata.get("parent_id"),
+                    is_database=bool(metadata.get("is_database")),
+                )
+            else:
+                full_content = f"{generate_frontmatter(metadata)}\n{updated_body.lstrip()}"
+                file_path.write_text(full_content, encoding="utf-8")
+
+            changed_notes.append(
+                {
+                    "id": current_id,
+                    "title": metadata.get("title") or file_path.stem,
+                    "replacements": replacements,
+                }
+            )
+            total_replacements += replacements
+        except Exception as e:
+            log.warning(f"Error linking unlinked mentions for {file_path.name}: {e}")
+
+    changed_notes.sort(key=lambda item: str(item.get("title") or ""))
+    return {
+        "status": "success",
+        "target_id": target_id,
+        "target_title": target_title,
+        "notes_changed": len(changed_notes),
+        "total_replacements": total_replacements,
+        "changed_notes": changed_notes,
+    }
 
 
 # --------------------------------------------------------------------------
@@ -1903,8 +2789,23 @@ def load_registry():
             changed = True
             log.info("🗑️ Deleted default taula_1 from registry.")
 
+        # 1.5 Cleanup: legacy wiki table is no longer supported as DB table.
+        if any(str(t.get("id") or "").strip().lower() == "wiki" for t in data.get("tables", [])):
+            data["tables"] = [
+                t
+                for t in data.get("tables", [])
+                if str(t.get("id") or "").strip().lower() != "wiki"
+            ]
+            data["views"] = [
+                v
+                for v in data.get("views", [])
+                if str(v.get("table_id") or "").strip().lower() != "wiki"
+            ]
+            changed = True
+            log.info("🧹 Removed legacy wiki table and its views from registry.")
+
         # 2. Sanejament i creació de carpetes
-        for table in tables:
+        for table in data.get("tables", []):
             # Assegurar propietat 'folder' i que sigui RELATIVA (neteja host paths)
             folder_raw = table.get("folder") or table.get("name", "untitled_table")
             folder_normalized = _normalize_rel_folder(folder_raw)
@@ -2034,7 +2935,14 @@ async def get_registry():
         registry["databases"] = sorted(
             registry.get("databases", []), key=_sort_key_name
         )
-        registry["tables"] = sorted(registry.get("tables", []), key=_sort_key_name)
+        registry["tables"] = sorted(
+            [
+                t
+                for t in registry.get("tables", [])
+                if str(t.get("id") or "").strip().lower() != "wiki"
+            ],
+            key=_sort_key_name,
+        )
         registry["views"] = sorted(registry.get("views", []), key=_sort_key_name)
         return registry
     except Exception as e:
@@ -2129,7 +3037,11 @@ async def delete_database(database_id: str):
 @router.get("/tables")
 async def list_tables(database_id: Optional[str] = None):
     registry = load_registry()
-    tables = registry.get("tables", [])
+    tables = [
+        t
+        for t in registry.get("tables", [])
+        if str(t.get("id") or "").strip().lower() != "wiki"
+    ]
     if database_id:
         tables = [t for t in tables if t.get("database_id") == database_id]
     return sorted(tables, key=_sort_key_name)
@@ -2179,7 +3091,7 @@ async def create_table(table: dict = Body(...)):
         registry["tables"].append(table)
 
     _ensure_asset_dirs_for_table_entry(table, registry)
-    _ensure_table_vault_folder(table)
+    _ensure_table_vault_folder(table, registry)
 
     save_registry(registry)
     return table
@@ -2219,7 +3131,7 @@ async def rename_table(table_id: str, data: dict = Body(...)):
             if "folder" in data:
                 t["folder"] = data["folder"]
             _ensure_asset_dirs_for_table_entry(t, registry)
-            _ensure_table_vault_folder(t)
+            _ensure_table_vault_folder(t, registry)
             break
     save_registry(registry)
     return {"status": "success"}

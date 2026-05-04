@@ -14,8 +14,8 @@ import concurrent.futures
 import requests
 
 def _fetch_feed(source):
-    """Fetches and parses a single RSS feed with a strict timeout."""
-    log.info(f"📥 Fetching RSS: {source.name} ({source.url})")
+    """Fetches and parses a single feed with a strict timeout."""
+    log.info(f"📥 Fetching feed: {source.name} ({source.url})")
     try:
         # Requests with strict timeout to avoid blocking if an RSS server is slow or down
         response = requests.get(source.url, timeout=7)
@@ -28,12 +28,12 @@ def _fetch_feed(source):
 
 def fetch_and_store_feeds():
     """
-    Downloads all active RSS feeds from the database, parses them, 
+    Downloads all active RSS/YouTube feeds from the database, parses them,
     and saves new articles from the last 24 hours into the database.
     """
     db: Session = SessionLocal()
     try:
-        sources = db.query(FeedSource).filter(FeedSource.type == "rss").all()
+        sources = db.query(FeedSource).filter(FeedSource.type.in_(["rss", "youtube"])).all()
         target_time = datetime.now(timezone.utc) - timedelta(hours=24)
         
         new_articles_count = 0

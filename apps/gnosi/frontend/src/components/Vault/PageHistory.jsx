@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { History, RotateCcw, X, Loader2, FileText, Clock, Trash2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 const PageHistory = ({ pageId, open, onClose, onRestore }) => {
-  const { t } = useTranslation();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [previewContent, setPreviewContent] = useState(null);
@@ -43,20 +41,20 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   };
 
   const handleRestore = async (version) => {
-    if (window.confirm(t('Are you sure you want to restore the version from {{timestamp}}?', { timestamp: version.timestamp }))) {
+    if (window.confirm(`Segur que vols restaurar la versió del ${version.timestamp}?`)) {
       try {
         await axios.post(`/api/vault/pages/${pageId}/history/restore/${version.id}`);
         onRestore();
         onClose();
       } catch (error) {
         console.error('Error restoring version:', error);
-        alert(t('Error restoring version'));
+        alert('Error al restaurar la versió');
       }
     }
   };
 
   const handlePurge = async () => {
-    if (window.confirm(t('Are you sure you want to delete all version history for this page? This action cannot be undone.'))) {
+    if (window.confirm('Segur que vols eliminar tot l\'historial de versions d\'aquesta pàgina? Aquesta acció no es pot desfer.')) {
       try {
         await axios.delete(`/api/vault/pages/${pageId}/history`);
         setHistory([]);
@@ -64,7 +62,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
         setPreviewVersion(null);
       } catch (error) {
         console.error('Error purging history:', error);
-        alert(t('Error purging history'));
+        alert('Error al purgar l\'historial');
       }
     }
   };
@@ -81,8 +79,8 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
               <History size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">{t('Version History')}</h3>
-              <p className="text-xs text-[var(--text-tertiary)]">{t('View and restore previous versions of this page')}</p>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Històric de Versions</h3>
+              <p className="text-xs text-[var(--text-tertiary)]">Consulta i restaura versions anteriors d'aquesta pàgina</p>
             </div>
           </div>
           <button 
@@ -98,18 +96,18 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
           {/* Versions List */}
           <div className="w-1/3 border-r border-[var(--border-primary)] flex flex-col bg-[var(--bg-secondary)]/50">
             <div className="p-4 border-b border-[var(--border-primary)] bg-[var(--bg-primary)]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('Available Versions')}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Versions Disponibles</span>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               {loading ? (
                 <div className="flex flex-col items-center justify-center p-12 text-[var(--text-tertiary)]">
                   <Loader2 size={32} className="animate-spin mb-4" />
-                  <p className="text-sm">{t('Loading history...')}</p>
+                  <p className="text-sm">Carregant historial...</p>
                 </div>
               ) : history.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">
                   <Clock size={40} className="text-[var(--bg-tertiary)] mb-4" strokeWidth={1} />
-                  <p className="text-sm text-[var(--text-tertiary)]">{t('No saved versions.')}</p>
+                  <p className="text-sm text-[var(--text-tertiary)]">No hi ha versions guardades.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-[var(--border-primary)]">
@@ -128,7 +126,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                           {version.timestamp}
                         </p>
                         <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 font-medium transition-colors">
-                          {(version.size / 1024).toFixed(1)} {t('KB')} • {version.author || t('System')}
+                          {(version.size / 1024).toFixed(1)} KB • {version.author || 'Sistema'}
                         </p>
                       </div>
                       <button 
@@ -137,7 +135,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                           handleRestore(version);
                         }}
                         className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] rounded-md transition-all shadow-sm bg-[var(--bg-primary)]"
-                        title={t('Restore this version')}
+                        title="Restaurar aquesta versió"
                       >
                         <RotateCcw size={14} />
                       </button>
@@ -153,21 +151,21 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
             {previewLoading ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--bg-primary)]/80 z-10">
                 <Loader2 size={40} className="animate-spin text-[var(--gnosi-primary)] mb-4" />
-                <p className="text-sm text-[var(--text-secondary)] font-medium">{t('Retrieving content...')}</p>
+                <p className="text-sm text-[var(--text-secondary)] font-medium">Recuperant contingut...</p>
               </div>
             ) : previewContent ? (
               <div className="flex flex-col h-full">
                 <div className="px-6 py-3 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-secondary)]/30">
                   <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
                     <FileText size={14} className="text-[var(--text-tertiary)]" />
-                    <span>{t('Version from {{timestamp}}', { timestamp: previewVersion.timestamp })}</span>
+                    <span>Versió del {previewVersion.timestamp}</span>
                   </div>
                   <button
                     onClick={() => handleRestore(previewVersion)}
                     className="btn-gnosi btn-gnosi-primary !py-1.5 !px-3 !text-xs"
                   >
                     <RotateCcw size={12} />
-                    {t('Restore now')}
+                    Restaurar ara
                   </button>
                 </div>
                 <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)]">
@@ -183,8 +181,8 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                 <div className="w-16 h-16 bg-[var(--bg-tertiary)] rounded-full flex items-center justify-center mb-6">
                   <FileText size={32} className="text-[var(--text-tertiary)]" strokeWidth={1} />
                 </div>
-                <h4 className="text-base font-bold text-[var(--text-primary)] mb-2">{t('No version selected')}</h4>
-                <p className="text-sm text-[var(--text-tertiary)] max-w-xs">{t('Choose a version from the list on the left to preview and restore it.')}</p>
+                <h4 className="text-base font-bold text-[var(--text-primary)] mb-2">Cap versió seleccionada</h4>
+                <p className="text-sm text-[var(--text-tertiary)] max-w-xs">Tria una versió de la llista de l'esquerra per veure'n la previsualització i poder restaurar-la.</p>
               </div>
             )}
           </div>
@@ -199,7 +197,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                 className="btn-gnosi btn-gnosi-danger"
               >
                 <Trash2 size={16} />
-                {t('Purge History')}
+                Purgar Historial
               </button>
             )}
           </div>
@@ -208,7 +206,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
               onClick={onClose}
               className="px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded-xl transition-all border border-[var(--border-primary)]"
             >
-              {t('Close')}
+              Tancar
             </button>
             {previewVersion && (
               <button 
@@ -216,7 +214,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                 className="btn-gnosi btn-gnosi-primary"
               >
                 <RotateCcw size={16} />
-                {t('Restore selected version')}
+                Restaurar versió seleccionada
               </button>
             )}
           </div>

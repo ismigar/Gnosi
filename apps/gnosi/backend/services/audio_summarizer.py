@@ -14,7 +14,7 @@ from backend.models.reader import FeedSource, Article
 
 log = logging.getLogger(__name__)
 
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 cfg = load_params(strict_env=False)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")

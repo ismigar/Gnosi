@@ -1,0 +1,6 @@
+vault_migration.settings:
+  title: 'Vault bridge'
+  description: 'Configure Vault databases, field mapping and filters'
+  route_name: vault_migration.config
+  parent: system.admin_config_content
+  weight: 0

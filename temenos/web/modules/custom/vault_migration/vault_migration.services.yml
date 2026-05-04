@@ -1,0 +1,135 @@
+services:
+  vault_migration.vault_client:
+    class: Drupal\vault_migration\VaultClient
+    arguments:
+      - '@http_client_factory'
+      - '@config.factory'
+      - '@cache.default'
+      - '@logger.channel.vault_migration'
+      - '@language_manager'
+      - '@datetime.time'
+      - '@file_system'
+      - '@vault_migration.mapping_storage'
+      - '@string_translation'
+      - '@entity_type.manager'
+      - '@token'
+      - '@file.repository'
+      - '@path_alias.manager'
+
+  vault_migration.content_importer:
+    class: Drupal\vault_migration\ContentImporter
+    arguments:
+      - '@vault_migration.vault_client'
+      - '@entity_type.manager'
+      - '@vault_migration.mapping_storage'
+      - '@entity_field.manager'
+      - '@file_system'
+      - '@cache.default'
+      - '@token'
+      - '@config.factory'
+      - '@entity_display.repository'
+      - '@datetime.time'
+      - '@logger.channel.vault_migration'
+      - '@string_translation'
+      - '@file.repository'
+      - '@pathauto.generator'
+      - '@current_user'
+      - '@http_client_factory'
+      - '@file.usage'
+      - '@file.mime_type.guesser'
+      - '@queue'
+
+  vault_migration.config_form:
+    class: Drupal\vault_migration\Form\VaultMigrationConfigForm
+    arguments:
+      - '@vault_migration.vault_client'
+      - '@entity_type.manager'
+      - '@entity_field.manager'
+      - '@vault_migration.config_manager'
+    tags:
+      - { name: form, form_id: vault_migration_settings_form }
+
+  vault_migration.mapping_storage:
+    class: Drupal\vault_migration\MappingStorage
+    arguments:
+      - '@database'
+      - '@date.formatter'
+      - '@cache.default'
+      - '@logger.channel.vault_migration'
+
+  vault_migration.controller:
+    class: Drupal\vault_migration\Controller\VaultbridgeController
+    arguments:
+      - '@database'
+      - '@renderer'
+      - '@pager.manager'
+      - '@date.formatter'
+      - '@vault_migration.vault_client'
+      - '@logger.channel.vault_migration'
+
+  vault_migration.clear_form:
+    class: Drupal\vault_migration\Form\VaultMigrationClearForm
+    arguments: [ '@database' ]
+    tags:
+      - { name: form, form_id: vault_migration_clear_form }
+
+  vault_migration.cleaner:
+    class: Drupal\vault_migration\Cleaner
+    arguments:
+      - '@entity_type.manager'
+      - '@logger.factory'
+      - '@file.usage'
+
+  vault_migration.filter_form:
+    class: Drupal\vault_migration\Form\VaultbridgeFilterForm
+    arguments:
+      - '@database'
+      - '@request_stack'
+      - '@vault_migration.vault_client'
+      - '@logger.channel.vault_migration'
+    tags:
+      - { name: form, form_id: vault_migration_filter_form }
+
+  vault_migration.execution_form:
+    class: Drupal\vault_migration\Form\VaultMigrationExecutionForm
+    arguments:
+      - '@vault_migration.content_importer'
+      - '@logger.channel.vault_migration'
+      - '@state'
+    tags:
+      - { name: form, form_id: vault_migration_execution_form }
+
+  logger.channel.vault_migration:
+    parent: logger.channel_base
+    arguments: [ 'vault_migration' ]
+
+  vault_migration.cron:
+    class: Drupal\vault_migration\Cron\VaultMigrationCron
+    arguments:
+      - '@vault_migration.content_importer'
+      - '@logger.channel.vault_migration'
+      - '@state'
+      - '@config.factory'
+      - '@datetime.time'
+    tags:
+      - { name: cron }
+
+  vault_migration.config_manager:
+    class: Drupal\vault_migration\ConfigManager
+    arguments: [ '@config.factory' ]
+
+  vault_migration.page_batch_handler:
+    class: Drupal\vault_migration\Batch\VaultPageBatchHandler
+    arguments: [ '@vault_migration.vault_client', '@vault_migration.content_importer' ]
+
+  vault_migration.sync_manager:
+    class: Drupal\vault_migration\VaultMigrationSyncManager
+    arguments:
+      - '@entity_type.manager'
+      - '@language_manager'
+      - '@uuid'
+      - '@keyvalue'
+      - '@logger.channel.vault_migration'
+      - '@vault_migration.vault_client'
+      - '@vault_migration.mapping_storage'
+      - '@config.factory'

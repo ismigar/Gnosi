@@ -1,0 +1,123 @@
+<?php
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\node\Entity\Node;
+
+/**
+ * Implements hook_entity_delete().
+ *
+ * This hook is triggered whenever an entity is deleted. If the entity is a node,
+ * it checks whether the node is tracked in the Vault Bridge mapping table,
+ * and if so, removes the corresponding mapping entry.
+ *
+ * @param \Drupal\Core\Entity\EntityInterface $entity
+ *   The entity that is being deleted. This may be any entity type, but we are
+ *   only interested in 'node' entities.
+ */
+function vault_migration_entity_delete(EntityInterface $entity): void {
+  if ($entity->getEntityTypeId() === 'node') {
+    $nid = $entity->id();
+
+    // Use the appropriate logging channel for this module.
+    $logger = \Drupal::logger('vault_migration');
+
+    // Get the mapping storage service (custom service that handles tracking).
+    $storage = \Drupal::service('vault_migration.mapping_storage');
+
+    try {
+      // Attempt to remove the mapping entry associated with this node ID.
+      $storage->deleteByNodeId($nid);
+
+      if ($node = Node::load($nid)) {
+        foreach ($node->getFields() as $field) {
+          if (
+            $field->getFieldDefinition()->getType() === 'file' ||
+            $field->getFieldDefinition()->getType() === 'image'
+          ) {
+            foreach ($field->referencedEntities() as $file) {
+              $file->delete();
+            }
+          }
+        }
+
+        $file->delete();
+      }
+    }
+    catch (\Throwable $e) {
+      // Log any errors encountered during deletion.
+      \Drupal::logger('vault_migration')->error('Error deleting mapping entry for node @nid. Message: @error', [
+        '@nid' => $nid,
+        '@error' => $e->getMessage(),
+      ]);
+    }
+  }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function vault_migration_cron() {
+  \Drupal::service('vault_migration.cron')->run();
+}
+
+
+/**
+ * Implements hook_help().
+ *
+ * Provides a help page for the Vault Bridge module.
+ *
+ * This hook is invoked when a user visits the module's help page
+ * via the route `admin/help/vault_migration`. It returns formatted
+ * information to explain the module's purpose, features, and usage.
+ *
+ * @param string $route_name
+ *   The name of the current route.
+ * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+ *   The current route match object (not used in this implementation).
+ *
+ * @return array|string
+ *   A render array containing the help page content if the route matches
+ *   'help.page.vault_migration', or an empty string for other routes.
+ */
+function vault_migration_help(string $route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.vault_migration':
+      return [
+        '#markup' => t('<p><strong>Vault Bridge</strong> is a module that allows you to synchronize content from a Vault database with Drupal nodes.</p>')
+          . t('<h3>Main features</h3>')
+          . t('<ul>
+  <li>Secure connection with the official Vault API.</li>
+  <li>Import and update Vault pages as Drupal nodes.</li>
+  <li>Automatic deletion of Drupal nodes when the corresponding Vault pages are unpublished.</li>
+  <li>Customizable field mapping between Vault properties and Drupal content types.</li>
+</ul>')
+          . t('<h3>API key configuration</h3>')
+          . t('<p><strong>Note:</strong> The Vault API Key is <em>not</em> stored in the Drupal configuration database for security reasons.</p>')
+          . t('<p>Please define it manually in the <code>settings.local.php</code> file, located at <code>sites/default/settings.local.php</code>:</p>')
+          . t('<pre><code>$settings[\'vault_api_key\'] = \'your-secret-key-here\';</code></pre>')
+          . t('<p>This approach ensures the API key is never exposed in configuration exports or version control systems.</p>')
+          . t('<h3>Requirements in Vault</h3>')
+          . t('<ul>
+  <li>The Vault databases must be shared with the integration (token) used by this module.</li>
+  <li>You must configure a "publish field" in the Vault database. Only entries marked as published will be imported.</li>
+</ul>')
+          . t('<h3>Synchronization safety mechanisms</h3>')
+          . t('<ul>
+  <li>If Vault returns 0 published pages but there are mapped local nodes, deletion is aborted to avoid accidental data loss.</li>
+  <li>If more than 30 nodes are marked for deletion in one sync, the operation is also aborted for safety.</li>
+</ul>')
+          . t('<h3>Drush integration</h3>')
+          . t('<p>You can use the following Drush commands to manage synchronization via CLI:</p>')
+          . t('<ul>
+  <li><code>drush vault-migration:status</code> — Displays a summary of synced Vault pages per database.</li>
+  <li><code>drush vault-migration:sync</code> — Triggers a full sync of all Vault databases.</li>
+  <li><code>drush vault-migration:sync [database_id]</code> — Triggers a sync for a specific Vault database only.</li>
+</ul>')
+          . t('<p>This is useful for cron jobs, debugging or manual syncing in development environments.</p>')
+          . t('<p>You can also configure mappings and start a sync from <em>Configuration > Content > Vault Bridge</em>.</p>'),
+      ];
+  }
+
+  return '';
+}

@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Link2, Upload, Search, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
+import { logError } from '../../lib/notifyError';
 
 const PREDEFINED_COVERS = {
     'Colors i Degradats': [
@@ -32,6 +34,7 @@ const PREDEFINED_COVERS = {
 };
 
 export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, triggerRef }) => {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState('gallery');
     const [linkInput, setLinkInput] = useState('');
     const pickerRef = useRef(null);
@@ -78,8 +81,8 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
             const res = await axios.get(`/api/vault/unsplash/search?query=${encodeURIComponent(query)}`);
             setUnsplashResults(res.data.results || []);
         } catch (error) {
-            console.error(error);
-            toast.error("No s'ha pogut cercar a Unsplash. Verifica el teu API Key.");
+            logError('cover-picker', error);
+            toast.error(t('cover_picker.toast.unsplash_error'));
         } finally {
             setIsSearching(false);
         }
@@ -94,15 +97,13 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
 
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-cover', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await axios.post('/api/vault/upload-cover', formData);
             onSelectCover(res.data.url);
             onClose();
-            toast.success("Portada pujada correctament");
+            toast.success(t('cover_picker.toast.upload_success'));
         } catch (error) {
-            console.error(error);
-            toast.error("Error al pujar la imatge");
+            logError('cover-picker', error);
+            toast.error(t('cover_picker.toast.upload_error'));
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -134,25 +135,25 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'gallery' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('gallery')}
                     >
-                        Galeria
+                        {t('cover_picker.tabs.gallery')}
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'upload' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('upload')}
                     >
-                        Pujar
+                        {t('cover_picker.tabs.upload')}
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'link' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('link')}
                     >
-                        Enllaç
+                        {t('cover_picker.tabs.link')}
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'unsplash' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('unsplash')}
                     >
-                        Unsplash
+                        {t('cover_picker.tabs.unsplash')}
                     </button>
 
                     <div className="flex-1" />
@@ -161,7 +162,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                             onClick={() => { onSelectCover(''); onClose(); }}
                             className="text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10 px-2 py-1 rounded transition-colors mr-1"
                         >
-                            Eliminar
+                            {t('cover_picker.delete_button')}
                         </button>
                     )}
                 </div>
@@ -171,7 +172,12 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4 max-h-[400px]">
                         {Object.entries(PREDEFINED_COVERS).map(([groupName, images]) => (
                             <div key={groupName}>
-                                <div className="text-xs font-semibold text-[var(--text-secondary)]/60 mb-2 uppercase tracking-wider">{groupName}</div>
+                                <div className="text-xs font-semibold text-[var(--text-secondary)]/60 mb-2 uppercase tracking-wider">
+                                    {groupName === 'Colors i Degradats' ? t('cover_picker.groups.colors') :
+                                     groupName === 'Espai i Natura' ? t('cover_picker.groups.nature') :
+                                     groupName === 'Arquitectura i Textures' ? t('cover_picker.groups.architecture') :
+                                     groupName}
+                                </div>
                                 <div className="grid grid-cols-3 gap-2">
                                     {images.map((img, idx) => (
                                         <div
@@ -192,7 +198,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                 {/* Tab Content: Upload */}
                 {activeTab === 'upload' && (
                     <div className="p-4 flex flex-col gap-4 text-center">
-                        <p className="text-xs text-[var(--text-secondary)]/60 mb-2">Puja una imatge des del teu ordinador per usar com a portada del fitxer. Els arxius s'emmagatzemaran localment al teu Vault.</p>
+                        <p className="text-xs text-[var(--text-secondary)]/60 mb-2">{t('cover_picker.upload_instruction')}</p>
                         <input
                             type="file"
                             accept="image/*"
@@ -206,7 +212,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                             className="mx-auto w-full max-w-[200px] border border-[var(--border-primary)] hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] bg-[var(--bg-primary)] shadow-sm flex items-center justify-center gap-2 py-2 rounded-md font-bold text-sm transition-all text-[var(--text-secondary)]"
                         >
                             {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                            {isUploading ? 'Pujant...' : 'Triar Imatge'}
+                            {isUploading ? t('cover_picker.uploading') : t('cover_picker.choose_image')}
                         </button>
                     </div>
                 )}
@@ -214,7 +220,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                 {/* Tab Content: Link */}
                 {activeTab === 'link' && (
                     <div className="p-4 flex flex-col gap-3">
-                        <p className="text-xs text-[var(--text-secondary)]/60">Enganxa l'enllaç d'una imatge. Funciona amb qualsevol imatge d'internet.</p>
+                        <p className="text-xs text-[var(--text-secondary)]/60">{t('cover_picker.link_instruction')}</p>
                         <div className="flex gap-2">
                             <input
                                 autoFocus
@@ -238,7 +244,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                                 }}
                                 className="bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90 text-white px-3 py-1.5 rounded text-sm font-bold transition-colors shadow-sm"
                             >
-                                Aplicar
+                                {t('cover_picker.apply_button')}
                             </button>
                         </div>
                     </div>
@@ -254,7 +260,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                                     autoFocus
                                     value={unsplashQuery}
                                     onChange={(e) => setUnsplashQuery(e.target.value)}
-                                    placeholder="Cercar a Unsplash..."
+                                    placeholder={t('cover_picker.search_placeholder')}
                                     className="w-full pl-9 pr-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded text-sm outline-none focus:border-[var(--gnosi-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)]/20 transition-all text-[var(--text-primary)]"
                                 />
                                 {isSearching && <Loader2 size={14} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-[var(--gnosi-primary)]" />}
@@ -262,12 +268,12 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 relative bg-[var(--bg-secondary)]/30">
                             {unsplashResults.length === 0 && !isSearching && unsplashQuery.trim() !== '' && (
-                                <div className="text-center text-[var(--text-secondary)]/60 text-sm py-4">Sense resultats</div>
+                                <div className="text-center text-[var(--text-secondary)]/60 text-sm py-4">{t('cover_picker.no_results')}</div>
                             )}
                             {unsplashResults.length === 0 && !unsplashQuery.trim() && (
                                 <div className="text-center text-[var(--text-tertiary)]/60 text-sm py-8 flex flex-col items-center gap-2">
                                     <ImageIcon size={32} className="opacity-50" />
-                                    <span>Busca qualsevol terme a Unsplash</span>
+                                    <span>{t('cover_picker.unsplash_instruction')}</span>
                                 </div>
                             )}
                             <div className="grid grid-cols-2 gap-2">
@@ -293,7 +299,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
                             </div>
                         </div>
                         <div className="p-2 text-center text-[10px] text-[var(--text-tertiary)]/60 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)]">
-                            Imatges gratuïtes proveïdes per Unsplash
+                            {t('cover_picker.unsplash_footer')}
                         </div>
                     </div>
                 )}

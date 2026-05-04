@@ -23,6 +23,12 @@ try:
 except ImportError:
     OPENAI_COMPATIBLE_AVAILABLE = False
 
+try:
+    from langchain_groq import ChatGroq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from pydantic import BaseModel
 import sqlite3
@@ -37,7 +43,8 @@ from backend.config.app_config import load_params
 from backend.security.ai_credentials import resolve_provider_api_key
 
 cfg = load_params(strict_env=False)
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parent.parent.parent
+INSTRUCTIONS_DIR = cfg.paths.get("AGENT_INSTRUCTIONS") or (Path(__file__).resolve().parent / "instructions")
 log = logging.getLogger(__name__)
 
 
@@ -55,9 +62,15 @@ LOCAL_PROVIDERS = {"ollama", "llama-cpp", "lmstudio", "local", "generic"}
 
 def _provider_is_available(provider_name: str, provider_cfg: Optional[dict]) -> bool:
     normalized = (provider_name or "").strip().lower()
+    cfg = provider_cfg or {}
+    
+    # Check if disabled by user
+    if not cfg.get("enabled", True):
+        return False
+
     if normalized in LOCAL_PROVIDERS:
         return True
-    return bool(resolve_provider_api_key(normalized, provider_cfg or {}))
+    return bool(resolve_provider_api_key(normalized, cfg))
 
 
 def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str, fallback_model: Optional[str]) -> tuple[str, Optional[str]]:
@@ -72,7 +85,7 @@ def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str,
             ("groq", "llama-3.1-8b-instant"),
             ("openai", "gpt-4o-mini"),
             ("anthropic", "claude-3-5-haiku-latest"),
-            ("ollama", "qwen2.5"),
+            ("ollama", "llama3.2:latest"),
         ]
     elif is_complex or {"code", "codi", "codigo", "programa", "programar", "bug", "error"} & tokens:
         preferred = [
@@ -104,16 +117,16 @@ class AgentState(TypedDict):
 
 
 # --- 2. Prompts dels Agents (Base) ---
-DEFAULT_SUPERVISOR_PROMPT = """Ets el Supervisor del "Digital Brain".
+DEFAULT_SUPERVISOR_PROMPT = """Ets el Supervisor del "Gnosi".
 La teva feina és coordinar l'equip d'experts per resoldre la petició de l'usuari.
 
 MEMBRES DE L'EQUIP:
 1. **Coder**: Enginyer de Software Sènior. Expert en Python, Git, Tests i Sistema de Fitxers. 
-2. **Brain**: Gestor de Coneixement i Automatització. Expert en Notion, n8n i Memòria a Llarg Termini.
+2. **Brain**: Gestor de Coneixement i Automatització Sobirà. Expert en Gnosi Vault, fluxos n8n i Memòria a Llarg Termini.
 
 INSTRUCCIONS DE ROUTING:
 - Si l'usuari demana canvis de codi -> `Coder`.
-- Si l'usuari demana informació personal, Notion, n8n o gestionar **Directives/Procediments** -> `Brain`.
+- Si l'usuari demana informació personal, gestionar el Vault de **Gnosi**, n8n o gestionar **Directives/Procediments** -> `Brain`.
 - Si és una xerrada general o una pregunta simple -> `General` (Tu mateix respons).
 - Si un agent ha acabat la feina -> `FINISH`.
 
@@ -140,38 +153,48 @@ def get_llm(
 
     try:
         if provider == "ollama":
-            if OLLAMA_AVAILABLE:
-                return ChatOllama(
-                    model=model or "llama3.2",
-                    base_url=base_url or "http://localhost:11434",
-                    timeout=60,
-                )
-            if OPENAI_COMPATIBLE_AVAILABLE:
-                # Fallback for environments without langchain_ollama installed.
-                return ChatOpenAI(
-                    model=model or "llama3.2",
-                    api_key=api_key or "ollama-local",
-                    base_url=base_url or "http://localhost:11434/v1",
-                )
-            log.warning("⚠️ Ollama provider requested but no compatible client is available")
-            return None
+            from langchain_ollama import ChatOllama
+            log.debug(f"Instantiating ChatOllama with model {model or 'llama3.2'}")
+            return ChatOllama(
+                model=model or "llama3.2",
+                base_url=base_url or "http://host.docker.internal:11434",
+                timeout=60,
+            )
 
-        if provider == "openai":
-            key = api_key or os.environ.get("OPENAI_API_KEY")
-            if not key:
-                print(f"❌ Error: OpenAI API Key missing for provider '{provider}'")
+        if provider in {"openai", "deepseek", "mistral", "openrouter"}:
+            from langchain_openai import ChatOpenAI
+            key = api_key or os.environ.get(f"{provider.upper()}_API_KEY")
+            if not key and provider == "openai":
+                log.debug("OpenAI API Key missing")
                 return None
+
+            default_urls = {
+                "openai": "https://api.openai.com/v1",
+                "deepseek": "https://api.deepseek.com",
+                "mistral": "https://api.mistral.ai/v1",
+                "openrouter": "https://openrouter.ai/api/v1"
+            }
+
+            log.debug(f"Instantiating {provider} via OpenAI interface with model {model}")
             return ChatOpenAI(
-                model=model or "gpt-4o",
-                api_key=key,
-                base_url=base_url or "https://api.openai.com/v1",
+                model=model or (
+                    "gpt-4o" if provider == "openai" else
+                    "deepseek-chat" if provider == "deepseek" else
+                    "mistral-large-latest" if provider == "mistral" else
+                    "openai/gpt-4o-mini"
+                ),
+                api_key=key or "no-key",
+                base_url=base_url or default_urls.get(provider),
             )
 
         if provider == "groq":
             key = api_key if api_key and api_key.strip() else os.environ.get("GROQ_API_KEY")
             if not key:
-                log.warning(f"⚠️ Groq API Key missing. Provided in config: '{api_key}', Env: '{os.environ.get('GROQ_API_KEY') is not None}'")
+                log.debug("Groq API Key missing.")
                 return None
+
+            from langchain_openai import ChatOpenAI
+            log.debug(f"Instantiating Groq via OpenAI shim with model {model or 'llama-3.3-70b-versatile'}")
             return ChatOpenAI(
                 model=model or "llama-3.3-70b-versatile",
                 api_key=key,
@@ -179,17 +202,21 @@ def get_llm(
             )
 
         if provider == "anthropic":
+            from langchain_anthropic import ChatAnthropic
             key = api_key if api_key and api_key.strip() else os.environ.get("ANTHROPIC_API_KEY")
             if not key:
-                log.warning(f"⚠️ Anthropic API Key missing. Provider: '{provider}'")
+                log.debug("Anthropic API Key missing.")
                 return None
+            log.debug(f"Instantiating ChatAnthropic with model {model or 'claude-3-5-sonnet-latest'}")
             return ChatAnthropic(
                 model=model or "claude-3-5-sonnet-latest",
                 api_key=key,
             )
 
-        # Generic OpenAI compatible (e.g. Local LLM via LM Studio / vLLM)
-        if provider in {"local", "generic", "lmstudio", "llama-cpp"}:
+        # Generic OpenAI compatible (Local, LM Studio, etc.) or unknown provider with base_url
+        if provider in {"local", "generic", "lmstudio", "llama-cpp"} or base_url:
+            from langchain_openai import ChatOpenAI
+            log.debug(f"Instantiating Generic/Universal ChatOpenAI (Provider: {provider})")
             return ChatOpenAI(
                 model=model or "local-model",
                 api_key=api_key or "no-key",
@@ -197,23 +224,41 @@ def get_llm(
             )
 
     except Exception as e:
-        print(f"❌ Exception initializing LLM provider '{provider}': {e}")
+        log.error(f"❌ Error instantiating LLM for provider '{provider}': {e}")
         return None
 
-    # Fallback si no es reconeix el proveïdor
-    print(f"⚠️ Provider '{provider}' not explicitly handled, falling back to hybrid.")
+    # Fallback si no es reconeix el proveïdor i no hi ha URL
     return None
 
 
 def _get_hybrid_llm():
-    """Fallback logic for legacy support or missing config."""
-    groq_key = os.environ.get("HF_API_KEY") or os.environ.get("GROQ_API_KEY")
-    if OPENAI_COMPATIBLE_AVAILABLE and groq_key:
-        return ChatOpenAI(
-            model="llama-3.3-70b-versatile",
-            api_key=groq_key,
-            base_url="https://api.groq.com/openai/v1",
-        )
+    """Fallback logic looking for any available provider beyond the primary choice."""
+    # List of fallback providers to check in order of quality/availability
+    fallbacks = [
+        ("openai", "gpt-4o-mini"),
+        ("anthropic", "claude-3-5-haiku-latest"),
+        ("openrouter", "openai/gpt-4o-mini"),
+        ("groq", "llama-3.1-8b-instant"),
+        ("ollama", "llama3.2:latest"),
+    ]
+    
+    from backend.security.ai_credentials import resolve_provider_api_key
+    from backend.config.app_config import load_params
+    
+    # We need a fresh check of providers from config
+    p_cfg = load_params(strict_env=False).ai.get("providers", {})
+
+    for p_name, m_name in fallbacks:
+        key = resolve_provider_api_key(p_name, p_cfg.get(p_name))
+        if key:
+            log.info(f"Using emergency fallback LLM: {p_name} / {m_name}")
+            return get_llm(
+                provider=p_name,
+                model=m_name,
+                api_key=key,
+                base_url=p_cfg.get(p_name, {}).get("base_url")
+            )
+    
     return None
 
 
@@ -248,7 +293,7 @@ async def create_agent_workflow(
         agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
 
     if not agent_data:
-        print(f"❌ Error: Agent '{target_id}' not found and no defaults available.")
+
         return None, {}
 
     # 2. Configurar LLM per l'agent
@@ -285,16 +330,27 @@ async def create_agent_workflow(
             model_name = "llama-3.3-70b-versatile"
 
     if not llm:
-        print(f"❌ CRITICAL: No LLM provider available for agent '{agent_data.get('name')}'.")
+
         return None, {}
 
     # 3. Preparar Prompts (Persona)
     persona = agent_data.get("persona", "")
     agent_name = agent_data.get("name", "Gnosy")
     
+    # Load detailed persona from markdown if exists
+    persona_file = INSTRUCTIONS_DIR / f"{target_id}.md"
+    detailed_persona = ""
+    if persona_file.exists():
+        try:
+            detailed_persona = persona_file.read_text(encoding="utf-8")
+        except Exception as e:
+            log.warning(f"Could not read persona file {persona_file}: {e}")
+    
+    combined_persona = f"{persona}\n\n{detailed_persona}" if detailed_persona else persona
+
     supervisor_prompt = (
-        f"Ets {agent_name}.\n{persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
-        if persona
+        f"Ets {agent_name}.\n{combined_persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
+        if combined_persona
         else f"Ets {agent_name}.\n{DEFAULT_SUPERVISOR_PROMPT}"
     )
 
@@ -342,7 +398,7 @@ async def create_agent_workflow(
     def brain_node(state: AgentState):
         messages = state["messages"]
         response = brain_llm.invoke(
-            [SystemMessage(content="Ets el Brain Agent (Notion, Vault).")] + messages
+            [SystemMessage(content="Ets el Brain Agent (Gnosi Vault, Memòria Sobirana).")] + messages
         )
         return {"messages": [response], "next": "supervisor"}
 

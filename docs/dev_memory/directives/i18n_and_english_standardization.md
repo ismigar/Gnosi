@@ -44,7 +44,7 @@ Ensure the entire codebase follows a professional international standard while m
 ## 5. Restrictions and Edge Cases
 - **Keywords:** Do not translate variable names that might break logic, even if they are in Catalan (unless refactoring is safe and planned).
 - **Paths:** Do not translate folder names that are part of the filesystem structure (e.g., `BD/`, `Vault/`).
-- **Mixed Content:** Some strings might be stored in the database/files (Notion content); these are NOT part of the i18n code standardization unless they are UI labels.
+- **Mixed Content:** Some strings might be stored in the database/files (Connector importació Notion content); these are NOT part of the i18n code standardization unless they are UI labels.
 
 ## 6. Error Protocol and Learning (Live Memory)
 

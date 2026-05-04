@@ -5,7 +5,7 @@ Handles connections to Mastodon and Bluesky APIs for real feeds and interactions
 import os
 import httpx
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional, Any
 
 log = logging.getLogger(__name__)
@@ -185,7 +185,7 @@ class MastodonClient:
             log.error(f"Mastodon post error: {e}")
             if hasattr(e, 'response') and e.response:
                  log.error(f"Response body: {e.response.text}")
-            raise e
+            raise
 
 
 class BlueskyClient:
@@ -281,7 +281,7 @@ class BlueskyClient:
                         "record": {
                             "$type": "app.bsky.feed.like",
                             "subject": {"uri": uri, "cid": cid},
-                            "createdAt": datetime.utcnow().isoformat() + "Z"
+                            "createdAt": datetime.now(timezone.utc).isoformat()
                         }
                     },
                     timeout=10.0
@@ -308,7 +308,7 @@ class BlueskyClient:
                         "record": {
                             "$type": "app.bsky.feed.repost",
                             "subject": {"uri": uri, "cid": cid},
-                            "createdAt": datetime.utcnow().isoformat() + "Z"
+                            "createdAt": datetime.now(timezone.utc).isoformat()
                         }
                     },
                     timeout=10.0
@@ -335,7 +335,7 @@ class BlueskyClient:
                         "record": {
                             "$type": "app.bsky.feed.post",
                             "text": text,
-                            "createdAt": datetime.utcnow().isoformat() + "Z"
+                            "createdAt": datetime.now(timezone.utc).isoformat()
                         }
                     },
                     timeout=10.0
@@ -344,7 +344,7 @@ class BlueskyClient:
                 return response.json()
         except Exception as e:
             log.error(f"Bluesky create post error: {e}")
-            raise e
+            raise
     
     def _transform_posts(self, feed: List[Dict]) -> List[Dict]:
         """Transform Bluesky posts to our unified format."""

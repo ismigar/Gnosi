@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Palette, Calendar, HardDrive, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useTranslation } from 'react-i18next';
 import ConfirmModal from '../ConfirmModal';
 
 const API_BASE_URL = '/api/vault';
 
 const VaultDrawings = ({ onDrawingSelect }) => {
-    const { t } = useTranslation();
     const [drawings, setDrawings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [drawingToDelete, setDrawingToDelete] = useState(null);
@@ -101,7 +99,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
 
                         <button
                             onClick={(e) => handleDeleteClick(e, drawing.id)}
-                            className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur shadow-sm rounded-lg text-slate-400 hover:text-[var(--status-error)] hover:bg-[var(--status-error)]/10 opacity-0 group-hover:opacity-100 transition-all"
+                            className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur shadow-sm rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                         >
                             <Trash2 size={14} />
                         </button>
@@ -113,10 +111,9 @@ const VaultDrawings = ({ onDrawingSelect }) => {
                 isOpen={!!drawingToDelete}
                 onClose={() => setDrawingToDelete(null)}
                 onConfirm={confirmDelete}
-                title={t('Delete drawing')}
-                message={t('Delete drawing confirmation')}
-                confirmText={t('Delete')}
-                cancelText={t('Cancel')}
+                title="Eliminar dibuix"
+                message="N'estàs segur que vols eliminar permanentment aquest dibuix? Aquesta acció no es pot desfer i esborrarà el fitxer."
+                confirmText="Eliminar"
                 isDestructive={true}
             />
         </div>

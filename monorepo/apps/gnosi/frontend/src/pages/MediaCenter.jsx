@@ -29,6 +29,14 @@ const PERSPECTIVES = [ // Mantenim per referència o inbox, però prioritzem àl
   { id: 'Inbox', label: 'Inbox', icon: FolderOpen, color: 'text-orange-500' }
 ];
 
+const normalizeUrl = (url) => {
+  if (!url) return '';
+  // Si és una URL absoluta del backend (p.e. http://backend:5002/api/...), la fem relativa
+  const match = url.match(/^https?:\/\/[^/]+(\/api\/.*)$/i);
+  if (match?.[1]) return match[1];
+  return url;
+};
+
 export default function MediaCenter() {
   const [media, setMedia] = useState([]);
   const [albums, setAlbums] = useState([]);
@@ -39,6 +47,12 @@ export default function MediaCenter() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editingMetadata, setEditingMetadata] = useState({ tags: [], description: '' });
+  
+  // Estats de paginació
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 50;
 
   const fetchAlbums = async () => {
     try {
@@ -49,24 +63,38 @@ export default function MediaCenter() {
     }
   };
 
-  const fetchMedia = useCallback(async () => {
+  const fetchMedia = useCallback(async (reset = false) => {
     try {
       setLoading(true);
-      const url = activeAlbum ? `/api/vault/media?album=${activeAlbum}` : '/api/vault/media';
+      const currentOffset = reset ? 0 : offset;
+      const albumParam = activeAlbum ? `&album=${activeAlbum}` : '';
+      const url = `/api/vault/media?limit=${PAGE_SIZE}&offset=${currentOffset}${albumParam}`;
+      
       const res = await axios.get(url);
-      setMedia(res.data);
+      const { items, total: totalCount } = res.data;
+      
+      if (reset) {
+        setMedia(items);
+        setOffset(items.length);
+      } else {
+        setMedia(prev => [...prev, ...items]);
+        setOffset(prev => prev + items.length);
+      }
+      
+      setTotal(totalCount);
+      setHasMore(items.length === PAGE_SIZE);
     } catch (err) {
       console.error('Error carregant mitjans:', err);
       toast.error('No s\'han pogut carregar les fotos');
     } finally {
       setLoading(false);
     }
-  }, [activeAlbum]);
+  }, [activeAlbum, offset]);
 
+  // Reset al canviar d'àlbum
   useEffect(() => {
-    fetchAlbums();
-    fetchMedia();
-  }, [fetchMedia]);
+    fetchMedia(true);
+  }, [activeAlbum]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -201,79 +229,66 @@ export default function MediaCenter() {
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-[var(--text-tertiary)]">
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+          {loading && media.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]/30 rounded-2xl border-2 border-dashed border-[var(--border-primary)]">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="mb-4"
+              >
                 <ImageIcon size={48} className="opacity-20" />
               </motion.div>
-              <p className="text-sm">Carregant galeria...</p>
+              <p className="text-sm font-medium">Carregant galeria...</p>
+              <p className="text-xs opacity-60 mt-1">Escanejant el teu Vault</p>
             </div>
           ) : filteredMedia.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-[var(--text-tertiary)] opacity-40">
-              <ImageIcon size={64} strokeWidth={1} />
-              <p className="text-lg">No s'han trobat imatges</p>
-              <p className="text-sm text-center">Puja la teva primera foto a l'àlbum <b>{activeAlbum || 'General'}</b>.</p>
+            <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)]">
+              <ImageIcon size={64} className="mb-4 opacity-10" />
+              <p className="text-lg font-medium">No s'han trobat fotos</p>
+              <p className="text-sm">Prova amb un altre filtre o puja una nova imatge</p>
             </div>
           ) : (
-            <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" : "flex flex-col gap-2"}>
-              <AnimatePresence>
-                {filteredMedia.map((item, idx) => (
-                  <motion.div 
-                    layout
+            <>
+              <div className={
+                viewMode === 'grid' 
+                  ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"
+                  : "flex flex-col gap-3"
+              }>
+                {filteredMedia.map((item, index) => (
+                  <motion.div
+                    key={`${item.id}-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ delay: idx * 0.05 }}
-                    key={item.id}
+                    transition={{ delay: index * 0.02, duration: 0.3 }}
                     onClick={() => handlePhotoClick(item)}
-                    className={viewMode === 'grid' 
-                      ? `group relative flex flex-col bg-[var(--bg-primary)] rounded-2xl border ${selectedPhoto?.id === item.id ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)]'} overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer`
-                      : `group flex items-center gap-4 p-3 bg-[var(--bg-primary)] rounded-xl border ${selectedPhoto?.id === item.id ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/5' : 'border-[var(--border-primary)]'} hover:border-[var(--gnosi-primary)]/30 transition-all cursor-pointer`
-                    }
+                    className={`group cursor-pointer bg-[var(--bg-primary)] rounded-2xl overflow-hidden border border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50 hover:shadow-xl transition-all duration-300 ${
+                      viewMode === 'list' ? 'flex items-center gap-4 p-3' : ''
+                    }`}
                   >
-                    {/* Media Display */}
-                    <div className={viewMode === 'grid' ? "aspect-square relative overflow-hidden bg-[var(--bg-secondary)]" : "w-16 h-16 rounded-lg overflow-hidden shrink-0"}>
+                    <div className={
+                      viewMode === 'grid' 
+                        ? "aspect-square relative overflow-hidden bg-gray-900" 
+                        : "w-24 h-24 relative rounded-xl overflow-hidden flex-shrink-0 bg-gray-900"
+                    }>
                       <img 
-                        src={item.url} 
+                        src={normalizeUrl(item.url)} 
                         alt={item.filename}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.parentNode.className += ' flex items-center justify-center bg-red-500/10';
+                        }}
                       />
-                      {item.lat && (
-                        <div className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-md rounded-full text-white">
-                          <MapPin size={10} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Metadata */}
-                    <div className={viewMode === 'grid' ? "p-3" : "flex-1 flex justify-between items-center pr-4"}>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate">
-                          {item.id}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1">
-                            <Calendar size={10} />
-                            {item.date_taken ? new Date(item.date_taken).toLocaleDateString() : new Date(item.last_modified).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {item.tags?.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {item.tags.slice(0, 2).map(tag => (
-                              <span key={tag} className="px-1.5 py-0.5 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] text-[9px] rounded-md font-medium uppercase">{tag}</span>
-                            ))}
-                            {item.tags.length > 2 && <span className="text-[9px] text-[var(--text-tertiary)]">+{item.tags.length - 2}</span>}
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </motion.div>
                 ))}
-              </AnimatePresence>
-            </div>
+              </div>
+            </>
           )}
-        </main>
+        </div>
 
         {/* Details Panel */}
         <AnimatePresence>
@@ -297,7 +312,17 @@ export default function MediaCenter() {
               <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                 {/* Preview */}
                 <div className="rounded-2xl overflow-hidden border border-[var(--border-primary)] shadow-sm bg-[var(--bg-secondary)]">
-                  <img src={selectedPhoto.url} className="w-full h-auto object-contain max-h-64 mx-auto" />
+                  <img 
+                    src={normalizeUrl(selectedPhoto.url)} 
+                    className="w-full h-auto object-contain max-h-64 mx-auto" 
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.parentElement.classList.add('flex', 'items-center', 'justify-center', 'bg-red-500/10', 'py-12');
+                      const icon = document.createElement('div');
+                      icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-red-500/20"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                      e.target.parentElement.appendChild(icon.firstChild);
+                    }}
+                  />
                 </div>
 
                 {/* Info EXIF */}

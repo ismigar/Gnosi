@@ -3,8 +3,8 @@ import {
     Plus, Settings, Hash, Search, X, MoreHorizontal, 
     Edit2, Copy, Trash2, LayoutTemplate, SlidersHorizontal, 
     ChevronDown, Filter, ArrowUpDown, Tag, Type, CheckSquare, 
-    Calendar, Layers, FileImage, Columns, List, BarChart2, 
-    Globe, MapPin, AlignLeft
+    Calendar, Layers, FileImage, Columns, List, BarChart2,
+    Globe, MapPin, AlignLeft, Lock
 } from 'lucide-react';
 import { 
     DndContext, 
@@ -24,11 +24,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { useTranslation } from 'react-i18next';
-import { VIEW_TYPES, getViewIcon } from './viewConstants';
+import { VIEW_TYPES, getViewIcon, isMainView } from './viewConstants';
 
-function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
-    const { t } = useTranslation();
+function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigure }) {
     const {
         attributes,
         listeners,
@@ -49,6 +47,7 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
     };
 
     const ViewIcon = getViewIcon(view.type);
+    const isPrimaryView = isMainView(view, tableViews);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -73,13 +72,19 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                     e.preventDefault();
                     onSelect?.(view.id);
                 }}
-                className={`flex items-center gap-1.5 px-3 pt-1.5 pb-0 text-xs font-medium transition-all rounded-t-md border-b-2 mr-1 ${isActive
+                className={`w-[184px] flex items-center gap-1.5 px-3 pt-1.5 pb-0 text-xs font-medium transition-all rounded-t-md border-b-2 mr-1 ${isActive
                     ? 'text-[var(--gnosi-blue)] border-[var(--gnosi-blue)] bg-[var(--bg-primary)] shadow-[0_-2px_5px_-1px_rgba(var(--gnosi-primary-rgb),0.1)]'
                     : 'text-[var(--text-tertiary)] border-transparent hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
                     }`}
+                title={view.name}
             >
                 <ViewIcon size={13} className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]'} />
-                <span className="truncate max-w-[100px] md:max-w-[140px]">{view.name}</span>
+                <span className="truncate flex-1 min-w-0" title={view.name}>{view.name}</span>
+                {isPrimaryView && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[10px] text-[var(--text-tertiary)] border border-[var(--border-primary)]" title="Vista principal" aria-label="Vista principal">
+                        <Lock size={10} />
+                    </span>
+                )}
                 
                 <div 
                     onClick={(e) => {
@@ -96,37 +101,43 @@ function SortableTab({ view, isActive, onSelect, onAction, onConfigure }) {
                 <div 
                     ref={menuRef}
                     className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1000] py-1 animate-in fade-in zoom-in-95 duration-100"
-                    onClick={(e) => e.stopPropagation()}
                 >
                     <button 
-                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'configure'); }}
+                        onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Settings size={13} />
-                        {t('Configure view')}
+                        Configurar
                     </button>
                     <button 
-                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'rename'); }}
+                        onClick={() => { setShowMenu(false); onAction?.(view, 'rename'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Edit2 size={13} />
-                        {t('Rename')}
+                        Renombrar
                     </button>
                     <button 
-                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'duplicate'); }}
+                        onClick={() => { setShowMenu(false); onAction?.(view, 'duplicate'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                     >
                         <Copy size={13} />
-                        {t('Duplicate')}
+                        Duplicar
                     </button>
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); onAction?.(view, 'delete'); }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
-                    >
-                        <Trash2 size={13} className="text-[var(--status-error)]" />
-                        {t('Delete')}
-                    </button>
+                    {isPrimaryView ? (
+                        <div className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-tertiary)]/70 cursor-not-allowed">
+                            <Lock size={13} />
+                            Vista principal (bloqueada)
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => { setShowMenu(false); onAction?.(view, 'delete'); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                        >
+                            <Trash2 size={13} className="text-[var(--status-error)]" />
+                            Eliminar
+                        </button>
+                    )}
                 </div>
             )}
         </div>
@@ -154,7 +165,6 @@ export function VaultViewsHeader({
     templates = [],
     onClose
 }) {
-    const { t } = useTranslation();
     const [showSearch, setShowSearch] = useState(false);
     const [isAddingView, setIsAddingView] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
@@ -181,9 +191,9 @@ export function VaultViewsHeader({
                 const actionsWidth = actionsRef.current ? actionsRef.current.offsetWidth : 210;
                 
                 // Espai per les pestanyes = Total - Accions - Marges/Gaps - (+ bar i ... que ocupen uns 80px)
-                const availableForTabs = totalWidth - actionsWidth - 60; 
-                const tabWidth = 140; 
-                const reservedInternal = 40; // el botó "+" i el botó "..." d'overflow
+                const availableForTabs = totalWidth - actionsWidth - 40; 
+                const tabWidth = 184;
+                const reservedInternal = 60; // + i ...
                 
                 const count = Math.max(1, Math.floor((availableForTabs - reservedInternal) / tabWidth));
                 setVisibleCount(count);
@@ -224,6 +234,7 @@ export function VaultViewsHeader({
     const handleViewAction = useCallback((view, action) => {
         if (action === 'configure') onEditView?.(view);
         if (action === 'delete') {
+            if (isMainView(view, views)) return;
             onDeleteView?.(view);
         }
         if (action === 'duplicate') {
@@ -245,7 +256,7 @@ export function VaultViewsHeader({
                         {tableName}
                     </h1>
                     <span className="text-[10px] md:text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full border border-[var(--border-primary)]">
-                        {t('records', { count: recordCount })}
+                        {recordCount} registres
                     </span>
                 </div>
 
@@ -253,7 +264,7 @@ export function VaultViewsHeader({
                     <button
                         onClick={onClose}
                         className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors p-1"
-                        title={t('Close panel')}
+                        title="Tancar panell"
                     >
                         <X size={20} />
                     </button>
@@ -278,6 +289,7 @@ export function VaultViewsHeader({
                                     <SortableTab 
                                         key={view.id}
                                         view={view}
+                                        tableViews={views}
                                         isActive={activeViewId === view.id}
                                         onSelect={onViewSelect}
                                         onAction={handleViewAction}
@@ -291,7 +303,7 @@ export function VaultViewsHeader({
                                     <button 
                                         onClick={() => setShowOverflow(!showOverflow)}
                                         className={`p-1 mb-2 rounded transition-colors ${showOverflow ? 'bg-[var(--bg-tertiary)] text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
-                                        title={t('More views')}
+                                        title="Més vistes"
                                     >
                                         <MoreHorizontal size={15} />
                                     </button>
@@ -301,10 +313,11 @@ export function VaultViewsHeader({
                                             <div className="fixed inset-0 z-40" onClick={() => setShowOverflow(false)}></div>
                                             <div className="absolute top-full left-0 mt-1 w-52 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
                                                 <div className="px-3 py-1.5 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                                                    {t('Other views')}
+                                                    Altres vistes
                                                 </div>
                                                 {displayViews.slice(visibleCount).map(view => {
                                                     const Icon = getViewIcon(view.type);
+                                                    const primary = isMainView(view, views);
                                                     return (
                                                         <button 
                                                             key={view.id}
@@ -316,6 +329,11 @@ export function VaultViewsHeader({
                                                         >
                                                             <Icon size={13} />
                                                             <span className="truncate">{view.name}</span>
+                                                            {primary && (
+                                                                <span className="ml-auto inline-flex items-center text-[9px] px-1.5 py-0.5 rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]" title="Vista principal" aria-label="Vista principal">
+                                                                    <Lock size={9} />
+                                                                </span>
+                                                            )}
                                                         </button>
                                                     );
                                                 })}
@@ -349,7 +367,7 @@ export function VaultViewsHeader({
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     onBlur={() => !searchTerm && setShowSearch(false)}
-                                    placeholder={t('Search registers...')}
+                                    placeholder="Cerca registres..."
                                     className="text-xs outline-none w-32 md:w-48 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-transparent"
                                 />
                                 <button
@@ -363,7 +381,7 @@ export function VaultViewsHeader({
                             <button
                                 onClick={() => setShowSearch(true)}
                                 className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                                title={t('Search')}
+                                title="Cerca"
                             >
                                 <Search size={18} />
                             </button>
@@ -376,7 +394,7 @@ export function VaultViewsHeader({
                         className="btn-gnosi !text-xs !py-1.5 !px-3"
                     >
                         <Settings size={14} />
-                        <span className="hidden md:inline">{t('Fields')}</span>
+                        <span className="hidden md:inline">Camps</span>
                     </button>
 
                     {/* Botó Nou */}
@@ -386,7 +404,7 @@ export function VaultViewsHeader({
                             className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 !text-xs !gap-1.5 shadow-md active:scale-95"
                         >
                             <Plus size={14} />
-                            <span className="hidden sm:inline">{t('New')}</span>
+                            <span className="hidden sm:inline">Nou</span>
                             <div 
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -405,20 +423,20 @@ export function VaultViewsHeader({
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                 >
                                     <Plus size={14} className="text-[var(--text-tertiary)]" />
-                                    <span>{t('New empty record')}</span>
+                                    <span>Nou registre buit</span>
                                 </button>
                                 <button
                                     onClick={() => { setShowNewMenu(false); onCreateTemplate?.(); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                 >
                                     <LayoutTemplate size={14} className="text-[var(--text-tertiary)]" />
-                                    <span>{t('New template')}</span>
+                                    <span>Nova plantilla</span>
                                 </button>
                                 
                                 {templates.length > 0 && (
                                     <>
                                         <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
-                                        <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('Templates')}</div>
+                                        <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">Plantilles</div>
                                         {templates.map(tpl => (
                                             <button
                                                 key={tpl.id}
@@ -426,9 +444,9 @@ export function VaultViewsHeader({
                                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left group"
                                             >
                                                 <LayoutTemplate size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]" />
-                                                <span className="truncate">{tpl.title || t('Untitled')}</span>
+                                                <span className="truncate">{tpl.title || 'Sense títol'}</span>
                                                 {tpl.metadata?.is_default_template && (
-                                                    <span className="ml-auto text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">{t('Def.')}</span>
+                                                    <span className="ml-auto text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">Pred.</span>
                                                 )}
                                             </button>
                                         ))}

@@ -8,8 +8,8 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, List, Any
-from config.paths_config import get_paths
-from config.logger_config import get_logger
+from backend.config.paths_config import get_paths
+from backend.config.logger_config import get_logger
 
 log = get_logger(__name__)
 

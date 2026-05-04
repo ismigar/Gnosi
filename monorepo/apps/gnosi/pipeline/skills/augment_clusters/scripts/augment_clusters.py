@@ -3,8 +3,8 @@ import json
 import time
 from pathlib import Path
 from pipeline.ai_client import call_ai_client
-from config.app_config import load_params
-from config.logger_config import get_logger
+from backend.config.app_config import load_params
+from backend.config.logger_config import get_logger
 
 log = get_logger(__name__)
 cfg = load_params(strict_env=False)

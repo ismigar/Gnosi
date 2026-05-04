@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { X, Columns2, Plus, Search, FileText, LayoutPanelLeft } from 'lucide-react';
 
@@ -14,7 +13,6 @@ export function VaultDocumentTabs({
     onQuickOpenItem,
     onQuickOpenParallel
 }) {
-    const { t } = useTranslation();
     const DROPDOWN_WIDTH = 380;
     const VIEWPORT_MARGIN = 16;
     const normalizedTabs = tabs || [];
@@ -222,7 +220,7 @@ export function VaultDocumentTabs({
                 const isSplit = splitSet.has(tab.id);
                 const canSplit = !tab.isTable;
 
-                let tabClasses = "flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ";
+                let tabClasses = "w-[184px] flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ";
                 if (isActive) {
                     tabClasses += "border-[var(--gnosi-blue)] text-[var(--gnosi-blue)] bg-[var(--bg-primary)] shadow-sm";
                 } else if (isSplit) {
@@ -236,23 +234,24 @@ export function VaultDocumentTabs({
                         key={tab.id}
                         className={tabClasses + " group cursor-pointer select-none flex-shrink-0"}
                         onClick={() => onTabSelect(tab.id)}
+                        title={tab.title || 'Sense Títol'}
                     >
-                        <span className="truncate max-w-[150px]">{tab.title || t('Untitled')}</span>
+                        <span className="truncate flex-1 min-w-0" title={tab.title || 'Sense Títol'}>{tab.title || 'Sense Títol'}</span>
 
                         <div className="flex items-center ml-1">
                             {!isActive && canSplit && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onToggleSplit(tab.id); }}
                                     className={`p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${isSplit ? 'text-purple-600 bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-50/20'}`}
-                                    title={isSplit ? t('Remove from parallel view') : t('Open in parallel')}
+                                    title={isSplit ? "Treure de la vista paral·lela" : "Obrir en paral·lel"}
                                 >
                                     <Columns2 size={14} />
                                 </button>
                             )}
                             <button
                                 onClick={(e) => { e.stopPropagation(); onTabClose(tab.id); }}
-                                className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--status-error)]/10 transition-colors"
-                                title={t('Close tab')}
+                                className="p-1 rounded text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50/10 transition-colors"
+                                title="Tancar pestanya"
                             >
                                 <X size={14} />
                             </button>
@@ -271,7 +270,7 @@ export function VaultDocumentTabs({
                     openQuickOpen();
                 }}
                 className="ml-1 flex items-center justify-center w-8 h-8 rounded text-[var(--text-secondary)] hover:text-indigo-700 hover:bg-[var(--bg-tertiary)] transition-colors"
-                title={t('new_tab_shortcut_hint', { quickOpenShortcutLabel, tabJumpShortcutLabel })}
+                title={`Nova pestanya o cerca ràpida (${quickOpenShortcutLabel}). Canviar pestanya: ${tabJumpShortcutLabel}`}
             >
                 <Plus size={16} />
             </button>
@@ -292,14 +291,14 @@ export function VaultDocumentTabs({
                                 setHighlightedIndex(0);
                             }}
                             onKeyDown={handleQuickOpenKeyDown}
-                            placeholder={t('Search pages and tables...')}
+                            placeholder="Cerca pàgines i taules..."
                             className="w-full text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-transparent outline-none"
                         />
                     </div>
 
                     <div className="max-h-72 overflow-y-auto py-1">
                         {filteredItems.length === 0 ? (
-                            <div className="px-3 py-4 text-xs text-slate-500">{t('No results')}</div>
+                            <div className="px-3 py-4 text-xs text-slate-500">Sense resultats</div>
                         ) : (
                             filteredItems.map((item, index) => {
                                 const isHighlighted = index === highlightedIndex;
@@ -331,7 +330,7 @@ export function VaultDocumentTabs({
                                         <button
                                             onClick={() => handleOpenParallel(item)}
                                             className={`p-1 rounded transition-colors ${isHighlighted ? 'text-purple-600 hover:bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-purple-600 hover:bg-purple-50/10'}`}
-                                            title={item.type === 'table' ? t('Open table in parallel') : t('Open in parallel')}
+                                            title={item.type === 'table' ? 'Obrir taula en paral·lel' : 'Obrir en paral·lel'}
                                         >
                                             <Columns2 size={14} />
                                         </button>

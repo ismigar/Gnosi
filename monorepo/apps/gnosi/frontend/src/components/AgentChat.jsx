@@ -542,9 +542,7 @@ const AgentChat = () => {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let aiMsg = { role: 'assistant', content: '' };
-
-            setMessages(prev => [...prev, aiMsg]);
+            let aiMsgAdded = false;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -557,8 +555,16 @@ const AgentChat = () => {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
+                        
                         setMessages(prev => {
                             const newMsgs = [...prev];
+                            
+                            // Si encara no hem afegit el missatge de l'IA, l'afegim ara
+                            if (!aiMsgAdded) {
+                                aiMsgAdded = true;
+                                newMsgs.push({ role: 'assistant', content: '' });
+                            }
+
                             const lastIdx = newMsgs.length - 1;
                             const lastMsg = { ...newMsgs[lastIdx] };
 
@@ -577,7 +583,12 @@ const AgentChat = () => {
                                 setLastUsedLlm(llmInfo);
                                 lastMsg.llm = llmInfo;
                             } else if (data.type === 'error') {
-                                lastMsg.content = `❌ Error: ${data.content}`;
+                                // Traducció i millora de missatges comuns
+                                let errorContent = data.content || 'Error desconegut';
+                                if (errorContent.includes('rate_limit_exceeded')) {
+                                    errorContent = "Has superat la quota del model actual. Prova d'utilitzar un altre model (com gpt-4o-mini) o espera uns minuts.";
+                                }
+                                lastMsg.content = `❌ Error: ${errorContent}`;
                             }
 
                             newMsgs[lastIdx] = lastMsg;
@@ -603,14 +614,15 @@ const AgentChat = () => {
         if (iconStr.startsWith('lucide:')) {
             const [_, name, colorName] = iconStr.split(':');
             const IconComp = LucideIcons[name];
-            // Simple color mapping or just inherit
-            return IconComp ? <IconComp size={size} /> : <Bot size={size} />;
+            // Support 'white', 'gray', or any color name. Fallback to white for Brain if no color.
+            const color = colorName || (name === 'Brain' ? 'white' : 'currentColor');
+            return IconComp ? <IconComp size={size} color={color} /> : <Bot size={size} />;
         }
         return <span style={{ fontSize: `${size}px` }}>{iconStr}</span>;
     };
 
     const agentName = agentConfig?.name || 'Gnosi Copilot';
-    const agentIcon = agentConfig?.icon || '🤖';
+    const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
     const sortedSessions = [...chatSessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
     if (!isOpen) {
@@ -751,7 +763,9 @@ const AgentChat = () => {
 
                         {!showSessionsView && messages.length === 0 && (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🧬</div>
+                                <div style={{ fontSize: '3rem', marginBottom: '16px', color: 'var(--gnosi-blue)' }}>
+                                    <LucideIcons.Brain size={64} strokeWidth={1.5} />
+                                </div>
                                 <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Com t'ajudo avui?</h4>
                                 <p style={{ fontSize: '0.85rem', margin: 0 }}>Puc analitzar el teu Vault, gestionar el calendari o escriure codi per a tu.</p>
                             </div>

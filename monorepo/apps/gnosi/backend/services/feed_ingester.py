@@ -5,7 +5,8 @@ from bs4 import BeautifulSoup
 import logging
 from sqlalchemy.orm import Session
 
-from backend.data.db import SessionLocal
+from backend.data.db import get_engine_for_path
+from backend.services.context_vars import get_active_vault_path
 from backend.models.reader import FeedSource, Article
 
 log = logging.getLogger(__name__)
@@ -31,6 +32,8 @@ def fetch_and_store_feeds():
     Downloads all active RSS/YouTube feeds from the database, parses them,
     and saves new articles from the last 24 hours into the database.
     """
+    v_path = get_active_vault_path()
+    _, SessionLocal = get_engine_for_path(v_path)
     db: Session = SessionLocal()
     try:
         sources = db.query(FeedSource).filter(FeedSource.type.in_(["rss", "youtube"])).all()
@@ -50,6 +53,7 @@ def fetch_and_store_feeds():
                     parsed_results.append((source, parsed))
                     
         # 2. Process results and save to DB sequentially (DB session is not thread-safe)
+        processed_urls = set()
         for source, parsed in parsed_results:
             try:
                 for entry in parsed.entries:
@@ -62,19 +66,32 @@ def fetch_and_store_feeds():
                     
                     if not pub_date:
                         pub_date = datetime.now(timezone.utc) # fallback
-                        
-                    # Process only recent articles
-                    if pub_date > target_time:
-                        # Extract URL and check uniqueness
-                        article_link = entry.get('link', '')
-                        existing = db.query(Article).filter(Article.url == article_link).first()
-                        
-                        if not existing and article_link:
+
+                    # Removed 24h filter to allow full history ingestion.
+                    # `target_time` queda al closure però no s'usa — mantenim
+                    # la variable per si en el futur volem reactivar-lo.
+                    _ = target_time
+                    # Extract URL and check uniqueness
+                    article_link = entry.get('link', '')
+                    if not article_link:
+                        continue
+
+                    # Normalize URL
+                    article_link = article_link.strip()
+
+                    if article_link in processed_urls:
+                        continue
+
+                    existing = db.query(Article).filter(Article.url == article_link).first()
+
+                    if not existing:
+                        try:
+                            processed_urls.add(article_link)
                             # Clean HTML content
                             content_raw = entry.get('content', [{'value': entry.get('summary', '')}])[0]['value']
                             soup = BeautifulSoup(content_raw, 'html.parser')
                             text_content = soup.get_text(separator=' ', strip=True)
-                            
+
                             new_article = Article(
                                 source_id=source.id,
                                 title=entry.get('title', 'Untitled'),
@@ -84,7 +101,13 @@ def fetch_and_store_feeds():
                                 is_read=False
                             )
                             db.add(new_article)
+                            db.flush() # Catch IntegrityError early
                             new_articles_count += 1
+                        except Exception as e:
+                            log.warning(f"  ⚠️ Skipping article due to insertion error: {article_link} - {e}")
+                            db.rollback()
+                            continue
+
             except Exception as e:
                 log.error(f"❌ Error processing feed entries for {source.url}: {e}")
                 

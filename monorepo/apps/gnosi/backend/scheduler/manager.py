@@ -5,19 +5,28 @@ Scheduler Manager: Manages scheduled tasks using APScheduler.
 import json
 import os
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, List, Optional, Callable
+from datetime import datetime, timezone
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, asdict
-import asyncio
 import threading
 from backend.config.app_config import load_params
+from backend.data.management_db import get_mgmt_session
+from backend.models.scheduler import TaskExecutionHistory
+
+# Try to import notification service from skills
+try:
+    from pipeline.skills.notification_service.scripts.notification_service import notify
+except ImportError:
+    # Fallback if skill is not available or path issues
+    def notify(title, message, level="INFO", workspace_id="default"):
+        pass
 
 
 @dataclass
 class ScheduledTask:
     name: str
     description: str
-    interval_minutes: int
+    interval_minutes: float
     enabled: bool
     last_run: Optional[str] = None
     next_run: Optional[str] = None
@@ -31,20 +40,48 @@ class SchedulerManager:
     """
 
     AVAILABLE_TASKS = {
-        "sync_directives": {
-            "description": "Sync directives to Notion",
+        "fetch_feeds": {
+            "description": "Fetch RSS/YouTube feeds",
+            "default_interval": 120,  # 2 hours
+        },
+        "fetch_newsletters": {
+            "description": "Fetch POP3 newsletters",
+            "default_interval": 180,  # 3 hours
+        },
+        "generate_podcast": {
+            "description": "Generate daily podcast from unread articles",
             "default_interval": 1440,  # 24 hours
         },
-        "backup_tools": {
-            "description": "Backup approved tools",
-            "default_interval": 720,  # 12 hours
-        },
-        "cleanup_rejected": {
-            "description": "Cleanup old rejected tools",
-            "default_interval": 10080,  # 7 days
+        "system_maintenance": {
+            "description": "Manteniment del sistema (Logs, Mailbox, Sandbox)",
+            "default_interval": 1440,  # 24 hours
         },
         "update_analytics": {
             "description": "Update statistics",
+            "default_interval": 60,  # 1 hour
+        },
+        "suggest_connections": {
+            "description": "Analyze connections between notes",
+            "default_interval": 300,  # 5 hours
+        },
+        "fetch_calendar": {
+            "description": "Verificació de tokens de calendari",
+            "default_interval": 60,  # 1 hour
+        },
+        "fetch_mail": {
+            "description": "Sync correu (Gmail, IMAP)",
+            "default_interval": 30,  # 30 minutes
+        },
+        "fetch_contacts": {
+            "description": "Sync comptes (Google, CardDAV)",
+            "default_interval": 1440,  # 24 hours
+        },
+        "update_memories": {
+            "description": "Actualització General de Memòria (Graf i Connexions)",
+            "default_interval": 1440,  # 24 hours
+        },
+        "zotero_sync": {
+            "description": "Sincronització bidireccional Zotero ↔ Vault",
             "default_interval": 60,  # 1 hour
         },
     }
@@ -57,11 +94,12 @@ class SchedulerManager:
             try:
                 self.config_path.parent.mkdir(parents=True, exist_ok=True)
             except Exception as e:
-                print(f"⚠️ Scheduler: Error creating configuration directory: {e}")
+                pass
 
         self._tasks: Dict[str, ScheduledTask] = {}
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._lock_file = None  # held while scheduler owns the singleton mutex
 
         self._load_config()
 
@@ -72,13 +110,38 @@ class SchedulerManager:
             return
             
         try:
+            updated = False
             with open(self.config_path) as f:
                 data = json.load(f)
                 for name, task_data in data.get("tasks", {}).items():
                     self._tasks[name] = ScheduledTask(**task_data)
+
+                # Filter out tasks that are no longer in AVAILABLE_TASKS
+                current_task_names = list(self._tasks.keys())
+                for task_name in current_task_names:
+                    if task_name not in self.AVAILABLE_TASKS:
+                        del self._tasks[task_name]
+                        updated = True
+
+                # Ensure all available tasks exist
+                for name, config in self.AVAILABLE_TASKS.items():
+                    if name not in self._tasks:
+                        self._tasks[name] = ScheduledTask(
+                            name=name,
+                            description=config["description"],
+                            interval_minutes=config["default_interval"],
+                            enabled=False,
+                        )
+                        updated = True
+
+                if updated:
+                    self._save_config()
         except Exception as e:
-            print(f"⚠️ Scheduler: Error loading configuration, restoring default values: {e}")
-            self._init_default_tasks()
+            from backend.config.logger_config import get_logger
+            log = get_logger(__name__)
+            log.error(f"❌ Error loading scheduler config: {e}")
+            if not self._tasks:
+                self._init_default_tasks()
 
     def _init_default_tasks(self):
         """Initialize with default tasks."""
@@ -95,13 +158,19 @@ class SchedulerManager:
         """Save scheduler configuration to file."""
         if not self.config_path:
             return
-            
+
         try:
             data = {"tasks": {name: asdict(task) for name, task in self._tasks.items()}}
-            with open(self.config_path, "w") as f:
-                json.dump(data, f, indent=2)
+            # Atomic write: el fitxer es modifica desenes de cops per execució
+            # de tasca; un crash a meitat deixaria scheduler.json corrupte i
+            # tot l'scheduler caduria al següent restart (al _load_config).
+            from backend.utils.safe_io import safe_write_json
+            safe_write_json(self.config_path, data, indent=2)
         except Exception as e:
-            print(f"⚠️ Scheduler: Could not save configuration: {e}")
+            from backend.config.logger_config import get_logger
+            get_logger(__name__).error(
+                f"Failed to save scheduler config to {self.config_path}: {e}"
+            )
 
     def get_tasks(self) -> List[Dict[str, Any]]:
         """Get all scheduled tasks."""
@@ -112,8 +181,82 @@ class SchedulerManager:
         task = self._tasks.get(name)
         return asdict(task) if task else None
 
+    def start(self):
+        """Start the background scheduler thread."""
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+
+        if self._running:
+            log.info("⏰ SchedulerManager is already running.")
+            return
+
+        # File-based mutex: prevent multiple scheduler instances on the same
+        # host from racing on the same tasks (duplicate mail fetches, racing
+        # filesystem cleanups, etc.). For a multi-host deployment this would
+        # need to be replaced with a distributed lock (Redis, DB advisory).
+        try:
+            import fcntl
+        except ImportError:
+            fcntl = None  # Non-POSIX; fall back to in-process singleton only.
+
+        if fcntl and self.config_path:
+            lock_path = self.config_path.parent / ".scheduler.lock"
+            try:
+                self._lock_file = open(lock_path, "w")
+                fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (BlockingIOError, OSError):
+                log.warning(
+                    f"⚠️  Another scheduler already holds {lock_path}. "
+                    "Skipping startup to avoid duplicate task execution."
+                )
+                try:
+                    if self._lock_file:
+                        self._lock_file.close()
+                except Exception:
+                    pass
+                self._lock_file = None
+                return
+
+        log.info("⏰ Starting SchedulerManager background loop...")
+
+        self._running = True
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+        log.info("✅ SchedulerManager thread started.")
+
+    def _run_loop(self):
+        """Main scheduler loop."""
+        import time
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+
+        while self._running:
+            try:
+                now = datetime.now()
+                for name, task in self._tasks.items():
+                    if not task.enabled:
+                        continue
+
+                    should_run = False
+                    if not task.last_run:
+                        should_run = True
+                    else:
+                        last_run_dt = datetime.fromisoformat(task.last_run)
+                        elapsed = (now - last_run_dt).total_seconds() / 60
+                        if elapsed >= task.interval_minutes:
+                            should_run = True
+
+                    if should_run:
+                        log.info(f"⏰ Scheduler: Triggering task '{name}'")
+                        self.run_task_now(name)
+
+            except Exception as e:
+                log.error(f"❌ Error in scheduler loop: {e}")
+
+            time.sleep(60)  # Check every minute
+
     def update_task(
-        self, name: str, interval_minutes: int, enabled: bool
+        self, name: str, interval_minutes: float, enabled: bool
     ) -> Dict[str, Any]:
         """Update a task's configuration."""
         if name not in self._tasks:
@@ -127,6 +270,25 @@ class SchedulerManager:
 
         return {"success": True, "task": asdict(task)}
 
+    def clear_all_history(self) -> Dict[str, Any]:
+        """Clear the execution history of all tasks."""
+        for task in self._tasks.values():
+            task.last_run = None
+            task.status = "idle"
+        
+        self._save_config()
+        
+        # Also clear DB history
+        try:
+            with get_mgmt_session() as db:
+                db.query(TaskExecutionHistory).delete()
+                db.commit()
+        except Exception as _e:
+            from backend.config.logger_config import get_logger
+            get_logger(__name__).warning(f"Could not clear task history: {_e}")
+
+        return {"success": True, "message": "Scheduler history cleared"}
+
     def run_task_now(self, name: str) -> Dict[str, Any]:
         """Run a task immediately."""
         if name not in self._tasks:
@@ -134,72 +296,340 @@ class SchedulerManager:
 
         task = self._tasks[name]
         task.status = "running"
-        task.last_run = datetime.utcnow().isoformat()
+        task.last_run = datetime.now().isoformat()
+        
+        # Log task start
+        notify(
+            f"Tasca Iniciada: {name.replace('_', ' ').title()}", 
+            f"S'ha iniciat el procés de {task.description.lower()}.",
+            level="INFO"
+        )
+        
+        # Save state immediately so UI sees "running"
+        self._save_config()
+
+        # Database record for history
+        execution_id = None
+        try:
+            with get_mgmt_session() as db:
+                history = TaskExecutionHistory(
+                    task_name=name,
+                    description=task.description,
+                    status="running"
+                )
+                db.add(history)
+                db.commit()
+                db.refresh(history)
+                execution_id = history.id
+        except Exception as e:
+            from backend.config.logger_config import get_logger
+            get_logger(__name__).error(f"Failed to create task history record: {e}")
 
         try:
             # Execute the task
+            start_time = datetime.now()
             result = self._execute_task(name)
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            
             task.status = "success"
+            
+            # Extract meaningful message from result if possible
+            msg = result.get("message") or f"La tasca {name} s'ha completat correctament."
+            if "details" in result and isinstance(result["details"], list):
+                # Add summary of details if available
+                success_count = sum(1 for d in result["details"] if d.get("success"))
+                total_count = len(result["details"])
+                if total_count > 0:
+                    msg = f"Completat: {success_count}/{total_count} sub-tasques amb èxit."
+
+            # Update DB history
+            if execution_id:
+                try:
+                    with get_mgmt_session() as db:
+                        history = db.query(TaskExecutionHistory).filter(TaskExecutionHistory.id == execution_id).first()
+                        if history:
+                            history.status = "success"
+                            history.message = msg
+                            history.finished_at = datetime.now(timezone.utc)
+                            history.duration_seconds = duration
+                            db.commit()
+                except Exception as _e:
+                    # Don't crash the scheduler over a bookkeeping error,
+                    # but log so a corrupt task_history DB shows up in logs.
+                    from backend.config.logger_config import get_logger
+                    get_logger(__name__).warning(
+                        f"Could not persist task history for {name}: {_e}"
+                    )
+
+            notify(
+                f"Tasca Finalitzada: {name.replace('_', ' ').title()}", 
+                msg,
+                level="SUCCESS"
+            )
+            
             self._save_config()
             return {"success": True, "result": result}
         except Exception as e:
+            from backend.config.logger_config import get_logger
+            log = get_logger(__name__)
+            error_msg = str(e)
+            log.error(f"❌ Error executing task {name}: {error_msg}")
+            
+            # Update DB history on error
+            if execution_id:
+                try:
+                    with get_mgmt_session() as db:
+                        history = db.query(TaskExecutionHistory).filter(TaskExecutionHistory.id == execution_id).first()
+                        if history:
+                            history.status = "error"
+                            history.message = error_msg
+                            history.finished_at = datetime.now(timezone.utc)
+                            db.commit()
+                except Exception as _e:
+                    # Don't crash the scheduler over a bookkeeping error,
+                    # but log so a corrupt task_history DB shows up in logs.
+                    from backend.config.logger_config import get_logger
+                    get_logger(__name__).warning(
+                        f"Could not persist task history for {name}: {_e}"
+                    )
+
+            notify(
+                f"Error en Tasca: {name.replace('_', ' ').title()}", 
+                f"S'ha produït un error en l'execució: {error_msg}",
+                level="ERROR"
+            )
+            
             task.status = "error"
             self._save_config()
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": error_msg}
 
     def _execute_task(self, name: str) -> Dict[str, Any]:
         """Execute a specific task."""
-        if name == "sync_directives":
-            return self._task_sync_directives()
-        elif name == "backup_tools":
-            return self._task_backup_tools()
-        elif name == "cleanup_rejected":
-            return self._task_cleanup_rejected()
+        if name == "fetch_feeds":
+            return self._task_fetch_feeds()
+        elif name == "fetch_newsletters":
+            return self._task_fetch_newsletters()
+        elif name == "generate_podcast":
+            return self._task_generate_podcast()
+        elif name == "system_maintenance":
+            return self._task_system_maintenance()
         elif name == "update_analytics":
             return self._task_update_analytics()
-        else:
-            return {"error": f"Unknown task: {name}"}
+        elif name == "suggest_connections":
+            return self._task_suggest_connections()
+        elif name == "fetch_calendar":
+            return self._task_fetch_calendar()
+        elif name == "fetch_mail":
+            return self._task_fetch_mail()
+        elif name == "fetch_contacts":
+            return self._task_fetch_contacts()
+        elif name == "update_memories":
+            return self._task_update_memories()
+        elif name == "zotero_sync":
+            return self._task_zotero_sync()
 
-    def _task_sync_directives(self) -> Dict[str, Any]:
-        """Sync directives to Notion."""
-        from backend.sync.notion_exporter import notion_exporter
-        import asyncio
+        return {"error": f"Unknown task: {name}"}
 
-        loop = asyncio.new_event_loop()
-        try:
-            result = loop.run_until_complete(notion_exporter.export_all_directives())
-            return result
-        finally:
-            loop.close()
+    def _task_fetch_mail(self) -> Dict[str, Any]:
+        """Sync mail from all configured accounts (Gmail + IMAP)."""
+        from backend.services.integration_manager import integration_manager
+        from backend.services.vault_mail_sync_service import sync_service
+        from backend.services.imap_mail_sync_service import imap_sync_service
 
-    def _task_backup_tools(self) -> Dict[str, Any]:
-        """Backup approved tools."""
-        from backend.agent.generated_tools.registry import registry
+        total = 0
+        details = []
+        seen: set = set()
+        for acc in integration_manager.get_all_mail_accounts(only_enabled=True):
+            email = acc.get("email") or acc.get("username")
+            if not email or email in seen:
+                continue
+            seen.add(email)
+            try:
+                if integration_manager.is_imap_account(acc):
+                    count = imap_sync_service.sync_account(email, limit=50)
+                elif integration_manager.is_microsoft_account(acc):
+                    count = 0  # Microsoft Graph és live — no cal sync al vault
+                else:
+                    count = sync_service.sync_emails(email, limit=50)
+                total += count or 0
+                details.append({"account": email, "success": True, "count": count or 0})
+            except Exception as ex:
+                details.append({"account": email, "success": False, "error": str(ex)})
+        return {"new_emails": total, "details": details}
 
-        approved = registry.list_approved()
+    def _task_fetch_contacts(self) -> Dict[str, Any]:
+        """Fetch Contacts from all configured accounts."""
+        from backend.services.integration_manager import integration_manager
+        from backend.services.contacts_sync_engine import ContactsSyncEngine
+        from backend.data.management_db import db_manager
+        
+        results = {"success": True, "details": []}
+        integrations = integration_manager.get_all_safe()
+        contact_accounts = integrations.get("contacts", [])
+        
+        if not contact_accounts:
+            return {"success": True, "message": "No contact accounts configured"}
+
+        for account in contact_accounts:
+            try:
+                with db_manager.mgmt_session() as db:
+                    engine = ContactsSyncEngine(db, account, workspace_id="personal") # Defaulting to personal for background sync
+                    sync_res = engine.sync_full_bidirectional()
+                    results["details"].append({
+                        "id": account.get("id"),
+                        "email": account.get("email"),
+                        "result": sync_res
+                    })
+            except Exception as e:
+                results["details"].append({
+                    "id": account.get("id"),
+                    "error": str(e)
+                })
+        
+        return results
+
+    def _task_fetch_feeds(self) -> Dict[str, Any]:
+        """Fetch RSS/YouTube feeds and store new articles."""
+        from backend.services.feed_ingester import fetch_and_store_feeds
+
+        count = fetch_and_store_feeds()
+        return {"new_articles": int(count or 0)}
+
+    def _task_fetch_newsletters(self) -> Dict[str, Any]:
+        """Fetch POP3 newsletters and store new articles."""
+        from backend.services.mail_ingester import fetch_and_store_newsletters
+
+        count = fetch_and_store_newsletters()
+        return {"new_articles": int(count or 0)}
+
+    def _task_generate_podcast(self) -> Dict[str, Any]:
+        """Generate the daily podcast from unread articles."""
+        from backend.services.audio_summarizer import generate_daily_podcast
+
+        filename = generate_daily_podcast()
+        return {"filename": filename, "generated": bool(filename)}
+
+
+    def _task_system_maintenance(self) -> Dict[str, Any]:
+        """Comprehensive system cleanup: logs, mailbox, sandbox, and caches."""
+        import glob
+        import os
+        import shutil
+        from backend.config.logger_config import get_logger
+        
+        log = get_logger(__name__)
+        purged_count = 0
+        freed_bytes = 0
+        details = {}
+        
         cfg = load_params(strict_env=False)
-        backup_base = cfg.paths.get("BACKUPS")
-        if not backup_base:
-            return {"error": "Backup path not structurally configured in the Vault."}
+        
+        # 1. Purge Logs
+        log_dir = cfg.paths.get("LOG_DIR")
+        if log_dir and log_dir.exists():
+            log_patterns = [str(log_dir / "*.log"), str(log_dir.parent / "*.log")]
             
-        backup_dir = backup_base / "tools"
-        backup_dir.mkdir(parents=True, exist_ok=True)
+            project_root = cfg.paths.get("PROJECT_DIR")
+            if project_root:
+                pipeline_base = project_root / "monorepo" / "apps" / "gnosi" / "pipeline"
+                log_patterns.append(str(pipeline_base / "sandbox" / "*.log"))
+                log_patterns.append(str(pipeline_base / ".tmp" / "*.log"))
 
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            for pattern in log_patterns:
+                for filepath in glob.glob(pattern):
+                    try:
+                        size = os.path.getsize(filepath)
+                        if size > 0:
+                            with open(filepath, 'w') as f:
+                                f.write(f"# Log purged at {datetime.now().isoformat()}\n")
+                            purged_count += 1
+                            freed_bytes += size
+                    except Exception as e:
+                        log.warning(f"Failed to purge log {filepath}: {e}")
+        details["logs_cleared"] = purged_count
 
-        for tool in approved:
-            backup_file = backup_dir / f"{tool.name}_{timestamp}.py"
-            backup_file.write_text(tool.code)
+        # 2. Clear Agent Mailbox Archive
+        mailbox_archive = Path("/Users/ismaelgarciafernandez/Projectes/monorepo/.antigravity/team/mailbox/archive")
+        msg_purged = 0
+        if mailbox_archive.exists():
+            for msg_file in glob.glob(str(mailbox_archive / "*")):
+                try:
+                    freed_bytes += os.path.getsize(msg_file)
+                    os.remove(msg_file)
+                    msg_purged += 1
+                except Exception as e:
+                    log.warning(f"Failed to delete message {msg_file}: {e}")
+        details["mailbox_archive_purged"] = msg_purged
 
-        return {"backed_up": len(approved), "directory": str(backup_dir)}
+        # 3. Cleanup Pipeline Sandbox & .tmp
+        pipeline_dirs = []
+        if project_root:
+             p_base = project_root / "monorepo" / "apps" / "gnosi" / "pipeline"
+             pipeline_dirs = [p_base / "sandbox", p_base / ".tmp"]
 
-    def _task_cleanup_rejected(self) -> Dict[str, Any]:
-        """Cleanup old rejected tools."""
-        # For now, just count rejected - could delete old ones
-        from backend.agent.generated_tools.registry import registry
+        sandbox_deleted = 0
+        for d in pipeline_dirs:
+            if d.exists():
+                for item in d.iterdir():
+                    if item.name == "__init__.py": continue
+                    try:
+                        if item.is_file():
+                            freed_bytes += os.path.getsize(item)
+                            os.remove(item)
+                            sandbox_deleted += 1
+                        elif item.is_dir():
+                            shutil.rmtree(item)
+                            sandbox_deleted += 1
+                    except Exception as e:
+                        log.warning(f"Failed to delete {item}: {e}")
+        details["temporary_files_deleted"] = sandbox_deleted
 
-        # This is a placeholder - in production would delete old rejected tools
-        return {"message": "Cleanup simulated", "rejected_count": 0}
+        # 4. Cleanup Pycache
+        pycache_count = 0
+        if project_root:
+            for root, dirs, files in os.walk(project_root / "monorepo" / "apps" / "gnosi"):
+                for d in dirs:
+                    if d == "__pycache__":
+                        try:
+                            shutil.rmtree(os.path.join(root, d))
+                            pycache_count += 1
+                        except Exception:
+                            pass
+        details["pycache_dirs_removed"] = pycache_count
+                    
+        # 5. Cleanup In-Memory Cache
+        from backend.utils.cache import global_cache
+        global_cache.clear()
+        details["global_cache_cleared"] = True
+                    
+        return {
+            "message": "System maintenance completed successfully",
+            "freed_bytes": freed_bytes,
+            "details": details
+        }
+
+    def _task_suggest_connections(self) -> Dict[str, Any]:
+        """Analyze connections between notes."""
+        try:
+            from pipeline.skills.suggest_connections.scripts import (
+                suggest_connections_digital_brain,
+            )
+            from pipeline.skills.json_to_sigma.scripts import json_to_sigma
+            suggest_connections_digital_brain.process()
+            json_to_sigma.convert_for_sigma()
+        except ImportError:
+            return {"error": "Pipeline skills not found"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+
+
+
+
+    def _task_fetch_calendar(self) -> Dict[str, Any]:
+        """No-op: arquitectura híbrida consulta l'API directament, sense sync al vault."""
+        return {"new_events": 0, "message": "hybrid mode — no vault sync"}
 
     def _task_update_analytics(self) -> Dict[str, Any]:
         """Update cached analytics."""
@@ -207,6 +637,102 @@ class SchedulerManager:
 
         stats = registry.get_stats()
         return {"stats": stats}
+
+    def _task_update_memories(self) -> Dict[str, Any]:
+        """Performs a general update of the memory system (Graph + Connections)."""
+        from backend.services.graph_service import GraphService
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+        
+        results = {"success": True, "steps": []}
+        
+        try:
+            # 1. Clear Graph Cache and Force Rebuild
+            log.info("⏰ Scheduler: Force rebuilding Unified Graph...")
+            GraphService._graph_cache = None
+            service = GraphService()
+            graph = service.build_unified_graph()
+            results["steps"].append(f"Graph rebuilt with {len(graph.get('nodes', []))} nodes")
+            
+            # 2. Update semantic connections (reuse suggest_connections logic)
+            log.info("⏰ Scheduler: Updating semantic connections...")
+            conn_res = self._task_suggest_connections()
+            results["steps"].append({"suggest_connections": conn_res})
+            
+            # 3. Update analytics to reflect new state
+            self._task_update_analytics()
+            results["steps"].append("Analytics updated")
+            
+        except Exception as e:
+            log.error(f"❌ Error in update_memories task: {e}")
+            return {"success": False, "error": str(e)}
+            
+        return results
+
+
+    def _task_zotero_sync(self) -> Dict[str, Any]:
+        """Bidirectional Zotero ↔ Vault sync. Skips Vault→Zotero if Zotero is open."""
+        import subprocess
+        from pathlib import Path
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+
+        base = Path(__file__).resolve().parents[2]
+        scripts = base / "pipeline/skills/zotero_sync/scripts"
+
+        # Check config enabled
+        config_path = base / "pipeline/skills/zotero_sync/zotero_db_config.json"
+        try:
+            import json
+            config = json.loads(config_path.read_text())
+            if not config.get("enabled"):
+                return {"message": "Zotero integration disabled — skipped"}
+        except Exception as e:
+            return {"success": False, "error": f"Could not read Zotero config: {e}"}
+
+        results = {}
+
+        # Subprocess timeout — sense això, un script penjat (Zotero DB
+        # lock, network hang) bloqueja l'scheduler indefinidament.
+        # 5 min és suficient per syncs grans.
+        SUBPROCESS_TIMEOUT = 300
+        # Zotero → Vault
+        try:
+            r = subprocess.run(
+                ["python3", str(scripts / "zotero_to_vault.py")],
+                capture_output=True, text=True, cwd=str(base),
+                timeout=SUBPROCESS_TIMEOUT,
+            )
+            results["zotero_to_vault"] = "ok" if r.returncode == 0 else r.stderr.strip()
+        except subprocess.TimeoutExpired:
+            results["zotero_to_vault"] = f"timeout after {SUBPROCESS_TIMEOUT}s"
+        except Exception as e:
+            results["zotero_to_vault"] = str(e)
+
+        # Vault → Zotero (only if Zotero is closed)
+        try:
+            zotero_open = subprocess.run(
+                ["pgrep", "-x", "Zotero"], capture_output=True, timeout=5,
+            ).returncode == 0
+        except subprocess.TimeoutExpired:
+            zotero_open = False  # pgrep penjat: assumim tancat i procedim
+        if zotero_open:
+            results["vault_to_zotero"] = "skipped — Zotero is open"
+            log.info("⏰ Zotero sync: Vault→Zotero skipped (Zotero is running)")
+        else:
+            try:
+                r = subprocess.run(
+                    ["python3", str(scripts / "gnosi_to_zotero.py")],
+                    capture_output=True, text=True, cwd=str(base),
+                    timeout=SUBPROCESS_TIMEOUT,
+                )
+                results["vault_to_zotero"] = "ok" if r.returncode == 0 else r.stderr.strip()
+            except subprocess.TimeoutExpired:
+                results["vault_to_zotero"] = f"timeout after {SUBPROCESS_TIMEOUT}s"
+            except Exception as e:
+                results["vault_to_zotero"] = str(e)
+
+        return {"success": True, "message": "Zotero sync completed", "details": results}
 
 
 # Singleton

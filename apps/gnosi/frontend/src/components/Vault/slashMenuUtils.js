@@ -1,24 +1,23 @@
 /**
  * slashMenuUtils.js
- * Utilities for building BlockNote Slash menu command catalogs.
- * IMPORTANT: This file cannot contain JSX (pure .js extension).
+ * Utilitats per construir catàlegs de comandes del menú Slash de BlockNote.
+ * IMPORTANT: Aquest fitxer NO pot contenir JSX (extensió .js pura).
  */
 
 /**
- * Builds the custom Slash menu item catalog.
+ * Construeix el catàleg d'elements del menú Slash personalitzats.
  * @param {Object} params
- * @param {Array}  params.allTables   - List of available tables in the Vault
- * @param {Function} params.editor    - BlockNote editor instance
- * @param {Function} params.t         - Translation function
- * @returns {Array} - List of Slash menu items
+ * @param {Array}  params.allTables   - Llista de taules disponibles al Vault
+ * @param {Function} params.editor    - Instància de l'editor BlockNote
+ * @returns {Array} - Llista de grups del menú Slash
  */
-export function buildSlashCommandCatalog({ allTables = [], editor, t } = {}) {
-    if (!allTables.length || !t) return [];
+export function buildSlashCommandCatalog({ allTables = [], editor } = {}) {
+    if (!allTables.length) return [];
 
     return allTables.map(table => ({
         title: table.name || table.id,
-        description: t('Insert Vault table'),
-        aliases: ['vault', 'table', table.name].filter(Boolean),
+        description: 'Inserir taula del Vault',
+        aliases: ['vault', 'taula', table.name].filter(Boolean),
         group: 'Vault',
         onItemClick: () => {
             if (!editor) return;
@@ -29,32 +28,29 @@ export function buildSlashCommandCatalog({ allTables = [], editor, t } = {}) {
                     'after'
                 );
             } catch (e) {
-                console.warn('SlashMenu: failed to insert database block', e);
+                console.warn('SlashMenu: no s\'ha pogut inserir el bloc database', e);
             }
         },
     }));
 }
 
 /**
- * Builds the Slash menu item catalog for column layouts.
+ * Construeix el catàleg d'elements del menú Slash per als layouts de columnes.
  * @param {Object} params
- * @param {Function} params.editor - BlockNote editor instance
- * @param {Function} params.t      - Translation function
+ * @param {Function} params.editor - Instància de l'editor BlockNote
  * @returns {Array}
  */
-export function buildColumnLayoutCatalog({ editor, t } = {}) {
-    if (!t) return [];
-    
+export function buildColumnLayoutCatalog({ editor } = {}) {
     const layouts = [
-        { title: t('2 columns'), columns: 2 },
-        { title: t('3 columns'), columns: 3 },
+        { title: '2 columnes', columns: 2 },
+        { title: '3 columnes', columns: 3 },
     ];
 
     return layouts.map(layout => ({
         title: layout.title,
-        subtext: t('Insert column layout'),
-        aliases: ['column', 'layout', `${layout.columns}col`],
-        group: t('Layout'),
+        subtext: 'Inserir un disseny en columnes',
+        aliases: ['columna', 'column', 'layout', `${layout.columns}col`],
+        group: 'Layout',
         onItemClick: () => {
             if (!editor) return;
             try {
@@ -68,7 +64,7 @@ export function buildColumnLayoutCatalog({ editor, t } = {}) {
                     'after'
                 );
             } catch (e) {
-                console.warn('SlashMenu: failed to insert column layout', e);
+                console.warn('SlashMenu: no s\'ha pogut inserir el layout de columnes', e);
             }
         },
     }));

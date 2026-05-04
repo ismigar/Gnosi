@@ -7,31 +7,32 @@
 /**
  * Construeix el catàleg d'elements del menú Slash personalitzats.
  * @param {Object} params
- * @param {Array}  params.allTables   - Llista de taules disponibles al Vault
- * @param {Function} params.editor    - Instància de l'editor BlockNote
+ * @param {Array}  params.allTables      - Llista de taules disponibles al Vault
+ * @param {Function} params.onOpenPageView - Callback(tableId?) per obrir el modal de vista
  * @returns {Array} - Llista de grups del menú Slash
  */
-export function buildSlashCommandCatalog({ allTables = [], editor } = {}) {
-    if (!allTables.length) return [];
+export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}) {
+    if (!onOpenPageView) return [];
 
-    return allTables.map(table => ({
+    // Una entrada per taula que obre el modal pre-seleccionant-la
+    const tableItems = allTables.map(table => ({
         title: table.name || table.id,
-        description: 'Inserir taula del Vault',
-        aliases: ['vault', 'taula', table.name].filter(Boolean),
+        description: 'Afegir vista d\'aquesta taula a la pàgina',
+        aliases: ['vault', 'vista', 'view', table.name].filter(Boolean),
         group: 'Vault',
-        onItemClick: () => {
-            if (!editor) return;
-            try {
-                editor.insertBlocks(
-                    [{ type: 'database', props: { database_table_id: table.id } }],
-                    editor.getTextCursorPosition().block,
-                    'after'
-                );
-            } catch (e) {
-                console.warn('SlashMenu: no s\'ha pogut inserir el bloc database', e);
-            }
-        },
+        onItemClick: () => onOpenPageView(table.id),
     }));
+
+    // Entrada genèrica sense pre-selecció
+    const vistaItem = [{
+        title: 'Vista',
+        description: 'Afegir una vista filtrada d\'una taula a aquesta pàgina',
+        aliases: ['vista', 'view', 'db', 'filtre'],
+        group: 'Vault',
+        onItemClick: () => onOpenPageView(),
+    }];
+
+    return [...tableItems, ...vistaItem];
 }
 
 /**

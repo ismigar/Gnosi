@@ -12,7 +12,7 @@ process.env.CHECKPOINT_DISABLE = 'true';
 process.env.MCP_MODE = 'stdio'; // Assegurar mode stdio
 
 // Executar sense imprimir res per stderr d'inici (per si de cas)
-const child = spawn('node', [mcpScript], {
+const child = spawn(process.execPath, [mcpScript], {
     stdio: ['inherit', 'pipe', 'inherit'],
     env: { ...process.env }
 });

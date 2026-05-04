@@ -6,9 +6,8 @@ import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
 import axios from 'axios';
 import { useTheme } from '../../hooks/useTheme';
 import { toast } from 'react-hot-toast';
-import { useTranslation } from 'react-i18next';
 
-const NOTION_COLORS = [
+export const NOTION_COLORS = [
     { name: 'default', color: '#37352f', label: 'Default' },
     { name: 'gray', color: '#787774', label: 'Gray' },
     { name: 'brown', color: '#976d57', label: 'Brown' },
@@ -32,16 +31,111 @@ const FALLBACK_LUCIDE_ICONS = [
     'Database', 'BarChart3', 'PieChart', 'Activity', 'Zap', 'Sparkles',
 ];
 
+const CUSTOM_ICON_STORAGE_KEY = 'gnosi.vault.custom-icons';
+const MAX_CUSTOM_ICONS = 30;
+
+const readStoredCustomIcons = () => {
+    if (typeof window === 'undefined') return [];
+
+    try {
+        const raw = window.localStorage.getItem(CUSTOM_ICON_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+
+        return parsed.filter((item) => typeof item === 'string' && item.trim().length > 0);
+    } catch {
+        return [];
+    }
+};
+
 export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, triggerRef }) => {
-    const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [activeTab, setActiveTab] = useState('emoji');
     const [selectedColor, setSelectedColor] = useState('default');
     const [searchTerm, setSearchTerm] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [isImportingLink, setIsImportingLink] = useState(false);
     const [linkInput, setLinkInput] = useState('');
+    const [customIcons, setCustomIcons] = useState(() => readStoredCustomIcons());
+    const [hasLoadedRemoteIcons, setHasLoadedRemoteIcons] = useState(false);
     const pickerRef = useRef(null);
     const fileInputRef = useRef(null);
+
+    const normalizeCustomIcons = (values) => {
+        if (!Array.isArray(values)) return [];
+
+        const seen = new Set();
+        const normalized = [];
+
+        values.forEach((value) => {
+            if (typeof value !== 'string') return;
+            const clean = value.trim();
+            if (!clean || seen.has(clean)) return;
+
+            seen.add(clean);
+            normalized.push(clean);
+        });
+
+        return normalized.slice(0, MAX_CUSTOM_ICONS);
+    };
+
+    const saveCustomIcons = async (iconsList) => {
+        const normalized = normalizeCustomIcons(iconsList);
+        setCustomIcons(normalized);
+
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(CUSTOM_ICON_STORAGE_KEY, JSON.stringify(normalized));
+        }
+
+        try {
+            await axios.put('/api/vault/custom-icons', { icons: normalized });
+        } catch (error) {
+            // Keep local fallback if backend persistence fails.
+        }
+    };
+
+    useEffect(() => {
+        if (!isOpen || hasLoadedRemoteIcons) return;
+
+        let cancelled = false;
+
+        const loadRemoteCustomIcons = async () => {
+            try {
+                const response = await axios.get('/api/vault/custom-icons');
+                if (cancelled) return;
+                const remoteIcons = normalizeCustomIcons(response?.data?.icons || []);
+                setCustomIcons(remoteIcons);
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem(CUSTOM_ICON_STORAGE_KEY, JSON.stringify(remoteIcons));
+                }
+            } catch (error) {
+                // Silent fallback to local storage.
+            } finally {
+                if (!cancelled) setHasLoadedRemoteIcons(true);
+            }
+        };
+
+        loadRemoteCustomIcons();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [hasLoadedRemoteIcons, isOpen]);
+
+    const rememberCustomIcon = (value) => {
+        if (typeof value !== 'string') return;
+        const normalized = value.trim();
+        if (!normalized) return;
+
+        const next = [normalized, ...customIcons.filter((icon) => icon !== normalized)].slice(0, MAX_CUSTOM_ICONS);
+        saveCustomIcons(next);
+    };
+
+    const removeCustomIcon = (value) => {
+        const next = customIcons.filter((icon) => icon !== value);
+        saveCustomIcons(next);
+    };
 
     // Get all available Lucide icons dynamically
     const availableIcons = useMemo(() => {
@@ -75,20 +169,49 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
         const formData = new FormData();
         formData.append('file', file);
-        
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-cover', formData, {
+            const res = await axios.post('/api/vault/upload-icon', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            onSelectIcon(res.data.url);
+            const uploadedUrl = res.data?.url;
+            if (typeof uploadedUrl !== 'string' || !uploadedUrl.trim()) {
+                throw new Error('Upload did not return a valid URL');
+            }
+            rememberCustomIcon(uploadedUrl);
+            onSelectIcon(uploadedUrl);
             onClose();
-            toast.success(t('Icon uploaded successfully'));
+            toast.success("Icona pujada correctament");
         } catch (error) {
             console.error(error);
-            toast.error(t('Error uploading icon'));
+            toast.error("Error al pujar la icona");
         } finally {
             setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleImportFromUrl = async () => {
+        const url = linkInput.trim();
+        if (!url) return;
+
+        setIsImportingLink(true);
+        try {
+            const res = await axios.post('/api/vault/import-icon-url', { url });
+            const importedUrl = res.data?.url;
+            if (typeof importedUrl !== 'string' || !importedUrl.trim()) {
+                throw new Error('Import did not return a valid URL');
+            }
+
+            rememberCustomIcon(importedUrl);
+            onSelectIcon(importedUrl);
+            onClose();
+            toast.success('Icona importada correctament');
+        } catch (error) {
+            console.error(error);
+            toast.error('Error important la icona des de URL');
+        } finally {
+            setIsImportingLink(false);
         }
     };
 
@@ -119,19 +242,19 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'emoji' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('emoji')}
                     >
-                        {t('Emoji')}
+                        Emoji
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'icons' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('icons')}
                     >
-                        {t('Icons')}
+                        Icones
                     </button>
                     <button
                         className={`px-3 py-1.5 border-b-2 transition-colors ${activeTab === 'custom' ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]' : 'border-transparent hover:text-[var(--text-primary)]'}`}
                         onClick={() => setActiveTab('custom')}
                     >
-                        {t('Custom')}
+                        Personalitzat
                     </button>
                     <div className="flex-1" />
                     {currentIcon && (
@@ -139,7 +262,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                             onClick={() => { onSelectIcon(''); onClose(); }}
                             className="text-[10px] text-[var(--status-error)] hover:text-[var(--status-error)]/80 hover:bg-[var(--status-error)]/10 px-2 py-1 rounded transition-colors mr-1 font-bold"
                         >
-                            {t('Remove')}
+                            ELIMINAR
                         </button>
                     )}
                 </div>
@@ -173,7 +296,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                         autoFocus
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        placeholder={t('Search icons...')}
+                                        placeholder="Cerca d'icones..."
                                         className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded text-xs outline-none focus:border-[var(--gnosi-primary)] transition-all text-[var(--text-primary)] shadow-sm"
                                     />
                                 </div>
@@ -212,7 +335,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                     })}
                                 </div>
                                 {filteredIcons.length === 0 && (
-                                    <div className="text-center text-[var(--text-tertiary)]/60 text-xs py-10">{t('No icons')}</div>
+                                    <div className="text-center text-[var(--text-tertiary)]/60 text-xs py-10">Sense icones</div>
                                 )}
                             </div>
                         </div>
@@ -220,8 +343,39 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
                     {activeTab === 'custom' && (
                         <div className="flex flex-col gap-6">
+                            {customIcons.length > 0 && (
+                                <div className="flex flex-col gap-2">
+                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Recents</span>
+                                    <div className="grid grid-cols-6 gap-2">
+                                        {customIcons.map((iconValue) => (
+                                            <button
+                                                key={iconValue}
+                                                onClick={() => {
+                                                    onSelectIcon(iconValue);
+                                                    onClose();
+                                                }}
+                                                className="relative group aspect-square border border-[var(--border-primary)] rounded-md overflow-hidden bg-[var(--bg-secondary)] hover:border-[var(--gnosi-primary)] transition-colors"
+                                                title={iconValue}
+                                            >
+                                                <img src={iconValue} alt="icona personalitzada" className="w-full h-full object-cover" loading="lazy" />
+                                                <span
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeCustomIcon(iconValue);
+                                                    }}
+                                                    className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded-full bg-black/60 text-white cursor-pointer"
+                                                    title="Eliminar de recents"
+                                                >
+                                                    <X size={10} />
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">{t('Upload File')}</span>
+                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Pujar Arxiu</span>
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -235,12 +389,12 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                     className="w-full border border-dashed border-[var(--border-primary)] hover:border-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/5 rounded-lg py-6 flex flex-col items-center gap-2 transition-all"
                                 >
                                     {isUploading ? <Loader2 size={24} className="animate-spin text-[var(--gnosi-primary)]" /> : <Upload size={24} className="text-[var(--text-tertiary)]/60" />}
-                                    <span className="text-xs text-[var(--text-secondary)]/60">{isUploading ? t('Uploading...') : t('Click to upload')}</span>
+                                    <span className="text-xs text-[var(--text-secondary)]/60">{isUploading ? 'Pujant...' : 'Fes clic per pujar'}</span>
                                 </button>
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">{t('Content link')}</span>
+                                <span className="text-[10px] font-bold text-[var(--text-tertiary)]/60 uppercase tracking-widest">Enllaç de contingut</span>
                                 <div className="flex gap-2">
                                     <input
                                         value={linkInput}
@@ -249,15 +403,11 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                         className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded px-3 py-1.5 text-xs outline-none focus:border-[var(--gnosi-primary)] transition-all text-[var(--text-primary)]"
                                     />
                                     <button
-                                        onClick={() => {
-                                            if (linkInput.trim()) {
-                                                onSelectIcon(linkInput.trim());
-                                                onClose();
-                                            }
-                                        }}
+                                        onClick={handleImportFromUrl}
+                                        disabled={isImportingLink}
                                         className="bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm"
                                     >
-                                        {t('Mount')}
+                                        {isImportingLink ? 'Important...' : 'Importar'}
                                     </button>
                                 </div>
                             </div>

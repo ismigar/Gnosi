@@ -10,7 +10,7 @@ The input is an array of objects.
 - **Item 1..N (Content):** Contains:
   - `page_id`: Notion Page ID (used for tracking).
   - `drupal_internal__type`: e.g., "node--article".
-  - `payload_to_translate`: { title: ... } (Translated content often overrides this, or this IS the translated content).
+  - `payload_to_translate`: { title: ... } (Translated content often overrides this).
   - `html_body`: The content body in HTML.
   - `persistent_data`: Contains `tags` (Array of Strings) and `idioma`.
 
@@ -21,7 +21,7 @@ The input is an array of objects.
 4. **Construct Payload:**
    - **Type:** Use `drupal_internal__type` (e.g., `node--article`).
    - **Attributes:**
-     - `title`: From `payload_to_translate.title` (or `item.json.title` if unpacked differently).
+     - `title`: From `payload_to_translate.title`.
      - `body`: `{ value: item.json.html_body, format: 'full_html' }`.
      - `langcode`: Map `persistent_data.idioma` (e.g., 'CA' -> 'ca').
    - **Relationships:**
@@ -30,12 +30,12 @@ The input is an array of objects.
        - Find UUID in Lookup Map.
        - Construct: `{ type: "taxonomy_term--tags", id: "UUID" }`.
      - `field_image`:
-       - Check `persistent_data.image` (Object with `drupal_id`/`id` and `alt`).
+       - Check `persistent_data.image`.
        - Construct: `{ data: { type: "file--file", id: "IMAGE_UUID", meta: { alt: "Alt Text" } } }`.
 5. **Output:** Return clean JSON objects ready for the Drupal HTTP Request node.
 
 ## Constraints & Edge Cases
-- **Missing Tags:** If a tag name is not found in the lookup, decide whether to ignore or error. (Default: Ignore and log warning).
+- **Missing Tags:** If a tag name is not found in the lookup, ignore and log a warning.
 - **Empty Lookup:** If Item 0 has no tags, return payload without tags.
 - **Language Mapping:** Ensure language codes match Drupal (captured in `langcode`).
 

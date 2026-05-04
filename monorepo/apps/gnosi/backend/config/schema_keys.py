@@ -1,13 +1,13 @@
-# pipeline/config/schema_keys.py
+# backend/config/schema_keys.py
 """
-Candidate keys and aliases for data extraction from JSON and Notion.
+Candidate keys and aliases for data extraction from JSON and local Markdown.
 Hardcoded keys; not configurable via params.yaml.
 """
 
 # -----------------------------------
 # Node Keys
 # -----------------------------------
-NODE_ID_KEYS = ["id", "page_id", "uuid", "ID", "key", "notion_id", "node_id"]
+NODE_ID_KEYS = ["id", "page_id", "uuid", "ID", "key", "node_id"]
 NODE_TITLE_KEYS = [
     "Nota", "Name", "Títol", "Title", "Título", "Nom", "label", "title", "name", "text", "Titre"
 ]

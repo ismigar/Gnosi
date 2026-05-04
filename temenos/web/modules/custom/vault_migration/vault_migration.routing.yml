@@ -1,0 +1,38 @@
+vault_migration.config:
+  path: '/admin/config/vault-migration'
+  defaults:
+    _form: '\Drupal\vault_migration\Form\VaultMigrationConfigForm'
+    _title: 'Sincronització amb Vault'
+  requirements:
+    _permission: 'administer site configuration'
+  options:
+    _admin_route: TRUE
+
+vault_migration.execute:
+  path: '/admin/content/vault-migration'
+  defaults:
+    _form: '\Drupal\vault_migration\Form\VaultMigrationExecutionForm'
+    _title: 'Vault bridge'
+  requirements:
+    _permission: 'bridge Vault content'
+  options:
+    _admin_route: TRUE
+
+vault_migration.status:
+  path: '/admin/content/vault-migration/status'
+  defaults:
+    _controller: '\Drupal\vault_migration\Controller\VaultMigrationController::status'
+    _title: 'Vault Bridge Status'
+  requirements:
+    _permission: 'administer site configuration'
+  options:
+    _admin_route: TRUE
+
+vault_migration.clear:
+  path: '/admin/config/content/vault-migration/clear'
+  defaults:
+    _form: '\Drupal\vault_migration\Form\VaultMigrationClearForm'
+    _title: 'Clear Vault Bridge cache'
+  requirements:
+    _permission: 'administer site configuration'
+

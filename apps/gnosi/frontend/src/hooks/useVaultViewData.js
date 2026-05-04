@@ -4,7 +4,7 @@
  * per a les vistes del Vault (Taula, Galeria, Kanban, Timeline, Feed).
  */
 import { useMemo } from 'react';
-import { evaluateFormula } from '../components/Vault/formulaUtils';
+import { matchesFilters, matchesSearch } from '../utils/vaultFilters';
 
 /**
  * @param {Object} params
@@ -18,45 +18,20 @@ export function useVaultViewData({ pages = [], schema = {}, view = {}, searchTer
     const filteredPages = useMemo(() => {
         let result = [...pages];
 
-        // Filtratge per cerca de text
-        if (searchTerm.trim()) {
-            const q = searchTerm.toLowerCase();
-            result = result.filter(page => {
-                const title = (page.title || '').toLowerCase();
-                if (title.includes(q)) return true;
-                const metadata = page.metadata || {};
-                return Object.values(metadata).some(v => String(v || '').toLowerCase().includes(q));
-            });
-        }
-
-        // Aplicar filtres de la vista
+        // Aplicar cerca i filtres de la vista
         const filters = view.filters || [];
-        if (filters.length > 0) {
-            result = result.filter(page => {
-                return filters.every(filter => {
-                    const rawVal = filter.field === 'title'
-                        ? (page.title || '')
-                        : ((page.metadata || {})[filter.field] ?? '');
-                    const val = String(rawVal).toLowerCase();
-                    const filterVal = String(filter.value || '').toLowerCase();
-
-                    switch (filter.operator) {
-                        case 'equals': return val === filterVal;
-                        case 'not_equals': return val !== filterVal;
-                        case 'contains': return val.includes(filterVal);
-                        case 'not_contains': return !val.includes(filterVal);
-                        case 'is_empty': return !rawVal || rawVal === '';
-                        case 'is_not_empty': return rawVal && rawVal !== '';
-                        case 'greater_than': return parseFloat(rawVal) > parseFloat(filterVal);
-                        case 'less_than': return parseFloat(rawVal) < parseFloat(filterVal);
-                        default: return true;
-                    }
-                });
-            });
-        }
-
-        return result;
+        
+        return result.filter(page => {
+            // 1. Cerca global
+            if (!matchesSearch(page, searchTerm)) return false;
+            
+            // 2. Filtres de la vista
+            if (!matchesFilters(page, filters)) return false;
+            
+            return true;
+        });
     }, [pages, searchTerm, view.filters]);
+
 
     const sortedPages = useMemo(() => {
         const sorts = view.sort || [];

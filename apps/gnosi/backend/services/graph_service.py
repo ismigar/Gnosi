@@ -8,7 +8,7 @@ import networkx as nx
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 # Import suggestion handler (Phase 1 MVP) - DISABLED: No module named 'pipeline.skills.graph_suggestions'
 # from pipeline.skills.graph_suggestions.scripts.graph_suggestion_handler import SuggestionHandler
@@ -23,6 +23,7 @@ COLOR_PALETTE = {
     "view": "#d946ef",      # Fuchsia
     "page": "#10b981",      # Emerald (Permanent)
     "tag": "#f59e0b",       # Amber
+    "media": "#ec4899",     # Pink (New)
     "default": "#94a3b8"    # Slate
 }
 
@@ -94,6 +95,9 @@ class GraphService:
         # 2. Add Page Nodes (Markdown files in Vault - Recursive)
         page_nodes = self._add_page_nodes(G)
         
+        # 2.b Add Media Nodes (Images in Vault/Images)
+        media_nodes = self._add_media_nodes(G)
+        
         # 3. Add Structural Edges (Hierarchy & Frontmatter Links)
         self._add_structural_edges(G)
         
@@ -101,7 +105,7 @@ class GraphService:
         self._add_suggestion_edges(G)
 
         # 5. Add Tag Inference Edges (Tag Overlap)
-        self._add_tag_inference_edges(G, page_nodes)
+        self._add_tag_inference_edges(G, page_nodes + media_nodes)
         
         # 6. Generate Layout (Simple Spring Layout for now)
         pos = nx.spring_layout(G, k=0.5, iterations=50)
@@ -279,6 +283,52 @@ class GraphService:
                 
         return page_nodes
 
+    def _add_media_nodes(self, G: nx.Graph) -> List[Dict[str, Any]]:
+        """Scans Vault/Images for media nodes using MediaService."""
+        from backend.services.media_service import MediaService
+        service = MediaService()
+        
+        media_list = service.get_all_media()
+        media_nodes = []
+        
+        for media in media_list:
+            # We only show media with tags or description by default to avoid clutter
+            # unless a global setting says otherwise.
+            if not media.get("tags") and not media.get("description"):
+                continue
+                
+            media_id = f"media_{media['id']}"
+            title = media.get("filename")
+            
+            # Metadata for sigma
+            metadata = {
+                "id": media["id"],
+                "title": title,
+                "kind": "media",
+                "url": media.get("url"),
+                "album": media.get("album"),
+                "tags": media.get("tags", []),
+                "description": media.get("description", ""),
+                "created_time": media.get("date_taken") or media.get("last_modified")
+            }
+            
+            G.add_node(media_id, 
+                       label=title, 
+                       kind="media", 
+                       color=COLOR_PALETTE["media"],
+                       size=10, # Slightly larger than pages
+                       metadata=metadata,
+                       url=media.get("url")) # Direct URL for frontend preview
+            
+            media_nodes.append({
+                "id": media_id,
+                "title": title,
+                "tags": media.get("tags", []),
+                "metadata": metadata
+            })
+            
+        return media_nodes
+
     def _add_structural_edges(self, G: nx.Graph):
         # ... (Registry edges already added)
                 
@@ -320,21 +370,23 @@ class GraphService:
                 # Extract [[WikiLinks]]
                 wiki_links = re.findall(r'\[\[(.*?)\]\]', content)
                 for target_label in wiki_links:
-                    target_id = target_label.split('|')[0]
-                    if G.has_node(target_id):
-                        G.add_edge(node_id, target_id, kind="link", color="#10b981", size=1.2)
+                    target_ref = target_label.split('|')[0]
+                    target_key = target_ref.split('#')[0].strip()
+                    if G.has_node(target_key):
+                        G.add_edge(node_id, target_key, kind="link", color="#10b981", size=1.2)
                     else:
                         # Match by title
                         for n_id, n_attrs in G.nodes(data=True):
-                            if n_attrs.get("label") == target_id:
+                            if str(n_attrs.get("label") or "").strip() == target_key:
                                 G.add_edge(node_id, n_id, kind="link", color="#10b981", size=1.2)
                                 break
                 
                 # Extract markdown links [text](id)
                 md_links = re.findall(r'\[.*?\]\((.*?)\)', content)
-                for target_id in md_links:
-                    if G.has_node(target_id):
-                        G.add_edge(node_id, target_id, kind="link", color="#10b981", size=1.2)
+                for target_ref in md_links:
+                    target_key = target_ref.split('#')[0].strip()
+                    if G.has_node(target_key):
+                        G.add_edge(node_id, target_key, kind="link", color="#10b981", size=1.2)
             except Exception:
                 pass
 

@@ -13,6 +13,10 @@ from mcp.client.stdio import stdio_client
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Timeouts
+INITIALIZE_TIMEOUT = 10.0  # Increased from 3.0 to handle remote Drupal latency
+COMMAND_TIMEOUT = 60.0    # Increased from 30.0 for large toolsets (97+ tools)
+
 class DrupalClient:
     def __init__(self, config_path: str = "config.yaml"):
         self.config = self._load_config(config_path)
@@ -38,22 +42,61 @@ class DrupalClient:
             env={**os.environ, **server_config.get('env', {})}
         )
 
-        logger.info(f"Connecting to Drupal MCP: {server_config['command']} {' '.join(server_config['args'])}")
+        log_msg = f"Connecting to Drupal MCP: {server_config['command']} {' '.join(server_config['args'])}"
+        logger.info(log_msg)
+        self._log_to_file(log_msg)
         
-        self._stdio_ctx = stdio_client(server_params)
-        self.read_stream, self.write_stream = await self._stdio_ctx.__aenter__()
-        
-        self.session = ClientSession(self.read_stream, self.write_stream)
-        await self.session.__aenter__()
-        
-        await self.session.initialize()
-        logger.info("Connected and initialized with Drupal MCP")
+        try:
+            self._stdio_ctx = stdio_client(server_params)
+            self.read_stream, self.write_stream = await asyncio.wait_for(
+                self._stdio_ctx.__aenter__(), 
+                timeout=5.0
+            )
+            
+            self.session = ClientSession(self.read_stream, self.write_stream)
+            await asyncio.wait_for(self.session.__aenter__(), timeout=2.0)
+            
+            # Initialize with timeout to prevent hanging the proxy
+            await asyncio.wait_for(self.session.initialize(), timeout=INITIALIZE_TIMEOUT)
+            logger.info("Connected and initialized with Drupal MCP")
+            self._log_to_file("Connected and initialized with Drupal MCP")
+        except asyncio.TimeoutError:
+            error_msg = "Timeout while connecting to Drupal MCP server"
+            logger.error(error_msg)
+            self._log_to_file(f"ERROR: {error_msg}")
+            await self.close()
+            raise ConnectionError(error_msg)
+        except Exception as e:
+            error_msg = f"Failed to connect to Drupal MCP: {str(e)}"
+            logger.error(error_msg)
+            self._log_to_file(f"ERROR: {error_msg}")
+            await self.close()
+            raise
+
+    def _log_to_file(self, message: str):
+        """Helper to log to a file since stderr might be swallowed by some hosts."""
+        try:
+            log_file = "/tmp/drupal_proxy_debug.log"
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(log_file, "a") as f:
+                f.write(f"[{timestamp}] {message}\n")
+        except:
+            pass
 
     async def close(self):
-        if self.session:
-            await self.session.__aexit__(None, None, None)
-        if hasattr(self, '_stdio_ctx'):
-            await self._stdio_ctx.__aexit__(None, None, None)
+        try:
+            if self.session:
+                await self.session.__aexit__(None, None, None)
+        except:
+            pass
+        finally:
+            self.session = None
+            
+        try:
+            if hasattr(self, '_stdio_ctx'):
+                await self._stdio_ctx.__aexit__(None, None, None)
+        except:
+            pass
 
     async def ensure_connected(self):
         if not self.session:
@@ -61,55 +104,105 @@ class DrupalClient:
 
     async def list_tools(self, force_refresh: bool = False) -> List[Any]:
         """List all tools available in Drupal, with caching."""
-        await self.ensure_connected()
-        
+        try:
+            await self.ensure_connected()
+        except Exception as e:
+            logger.error(f"Cannot list tools: connection failed: {e}")
+            # If we have cache, use it as fallback even if connection failed
+            if self.tools_cache:
+                logger.warning("Using cache due to connection failure")
+                return self.tools_cache
+            raise
+
         cache_config = self.config.get('cache', {})
         ttl = cache_config.get('ttl_seconds', 3600)
+        cache_file = cache_config.get('file_path', '.tools_cache.json')
         
         now = datetime.now()
-        if (not force_refresh and 
-            self.tools_cache and 
-            self.cache_last_updated and 
-            (now - self.cache_last_updated).total_seconds() < ttl):
-            return self.tools_cache
-
-        logger.info("Fetching tools from Drupal MCP...")
-        result = await self.session.list_tools()
-        self.tools_cache = result.tools
-        self.cache_last_updated = now
         
-        # Save cache to file if enabled
-        if cache_config.get('enabled', False):
-            cache_file = cache_config.get('file_path', '.tools_cache.json')
-            try:
-                # Serialize tools to JSON 
-                # Note: Tool objects might need manual serialization if not dicts
-                tools_data = [
-                    {
-                        "name": tool.name, 
-                        "description": tool.description,
-                        "inputSchema": tool.inputSchema
-                    } for tool in self.tools_cache
-                ]
-                with open(cache_file, 'w') as f:
-                    json.dump(tools_data, f)
-            except Exception as e:
-                logger.warning(f"Failed to save cache: {e}")
+        # Try to load from file if memory cache is empty
+        if not self.tools_cache and cache_config.get('enabled', False):
+            # (Keep existing cache loading logic)
+            if os.path.exists(cache_file):
+                try:
+                    with open(cache_file, 'r') as f:
+                        data = json.load(f)
+                        self.tools_cache = data
+                        mtime = os.path.getmtime(cache_file)
+                        self.cache_last_updated = datetime.fromtimestamp(mtime)
+                        logger.info(f"Loaded {len(self.tools_cache)} tools from file cache")
+                except Exception as e:
+                    logger.warning(f"Failed to load cache from file: {e}")
 
-        logger.info(f"Cached {len(self.tools_cache)} tools")
-        return self.tools_cache
+        if not force_refresh and self.tools_cache and self.cache_last_updated:
+            seconds_since_update = (now - self.cache_last_updated).total_seconds()
+            if seconds_since_update < ttl:
+                logger.info("Using fresh cached tools list")
+                return self.tools_cache
+            else:
+                logger.info(f"Cache expired ({int(seconds_since_update)}s > {ttl}s). Returning stale cache and refreshing in background.")
+                asyncio.create_task(self._fetch_and_cache_tools())
+                return self.tools_cache
+
+        return await self._fetch_and_cache_tools()
+
+    async def _fetch_and_cache_tools(self) -> List[Any]:
+        """Internal method to fetch tools and update cache without blocking if stale data is available."""
+        if not self.session:
+            logger.error("Cannot fetch tools: no active session")
+            return self.tools_cache or []
+
+        now = datetime.now()
+        cache_config = self.config.get('cache', {})
+        cache_file = cache_config.get('file_path', '.tools_cache.json')
+
+        logger.info(f"Fetching tools from Drupal MCP (timeout={COMMAND_TIMEOUT}s)...")
+        try:
+            # Use a timeout for fetching tools to avoid hanging forever
+            result = await asyncio.wait_for(self.session.list_tools(), timeout=COMMAND_TIMEOUT)
+            self.tools_cache = result.tools
+            self.cache_last_updated = now
+            
+            # Save cache to file if enabled
+            if cache_config.get('enabled', False):
+                try:
+                    tools_data = [
+                        {
+                            "name": tool.name, 
+                            "description": tool.description,
+                            "inputSchema": tool.inputSchema
+                        } for tool in self.tools_cache
+                    ]
+                    with open(cache_file, 'w') as f:
+                        json.dump(tools_data, f)
+                    logger.info(f"Saved {len(tools_data)} tools to file cache")
+                except Exception as e:
+                    logger.warning(f"Failed to save tools cache: {e}")
+            return self.tools_cache
+        except Exception as e:
+            logger.error(f"Failed to fetch tools from Drupal MCP: {e}")
+            return self.tools_cache or []
 
     async def get_tool(self, tool_name: str) -> Optional[Any]:
         """Get details of a specific tool."""
-        tools = await self.list_tools()
-        for tool in tools:
-            if tool.name == tool_name:
-                return tool
+        try:
+            tools = await self.list_tools()
+            for tool in tools:
+                # Handle both object and dict
+                name = tool.name if hasattr(tool, 'name') else tool.get('name')
+                if name == tool_name:
+                    return tool
+        except Exception as e:
+            logger.error(f"Error getting tool {tool_name}: {e}")
         return None
 
     async def call_tool(self, tool_name: str, arguments: dict = None) -> Any:
         """Call a tool on the upstream server."""
         await self.ensure_connected()
         logger.info(f"Calling tool: {tool_name}")
-        return await self.session.call_tool(tool_name, arguments or {})
+        # Add a reasonable timeout for tool execution too
+        return await asyncio.wait_for(
+            self.session.call_tool(tool_name, arguments or {}),
+            timeout=60.0
+        )
 

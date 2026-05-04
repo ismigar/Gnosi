@@ -3,7 +3,7 @@ import chromadb
 from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from config.app_config import load_params
+from backend.config.app_config import load_params
 
 # Configuració
 cfg = load_params(strict_env=False)
@@ -105,3 +105,46 @@ class MemoryStore:
 
 # Singleton instance
 memory_store = MemoryStore()
+
+
+class VaultStore:
+    def __init__(self):
+        self.embeddings = _get_embeddings()
+
+        if not self.embeddings:
+            self.vector_store = None
+            return
+
+        # Inicialitzar Chroma Persistent per al contingut del Vault
+        # Fem servir una col·lecció diferent de la memòria de l'agent
+        self.vector_store = Chroma(
+            collection_name="gnosi_vault_content",
+            embedding_function=self.embeddings,
+            persist_directory=str(CHROMA_DIR),
+        )
+
+    def search_vault(self, query: str, k: int = 5):
+        """Busca contingut rellevant al Vault (Wiki, BD, etc.)."""
+        if not self.vector_store:
+            return []
+
+        results = self.vector_store.similarity_search(query, k=k)
+        return [
+            {
+                "content": doc.page_content,
+                "metadata": doc.metadata
+            }
+            for doc in results
+        ]
+
+    def add_content(self, text: str, metadata: dict = None):
+        """Afegeix contingut indexat del Vault."""
+        if not self.vector_store:
+            return False
+        doc = Document(page_content=text, metadata=metadata or {})
+        self.vector_store.add_documents([doc])
+        return True
+
+
+# Singleton instance per al Vault
+vault_store = VaultStore()

@@ -60,10 +60,11 @@
 - **Argument BD:** El script accepta un argument opcional per migrar una sola BD: `python3 script.py Projectes`
 - **Recursivitat:** Quan un bloc té `has_children: true`, el script fa una crida adicional a l'API per obtenir els fills. Afecta: llistes, toggles, columnes, callouts, pargrafs.
 - **Blocs suportats:** paragraph, heading_1/2/3, bulleted/numbered_list_item (amb subnivells), to_do, quote, code, divider, callout, image, file, pdf, video, audio, **table + table_row** (taules natives), toggle, **column_list/column** (multicolumna), **child_database** (vista incrustada), child_page, link_to_page, embed, bookmark, link_preview, synced_block, equation.
-- **Format de sortida:** BlockNote JSON (no markdown). El contingut del body és un array JSON de blocs compatible amb l'editor BlockNote.
-- **Columnes:** `column_list` → BlockNote `columnList` amb fills `column`. Cada columna conté els seus blocs fills.
-- **Colors:** Anotacions de color de Notion (text i fons) es mapegen a `textColor`/`backgroundColor` de BlockNote, tant a nivell de bloc (props) com de text inline (styles).
-- **Vistes incrustades (`child_database`):** Es converteixen en blocs `database` de BlockNote. El script busca la taula Gnosi corresponent al registry i crea una vista per defecte (taula, ordre per última modificació). Si no troba la taula al registry, mostra un callout informatiu.
+- **Format de sortida:** Markdown Enriquit (Gnosi Directives). El contingut del body és text Markdown pur amb extensions `:::column-list`, `:::column` i `:::toggle` compatibles amb el parser `markdown-mapper.js`.
+- **Columnes:** `column_list` → `:::column-list` amb fills `:::column`.
+- **Toggles:** `toggle` → `:::toggle [Resum]`.
+- **BBDD Incrustades:** `child_database` → Bloc de codi ` ```gnosi-database ... ``` `.
+- **Colors:** Nota: El format Markdown actual prioritza la llegibilitat; els colors de bloc de Notion s'ignoren en favor d'un estil net, mantenint però les negretes/itàliques.
 - **synced_block:** Si té `synced_from`, intenta obtenir i processar el contingut de la font (pot fallar si no hi ha accés).
 - **Note:** Do NOT use `convert_block_to_md` (versió antiga, eliminada). Usar sempre `convert_blocks_to_md(blocks_list)`.
 - **IMPORTANT:** Executar l'script amb `DIGITAL_BRAIN_VAULT_PATH` apuntant al vault correcte (OneDrive). Ex: `DIGITAL_BRAIN_VAULT_PATH="/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi" python3 notion_to_gnosi_full_import.py`
@@ -89,6 +90,8 @@ En els camps de relació, si una nota no existeix, es permet crear-la al moment.
 | 22/02/26 | Relations not clickable | No mechanism to create notes from IDs | Added `POST /notes/create` and frontend UI for "+ Crear" on non-existent relations. |
 | 27/02/27 | Tables and embedded views not migrated | `convert_block_to_md` had no recursion and no `table`/`table_row` support | Rewrote to `convert_blocks_to_md(list)` with full recursion + table/toggle/embed/synced_block support. |
 | 28/03/26 | Records not visible in frontend | Registry missing `folder` field for tables | Added `folder` field mapping to actual filesystem folder names. **IMPORTANT:** The `vault_db_registry.json` MUST have the `folder` field set for each table, matching the actual folder name in the vault. |
+| 03/04/26 | Many Notion fields migrated as empty | Property type `rich_text` was not exported in frontmatter and `button` was silently ignored | Added extraction for `rich_text` and explicit marker for `button` to avoid silent data loss. |
+| 03/04/26 | Embedded database blocks lost when unresolved | `child_database` fallback degraded to plain quote text and IDs are not always retrievable as databases | Added robust resolver with search cache + unresolved `gnosi-database` placeholder block preserving Notion source IDs/titles. |
 
 ## 7. Examples of Use
 

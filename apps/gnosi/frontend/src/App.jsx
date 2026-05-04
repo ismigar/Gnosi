@@ -11,11 +11,13 @@ import VaultDashboard from './pages/VaultDashboard';
 import ReaderDashboard from './pages/ReaderDashboard';
 import HomePage from './pages/HomePage';
 import MailPage from './pages/MailPage';
+import MediaCenter from './pages/MediaCenter';
 
 import SchedulerPage from './pages/SchedulerPage';
 import ComposerPage from './pages/ComposerPage';
 import { Toaster } from 'react-hot-toast';
 
+import AgentChat from './components/AgentChat';
 import { useTheme } from './hooks/useTheme';
 
 function App() {
@@ -50,9 +52,11 @@ function App() {
           <Route path="/social-dashboard" element={<SocialDashboard />} />
           <Route path="/social/calendar" element={<ContentCalendar />} />
           <Route path="/social/history" element={<PostHistory />} />
+          <Route path="/media" element={<MediaCenter />} />
         </Routes>
       </div>
       <Toaster position="bottom-right" />
+      <AgentChat />
     </div>
   );
 }

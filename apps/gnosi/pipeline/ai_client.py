@@ -12,6 +12,7 @@ import hashlib
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 from config.paths_config import get_paths
+from backend.security.ai_credentials import resolve_provider_api_key
 
 paths = get_paths()
 CACHE_FILE = paths["OUT_DIR"] / "ai_cache.json"
@@ -19,9 +20,6 @@ CACHE_FILE = paths["OUT_DIR"] / "ai_cache.json"
 cfg = load_params(strict_env=False)
 setup_logging(getattr(cfg, "log_level", "INFO"))
 log = get_logger(__name__)
-
-# Get API key (used for Groq)
-AI_API_KEY = get_env("HF_API_KEY", required=False)
 
 # Provider configurations from params.yaml
 PROVIDERS = cfg.ai.get("providers", {})
@@ -101,9 +99,12 @@ def _call_provider(
     
     headers = {"Content-Type": "application/json"}
     
-    # Add auth header for cloud providers (Groq)
-    if provider_name == "groq" and AI_API_KEY:
-        headers["Authorization"] = f"Bearer {AI_API_KEY}"
+    # Add auth header for cloud providers resolved from secure storage/env/config.
+    resolved_api_key = resolve_provider_api_key(provider_name, config)
+    if provider_name == "groq" and not resolved_api_key:
+        resolved_api_key = get_env("HF_API_KEY", required=False)
+    if resolved_api_key:
+        headers["Authorization"] = f"Bearer {resolved_api_key}"
     
     body = {
         "model": model,

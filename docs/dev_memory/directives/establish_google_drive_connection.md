@@ -11,7 +11,7 @@
 
 ## 1. Objectives and Scope
 
-*Establish a reliable, authenticated connection to Google Drive for file management within the Digital Brain ecosystem.*
+*Establish a reliable, authenticated connection to Google Drive for file management within the Gnosi ecosystem.*
 
 - **Main Objective:** Authenticate against Google Drive API using a Service Account and perform basic file operations (List, Upload, Download).
 - **Success Criteria:** The script successfully lists files from a specific shared folder without authentication errors.

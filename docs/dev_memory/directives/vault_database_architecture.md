@@ -1,69 +1,69 @@
-# Directiva: Arquitectura de Bases de Dades al Vault (Digital Brain)
+# Directive: Vault Database Architecture (Gnosi)
 
-Aquesta directiva defineix l'arquitectura i el protocol per gestionar bases de dades estructurades dins del Vault, superant les limitacions de Notion mitjançant un desacoblament entre Dades, Lògica i Presentació.
+This directive defines the architecture and protocol for managing structured databases within the Vault, overcoming the limitations of the Notion import connector through a decoupling of Data, Logic, and Presentation.
 
-## Arquitectura de 4 Capes
+## 4-Layer Architecture
 
-### 1. Database (Espai/App)
-Contenidor lògic d'alt nivell que agrupa taules relacionades per un context (ex: "Projectes", "Comptabilitat").
-- **Estructura:**
+### 1. Database (Space/App)
+High-level logical container that groups related tables by context (e.g., "Projects", "Accounting").
+- **Structure:**
   ```json
   {
     "id": "uuid",
-    "name": "Comptabilitat",
+    "name": "Accounting",
     "icon": "💰",
     "tables": ["table_id_1", "table_id_2"]
   }
   ```
 
-### 2. Table (Col·lecció / Esquema)
-Defineix les propietats i el tipus de dades. És el "mestre" de les pàgines que conté.
-- **Estructura:**
+### 2. Table (Collection / Schema)
+Defines the properties and data types. It is the "master" of the pages it contains.
+- **Structure:**
   ```json
   {
     "id": "uuid",
     "database_id": "uuid",
-    "name": "Moviments",
+    "name": "Movements",
     "properties": {
-      "Import": "number",
-      "Data": "date",
-      "Categoria": "select"
+      "Amount": "number",
+      "Date": "date",
+      "Category": "select"
     }
   }
   ```
-- **Herència:** Qualsevol pàgina del Vault que estigui associada a aquesta `table_id` heretarà aquestes propietats a la seva metadada (Frontmatter).
+- **Inheritance:** Any page in the Vault associated with this `table_id` will inherit these properties in its metadata (Frontmatter).
 
-### 3. View (Vista / Query)
-Configuració específica de visualització d'una taula.
-- **Estructura:**
+### 3. View (Display / Query)
+Specific display configuration for a table.
+- **Structure:**
   ```json
   {
     "id": "uuid",
     "table_id": "uuid",
-    "name": "Ingressos Mensuals",
+    "name": "Monthly Income",
     "type": "table | kanban | gallery",
     "filters": [
-      { "property": "Import", "operator": ">", "value": 0 }
+      { "property": "Amount", "operator": ">", "value": 0 }
     ],
     "sorts": [
-      { "property": "Data", "direction": "desc" }
+      { "property": "Date", "direction": "desc" }
     ],
-    "visible_properties": ["Import", "Data"]
+    "visible_properties": ["Amount", "Date"]
   }
   ```
 
-### 4. Record (Pàgina / Dades)
-Les dades reals són Pàgines Markdown amb metadades enriquides.
-- **Vincle:** Es guarden amb una propietat `database_table_id: uuid`.
-- **Identificador Únic:** S'utilitza sempre la clau `id` per identificar el registre, unificant `source_id` o `notion_id`.
-- **Flexibilitat:** Al ser pàgines, poden contenir text lliure, imatges i blocs a part de les propietats estructurades.
+### 4. Record (Page / Data)
+The actual data are Markdown Pages with enriched metadata.
+- **Link**: They are stored with a `database_table_id: uuid` property.
+- **Unique Identifier**: The `id` key is always used to identify the record, unifying `source_id` or `notion_id`.
+- **Flexibility**: As pages, they can contain free text, images, and blocks aside from structured properties.
 
-## Protocols de Desenvolupament
+## Development Protocols
 
-- **Single Source of Truth:** La configuració de les DBs (`vault_db_registry.json`) es guarda al directori del Vault (o a la configuració del sistema).
-- **Idempotència:** Quan s'afegeix una propietat a una taula, no cal modificar immediatament totes les pàgines. L'editor ha de ser capaç de detectar la falta de la propietat i oferir un valor per defecte.
-- **Desacoblament UI:** El component `VaultTable` no ha de saber res de fitxers; només ha de rebre una llista d'objectes (registres) i un esquema de vista.
+- **Single Source of Truth**: The configuration of DBs (`vault_db_registry.json`) is stored in the Vault directory (or in the system configuration).
+- **Idempotency**: When a property is added to a table, it is not necessary to immediately modify all pages. The editor must be able to detect the missing property and offer a default value.
+- **UI Decoupling**: The `VaultTable` component should not know anything about files; it should only receive a list of objects (records) and a view schema.
 
-## Restriccions i Edge Cases
-- **Borrats:** Si s'esborra una Vista, no passa res a les dades. Si s'esborra una Taula, s'ha de demanar confirmació si es volen "desvincular" les pàgines o esborrar-les.
-- **Canvis de Tipus:** Canviar un camp de "Text" a "Número" pot requerir una validació o casting de dades. Per ara, prioritzarem la flexibilitat.
+## Restrictions and Edge Cases
+- **Deletions**: If a View is deleted, nothing happens to the data. If a Table is deleted, confirmation must be requested whether to "unlink" the pages or delete them.
+- **Type Changes**: Changing a field from "Text" to "Number" may require validation or data casting. For now, we will prioritize flexibility.

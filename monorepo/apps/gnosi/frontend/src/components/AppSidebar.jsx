@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon } from 'lucide-react';
+import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User } from 'lucide-react';
 import { GlobalSettingsModal } from './GlobalSettingsModal';
+import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 
 const GIcon = ({ size = 14 }) => (
     <div style={{
@@ -21,8 +22,9 @@ const GIcon = ({ size = 14 }) => (
 );
 
 const navItems = [
-    { to: '/vault', icon: FileText, label: 'Vault' },
+    { to: '/vault', icon: FileText, label: 'Knowledge' },
     { to: '/graph', icon: Network, label: 'Graf' },
+    { to: '/contacts', icon: Users, label: 'Contacts' },
     { to: '/mail', icon: Inbox, label: 'Mail' },
     { to: '/calendar', icon: Calendar, label: 'Calendari' },
     { to: '/reader', icon: BookOpen, label: 'Lector' },
@@ -34,8 +36,29 @@ export function AppSidebar() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settingsTab, setSettingsTab] = useState('general');
+    const [gnosiMode, setGnosiMode] = useState('personal');
 
     useEffect(() => {
+        // Fetch health to get gnosi_mode
+        fetch('/api/health')
+            .then(res => res.json())
+            .then(data => {
+                if (data.gnosi_mode) setGnosiMode(data.gnosi_mode);
+            })
+            .catch(err => console.error("Error fetching gnosi mode:", err));
+
+        // Detect OAuth return params
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('auth')) {
+            const tab = params.get('tab');
+            if (tab) setSettingsTab(tab);
+            setSettingsOpen(true);
+            
+            // Clean up URL params without refreshing
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+
         const handleOpenSettings = (e) => {
             if (e.detail) {
                 setSettingsTab(e.detail);
@@ -68,11 +91,15 @@ export function AppSidebar() {
 
             {/* Sidebar */}
             <nav className={`app-sidebar ${mobileOpen ? 'app-sidebar--open' : ''}`}>
-                {/* Logo */}
-                <div className="app-sidebar__logo-wrapper">
-                    <Link to="/" className="app-sidebar__logo" title="Gnosi">
-                        G
-                    </Link>
+                <div className="app-sidebar__header">
+                    {/* Logo */}
+                    <div className="app-sidebar__logo-wrapper">
+                        <Link to="/" className="app-sidebar__logo" title="Gnosi">
+                            G
+                        </Link>
+                    </div>
+
+                    {gnosiMode !== 'personal' && <WorkspaceSwitcher />}
                 </div>
 
                 {/* Nav Items */}
@@ -88,7 +115,7 @@ export function AppSidebar() {
                                 `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                             }
                         >
-                            <Icon size={18} strokeWidth={1.5} />
+                            <Icon size={16} strokeWidth={1.5} />
                             <span className="app-sidebar__tooltip">{label}</span>
                         </NavLink>
                     ))}
@@ -103,7 +130,7 @@ export function AppSidebar() {
                             `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                         }
                     >
-                        <Gauge size={18} strokeWidth={1.5} />
+                        <Gauge size={16} strokeWidth={1.5} />
                         <span className="app-sidebar__tooltip">Control</span>
                     </NavLink>
                     <button
@@ -111,7 +138,7 @@ export function AppSidebar() {
                         title="Configuració"
                         onClick={() => setSettingsOpen(true)}
                     >
-                        <Settings size={18} strokeWidth={1.5} />
+                        <Settings size={16} strokeWidth={1.5} />
                         <span className="app-sidebar__tooltip">Config</span>
                     </button>
 
@@ -119,11 +146,13 @@ export function AppSidebar() {
             </nav>
 
             {/* Global Settings Modal */}
-            <GlobalSettingsModal
-                isOpen={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                initialTab={settingsTab}
-            />
+            {settingsOpen && (
+                <GlobalSettingsModal
+                    isOpen={settingsOpen}
+                    onClose={() => { setSettingsOpen(false); window.location.reload(); }}
+                    initialTab={settingsTab}
+                />
+            )}
         </>
     );
 }

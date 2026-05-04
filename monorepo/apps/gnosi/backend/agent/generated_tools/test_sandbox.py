@@ -117,13 +117,18 @@ class TestSandbox:
         
         module = importlib.util.module_from_spec(spec)
         
-        # Execute with limited globals
+        # Execute with limited globals.
+        # Defense-in-depth: deliberately omit `type`, `__import__`, `getattr`,
+        # `setattr`, `compile`, `eval`, `exec`, `globals`, `locals`, `vars` and
+        # `open` to make sandbox escapes harder (e.g. the classic
+        # `type(None).__bases__[0].__subclasses__()` chain). The primary
+        # protection is still the validator + human approval gate.
         safe_globals = {
             '__builtins__': {
                 'str': str, 'int': int, 'float': float, 'bool': bool,
                 'list': list, 'dict': dict, 'tuple': tuple, 'set': set,
                 'len': len, 'range': range, 'enumerate': enumerate,
-                'print': print, 'isinstance': isinstance, 'type': type,
+                'print': print, 'isinstance': isinstance,
                 'Exception': Exception, 'ValueError': ValueError,
                 'TypeError': TypeError, 'KeyError': KeyError,
             },
@@ -135,15 +140,17 @@ class TestSandbox:
         except Exception as e:
             raise RuntimeError(f"Error executant codi: {e}")
         
-        # Find the tool function
+        # Find the tool function — mateix criteri que loader: BaseTool real
+        # o callable amb marker explícit `__tool__ = True`. Evita capturar
+        # callables amb `.name` casuals.
         from langchain_core.tools import BaseTool
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
             if isinstance(attr, BaseTool):
                 return attr
-            if callable(attr) and hasattr(attr, 'name'):
+            if callable(attr) and getattr(attr, "__tool__", False) is True:
                 return attr
-        
+
         return None
     
     def _run_single_test(self, tool_func, test_case: TestCase) -> TestResult:
@@ -171,8 +178,10 @@ class TestSandbox:
             except Exception as e:
                 error = f"{type(e).__name__}: {str(e)}"
         
-        # Run with timeout
-        thread = threading.Thread(target=run_test)
+        # Run with timeout. daemon=True garanteix que un tool penjat no
+        # impedeixi el shutdown del procés (Python no té API segura per
+        # matar threads → el millor és marcar-los com a daemon).
+        thread = threading.Thread(target=run_test, daemon=True)
         thread.start()
         thread.join(timeout=self.timeout)
         

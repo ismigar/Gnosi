@@ -115,6 +115,18 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
                             {displayTitle}
                         </h2>
 
+                        {/* Media Preview (New) */}
+                        {(data.kind === 'media' || data.url?.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i)) && (
+                            <div style={{ marginBottom: '20px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #eee' }}>
+                                <img 
+                                    src={data.url} 
+                                    alt={displayTitle} 
+                                    style={{ width: '100%', height: 'auto', display: 'block' }}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                            </div>
+                        )}
+
                         {/* Meta Tags */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '15px' }}>
                             {data.tags && data.tags.map(tag => (

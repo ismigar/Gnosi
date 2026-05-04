@@ -20,10 +20,10 @@
     "similarity_score": "Similarité",
     "reason": "Raison",
     "language": "Langue",
-    "Mail": "Courrier",
-    "Calendar": "Calendrier",
-    "Wiki": "Wiki",
-    "Wiki Pages": "Pages Wiki",
-    "Untitled": "Sans titre",
-    "Email": "Courrier électronique"
+    "vault_add_local_property": "Ajouter une propriété locale",
+    "vault_manage_fields": "Gérer les champs",
+    "vault_welcome_title": "Bienvenue",
+    "vault_welcome_subtitle": "Sélectionne une page du vault ou",
+    "vault_welcome_create_page": "Crée une page",
+    "vault_welcome_create_db": "Crée une BD"
 }
