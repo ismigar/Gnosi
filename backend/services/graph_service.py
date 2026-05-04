@@ -2,13 +2,20 @@ import os
 import json
 import yaml
 import re
-import uuid
+import hashlib
 import logging
 import networkx as nx
 from pathlib import Path
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+import time
+from typing import List, Dict, Any, Optional, Tuple
 from backend.config.app_config import load_params
+
+try:
+    import igraph as ig  # type: ignore
+    _HAS_IGRAPH = True
+except ImportError:
+    ig = None
+    _HAS_IGRAPH = False
 
 # Import suggestion handler (Phase 1 MVP) - DISABLED: No module named 'pipeline.skills.graph_suggestions'
 # from pipeline.skills.graph_suggestions.scripts.graph_suggestion_handler import SuggestionHandler
@@ -26,6 +33,86 @@ COLOR_PALETTE = {
     "media": "#ec4899",     # Pink (New)
     "default": "#94a3b8"    # Slate
 }
+
+# Optimization: Directories to skip during recursive scans
+IGNORED_DIRS = {
+    "node_modules", ".venv", ".git", ".tmp", "dist", "build",
+    "target", ".cache", "__pycache__", "Plantilles", "Library", ".gemini",
+    # Carpetes de sistema gestionades per serveis dedicats (no pàgines wiki)
+    # Contacts i Images són cloud-only a OneDrive: el rglob/scandir triga ~18s via FUSE.
+    # S'afegeixen al graf via _add_contact_nodes (SQLite) i _add_media_nodes (desactivat).
+    "Mail", "Calendar", "Contacts", "Contactes", "Images",
+    "system", "custom_icons", "data",
+}
+
+def get_markdown_files_efficient(root_path: Path) -> List[Path]:
+    """Efficiently finds all .md files skipping IGNORED_DIRS."""
+    md_files = []
+    try:
+        for entry in os.scandir(root_path):
+            if entry.is_dir():
+                if entry.name in IGNORED_DIRS or entry.name.startswith("."):
+                    continue
+                md_files.extend(get_markdown_files_efficient(Path(entry.path)))
+            elif entry.is_file() and entry.name.endswith(".md") and not entry.name.startswith("."):
+                md_files.append(Path(entry.path))
+    except (PermissionError, FileNotFoundError):
+        pass
+    return md_files
+
+
+def parse_section_links(content: str) -> dict[str | None, list[str]]:
+    """Extreu wikilinks del cos del .md agrupats per heading.
+
+    Retorna {heading_str: [link, ...], None: [link, ...]}
+    on None = links anteriors al primer heading.
+    Ignora blocs :::gnosi-ignore i ```code``` per no duplicar artefactes Notion.
+    """
+    # Strip frontmatter
+    match = re.match(r'^---\s*\n.*?\n---\s*\n', content, re.DOTALL)
+    body = content[match.end():] if match else content
+
+    sections: dict[str | None, list[str]] = {None: []}
+    current_heading: str | None = None
+    in_ignore = False
+    in_code = False
+
+    for line in body.split("\n"):
+        stripped = line.strip()
+
+        # Track :::gnosi-ignore blocks (Notion artefacts — no compten per al graf)
+        if stripped.startswith(":::gnosi-ignore"):
+            in_ignore = True
+            continue
+        if in_ignore:
+            if stripped == ":::":
+                in_ignore = False
+            continue
+
+        # Track code fences
+        if stripped.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code:
+            continue
+
+        # Detect heading
+        h_match = re.match(r'^(#{1,6})\s+(.+)$', stripped)
+        if h_match:
+            current_heading = h_match.group(2).strip()
+            if current_heading not in sections:
+                sections[current_heading] = []
+            continue
+
+        # Extract wikilinks from this line
+        for raw in re.findall(r'\[\[(.*?)\]\]', line):
+            target = raw.split('|')[0].split('#')[0].strip()
+            if target:
+                bucket = sections.setdefault(current_heading, [])
+                bucket.append(target)
+
+    return sections
+
 
 def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     """Parses a markdown file for YAML frontmatter and body.
@@ -47,6 +134,28 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     return {}, content
 
 class GraphService:
+    # Class-level cache for node count to avoid heavy scanning on every 2s poll
+    _node_count_cache = 0
+    _last_count_time = 0
+    _CACHE_TTL = 60 # seconds
+    
+    # Cache for the full graph
+    _graph_cache = None
+    _last_graph_time = 0
+    _GRAPH_CACHE_TTL = 30  # seconds — prou per evitar rebuilds continus però reactiu als canvis
+
+    # Class-level Persistent Node Data Cache (metadata, links, etc.)
+    # Format: { path_str: { mtime: float, metadata: dict, size: int, links: list, kind: str, color: str, title: str } }
+    _NODE_DATA_CACHE = {}
+
+    # Global ID to Path index for fast lookups
+    # Format: { node_id: path_str_relative_to_vault }
+    _ID_TO_PATH_CACHE = {}
+    
+    # Class-level Layout Cache to avoid recalcing layout if not needed
+    _LAYOUT_CACHE = {}
+    _LAYOUT_HASH: Optional[str] = None
+
     def __init__(self):
         self.registry = self._load_registry()
         
@@ -73,11 +182,90 @@ class GraphService:
         
         return {"databases": [], "tables": [], "views": []}
 
+    def _compute_graph_hash(self, G: "nx.Graph") -> str:
+        """Hash estable del graf basat en nodes+edges. Detecta canvis estructurals."""
+        nodes = sorted(str(n) for n in G.nodes())
+        edges = sorted((str(s), str(t)) for s, t in G.edges())
+        payload = json.dumps({"n": nodes, "e": edges}, sort_keys=True).encode()
+        return hashlib.sha256(payload).hexdigest()
+
+    def _compute_layout(self, G: "nx.Graph") -> Dict[str, Tuple[float, float]]:
+        """Calcula posicions amb igraph Fruchterman-Reingold (ràpid, qualitat alta).
+        Falla amb fallback a networkx spring_layout si igraph no està disponible.
+        Retorna dict {node_id: (x, y)} en l'espai original (pre-escalat al render).
+        """
+        n_nodes = G.number_of_nodes()
+        if n_nodes == 0:
+            return {}
+
+        if _HAS_IGRAPH:
+            node_list = list(G.nodes())
+            idx = {n: i for i, n in enumerate(node_list)}
+            # Fem servir NOMÉS edges "link" (wikilinks reals) per al layout, igual que Obsidian.
+            # Els edges "relation" (inferits per tags) creen una xarxa artificialment densa
+            # que col·lapsa tots els nodes en un sol clúster.
+            layout_edges = [
+                (idx[s], idx[t])
+                for s, t, d in G.edges(data=True)
+                if d.get('kind', 'link') == 'link'
+            ]
+            ig_graph = ig.Graph(n=n_nodes, edges=layout_edges)
+            n_iter = max(500, min(3000, n_nodes * 5))
+            import random as _rnd
+            _rnd.seed(42)
+            layout = ig_graph.layout_fruchterman_reingold(niter=n_iter)
+            coords = layout.coords
+            # Normalitzem a un espai fix de 10000 × 10000 centrat a l'origen
+            raw_xs = [float(coords[i][0]) for i in range(n_nodes)]
+            raw_ys = [float(coords[i][1]) for i in range(n_nodes)]
+            xmin, xmax = min(raw_xs), max(raw_xs)
+            ymin, ymax = min(raw_ys), max(raw_ys)
+            xrange = (xmax - xmin) or 1.0
+            yrange = (ymax - ymin) or 1.0
+            CANVAS = 10000.0
+            pos = {
+                node_list[i]: (
+                    (raw_xs[i] - xmin) / xrange * CANVAS - CANVAS / 2,
+                    (raw_ys[i] - ymin) / yrange * CANVAS - CANVAS / 2,
+                )
+                for i in range(n_nodes)
+            }
+        else:
+            log.warning("python-igraph not available; using networkx spring_layout (slower)")
+            pos_raw = nx.spring_layout(G, seed=42, iterations=300)
+            pos = {n: (float(p[0]), float(p[1])) for n, p in pos_raw.items()}
+
+        # Col·loquem nodes orfes (degree 0) en una corona externa al voltant del component connectat.
+        connected = [n for n in G.nodes() if G.degree(n) > 0]
+        orphans = [n for n in G.nodes() if G.degree(n) == 0]
+        if connected and orphans:
+            xs = [pos[n][0] for n in connected]
+            ys = [pos[n][1] for n in connected]
+            cx = sum(xs) / len(xs)
+            cy = sum(ys) / len(ys)
+            half_w = (max(xs) - min(xs)) / 2 or 1.0
+            half_h = (max(ys) - min(ys)) / 2 or 1.0
+            base_r = max(half_w, half_h) * 1.4 + max(half_w, half_h) * 0.3
+            ring_depth = base_r * 0.5
+            import math, random
+            rnd = random.Random(42)
+            for i, node in enumerate(orphans):
+                angle = (i / len(orphans)) * 2 * math.pi + (rnd.random() - 0.5) * 0.2
+                r = base_r + rnd.random() * ring_depth
+                pos[node] = (cx + math.cos(angle) * r, cy + math.sin(angle) * r)
+
+        return pos
+
     def build_unified_graph(self) -> Dict[str, Any]:
         """
         Builds a unified graph including 4-layer structure and content nodes.
         Returns a Sigma.js compatible format.
         """
+        now = time.time()
+        if self._graph_cache and (now - self._last_graph_time < self._GRAPH_CACHE_TTL):
+            log.info("Serving graph from cache")
+            return self._graph_cache
+
         # 0. Load live config
         cfg = load_params(strict_env=False)
         self.registry = self._load_registry()
@@ -88,41 +276,51 @@ class GraphService:
 
         log.info(f"Building unified graph (Visible DBs: {self.visible_dbs}, Tables: {self.visible_tables})...")
         G = nx.Graph()
-        
-        # 1. Add Registry Nodes (Databases, Tables, Views)
-        self._add_registry_nodes(G)
-        
-        # 2. Add Page Nodes (Markdown files in Vault - Recursive)
-        page_nodes = self._add_page_nodes(G)
-        
-        # 2.b Add Media Nodes (Images in Vault/Images)
-        media_nodes = self._add_media_nodes(G)
-        
-        # 3. Add Structural Edges (Hierarchy & Frontmatter Links)
-        self._add_structural_edges(G)
-        
-        # 4. Add AI Suggestion Edges (from suggestions.json)
-        self._add_suggestion_edges(G)
 
-        # 5. Add Tag Inference Edges (Tag Overlap)
-        self._add_tag_inference_edges(G, page_nodes + media_nodes)
+        # Registry nodes (database/table/view) are metadata-only — add them temporarily
+        # so that _add_structural_edges can resolve parent IDs, then strip them before export.
+        self._add_registry_nodes(G)
+
+        page_nodes = self._add_page_nodes(G)
+        self._add_contact_nodes(G)
+        self._add_structural_edges(G, page_nodes)
+
+        # Remove structural registry nodes: they are never rendered as content
+        registry_nodes = [n for n, d in G.nodes(data=True) if d.get("kind") in ("database", "table", "view")]
+        G.remove_nodes_from(registry_nodes)
         
-        # 6. Generate Layout (Simple Spring Layout for now)
-        pos = nx.spring_layout(G, k=0.5, iterations=50)
-        
+        # 4. Generate Layout — calculat al backend amb igraph (Fruchterman-Reingold)
+        # Caché per hash de l'estructura del graf (nodes + edges). Si no canvia, no recalcula.
+        graph_hash = self._compute_graph_hash(G)
+        if GraphService._LAYOUT_HASH == graph_hash and GraphService._LAYOUT_CACHE:
+            log.info(f"Reusing cached layout (hash={graph_hash[:8]}, {len(G.nodes())} nodes)")
+            pos = GraphService._LAYOUT_CACHE
+        else:
+            log.info(f"Computing new layout for {len(G.nodes())} nodes / {len(G.edges())} edges...")
+            t0 = time.time()
+            pos = self._compute_layout(G)
+            log.info(f"Layout computed in {time.time() - t0:.2f}s")
+            GraphService._LAYOUT_CACHE = pos
+            GraphService._LAYOUT_HASH = graph_hash
+            
         nodes = []
         for node_id in G.nodes():
             attrs = G.nodes[node_id]
+            meta = attrs.get("metadata", {}) or {}
             nodes.append({
                 "id": node_id,
                 "key": node_id,
                 "label": attrs.get("label", node_id),
-                "x": pos[node_id][0] * 1000,
-                "y": pos[node_id][1] * 1000,
+                "x": float(pos[node_id][0]),
+                "y": float(pos[node_id][1]),
                 "size": attrs.get("size", 10),
-                "color": attrs.get("color", COLOR_PALETTE["default"]),
+                "color": attrs.get("color", COLOR_PALETTE.get(attrs.get("kind"), COLOR_PALETTE["default"])),
                 "kind": attrs.get("kind", "page"),
-                "metadata": attrs.get("metadata", {})
+                "metadata": meta,
+                # Atributs addicionals necessaris per la categorització al frontend (graphFilters.js)
+                "path": attrs.get("path", ""),
+                "table_id": attrs.get("table_id") or meta.get("table_id") or meta.get("database_table_id"),
+                "database_id": attrs.get("database_id") or meta.get("database_id"),
             })
             
         edges = []
@@ -159,13 +357,17 @@ class GraphService:
                 "count": count
             })
         
-        return {
+        result = {
             "nodes": nodes,
             "edges": edges,
             "legend": {
                 "kinds": legend_kinds
             }
         }
+        
+        GraphService._graph_cache = result
+        GraphService._last_graph_time = time.time()  # temps DESPRÉS del build, no abans
+        return result
 
     def _add_registry_nodes(self, G: nx.Graph):
         # Databases
@@ -185,11 +387,17 @@ class GraphService:
             table_id = table.get("id")
             db_id = table.get("database_id")
             
-            if self.visible_dbs and db_id not in self.visible_dbs:
-                continue
-                
-            if self.visible_tables and table_id not in self.visible_tables:
-                continue
+            # Table is visible if:
+            # 1. It's explicitly selected
+            # 2. Its parent DB is selected
+            # 3. No explicit selections exist at all
+            is_explicit = self.visible_tables and table_id in self.visible_tables
+            is_db_explicit = self.visible_dbs and db_id in self.visible_dbs
+            
+            if (self.visible_tables or self.visible_dbs):
+                if not (is_explicit or is_db_explicit):
+                    continue
+            
                 
             G.add_node(table_id, 
                        label=table.get("name", "Table"), 
@@ -219,78 +427,186 @@ class GraphService:
         page_nodes = []
         if not vault_path or not vault_path.exists():
             return []
+
+        # Build folder→table_id lookup so BD page nodes get table_id even without frontmatter
+        folder_to_table_id: dict = {}
+        folder_to_db_id: dict = {}
+        for t in self.registry.get("tables", []):
+            folder = t.get("folder")
+            if folder:
+                folder_to_table_id[folder] = t["id"]
+                folder_to_db_id[folder] = t.get("database_id", "")
+
+        # Recursive scan for all .md files - EFFICIENT VERSION
+        all_md_files = get_markdown_files_efficient(vault_path)
+        
+        for file_path in all_md_files:
+            path_str = str(file_path.relative_to(vault_path))
+            mtime = os.path.getmtime(file_path)
             
-        # Recursive scan for all .md files
-        for file_path in vault_path.rglob("*.md"):
-            # Skip templates or hidden folders
-            if "Plantilles" in file_path.parts or file_path.name.startswith("."):
-                continue
+            # Use cached data if mtime hasn't changed
+            cache_entry = GraphService._NODE_DATA_CACHE.get(path_str)
+            if cache_entry and cache_entry.get("mtime") == mtime:
+                metadata = cache_entry["metadata"]
+                id_to_use = cache_entry["id"]
+                title = cache_entry["title"]
+                kind = cache_entry["kind"]
+                color = cache_entry["color"]
+                pass  # size llegit des de cache_entry["size"] al G.add_node
+            else:
+                # Cache miss - Read and parse file
+                try:
+                    raw_content = file_path.read_text(encoding="utf-8")
+                    metadata, body = parse_frontmatter(raw_content, file_path)
+                    
+                    file_id = file_path.stem
+                    id_to_use = metadata.get("id") or file_id
+                    title = metadata.get("title") or file_id
+                    
+                    # Extract kind
+                    app_cfg = cfg.get("app", {})
+                    type_prop = app_cfg.get("type_property", "note_type")
+                    raw_kind = metadata.get("note_type") or metadata.get(type_prop) or metadata.get("type") or "page"
+                    
+                    norm_kind = str(raw_kind).lower()
+                    if "reading" in norm_kind or "lectura" in norm_kind: kind = "reading"
+                    elif "permanent" in norm_kind: kind = "permanent"
+                    elif "index" in norm_kind or "índex" in norm_kind: kind = "index"
+                    elif "journal" in norm_kind or "diari" in norm_kind or "bitàcora" in norm_kind: kind = "journal"
+                    elif "dialogue" in norm_kind or "diàleg" in norm_kind or "dialogo" in norm_kind: kind = "dialogue"
+                    elif "contact" in norm_kind: kind = "contact"
+                    elif "calendar" in norm_kind or "event" in norm_kind: kind = "calendar"
+                    elif "mail" in norm_kind or "email" in norm_kind: kind = "mail"
+                    else: kind = "page"
 
-            file_id = file_path.stem
-            # We accept both UUID and non-UUID filenames now for real-time flexibility
-            # but we prioritize ID from frontmatter if present.
-                
-            try:
-                raw_content = file_path.read_text(encoding="utf-8")
-                metadata, body = parse_frontmatter(raw_content, file_path)
-                
-                # Use canonical gnosi id (frontmatter id) or filename as primary ID
-                id_to_use = metadata.get("id") or file_id
-                title = metadata.get("title") or file_id
-                
-                # Extract kind/note_type
-                type_prop = cfg.app.get("type_property", "note_type")
-                raw_kind = metadata.get("note_type") or metadata.get(type_prop) or metadata.get("type") or "page"
-                
-                # Normalize to map with colors
-                norm_kind = str(raw_kind).lower()
-                if "reading" in norm_kind or "lectura" in norm_kind: kind = "reading"
-                elif "permanent" in norm_kind: kind = "permanent"
-                elif "index" in norm_kind or "índex" in norm_kind: kind = "index"
-                elif "journal" in norm_kind or "diari" in norm_kind or "bitàcora" in norm_kind: kind = "journal"
-                elif "dialogue" in norm_kind or "diàleg" in norm_kind or "dialogo" in norm_kind: kind = "dialogue"
-                elif "draft" in norm_kind or "esborrany" in norm_kind: kind = "page"
-                else: kind = "page"
+                    # Fallback: detectar per ruta si el frontmatter no especifica el tipus
+                    if kind == "page":
+                        if path_str.startswith("Contacts/") or path_str.startswith("Contactes/"):
+                            kind = "contact"
+                        elif path_str.startswith("Calendar/"):
+                            kind = "calendar"
 
-                # Get color from configuration
-                node_colors = cfg.colors.get("node_types", {})
-                color_cfg = node_colors.get(kind, node_colors.get("default", {}))
-                color = color_cfg.get("bg", COLOR_PALETTE.get(kind, COLOR_PALETTE["page"]))
+                    # Color
+                    node_colors = cfg.colors.get("node_types", {})
+                    color_cfg = node_colors.get(kind, node_colors.get("default", {}))
+                    color = color_cfg.get("bg", COLOR_PALETTE.get(kind, COLOR_PALETTE["page"]))
 
-                # Check for special status based color override
-                status = metadata.get("estat") or metadata.get("status") or ""
-                status = str(status).lower()
-                if "idea" in status: color = "#fcd34d"
-                
-                # Metadata might contain 📀 fields for links
-                G.add_node(id_to_use, 
-                           label=title, 
-                           kind=kind, 
-                           color=color,
-                           size=8 + min(len(body) // 1000, 10),
-                           metadata=metadata,
-                           path=str(file_path.relative_to(vault_path)))
-                
-                page_nodes.append({
-                    "id": id_to_use,
-                    "title": title,
-                    "tags": metadata.get("tags", []),
-                    "metadata": metadata,
-                    "path": file_path
-                })
-            except Exception as e:
-                log.error(f"Error processing node {file_id}: {e}")
+                    # Status override
+                    status = str(metadata.get("estat") or metadata.get("status") or "").lower()
+                    if "idea" in status: color = "#fcd34d"
+
+                    # PRE-EXTRACT WIKILINKS per secció (evita re-lectura al pas d'edges)
+                    section_links = parse_section_links(raw_content)
+                    # Flat list per compatibilitat backward
+                    all_links = list({lnk for links in section_links.values() for lnk in links})
+
+                    # Update Cache
+                    cache_entry = {
+                        "mtime": mtime,
+                        "id": id_to_use,
+                        "title": title,
+                        "kind": kind,
+                        "color": color,
+                        "size": 8 + min(len(body) // 1000, 10),
+                        "metadata": metadata,
+                        "links": all_links,
+                        "section_links": section_links,
+                    }
+                    GraphService._NODE_DATA_CACHE[path_str] = cache_entry
+                except Exception as e:
+                    log.error(f"Error processing node {path_str}: {e}")
+                    continue
+
+            # Infer table_id from path if not in frontmatter (BD/[DB]/[TableFolder]/file.md)
+            inferred_table_id = metadata.get("table_id") or metadata.get("database_table_id")
+            inferred_db_id = metadata.get("database_id")
+            if not inferred_table_id:
+                path_parts = path_str.replace("\\", "/").split("/")
+                if len(path_parts) >= 3 and path_parts[0] == "BD":
+                    table_folder = path_parts[2]
+                    inferred_table_id = folder_to_table_id.get(table_folder)
+                    inferred_db_id = inferred_db_id or folder_to_db_id.get(table_folder)
+
+            # Add to NetworkX
+            G.add_node(id_to_use,
+                       label=title,
+                       kind=kind,
+                       color=color,
+                       size=cache_entry["size"],
+                       metadata=metadata,
+                       path=path_str,
+                       table_id=inferred_table_id,
+                       database_id=inferred_db_id)
+            
+            # Update Global Index (ID -> Relative Path string)
+            # This allows find_page_path to be O(1)
+            GraphService._ID_TO_PATH_CACHE[id_to_use] = path_str
+            
+            page_nodes.append({
+                "id": id_to_use,
+                "title": title,
+                "tags": metadata.get("tags", []),
+                "metadata": metadata,
+                "path": file_path,
+                "links": cache_entry["links"],
+                "section_links": cache_entry.get("section_links", {}),
+                "table_id": inferred_table_id,
+            })
                 
         return page_nodes
+
+    def _add_contact_nodes(self, G: nx.Graph):
+        """Afegeix contactes des de la BD SQLite local (evita escanejar Contacts/ via OneDrive)."""
+        try:
+            from backend.data.db import get_engine_for_path
+            from backend.models.contact import Contact
+
+            cfg = load_params(strict_env=False)
+            vault_path = cfg.paths.get("VAULT")
+            if not vault_path:
+                return
+
+            _, SessionLocal = get_engine_for_path(vault_path)
+            db = SessionLocal()
+            try:
+                contacts = db.query(Contact).all()
+                node_colors = cfg.colors.get("node_types", {})
+                color_cfg = node_colors.get("contact", node_colors.get("default", {}))
+                color = color_cfg.get("bg", "#10b981")
+
+                for c in contacts:
+                    node_id = f"contact_{c.id}"
+                    label = c.name or c.email or str(c.id)
+                    metadata = {
+                        "id": str(c.id),
+                        "title": label,
+                        "email": c.email,
+                        "company": getattr(c, "company", None),
+                        "job_title": getattr(c, "job_title", None),
+                        "source": str(getattr(c, "source", "custom")),
+                        "account_id": getattr(c, "account_id", None),
+                    }
+                    G.add_node(node_id,
+                               label=label,
+                               kind="contact",
+                               color=color,
+                               size=8,
+                               metadata=metadata,
+                               path=f"Contacts/{label}.md")
+            finally:
+                db.close()
+        except Exception as e:
+            log.warning(f"_add_contact_nodes: {e}")
 
     def _add_media_nodes(self, G: nx.Graph) -> List[Dict[str, Any]]:
         """Scans Vault/Images for media nodes using MediaService."""
         from backend.services.media_service import MediaService
         service = MediaService()
         
-        media_list = service.get_all_media()
+        result = service.get_all_media(limit=500)
+        media_list = result.get("items", [])
         media_nodes = []
-        
+
         for media in media_list:
             # We only show media with tags or description by default to avoid clutter
             # unless a global setting says otherwise.
@@ -329,18 +645,15 @@ class GraphService:
             
         return media_nodes
 
-    def _add_structural_edges(self, G: nx.Graph):
-        # ... (Registry edges already added)
-                
-        # 2. Folder-based edges (Fall-back hierarchy)
-        # 3. Frontmatter 📀 Link detection
+    def _add_structural_edges(self, G: nx.Graph, page_nodes: List[Dict[str, Any]]):
+        # 1. Frontmatter 📀 Link detection (Already loaded in node attributes)
         for node_id, attrs in G.nodes(data=True):
             if attrs.get("kind") in ["database", "table", "view"]:
                 continue
                 
             metadata = attrs.get("metadata", {})
             
-            # Explicit notion parent
+            # Vault structural parent
             parent_id = metadata.get("parent_id")
             if parent_id and G.has_node(parent_id):
                 G.add_edge(parent_id, node_id, kind="structural", color="#94a3b8", size=1)
@@ -353,42 +666,73 @@ class GraphService:
                         if isinstance(t_id, str) and G.has_node(t_id):
                             G.add_edge(node_id, t_id, kind="relation", color="#6366f1", size=1.5)
 
-        # 4. Wikipedia-style links [[Link]] from body
-        cfg = load_params(strict_env=False)
-        vault_path = cfg.paths.get("VAULT")
-        if not vault_path:
-            log.warning("VAULT path missing. Skipping wiki-link scanning.")
-            return
+        # 2. Wikipedia-style links from cached link data (NO NEW FILE READS!)
+        # Títols genèrics de Notion que NO han de ser hubs (artefactes d'exportació)
+        GENERIC_TITLES = {"untitled", "sense títol", "sin título", "new page", "nova pàgina"}
 
-        for node_id, attrs in G.nodes(data=True):
-            if "path" not in attrs: continue
-            
-            file_path = vault_path / attrs["path"]
-            if not file_path.exists(): continue
-            try:
-                content = file_path.read_text(encoding="utf-8")
-                # Extract [[WikiLinks]]
-                wiki_links = re.findall(r'\[\[(.*?)\]\]', content)
-                for target_label in wiki_links:
-                    target_ref = target_label.split('|')[0]
-                    target_key = target_ref.split('#')[0].strip()
-                    if G.has_node(target_key):
-                        G.add_edge(node_id, target_key, kind="link", color="#10b981", size=1.2)
+        # Pre-build O(1) lookup indexes before iterating links
+        label_to_id: dict[str, str] = {}   # lowercase label → node_id
+        stem_to_id: dict[str, str] = {}    # lowercase path stem → node_id
+        for n_id, n_attrs in G.nodes(data=True):
+            label = str(n_attrs.get("label") or "").strip().lower()
+            if label and label not in GENERIC_TITLES:
+                label_to_id.setdefault(label, n_id)
+            node_path = n_attrs.get("path", "")
+            if node_path:
+                stem = Path(node_path).stem.lower()
+                if stem not in GENERIC_TITLES:
+                    stem_to_id.setdefault(stem, n_id)
+
+        # Pre-build table_id → {heading: section_config} per classificar edges
+        table_sections_map: dict[str, dict[str, dict]] = {}
+        for table in self.registry.get("tables", []):
+            sections = table.get("sections", [])
+            if sections:
+                table_sections_map[table["id"]] = {
+                    s["heading"]: s
+                    for s in sections
+                    if s.get("type") == "db_view"
+                }
+
+        def resolve_link(target_label: str):
+            target_key = target_label.split('|')[0].split('#')[0].strip()
+            target_lower = target_key.lower()
+            if G.has_node(target_key):
+                return target_key
+            return label_to_id.get(target_lower) or stem_to_id.get(target_lower)
+
+        for page in page_nodes:
+            node_id = page["id"]
+            table_id = page.get("table_id") or G.nodes[node_id].get("table_id")
+            db_view_headings = table_sections_map.get(table_id, {}) if table_id else {}
+
+            section_links = page.get("section_links") or {}
+
+            # Processa primer les seccions db_view per garantir kind='relation' si hi ha conflicte
+            ordered_headings = sorted(
+                section_links.keys(),
+                key=lambda h: (0 if h in db_view_headings else 1),
+            )
+
+            for heading in ordered_headings:
+                links = section_links[heading]
+                is_db_view = heading in db_view_headings
+
+                for target_label in links:
+                    resolved = resolve_link(target_label)
+                    if not resolved or resolved == node_id or not G.has_node(resolved):
+                        continue
+                    if G.has_edge(node_id, resolved):
+                        # Si ja existeix com a link simple però ara és db_view, promou-lo
+                        if is_db_view and G.edges[node_id, resolved].get("kind") == "link":
+                            G.edges[node_id, resolved]["kind"] = "relation"
+                            G.edges[node_id, resolved]["color"] = "#6366f1"
+                            G.edges[node_id, resolved]["size"] = 1.5
+                        continue
+                    if is_db_view:
+                        G.add_edge(node_id, resolved, kind="relation", color="#6366f1", size=1.5)
                     else:
-                        # Match by title
-                        for n_id, n_attrs in G.nodes(data=True):
-                            if str(n_attrs.get("label") or "").strip() == target_key:
-                                G.add_edge(node_id, n_id, kind="link", color="#10b981", size=1.2)
-                                break
-                
-                # Extract markdown links [text](id)
-                md_links = re.findall(r'\[.*?\]\((.*?)\)', content)
-                for target_ref in md_links:
-                    target_key = target_ref.split('#')[0].strip()
-                    if G.has_node(target_key):
-                        G.add_edge(node_id, target_key, kind="link", color="#10b981", size=1.2)
-            except Exception:
-                pass
+                        G.add_edge(node_id, resolved, kind="link", color="#10b981", size=1.2)
 
     
     def _add_suggestion_edges(self, G: nx.Graph):
@@ -454,23 +798,77 @@ class GraphService:
                     G.add_edge(tag_node_id, p_id, kind="tag_connection", color="#f59e0b", size=0.8, dashed=True)
 
     def accept_suggestion(self, source_id: str, target_id: str, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Accepts an AI suggestion. Currently disabled — SuggestionHandler
+        module no és present en aquest build.
+
+        Bug previ: el cos sencer estava dins una triple-comilla com a
+        "docstring" → la funció retornava None i el caller crashejava
+        amb TypeError quan feia `result["success"]`. Ara retorna un
+        dict explícit perquè el caller mostri l'error 400 net.
         """
-        # DISABLED: SuggestionHandler missing
+        _ = (source_id, target_id, reason)
         return {
             "success": False,
-            "message": "SuggestionHandler module missing in this build",
+            "message": "SuggestionHandler module not available in this build",
             "updated_file": None,
-            "new_relations": []
+            "new_relations": [],
         }
-        """
-        
-        # Original logic commented out
-        # try:
-        #     relation_key = cfg.params.get("graph", {}).get("relation_key", "📀 Connexions")
-        #     handler = SuggestionHandler(vault_path, relation_key=relation_key, dry_run=False)
-        #     result = handler.accept_suggestion(source_id, target_id, reason=reason, auto_backup=True)
-        #     ...
 
+
+    def get_node_count(self) -> int:
+        """
+        Calculates the total number of 'memories' (Registry items + MD files + Media).
+        Uses a short-lived class cache for performance.
+        """
+        now = time.time()
+        if now - self._last_count_time < self._CACHE_TTL:
+            return self._node_count_cache
+
+        try:
+            # 1. Registry items
+            reg = self._load_registry()
+            count = len(reg.get("databases", [])) + len(reg.get("tables", [])) + len(reg.get("views", []))
+
+            # 2. Vault content (Pages + Media)
+            # Use Cache if already populated and not stale
+            if GraphService._NODE_DATA_CACHE:
+                count += len(GraphService._NODE_DATA_CACHE)
+                
+                # Still need media count from disk or separate cache
+                cfg = load_params(strict_env=False)
+                vault_path = cfg.paths.get("VAULT")
+                img_path = vault_path / "Images" if vault_path else None
+                media_count = 0
+                if img_path and img_path.exists():
+                    try:
+                        media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
+                    except Exception as e:
+                        log.debug(f"media scan (cached path) failed at {img_path}: {e}")
+                count += media_count
+            else:
+                # Fallback to disk scan - EFFICIENT
+                cfg = load_params(strict_env=False)
+                vault_path = cfg.paths.get("VAULT")
+
+                if vault_path and vault_path.exists():
+                    all_md = get_markdown_files_efficient(vault_path)
+                    md_count = len(all_md)
+
+                    img_path = vault_path / "Images"
+                    media_count = 0
+                    if img_path.exists():
+                        try:
+                            media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
+                        except Exception as e:
+                            log.debug(f"media scan (fallback) failed at {img_path}: {e}")
+                    count += md_count + media_count
+
+            GraphService._node_count_cache = count
+            GraphService._last_count_time = now
+            return count
+        except Exception as e:
+            log.error(f"Error counting nodes: {e}")
+            return GraphService._node_count_cache
 
 # graph_service = GraphService()
 

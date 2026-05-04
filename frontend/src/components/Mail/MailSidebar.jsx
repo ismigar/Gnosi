@@ -1,161 +1,307 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    Inbox, Send, FileText, Trash2, Tag,
-    ChevronDown, Plus, Mail, Users, Star,
-    ShoppingBag, Archive, Search, Settings, HelpCircle
+    Inbox, Send, FileText, Trash2,
+    ChevronDown, Plus, Star,
+    Archive, Search, AlertOctagon,
+    MoreHorizontal, Pencil, Trash2 as DeleteIcon, Layout, Tag,
 } from 'lucide-react';
+import { useMailViews } from '../../hooks/useMailViews';
+import { useMailTags } from '../../hooks/useMailTags';
+import MailViewEditor from './MailViewEditor';
 
 export default function MailSidebar({
     selectedAccount,
     onSelectAccount,
+    accounts = [],
     activeFolder,
     activeCategory,
+    activeViewId,
+    activeTagId,
     onSelectFolder,
-    onSelectCategory
+    onSelectCategory,
+    onSelectView,
+    onSelectTag,
+    onCompose,
+    onSearch,
+    counts = {},
 }) {
-    const [accounts, setAccounts] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { t } = useTranslation();
+    const [showAccountSelector, setShowAccountSelector] = useState(false);
+    const [searchValue, setSearchValue] = useState('');
+    const [showEditor, setShowEditor] = useState(false);
+    const [editingView, setEditingView] = useState(null);
+    const [viewMenuId, setViewMenuId] = useState(null);
+    const [showTags, setShowTags] = useState(true);
 
-    useEffect(() => {
-        fetch('/api/integrations')
-            .then(res => res.json())
-            .then(data => {
-                const emailAccounts = data.emails || [];
-                setAccounts(emailAccounts);
-                if (emailAccounts.length > 0 && !selectedAccount) {
-                    onSelectAccount(emailAccounts[0]);
-                }
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error("Error fetching email accounts:", err);
-                setLoading(false);
-            });
-    }, []);
+    const { tags, createTag, deleteTag } = useMailTags();
 
-    const vistes = [
-        { id: 'INBOX', label: "Bandeja de entrada", icon: <Inbox size={18} />, type: 'folder' },
-        { id: 'STARRED', label: "Destacados", icon: <Star size={18} />, type: 'folder' },
-        { id: 'Social', label: 'Social', icon: <Users size={18} />, type: 'category' },
-        { id: 'labels', label: 'Labels', icon: <Tag size={18} />, type: 'other' },
-        { id: 'Promotions', label: 'Promotions', icon: <ShoppingBag size={18} />, type: 'category' },
-    ];
+    const { views, createView, updateView, deleteView } = useMailViews();
 
-    const correu = [
-        { id: 'all', label: 'Todos los correos', icon: <Archive size={18} />, type: 'folder' },
-        { id: 'SENT', label: 'Enviados', icon: <Send size={18} />, type: 'folder' },
-        { id: 'DRAFTS', label: 'Borradores', icon: <FileText size={18} />, type: 'folder' },
-        { id: 'TRASH', label: 'Papelera', icon: <Trash2 size={18} />, type: 'folder' },
+    const handleSearchChange = (e) => {
+        setSearchValue(e.target.value);
+        onSearch?.(e.target.value);
+    };
+
+    const systemFolders = [
+        { id: 'INBOX',   label: t('mail.inbox'),    icon: <Inbox size={16} />,        type: 'folder' },
+        { id: 'STARRED', label: t('mail.starred'),  icon: <Star size={16} />,         type: 'folder' },
+        { id: 'all',     label: t('mail.all_mail'), icon: <Archive size={16} />,      type: 'folder' },
+        { id: 'SENT',    label: t('mail.sent'),     icon: <Send size={16} />,         type: 'folder' },
+        { id: 'DRAFTS',  label: t('mail.drafts'),   icon: <FileText size={16} />,     type: 'folder' },
+        { id: 'TRASH',   label: t('mail.trash'),    icon: <Trash2 size={16} />,       type: 'folder' },
+        { id: 'SPAM',    label: t('mail.spam'),     icon: <AlertOctagon size={16} />, type: 'folder' },
     ];
 
     const handleItemClick = (item) => {
-        if (item.type === 'folder') {
-            onSelectFolder(item.id);
-        } else if (item.type === 'category') {
-            onSelectCategory(item.id);
+        if (item.type === 'folder') onSelectFolder(item.id);
+        else if (item.type === 'category') onSelectCategory(item.id);
+    };
+
+    const handleSaveView = async (data) => {
+        if (editingView) {
+            await updateView(editingView.id, data);
+        } else {
+            const created = await createView(data);
+            onSelectView?.(created);
         }
+        setShowEditor(false);
+        setEditingView(null);
+    };
+
+    const handleDeleteView = async (view) => {
+        await deleteView(view.id);
+        if (activeViewId === view.id) onSelectView?.(null);
+        setViewMenuId(null);
+    };
+
+    const accountLabel = selectedAccount === null
+        ? t('mail.all_accounts')
+        : (selectedAccount?.email || 'Account');
+    const accountInitial = selectedAccount === null ? '✦' : (selectedAccount?.email?.[0]?.toUpperCase() || 'G');
+
+    const NavItem = ({ item }) => {
+        const isActive = item.type === 'folder'
+            ? activeFolder === item.id
+            : activeCategory === item.id;
+        const c = counts[item.id] || {};
+        const noUnreadBadge = item.id === 'TRASH' || item.id === 'SPAM';
+        const unread = noUnreadBadge ? 0 : (c.unread || 0);
+        return (
+            <button
+                onClick={() => handleItemClick(item)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-colors text-left
+                    ${isActive
+                        ? 'bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)] font-semibold'
+                        : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-item-hover)] font-medium'
+                    }`}
+            >
+                <span className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-secondary)]'}>
+                    {item.icon}
+                </span>
+                <span className="flex-1">{item.label}</span>
+                {unread > 0 && (
+                    <span className="ml-auto text-[11px] font-bold bg-[var(--gnosi-blue)] text-white rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                        {unread > 99 ? '99+' : unread}
+                    </span>
+                )}
+            </button>
+        );
+    };
+
+    const ViewItem = ({ view }) => {
+        const isActive = activeViewId === view.id;
+        const showMenu = viewMenuId === view.id;
+        return (
+            <div className="relative group">
+                <button
+                    onClick={() => onSelectView?.(view)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-colors text-left
+                        ${isActive
+                            ? 'bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)] font-semibold'
+                            : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-item-hover)] font-medium'
+                        }`}
+                >
+                    <span className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-secondary)]'}>
+                        <Layout size={14} />
+                    </span>
+                    <span className="flex-1 truncate">{view.name}</span>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setViewMenuId(showMenu ? null : view.id); }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-opacity"
+                    >
+                        <MoreHorizontal size={13} />
+                    </button>
+                </button>
+
+                {showMenu && (
+                    <div className="absolute right-1 top-8 z-50 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-36 animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                            onClick={() => { setEditingView(view); setShowEditor(true); setViewMenuId(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                        >
+                            <Pencil size={13} /> Editar
+                        </button>
+                        <button
+                            onClick={() => handleDeleteView(view)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-500 hover:bg-[var(--bg-secondary)] transition-colors"
+                        >
+                            <DeleteIcon size={13} /> Eliminar
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
-        <div className="w-64 flex flex-col h-full bg-[#fbfbfa] border-r border-slate-200/60 font-sans">
-            {/* Account Selector Section - Notion Style Popover placeholder */}
-            <div className="p-4 flex flex-col gap-2">
-                <div className="flex items-center justify-between px-2 mb-2">
-                    <div className="flex items-center gap-2 group cursor-pointer hover:bg-slate-200/50 p-1 rounded-md transition-colors">
-                        <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-[10px] text-white font-bold">
-                            {selectedAccount?.email?.[0].toUpperCase() || 'G'}
+        <>
+            <div className="flex flex-col h-full w-64 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] shrink-0">
+
+                {/* Account selector + compose */}
+                <div className="px-3 pt-4 pb-2 flex items-center justify-between gap-2 relative">
+                    <button
+                        onClick={() => setShowAccountSelector(v => !v)}
+                        className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
+                    >
+                        <div className="w-5 h-5 rounded bg-[var(--gnosi-blue)] flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                            {accountInitial}
                         </div>
-                        <span className="text-sm font-semibold text-slate-700 truncate max-w-[120px]">
-                            {selectedAccount?.email || 'Ismael Garcia'}
+                        <span className="text-[13px] font-medium text-[var(--text-primary)] truncate">
+                            {accountLabel}
                         </span>
-                        <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
-                    </div>
-                    <button className="p-1.5 hover:bg-slate-200/50 rounded-md text-slate-500 transition-colors">
-                        <Plus size={16} />
+                        <ChevronDown
+                            size={13}
+                            className={`text-[var(--text-secondary)] shrink-0 transition-transform ${showAccountSelector ? 'rotate-180' : ''}`}
+                        />
                     </button>
-                </div>
 
-                <div className="relative group mx-2">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input
-                        type="text"
-                        placeholder="Buscar"
-                        className="w-full bg-[#efefee] border-transparent text-xs py-1.5 pl-8 pr-2 rounded-md focus:outline-none focus:ring-0 placeholder:text-slate-500"
-                    />
-                </div>
-            </div>
-
-            {/* Navigation Sections */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
-
-                {/* Vistes Section */}
-                <div className="space-y-0.5">
-                    <div className="px-2 mb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Vistas
-                    </div>
-                    {vistes.map((item) => {
-                        const isActive = (item.type === 'folder' && activeFolder === item.id) ||
-                            (item.type === 'category' && activeCategory === item.id);
-                        return (
-                            <button
-                                key={item.id}
-                                onClick={() => handleItemClick(item)}
-                                className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-200 ${isActive
-                                    ? 'bg-[#efefee] text-slate-900 font-semibold'
-                                    : 'text-slate-600 hover:bg-[#efefee]/70 hover:text-slate-900'
-                                    }`}
-                            >
-                                <span className={isActive ? 'text-indigo-600' : 'text-slate-400'}>
-                                    {item.icon}
-                                </span>
-                                <span>{item.label}</span>
-                            </button>
-                        );
-                    })}
-                    <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:bg-[#efefee]/70 transition-all font-medium">
-                        <Plus size={18} className="text-slate-300" />
-                        <span>Añadir vista</span>
+                    <button
+                        onClick={onCompose}
+                        title={t('mail.compose', 'Redactar')}
+                        className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors shrink-0"
+                    >
+                        <Plus size={18} />
                     </button>
-                </div>
 
-                {/* Correu Section */}
-                <div className="space-y-0.5">
-                    <div className="px-2 mb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Correo
-                    </div>
-                    {correu.map((item) => {
-                        const isActive = (item.type === 'folder' && activeFolder === item.id);
-                        return (
+                    {showAccountSelector && (
+                        <div className="absolute top-14 left-2 right-2 z-[var(--z-modal-dropdown)] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 animate-in fade-in zoom-in-95 duration-150">
+                            <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                                {t('mail.mail_section')}
+                            </div>
                             <button
-                                key={item.id}
-                                onClick={() => handleItemClick(item)}
-                                className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-200 ${isActive
-                                    ? 'bg-[#efefee] text-slate-900 font-semibold'
-                                    : 'text-slate-600 hover:bg-[#efefee]/70 hover:text-slate-900'
-                                    }`}
+                                onClick={() => { onSelectAccount(null); setShowAccountSelector(false); }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors
+                                    ${selectedAccount === null
+                                        ? 'text-[var(--gnosi-blue)] font-semibold bg-[var(--sidebar-item-active)]'
+                                        : 'text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'}`}
                             >
-                                <span className={isActive ? 'text-indigo-600' : 'text-slate-400'}>
-                                    {item.icon}
-                                </span>
-                                <span>{item.label}</span>
+                                <div className={`w-2 h-2 rounded-full ${selectedAccount === null ? 'bg-[var(--gnosi-blue)]' : 'bg-[var(--border-primary)]'}`} />
+                                {t('mail.all_accounts')}
                             </button>
-                        );
-                    })}
+                            {accounts.map(acc => {
+                                const isSelected = selectedAccount?.email === (acc.email || acc.username);
+                                return (
+                                    <button
+                                        key={acc.email || acc.username}
+                                        onClick={() => { onSelectAccount(acc); setShowAccountSelector(false); }}
+                                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors
+                                            ${isSelected
+                                                ? 'text-[var(--gnosi-blue)] font-semibold bg-[var(--sidebar-item-active)]'
+                                                : 'text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'}`}
+                                    >
+                                        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-[var(--gnosi-blue)]' : 'bg-[var(--border-primary)]'}`} />
+                                        <span className="truncate">{acc.email || acc.username}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
+                {/* Search */}
+                <div className="px-3 pb-3">
+                    <div className="relative">
+                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
+                        <input
+                            type="text"
+                            value={searchValue}
+                            onChange={handleSearchChange}
+                            placeholder={t('mail.search')}
+                            className="w-full bg-[var(--bg-secondary)] border border-transparent focus:border-[var(--border-primary)] focus:bg-[var(--bg-primary)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-secondary)] pl-7 pr-3 py-1.5 rounded-lg outline-none transition-all"
+                        />
+                    </div>
+                </div>
+
+                {/* Nav */}
+                <div
+                    className="flex-1 overflow-y-auto px-2 pb-4 space-y-4"
+                    onClick={() => setViewMenuId(null)}
+                >
+                    {/* Vistes personalitzades */}
+                    <div>
+                        <div className="px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                            {t('mail.views')}
+                        </div>
+                        {views.map(view => <ViewItem key={view.id} view={view} />)}
+                        <button
+                            onClick={() => { setEditingView(null); setShowEditor(true); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
+                        >
+                            <Plus size={14} className="text-[var(--border-primary)]" />
+                            {t('mail.add_view')}
+                        </button>
+                    </div>
+
+                    {/* Carpetes del sistema */}
+                    <div>
+                        <div className="px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                            {t('mail.mail_section')}
+                        </div>
+                        {systemFolders.map(item => <NavItem key={item.id} item={item} />)}
+                    </div>
+
+                    {/* Etiquetes */}
+                    <div>
+                        <button
+                            onClick={() => setShowTags(v => !v)}
+                            className="w-full flex items-center gap-1.5 px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors"
+                        >
+                            <span className="flex-1 text-left">Etiquetes</span>
+                            <ChevronDown size={11} className={`transition-transform ${showTags ? '' : '-rotate-90'}`} />
+                        </button>
+                        {showTags && (
+                            <>
+                                {tags.map(tag => (
+                                    <button
+                                        key={tag.id}
+                                        onClick={() => onSelectTag?.(activeTagId === tag.id ? null : tag.id)}
+                                        className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13.5px] transition-colors text-left
+                                            ${activeTagId === tag.id
+                                                ? 'bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)] font-semibold'
+                                                : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-item-hover)] font-medium'}`}
+                                    >
+                                        <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: tag.color, display: 'inline-block', flexShrink: 0 }} />
+                                        <span className="flex-1 truncate">{tag.name}</span>
+                                    </button>
+                                ))}
+                                {tags.length === 0 && (
+                                    <div className="px-3 py-1 text-[12px] text-[var(--text-secondary)]">Cap etiqueta</div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {/* Footer Items */}
-            <div className="px-3 py-4 border-t border-slate-200/60 space-y-0.5">
-                <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-[#efefee]/70 transition-all font-medium">
-                    <Settings size={18} className="text-slate-400" />
-                    <span>Configuración</span>
-                </button>
-                <button className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-[#efefee]/70 transition-all font-medium">
-                    <HelpCircle size={18} className="text-slate-400" />
-                    <span>Soporte y comentarios</span>
-                </button>
-            </div>
-        </div>
+            {showEditor && (
+                <MailViewEditor
+                    initialView={editingView}
+                    onSave={handleSaveView}
+                    onCancel={() => { setShowEditor(false); setEditingView(null); }}
+                />
+            )}
+        </>
     );
 }

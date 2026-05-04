@@ -11,9 +11,25 @@ Includes:
 from langchain_core.tools import tool
 from pathlib import Path
 
+from backend.utils.safe_io import safe_write_text
+from backend.config.app_config import load_params
 from .validator import validator, RiskLevel
 from .registry import registry, ToolStatus
 from .learning_loop import learning_loop
+
+
+def _get_tools_base() -> Path:
+    """Retorna el directori base on viuen pending/ i approved/.
+
+    Ha de coincidir amb el que llegeix `loader.ToolLoader.__init__`. Si no
+    coincideixen, els tools creats per l'agent no es carreguen mai.
+    """
+    cfg = load_params(strict_env=False)
+    tools_base = cfg.paths.get("AGENT_TOOLS")
+    if tools_base:
+        return tools_base
+    # Fallback per compatibilitat: alguns entorns no tenen el path configurat.
+    return Path(__file__).parent
 
 
 @tool
@@ -138,10 +154,11 @@ def create_new_tool(name: str, description: str, code: str) -> str:
         risk_level=validation.risk_level.value
     )
     
-    pending_dir = Path(__file__).parent / "pending"
-    pending_dir.mkdir(exist_ok=True)
-    (pending_dir / f"{name}.py").write_text(code)
-    
+    tools_base = _get_tools_base()
+    pending_dir = tools_base / "pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    safe_write_text(pending_dir / f"{name}.py", code)
+
     if needs_approval:
         output_lines.append(f"🔴 Tool '{name}' created but PENDING APPROVAL.")
         output_lines.append(f"Risk level: {validation.risk_level.value}")
@@ -149,8 +166,8 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     else:
         # Auto-approve (fully automatic)
         registry.approve(name)
-        approved_dir = Path(__file__).parent / "approved"
-        approved_dir.mkdir(exist_ok=True)
+        approved_dir = tools_base / "approved"
+        approved_dir.mkdir(parents=True, exist_ok=True)
         (pending_dir / f"{name}.py").rename(approved_dir / f"{name}.py")
         
         output_lines.append(f"✅ Tool '{name}' created, tested and auto-approved.")

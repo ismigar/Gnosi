@@ -52,6 +52,8 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
         const transformRef = { current: { cx: 0, cy: 0, scale: 1, width: 0, height: 0 } };
 
         const updateTransform = () => {
+            if (!containerRef.current || !canvasRef.current) return null;
+
             const { width, height } = containerRef.current.getBoundingClientRect();
             canvas.width = width;
             canvas.height = height;
@@ -96,6 +98,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
 
         // ... (inside draw function)
         const draw = () => {
+            if (!ctx || !containerRef.current || !canvasRef.current) return;
             const t = updateTransform();
             if (!t) return;
 
@@ -123,7 +126,8 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
 
         // 3. Sync Viewport Rect
         const syncViewport = () => {
-            if (!viewportRef.current) return;
+            if (!viewportRef.current || !containerRef.current || !canvasRef.current) return;
+            if (!mainRenderer || mainRenderer.killed) return;
 
             const mainCamera = mainRenderer.getCamera();
             const mainDims = mainRenderer.getDimensions();
@@ -132,7 +136,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             const { x, y, ratio } = mainRenderer.getCamera().getState();
 
             // Debug Sync
-            // console.log("Minimap Sync:", { camX: x, camY: y, ratio });
+            // 
 
             // Convert Camera (Normalized) -> Graph Coordinates
             // We need bounds. If transformRef is not ready, try to update it or get bounds directly.
@@ -212,6 +216,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
         // Interaction
         const handleMinimapClick = (e) => {
             if (isDragging.current || hasDragged.current) return;
+            if (!containerRef.current) return;
 
             // Ensure transform is up to date
             const t = updateTransform();
@@ -233,13 +238,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             const clampedX = Math.max(minX, Math.min(maxX, graphPos.x));
             const clampedY = Math.max(minY, Math.min(maxY, graphPos.y));
 
-            console.log("Minimap Click:", {
-                mouse: { x, y },
-                graphPos,
-                bounds: { minX, maxX, minY, maxY },
-                clamped: { x: clampedX, y: clampedY },
-                transform: transformRef.current
-            });
+            
 
             // Use the live graph from renderer to ensure we have latest attributes (hidden, etc)
             const liveGraph = mainRenderer.getGraph();
@@ -259,7 +258,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
                 }
             });
 
-            console.log("Minimap Closest Node:", closestNode ? { key: closestNode.key, x: closestNode.x, y: closestNode.y, dist: Math.sqrt(minDist) } : "None");
+
 
             // Re-enable Snap-to-Node
             const targetX = closestNode ? closestNode.x : clampedX;
@@ -279,7 +278,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             // Use 0.6 for closer view of node and its immediate neighbors
             const targetRatio = 0.6;
 
-            console.log("Minimap: Panning to node", closestNode?.key, "with ratio", targetRatio);
+            
 
             // Use the callback which will handle coordinate transformation
             if (closestNode && onPanToNode) {
@@ -295,7 +294,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             setTimeout(() => {
                 if (mainRenderer && !mainRenderer.killed) {
                     const camera = mainRenderer.getCamera();
-                    console.log("Minimap: Post-Click Camera State:", camera.getState());
+
                 }
             }, 500);
 
@@ -310,6 +309,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
 
         const handleMouseDown = (e) => {
             if (e.target === viewportRef.current) {
+                if (!containerRef.current) return;
                 isDragging.current = true;
                 hasDragged.current = false;
 
@@ -334,12 +334,13 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
 
         const handleMouseEnter = () => {
             if (mainRenderer && !mainRenderer.killed) {
-                // console.log("Minimap: Mouse Enter - Current Camera State:", mainRenderer.getCamera().getState());
+                // .getState());
             }
         };
 
         const handleMouseMove = (e) => {
             if (!isDragging.current) return;
+            if (!containerRef.current || !mainRenderer || mainRenderer.killed) return;
             hasDragged.current = true;
             updateTransform(); // Ensure transform is fresh
             const rect = containerRef.current.getBoundingClientRect();
@@ -368,8 +369,10 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
         window.addEventListener('mouseup', handleMouseUp);
 
         return () => {
-            mainRenderer.off('afterRender', syncViewport);
-            const camera = mainRenderer.getCamera();
+            if (mainRenderer && !mainRenderer.killed) {
+                mainRenderer.off('afterRender', syncViewport);
+            }
+            const camera = mainRenderer && !mainRenderer.killed ? mainRenderer.getCamera() : null;
             if (camera) {
                 camera.off('updated', syncViewport);
             }

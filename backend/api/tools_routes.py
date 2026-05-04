@@ -2,14 +2,29 @@
 API Routes for Generated Tools Management.
 Provides endpoints for the Dashboard to approve/reject pending tools.
 """
-from fastapi import APIRouter, HTTPException
+from pathlib import Path
+
+from fastapi import Depends, APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
 from backend.agent.generated_tools.registry import registry, ToolStatus
 from backend.agent.generated_tools.loader import loader
+from backend.config.app_config import load_params
+from backend.services.workspace_service import require_role
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
+
+
+def _get_tools_base() -> Path:
+    """Directori on viuen pending/approved/rejected — ha de coincidir amb el
+    que llegeix `loader.ToolLoader.__init__` (cfg.paths.AGENT_TOOLS). Si no,
+    aprovar/rebutjar mou fitxers a un lloc que ningú llegeix."""
+    cfg = load_params(strict_env=False)
+    tools_base = cfg.paths.get("AGENT_TOOLS")
+    if tools_base:
+        return tools_base
+    return Path(__file__).resolve().parents[1] / "agent" / "generated_tools"
 
 
 class ToolResponse(BaseModel):
@@ -22,6 +37,7 @@ class ToolResponse(BaseModel):
     approved_at: Optional[str] = None
     rejected_at: Optional[str] = None
     rejection_reason: Optional[str] = None
+    path: Optional[str] = None
 
 
 class ApproveRequest(BaseModel):
@@ -47,7 +63,8 @@ async def get_pending_tools():
             created_at=t.created_at,
             approved_at=t.approved_at,
             rejected_at=t.rejected_at,
-            rejection_reason=t.rejection_reason
+            rejection_reason=t.rejection_reason,
+            path=t.path
         )
         for t in pending
     ]
@@ -67,13 +84,14 @@ async def get_approved_tools():
             created_at=t.created_at,
             approved_at=t.approved_at,
             rejected_at=t.rejected_at,
-            rejection_reason=t.rejection_reason
+            rejection_reason=t.rejection_reason,
+            path=t.path
         )
         for t in approved
     ]
 
 
-@router.post("/approve")
+@router.post("/approve", dependencies=[Depends(require_role("admin"))])
 async def approve_tool(request: ApproveRequest):
     """
     Approve a pending tool.
@@ -88,21 +106,21 @@ async def approve_tool(request: ApproveRequest):
         )
     
     # Move file from pending to approved
-    from pathlib import Path
-    base_dir = Path(__file__).parent.parent / "agent" / "generated_tools"
+    base_dir = _get_tools_base()
+    (base_dir / "approved").mkdir(parents=True, exist_ok=True)
     pending_file = base_dir / "pending" / f"{request.name}.py"
     approved_file = base_dir / "approved" / f"{request.name}.py"
-    
+
     if pending_file.exists():
         pending_file.rename(approved_file)
-    
+
     # Refresh loaded tools
     loader.refresh()
     
     return {"status": "approved", "name": request.name}
 
 
-@router.post("/reject")
+@router.post("/reject", dependencies=[Depends(require_role("admin"))])
 async def reject_tool(request: RejectRequest):
     """
     Reject a pending tool.
@@ -117,11 +135,11 @@ async def reject_tool(request: RejectRequest):
         )
     
     # Move file from pending to rejected
-    from pathlib import Path
-    base_dir = Path(__file__).parent.parent / "agent" / "generated_tools"
+    base_dir = _get_tools_base()
+    (base_dir / "rejected").mkdir(parents=True, exist_ok=True)
     pending_file = base_dir / "pending" / f"{request.name}.py"
     rejected_file = base_dir / "rejected" / f"{request.name}.py"
-    
+
     if pending_file.exists():
         pending_file.rename(rejected_file)
     
@@ -145,5 +163,6 @@ async def get_tool(name: str):
         created_at=tool.created_at,
         approved_at=tool.approved_at,
         rejected_at=tool.rejected_at,
-        rejection_reason=tool.rejection_reason
+        rejection_reason=tool.rejection_reason,
+        path=tool.path
     )

@@ -1,5 +1,5 @@
 # backend/api/credentials_routes.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import sys
@@ -8,14 +8,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.security.keychain_manager import get_keychain
 from backend.config.env_config import reload_keychain
+from backend.services.workspace_service import require_role
 
-router = APIRouter(prefix="/credentials", tags=["Credentials"])
+# Auth gate: aquests endpoints gestionen el Keychain (HuggingFace, OpenRouter,
+# Telegram, n8n, OAuth secrets, etc.). En personal mode l'usuari és auto-owner
+# i no es bloqueja; en organitzacio mode només admins poden tocar credentials.
+router = APIRouter(
+    prefix="/credentials",
+    tags=["Credentials"],
+    dependencies=[Depends(require_role("admin"))],
+)
 
 CREDENTIAL_INFO = {
-    "notion_token": {
-        "name": "Notion",
-        "description": "API token for Notion integration",
-    },
     "huggingface_api_key": {
         "name": "Hugging Face",
         "description": "API key for Hugging Face",
@@ -177,13 +181,18 @@ async def migrate_from_env():
                 key, _, value = line.partition("=")
                 env_vars[key.strip()] = value.strip()
 
-    for key, value in env_vars.items():
-        if key in CREDENTIAL_KEYS and value:
-            success = keychain.save_credential(key, value)
+    # Mapping case-insensitive: les env vars són UPPERCASE (NOTION_TOKEN), els
+    # CREDENTIAL_KEYS són lowercase (notion_token). Sense aquesta normalització,
+    # la migració silenciosament no movia res.
+    cred_keys_lower = {k.lower(): k for k in CREDENTIAL_KEYS}
+    for env_key, value in env_vars.items():
+        canonical = cred_keys_lower.get(env_key.lower())
+        if canonical and value:
+            success = keychain.save_credential(canonical, value)
             if success:
-                migrated.append(key)
+                migrated.append(canonical)
             else:
-                failed.append(key)
+                failed.append(canonical)
 
     return {
         "status": "success",

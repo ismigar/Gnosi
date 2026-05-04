@@ -1,12 +1,39 @@
 import logging
 import base64
-import os
+import yaml
 from pathlib import Path
-from datetime import datetime
 from backend.services.google_mail_service import get_gmail_service
 from backend.config.app_config import load_params
+from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
+
+# Labels que indiquen el tipus de carpeta a Gmail
+_LABEL_TYPE_MAP = {
+    'SENT': 'Sent',
+    'DRAFT': 'Draft',
+    'SPAM': 'Spam',
+    'TRASH': 'Deleted',
+}
+
+# Queries per carpeta + tipus resultant
+_FOLDER_QUERIES = [
+    ('label:INBOX', 'Received'),
+    ('label:SENT',  'Sent'),
+    ('in:drafts',   'Draft'),
+    ('label:SPAM',  'Spam'),
+    ('label:TRASH', 'Deleted'),
+]
+
+# Gmail category labels → nom intern
+_CATEGORY_LABEL_MAP = {
+    'CATEGORY_PROMOTIONS': 'Promotions',
+    'CATEGORY_SOCIAL':     'Social',
+    'CATEGORY_UPDATES':    'Updates',
+    'CATEGORY_FORUMS':     'Forums',
+    'CATEGORY_PERSONAL':   'Personal',
+}
+
 
 class VaultMailSyncService:
     def __init__(self):
@@ -14,89 +41,120 @@ class VaultMailSyncService:
         raw_vault = self.config.paths.get("VAULT")
         self.vault_path = Path(raw_vault) if raw_vault else None
         self.mail_folder = self.vault_path / "Mail" if self.vault_path else None
-        
         if self.mail_folder:
             try:
                 self.mail_folder.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                print(f"⚠️ MailSync: Error creating Mail directory: {e}")
+            except Exception:
+                pass
 
     def sync_emails(self, email_account: str, limit: int = 20):
-        """Syncs recent emails from Gmail to the Vault."""
+        """Syncs recent emails from Gmail (INBOX, SENT, DRAFTS, SPAM) to the Vault."""
+        from backend.services.integration_manager import integration_manager
+        integrations = integration_manager.get_all_safe()
+
+        account_data = next(
+            (acc for acc in (integrations.get("emails", []) + integrations.get("mail_accounts", []))
+             if acc.get("email") == email_account),
+            None
+        )
+        if account_data and account_data.get("provider") != "google":
+            log.info(f"Skipping sync for non-Google account: {email_account} (IMAP support pending)")
+            return 0
+
         service = get_gmail_service(email_account)
         if not service:
-            log.error(f"Could not initialize Gmail service for {email_account}")
+            log.debug(f"Could not initialize Gmail service for {email_account}")
             return 0
 
-        try:
-            results = service.users().messages().list(userId='me', maxResults=limit, q="label:INBOX").execute()
-            messages = results.get('messages', [])
-            
-            synced_count = 0
-            for msg_meta in messages:
-                if self._sync_single_message(service, msg_meta['id']):
-                    synced_count += 1
-            
-            return synced_count
-        except Exception as e:
-            log.error(f"Error during vault mail sync: {e}")
-            return 0
+        total_synced = 0
+        for query, default_type in _FOLDER_QUERIES:
+            try:
+                results = service.users().messages().list(
+                    userId='me', maxResults=limit, q=query
+                ).execute()
+                for msg_meta in results.get('messages', []):
+                    if self._sync_single_message(service, msg_meta['id'], email_account, default_type):
+                        total_synced += 1
+            except Exception as e:
+                log.error(f"Error syncing folder '{query}' for {email_account}: {e}")
 
-    def _sync_single_message(self, service, msg_id):
-        """Syncs a single Gmail message to a .md file in the Vault."""
+        return total_synced
+
+    def _sync_single_message(self, service, msg_id: str, email_account: str, default_type: str) -> bool:
+        """Syncs a single Gmail message to .md (+ optional .html) files in the Vault."""
         try:
-            # Check if already exists (fast check by ID in filename might be enough, but let's be more robust later)
-            # For now, we fetch details first
+            # Fast duplicate check by msg_id prefix in filename
+            existing = list(self.mail_folder.glob(f"{msg_id}_*.md"))
+            if existing:
+                return False
+
             msg = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
-            
-            thread_id = msg.get('threadId')
-            headers = msg.get('payload', {}).get('headers', [])
-            
-            subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), "Untitled")
-            sender = next((h['value'] for h in headers if h['name'].lower() == 'from'), "Unknown")
-            to = next((h['value'] for h in headers if h['name'].lower() == 'to'), "")
-            date_str = next((h['value'] for h in headers if h['name'].lower() == 'date'), "")
-            
-            # Clean subject for filename
-            clean_subject = "".join([c for c in subject if c.isalnum() or c in (' ', '-', '_')]).strip()[:50]
-            filename = f"{msg_id}_{clean_subject}.md"
+            label_ids = msg.get('labelIds', [])
+            payload = msg.get('payload', {})
+            headers = payload.get('headers', [])
+
+            def _header(name):
+                return next((h['value'] for h in headers if h['name'].lower() == name.lower()), "")
+
+            subject = _header('Subject') or "Untitled"
+            sender  = _header('From')    or "Unknown"
+            to      = _header('To')      or ""
+            cc      = _header('Cc')      or ""
+            bcc     = _header('Bcc')     or ""
+            date_str = _header('Date')   or ""
+            thread_id = msg.get('threadId', msg_id)
+
+            # Detect type from Gmail labels
+            msg_type = default_type
+            for label, label_type in _LABEL_TYPE_MAP.items():
+                if label in label_ids:
+                    msg_type = label_type
+                    break
+
+            is_read = 'UNREAD' not in label_ids
+            has_attachments = self._has_attachments(payload)
+
+            # Extract bodies
+            text_body = self._extract_text(payload)
+            html_body = self._extract_html(payload)
+
+            # Build filename
+            clean = "".join(c for c in subject if c.isalnum() or c in (' ', '-', '_')).strip()[:50]
+            filename = f"{msg_id}_{clean}.md"
             file_path = self.mail_folder / filename
 
-            if file_path.exists():
-                return False # Already synced
-
-            # Extract body
-            body = self._extract_body(msg.get('payload', {}))
-            
-            # Prepare Frontmatter Metadata
-            def _sanitize(val):
-                if isinstance(val, str):
-                    # escape quotes so yaml.dump will produce valid output
-                    return val.replace('"', '\\"')
-                return val
+            def _sanitize(val: str) -> str:
+                return val.replace('"', '\\"') if isinstance(val, str) else val
 
             metadata = {
-                "title": _sanitize(subject),
-                "id": msg_id,
-                "type": "Received",
-                "sender": _sanitize(sender),
-                "recipients": _sanitize(to),
-                "date": date_str,
-                "category": "Main",
-                "archived": False,
-                "spam": False,
-                "is_starred": False,
-                "thread_id": thread_id,
-                "gmail_id": msg_id,
-                "database_table_id": "mail"
+                "title":            _sanitize(subject),
+                "id":               msg_id,
+                "gmail_id":         msg_id,
+                "thread_id":        thread_id,
+                "type":             msg_type,
+                "sender":           _sanitize(sender),
+                "recipients":       _sanitize(to),
+                "cc":               _sanitize(cc),
+                "bcc":              _sanitize(bcc),
+                "date":             date_str,
+                "is_read":          is_read,
+                "is_starred":       'STARRED' in label_ids,
+                "has_attachments":  has_attachments,
+                "has_html":         bool(html_body),
+                "category":         next((v for k, v in _CATEGORY_LABEL_MAP.items() if k in label_ids), 'Main'),
+                "archived":         'TRASH' in label_ids,
+                "spam":             'SPAM' in label_ids,
+                "account":          email_account,
+                "database_table_id": "mail",
             }
-            
-            import yaml
-            # Use allow_unicode=True and sort_keys=False for a cleaner look
-            yaml_frontmatter = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
-            full_content = f"---\n{yaml_frontmatter}---\n\n{body}\n"
-            
-            file_path.write_text(full_content, encoding="utf-8")
+
+            yaml_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            safe_write_text(file_path, f"---\n{yaml_front}---\n\n{text_body}\n")
+
+            if html_body:
+                html_path = file_path.with_suffix('.html')
+                safe_write_text(html_path, html_body)
+
             log.info(f"Synced email to Vault: {filename}")
             return True
 
@@ -104,19 +162,45 @@ class VaultMailSyncService:
             log.error(f"Error syncing message {msg_id}: {e}")
             return False
 
-    def _extract_body(self, payload):
-        """Recursively extracts the plain text body from the Gmail payload."""
+    # ------------------------------------------------------------------ #
+    # Helpers                                                              #
+    # ------------------------------------------------------------------ #
+
+    def _extract_text(self, payload) -> str:
+        """Recursively extracts text/plain body."""
         if 'parts' in payload:
             for part in payload['parts']:
-                body = self._extract_body(part)
-                if body:
-                    return body
-        
+                result = self._extract_text(part)
+                if result:
+                    return result
         if payload.get('mimeType') == 'text/plain':
             data = payload.get('body', {}).get('data', '')
             if data:
                 return base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
-        
         return ""
+
+    def _extract_html(self, payload) -> str:
+        """Recursively extracts text/html body."""
+        if 'parts' in payload:
+            for part in payload['parts']:
+                result = self._extract_html(part)
+                if result:
+                    return result
+        if payload.get('mimeType') == 'text/html':
+            data = payload.get('body', {}).get('data', '')
+            if data:
+                return base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
+        return ""
+
+    def _has_attachments(self, payload) -> bool:
+        """Returns True if the message has any non-text attachments."""
+        mime = payload.get('mimeType', '')
+        if mime not in ('text/plain', 'text/html', '') and payload.get('body', {}).get('attachmentId'):
+            return True
+        for part in payload.get('parts', []):
+            if self._has_attachments(part):
+                return True
+        return False
+
 
 sync_service = VaultMailSyncService()

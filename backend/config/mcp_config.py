@@ -5,11 +5,6 @@
 # Important: Els contenidors han de tenir noms fixos (ex: notion-mcp, n8n-mcp).
 
 MCP_SERVERS = {
-    "notion": {
-        "command": "docker",
-        "args": ["exec", "-i", "notion-mcp", "node", "index.js"],
-        "description": "Access to Notion workspace (Search, Read, Write pages/databases)."
-    },
     "n8n": {
         "command": "docker",
         "args": ["exec", "-i", "n8n-mcp", "node", "index.js"],

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle, Calendar, ExternalLink } from 'lucide-react';
-import { SocialLayout } from '../components/social/SocialLayout';
 
 const PostHistory = () => {
     const [history, setHistory] = useState([]);
@@ -46,18 +45,17 @@ const PostHistory = () => {
         return configs[status] || configs.pending;
     };
 
-    const ActionButton = (
-        <button
-            onClick={fetchHistory}
-            className={`p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all ${isRefreshing ? 'animate-spin' : ''}`}
-            title="Refrescar"
-        >
-            <RefreshCw size={20} />
-        </button>
-    );
-
     return (
-        <SocialLayout title="History" action={ActionButton}>
+        <div className="h-full overflow-y-auto p-6">
+            <div className="flex justify-end mb-4 shrink-0">
+                <button
+                    onClick={fetchHistory}
+                    className={`p-2 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] transition-all ${isRefreshing ? 'animate-spin' : ''}`}
+                    title="Refrescar"
+                >
+                    <RefreshCw size={18} />
+                </button>
+            </div>
             <div className="max-w-3xl mx-auto space-y-6 pb-12">
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-64 text-zinc-500 gap-4">
@@ -121,7 +119,7 @@ const PostHistory = () => {
                     })
                 )}
             </div>
-        </SocialLayout>
+        </div>
     );
 };
 

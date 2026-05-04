@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, FileText, Hash, FolderClosed, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { isCalendarPage } from './schemaUtils';
 
 export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
+    const { t, i18n } = useTranslation();
     const [selectedIndex, setSelectedIndex] = useState(0);
     const listRef = useRef(null);
 
     // Filter and sort notes
     const recentNotes = React.useMemo(() => {
+        // Filter out calendar pages
+        const filtered = (allNotes || []).filter(p => !isCalendarPage(p));
+
         // Sort by last_modified descending
-        const sorted = [...allNotes].sort((a, b) => {
+        const sorted = filtered.sort((a, b) => {
             const dateA = new Date(a.last_modified || 0).getTime();
             const dateB = new Date(b.last_modified || 0).getTime();
             return dateB - dateA;
@@ -69,7 +75,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const formatDate = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        return date.toLocaleDateString('ca-ES', {
+        return date.toLocaleDateString(i18n.language === 'en' ? 'en-GB' : i18n.language === 'es' ? 'es-ES' : 'ca-ES', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -83,14 +89,13 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
             {/* Overlay */}
             <div
                 className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
             ></div>
 
             {/* Modal */}
             <div className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]">
                 <div className="flex items-center px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
                     <Clock size={20} className="text-[var(--text-tertiary)]/70 shrink-0 mr-3" />
-                    <h2 className="text-lg font-bold text-[var(--text-primary)] flex-1">Pàgines Recents</h2>
+                    <h2 className="text-lg font-bold text-[var(--text-primary)] flex-1">{t('vault.recent.title')}</h2>
                     <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-[var(--text-tertiary)]/60 bg-[var(--bg-primary)] px-2 py-1 rounded border border-[var(--border-primary)] shadow-sm">
                         ESC
                     </kbd>
@@ -99,7 +104,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
                 <div className="overflow-y-auto max-h-[60vh] custom-scrollbar" ref={listRef}>
                     {recentNotes.length === 0 ? (
                         <div className="px-6 py-12 text-center text-[var(--text-tertiary)] text-sm">
-                            No hi ha pàgines recents per mostrar.
+                            {t('vault.recent.empty')}
                         </div>
                     ) : (
                         <div className="p-2 space-y-1">
@@ -124,11 +129,11 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
                                             )}
                                             <div>
                                                 <h3 className={`text-sm font-bold ${isSelected ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>
-                                                    {note.title || note.filename || 'Sense Títol'}
+                                                    {note.title || note.filename || t('common.untitled')}
                                                 </h3>
                                                 <div className="flex items-center gap-2 mt-0.5 opacity-70">
                                                     <span className="text-[11px] font-medium text-[var(--text-secondary)]/60">
-                                                        Modificat: {formatDate(note.last_modified)}
+                                                        {t('vault.recent.modified')} {formatDate(note.last_modified)}
                                                     </span>
                                                     {note.folder && (
                                                         <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-secondary)]">

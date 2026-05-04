@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { RefreshCw, Check } from 'lucide-react';
 import { Layout } from '../components/Layout';
@@ -13,7 +14,7 @@ import { Legend } from '../components/Legend';
 import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
-import { applyFilters } from '../utils/graphFilters';
+import { applyFilters, getEffectiveTableId, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
 
 
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
@@ -26,9 +27,11 @@ function GraphPage() {
     const [rendererInstance, setRendererInstance] = useState(null);
     const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-    const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(true);
+    // Layout igraph FR calculat al backend. FA2 desactivat per defecte.
+    const isPhysicsEnabled = false;
 
     // Filter State
+    const location = useLocation();
     const [searchTerm, setSearchTerm] = useState("");
     const [similarity, setSimilarity] = useState(100);
     const [hideIsolated, setHideIsolated] = useState(false);
@@ -54,25 +57,28 @@ function GraphPage() {
     // Visualization State
     const [showArrows, setShowArrows] = useState(true);
     const [labelThreshold, setLabelThreshold] = useState(14);
-    const [nodeSize, setNodeSize] = useState(1.0);
-    const [edgeThickness, setEdgeThickness] = useState(1.2);
+    const [nodeSize, setNodeSize] = useState(0.4);
+    const [edgeThickness, setEdgeThickness] = useState(0.05);
 
     // Physics State - UI (Instant feedback for sliders)
-    const [gravityUI, setGravityUI] = useState(0.01);   // Increased Gravity
-    const [repulsionUI, setRepulsionUI] = useState(15000); // Increased Repulsion
-    const [frictionUI, setFrictionUI] = useState(2.5);    // Increased Friction
-    const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(5); // High Link Force
+    const [gravityUI, setGravityUI] = useState(0.1);
+    const [repulsionUI, setRepulsionUI] = useState(2000);
+    const [frictionUI, setFrictionUI] = useState(1.0);
+    const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(1.0);
 
-    const [linLogMode, setLinLogMode] = useState(false); // Vanilla
+    const [linLogMode, setLinLogMode] = useState(true);
+    const [strongGravityMode, setStrongGravityMode] = useState(true);
+    const [outboundAttractionDistribution, setOutboundAttractionDistribution] = useState(true);
 
     // Sync State
     const [isSyncing, setIsSyncing] = useState(false);
 
     // Physics State - Real (Debounced for ForceAtlas2)
-    const [gravity, setGravity] = useState(0.005);
+    // Inicials iguals als UI per evitar restart brusc als 300ms
+    const [gravity, setGravity] = useState(0.1);
     const [repulsion, setRepulsion] = useState(2000);
-    const [friction, setFriction] = useState(1.5);
-    const [edgeInfluence, setEdgeInfluence] = useState(5);
+    const [friction, setFriction] = useState(1.0);
+    const [edgeInfluence, setEdgeInfluence] = useState(1.0);
 
 
     // Debounce Effects
@@ -215,6 +221,20 @@ function GraphPage() {
         const matcher = window.matchMedia('(prefers-color-scheme: dark)');
         const onChange = (e) => setIsDarkMode(e.matches);
         matcher.addEventListener('change', onChange);
+
+        // Deep linking support
+        const params = new URLSearchParams(location.search);
+        const nodeToSelect = params.get('node');
+        if (nodeToSelect) {
+            // We set a small delay to wait for graph layout or data to be ready in the DOM
+            setTimeout(() => {
+                setSelectedNode(String(nodeToSelect));
+                if (graphViewerRef.current) {
+                    graphViewerRef.current.panToNode(String(nodeToSelect), 2.5);
+                }
+            }, 1500);
+        }
+
         return () => matcher.removeEventListener('change', onChange);
     }, []);
 
@@ -225,12 +245,26 @@ function GraphPage() {
         if (g.visible_databases) setVisibleDatabases(g.visible_databases);
         if (g.visible_tables) setVisibleTables(g.visible_tables);
         if (g.visible_fields) setVisibleFields(g.visible_fields);
-        if (g.graph_table_filters) {
-            setGraphTableFiltersSettings(g.graph_table_filters);
-            setActiveTableFilters(new Set(['__wiki__', ...g.graph_table_filters]));
-        } else {
-            setActiveTableFilters(new Set(['__wiki__']));
+        
+        if (g.field_defaults) {
+            const initialFilters = {};
+            Object.entries(g.field_defaults).forEach(([fieldKey, defaultVal]) => {
+                if (defaultVal) {
+                    initialFilters[fieldKey] = new Set([defaultVal]);
+                }
+            });
+            setFieldFilters(initialFilters);
         }
+
+        // graph_table_filters explícit té prioritat; si no n'hi ha, derivem de visible_tables
+        // (tota taula activada al settings apareix com toggle al sidebar del graf)
+        const tableFilters = g.graph_table_filters?.length > 0
+            ? g.graph_table_filters
+            : (g.visible_tables || []);
+        setGraphTableFiltersSettings(tableFilters);
+        // Wiki s'inclou si visible_databases és buit (= tot visible) o conté 'wiki'
+        const wikiVisible = !g.visible_databases?.length || g.visible_databases.includes('wiki');
+        setActiveTableFilters(new Set([...(wikiVisible ? ['__wiki__'] : []), ...tableFilters]));
         if (g.show_arrows !== undefined) setShowArrows(g.show_arrows);
         if (g.label_threshold) setLabelThreshold(g.label_threshold);
         if (g.node_size) setNodeSize(g.node_size);
@@ -257,10 +291,7 @@ function GraphPage() {
                 const { version: newVersion } = await versionRes.json();
 
                 if (newVersion && newVersion !== graphVersion) {
-                    console.log("📊 Graph version changed, reloading...");
                     fetchGraphData(true);
-                } else {
-                    console.log("✅ Sync completed, no changes detected.");
                 }
             } catch (err) {
                 console.error("❌ Sync error:", err);
@@ -284,13 +315,10 @@ function GraphPage() {
         }
 
         if (match) {
-            console.log("Found match:", match.label);
             setSelectedNode(String(match.key));
             if (graphViewerRef.current) {
                 graphViewerRef.current.panToNode(String(match.key), 2.5);
             }
-        } else {
-            console.log("No match found for", term);
         }
     };
 
@@ -350,22 +378,40 @@ function GraphPage() {
     }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
+    // Només comptem edges "link" (wikilinks) per mantenir coherència amb el que es renderitza.
     const memoizedGraph = useMemo(() => {
         if (!graphData?.nodes) return null;
         const g = new Graph();
         graphData.nodes.forEach(n => g.addNode(n.key, n));
-        graphData.edges.forEach(e => g.addEdge(e.source, e.target, e));
+        graphData.edges.forEach(e => {
+            if (e.kind !== 'link') return;
+            try { g.addEdge(e.source, e.target, e); } catch (_) {}
+        });
         return g;
     }, [graphData]);
 
     const { filteredNodesCount, filteredEdgesCount } = useMemo(() => {
         if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0 };
         const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
-        return { 
-            filteredNodesCount: visibleNodes.size, 
-            filteredEdgesCount: visibleEdges.size 
-        };
+        return { filteredNodesCount: visibleNodes.size, filteredEdgesCount: visibleEdges.size };
     }, [memoizedGraph, filters]);
+
+    // Pre-computa els valors disponibles per cada camp configurat — O(nodes × camps) un sol cop per càrrega
+    const fieldValuesByKey = useMemo(() => {
+        const result = {};
+        visibleFields.forEach(fieldKey => {
+            if (!fieldKey?.includes(':')) return;
+            const [tableId, fieldName] = fieldKey.split(':');
+            const vm = new Map();
+            (graphData?.nodes || []).forEach(attrs => {
+                if (getEffectiveTableId(attrs) !== tableId) return;
+                toValueStrings(resolveMetaValue(attrs, fieldName))
+                    .forEach(v => vm.set(v, (vm.get(v) || 0) + 1));
+            });
+            result[fieldKey] = Array.from(vm.entries()).sort((a, b) => b[1] - a[1]);
+        });
+        return result;
+    }, [graphData, visibleFields]);
 
 
 
@@ -452,6 +498,10 @@ function GraphPage() {
                                 onEdgeInfluenceChange={setEdgeInfluenceUI}
                                 linLogMode={linLogMode}
                                 onLinLogModeChange={setLinLogMode}
+                                strongGravityMode={strongGravityMode}
+                                onStrongGravityModeChange={setStrongGravityMode}
+                                outboundAttractionDistribution={outboundAttractionDistribution}
+                                onOutboundAttractionDistributionChange={setOutboundAttractionDistribution}
                             />
                         </div>
                     }
@@ -459,8 +509,8 @@ function GraphPage() {
                     {/* Table Filters */}
                     <CollapsibleSection title="Filtre de Taules" badge={activeTableFilters.size} defaultOpen={true}>
                         <div className="filter-list">
-                            {/* Default: Wiki pages (no table) */}
-                            <div className="filter-item-advanced">
+                            {/* Wiki: només si visible_databases és buit o inclou 'wiki' */}
+                            {(visibleDatabases.length === 0 || visibleDatabases.includes('wiki')) && <div className="filter-item-advanced">
                                 <input
                                     type="checkbox"
                                     id="table-filter-__wiki__"
@@ -479,10 +529,10 @@ function GraphPage() {
                                     </span>
                                     <span className="filter-label-text">📄 Pàgines Wiki</span>
                                 </label>
-                            </div>
+                            </div>}
                             {/* Configured table filters */}
                             {graphTableFiltersSettings.map(tableId => {
-                                const table = availableTables.find(t => t.id === tableId) || { name: tableId };
+                                const table = (availableTables || []).find(t => t?.id === tableId) || { name: tableId };
                                 return (
                                     <div key={tableId} className="filter-item-advanced">
                                         <input
@@ -547,45 +597,31 @@ function GraphPage() {
                         <CollapsibleSection title="Filtre de Camps" badge={visibleFields.length} defaultOpen={true}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                                 {visibleFields.map(fieldKey => {
+                                    if (!fieldKey || !fieldKey.includes(':')) return null;
                                     const [tableId, fieldName] = fieldKey.split(':');
-                                    const table = availableTables.find(t => t.id === tableId) || { name: tableId };
-                                    const fieldDef = (table.properties || table.fields || []).find(f => f.name === fieldName);
-
-                                    // Calculate available values for this field
-                                    const valuesMap = new Map();
-
-                                    // 1. Try from graph data (current nodes)
-                                    if (graphInstance) {
-                                        graphInstance.forEachNode((node, attrs) => {
-                                            const nodeTable = attrs.table_id || attrs.database_table_id;
-                                            if (nodeTable === tableId) {
-                                                const val = attrs[fieldName] || attrs.metadata?.[fieldName];
-                                                if (val !== undefined && val !== null && val !== "") {
-                                                    valuesMap.set(val, (valuesMap.get(val) || 0) + 1);
-                                                }
-                                            }
-                                        });
+                                    let tableName = tableId;
+                                    const table = (availableTables || []).find(t => t?.id === tableId);
+                                    
+                                    if (table && table.name) {
+                                        tableName = table.name;
+                                    } else {
+                                        // Specific system entity labels
+                                        if (tableId === 'wiki') tableName = 'Wiki';
+                                        else if (tableId === 'drawings') tableName = 'Dibuixos';
+                                        else if (tableId === 'images') tableName = 'Imatges';
+                                        else if (tableId === 'assets') tableName = 'Adjunts';
+                                        else if (tableId.startsWith('calendar:')) tableName = 'Calendari';
+                                        else if (tableId.startsWith('contact:')) tableName = 'Contacte';
+                                        else if (tableId.startsWith('mail:')) tableName = 'Mail';
                                     }
 
-                                    // 2. Fallback: use field definition options (select/multi_select)
-                                    if (valuesMap.size === 0 && fieldDef) {
-                                        const options = fieldDef.settings?.options || fieldDef.select?.options || fieldDef.multi_select?.options || fieldDef.options;
-                                        if (options) {
-                                            options.forEach(opt => {
-                                                const val = typeof opt === 'string' ? opt : (opt.name || opt.value);
-                                                if (val) valuesMap.set(val, 0);
-                                            });
-                                        }
-                                    }
-
-                                    const sortedValues = Array.from(valuesMap.entries())
-                                        .sort((a, b) => b[1] - a[1]);
+                                    const sortedValues = fieldValuesByKey[fieldKey] || [];
 
                                     return (
                                         <div key={fieldKey} style={{ background: 'var(--bg-secondary)', padding: '10px', borderRadius: '8px' }}>
                                             <h5 style={{ fontSize: '0.8rem', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                 <span style={{ fontSize: '12px' }}>⚙</span>
-                                                {table.name}: {fieldName}
+                                                {tableName}: {fieldName}
                                             </h5>
                                             {sortedValues.length === 0 ? (
                                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
@@ -671,8 +707,6 @@ function GraphPage() {
                     onZoomOut={() => graphViewerRef.current?.zoomOut()}
                     onCenter={() => graphViewerRef.current?.center()}
                     onFullscreen={() => graphViewerRef.current?.fullscreen()}
-                    isPhysicsEnabled={isPhysicsEnabled}
-                    setIsPhysicsEnabled={setIsPhysicsEnabled}
                 />
             }
             bottomPanel={
@@ -713,6 +747,8 @@ function GraphPage() {
                     friction={friction}
                     edgeInfluence={edgeInfluence}
                     linLogMode={linLogMode}
+                    strongGravityMode={strongGravityMode}
+                    outboundAttractionDistribution={outboundAttractionDistribution}
                 />
                 <Legend 
                     graphData={graphData} 

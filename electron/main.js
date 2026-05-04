@@ -287,6 +287,72 @@ function setupIPC() {
   ipcMain.handle('install-update', () => {
     autoUpdater.quitAndInstall();
   });
+
+  ipcMain.handle('open-form-filler', async (event, { url, profile }) => {
+    log('Opening form filler for:', url);
+    
+    const fillerWin = new BrowserWindow({
+      width: 1000,
+      height: 800,
+      title: 'Gnosi Form Filler',
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      }
+    });
+
+    fillerWin.loadURL(url);
+
+    fillerWin.webContents.on('did-finish-load', () => {
+      log('Form loaded, injecting script...');
+      
+      const script = `
+        (function() {
+          const profile = ${JSON.stringify(profile)};
+          console.log('Gnosi: Starting autocomplete with profile', profile);
+          
+          const fields = {
+            email: ['email', 'mail', 'correu', 'correo'],
+            first_name: ['first_name', 'nombre', 'nom', 'given-name'],
+            last_name: ['last_name', 'cognom', 'apellido', 'family-name'],
+            full_name: ['full_name', 'name', 'nombre_completo', 'nom_complet'],
+            phone: ['phone', 'tel', 'mobil', 'móvil', 'telefon'],
+            address: ['address', 'adreça', 'direccion', 'dirección', 'street'],
+            city: ['city', 'ciutat', 'poblacio', 'población'],
+            zip_code: ['zip', 'postal', 'codi_postal', 'cp'],
+            dni_nie: ['dni', 'nif', 'nie', 'document']
+          };
+
+          function fill() {
+            const inputs = document.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+              const name = (input.name || '').toLowerCase();
+              const id = (input.id || '').toLowerCase();
+              const placeholder = (input.placeholder || '').toLowerCase();
+              const label = input.labels && input.labels.length > 0 ? input.labels[0].innerText.toLowerCase() : '';
+              
+              for (const [key, patterns] of Object.entries(fields)) {
+                if (profile[key] && patterns.some(p => name.includes(p) || id.includes(p) || placeholder.includes(p) || label.includes(p))) {
+                  console.log('Gnosi: Filling field', key, 'into', name || id);
+                  input.value = profile[key];
+                  input.dispatchEvent(new Event('input', { bubbles: true }));
+                  input.dispatchEvent(new Event('change', { bubbles: true }));
+                  break;
+                }
+              }
+            });
+          }
+
+          // Run once and also observe for dynamic forms (like Google Forms sections)
+          fill();
+          setTimeout(fill, 1000);
+          setTimeout(fill, 3000);
+        })();
+      `;
+
+      fillerWin.webContents.executeJavaScript(script);
+    });
+  });
 }
 
 app.whenReady().then(async () => {

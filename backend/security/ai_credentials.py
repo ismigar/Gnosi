@@ -10,6 +10,16 @@ PROVIDER_CREDENTIAL_KEYS = {
     "anthropic": "anthropic_api_key",
     "openrouter": "openrouter_api_key",
     "google": "google_api_key",
+    "perplexity": "perplexity_api_key",
+    "together": "together_api_key",
+    "fireworks": "fireworks_api_key",
+    "xai": "xai_api_key",
+    "deepseek": "deepseek_api_key",
+    "mistral": "mistral_api_key",
+    "cohere": "cohere_api_key",
+    "voyage": "voyage_api_key",
+    "novita": "novita_api_key",
+    "siliconflow": "siliconflow_api_key",
 }
 
 PROVIDER_ENV_KEYS = {
@@ -18,15 +28,51 @@ PROVIDER_ENV_KEYS = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "google": "GOOGLE_API_KEY",
+    "perplexity": "PERPLEXITY_API_KEY",
+    "together": "TOGETHER_API_KEY",
+    "fireworks": "FIREWORKS_API_KEY",
+    "xai": "XAI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
 }
 
 PROVIDER_MODELS = {
     "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
-    "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4.1-mini"],
+    "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"],
     "anthropic": ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"],
-    "openrouter": ["openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet", "meta-llama/llama-3.1-70b-instruct"],
+    "openrouter": ["openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet", "meta-llama/llama-3.1-70b-instruct", "deepseek/deepseek-chat"],
     "google": ["gemini-1.5-pro", "gemini-1.5-flash"],
-    "ollama": ["llama3.2", "qwen2.5", "mistral"],
+    "perplexity": ["llama-3.1-sonar-large-128k-online", "llama-3.1-sonar-small-128k-online"],
+    "together": ["meta-llama/Llama-3.1-405B-Instruct-Turbo", "meta-llama/Llama-3.1-70B-Instruct-Turbo", "mistralai/Mixtral-8x7B-Instruct-v0.1"],
+    "fireworks": ["accounts/fireworks/models/llama-v3p1-405b-instruct", "accounts/fireworks/models/llama-v3p1-70b-instruct"],
+    "xai": ["grok-2-1212", "grok-2-mini-1212", "grok-beta"],
+    "deepseek": ["deepseek-chat", "deepseek-coder"],
+    "mistral": ["mistral-large-latest", "pixtral-large-latest", "mistral-small-latest"],
+    "cohere": ["command-r-plus", "command-v0.1"],
+    "novita": ["meta-llama/llama-3.1-70b-instruct", "meta-llama/llama-3.1-8b-instruct"],
+    "siliconflow": ["deepseek-ai/DeepSeek-V3", "meta-llama/Llama-3.1-70B-Instruct"],
+    "voyage": ["voyage-2", "voyage-large-2"],
+    "ollama": ["llama3.2:latest", "mistral", "phi3"],
+    "generic": ["custom-model-1", "custom-model-2"],
+}
+
+PROVIDER_METADATA = {
+    "groq": {"name": "Groq", "icon": "https://groq.com/favicon.ico"},
+    "openai": {"name": "OpenAI", "icon": "https://openai.com/favicon.ico"},
+    "anthropic": {"name": "Anthropic", "icon": "https://www.anthropic.com/favicon.ico"},
+    "openrouter": {"name": "OpenRouter", "icon": "https://openrouter.ai/favicon.ico"},
+    "google": {"name": "Google Gemini", "icon": "https://www.gstatic.com/lamda/images/favicon_v2_71f1146747ef16186b970.png"},
+    "perplexity": {"name": "Perplexity", "icon": "https://www.perplexity.ai/favicon.ico"},
+    "together": {"name": "Together AI", "icon": "https://www.together.ai/favicon.ico"},
+    "fireworks": {"name": "Fireworks AI", "icon": "https://fireworks.ai/favicon.ico"},
+    "xai": {"name": "xAI (Grok)", "icon": "https://x.ai/favicon.ico"},
+    "deepseek": {"name": "DeepSeek", "icon": "https://www.deepseek.com/favicon.ico"},
+    "mistral": {"name": "Mistral AI", "icon": "https://mistral.ai/img/favicon.ico"},
+    "cohere": {"name": "Cohere", "icon": "https://cohere.com/favicon.ico"},
+    "voyage": {"name": "Voyage AI", "icon": "https://voyageai.com/favicon.ico"},
+    "novita": {"name": "Novita AI", "icon": "https://novita.ai/favicon.ico"},
+    "siliconflow": {"name": "SiliconFlow", "icon": "https://siliconflow.cn/favicon.ico"},
+    "ollama": {"name": "Ollama (Local)", "icon": ""},
+    "generic": {"name": "Generic OpenAI", "icon": ""},
 }
 
 
@@ -61,17 +107,20 @@ def resolve_provider_api_key(provider_id: str, provider_cfg: Optional[Dict[str, 
     if isinstance(inline_key, str) and inline_key.strip() and inline_key.strip() != "********":
         return inline_key.strip()
 
+    # Try mapping pattern
     ref = normalize_credential_ref(provider_id, cfg)
-    if ref and ref.startswith("__keychain__:"):
-        key = ref.split(":", 1)[1]
-    else:
-        key = ref or credential_key_for_provider(provider_id)
-
-    if key:
+    if not ref:
+        # Fallback to canonical gnosi pattern
+        ref = credential_key_for_provider(provider_id)
+    
+    if ref:
+        # Check if it's already a __keychain__ ref
+        key = ref.split(":", 1)[1] if ref.startswith("__keychain__:") else ref
         secure = get_keychain().get_credential(key)
         if secure:
             return secure
 
+    # Final fallback to environment
     env_key = env_key_for_provider(provider_id)
     if env_key:
         env_value = os.environ.get(env_key)
@@ -105,6 +154,7 @@ def sanitize_ai_config(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
         cfg.pop("api_key", None)
         cfg["credential_ref"] = normalize_credential_ref(provider_id, cfg)
         cfg["has_api_key"] = has_provider_api_key(provider_id, provider_cfg)
+        cfg["enabled"] = cfg.get("enabled", True)
         sanitized_providers[provider_id] = cfg
 
     sanitized["providers"] = sanitized_providers
@@ -145,14 +195,18 @@ def get_ai_catalog_with_status(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
     providers: List[Dict[str, Any]] = []
     for provider_id in provider_ids:
         cfg = dict(providers_cfg.get(provider_id) or {})
+        meta = PROVIDER_METADATA.get(provider_id, {"name": provider_id.capitalize(), "icon": ""})
         providers.append(
             {
                 "id": provider_id,
+                "name": meta["name"],
+                "icon": meta["icon"],
                 "models": PROVIDER_MODELS.get(provider_id, []),
                 "base_url": cfg.get("base_url", ""),
                 "model_name": cfg.get("model_name", ""),
                 "credential_ref": normalize_credential_ref(provider_id, cfg),
                 "has_api_key": has_provider_api_key(provider_id, cfg),
+                "enabled": cfg.get("enabled", True),
             }
         )
 

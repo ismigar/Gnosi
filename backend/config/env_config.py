@@ -23,10 +23,17 @@ _loaded = False
 _keychain_loaded = False
 
 
+def _is_docker() -> bool:
+    return Path("/.dockerenv").exists() or bool(os.environ.get("DOCKER_CONTAINER"))
+
+
 def _load_keychain():
-    """Load credentials from Keychain if available."""
+    """Load credentials from Keychain if available. Skipped in Docker (env vars come from env_file)."""
     global _keychain_loaded
     if _keychain_loaded:
+        return
+    if _is_docker():
+        _keychain_loaded = True
         return
 
     try:
@@ -36,7 +43,6 @@ def _load_keychain():
         keychain = get_keychain()
 
         key_mapping = {
-            "NOTION_TOKEN": "notion_token",
             "HF_API_KEY": "huggingface_api_key",
             "GROQ_API_KEY": "groq_api_key",
             "OPENROUTER_API_KEY": "openrouter_api_key",
@@ -45,6 +51,8 @@ def _load_keychain():
             "N8N_PASSWORD": "n8n_password",
             "GOOGLE_OAUTH_CLIENT_ID": "google_oauth_client_id",
             "GOOGLE_OAUTH_CLIENT_SECRET": "google_oauth_client_secret",
+            "MICROSOFT_OAUTH_CLIENT_ID": "microsoft_oauth_client_id",
+            "MICROSOFT_OAUTH_CLIENT_SECRET": "microsoft_oauth_client_secret",
             "SSH_PASSWORD": "ssh_password",
             "SSH_SUWEB_PASSWORD": "ssh_suweb_password",
             "DRUPAL_ROOT_PASSWORD": "drupal_root_password",
@@ -53,6 +61,9 @@ def _load_keychain():
             "TEMENOS_MASTODON_BEARER": "mastodon_bearer",
             "TEMENOS_BLUESKY_APP_PASSWORD": "bluesky_app_password",
         }
+
+        # Notion references removed for Standalone Sovereignty
+
 
         for env_name, keychain_key in key_mapping.items():
             if env_name not in os.environ or not os.environ.get(env_name):

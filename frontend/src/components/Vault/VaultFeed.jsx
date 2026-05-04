@@ -1,16 +1,31 @@
 import React, { useMemo, useCallback } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare } from 'lucide-react';
-import { getSchemaFieldEntries } from './schemaUtils';
+import { getSchemaFieldEntries, getFieldConfig } from './schemaUtils';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], onDeleteSelected, onDeletePage, searchTerm = '' }) {
 
     // Totes les propietats dinàmiques excepte el títol
     const dynamicColumns = getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title');
 
-    const renderPropertyValue = (value, type) => {
+    const getRelationDisplayMap = (field) => {
+        const config = getFieldConfig(schema, field);
+        const relatedTableId = config?.relation_database_id;
+        const relatedNotes = relatedTableId
+            ? (allNotes || []).filter(n => {
+                const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                return nTableId === relatedTableId;
+            })
+            : [];
+        return {
+            ...idToTitle,
+            ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])),
+        };
+    };
+
+    const renderPropertyValue = (value, type, field) => {
         if (value === undefined || value === null || value === '') return null;
 
         switch (type) {
@@ -31,17 +46,19 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, on
                     </span>
                 );
             case 'multi_select':
-            case 'relation':
+            case 'relation': {
                 const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
+                const displayMap = type === 'relation' ? getRelationDisplayMap(field) : idToTitle;
                 return (
                     <div className="flex flex-wrap gap-1.5">
                         {items.map((it, idx) => (
                             <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/10 text-indigo-400">
-                                {idToTitle[it] || it}
+                                {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '…' : it)}
                             </span>
                         ))}
                     </div>
                 );
+            }
             case 'url':
                 return (
                     <a href={value} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-indigo-500 hover:text-indigo-600 hover:underline flex items-center gap-1 text-sm truncate max-w-sm">
@@ -214,7 +231,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, on
                                             const originalMetaKey = note.metadata ? (Object.keys(note.metadata).find(k => normalizeKey(k) === targetKeyNorm) || key) : key;
                                             const val = note.metadata?.[originalMetaKey];
 
-                                            const renderedVal = renderPropertyValue(val, type);
+                                            const renderedVal = renderPropertyValue(val, type, key);
                                             if (!renderedVal) return null;
 
                                             return (

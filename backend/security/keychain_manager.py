@@ -70,9 +70,16 @@ class KeychainManager:
                 "-D",
                 "Gnosi Credential",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
-                self._macos_update(key, value)
+                # `security add-generic-password` falla amb returncode 45 si
+                # ja existeix; cau a `-U` (update). Si _macos_update també
+                # falla, hem de retornar False — abans retornava sempre True
+                # i emmascarava errors reals (Keychain bloquejat, etc.).
+                return self._macos_update(key, value)
             return True
         except Exception as e:
             log.error(f"Failed to save to Keychain: {e}")
@@ -95,7 +102,16 @@ class KeychainManager:
                 "Gnosi Credential",
                 "-U",
             ]
-            subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode != 0:
+                log.error(
+                    f"Keychain update failed for {key_name}: "
+                    f"rc={result.returncode} stderr={result.stderr.strip()[:200]}"
+                )
+                return False
             return True
         except Exception as e:
             log.error(f"Failed to update Keychain: {e}")
@@ -114,7 +130,10 @@ class KeychainManager:
                 key_name,
                 "-w",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
         except Exception as e:
@@ -133,7 +152,7 @@ class KeychainManager:
                 "-a",
                 key_name,
             ]
-            subprocess.run(cmd, capture_output=True, text=True)
+            subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             return True
         except Exception:
             return True
@@ -142,7 +161,10 @@ class KeychainManager:
         """List all credentials from macOS Keychain."""
         try:
             cmd = ["security", "dump-trust-settings", "-s", self.service_name]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # timeout=10s perquè si el Keychain està bloquejat i mostra el
+            # diàleg de password, el subprocess es queda penjat indefinidament
+            # i bloqueja el thread del backend.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             lines = result.stdout.split("\n")
             return [line.strip() for line in lines if "acct" in line.lower()]
         except Exception:
@@ -194,16 +216,26 @@ class KeychainManager:
 
             data[key] = value
 
+            from backend.utils.safe_io import safe_write_bytes, safe_write_json
             master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
             if master_key:
                 cipher = Fernet(
                     base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
                 )
-                with open(storage_path, "wb") as f:
-                    f.write(cipher.encrypt(json.dumps(data).encode()))
+                # Atomic write: aquest fitxer conté credencials encriptades,
+                # un crash entremig el deixaria buit/corrupte.
+                safe_write_bytes(storage_path, cipher.encrypt(json.dumps(data).encode()))
             else:
-                with open(storage_path, "w") as f:
-                    json.dump(data, f)
+                # Sense GNOSI_MASTER_KEY els credentials s'escriuen en
+                # CLAR a disc. Avisem perquè és una caiguda de seguretat
+                # silenciosa (l'usuari assumiria que el fitxer .enc està
+                # encriptat com diu el nom).
+                log.warning(
+                    f"⚠️ GNOSI_MASTER_KEY no configurat — credencial '{key}' "
+                    f"escrita SENSE ENCRIPTAR a {storage_path}. Configura "
+                    f"GNOSI_MASTER_KEY per protegir-la."
+                )
+                safe_write_json(storage_path, data)
 
             return True
         except Exception as e:
@@ -262,15 +294,14 @@ class KeychainManager:
 
             data.pop(key, None)
 
+            from backend.utils.safe_io import safe_write_bytes, safe_write_json
             if master_key:
                 cipher = Fernet(
                     base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
                 )
-                with open(storage_path, "wb") as f:
-                    f.write(cipher.encrypt(json.dumps(data).encode()))
+                safe_write_bytes(storage_path, cipher.encrypt(json.dumps(data).encode()))
             else:
-                with open(storage_path, "w") as f:
-                    json.dump(data, f)
+                safe_write_json(storage_path, data)
 
             return True
         except Exception:

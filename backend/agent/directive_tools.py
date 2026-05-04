@@ -2,8 +2,10 @@ from langchain_core.tools import tool
 from pathlib import Path
 import os
 
+from backend.utils.safe_io import safe_write_text
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-INSTRUCTIONS_DIR = BASE_DIR / "backend" / "instructions"
+INSTRUCTIONS_DIR = Path(__file__).resolve().parent / "instructions"
 
 # Ensure instructions directory exists
 INSTRUCTIONS_DIR.mkdir(parents=True, exist_ok=True)
@@ -59,10 +61,12 @@ def update_directive(topic: str, content: str) -> str:
             topic += ".md"
             
         file_path = INSTRUCTIONS_DIR / topic
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-            
+
+        # Atomic write — un crash a meitat de write deixaria una directiva
+        # truncada. L'agent pot estar editant una directiva crítica i un
+        # SIGINT (timeout o restart del backend) la corromp completament.
+        safe_write_text(file_path, content)
+
         return f"Successfully updated directive: {topic}"
             
     except Exception as e:

@@ -5,9 +5,12 @@ from typing import Optional
 import json
 import math
 import networkx as nx
-from config.app_config import load_params 
+from backend.config.app_config import load_params
 from pipeline.utils.json_sanitizer import sanitize_json_graph
-from pipeline.skills.filter_graph.scripts.filter_graph import filter_graph, normalize_notion_tags
+from pipeline.skills.filter_graph.scripts.filter_graph import (
+    filter_graph,
+    normalize_tags,
+)
 import sys
 from pipeline.utils.graph_styles import (
     node_colors,
@@ -16,11 +19,11 @@ from pipeline.utils.graph_styles import (
     SIM_BUCKETS,
     EXPLICIT_EDGE_COLOR,
     DIRECT_CONNECTION,
-    notion_color_to_hex
+    gnosi_color_to_hex,
 )
 import hashlib
 from collections import Counter
-from config.logger_config import get_logger
+from backend.config.logger_config import get_logger
 
 cfg = load_params(strict_env=False)
 log = get_logger(__name__)
@@ -28,8 +31,10 @@ log = get_logger(__name__)
 OUT_JSON = cfg.paths["OUT_JSON"]
 OUT_GRAPH = cfg.paths["OUT_GRAPH"]
 
+
 def clean_label(s: str) -> str:
     return str(s).replace("tag::", "").strip("📍 ").strip()
+
 
 def compute_cluster_and_extras(node: dict) -> tuple:
     tags = node.get("tags") or []
@@ -42,17 +47,17 @@ def compute_cluster_and_extras(node: dict) -> tuple:
 
 
 def convert_for_sigma(
-        sugg_path=OUT_JSON,
-        out_path=OUT_GRAPH,
-        include_tags=True,
-        filters: Optional[dict] = None,
-        layout: str = "reuse",
+    sugg_path=OUT_JSON,
+    out_path=OUT_GRAPH,
+    include_tags=True,
+    filters: Optional[dict] = None,
+    layout: str = "reuse",
 ):
     filters = filters or {}
     data = json.loads(Path(sugg_path).read_text(encoding="utf-8"))
 
     for node in data.get("nodes", []):
-        raw_tags = normalize_notion_tags(node.get("tags"))
+        raw_tags = normalize_tags(node.get("tags"))
 
         fixed_tags = []
         for t in raw_tags:
@@ -79,7 +84,7 @@ def convert_for_sigma(
     # Separate existing tag nodes from input JSON
     existing_tag_nodes = [n for n in filtered_nodes if n.get("kind") == "tag"]
     regular_nodes = [n for n in filtered_nodes if n.get("kind") != "tag"]
-    
+
     tag_nodes_map = {}
     if include_tags:
         # Only use tag nodes that already exist in the JSON
@@ -91,19 +96,19 @@ def convert_for_sigma(
             # Create a tag object compatible with the expected format
             tag_nodes_map[tag_name] = {
                 "name": tag_name,
-                "color": "default"  # We could extract the color if available
+                "color": "default",  # We could extract the color if available
             }
 
     TAG_EDGE_WEIGHT = 0.2
-    
+
     for e in filtered_edges:
         # Determine weight based on evidence
-        weight = 0.5 # Default weak weight
-        
+        weight = 0.5  # Default weak weight
+
         ev = [str(x).lower() for x in (e.get("evidence") or [])]
-        
+
         if "explicit" in ev:
-            weight = 3.0 # Strong pull for explicit links
+            weight = 3.0  # Strong pull for explicit links
         elif "ai" in ev:
             # AI links: weight based on similarity
             sim = float(e.get("similarity", 0) or 0)
@@ -114,18 +119,18 @@ def convert_for_sigma(
             else:
                 weight = 0.1
         elif "tags" in ev:
-            weight = 0.05 # Even weaker pull for tag coincidences
-            
+            weight = 0.05  # Even weaker pull for tag coincidences
+
         # Check if it's a tag node connection (source or target is tag::...)
         if e["source"].startswith("tag::") or e["target"].startswith("tag::"):
-             weight = 1.0 # Moderate pull for tag-to-note connections
+            weight = 1.0  # Moderate pull for tag-to-note connections
 
         G.add_edge(e["source"], e["target"], weight=weight)
 
     print(f"🌸 Generating layout (Mode: {layout})...")
 
     positions = {}
-    
+
     # REUSE LOGIC
     force_layout = filters.get("force_layout", False)
     if not force_layout and layout == "reuse" and Path(out_path).exists():
@@ -134,34 +139,54 @@ def convert_for_sigma(
             for n in old_data.get("nodes", []):
                 if "x" in n and "y" in n:
                     positions[n["key"]] = (float(n["x"]), float(n["y"]))
-            
+
             # Check coverage
             existing_ids = set(positions.keys())
             current_ids = set(G.nodes())
             missing = current_ids - existing_ids
-            
+
             if len(missing) == 0:
                 print(f"♻️  Reusing exact layout for {len(current_ids)} nodes.")
                 # We can skip spring_layout completely or run a very short iteration to settle
                 # Let's run a tiny adjustment to ensure stability
-                positions = nx.spring_layout(G, k=4.5, pos=positions, fixed=list(existing_ids), iterations=0, seed=42, weight='weight')
+                positions = nx.spring_layout(
+                    G,
+                    k=4.5,
+                    pos=positions,
+                    fixed=list(existing_ids),
+                    iterations=0,
+                    seed=42,
+                    weight="weight",
+                )
             elif len(missing) < len(current_ids) * 0.5:
-                print(f"♻️  Reusing layout for {len(existing_ids)} nodes, calculating {len(missing)} new...")
+                print(
+                    f"♻️  Reusing layout for {len(existing_ids)} nodes, calculating {len(missing)} new..."
+                )
                 # Fix existing, calculate new
                 # To do this in networkx, we pass 'pos' with all nodes (random for new) and 'fixed' for old
                 initial_pos = positions.copy()
                 for m in missing:
-                    initial_pos[m] = (0, 0) # start at center
-                
+                    initial_pos[m] = (0, 0)  # start at center
+
                 # We calculate ONLY for missing nodes by fixing the others
                 # NOTE: nx.spring_layout 'fixed' keeps them completely static.
                 # If we want them to adapt slightly, we wouldn't use fixed.
                 # Ideally: Fix old nodes, let new nodes find their place.
-                positions = nx.spring_layout(G, k=4.5, pos=initial_pos, fixed=list(existing_ids), iterations=100, seed=42, weight='weight')
+                positions = nx.spring_layout(
+                    G,
+                    k=4.5,
+                    pos=initial_pos,
+                    fixed=list(existing_ids),
+                    iterations=100,
+                    seed=42,
+                    weight="weight",
+                )
             else:
-                print("⚠️  Too many new nodes or cache invalid. Recalculating full layout.")
+                print(
+                    "⚠️  Too many new nodes or cache invalid. Recalculating full layout."
+                )
                 positions = {}
-                
+
         except Exception as e:
             print(f"⚠️  Could not reuse layout: {e}")
             positions = {}
@@ -170,19 +195,31 @@ def convert_for_sigma(
     if not positions:
         print("🌱 Calculating full spring layout...")
         positions = nx.spring_layout(G, k=6.0, iterations=200, seed=42)
-        
+
         # Center and Scale only on full recalc (reused layout is already scaled)
         if positions:
             connected_components = list(nx.weakly_connected_components(G))
             if connected_components:
                 largest_component = max(connected_components, key=len)
-                core_positions = {node: pos for node, pos in positions.items() if node in largest_component}
+                core_positions = {
+                    node: pos
+                    for node, pos in positions.items()
+                    if node in largest_component
+                }
                 if core_positions:
-                    avg_x = sum(x for x, _ in core_positions.values()) / len(core_positions)
-                    avg_y = sum(y for _, y in core_positions.values()) / len(core_positions)
-                    positions = {k: (x - avg_x, y - avg_y) for k, (x, y) in positions.items()}
+                    avg_x = sum(x for x, _ in core_positions.values()) / len(
+                        core_positions
+                    )
+                    avg_y = sum(y for _, y in core_positions.values()) / len(
+                        core_positions
+                    )
+                    positions = {
+                        k: (x - avg_x, y - avg_y) for k, (x, y) in positions.items()
+                    }
 
-            max_abs_val = max(abs(coord) for pos in positions.values() for coord in pos) or 1.0
+            max_abs_val = (
+                max(abs(coord) for pos in positions.values() for coord in pos) or 1.0
+            )
             SCALING_FACTOR = 2000
             positions = {
                 k: (x / max_abs_val * SCALING_FACTOR, y / max_abs_val * SCALING_FACTOR)
@@ -196,15 +233,18 @@ def convert_for_sigma(
     if cache_path.exists():
         try:
             cache_data = json.loads(cache_path.read_text(encoding="utf-8"))
-        except: pass
+        except:
+            pass
 
     # Helper for AI colors
     def _hash_color(s):
         import hashlib
-        if not s: return "#cccccc"
+
+        if not s:
+            return "#cccccc"
         hash_object = hashlib.md5(s.encode())
         hash_hex = hash_object.hexdigest()
-        return '#' + hash_hex[:6]
+        return "#" + hash_hex[:6]
 
     sigma_nodes = []
     for n in filtered_nodes:
@@ -217,39 +257,41 @@ def convert_for_sigma(
         ai_c = n.get("ai_cluster")
         if not ai_c and n["id"] in cache_data:
             ai_c = cache_data[n["id"]].get("ai_cluster")
-            
+
         ai_c_color = _hash_color(ai_c) if ai_c else None
 
-        sigma_nodes.append({
-            "key": n["id"],
-            "label": clean_label(n.get("title", "")),
-            "x": round(pos[0], 2),
-            "y": round(pos[1], 2),
-            "size": round(3.5 + math.log(G.degree(n["id"]) + 1, 2.0), 2) if n["id"] in G else 3.5,
-            "color": node_colors(n.get("kind", "permanent"))["bg"],
-            "border": node_colors(n.get("kind", "permanent"))["border"],
-            "font": node_colors(n.get("kind", "permanent"))["font"],
-            "kind": n.get("kind", "permanent"),
-            "cluster": clean_label(cluster),
-            "clusters_extra": clusters_extra,
-            "project": clean_label(project_value),
-            "tags": tag_names,
-            "ai_cluster": ai_c,
-            "ai_cluster_color": ai_c_color,
-            "url": n.get("notion_url") or n.get("url") or f"https://www.notion.so/{n['id'].replace('-', '')}",
-            "kind_bg": node_colors(n.get("kind", "permanent"))["bg"],
-            "kind_border": node_colors(n.get("kind", "permanent"))["border"],
-            "kind_font": node_colors(n.get("kind", "permanent"))["font"],
-            "isStructural": n.get("kind") == "tag",
-            "created_time": n.get("created_time"),
-            "database_id": n.get("database_id"),
-            "table_id": n.get("table_id"),
-            "metadata": n.get("metadata", n.get("properties", {})),
-        })
+        sigma_nodes.append(
+            {
+                "key": n["id"],
+                "label": clean_label(n.get("title", "")),
+                "x": round(pos[0], 2),
+                "y": round(pos[1], 2),
+                "size": round(3.5 + math.log(G.degree(n["id"]) + 1, 2.0), 2)
+                if n["id"] in G
+                else 3.5,
+                "color": node_colors(n.get("kind", "permanent"))["bg"],
+                "border": node_colors(n.get("kind", "permanent"))["border"],
+                "font": node_colors(n.get("kind", "permanent"))["font"],
+                "kind": n.get("kind", "permanent"),
+                "cluster": clean_label(cluster),
+                "clusters_extra": clusters_extra,
+                "project": clean_label(project_value),
+                "tags": tag_names,
+                "ai_cluster": ai_c,
+                "ai_cluster_color": ai_c_color,
+                "url": n.get("url") or "",
+                "kind_bg": node_colors(n.get("kind", "permanent"))["bg"],
+                "kind_border": node_colors(n.get("kind", "permanent"))["border"],
+                "kind_font": node_colors(n.get("kind", "permanent"))["font"],
+                "isStructural": n.get("kind") == "tag",
+                "created_time": n.get("created_time"),
+                # Database/Table IDs removed for Sovereignty
+                "metadata": n.get("metadata", n.get("properties", {})),
+            }
+        )
 
     # Tag nodes have already been processed in the previous loop (filtered_nodes includes nodes with kind="tag")
     # We don't need to create additional tag nodes here
-
 
     sigma_edges = []
     original_edges_map = {(e["source"], e["target"]): e for e in filtered_edges}
@@ -261,16 +303,24 @@ def convert_for_sigma(
             original_edges_map.get((source, target))
             or original_edges_map.get((target, source))
             or next(
-                (e for e in filtered_edges if {e["source"], e["target"]} == {source, target}),
+                (
+                    e
+                    for e in filtered_edges
+                    if {e["source"], e["target"]} == {source, target}
+                ),
                 None,
             )
         )
 
         # --- Evidence and similarity ---
         # Get evidence from original edge (works for both tag and non-tag edges)
-        ev = [str(x).lower() for x in (original_edge.get("evidence") or [])] if original_edge else []
+        ev = (
+            [str(x).lower() for x in (original_edge.get("evidence") or [])]
+            if original_edge
+            else []
+        )
         sim = float(original_edge.get("similarity", 0) or 0) if original_edge else 0.0
-        
+
         # For tag edges without explicit evidence, override to empty
         if is_tag_edge and not ev:
             ev = []
@@ -288,11 +338,11 @@ def convert_for_sigma(
             color = stl["color"]
             kind = "explicit"
             dashed = False
-            
+
             # 🎯 Highlight explicit directed connections
             if directed:
                 color = DIRECT_CONNECTION  # blue "Directed Connection"
-            
+
             edge_type = "arrow" if directed else "line"
         elif is_tag_edge:
             # Non-explicit tag edges use tag styling
@@ -319,21 +369,23 @@ def convert_for_sigma(
             size = 3  # Thicker for directed arrows
         elif kind == "explicit":
             size = 2  # Slightly thicker for bidir explicit
-            
-        sigma_edges.append({
-            "source": source,
-            "target": target,
-            "color": color,
-            "type": edge_type,      # Now only "line" or "arrow"
-            "kind": kind,
-            "similarity": sim,
-            "evidence": ev,
-            "reasons": reasons,
-            "directed": directed,
-            "dashed": dashed,
-            "isTagEdge": is_tag_edge,
-            "size": size,
-        })
+
+        sigma_edges.append(
+            {
+                "source": source,
+                "target": target,
+                "color": color,
+                "type": edge_type,  # Now only "line" or "arrow"
+                "kind": kind,
+                "similarity": sim,
+                "evidence": ev,
+                "reasons": reasons,
+                "directed": directed,
+                "dashed": dashed,
+                "isTagEdge": is_tag_edge,
+                "size": size,
+            }
+        )
 
     # 1. Calculate node count for each 'kind' (Note type)
     kind_counts = Counter(n.get("kind") for n in filtered_nodes)
@@ -341,16 +393,18 @@ def convert_for_sigma(
 
     kinds_for_legend = []
     for kind_name, kind_colors in COLOR_BY_TYPE.items():
-        kinds_for_legend.append({
-            "label": kind_name.capitalize(),
-            "color": kind_colors["bg"],
-            "count": kind_counts.get(kind_name, 0)
-        })
+        kinds_for_legend.append(
+            {
+                "label": kind_name.capitalize(),
+                "color": kind_colors["bg"],
+                "count": kind_counts.get(kind_name, 0),
+            }
+        )
 
     # 2. Calculate node count for each 'cluster' (Tag)
     cluster_counts = Counter()
     ai_cluster_counts = Counter()
-    
+
     for n in filtered_nodes:
         # Clusters (Tags)
         tags = n.get("tags", [])
@@ -358,7 +412,7 @@ def convert_for_sigma(
             first_tag_name = tags[0].get("name")
             if first_tag_name:
                 cluster_counts[first_tag_name] += 1
-        
+
         # AI Clusters
         ai_c = n.get("ai_cluster")
         if ai_c:
@@ -366,74 +420,79 @@ def convert_for_sigma(
 
     clusters_for_legend = []
     for tag_name, tag_obj in sorted(tag_nodes_map.items()):
-        notion_color_name = tag_obj.get("color", "default")
-        hex_color = notion_color_to_hex(notion_color_name)
-        clusters_for_legend.append({
-            "label": tag_name,
-            "color": hex_color,
-            "count": cluster_counts.get(tag_name, 0)
-        })
+        gnosi_color_name = tag_obj.get("color", "default")
+        hex_color = gnosi_color_to_hex(gnosi_color_name)
+        clusters_for_legend.append(
+            {
+                "label": tag_name,
+                "color": hex_color,
+                "count": cluster_counts.get(tag_name, 0),
+            }
+        )
 
     # AI Clusters Legend
     ai_clusters_for_legend = []
-    
+
     def _hash_color(s):
         import hashlib
+
         hash_object = hashlib.md5(s.encode())
         hash_hex = hash_object.hexdigest()
-        return '#' + hash_hex[:6]
+        return "#" + hash_hex[:6]
 
     for cluster_name, count in ai_cluster_counts.most_common():
-        ai_clusters_for_legend.append({
-            "label": cluster_name,
-            "color": _hash_color(cluster_name),
-            "count": count
-        })
+        ai_clusters_for_legend.append(
+            {"label": cluster_name, "color": _hash_color(cluster_name), "count": count}
+        )
 
     # 3. Build final legend object (no changes here)
     legend_data = {
-        "nodes": [{"label": key.capitalize(), "color": value["bg"]} for key, value in COLOR_BY_TYPE.items()],
+        "nodes": [
+            {"label": key.capitalize(), "color": value["bg"]}
+            for key, value in COLOR_BY_TYPE.items()
+        ],
         "edges": [
             {
                 "label": "Real Connection",
                 "color": EXPLICIT_EDGE_COLOR,
                 "type": "explicit",
                 "kind": "explicit",
-                "evidence": "explicit"
+                "evidence": "explicit",
             },
             {
                 "label": "Strong Similarity (>85%)",
                 "color": SIM_BUCKETS[0]["color"],
                 "type": "similarity",
                 "kind": "similarity",
-                "evidence": ">85"
+                "evidence": ">85",
             },
             {
                 "label": "Medium Similarity (>70%)",
                 "color": SIM_BUCKETS[1]["color"],
                 "type": "similarity",
                 "kind": "similarity",
-                "evidence": ">70"
+                "evidence": ">70",
             },
             {
                 "label": "Weak Similarity (>60%)",
                 "color": SIM_BUCKETS[2]["color"],
                 "type": "similarity",
                 "kind": "similarity",
-                "evidence": ">60"
+                "evidence": ">60",
             },
         ],
-
         "kinds": kinds_for_legend,
         "clusters": clusters_for_legend,
-        "ai_clusters": ai_clusters_for_legend
+        "ai_clusters": ai_clusters_for_legend,
     }
 
     out = {"nodes": sigma_nodes, "edges": sigma_edges, "legend": legend_data}
     clean_str = sanitize_json_graph(out)
     Path(out_path).write_text(clean_str, encoding="utf-8")
 
-    print(f"✅ Sigma graph generated with {len(sigma_nodes)} nodes and {len(sigma_edges)} edges.")
+    print(
+        f"✅ Sigma graph generated with {len(sigma_nodes)} nodes and {len(sigma_edges)} edges."
+    )
     # ... (rest of the script to inject and copy files)
 
     def file_hash(path):
@@ -443,12 +502,18 @@ def convert_for_sigma(
                 h.update(chunk)
         return h.hexdigest()
 
+
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--layout", default="reuse", choices=["reuse", "recalc"])
-    parser.add_argument("--force", action="store_true", help="Force layout recalculation even if reusing")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force layout recalculation even if reusing",
+    )
     args = parser.parse_args()
-    
+
     # We pass force through filters or a new param, but for now let's just use it here
     convert_for_sigma(layout=args.layout, filters={"force_layout": args.force})

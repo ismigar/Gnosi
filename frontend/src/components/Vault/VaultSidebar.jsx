@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useApi } from '../../hooks/use-api';
+import { toast } from 'react-hot-toast';
 import { createPortal } from 'react-dom';
-import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2 } from 'lucide-react';
+import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
+import { isCalendarPage, isAppContent } from './schemaUtils';
 
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement }) => (
     <button
@@ -42,6 +46,7 @@ const SectionHeader = ({ label, isExpanded, onToggle, onAdd }) => (
 const PageTreeItem = ({
     page,
     depth = 0,
+    role,
     childrenMap,
     expandedNodes,
     onToggleExpand,
@@ -54,17 +59,25 @@ const PageTreeItem = ({
     onDeletePage,
     onRankPage,
     onToggleFavorite,
+    onMovePage,
     menuState,
     setMenuState,
-    canCreateChild = true
+    canCreateChild = true,
+    isDragLocked = false,
 }) => {
+    const { t } = useTranslation();
+    const isViewer = role === 'viewer';
+    const isAdmin = role === 'admin' || role === 'owner';
+    const isEditor = role === 'editor' || isAdmin;
     const hasChildren = childrenMap[page.id] && childrenMap[page.id].length > 0;
     const isExpanded = Boolean(expandedNodes?.[page.id]);
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameValue, setRenameValue] = useState(page.title);
+    const [isDropTarget, setIsDropTarget] = useState(false);
     const isActive = activePageId === page.id;
     const isFavorite = page.metadata?.favorite === true || page.metadata?.favorite === 'true';
     const menuRef = useRef(null);
+    const canReorder = !isDragLocked && !isViewer && typeof onMovePage === 'function';
 
     const isMenuOpen = menuState?.id === page.id;
 
@@ -80,13 +93,20 @@ const PageTreeItem = ({
             }
         };
 
+        // Without `tid`, the cleanup ran before the timeout fired, so
+        // `removeEventListener` had nothing to remove and the listeners
+        // accumulated forever — every menu open added two more global
+        // listeners. After enough toggles the page got sluggish and old
+        // handlers fired on unrelated components.
+        let tid;
         if (isMenuOpen) {
-            setTimeout(() => {
+            tid = setTimeout(() => {
                 document.addEventListener('click', handleClickOutside);
                 document.addEventListener('keydown', handleKeyDown);
             }, 10);
         }
         return () => {
+            if (tid) clearTimeout(tid);
             document.removeEventListener('click', handleClickOutside);
             document.removeEventListener('keydown', handleKeyDown);
         };
@@ -104,20 +124,71 @@ const PageTreeItem = ({
     return (
         <div className="select-none relative">
             <div
-                className={`group flex items-center gap-1 py-1 text-sm rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'}`}
+                title={page.title}
+                className={`group flex items-center gap-1 py-1 text-sm rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'} ${isDropTarget ? 'ring-2 ring-[var(--gnosi-primary)]/50 bg-[var(--gnosi-primary)]/10' : ''}`}
                 style={{ paddingLeft: `${depth * 12 + 8}px`, paddingRight: '8px' }}
                 onClick={() => {
                     if (!isRenaming) onPageSelect(page.id);
                 }}
-                draggable={!isRenaming}
+                draggable={!isRenaming && canReorder}
                 onDragStart={(e) => {
+                    // Doble protocol al dataTransfer:
+                    //   - 'application/gnosi-note': format antic (insertem l'ID
+                    //     com a wikilink dins l'editor en deixar anar a una nota)
+                    //   - 'application/gnosi-page-move': nou, indica que estem
+                    //     reordenant l'arbre de la sidebar (canvi de parent_id)
                     e.dataTransfer.setData('application/gnosi-note', JSON.stringify({
                         id: page.id,
                         title: page.title
                     }));
-                    // Optional: Set drag image or effect
-                    e.dataTransfer.effectAllowed = 'copy';
+                    if (canReorder) {
+                        e.dataTransfer.setData('application/gnosi-page-move', JSON.stringify({
+                            id: page.id,
+                            currentParentId: page.parent_id || null,
+                        }));
+                    }
+                    e.dataTransfer.effectAllowed = canReorder ? 'copyMove' : 'copy';
                 }}
+                onDragOver={canReorder ? (e) => {
+                    // Només acceptem drops del mateix sidebar (no de l'editor)
+                    if (!Array.from(e.dataTransfer.types).includes('application/gnosi-page-move')) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (!isDropTarget) setIsDropTarget(true);
+                } : undefined}
+                onDragLeave={canReorder ? () => {
+                    if (isDropTarget) setIsDropTarget(false);
+                } : undefined}
+                onDrop={canReorder ? (e) => {
+                    if (!Array.from(e.dataTransfer.types).includes('application/gnosi-page-move')) return;
+                    e.preventDefault();
+                    setIsDropTarget(false);
+                    try {
+                        const raw = e.dataTransfer.getData('application/gnosi-page-move');
+                        if (!raw) return;
+                        const payload = JSON.parse(raw);
+                        const sourceId = payload?.id;
+                        if (!sourceId || sourceId === page.id) return;
+                        // Evitem que una pàgina es converteixi en filla d'una
+                        // pròpia descendent (cicle a l'arbre).
+                        const isDescendant = (() => {
+                            const queue = [page.id];
+                            const seen = new Set();
+                            while (queue.length) {
+                                const cur = queue.shift();
+                                if (seen.has(cur)) continue;
+                                seen.add(cur);
+                                if (cur === sourceId) return true;
+                                const kids = childrenMap[cur] || [];
+                                for (const k of kids) queue.push(k.id);
+                            }
+                            return false;
+                        })();
+                        if (isDescendant) return;
+                        onMovePage(sourceId, page.id);
+                    } catch { /* noop */ }
+                } : undefined}
+                onDragEnd={() => setIsDropTarget(false)}
             >
                 <button
                     className="p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 mr-1 text-[var(--text-secondary)]/60"
@@ -157,7 +228,7 @@ const PageTreeItem = ({
                     <span className="truncate flex-1">{page.title}</span>
                 )}
 
-                {/* Accions hover per afegir Pàgines filles o menú de context */}
+                {/* Hover actions to add child pages or context menu */}
                 <div className={`ml-auto flex items-center justify-end w-12 shrink-0 transition-opacity ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} bg-transparent pl-1`}>
                     <button
                         className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
@@ -171,7 +242,7 @@ const PageTreeItem = ({
                                 const x = Math.min(e.clientX, window.innerWidth - 170);
                                 let y = e.clientY;
                                 
-                                // Si no cap per sota, el desplacem el mínim cap amunt
+                                // If it doesn't fit below, move it up slightly
                                 if (y + menuHeight > windowHeight) {
                                     y = Math.max(10, windowHeight - menuHeight - 10);
                                 }
@@ -183,15 +254,15 @@ const PageTreeItem = ({
                                 });
                             }
                         }}
-                        title="Opcions"
+                        title={t('sidebar.options')}
                     >
                         <MoreHorizontal size={14} />
                     </button>
-                    {canCreateChild && (
+                    {canCreateChild && isEditor && (
                         <button
                             className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
                             onClick={(e) => { e.stopPropagation(); onCreatePage(page.id); }}
-                            title="Afegeix Pàgina Filla"
+                            title={t('sidebar.add_child_page')}
                         >
                             <Plus size={14} />
                         </button>
@@ -206,7 +277,7 @@ const PageTreeItem = ({
                     className="fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[9999] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
                     style={{ top: menuState.y, left: menuState.x }}
                 >
-                    {onRenamePage && (
+                    {onRenamePage && isEditor && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -216,7 +287,7 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Edit2 size={14} className="text-[var(--text-secondary)]/60" />
-                            <span>Renomenar</span>
+                            <span>{t('sidebar.rename')}</span>
                         </button>
                     )}
                     {onToggleFavorite && (
@@ -230,10 +301,10 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Star size={14} className={isFavorite ? "text-amber-400" : "text-[var(--text-secondary)]/60"} fill={isFavorite ? "currentColor" : "none"} />
-                            <span>{isFavorite ? "Treure de Favorits" : "Afegir a Favorits"}</span>
+                            <span>{isFavorite ? t('sidebar.remove_favorites') : t('sidebar.add_favorites')}</span>
                         </button>
                     )}
-                    {onDuplicatePage && (
+                    {onDuplicatePage && isEditor && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -243,7 +314,7 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Copy size={14} className="text-[var(--text-secondary)]/60" />
-                            <span>Duplicar</span>
+                            <span>{t('sidebar.duplicate')}</span>
                         </button>
                     )}
                     {onOpenParallel && (
@@ -256,11 +327,11 @@ const PageTreeItem = ({
                             className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Columns2 size={14} className="text-[var(--text-secondary)]/60" />
-                            <span>Obrir en paral·lel</span>
+                            <span>{t('sidebar.open_parallel')}</span>
                         </button>
                     )}
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2"></div>
-                    {onDeletePage && (
+                    {onDeletePage && isAdmin && (
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
@@ -270,7 +341,7 @@ const PageTreeItem = ({
                         className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
                     >
                         <Trash2 size={14} className="text-[var(--status-error)]" />
-                        <span>Eliminar</span>
+                        <span>{t('sidebar.delete')}</span>
                     </button>
                     )}
                 </div>,
@@ -284,6 +355,7 @@ const PageTreeItem = ({
                             key={child.id}
                             page={child}
                             depth={depth + 1}
+                            role={role}
                             childrenMap={childrenMap}
                             expandedNodes={expandedNodes}
                             onToggleExpand={onToggleExpand}
@@ -295,9 +367,11 @@ const PageTreeItem = ({
                             onDuplicatePage={onDuplicatePage}
                             onDeletePage={onDeletePage}
                             onToggleFavorite={onToggleFavorite}
+                            onMovePage={onMovePage}
                             menuState={menuState}
                             setMenuState={setMenuState}
                             canCreateChild={canCreateChild}
+                            isDragLocked={isDragLocked}
                         />
                     ))}
                 </div>
@@ -332,18 +406,25 @@ export const VaultSidebar = ({
     onMoveTable,
     onToggleFavorite,
     onTableSelect,
-    onOpenTable,
-    onOpenTableParallel,
+    isReadOnly = false,
     onCreateDatabaseGroup,
-    onRenameDatabase,
-    onDeleteDatabase,
     onCreateTable,
     onCreateTableRecord,
-    onCreateDashworksPage,
+    onRenameDatabase,
+    onDeleteDatabase,
     onOpenRecent,
+    onCreateDashworksPage,
+    currentView,
     onCreateDrawing,
-    currentView = 'editor'
+    onOpenTable,
+    onOpenTableParallel
 }) => {
+    const { t } = useTranslation();
+    const [openMenus, setOpenMenus] = useState({});
+    const { role } = useApi();
+    const isViewer = role === 'viewer';
+    const isAdmin = role === 'admin' || role === 'owner';
+    const isEditor = role === 'editor' || isAdmin;
     const WIKI_BATCH_SIZE = 150;
     const DATABASES_BATCH_SIZE = 40;
     const TABLES_BATCH_SIZE = 60;
@@ -352,6 +433,110 @@ export const VaultSidebar = ({
     const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
     const [isDashworksExpanded, setIsDashworksExpanded] = useState(true);
     const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
+    // Candau del Wiki: quan està tancat (true), no es poden arrossegar pàgines
+    // per reordenar/anidar. Persistit a localStorage. Per defecte tancat per
+    // evitar moviments accidentals (l'usuari ha de "desbloquejar" abans).
+    const [isWikiDragLocked, setIsWikiDragLocked] = useState(() => {
+        try {
+            const raw = localStorage.getItem('gnosi.sidebar.wikiDragLocked');
+            if (raw !== null) return raw === 'true';
+        } catch (e) { /* noop */ }
+        return true;
+    });
+    useEffect(() => {
+        try { localStorage.setItem('gnosi.sidebar.wikiDragLocked', String(isWikiDragLocked)); }
+        catch (e) { /* noop */ }
+    }, [isWikiDragLocked]);
+    // Ordenació de favorits: {mode, manualOrder}. Persistit a localStorage.
+    // mode pot ser 'manual' | 'alpha-asc' | 'alpha-desc' | 'recent' | 'oldest'.
+    const [favoritesSort, setFavoritesSort] = useState(() => {
+        try {
+            const raw = localStorage.getItem('gnosi.sidebar.favoritesSort');
+            if (raw) return { mode: 'manual', manualOrder: [], ...JSON.parse(raw) };
+        } catch (e) { /* noop */ }
+        return { mode: 'manual', manualOrder: [] };
+    });
+    const [isFavoritesSortOpen, setIsFavoritesSortOpen] = useState(false);
+    const favoritesSortMenuRef = useRef(null);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('gnosi.sidebar.favoritesSort', JSON.stringify(favoritesSort));
+        } catch (e) { /* noop */ }
+    }, [favoritesSort]);
+
+    useEffect(() => {
+        if (!isFavoritesSortOpen) return;
+        const handleClickOutside = (e) => {
+            if (favoritesSortMenuRef.current && !favoritesSortMenuRef.current.contains(e.target)) {
+                setIsFavoritesSortOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isFavoritesSortOpen]);
+
+    const sortedFavoritePages = useMemo(() => {
+        const list = Array.isArray(favoritePages) ? [...favoritePages] : [];
+        const { mode, manualOrder } = favoritesSort;
+        if (mode === 'alpha-asc') {
+            return list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
+        }
+        if (mode === 'alpha-desc') {
+            return list.sort((a, b) => String(b.title || '').localeCompare(String(a.title || '')));
+        }
+        if (mode === 'recent') {
+            return list.sort((a, b) => String(b.last_modified || '').localeCompare(String(a.last_modified || '')));
+        }
+        if (mode === 'oldest') {
+            return list.sort((a, b) => String(a.last_modified || '').localeCompare(String(b.last_modified || '')));
+        }
+        // mode === 'manual': respect explicit order, then add new favorites at the end
+        const order = Array.isArray(manualOrder) ? manualOrder : [];
+        const orderedIds = new Set(order);
+        const byId = new Map(list.map((p) => [p.id, p]));
+        const ordered = order.map((id) => byId.get(id)).filter(Boolean);
+        const newcomers = list.filter((p) => !orderedIds.has(p.id));
+        return [...ordered, ...newcomers];
+    }, [favoritePages, favoritesSort]);
+
+    const setFavoritesSortMode = (nextMode) => {
+        setFavoritesSort((prev) => ({ ...prev, mode: nextMode }));
+        setIsFavoritesSortOpen(false);
+    };
+
+    // Drag handler per ordre manual
+    const [draggingFavoriteId, setDraggingFavoriteId] = useState(null);
+    const handleFavoriteDragStart = (id) => (e) => {
+        setDraggingFavoriteId(id);
+        try { e.dataTransfer.effectAllowed = 'move'; } catch { /* noop */ }
+    };
+    const handleFavoriteDragOver = (id) => (e) => {
+        if (!draggingFavoriteId || draggingFavoriteId === id) return;
+        e.preventDefault();
+        try { e.dataTransfer.dropEffect = 'move'; } catch { /* noop */ }
+    };
+    const handleFavoriteDrop = (targetId) => (e) => {
+        e.preventDefault();
+        if (!draggingFavoriteId || draggingFavoriteId === targetId) {
+            setDraggingFavoriteId(null);
+            return;
+        }
+        // Switching to manual mode if the user drops while in another sort
+        const currentIds = sortedFavoritePages.map((p) => p.id);
+        const fromIdx = currentIds.indexOf(draggingFavoriteId);
+        const toIdx = currentIds.indexOf(targetId);
+        if (fromIdx === -1 || toIdx === -1) {
+            setDraggingFavoriteId(null);
+            return;
+        }
+        const next = [...currentIds];
+        next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, draggingFavoriteId);
+        setFavoritesSort({ mode: 'manual', manualOrder: next });
+        setDraggingFavoriteId(null);
+    };
+    const handleFavoriteDragEnd = () => setDraggingFavoriteId(null);
     const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
     const [expandedDatabases, setExpandedDatabases] = useState({});
     const [menuState, setMenuState] = useState(null);
@@ -379,13 +564,18 @@ export const VaultSidebar = ({
             }
         };
 
+        // Same listener-leak pattern as in the page-row menu above: track the
+        // timeout id and clear it in the cleanup so we never end up with
+        // listeners attached after the menu has already closed.
+        let tid;
         if (menuState && (menuState.type === 'database' || menuState.type === 'table')) {
-            setTimeout(() => {
+            tid = setTimeout(() => {
                 document.addEventListener('click', handleClickOutside);
                 document.addEventListener('keydown', handleKeyDown);
             }, 10);
         }
         return () => {
+            if (tid) clearTimeout(tid);
             document.removeEventListener('click', handleClickOutside);
             document.removeEventListener('keydown', handleKeyDown);
         };
@@ -406,7 +596,7 @@ export const VaultSidebar = ({
         const computedDashworksChildrenMap = {};
         const computedDashworksRootPages = [];
 
-        // Mapeig ràpid per trobar pàgines per ID
+        // Fast mapping to find pages by ID
         const pagesById = {};
         (pages || []).forEach(p => { pagesById[p.id] = p; });
 
@@ -420,8 +610,9 @@ export const VaultSidebar = ({
                 || folder.startsWith('.Dashworks/');
         };
 
+
         (pages || []).forEach(p => {
-            if (p.metadata?.is_template) return;
+            if (p.metadata?.is_template || isCalendarPage(p) || isAppContent(p)) return;
 
             if (isDashworksPage(p)) {
                 const parent = p.parent_id ? pagesById[p.parent_id] : null;
@@ -436,14 +627,14 @@ export const VaultSidebar = ({
                 return;
             }
 
-            // Determinar si la pàgina pertany a la secció de dades (BD)
+            // Determine if the page belongs to the data section (DB)
             const tableId = p.resolved_table_id || p.metadata?.table_id || p.metadata?.database_table_id;
             const isData = p.is_database || (!!tableId && tableId !== 'wiki') || p.folder?.startsWith('BD/');
 
             if (isData) {
                 let finalTableId = tableId;
                 
-                // Si no tenim tableId però és a BD/, provem si el pare en té
+                // If we don't have tableId but it's in BD/, check if the parent has one
                 if (!finalTableId && p.parent_id && pagesById[p.parent_id]) {
                     finalTableId = pagesById[p.parent_id].resolved_table_id || pagesById[p.parent_id].metadata?.table_id;
                 }
@@ -569,7 +760,7 @@ export const VaultSidebar = ({
             <div className="px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
                 <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
-                    <span className="text-sm font-semibold text-[var(--text-primary)]">El meu Vault</span>
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{t('sidebar.my_vault')}</span>
                 </div>
 
             </div>
@@ -577,18 +768,18 @@ export const VaultSidebar = ({
             <div className="px-2 space-y-0.5">
                 <NavItem
                     icon={Search}
-                    label="Cerca"
+                    label={t('sidebar.search')}
                     onClick={onSearch}
                     rightElement={<span className="text-[10px] font-semibold text-[var(--text-secondary)]/60 border border-[var(--border-primary)] bg-[var(--bg-secondary)] rounded px-1.5 py-0.5">Cmd K</span>}
                 />
-                <NavItem icon={Clock} label="Recent" onClick={onOpenRecent} />
+                <NavItem icon={Clock} label={t('sidebar.recent')} onClick={onOpenRecent} />
                 <div
                     className={`group relative w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                     onClick={() => onNavigate('drawing')}
                 >
                     <Palette size={16} className={currentView === 'drawing' ? 'text-gnosi' : 'text-amber-500'} />
-                    <span className="truncate flex-1 text-left text-[var(--text-primary)]">Dibuixos</span>
-                    {onCreateDrawing && (
+                    <span className="truncate flex-1 text-left text-[var(--text-primary)]">{t('sidebar.drawings')}</span>
+                    {onCreateDrawing && isEditor && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onCreateDrawing(); }}
                             className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
@@ -601,41 +792,88 @@ export const VaultSidebar = ({
 
             {favoritePages.length > 0 && (
                 <>
-                    <SectionHeader
-                        label="Favorites"
-                        isExpanded={isFavoritesExpanded}
-                        onToggle={() => setIsFavoritesExpanded(!isFavoritesExpanded)}
-                    />
+                    <div className="group relative flex items-center px-3 mt-6 mb-1">
+                        <button
+                            onClick={() => setIsFavoritesExpanded(!isFavoritesExpanded)}
+                            className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
+                        >
+                            {isFavoritesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            {t('sidebar.favorites', 'Favorites')}
+                        </button>
+                        <div className="relative" ref={favoritesSortMenuRef}>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setIsFavoritesSortOpen((v) => !v); }}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                                title={t('sidebar.favorites_sort', 'Ordena favorits')}
+                            >
+                                <ArrowUpDown size={12} />
+                            </button>
+                            {isFavoritesSortOpen && (
+                                <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl py-1 text-xs">
+                                    {[
+                                        { id: 'manual', label: t('sidebar.sort_manual', 'Manual (drag)'), icon: GripVertical },
+                                        { id: 'alpha-asc', label: t('sidebar.sort_alpha_asc', 'A → Z'), icon: ArrowDownAZ },
+                                        { id: 'alpha-desc', label: t('sidebar.sort_alpha_desc', 'Z → A'), icon: ArrowUpAZ },
+                                        { id: 'recent', label: t('sidebar.sort_recent', 'Més recents'), icon: Clock },
+                                        { id: 'oldest', label: t('sidebar.sort_oldest', 'Més antics'), icon: Clock },
+                                    ].map(({ id, label, icon: Icon }) => (
+                                        <button
+                                            key={id}
+                                            onClick={() => setFavoritesSortMode(id)}
+                                            className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--bg-secondary)] text-left ${favoritesSort.mode === id ? 'text-[var(--gnosi-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}
+                                        >
+                                            <Icon size={12} className="shrink-0" />
+                                            <span className="flex-1">{label}</span>
+                                            {favoritesSort.mode === id && <Check size={12} />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     {isFavoritesExpanded && (
                         <div className="px-2 space-y-0.5">
-                            {favoritePages.map(page => (
-                                <NavItem
-                                    key={page.id}
-                                    icon={FileText}
-                                    label={page.title}
-                                    onClick={() => onPageSelect(page.id)}
-                                    colorClass="text-[var(--text-secondary)]/60"
-                                    emoji={page.metadata?.icon}
-                                />
-                            ))}
+                            {sortedFavoritePages.map((page) => {
+                                const isDragging = draggingFavoriteId === page.id;
+                                const draggable = favoritesSort.mode === 'manual';
+                                return (
+                                    <div
+                                        key={page.id}
+                                        draggable={draggable}
+                                        onDragStart={draggable ? handleFavoriteDragStart(page.id) : undefined}
+                                        onDragOver={draggable ? handleFavoriteDragOver(page.id) : undefined}
+                                        onDrop={draggable ? handleFavoriteDrop(page.id) : undefined}
+                                        onDragEnd={draggable ? handleFavoriteDragEnd : undefined}
+                                        className={`relative ${isDragging ? 'opacity-40' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                    >
+                                        <NavItem
+                                            icon={FileText}
+                                            label={page.title}
+                                            onClick={() => onPageSelect(page.id)}
+                                            colorClass="text-[var(--text-secondary)]/60"
+                                            emoji={page.metadata?.icon}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </>
             )}
 
             <SectionHeader
-                label="Taulells"
+                label={t('sidebar.dashboards', 'Dashboards')}
                 isExpanded={isDashworksExpanded}
                 onToggle={() => {
                     setIsDashworksExpanded(prev => !prev);
                     setExpandedDashworksNodes({});
                 }}
-                onAdd={() => onCreateDashworksPage && onCreateDashworksPage(null)}
+                onAdd={() => isEditor && onCreateDashworksPage && onCreateDashworksPage(null)}
             />
             {isDashworksExpanded && (
                 <div className="px-2 space-y-0.5">
                     {dashworksRootPages.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">No hi ha pàgines a Dashworks</div>
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('sidebar.no_dashworks_pages')}</div>
                     ) : (
                         dashworksRootPages.map(page => (
                             <PageTreeItem
@@ -653,6 +891,7 @@ export const VaultSidebar = ({
                                 onDuplicatePage={onDuplicatePage}
                                 onDeletePage={onDeletePage}
                                 onToggleFavorite={onToggleFavorite}
+                                role={role}
                                 menuState={menuState}
                                 setMenuState={setMenuState}
                             />
@@ -662,10 +901,10 @@ export const VaultSidebar = ({
             )}
 
             <SectionHeader
-                label="Dades"
+                label={t('sidebar.data', 'Data')}
                 isExpanded={isDatabasesExpanded}
                 onToggle={() => setIsDatabasesExpanded(!isDatabasesExpanded)}
-                onAdd={() => onCreateDatabaseGroup && onCreateDatabaseGroup()}
+                onAdd={() => isEditor && onCreateDatabaseGroup && onCreateDatabaseGroup()}
             />
             {isDatabasesExpanded && (
                 <div className="px-2 space-y-0.5">
@@ -713,13 +952,15 @@ export const VaultSidebar = ({
                                         >
                                             <MoreHorizontal size={14} />
                                         </button>
-                                        <button
-                                            className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60 hover:text-gnosi"
-                                            onClick={(e) => { e.stopPropagation(); onCreateTable && onCreateTable(db.id); }}
-                                            title="Nova Taula"
-                                        >
-                                            <Plus size={14} />
-                                        </button>
+                                        {isEditor && (
+                                            <button
+                                                className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60 hover:text-gnosi"
+                                                onClick={(e) => { e.stopPropagation(); onCreateTable && onCreateTable(db.id); }}
+                                                title={t('sidebar.new_table')}
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                         )}
                                     </div>
                                 </div>
 
@@ -774,16 +1015,18 @@ export const VaultSidebar = ({
                                                         >
                                                             <MoreHorizontal size={12} />
                                                         </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (onCreateTableRecord) onCreateTableRecord(table.id);
-                                                            }}
-                                                            className="opacity-0 group-hover/tableItem:opacity-100 p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-gnosi"
-                                                            title="Nou registre"
-                                                        >
-                                                            <Plus size={12} />
-                                                        </button>
+                                                         {isEditor && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (onCreateTableRecord) onCreateTableRecord(table.id);
+                                                                }}
+                                                                className="opacity-0 group-hover/tableItem:opacity-100 p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-gnosi"
+                                                                title={t('sidebar.new_record')}
+                                                            >
+                                                                <Plus size={12} />
+                                                            </button>
+                                                         )}
                                                     </div>
 
                                                     {/* Nested Pages (Records) within the Table */}
@@ -795,6 +1038,7 @@ export const VaultSidebar = ({
                                                                     page={p}
                                                                     depth={1}
                                                                     childrenMap={dataChildrenMap[table.id].children}
+                                                                    role={role}
                                                                     expandedNodes={expandedWikiNodes}
                                                                     onToggleExpand={(id) => setExpandedWikiNodes(prev => ({ ...prev, [id]: !prev[id] }))}
                                                                     activePageId={activePageId}
@@ -841,11 +1085,11 @@ export const VaultSidebar = ({
                                                 }))}
                                                 className="ml-2 mt-1 px-2 py-1 text-[11px] text-[var(--text-secondary)] border border-[var(--border-primary)] rounded hover:bg-[var(--bg-secondary)] transition-colors"
                                             >
-                                                Mostrar {Math.min(TABLES_BATCH_SIZE, dbTables.length - visibleTableCount)} taules més
+                                                {t('sidebar.show_more_tables', { count: Math.min(TABLES_BATCH_SIZE, dbTables.length - visibleTableCount) })}
                                             </button>
                                         )}
                                         {dbTables.length === 0 && (
-                                            <div className="px-2 py-1 text-[11px] text-[var(--text-secondary)]/60 italic">Sense taules</div>
+                                            <div className="px-2 py-1 text-[11px] text-[var(--text-secondary)]/60 italic">{t('sidebar.no_tables')}</div>
                                         )}
                                     </div>
                                 )}
@@ -857,40 +1101,64 @@ export const VaultSidebar = ({
                             onClick={() => setVisibleDatabasesCount(prev => Math.min(prev + DATABASES_BATCH_SIZE, databases.length))}
                             className="w-full mt-1 px-2 py-1 text-xs text-[var(--text-secondary)] border border-[var(--border-primary)] rounded hover:bg-[var(--bg-secondary)] transition-colors"
                         >
-                            Mostrar {Math.min(DATABASES_BATCH_SIZE, databases.length - visibleDatabasesCount)} bases de dades més
+                            {t('sidebar.show_more_databases', { count: Math.min(DATABASES_BATCH_SIZE, databases.length - visibleDatabasesCount), defaultValue: `Show more databases` })}
                         </button>
                     )}
                     {isRegistryLoading && (
                         <div className="px-4 py-2 text-[11px] text-[var(--text-secondary)]/60 italic">
-                            Carregant bases de dades...
+                            {t('sidebar.loading_databases')}
                         </div>
                     )}
                     {!isRegistryLoading && databases.length === 0 && (
                         <div className="px-4 py-2 text-[11px] text-[var(--text-secondary)]/60 italic">
-                            No hi ha bases de dades creades.
+                            {t('sidebar.no_databases')}
                         </div>
                     )}
                 </div>
             )}
 
-            <SectionHeader
-                label="Wiki"
-                isExpanded={isWorkspaceExpanded}
-                onToggle={() => {
-                    setIsWorkspaceExpanded((prev) => {
-                        const next = !prev;
-                        if (next) {
-                            setWikiScrollTop(0);
-                            requestAnimationFrame(() => {
-                                if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0;
-                            });
-                        }
-                        return next;
-                    });
-                    setExpandedWikiNodes({});
-                }}
-                onAdd={() => onCreatePage(null)}
-            />
+            <div className="group relative flex items-center px-3 mt-6 mb-1">
+                <button
+                    onClick={() => {
+                        setIsWorkspaceExpanded((prev) => {
+                            const next = !prev;
+                            if (next) {
+                                setWikiScrollTop(0);
+                                requestAnimationFrame(() => {
+                                    if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0;
+                                });
+                            }
+                            return next;
+                        });
+                        setExpandedWikiNodes({});
+                    }}
+                    className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
+                >
+                    {isWorkspaceExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    Wiki
+                </button>
+                <div className="flex items-center gap-0.5">
+                    <button
+                        onClick={() => setIsWikiDragLocked((v) => !v)}
+                        className={`p-0.5 rounded transition-all ${
+                            isWikiDragLocked
+                                ? 'opacity-60 hover:opacity-100 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                                : 'opacity-100 text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 hover:bg-[var(--gnosi-primary)]/20'
+                        }`}
+                        title={isWikiDragLocked ? t('sidebar.wiki_unlock', 'Desbloqueja per reordenar (drag&drop)') : t('sidebar.wiki_lock', 'Bloqueja l\'arrossegament')}
+                    >
+                        {isWikiDragLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                    </button>
+                    {isEditor && (
+                        <button
+                            onClick={() => onCreatePage(null)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                        >
+                            <Plus size={14} />
+                        </button>
+                    )}
+                </div>
+            </div>
             {isWorkspaceExpanded && (
                 <div
                     ref={wikiViewportRef}
@@ -902,9 +1170,9 @@ export const VaultSidebar = ({
                     className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar"
                 >
                     {isRegistryLoading ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">Carregant...</div>
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('common.loading')}</div>
                     ) : rootPages.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">No hi ha pàgines sense taula</div>
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('sidebar.no_wiki_pages')}</div>
                     ) : (
                         <>
                             {wikiVirtualizationEnabled && wikiTopSpacerHeight > 0 && (
@@ -927,8 +1195,11 @@ export const VaultSidebar = ({
                                     onDuplicatePage={onDuplicatePage}
                                     onDeletePage={onDeletePage}
                                     onToggleFavorite={onToggleFavorite}
+                                    onMovePage={onMovePage}
+                                    role={role}
                                     menuState={menuState}
                                     setMenuState={setMenuState}
+                                    isDragLocked={isWikiDragLocked}
                                 />
                             ))}
 
@@ -941,7 +1212,7 @@ export const VaultSidebar = ({
                                     onClick={() => setVisibleWikiCount(prev => Math.min(prev + WIKI_BATCH_SIZE, rootPages.length))}
                                     className="btn-gnosi btn-gnosi-primary !text-[10px] !py-1 w-full mt-1"
                                 >
-                                    Mostrar {Math.min(WIKI_BATCH_SIZE, rootPages.length - visibleWikiCount)} més
+                                    {t('sidebar.show_more', { count: Math.min(WIKI_BATCH_SIZE, rootPages.length - visibleWikiCount) })}
                                 </button>
                             )}
                         </>
@@ -965,7 +1236,7 @@ export const VaultSidebar = ({
                                 className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                             >
                                 <LayoutPanelLeft size={14} className="text-[var(--text-secondary)]/60" />
-                                <span>Obrir taula</span>
+                                <span>{t('sidebar.open_table')}</span>
                             </button>
                             {onOpenTable && (
                                 <button
@@ -976,7 +1247,7 @@ export const VaultSidebar = ({
                                     className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                                 >
                                     <Plus size={14} className="text-[var(--text-secondary)]/60" />
-                                    <span>Obrir en pestanya nova</span>
+                                    <span>{t('sidebar.open_in_new_tab')}</span>
                                 </button>
                             )}
                             {onOpenTableParallel && (
@@ -988,7 +1259,7 @@ export const VaultSidebar = ({
                                     className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                                 >
                                     <Columns2 size={14} className="text-[var(--text-secondary)]/60" />
-                                    <span>Obrir en paral·lel</span>
+                                    <span>{t('sidebar.open_parallel')}</span>
                                 </button>
                             )}
                             <div className="h-px bg-[var(--border-primary)] my-1 mx-2"></div>
@@ -996,7 +1267,7 @@ export const VaultSidebar = ({
                     )}
                     <button
                         onClick={() => {
-                            const newName = prompt(`Nou nom per ${menuState.type === 'database' ? 'la Database' : 'la Taula'}?`, menuState.name);
+                            const newName = prompt(t('sidebar.prompt_new_name_type', { type: menuState.type === 'database' ? 'Database' : 'Table' }), menuState.name);
                             if (newName && newName !== menuState.name) {
                                 if (menuState.type === 'database') onRenameDatabase(menuState.id, newName);
                                 else onRenameTable(menuState.id, newName);
@@ -1006,7 +1277,7 @@ export const VaultSidebar = ({
                         className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                     >
                         <Edit2 size={14} className="text-[var(--text-secondary)]/60" />
-                        <span>Renomenar</span>
+                        <span>{t('sidebar.rename')}</span>
                     </button>
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2"></div>
                     <button
@@ -1022,7 +1293,7 @@ export const VaultSidebar = ({
                         className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
                     >
                         <Trash2 size={14} className="text-[var(--status-error)]" />
-                        <span>Eliminar</span>
+                        <span>{t('common.delete')}</span>
                     </button>
                 </div>,
                 document.body
@@ -1039,9 +1310,9 @@ export const VaultSidebar = ({
                         }
                         setConfirmModal({ ...confirmModal, isOpen: false });
                     }}
-                    title={`Eliminar ${confirmModal.type === 'database' ? 'Database' : 'Taula'}`}
-                    message={`Estàs segur que vols eliminar ${confirmModal.type === 'database' ? 'la Database (i totes les seves taules)' : 'la Taula'}? Aquesta acció no es pot desfer.`}
-                    confirmText="Eliminar"
+                    title={t('sidebar.confirm_delete_type_title', { type: confirmModal.type === 'database' ? 'Database' : 'Table', defaultValue: `Delete ${confirmModal.type === 'database' ? 'Database' : 'Table'}` })}
+                    message={confirmModal.type === 'database' ? t('sidebar.confirm_delete_db_msg') : t('sidebar.confirm_delete_table_msg')}
+                    confirmText={t('common.delete')}
                     isDestructive={true}
                 />
             )}

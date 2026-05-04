@@ -1,32 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import './SettingsModal.css'; // We'll create this for basic styling
+import { useApi } from '../hooks/use-api';
+import { X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import './SettingsModal.css';
 
 export function SettingsModal({ isOpen, onClose }) {
     const { t, i18n } = useTranslation();
+    const { apiFetch } = useApi();
     const [config, setConfig] = useState(null);
     const [envVars, setEnvVars] = useState(null);
     const [activeTab, setActiveTab] = useState('general');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [showToken, setShowToken] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
     const [credentials, setCredentials] = useState([]);
     const [editingCredential, setEditingCredential] = useState(null);
     const [credentialValue, setCredentialValue] = useState('');
     const [schedulers, setSchedulers] = useState([]);
-    const [syncing, setSyncing] = useState(false);
-    const [syncStatus, setSyncStatus] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
             loadConfig();
             loadEnvVars();
             loadSchedulers();
-            loadSyncStatus();
             loadCredentials();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'TEXTAREA') return;
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, handleSave]);
 
     const loadSchedulers = async () => {
         try {
@@ -35,16 +49,6 @@ export function SettingsModal({ isOpen, onClose }) {
             setSchedulers(data);
         } catch (err) {
             console.error("Error loading schedulers:", err);
-        }
-    };
-
-    const loadSyncStatus = async () => {
-        try {
-            const res = await fetch('/api/sync/status');
-            const data = await res.json();
-            setSyncStatus(data.last_sync);
-        } catch (err) {
-            console.error("Error loading sync status:", err);
         }
     };
 
@@ -147,14 +151,15 @@ export function SettingsModal({ isOpen, onClose }) {
             <div className="settings-modal">
                 <div className="settings-header">
                     <h2>{t('settings') || 'Settings'}</h2>
-                    <button className="close-btn" onClick={onClose}>&times;</button>
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
+                        <X />
+                    </button>
                 </div>
 
                 <div className="settings-tabs">
                     <button className={activeTab === 'general' ? 'active' : ''} onClick={() => setActiveTab('general')}>General</button>
                     <button className={activeTab === 'visual' ? 'active' : ''} onClick={() => setActiveTab('visual')}>Visual</button>
                     <button className={activeTab === 'ai' ? 'active' : ''} onClick={() => setActiveTab('ai')}>AI</button>
-                    <button className={activeTab === 'notion' ? 'active' : ''} onClick={() => setActiveTab('notion')}>Notion</button>
                     <button className={activeTab === 'schedulers' ? 'active' : ''} onClick={() => setActiveTab('schedulers')}>Schedulers</button>
                     <button className={activeTab === 'credentials' ? 'active' : ''} onClick={() => setActiveTab('credentials')}>Credentials</button>
                 </div>
@@ -333,86 +338,6 @@ export function SettingsModal({ isOpen, onClose }) {
                                 </div>
                             )}
 
-                            {activeTab === 'notion' && envVars && config && config.notion && (
-                                <div className="settings-section">
-                                    <h3>Notion Credentials</h3>
-                                    <div className="form-group">
-                                        <label>Notion Token</label>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            <input
-                                                type={showToken ? "text" : "password"}
-                                                value={envVars.NOTION_TOKEN || ''}
-                                                onChange={(e) => handleEnvChange('NOTION_TOKEN', e.target.value)}
-                                                placeholder="ntn_..."
-                                                style={{ flex: 1 }}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowToken(!showToken)}
-                                                style={{ padding: '8px 12px' }}
-                                            >
-                                                {showToken ? '👁️' : '👁️‍🗨️'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Database ID</label>
-                                        <input
-                                            type="text"
-                                            value={envVars.DATABASE_ID || ''}
-                                            onChange={(e) => handleEnvChange('DATABASE_ID', e.target.value)}
-                                            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                        />
-                                    </div>
-
-                                    <h3>Notion Properties</h3>
-                                    <div className="form-group">
-                                        <label>Title Property</label>
-                                        <input
-                                            type="text"
-                                            value={config.notion.title_property}
-                                            onChange={(e) => handleChange('notion.title_property', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Links Property</label>
-                                        <input
-                                            type="text"
-                                            value={config.notion.links_property}
-                                            onChange={(e) => handleChange('notion.links_property', e.target.value)}
-                                        />
-                                    </div>
-
-                                    <h3>Sincronització</h3>
-                                    <div className="form-group">
-                                        <button
-                                            type="button"
-                                            onClick={async () => {
-                                                setSyncing(true);
-                                                try {
-                                                    const res = await fetch('/api/sync/directives-to-notion', { method: 'POST' });
-                                                    const data = await res.json();
-                                                    setSyncStatus(data);
-                                                    alert(`Sincronitzat: ${data.synced || 0} directives`);
-                                                } catch (e) {
-                                                    alert('Error sincronitzant: ' + e.message);
-                                                }
-                                                setSyncing(false);
-                                            }}
-                                            disabled={syncing}
-                                            style={{ padding: '10px 20px', background: '#4a5568', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-                                        >
-                                            {syncing ? 'Sincronitzant...' : '📤 Sincronitzar Directives a Notion'}
-                                        </button>
-                                        {syncStatus && (
-                                            <p style={{ marginTop: '10px', fontSize: '0.9em', color: '#a0aec0' }}>
-                                                Última sincronització: {new Date(syncStatus.timestamp).toLocaleString()}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
                             {activeTab === 'schedulers' && (
                                 <div className="settings-section">
                                     <h3>Tasques Programades</h3>
@@ -493,12 +418,16 @@ export function SettingsModal({ isOpen, onClose }) {
                                                         </select>
                                                         <button
                                                             onClick={async () => {
-                                                                const res = await fetch(`/api/schedulers/${task.name}/run`, { method: 'POST' });
-                                                                const data = await res.json();
-                                                                if (data.success) {
-                                                                    alert('Tasca executada correctament!');
-                                                                } else {
-                                                                    alert('Error: ' + (data.error || 'desconegut'));
+                                                                const t_id = toast.loading(`${t('dashboard.running_task', 'Executant tasca')} ${task.name}...`);
+                                                                try {
+                                                                    const data = await apiFetch(`/api/schedulers/${task.name}/run`, { method: 'POST' });
+                                                                    if (data.success) {
+                                                                        toast.success(t('dashboard.task_started', 'Tasca iniciada correctament'), { id: t_id });
+                                                                    } else {
+                                                                        toast.error(data.error || 'Error', { id: t_id });
+                                                                    }
+                                                                } catch (err) {
+                                                                    toast.error('Error: ' + err.message, { id: t_id });
                                                                 }
                                                             }}
                                                             style={{ padding: '5px 10px', background: '#4a5568', border: 'none', borderRadius: '4px', cursor: 'pointer' }}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -9,8 +9,25 @@ import html
 import re
 
 from backend.services.social_clients import mastodon_client, bluesky_client
+from backend.services.integration_manager import integration_manager
+from backend.services.workspace_service import require_role
+from backend.utils.errors import safe_error_detail
 
 log = logging.getLogger(__name__)
+
+DEFAULT_STREAMS = [
+    {"id": "mastodon-home", "title": "Mastodon Home", "icon": "🐘", "network": "mastodon"},
+    {"id": "bluesky-home", "title": "Bluesky Home", "icon": "🦋", "network": "bluesky"},
+    {"id": "scheduled", "title": "Programats", "icon": "📅", "network": "scheduled"},
+]
+
+DEFAULT_NETWORKS = [
+    {"id": "mastodon", "name": "Mastodon", "icon": "🐘", "enabled": True},
+    {"id": "bluesky",  "name": "Bluesky",  "icon": "🦋", "enabled": True},
+    {"id": "linkedin", "name": "LinkedIn", "icon": "💼", "enabled": True},
+    {"id": "facebook", "name": "Facebook", "icon": "📘", "enabled": False},
+    {"id": "telegram", "name": "Telegram", "icon": "✈️", "enabled": False},
+]
 
 router = APIRouter()
 
@@ -72,12 +89,34 @@ def strip_html(text: str) -> str:
 
 @router.get("/streams", response_model=List[Stream])
 async def get_streams():
-    """Returns the configured streams/columns."""
-    return [
-        {"id": "mastodon-home", "title": "Mastodon Home", "icon": "🐘", "network": "mastodon"},
-        {"id": "bluesky-home", "title": "Bluesky Home", "icon": "🦋", "network": "bluesky"},
-        {"id": "scheduled", "title": "Scheduled", "icon": "📅", "network": "scheduled"},
-    ]
+    """Returns the user-configured streams/columns."""
+    config = integration_manager._load()
+    return config.get("social_streams", DEFAULT_STREAMS)
+
+
+@router.put("/streams", dependencies=[Depends(require_role("editor"))])
+async def update_streams(payload: List[dict] = Body(...)):
+    """Saves the user's stream configuration."""
+    # `replace_key` agafa el lock de l'IntegrationManager i reemplaça
+    # totalment la llista (cosa que `update()` no fa: faria merge per ID
+    # i streams eliminats per l'usuari ressuscitarien). Abans s'accedia
+    # a `_load`/`_save` directes, saltant-se el lock i el merge.
+    integration_manager.replace_key("social_streams", payload)
+    return {"status": "ok"}
+
+
+@router.get("/networks")
+async def get_networks():
+    """Returns the user-configured social networks."""
+    config = integration_manager._load()
+    return config.get("social_networks", DEFAULT_NETWORKS)
+
+
+@router.put("/networks", dependencies=[Depends(require_role("editor"))])
+async def update_networks(payload: List[dict] = Body(...)):
+    """Saves the enabled/disabled state of social networks."""
+    integration_manager.replace_key("social_networks", payload)
+    return {"status": "ok"}
 
 @router.get("/feed/{stream_id}")
 async def get_feed(stream_id: str, limit: int = 20):
@@ -216,12 +255,35 @@ async def get_feed(stream_id: str, limit: int = 20):
     return []
 
 
-@router.post("/interact")
+_VALID_NETWORKS = {"mastodon", "bluesky"}
+_VALID_ACTIONS = {
+    "mastodon": {"like", "unlike", "reblog", "unreblog"},
+    "bluesky": {"like", "reblog"},
+}
+
+
+@router.post("/interact", dependencies=[Depends(require_role("editor"))])
 async def interact_with_post(request: InteractionRequest):
     """Perform an interaction (like, reblog) on a post."""
-    
+
+    if request.network not in _VALID_NETWORKS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown network '{request.network}'. Valid: {sorted(_VALID_NETWORKS)}",
+        )
+
+    valid_actions = _VALID_ACTIONS[request.network]
+    if request.action not in valid_actions:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Action '{request.action}' not supported on {request.network}. "
+                f"Valid: {sorted(valid_actions)}"
+            ),
+        )
+
     success = False
-    
+
     if request.network == "mastodon":
         if request.action == "like":
             success = await mastodon_client.favourite(request.post_id)
@@ -231,23 +293,23 @@ async def interact_with_post(request: InteractionRequest):
             success = await mastodon_client.reblog(request.post_id)
         elif request.action == "unreblog":
             success = await mastodon_client.unreblog(request.post_id)
-    
+
     elif request.network == "bluesky":
         if not request.cid:
             raise HTTPException(status_code=400, detail="CID required for Bluesky interactions")
-        
+
         if request.action == "like":
             success = await bluesky_client.like(request.post_id, request.cid)
         elif request.action == "reblog":
             success = await bluesky_client.repost(request.post_id, request.cid)
-    
+
     if not success:
-        raise HTTPException(status_code=500, detail=f"Failed to {request.action} post")
-    
+        raise HTTPException(status_code=502, detail=f"Failed to {request.action} post on {request.network}")
+
     return {"status": "success", "action": request.action, "post_id": request.post_id}
 
 
-@router.post("/post")
+@router.post("/post", dependencies=[Depends(require_role("editor"))])
 async def create_post(request: CreatePostRequest):
     """Publishes a post to selected networks via n8n webhook."""
     
@@ -285,10 +347,10 @@ async def create_post(request: CreatePostRequest):
             "status": "failed",
             "error": str(e)
         })
-        raise HTTPException(status_code=502, detail=f"Failed to reach social automation service: {str(e)}")
+        raise HTTPException(status_code=502, detail=safe_error_detail(e, context="POST /api/social/post n8n webhook"))
 
 
-@router.post("/schedule")
+@router.post("/schedule", dependencies=[Depends(require_role("editor"))])
 async def schedule_post(request: SchedulePostRequest):
     """Schedule a post for future publication."""
     
@@ -322,15 +384,21 @@ async def get_scheduled_posts():
     return [p for p in SCHEDULED_POSTS if p["status"] == "pending"]
 
 
-@router.delete("/scheduled/{post_id}")
+@router.delete("/scheduled/{post_id}", dependencies=[Depends(require_role("editor"))])
 async def cancel_scheduled_post(post_id: str):
     """Cancel a scheduled post."""
     for post in SCHEDULED_POSTS:
         if post["id"] == post_id:
             post["status"] = "cancelled"
             return {"status": "cancelled", "id": post_id}
-    
-@router.post("/process-scheduled")
+    # Bug previ: la funció queia per la fi sense return ni raise, retornant
+    # `None` (200 OK) quan el post no existia. Ara retornem 404 explícit
+    # perquè el frontend pugui tractar-ho com a error de UX.
+    raise HTTPException(status_code=404, detail=f"Scheduled post {post_id} not found")
+
+
+
+@router.post("/process-scheduled", dependencies=[Depends(require_role("editor"))])
 async def process_scheduled_posts():
     """Check for due posts and publish them."""
     now = datetime.now()

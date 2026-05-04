@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # validate_suggestions.py
 import json, re, argparse, os
-from config.logger_config import get_logger
-from config.app_config import load_params
+from backend.config.logger_config import get_logger
+from backend.config.app_config import load_params
 
 cfg = load_params(strict_env=False) 
 log = get_logger(__name__)

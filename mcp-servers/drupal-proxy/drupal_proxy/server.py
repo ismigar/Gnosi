@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+import json
 from typing import Any, Sequence
 
 from mcp.server import Server
@@ -85,6 +86,11 @@ class DrupalProxyServer:
                     },
                     "required": ["tool_name"]
                 }
+            ),
+            types.Tool(
+                name="drupal_dummy_test",
+                description="Test tool",
+                inputSchema={"type": "object", "properties": {}}
             )
         ]
 
@@ -98,6 +104,8 @@ class DrupalProxyServer:
                 return await self._handle_list_categories()
             elif name == "drupal_get_tool_schema":
                 return await self._handle_get_schema(arguments)
+            elif name == "drupal_dummy_test":
+                return [types.TextContent(type="text", text="Dummy success!")]
             else:
                 raise ValueError(f"Unknown tool: {name}")
         except Exception as e:
@@ -135,28 +143,31 @@ class DrupalProxyServer:
         return result.content
 
     async def _handle_list_categories(self) -> list[types.TextContent]:
-        tools = await self.client.list_tools()
-        categories = set()
-        
-        for tool in tools:
-            # Try to find group/category in extra attributes or annotations
-            # Note: The Tool model might store extra fields differently depending on SDK version
-            # Assuming 'group' might be in description or a specific field if accessible
-            # If not easily accessible, we might skip or try to parse
-            pass
+        try:
+            logger.info("Handling drupal_list_categories")
+            tools = await self.client.list_tools()
+            categories = set()
             
-        # Since standard Tool object doesn't strictly enforce 'group', we might just return a count summary
-        return [types.TextContent(type="text", text=f"Total tools available: {len(tools)}. (Category listing not fully implemented yet due to schema variability)")]
+            # Since standard Tool object doesn't strictly enforce 'group', we just return a count summary
+            return [types.TextContent(type="text", text=f"Total tools available: {len(tools)}. (Category listing not fully implemented yet)")]
+        except Exception as e:
+            logger.error(f"Error in _handle_list_categories: {e}")
+            return [types.TextContent(type="text", text=f"Error listing categories: {str(e)}")]
 
     async def _handle_get_schema(self, args: dict) -> list[types.TextContent]:
-        tool_name = args.get("tool_name")
-        tool = await self.client.get_tool(tool_name)
-        
-        if not tool:
-            return [types.TextContent(type="text", text=f"Tool '{tool_name}' not found.")]
+        try:
+            tool_name = args.get("tool_name")
+            logger.info(f"Handling drupal_get_tool_schema for {tool_name}")
+            tool = await self.client.get_tool(tool_name)
             
-        schema = tool.inputSchema if hasattr(tool, 'inputSchema') else tool.get('inputSchema')
-        return [types.TextContent(type="text", text=json.dumps(schema, indent=2))]
+            if not tool:
+                return [types.TextContent(type="text", text=f"Tool '{tool_name}' not found.")]
+                
+            schema = tool.inputSchema if hasattr(tool, 'inputSchema') else tool.get('inputSchema')
+            return [types.TextContent(type="text", text=json.dumps(schema, indent=2))]
+        except Exception as e:
+            logger.error(f"Error in _handle_get_schema: {e}")
+            return [types.TextContent(type="text", text=f"Error getting schema: {str(e)}")]
 
     async def run(self):
         async with stdio_server() as (read_stream, write_stream):

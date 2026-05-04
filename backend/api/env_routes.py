@@ -1,9 +1,17 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pathlib import Path
 import logging
 import re
 
-router = APIRouter()
+from backend.utils.errors import safe_error_detail
+from backend.utils.safe_io import safe_write_text
+from backend.services.workspace_service import require_role
+
+# Auth gate: en personal mode l'usuari és auto-promogut a "owner" així que
+# require_role("admin") no bloqueja. En organitzacio mode protegeix els
+# endpoints d'env contra usuaris no privilegiats (paths del vault, providers
+# AI). Aplicat a router-level.
+router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
 
 # Secrets: .env_shared (Projectes root)
@@ -70,8 +78,10 @@ def write_env_file(filepath, env_vars, original_lines):
         if key not in processed_keys:
             new_lines.append(f"{key}={value}\n")
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.writelines(new_lines)
+    # Atomic write: .env_shared és la font de tots els secrets — un crash
+    # a meitat de writelines deixaria el fitxer corrupte i l'app es quedaria
+    # sense credencials al següent restart.
+    safe_write_text(filepath, "".join(new_lines))
 
 
 @router.get("/env")
@@ -96,7 +106,7 @@ async def get_env():
 
     except Exception as e:
         log.error(f"Error reading .env file: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /env"))
 
 
 @router.post("/env")
@@ -126,6 +136,8 @@ async def update_env(request: Request):
         log.info(f"Updated .env file with {len(new_vars)} variables")
         return {"status": "success", "message": "Environment variables updated"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"Error updating .env file: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /env"))

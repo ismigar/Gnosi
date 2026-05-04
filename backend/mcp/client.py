@@ -38,17 +38,17 @@ class DockerMCPClient:
     async def initialize(self):
         try:
             log.info(f"⏳ Initializing MCP handshake with {self.server_name}...")
-            # Timeout de 5 segons per evitar bloqueig total
+            # Timeout reduït a 2 segons per a independència total
             response = await asyncio.wait_for(self.send_request("initialize", {
                 "protocolVersion": "0.1.0",
                 "capabilities": {},
-                "clientInfo": {"name": "digital-brain-host", "version": "1.0"}
-            }), timeout=5.0)
+                "clientInfo": {"name": "gnosi-host", "version": "1.0"}
+            }), timeout=2.0)
             log.info(f"✅ MCP Initialized ({self.server_name}): {response}")
             # Notificar que estem llestos
             await self.send_notification("notifications/initialized", {})
         except asyncio.TimeoutError:
-            log.error(f"❌ MCP Initialization Timed Out for {self.server_name} after 5s. Continuing without it.")
+            log.error(f"❌ MCP Initialization Timed Out for {self.server_name} after 2s. Continuing without it.")
         except Exception as e:
             log.error(f"❌ MCP Initialization Failed for {self.server_name}: {e}")
 
@@ -62,22 +62,34 @@ class DockerMCPClient:
         if self._reader_task:
             self._reader_task.cancel()
 
-    async def send_request(self, method: str, params: Optional[Dict] = None) -> Any:
+    async def send_request(self, method: str, params: Optional[Dict] = None, timeout: float = 30.0) -> Any:
         self._msg_id += 1
         current_id = self._msg_id
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": current_id,
             "method": method,
             "params": params or {}
         }
-        
-        future = asyncio.get_event_loop().create_future()
+
+        # get_running_loop() és la API moderna dins funcions async
+        # (get_event_loop està deprecat des de Python 3.10).
+        future = asyncio.get_running_loop().create_future()
         self._pending_requests[current_id] = future
-        
+
         await self._send_json(request)
-        return await future
+        try:
+            # Timeout: si el servidor MCP es penja o crasheja, abans
+            # `await future` quedava penjat indefinidament i bloquejava
+            # el caller (típicament un endpoint d'agent_routes o factory).
+            return await asyncio.wait_for(future, timeout=timeout)
+        except asyncio.TimeoutError:
+            # Netegem la pendent perquè no acumuli memòria
+            self._pending_requests.pop(current_id, None)
+            raise RuntimeError(
+                f"MCP request {method} on {self.server_name} timed out after {timeout}s"
+            )
 
     async def send_notification(self, method: str, params: Optional[Dict] = None):
         request = {
@@ -88,8 +100,12 @@ class DockerMCPClient:
         await self._send_json(request)
 
     async def _send_json(self, data: Dict):
-        if not self.process or not self.process.stdin:
-            raise RuntimeError("Process not running")
+        if not self.process:
+            raise RuntimeError(f"Server {self.server_name} process not created")
+        if self.process.returncode is not None:
+             raise RuntimeError(f"Server {self.server_name} process terminated with code {self.process.returncode}")
+        if not self.process.stdin:
+            raise RuntimeError(f"Server {self.server_name} has no stdin")
         
         json_str = json.dumps(data) + "\n"
         log.debug(f"[{self.server_name} SEND] {json_str.strip()}")
@@ -143,13 +159,18 @@ class MultiServerMCPClient:
         self.config = config
 
     async def start(self):
+        # Iniciar tots els servidors en paral·lel per no bloquejar l'arrencada de l'App
+        tasks = []
         for name, cfg in self.config.items():
             cmd = cfg["command"]
             args = cfg.get("args", [])
             full_cmd = [cmd] + args
             client = DockerMCPClient(name, full_cmd)
-            await client.start()
             self.clients[name] = client
+            tasks.append(client.start())
+        
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def stop(self):
         for client in self.clients.values():
@@ -159,6 +180,8 @@ class MultiServerMCPClient:
         all_tools = []
         for name, client in self.clients.items():
             try:
+                if not client.process or client.process.returncode is not None:
+                    continue
                 tools_resp = await client.list_tools()
                 tools = tools_resp.get("tools", [])
                 # Prefixar nom de l'eina amb el servidor per evitar col·lisions?

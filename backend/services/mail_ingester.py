@@ -20,7 +20,8 @@ from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 from pathlib import Path
 
-from backend.data.db import SessionLocal
+from backend.data.db import get_engine_for_path
+from backend.services.context_vars import get_active_vault_path
 from backend.models.reader import FeedSource, Article
 
 # Load .env_shared (global) then .env (local override)
@@ -145,6 +146,8 @@ def fetch_and_store_newsletters():
         log.warning("⚠️ Mail credentials not configured. Skipping newsletters.")
         return 0
 
+    v_path = get_active_vault_path()
+    _, SessionLocal = get_engine_for_path(v_path)
     db: Session = SessionLocal()
     try:
         # Create or get the "Newsletters Inbox" source

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
-import { SocialLayout } from '../components/social/SocialLayout';
 
 const ContentCalendar = () => {
     const [scheduledPosts, setScheduledPosts] = useState([]);
@@ -26,15 +26,24 @@ const ContentCalendar = () => {
     };
 
     const cancelPost = async (postId) => {
-        if (!confirm('Cancel this scheduled post?')) return;
+        // window.confirm bloqueja la UI; ho mantenim per compatibilitat
+        // (no hi ha modal de confirmació al ContentCalendar) però usem
+        // toast.error en lloc d'alert (que també bloqueja).
+        if (!window.confirm('Cancel this scheduled post?')) return;
 
         try {
             const res = await fetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
-            if (res.ok) {
-                setScheduledPosts(prev => prev.filter(p => p.id !== postId));
+            if (!res.ok) {
+                // Sense aquest else, una resposta 4xx/5xx feia que el post
+                // continués apareixent però l'usuari pensava que ja s'havia
+                // cancel·lat (el confirm s'havia tancat). Ara avisem.
+                throw new Error(`HTTP ${res.status}`);
             }
+            setScheduledPosts(prev => prev.filter(p => p.id !== postId));
+            toast.success('Post cancellat');
         } catch (error) {
-            alert('Error cancelling post');
+            console.error('cancelPost failed', error);
+            toast.error('Error cancelling post');
         }
     };
 
@@ -77,37 +86,38 @@ const ContentCalendar = () => {
         setCurrentWeek(newDate);
     };
 
-    const ActionControls = (
-        <div className="flex items-center gap-4 bg-white/5 rounded-lg p-1 border border-white/5">
-            <button
-                onClick={() => navigateWeek(-1)}
-                className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-zinc-400 hover:text-white"
-            >
-                <ChevronLeft size={20} />
-            </button>
-            <span className="font-semibold text-sm w-32 text-center text-zinc-200">
-                {weekDays[0].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })} -
-                {weekDays[6].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })}
-            </span>
-            <button
-                onClick={() => navigateWeek(1)}
-                className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-zinc-400 hover:text-white"
-            >
-                <ChevronRight size={20} />
-            </button>
-        </div>
-    );
-
     return (
-        <SocialLayout title="Calendar" action={ActionControls}>
-            <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col p-6 overflow-hidden">
+            {/* Controls de navegació setmanal */}
+            <div className="flex items-center gap-4 mb-4 shrink-0">
+                <div className="flex items-center gap-2 bg-[var(--bg-secondary)] rounded-lg p-1 border border-[var(--border-primary)]">
+                    <button
+                        onClick={() => navigateWeek(-1)}
+                        className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded-md transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <span className="font-semibold text-sm w-36 text-center text-[var(--text-primary)]">
+                        {weekDays[0].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })} –{' '}
+                        {weekDays[6].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })}
+                    </span>
+                    <button
+                        onClick={() => navigateWeek(1)}
+                        className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded-md transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex flex-col">
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-full text-zinc-500 gap-4">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                         <span>Carregant calendari...</span>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-7 gap-4 h-full min-h-[600px]">
+                    <div className="grid grid-cols-7 gap-4 flex-1 min-h-0">
                         {weekDays.map((day, idx) => {
                             const dayPosts = getPostsForDay(day);
                             const dayName = day.toLocaleDateString('ca-ES', { weekday: 'short' });
@@ -187,7 +197,7 @@ const ContentCalendar = () => {
                     </div>
                 )}
             </div>
-        </SocialLayout>
+        </div>
     );
 };
 

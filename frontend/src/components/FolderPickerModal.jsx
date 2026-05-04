@@ -5,7 +5,7 @@ import { X, Folder, ChevronRight, ArrowLeft, Home, Search } from 'lucide-react';
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
 export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' }) {
-    const [currentPath, setCurrentPath] = useState(initialPath || '/vault');
+    const [currentPath, setCurrentPath] = useState(initialPath || '/');
     const [displayPath, setDisplayPath] = useState('');
     const [directories, setDirectories] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -14,9 +14,31 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
 
     useEffect(() => {
         if (isOpen) {
-            browse(currentPath);
+            browserInit();
         }
-    }, [isOpen]);
+    }, [isOpen, initialPath]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            } else if (e.key === 'Enter') {
+                if (document.activeElement.tagName === 'INPUT') {
+                    // Si estem cercant, potser no volem seleccionar la carpeta immediatament
+                    // depèn de l'UX, però l'ordre és "enter = ok".
+                }
+                onSelect(currentPath);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, onSelect, currentPath]);
+
+    const browserInit = async () => {
+        const startPath = initialPath || currentPath || '/';
+        await browse(startPath);
+    };
 
     const browse = async (path) => {
         setLoading(true);
@@ -52,12 +74,12 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
     );
 
     const modalContent = (
-        <div className="settings-overlay" onClick={onClose}>
+        <div className="settings-overlay">
             <div className="settings-modal" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
                 <div className="settings-modal__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
                     <h2 className="settings-modal__title" style={{ margin: 0, fontSize: '1.1em' }}>📁 Seleccionar Carpeta</h2>
-                    <button className="settings-modal__close" onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
-                        <X size={20} />
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
+                        <X />
                     </button>
                 </div>
 
@@ -96,7 +118,14 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#a78bfa', fontSize: '0.85rem' }}
                             className="hover:underline"
                         >
-                            <Folder size={14} /> Mac Home
+                            <Folder size={14} /> Home
+                        </button>
+                        <button
+                            onClick={() => browse('/')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#f43f5e', fontSize: '0.85rem' }}
+                            className="hover:underline"
+                        >
+                            <Folder size={14} /> Root (/)
                         </button>
                     </div>
 

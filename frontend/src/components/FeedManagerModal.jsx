@@ -28,6 +28,17 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     async function fetchSources() {
@@ -94,7 +105,12 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         if (!confirmModal.id) return;
         try {
             const res = await fetch(`${API_BASE}/reader/sources/${confirmModal.id}`, { method: 'DELETE' });
-            if (res.ok) fetchSources();
+            if (!res.ok) {
+                // Sense aquesta branca, una resposta 4xx/5xx feia que la
+                // font es quedés a la llista però l'usuari ja havia confirmat.
+                throw new Error(`HTTP ${res.status}`);
+            }
+            fetchSources();
         } catch (e) {
             console.error('Error deleting source:', e);
         } finally {
@@ -175,13 +191,13 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     const newsletterSources = sources.filter(s => s.type === 'newsletter');
 
     return (
-        <div className="settings-overlay" onClick={onClose}>
+        <div className="settings-overlay">
             <div className="feed-modal" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div className="settings-modal__header">
                     <h2 className="settings-modal__title">📡 Gestió de Feeds</h2>
-                    <button className="settings-modal__close" onClick={onClose}>
-                        <X size={20} />
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
+                        <X />
                     </button>
                 </div>
 

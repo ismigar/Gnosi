@@ -34,9 +34,15 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
         window.open(`/vault?page=${pageId}`, '_blank');
     };
 
-    const copyId = () => {
-        navigator.clipboard.writeText(pageId);
-        toast.success('ID copiat!');
+    const copyId = async () => {
+        // navigator.clipboard pot rebutjar (insecure context, permís denegat).
+        // Sense `await` el toast.success es mostrava abans de saber el resultat.
+        try {
+            await navigator.clipboard.writeText(pageId);
+            toast.success('ID copiat!');
+        } catch {
+            toast.error('No s\'ha pogut copiar l\'ID');
+        }
     };
 
     return (
@@ -100,8 +106,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
     useEffect(() => {
         if (!drawingId) { setIsLoading(false); return; }
 
-        axios.get(`/api/vault/drawings/${drawingId}`)
+        const controller = new AbortController();
+        axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
             .then(res => {
+                if (controller.signal.aborted) return;
                 const data = res.data;
                 if (data && typeof data === 'object') {
                     try {
@@ -111,10 +119,17 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                     }
                 }
             })
-            .catch(() => {
+            .catch((err) => {
+                if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
                 // El dibuix no existeix yet → pissarra buida
             })
-            .finally(() => setIsLoading(false));
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false);
+            });
+
+        return () => {
+            controller.abort();
+        };
     }, [drawingId, store]);
 
     // Guardar dibuix (auto-save)
@@ -278,9 +293,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                 </h2>
                 <button
                     onClick={onClose}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                    className="gnosi-close-btn"
+                    aria-label="Tancar"
                 >
-                    <X size={16} />
+                    <X />
                 </button>
             </div>
 
