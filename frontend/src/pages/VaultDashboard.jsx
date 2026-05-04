@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,7 +35,6 @@ import TldrawEditor from '../components/Vault/TldrawEditor';
 export default function VaultDashboard() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const location = useLocation();
     const { "*": nestedPath } = useParams();
 
     const [pages, setPages] = useState([]);
@@ -52,13 +51,13 @@ export default function VaultDashboard() {
         try {
             const raw = localStorage.getItem('gnosi.vault.editLockedPages');
             if (raw) return JSON.parse(raw);
-        } catch (e) { /* noop */ }
+        } catch { /* noop */ }
         return {};
     });
     useEffect(() => {
         try {
             localStorage.setItem('gnosi.vault.editLockedPages', JSON.stringify(editLockedByPageId));
-        } catch (e) { /* noop */ }
+        } catch { /* noop */ }
     }, [editLockedByPageId]);
     const [splitTabIds, setSplitTabIds] = useState([]);
     const [splitTableIds, setSplitTableIds] = useState([]);
@@ -86,7 +85,7 @@ export default function VaultDashboard() {
     const [tableNotes, setTableNotes] = useState([]);
     const [tableTemplates, setTableTemplates] = useState([]);
     const [visibleTableRecordsById, setVisibleTableRecordsById] = useState({});
-    const [tableCountsById, setTableCountsById] = useState({});
+    const [_tableCountsById, setTableCountsById] = useState({});
     const [isSchemaModalOpen, setIsSchemaModalOpen] = useState(false);
     const [isViewConfigOpen, setIsViewConfigOpen] = useState(false);
     const [viewToConfigure, setViewToConfigure] = useState(null);
@@ -202,6 +201,7 @@ export default function VaultDashboard() {
                 externalSignal.removeEventListener?.('abort', onExternalAbort);
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAbortLikeError]);
 
 
@@ -298,6 +298,7 @@ export default function VaultDashboard() {
         }
 
         return true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvePageTableId, pages, isCalendarPage]);
 
     const getVisibleTableRecords = useCallback((records, tableId, currentPages = pages) => {
@@ -335,6 +336,7 @@ export default function VaultDashboard() {
         });
 
         return Array.from(deduped.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shouldIncludeTableRecord]);
 
     const getTableVisibleRecords = useCallback((tableId) => {
@@ -472,6 +474,7 @@ export default function VaultDashboard() {
             setLoading(false);
             return [];
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [syncPagesState, isAbortLikeError]);
 
     const fetchRegistry = useCallback(async (attempt = 0) => {
@@ -494,6 +497,7 @@ export default function VaultDashboard() {
             setIsRegistryLoading(false);
             toast.error(t('errors.connection'));
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchPagesByTable = useCallback(async (tableId) => {
@@ -543,10 +547,39 @@ export default function VaultDashboard() {
             logError('load-table-pages', err);
             return [];
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAbortLikeError, resolvePageTableId, shouldIncludeTableRecord]);
 
     const loadPage = useCallback(async (pageId, fromHistory = false, attempt = 0) => {
         if (!pageId) return;
+        // Si el wikilink ha passat un títol literal en lloc d'un UUID
+        // (p.ex. "Resum estructurat del DVA"), el resolem ara contra
+        // `globalIndex` o `pages`. Sense això, GET /api/vault/pages/<títol>
+        // retorna 404. globalIndex pot estar buit en la primera càrrega
+        // si la cerca és immediata; per això hi ha un segon fallback a
+        // `pages` (que carrega també al startup).
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!UUID_RE.test(pageId)) {
+            const lower = String(pageId).toLowerCase().trim();
+            let resolved = null;
+            // 1) globalIndex
+            for (const [id, title] of Object.entries(globalIndex || {})) {
+                if (String(title || '').toLowerCase().trim() === lower) {
+                    resolved = id;
+                    break;
+                }
+            }
+            // 2) Llista local de pages
+            if (!resolved) {
+                const match = (pagesRef.current || pages).find(
+                    p => String(p.title || '').toLowerCase().trim() === lower
+                );
+                if (match) resolved = match.id;
+            }
+            if (resolved && resolved !== pageId) {
+                pageId = resolved;
+            }
+        }
         const tabId = pageId;
         const existingTab = tabs.find(t => t.id === tabId);
         if (existingTab) {
@@ -629,6 +662,7 @@ export default function VaultDashboard() {
                 activeLoadAbortRef.current = null;
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPageById, fetchPagesByTable, isAbortLikeError, pushToHistory, resolvePageTableId, tabs]);
 
     const handleUpdateNote = useCallback(async (id, data) => {
@@ -641,6 +675,7 @@ export default function VaultDashboard() {
         } catch (err) {
             notifyError('update-note', err, t('errors.save_note'));
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPages, fetchPagesByTable, pages, resolvePageTableId]);
 
     // Mou una pàgina del wiki sota un nou pare (drag & drop a la sidebar).
@@ -667,24 +702,6 @@ export default function VaultDashboard() {
             void fetchPages();
         }
     }, [fetchPages, t]);
-
-    const fetchSchema = useCallback(async (databaseId) => {
-        try {
-            const res = await axios.get(`/api/vault/schema?folder=${databaseId}`);
-            setSchema(res.data);
-        } catch (err) {
-            logError('fetch-schema', err);
-        }
-    }, []);
-
-    const fetchViews = useCallback(async (databaseId) => {
-        try {
-            const res = await axios.get(`/api/vault/views?folder=${databaseId}`);
-            setViews(res.data);
-        } catch (err) {
-            logError('fetch-views', err);
-        }
-    }, []);
 
     const ensureMainViewForTable = useCallback((tableViews = [], tableId = null) => {
         if (!Array.isArray(tableViews) || tableViews.length === 0) {
@@ -902,6 +919,7 @@ export default function VaultDashboard() {
             console.error("Error creant el registre:", err);
             toast.error("Error creant el registre");
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tableTemplates, fetchPages, loadPage]);
 
 
@@ -956,6 +974,7 @@ export default function VaultDashboard() {
     useEffect(() => {
         fetchPages();
         fetchRegistry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Avortar totes les peticions pendents quan es desmunta el component
@@ -969,6 +988,7 @@ export default function VaultDashboard() {
             pageRequestAbortersRef.current.forEach((controller) => {
                 try { controller.abort(); } catch { /* noop */ }
             });
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             pageRequestAbortersRef.current.clear();
         };
     }, []);
@@ -1180,14 +1200,8 @@ export default function VaultDashboard() {
             }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creating view:", err))
               .finally(() => viewCreationInProgressRef.current.delete(tableId));
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pushToHistory, setActiveTableId, setViewMode, setActiveTabId, resolvePageTableId, getTableVisibleRecords, setTableNotes, pages, setTableTemplates, fetchPagesByTable, registry.tables, registry.views, getSchemaFromTableId, setViews, setActiveViewId, getPreferredInitialViewId, fetchRegistry, tabs, getTableIdFromTab, activeTableId]);
-
-    const focusPageTab = useCallback((pageId) => {
-        setActiveTabId(pageId);
-        setViewMode('editor');
-        setActiveTableId(null);
-        setSplitTabIds(prev => prev.filter(id => id !== pageId));
-    }, []);
 
     const handleEditorUpdate = useCallback((pageId, content, payload = {}) => {
         setTabs(prevTabs => prevTabs.map(tab => {
@@ -1234,6 +1248,7 @@ export default function VaultDashboard() {
             toast.error(t('errors.open_parallel'));
             return false;
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tabs, fetchPageById, setTabs]);
 
     const handleTabClose = useCallback((tabId) => {
@@ -1272,6 +1287,13 @@ export default function VaultDashboard() {
     }, [activeTabId, splitTableIds, handleTableSelect]);
 
     useEffect(() => {
+        // No filtrar tabs mentre les dades globals encara s'estan carregant.
+        // Sense aquesta guarda, obrir el dashboard amb URL directa
+        // /vault/page/<id> tancava el tab que loadPage acabava d'obrir
+        // (perquè `pages` encara era [] quan corria l'efecte) i el dashboard
+        // queia al "Benvinguda" en lloc de mostrar la pàgina demanada.
+        if (loading || isRegistryLoading) return;
+
         const existingPageIds = new Set(pages.map(page => page.id));
         const existingTableIds = new Set((registry.tables || []).map(table => table.id));
 
@@ -1313,7 +1335,7 @@ export default function VaultDashboard() {
                 setViewMode('editor');
             }
         }
-    }, [activeTabId, activeTableId, pages, registry.tables, viewMode]);
+    }, [activeTabId, activeTableId, pages, registry.tables, viewMode, loading, isRegistryLoading]);
 
     const MAX_PANES = 4;
 
@@ -1340,6 +1362,24 @@ export default function VaultDashboard() {
         });
     }, [activeTabId, ensurePageTabLoaded, splitTableIds.length]);
 
+    // Reemplaça la tab activa per la pàgina destí (semàntica "same tab" del navegador).
+    // Si la pàgina destí ja és la activa, no fa res.
+    // Si no hi ha cap tab activa, equival a `loadPage` (afegir + focus).
+    const handleOpenInCurrentTab = useCallback(async (pageId) => {
+        if (!pageId) return;
+        if (pageId === activeTabId) return;
+
+        const previousTabId = activeTabId;
+
+        await loadPage(pageId);
+
+        // Tanca la tab anterior només si segueix existint i no s'ha promogut a la nova.
+        if (previousTabId && previousTabId !== pageId) {
+            setTabs(prev => prev.filter(t => t.id !== previousTabId));
+            setSplitTabIds(prev => prev.filter(id => id !== previousTabId));
+        }
+    }, [activeTabId, loadPage]);
+
     const handleOpenTableParallel = useCallback((tableId) => {
         if (!activeTabId) {
             const fallbackTabId = tabs.length > 0 ? tabs[tabs.length - 1].id : null;
@@ -1356,11 +1396,12 @@ export default function VaultDashboard() {
             if (splitTabIds.length + prev.length + 1 >= MAX_PANES) return prev;
             return [...prev, tableId];
         });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTabId, splitTabIds.length, tabs, setActiveTabId, setViewMode]);
 
     const handleDuplicateTemplate = async (template) => {
         try {
-            const res = await axios.post(`/api/vault/pages`, {
+            await axios.post(`/api/vault/pages`, {
                 title: `${template.title} (${t('common.copy')})`,
                 content: template.content || "",
                 is_database: false,
@@ -1374,7 +1415,7 @@ export default function VaultDashboard() {
             if (tableIdOfPage) {
                 await fetchPagesByTable(tableIdOfPage);
             }
-        } catch (err) {
+        } catch {
             toast.error(t('errors.template_duplicate'));
         }
     };
@@ -1399,7 +1440,7 @@ export default function VaultDashboard() {
             if (targetTableId) {
                 await fetchPagesByTable(targetTableId);
             }
-        } catch (err) {
+        } catch {
             toast.error(t('errors.template_default'));
         }
     };
@@ -1444,7 +1485,7 @@ export default function VaultDashboard() {
             });
             await fetchPagesByTable(targetTableId);
             loadPage(res.data.id);
-        } catch (err) {
+        } catch {
             toast.error("Error creant el registre");
         }
     };
@@ -1584,7 +1625,7 @@ export default function VaultDashboard() {
 
     const executeCreateContent = async (e) => {
         if (e) e.preventDefault();
-        const { inputValue, parentId, isDatabase, isDrawing, isDashworks, isView, isRename, targetView, viewType, folderName, isTemplate, isApp, databaseId } = promptModal;
+        const { inputValue, parentId, isDatabase, isDrawing, isDashworks, isView, isRename, viewType, isTemplate, isApp, databaseId } = promptModal;
         const title = inputValue?.trim();
 
         if (!title) {
@@ -1698,7 +1739,7 @@ export default function VaultDashboard() {
                 loadPage(res.data.id);
             }
             closePromptModal();
-        } catch (err) {
+        } catch {
             toast.error("Error creant el contingut");
             setPromptModal(prev => ({ ...prev, isLoading: false }));
         }
@@ -1780,6 +1821,7 @@ export default function VaultDashboard() {
             void fetchPages();
         }
         setRecordsToDelete(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [recordsToDelete, fetchPages, fetchPagesByTable, activeTableId]);
 
     // ---- DESFER (Undo) ----
@@ -1805,6 +1847,7 @@ export default function VaultDashboard() {
 
         setRedoStack(prev => [...prev, operation]);
         setUndoStack(prev => prev.slice(0, -1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [undoStack]);
 
     // ---- REFER (Redo) ----
@@ -1825,6 +1868,7 @@ export default function VaultDashboard() {
 
         setUndoStack(prev => [...prev, operation]);
         setRedoStack(prev => prev.slice(0, -1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [redoStack, pages, syncPagesState]);
 
     // Mantenir refs actualitzades (evita closures obsoletes al listener de Cmd+Z)
@@ -1836,8 +1880,8 @@ export default function VaultDashboard() {
             const res = await axios.post(`/api/vault/pages/${pageId}/duplicate`);
             toast.success("Pàgina duplicada");
             await fetchPages();
-            loadPage(res.data.id); 
-        } catch (err) {
+            loadPage(res.data.id);
+        } catch {
             toast.error("Error duplicant la pàgina");
         }
     }, [fetchPages, loadPage]);
@@ -1862,7 +1906,7 @@ export default function VaultDashboard() {
 
             await fetchPages();
             toast.success("Títol actualitzat");
-        } catch (err) {
+        } catch {
             toast.error("Error renomenant la pàgina");
         }
     }, [fetchPages, setTabs]);
@@ -1932,6 +1976,7 @@ export default function VaultDashboard() {
         }
         setActiveTableId(tid);
         setIsSchemaModalOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvePageTableId, setActiveTableId, setIsSchemaModalOpen]);
 
     // Filter all notes from all folders to find favorites?
@@ -2026,6 +2071,7 @@ export default function VaultDashboard() {
         });
 
         return Array.from(unique.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pages, registry.tables, registry.databases, resolvePageTableId]);
 
     const openPaneEntries = [
@@ -2124,7 +2170,7 @@ export default function VaultDashboard() {
                         fetchRegistry();
                         toast.success(t('success.db_updated'));
                     }
-                } catch (err) {
+                } catch {
                     toast.error(t('errors.rename_db'));
                 }
             }}
@@ -2139,7 +2185,7 @@ export default function VaultDashboard() {
                     }
                     handleTabClose(dbId);
                     toast.success(t('success.db_deleted'));
-                } catch (err) {
+                } catch {
                     toast.error(t('errors.delete_db'));
                 }
             }}
@@ -2148,7 +2194,7 @@ export default function VaultDashboard() {
                     await axios.put(`/api/vault/tables/${tableId}`, { name: newName });
                     fetchRegistry();
                     toast.success(t('success.table_updated'));
-                } catch (err) {
+                } catch {
                     toast.error(t('errors.rename_table'));
                 }
             }}
@@ -2166,7 +2212,7 @@ export default function VaultDashboard() {
                         handleTabClose(tableTab.id);
                     }
                     toast.success(t('success.table_deleted'));
-                } catch (err) {
+                } catch {
                     toast.error(t('errors.delete_table'));
                 }
             }}
@@ -2404,6 +2450,8 @@ export default function VaultDashboard() {
                 onNoteSelect={loadPage}
                 onOpenParallel={handleOpenParallel}
                 onOpenPage={loadPage}
+                onOpenInCurrentTab={handleOpenInCurrentTab}
+                onOpenInNewTab={loadPage}
                 onEditSchema={(table) => handleEditSchema(table, tab.metadata)}
                 onDeletePage={handleDeletePage}
                 onCreateRecord={handleAddNewNote}

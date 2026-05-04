@@ -113,6 +113,7 @@ def get_p(key: str) -> Path:
         "LOCAL_DATA": local_data,
         "LOCAL_CACHE": local_data / "cache",
         "PAGE_INDEX_CACHE": local_data / "cache" / "vault_page_index.json",
+        "LINK_INDEX_CACHE": local_data / "cache" / "vault_link_index.json",
         "INDEX_STATUS": local_data / "cache" / "indexer_status.json",
     }
     return mapping.get(key, base / key.lower())
@@ -394,6 +395,7 @@ def kickoff_index_warmup(v_path: Path) -> None:
                     _set_indexer_status(v_str, files_indexed=n)
                 except Exception as e:
                     log.warning(f"Background index refresh failed: {e}")
+                kickoff_link_index_rebuild()
                 return
             # 2. No cache — full scan
             _get_cached_page_entries(force_refresh=True)
@@ -403,6 +405,7 @@ def kickoff_index_warmup(v_path: Path) -> None:
                 v_str, state="ready", finished_at=time.time(),
                 files_indexed=n,
             )
+            kickoff_link_index_rebuild()
         except Exception as e:
             log.error(f"Indexer warmup failed for {v_str}: {e}")
             _set_indexer_status(
@@ -2418,6 +2421,8 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
             log.warning(f"Could not insert new page into index cache, falling back to clear: {e}")
             _clear_page_index_cache()
 
+        background_tasks.add_task(update_link_index_for_page, file_path)
+
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
         )
@@ -2676,6 +2681,118 @@ async def get_page(page_id: str):
         raise HTTPException(status_code=500, detail="Error reading target file")
 
 
+def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
+    """Extreu el primer paràgraf significatiu del markdown, sanititzat per a tooltips."""
+    if not body:
+        return ""
+
+    text = str(body)
+    text = re.sub(r"```[\s\S]*?```", " ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(
+        r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]",
+        lambda m: (m.group(2) or m.group(1)).strip(),
+        text,
+    )
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"(\*\*|__)(.+?)\1", r"\2", text)
+    text = re.sub(r"(\*|_)(.+?)\1", r"\2", text)
+    text = re.sub(r"^>\s?", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+
+    lines = [ln.strip() for ln in text.split("\n")]
+    lines = [ln for ln in lines if ln and not re.fullmatch(r"[-=_*]{3,}", ln)]
+    text = "\n".join(lines)
+
+    paragraphs = [p.strip() for p in re.split(r"\n{2,}|\n", text) if p.strip()]
+    if not paragraphs:
+        return ""
+
+    excerpt = paragraphs[0]
+    idx = 1
+    while len(excerpt) < max_chars * 0.6 and idx < len(paragraphs):
+        candidate = excerpt + " " + paragraphs[idx]
+        if len(candidate) > max_chars * 1.2:
+            break
+        excerpt = candidate
+        idx += 1
+
+    excerpt = re.sub(r"\s+", " ", excerpt).strip()
+
+    if len(excerpt) > max_chars:
+        cut = excerpt[:max_chars]
+        last_space = cut.rfind(" ")
+        if last_space > max_chars * 0.7:
+            cut = cut[:last_space]
+        excerpt = cut.rstrip(".,;:") + "…"
+
+    return excerpt
+
+
+@router.get("/pages/{page_id}/preview")
+async def get_page_preview(page_id: str):
+    """Preview lleuger d'una pàgina (títol + extracte + icon/cover) per a tooltips de wikilinks.
+
+    Optimitzat per a hover: només llegeix el fitxer i extreu el primer paràgraf
+    sanititzat. No injecta virtual fields ni fa resolució complexa de metadata.
+    Errno 35 d'OneDrive es degrada a buit (preview no és crític).
+    """
+    file_path = await asyncio.to_thread(find_page_path, page_id)
+
+    if not file_path or not file_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Page not found (ID: {page_id})"
+        )
+
+    def _read_and_parse():
+        if _is_dashworks_file_path(file_path):
+            return _read_dashworks_file(file_path)
+        last_error = None
+        delays = [0.05, 0.1, 0.2]
+        for attempt in range(len(delays) + 1):
+            try:
+                raw_content = file_path.read_text(encoding="utf-8")
+                return parse_frontmatter(raw_content, file_path)
+            except OSError as e:
+                last_error = e
+                if e.errno == 35 and attempt < len(delays):
+                    time.sleep(delays[attempt])
+                    continue
+                raise
+        if last_error:
+            raise last_error
+        return {}, ""
+
+    try:
+        metadata, body = await asyncio.to_thread(_read_and_parse)
+        excerpt = _build_preview_excerpt(body)
+        return {
+            "id": str(metadata.get("id") or page_id),
+            "title": metadata.get("title", "") or "",
+            "excerpt": excerpt,
+            "icon": metadata.get("icon"),
+            "cover": metadata.get("cover"),
+        }
+    except OSError as e:
+        if e.errno == 35:
+            return {
+                "id": page_id,
+                "title": "",
+                "excerpt": "",
+                "icon": None,
+                "cover": None,
+            }
+        log.error(f"Error reading preview for page {page_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error reading preview")
+    except Exception as e:
+        log.error(f"Error generating preview for {page_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error generating page preview")
+
+
 @router.put("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
 async def save_page(
     page_id: str, request: PageSaveRequest, background_tasks: BackgroundTasks
@@ -2852,6 +2969,8 @@ async def save_page(
         except Exception:
             pass
 
+        background_tasks.add_task(update_link_index_for_page, file_path)
+
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
         )
@@ -3015,6 +3134,8 @@ async def patch_page(
         except Exception as e:
             log.debug(f"Cache invalidation after PATCH failed: {e}")
 
+        background_tasks.add_task(update_link_index_for_page, file_path)
+
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", content
         )
@@ -3099,6 +3220,7 @@ async def delete_page(page_id: str):
         # registry["views"] = [v for v in registry["views"] if v.get("table_id") not in tables_to_remove]
 
         await asyncio.to_thread(file_path.unlink)
+        await asyncio.to_thread(remove_from_link_index, page_id)
         return {"status": "success", "message": "Page deleted and registry cleaned"}
     except Exception as e:
         raise HTTPException(
@@ -3673,6 +3795,7 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
         background_tasks.add_task(
             trigger_n8n_webhook, new_file_path.name, "Universal", body
         )
+        background_tasks.add_task(update_link_index_for_page, new_file_path)
 
         return {
             "status": "created",
@@ -3848,6 +3971,391 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
         return docs
 
 
+# ── Índex invers de wikilinks/backlinks (in-memory) ─────────────────────────
+# Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
+#
+# Motivació: /backlinks i /unlinked-mentions iteraven 4000 fitxers a cada
+# crida. Encara amb body cache, la regex per source × N fitxers feia que la
+# càrrega d'una pàgina trigués 30-60s la primera vegada. Amb aquest índex,
+# /backlinks és O(lookup) i /unlinked-mentions filtra a ~10-100 candidats.
+_outlinks_by_source: Dict[str, set] = {}
+_backlinks_by_target: Dict[str, List[Dict[str, str]]] = {}
+_backlinks_by_target_title: Dict[str, List[Dict[str, str]]] = {}
+_tokens_by_source: Dict[str, frozenset] = {}
+_page_meta_by_id: Dict[str, Dict[str, Any]] = {}
+_link_index_lock = threading.RLock()
+_link_index_built = False
+_link_index_build_ts = 0.0
+_link_index_source_count = 0
+_LINK_INDEX_SCHEMA_VERSION = 1
+
+
+_WIKILINK_RE = re.compile(r"!?\[\[([^\]|]+(?:#[^\]|]+)?)(?:\|.*?)?\]\]")
+_MDLINK_RE = re.compile(r"\[.*?\]\((.*?)\)")
+_TOKEN_SPLIT_RE = re.compile(r"[^\wÀ-ÿ]+", re.UNICODE)
+
+
+def _get_link_index_cache_path() -> Optional[Path]:
+    p = get_p("LINK_INDEX_CACHE")
+    if p:
+        return p
+    return Path("/app/data/cache/vault_link_index.json")
+
+
+def _save_link_index_to_disk() -> None:
+    """Persisteix l'índex invers al disc local. Crida sota lock per snapshot
+    consistent. Format: JSON amb schema_version per migracions futures.
+    """
+    try:
+        cache_path = _get_link_index_cache_path()
+        if not cache_path:
+            return
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with _link_index_lock:
+            payload = {
+                "schema_version": _LINK_INDEX_SCHEMA_VERSION,
+                "built_ts": _link_index_build_ts,
+                "outlinks": {pid: sorted(refs) for pid, refs in _outlinks_by_source.items()},
+                "tokens": {pid: sorted(toks) for pid, toks in _tokens_by_source.items()},
+                "meta": dict(_page_meta_by_id),
+            }
+        safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
+        log.info(f"💾 link-index cache saved ({len(payload['meta'])} pàgines)")
+    except Exception as e:
+        log.error(f"❌ Error saving link-index cache: {e}")
+
+
+def _load_link_index_from_disk() -> bool:
+    """Carrega l'índex invers desat al disc. Retorna True si ha tingut èxit.
+    Si el schema_version no coincideix, ignora el cache.
+    """
+    global _link_index_built, _link_index_build_ts, _link_index_source_count
+    try:
+        cache_path = _get_link_index_cache_path()
+        if not cache_path or not cache_path.exists():
+            return False
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        if data.get("schema_version") != _LINK_INDEX_SCHEMA_VERSION:
+            log.info("link-index cache schema mismatch — ignorant")
+            return False
+        outlinks_raw = data.get("outlinks") or {}
+        tokens_raw = data.get("tokens") or {}
+        meta_raw = data.get("meta") or {}
+
+        with _link_index_lock:
+            _outlinks_by_source.clear()
+            for pid, refs in outlinks_raw.items():
+                _outlinks_by_source[pid] = set(refs)
+            _tokens_by_source.clear()
+            for pid, toks in tokens_raw.items():
+                _tokens_by_source[pid] = frozenset(toks)
+            _page_meta_by_id.clear()
+            _page_meta_by_id.update(meta_raw)
+            _rebuild_backlinks_invertion_locked()
+            _link_index_built = True
+            _link_index_build_ts = float(data.get("built_ts") or time.time())
+            _link_index_source_count = len(_page_meta_by_id)
+
+        log.info(f"📂 link-index loaded from disk ({_link_index_source_count} pàgines)")
+        return True
+    except Exception as e:
+        log.error(f"❌ Error loading link-index cache: {e}")
+        return False
+
+
+def _normalize_ref_for_index(raw_ref: str) -> str:
+    text = str(raw_ref or "").strip()
+    if not text:
+        return ""
+    try:
+        text = urllib.parse.unquote(text)
+    except Exception:
+        pass
+    base = text.split("#", 1)[0].strip()
+    vault_page_match = re.search(
+        r"(?:https?://[^/]+)?/(?:api/)?vault/(?:page|pages)/([^/?#]+)",
+        base,
+        re.IGNORECASE,
+    )
+    if vault_page_match and vault_page_match.group(1):
+        try:
+            base = urllib.parse.unquote(vault_page_match.group(1).strip())
+        except Exception:
+            base = vault_page_match.group(1).strip()
+    return base
+
+
+def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
+    """Returns a set of normalized refs (page_id or lowercased title) that this
+    document links to. Includes wikilinks `[[X]]`, MD links `[..](X)` and
+    metadata fields that look like ID references.
+    """
+    refs: set = set()
+
+    def _add(value: Any):
+        if value is None:
+            return
+        if isinstance(value, list):
+            for item in value:
+                _add(item)
+            return
+        text = str(value).strip()
+        if not text:
+            return
+        norm = _normalize_ref_for_index(text)
+        if norm:
+            refs.add(norm)
+            refs.add(norm.lower())
+
+    for val in metadata.values():
+        if isinstance(val, (str, list)):
+            _add(val)
+
+    if body:
+        for raw in _WIKILINK_RE.findall(body):
+            base = str(raw or "").split("#", 1)[0].strip()
+            if base:
+                refs.add(base)
+                refs.add(base.lower())
+        for raw in _MDLINK_RE.findall(body):
+            norm = _normalize_ref_for_index(raw)
+            if norm:
+                refs.add(norm)
+                refs.add(norm.lower())
+
+    return refs
+
+
+def _tokenize_body_for_mentions(body: str) -> frozenset:
+    """Tokens normalitzats del body sanititzat (sense links existents).
+    Usat com a pre-filtre per /unlinked-mentions.
+    """
+    if not body:
+        return frozenset()
+    sanitized = _strip_existing_links_for_mentions_scan(body)
+    tokens = _TOKEN_SPLIT_RE.split(sanitized.lower())
+    return frozenset(t for t in tokens if len(t) >= 2)
+
+
+def _resolve_page_id_from_metadata(metadata: Dict[str, Any], file_path: Path) -> str:
+    return str(
+        metadata.get("id")
+        or metadata.get("migration_id")
+        or file_path.stem
+    ).strip()
+
+
+def _rebuild_backlinks_invertion_locked():
+    """Reconstrueix `_backlinks_by_target` i `_backlinks_by_target_title` a
+    partir de `_outlinks_by_source` i `_page_meta_by_id`. Cal el lock pres.
+    """
+    by_target: Dict[str, List[Dict[str, str]]] = {}
+    by_title: Dict[str, List[Dict[str, str]]] = {}
+    title_to_ids: Dict[str, set] = {}
+    for pid, meta in _page_meta_by_id.items():
+        title = str(meta.get("title") or "").strip().lower()
+        if title:
+            title_to_ids.setdefault(title, set()).add(pid)
+
+    for source_id, refs in _outlinks_by_source.items():
+        source_meta = _page_meta_by_id.get(source_id) or {}
+        source_title = source_meta.get("title") or source_id
+        seen_targets: set = set()
+        for raw in refs:
+            ref_lower = raw.lower()
+            target_ids = set()
+            if raw in _page_meta_by_id:
+                target_ids.add(raw)
+            for tid in title_to_ids.get(ref_lower, ()):  # match per title
+                target_ids.add(tid)
+
+            for tid in target_ids:
+                if tid == source_id or tid in seen_targets:
+                    continue
+                seen_targets.add(tid)
+                by_target.setdefault(tid, []).append(
+                    {"id": source_id, "title": str(source_title)}
+                )
+            if not target_ids:
+                by_title.setdefault(ref_lower, []).append(
+                    {"id": source_id, "title": str(source_title)}
+                )
+
+    _backlinks_by_target.clear()
+    _backlinks_by_target.update(by_target)
+    _backlinks_by_target_title.clear()
+    _backlinks_by_target_title.update(by_title)
+
+
+def _rebuild_link_index(persist: bool = True) -> None:
+    """Reconstrueix l'índex invers de zero. Operació O(N) sobre el vault.
+
+    Idempotent: pot cridar-se múltiples vegades. Pren el lock global per evitar
+    races amb invalidacions parcials concurrents. Si `persist=True`, desa el
+    resultat a disc per accelerar arrencades futures.
+    """
+    global _link_index_built, _link_index_build_ts, _link_index_source_count
+    started = time.time()
+    docs = _iter_linkable_page_documents()
+
+    new_outlinks: Dict[str, set] = {}
+    new_tokens: Dict[str, frozenset] = {}
+    new_meta: Dict[str, Dict[str, Any]] = {}
+
+    for file_path, metadata, body, _is_dashworks in docs:
+        try:
+            pid = _resolve_page_id_from_metadata(metadata, file_path)
+            if not pid:
+                continue
+            new_outlinks[pid] = _extract_outlinks_from_doc(metadata, body)
+            new_tokens[pid] = _tokenize_body_for_mentions(body)
+            new_meta[pid] = {
+                "title": str(metadata.get("title") or file_path.stem),
+                "path": str(file_path),
+            }
+        except Exception as e:
+            log.warning(f"link-index: error indexing {file_path.name}: {e}")
+
+    with _link_index_lock:
+        _outlinks_by_source.clear()
+        _outlinks_by_source.update(new_outlinks)
+        _tokens_by_source.clear()
+        _tokens_by_source.update(new_tokens)
+        _page_meta_by_id.clear()
+        _page_meta_by_id.update(new_meta)
+        _rebuild_backlinks_invertion_locked()
+        _link_index_built = True
+        _link_index_build_ts = time.time()
+        _link_index_source_count = len(new_meta)
+
+    log.info(
+        f"🔗 link-index built in {time.time() - started:.2f}s "
+        f"({len(new_meta)} pàgines)"
+    )
+
+    if persist:
+        try:
+            _save_link_index_to_disk()
+        except Exception as e:
+            log.warning(f"link-index persist after rebuild failed: {e}")
+
+
+# Debounced persist: invalidacions puntuals (writes) disparen un save al disc,
+# però fer-ho sincrònicament a cada PUT seria costós. Acumulem i desem com a
+# màxim cada N segons des d'un thread separat.
+_link_index_persist_pending = False
+_link_index_persist_lock = threading.Lock()
+_LINK_INDEX_PERSIST_DEBOUNCE = 5.0  # segons
+
+
+def _schedule_link_index_persist() -> None:
+    global _link_index_persist_pending
+    with _link_index_persist_lock:
+        if _link_index_persist_pending:
+            return
+        _link_index_persist_pending = True
+
+    def _run():
+        global _link_index_persist_pending
+        time.sleep(_LINK_INDEX_PERSIST_DEBOUNCE)
+        try:
+            _save_link_index_to_disk()
+        except Exception as e:
+            log.debug(f"link-index debounced persist failed: {e}")
+        finally:
+            with _link_index_persist_lock:
+                _link_index_persist_pending = False
+
+    t = threading.Thread(target=_run, daemon=True, name="link-index-persist")
+    t.start()
+
+
+def kickoff_link_index_rebuild() -> None:
+    """Llança el rebuild en background. Safe to call multiple times; les
+    crides successives es serialitzen via el lock.
+
+    Si hi ha cache a disc vàlid, es carrega de seguida (síncron, milisegons)
+    per servir resultats ràpids des del primer instant; després dispara un
+    rebuild en background per reflectir canvis externs (sync OneDrive, etc.)
+    """
+    if not _link_index_built:
+        try:
+            _load_link_index_from_disk()
+        except Exception as e:
+            log.warning(f"link-index disk load failed: {e}")
+
+    def _run():
+        try:
+            _rebuild_link_index(persist=True)
+        except Exception as e:
+            log.error(f"link-index rebuild failed: {e}")
+
+    t = threading.Thread(target=_run, daemon=True, name="link-index-rebuild")
+    t.start()
+
+
+def update_link_index_for_page(file_path: Path) -> None:
+    """Actualitza l'índex per una pàgina concreta (després d'un write).
+
+    No bloqueja: si l'índex encara no està construït, ignora la crida (el
+    rebuild inicial recollirà la pàgina).
+    """
+    if not _link_index_built:
+        return
+    if not file_path or not file_path.exists():
+        return
+    try:
+        if _is_dashworks_file_path(file_path):
+            metadata, body = _read_dashworks_file(file_path)
+        else:
+            raw = _get_body_for_path(file_path)
+            if not raw:
+                return
+            metadata, body = parse_frontmatter(raw, file_path)
+    except Exception as e:
+        log.debug(f"link-index update skip {file_path.name}: {e}")
+        return
+
+    pid = _resolve_page_id_from_metadata(metadata, file_path)
+    if not pid:
+        return
+    new_refs = _extract_outlinks_from_doc(metadata, body)
+    new_tokens = _tokenize_body_for_mentions(body)
+    new_title = str(metadata.get("title") or file_path.stem)
+
+    with _link_index_lock:
+        old_meta = _page_meta_by_id.get(pid) or {}
+        old_title = str(old_meta.get("title") or "").strip().lower()
+        _outlinks_by_source[pid] = new_refs
+        _tokens_by_source[pid] = new_tokens
+        _page_meta_by_id[pid] = {"title": new_title, "path": str(file_path)}
+        # Si el títol del source ha canviat, el text mostrat als backlinks
+        # canvia → cal reinvertir totalment. Si no, ho fem igualment perquè és
+        # més simple i correcte; el cost és O(N_refs).
+        _ = old_title  # reservat per optimitzacions futures
+        _rebuild_backlinks_invertion_locked()
+
+    # Re-link automàtic: si aquesta pàgina té un title que coincideix amb refs
+    # no resoltes d'altres pàgines, els backlinks ja s'han actualitzat per
+    # l'invertion (que mira `_page_meta_by_id`). No cal acció extra perquè el
+    # rebuild_backlinks recorre tots els outlinks i resol per id i per títol.
+
+    _schedule_link_index_persist()
+
+
+def remove_from_link_index(page_id: str) -> None:
+    """Elimina una pàgina de l'índex (després d'un DELETE)."""
+    if not _link_index_built or not page_id:
+        return
+    pid = str(page_id).strip()
+    with _link_index_lock:
+        _outlinks_by_source.pop(pid, None)
+        _tokens_by_source.pop(pid, None)
+        _page_meta_by_id.pop(pid, None)
+        _rebuild_backlinks_invertion_locked()
+    _schedule_link_index_persist()
+
+
 @router.get("/global-index")
 def get_global_index():
     """Returns a global mapping id -> title for the entire Vault.
@@ -3860,21 +4368,84 @@ def get_global_index():
     return build_id_title_index()
 
 
+@router.get("/link-index/stats")
+def get_link_index_stats():
+    """Estat de l'índex invers de wikilinks (debug/observability).
+
+    Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
+    """
+    with _link_index_lock:
+        targets_with_backlinks = len(_backlinks_by_target)
+        unresolved_titles = len(_backlinks_by_target_title)
+        total_outlinks = sum(len(refs) for refs in _outlinks_by_source.values())
+        total_tokens = sum(len(toks) for toks in _tokens_by_source.values())
+        built_ts = _link_index_build_ts
+        sources = _link_index_source_count
+
+    cache_path = _get_link_index_cache_path()
+    cache_exists = bool(cache_path and cache_path.exists())
+    cache_size = cache_path.stat().st_size if cache_exists else 0
+
+    return {
+        "built": _link_index_built,
+        "built_ts": built_ts,
+        "built_age_seconds": (time.time() - built_ts) if built_ts else None,
+        "schema_version": _LINK_INDEX_SCHEMA_VERSION,
+        "sources_indexed": sources,
+        "targets_with_backlinks": targets_with_backlinks,
+        "unresolved_title_buckets": unresolved_titles,
+        "total_outlinks": total_outlinks,
+        "total_tokens": total_tokens,
+        "disk_cache": {
+            "path": str(cache_path) if cache_path else None,
+            "exists": cache_exists,
+            "size_bytes": cache_size,
+        },
+    }
+
+
+@router.post("/link-index/rebuild", dependencies=[Depends(require_role("admin"))])
+def post_link_index_rebuild():
+    """Força un rebuild complet de l'índex invers en background.
+
+    Útil després d'edicions massives externes (sync OneDrive, scripts
+    d'importació) que no han passat pels endpoints d'escriptura del backend.
+    """
+    kickoff_link_index_rebuild()
+    return {"status": "rebuild_scheduled"}
+
+
 @router.get("/backlinks")
 def get_backlinks(id: str):
     """Finds all notes linking to a specific ID (both in metadata and body).
 
-    Declared as `def` (not `async def`) so FastAPI runs it in a threadpool —
-    the body iterates the entire vault and reads many files, which would
-    block the asyncio event loop on slow OneDrive mounts.
+    Fast path: lookup directe a l'índex invers in-memory (`_backlinks_by_target`).
+    Fallback: si l'índex encara no està construït (startup), recorre tot el
+    vault com abans. Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
     """
-    backlinks = []
-    seen_backlink_ids: set[str] = set()
-
     target_id = str(id or "").strip()
     if not target_id:
-        return backlinks
+        return []
 
+    # Fast path: índex invers in-memory
+    if _link_index_built:
+        with _link_index_lock:
+            target_title = str(
+                (_page_meta_by_id.get(target_id) or {}).get("title") or ""
+            ).strip().lower()
+            results = list(_backlinks_by_target.get(target_id, []))
+            if target_title:
+                # També incloem refs no resoltes que apuntaven al títol
+                seen_ids = {item["id"] for item in results}
+                for item in _backlinks_by_target_title.get(target_title, []):
+                    if item["id"] not in seen_ids and item["id"] != target_id:
+                        seen_ids.add(item["id"])
+                        results.append(item)
+        return sorted(results, key=lambda x: str(x.get("title") or ""))
+
+    # Fallback (índex no construït): codi original
+    backlinks = []
+    seen_backlink_ids: set[str] = set()
     id_title_index = build_id_title_index()
     target_title = str(id_title_index.get(target_id) or "").strip().lower()
     title_to_ids = {}
@@ -4082,27 +4653,51 @@ def _link_mentions_in_plain_segments(body: str, target_title: str, target_id: st
 def get_unlinked_mentions(id: str):
     """Finds notes mentioning target title in plain text without an actual link.
 
-    `def` (not `async def`) → FastAPI runs in threadpool. Same rationale as
-    /backlinks: heavy filesystem traversal must not block the event loop.
+    Fast path: pre-filtra candidats amb `_tokens_by_source` (set lookup) i
+    només executa regex sobre els documents on TOTS els tokens del títol hi
+    apareixen. Redueix de 4000 → ~10-100 candidats típicament.
+    Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
     """
     target_id = str(id or "").strip()
     if not target_id:
         return []
 
-    id_title_index = build_id_title_index()
-    target_title = str(id_title_index.get(target_id) or "").strip()
+    target_title = ""
+    if _link_index_built:
+        with _link_index_lock:
+            target_title = str(
+                (_page_meta_by_id.get(target_id) or {}).get("title") or ""
+            ).strip()
+
     if not target_title:
-        target_path = find_page_path(target_id)
-        if target_path and target_path.exists():
-            if _is_dashworks_file_path(target_path):
-                target_metadata, _ = _read_dashworks_file(target_path)
-            else:
-                raw_target = target_path.read_text(encoding="utf-8")
-                target_metadata, _ = parse_frontmatter(raw_target, target_path)
-            target_title = str(target_metadata.get("title") or "").strip()
+        id_title_index = build_id_title_index()
+        target_title = str(id_title_index.get(target_id) or "").strip()
+        if not target_title:
+            target_path = find_page_path(target_id)
+            if target_path and target_path.exists():
+                if _is_dashworks_file_path(target_path):
+                    target_metadata, _ = _read_dashworks_file(target_path)
+                else:
+                    raw_target = target_path.read_text(encoding="utf-8")
+                    target_metadata, _ = parse_frontmatter(raw_target, target_path)
+                target_title = str(target_metadata.get("title") or "").strip()
 
     if len(target_title) < 2:
         return []
+
+    title_tokens = frozenset(
+        t for t in _TOKEN_SPLIT_RE.split(target_title.lower()) if len(t) >= 2
+    )
+
+    # Fast path amb pre-filter
+    candidate_ids: Optional[set] = None
+    if _link_index_built and title_tokens:
+        with _link_index_lock:
+            candidate_ids = {
+                pid
+                for pid, tokens in _tokens_by_source.items()
+                if pid != target_id and title_tokens.issubset(tokens)
+            }
 
     results = []
     documents = _iter_linkable_page_documents()
@@ -4113,6 +4708,10 @@ def get_unlinked_mentions(id: str):
         try:
             current_id = str(metadata.get("id") or file_path.stem)
             if current_id == target_id:
+                continue
+
+            # Pre-filter: si tenim candidats i aquest no hi és, saltem regex
+            if candidate_ids is not None and current_id not in candidate_ids:
                 continue
 
             count = _count_unlinked_mentions(body, target_title)
@@ -4198,11 +4797,28 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
                     "id": current_id,
                     "title": metadata.get("title") or file_path.stem,
                     "replacements": replacements,
+                    "_path": file_path,
                 }
             )
             total_replacements += replacements
         except Exception as e:
             log.warning(f"Error linking unlinked mentions for {file_path.name}: {e}")
+
+    # Invalidem l'índex per cada source modificat. Si en són molts (>20),
+    # un rebuild complet és més barat que N updates seqüencials.
+    if changed_notes:
+        if len(changed_notes) > 20:
+            kickoff_link_index_rebuild()
+        else:
+            for note in changed_notes:
+                try:
+                    update_link_index_for_page(note["_path"])
+                except Exception as e:
+                    log.debug(f"link-index update skip: {e}")
+
+    # Treiem el camp intern abans de retornar
+    for note in changed_notes:
+        note.pop("_path", None)
 
     changed_notes.sort(key=lambda item: str(item.get("title") or ""))
     return {
