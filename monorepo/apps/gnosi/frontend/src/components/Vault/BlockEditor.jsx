@@ -283,7 +283,7 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
     ];
 };
 
-const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, fieldKey }) => {
+const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate }) => {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -421,7 +421,7 @@ const SingleSelectPill = ({ value, onChange, options, idToTitle, placeholder }) 
 const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
     const { t } = useTranslation();
     const context = React.useContext(VaultEditorContext);
-    const { allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, idToTitle, registry } = context || {};
+    const { allTables } = context || {};
     const [activeTableId, setActiveTableId] = useState(block.props.database_table_id);
 
     const handleTableChange = (id) => {
@@ -429,7 +429,6 @@ const InlineDatabase = React.forwardRef(({ block, editor }, ref) => {
         editor.updateBlock(block, { props: { ...block.props, database_table_id: id } });
     };
 
-    const tableData = (allTables || []).find(t => t.id === activeTableId);
     if (!activeTableId) {
         return (
             <div className="p-12 border-2 border-dashed border-[var(--border-primary)] rounded-xl flex flex-col items-center justify-center gap-4 bg-[var(--bg-secondary)]/30 group-hover:border-[var(--gnosi-primary)]/30 transition-colors">
@@ -657,6 +656,7 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
             else notifyError('save-markdown', err, t('editor.markdown_save_error'));
             return false;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- t() is stable
     }, [noteFilename, metadata, onUpdate, onRefreshNotes]);
 
     useEffect(() => {
@@ -874,6 +874,7 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
             setJsonError(err?.message || t('editor.invalid_json'));
             toast.error(t('editor.invalid_json_format_error'));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- t() is stable
     }, [jsonText, saveJson]);
 
     const highlightedJson = useMemo(() => renderJsonHighlight(jsonText), [jsonText, renderJsonHighlight]);
@@ -999,10 +1000,8 @@ export function EditorInner({
     onUpdate,
     idToTitle,
     onRefreshNotes,
-    onUpdatePageMetadata,
     effectiveTheme,
     contextValue,
-    saveStatus,
     setSaveStatus,
     metadataRef,
     onOpenPageViewModal,
@@ -1478,6 +1477,7 @@ export function EditorInner({
             notifyError('autosave', err, t('editor.autosave_error'));
             setSaveStatus('error');
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- metadataRef is a ref (stable); setSaveStatus is stable
     }, [noteFilename, editor, isParsing, editorReady, onUpdate, t]);
 
     const expandBracketRange = (text, start, end) => {
@@ -1754,8 +1754,9 @@ export function EditorInner({
             if (saveTimerRef.current) {
                 clearTimeout(saveTimerRef.current);
                 saveTimerRef.current = null;
-                
+
                 const markdownContent = blocksToRichMarkdown(editor.document);
+                // eslint-disable-next-line react-hooks/exhaustive-deps -- want the latest metadata at unmount, not the captured value
                 const currentMetadata = metadataRef.current;
                 const data = { 
                     title: currentMetadata?.title || "Sense títol", 
@@ -1784,6 +1785,7 @@ export function EditorInner({
                 }).catch(e => logError('unmount-save', e));
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- metadataRef is a ref; noteFilename is captured via handleSave closure
     }, [editor, isParsing, handleSave]);
 
     if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> {t('editor.loading_editor')}</div>;
@@ -1914,6 +1916,12 @@ export function EditorInner({
                 [data-content-type="column"] + [data-content-type="column"] {
                     border-left: 1px dashed rgba(var(--gnosi-primary-rgb), 0.1);
                     padding-left: 1.5rem !important;
+                }
+
+                .bn-editor .bn-block-group .bn-block-group > .bn-block-outer::before,
+                .bn-container .bn-block-group .bn-block-group > .bn-block-outer::before {
+                    border-left: none !important;
+                    background: none !important;
                 }
 
                 .bn-editor .bn-inline-content a,
@@ -2377,7 +2385,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, onToggleCodeView, isEditLocked = false }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewerRole = role === 'viewer';
@@ -2417,6 +2425,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const iconTriggerRef = useRef(null);
     const coverTriggerRef = useRef(null);
     const headerHoverRef = useRef(null);
+    const titleInputRef = useRef(null);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
     const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, idToTitle, registry]);
@@ -2480,6 +2489,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [noteFilename, _doSaveMetadata]);
 
     const handleTitleChange = (e) => { const nextTitle = e.target.value; const nextMeta = { ...metadata, title: nextTitle }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
+
+    useEffect(() => {
+        const el = titleInputRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight}px`;
+    }, [metadata.title]);
     const handleMetaChange = (key, value) => {
         const nextMeta = { ...metadata, [key]: value };
         setMetadata(nextMeta);
@@ -2713,6 +2729,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         } finally {
             setLinkMentionsBusy(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- t() is stable
     }, [noteFilename, idToTitle, onRefreshNotes]);
 
     useEffect(() => {
@@ -2822,12 +2839,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 <div className="px-12 pt-20 pb-2">
                     <div className="mb-4 space-y-1.5">
                         <div className="flex items-center justify-between gap-4 group/title mb-6">
-                            <input 
-                                type="text" 
-                                value={metadata.title || ""} 
-                                onChange={handleTitleChange} 
-                                placeholder={t('editor.untitled')} 
-                                className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent" 
+                            <textarea
+                                ref={titleInputRef}
+                                rows={1}
+                                value={metadata.title || ""}
+                                onChange={handleTitleChange}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); } }}
+                                placeholder={t('editor.untitled')}
+                                className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden leading-tight break-words"
                             />
                             <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
                                 {/* El toggle MD/Normal s'ha consolidat al menú "page options"

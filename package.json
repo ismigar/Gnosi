@@ -1,19 +1,24 @@
 {
-    "name": "projectes-monorepo",
+    "name": "projectes-root",
     "private": true,
-    "description": "Monorepo unificat per a serveis MCP, Gnosi i n8n",
-    "workspaces": [
-        "packages/*",
-        "apps/*",
-        "apps/gnosi/frontend",
-        "apps/gnosi/frontend"
-    ],
+    "description": "Root del monorepo Projectes — host de Husky i scripts E2E proxies cap a monorepo/",
     "scripts": {
-        "build": "npm run build --workspaces",
-        "test": "npm run test --workspaces"
+        "test:e2e": "npm --prefix monorepo/apps/gnosi/e2e test",
+        "test:e2e:smoke": "npm --prefix monorepo/apps/gnosi/e2e run test:smoke",
+        "test:e2e:ui": "npm --prefix monorepo/apps/gnosi/e2e run test:ui",
+        "test:e2e:update": "npm --prefix monorepo/apps/gnosi/e2e exec -- playwright test --update-snapshots",
+        "test:e2e:linux-baselines": "bash monorepo/apps/gnosi/pipeline/skills/playwright_e2e/scripts/generate_linux_baselines.sh",
+        "lint:frontend": "npm --prefix monorepo/apps/gnosi/frontend run lint",
+        "prepare": "husky"
+    },
+    "lint-staged": {
+        "monorepo/apps/gnosi/frontend/src/**/*.{js,jsx,ts,tsx}": [
+            "eslint --fix --max-warnings=0 --config monorepo/apps/gnosi/frontend/eslint.config.js"
+        ]
     },
     "devDependencies": {
-        "typescript": "^5.0.0",
-        "eslint": "^8.0.0"
+        "eslint": "^9.39.4",
+        "husky": "^9.1.6",
+        "lint-staged": "^15.2.10"
     }
 }
