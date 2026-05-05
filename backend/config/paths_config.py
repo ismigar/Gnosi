@@ -5,7 +5,7 @@ from typing import Dict, Optional
 # --- Early Boot Paths (Safe Fallbacks) ---
 # This allows logger_config to import LOG_DIR safely before get_paths() is called.
 _tmp_base = Path("/tmp/gnosi_pending_vault")
-LOG_DIR = _tmp_base / "data" / "logs"
+LOG_DIR = _tmp_base / "logs"
 
 def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[Path]]:
     """
@@ -60,15 +60,20 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         pass
 
     db_path = safe_base / "BD"
+    # Newsletters: clau mantinguda pel frontend (settings tab) per a
+    # subscripcions futures, però NO es crea automàticament al disc per
+    # evitar carpetes buides al vault. El path només existeix si algun
+    # mòdul l'utilitza activament i fa el seu propi mkdir.
     newsletters_path = safe_base / "Newsletters"
     assets_path = safe_base / "Assets"
     calendar_path = safe_base / "Calendar"
     mail_path = safe_base / "Mail"
-    plantilles_path = safe_base / "Plantilles"
-    dibuixos_path = safe_base / "Dibuixos"
+    # Noms canònics anglesos. Els llegacy "Plantilles"/"Dibuixos" del primer
+    # disseny s'eliminen — el codi actual escriu a Templates/Drawings.
+    plantilles_path = safe_base / "Templates"
+    dibuixos_path = safe_base / "Drawings"
     wiki_path = safe_base / "Wiki"
-    dashworks_path = safe_base / ".Dashworks"
-    data_path = safe_base / "data"
+    dashboard_path = safe_base / ".Dashboards"
 
     # Files and specific sub-dirs
     out_json = db_path / "vault_pages.json"
@@ -76,15 +81,18 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     registry = db_path / "vault_db_registry.json"
 
     # ── Persistent App Data (Vault-first) ──
-    # This stores configs and agent states inside the Vault for backups.
+    # `.gnosi/` és l'única carpeta de configuració vault-first: hi viuen
+    # identitat, scheduler, custom icons i agent instructions/tools. Tot el
+    # que pertany a una instància concreta (caches, SQLite, vector stores,
+    # checkpoints, audio, logs, backups) viu a `local_data/` (per dispositiu,
+    # no sincronitzat).
     persistent_base = safe_base / ".gnosi"
     agent_instructions = persistent_base / "agent" / "instructions"
     agent_tools = persistent_base / "agent" / "generated_tools"
 
     # ── Ensure foundational directories exist (Safe mode) ──
     if vault_path:
-        out_dir = data_path / "out"
-        for p in [vault_path, db_path, assets_path, newsletters_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashworks_path, data_path, out_dir, persistent_base, agent_instructions, agent_tools]:
+        for p in [vault_path, db_path, assets_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashboard_path, persistent_base, agent_instructions, agent_tools]:
             if p:
                 try:
                     if not p.exists():
@@ -103,17 +111,23 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "PLANTILLES": plantilles_path,
         "DIBUIXOS": dibuixos_path,
         "WIKI": wiki_path,
-        "DASHWORKS": dashworks_path,
-        "DATA": data_path,
+        "DASHBOARDS": dashboard_path,
+        # `.gnosi/` base canònica per a config sincronitzat.
+        "GNOSI_CONFIG": persistent_base,
         "OUT_JSON": out_json,
         "OUT_GRAPH": out_graph,
         "REGISTRY": registry,
-        "LOGS": data_path / "logs",
-        "LOG_DIR": data_path / "logs",
-        "CHROMA": data_path / "chroma_db",
-        "AUDIO": data_path / "audio",
-        "SCHEDULER": data_path / "scheduler_config.json",
-        "CACHE": data_path / "content_cache.json",
+        # Logs operatius — per-instància (van a local_data dins el container).
+        "LOGS": local_data / "logs",
+        "LOG_DIR": local_data / "logs",
+        # Vector store i àudio: per-instància, mai al vault.
+        "CHROMA": local_data / "chroma_db",
+        "AUDIO": local_data / "audio",
+        # Configs sincronitzats vault-first via .gnosi/.
+        "SCHEDULER": persistent_base / "scheduler_config.json",
+        "IDENTITY": persistent_base / "identity.json",
+        "CUSTOM_ICONS": persistent_base / "vault_custom_icons.json",
+        "CACHE": local_data / "cache" / "content_cache.json",
         "TOOLS": agent_tools,
         "AGENT_INSTRUCTIONS": agent_instructions,
         "AGENT_TOOLS": agent_tools,
@@ -121,8 +135,8 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         # operational SQLite files, these MUST live on local-only storage,
         # not on OneDrive. Per-instance state, not user content.
         "CHECKPOINTS": local_data / "system" / "checkpoints",
-        "BACKUPS": data_path / "backups",
-        "OUT_DIR": data_path / "out",
+        "BACKUPS": local_data / "backups",
+        "OUT_DIR": local_data / "out",
         "STOPWORDS_PATH": project_root / "config" / "stopwords.json",
         "SECRETS": project_root / "pipeline" / "private_skills" / "secrets",
         "MGMT_DB": local_data / "system" / "management.sqlite",
