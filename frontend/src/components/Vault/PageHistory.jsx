@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { History, RotateCcw, X, Loader2, FileText, Clock, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { ConfirmModal } from '../ConfirmModal';
 
 const PageHistory = ({ pageId, open, onClose, onRestore }) => {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/use-api';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { createPortal } from 'react-dom';
 import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
@@ -413,7 +413,7 @@ export const VaultSidebar = ({
     onRenameDatabase,
     onDeleteDatabase,
     onOpenRecent,
-    onCreateDashworksPage,
+    onCreateDashboardPage,
     currentView,
     onCreateDrawing,
     onOpenTable,
@@ -431,7 +431,7 @@ export const VaultSidebar = ({
     const WIKI_ITEM_HEIGHT = 30;
     const WIKI_OVERSCAN = 10;
     const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
-    const [isDashworksExpanded, setIsDashworksExpanded] = useState(true);
+    const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
     const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
     // Candau del Wiki: quan està tancat (true), no es poden arrossegar pàgines
     // per reordenar/anidar. Persistit a localStorage. Per defecte tancat per
@@ -545,7 +545,7 @@ export const VaultSidebar = ({
     const [visibleDatabasesCount, setVisibleDatabasesCount] = useState(DATABASES_BATCH_SIZE);
     const [visibleTablesByDb, setVisibleTablesByDb] = useState({});
     const [expandedWikiNodes, setExpandedWikiNodes] = useState({});
-    const [expandedDashworksNodes, setExpandedDashworksNodes] = useState({});
+    const [expandedDashboardNodes, setExpandedDashboardNodes] = useState({});
     const [expandedTables, setExpandedTables] = useState({});
     const [wikiScrollTop, setWikiScrollTop] = useState(0);
     const [wikiViewportHeight, setWikiViewportHeight] = useState(380);
@@ -589,40 +589,40 @@ export const VaultSidebar = ({
         setExpandedTables(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const { childrenMap, rootPages, dataChildrenMap, dashworksChildrenMap, dashworksRootPages } = useMemo(() => {
+    const { childrenMap, rootPages, dataChildrenMap, dashboardChildrenMap, dashboardRootPages } = useMemo(() => {
         const computedChildrenMap = {};
         const computedRootPages = [];
         const computedDataChildrenMap = {};
-        const computedDashworksChildrenMap = {};
-        const computedDashworksRootPages = [];
+        const computedDashboardChildrenMap = {};
+        const computedDashboardRootPages = [];
 
         // Fast mapping to find pages by ID
         const pagesById = {};
         (pages || []).forEach(p => { pagesById[p.id] = p; });
 
-        const isDashworksPage = (page) => {
+        const isDashboardPage = (page) => {
             if (!page) return false;
             const folder = String(page.folder || '');
-            return page.metadata?.is_dashworks === true
-                || folder === 'Dashworks'
-                || folder.startsWith('Dashworks/')
-                || folder === '.Dashworks'
-                || folder.startsWith('.Dashworks/');
+            return page.metadata?.is_dashboard === true
+                || folder === 'Dashboard'
+                || folder.startsWith('Dashboard/')
+                || folder === '.Dashboards'
+                || folder.startsWith('.Dashboards/');
         };
 
 
         (pages || []).forEach(p => {
             if (p.metadata?.is_template || isCalendarPage(p) || isAppContent(p)) return;
 
-            if (isDashworksPage(p)) {
+            if (isDashboardPage(p)) {
                 const parent = p.parent_id ? pagesById[p.parent_id] : null;
-                const parentIsDashworks = isDashworksPage(parent);
+                const parentIsDashboard = isDashboardPage(parent);
 
-                if (parentIsDashworks) {
-                    if (!computedDashworksChildrenMap[p.parent_id]) computedDashworksChildrenMap[p.parent_id] = [];
-                    computedDashworksChildrenMap[p.parent_id].push(p);
+                if (parentIsDashboard) {
+                    if (!computedDashboardChildrenMap[p.parent_id]) computedDashboardChildrenMap[p.parent_id] = [];
+                    computedDashboardChildrenMap[p.parent_id].push(p);
                 } else {
-                    computedDashworksRootPages.push(p);
+                    computedDashboardRootPages.push(p);
                 }
                 return;
             }
@@ -671,8 +671,8 @@ export const VaultSidebar = ({
             childrenMap: computedChildrenMap,
             rootPages: computedRootPages,
             dataChildrenMap: computedDataChildrenMap,
-            dashworksChildrenMap: computedDashworksChildrenMap,
-            dashworksRootPages: computedDashworksRootPages,
+            dashboardChildrenMap: computedDashboardChildrenMap,
+            dashboardRootPages: computedDashboardRootPages,
         };
     }, [pages]);
 
@@ -747,8 +747,8 @@ export const VaultSidebar = ({
         setExpandedWikiNodes(prev => ({ ...prev, [pageId]: !prev[pageId] }));
     };
 
-    const handleToggleDashworksExpand = (pageId) => {
-        setExpandedDashworksNodes(prev => ({ ...prev, [pageId]: !prev[pageId] }));
+    const handleToggleDashboardExpand = (pageId) => {
+        setExpandedDashboardNodes(prev => ({ ...prev, [pageId]: !prev[pageId] }));
     };
 
     useEffect(() => {
@@ -863,30 +863,30 @@ export const VaultSidebar = ({
 
             <SectionHeader
                 label={t('sidebar.dashboards', 'Dashboards')}
-                isExpanded={isDashworksExpanded}
+                isExpanded={isDashboardExpanded}
                 onToggle={() => {
-                    setIsDashworksExpanded(prev => !prev);
-                    setExpandedDashworksNodes({});
+                    setIsDashboardExpanded(prev => !prev);
+                    setExpandedDashboardNodes({});
                 }}
-                onAdd={() => isEditor && onCreateDashworksPage && onCreateDashworksPage(null)}
+                onAdd={() => isEditor && onCreateDashboardPage && onCreateDashboardPage(null)}
             />
-            {isDashworksExpanded && (
+            {isDashboardExpanded && (
                 <div className="px-2 space-y-0.5">
-                    {dashworksRootPages.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('sidebar.no_dashworks_pages')}</div>
+                    {dashboardRootPages.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('sidebar.no_dashboard_pages')}</div>
                     ) : (
-                        dashworksRootPages.map(page => (
+                        dashboardRootPages.map(page => (
                             <PageTreeItem
                                 key={page.id}
                                 page={page}
                                 depth={0}
-                                childrenMap={dashworksChildrenMap}
-                                expandedNodes={expandedDashworksNodes}
-                                onToggleExpand={handleToggleDashworksExpand}
+                                childrenMap={dashboardChildrenMap}
+                                expandedNodes={expandedDashboardNodes}
+                                onToggleExpand={handleToggleDashboardExpand}
                                 activePageId={activePageId}
                                 onPageSelect={onPageSelect}
                                 onOpenParallel={onOpenParallel}
-                                onCreatePage={onCreateDashworksPage || onCreatePage}
+                                onCreatePage={onCreateDashboardPage || onCreatePage}
                                 onRenamePage={onRenamePage}
                                 onDuplicatePage={onDuplicatePage}
                                 onDeletePage={onDeletePage}
@@ -1167,7 +1167,11 @@ export const VaultSidebar = ({
                             setWikiScrollTop(e.currentTarget.scrollTop);
                         }
                     }}
-                    className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar"
+                    // shrink-0: sense això el flex-column del sidebar encongeix
+                    // aquesta secció a height:0 quan DADES està expandit i el
+                    // contingut total supera el viewport del sidebar (que té
+                    // overflow-y-auto). Resultat visible: la WIKI sembla buida.
+                    className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar shrink-0"
                 >
                     {isRegistryLoading ? (
                         <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('common.loading')}</div>

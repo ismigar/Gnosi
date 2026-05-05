@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import toast from '../lib/toast';
 import { RefreshCw, Check } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { Sidebar } from '../components/Sidebar';

@@ -3,7 +3,7 @@ import { Excalidraw, exportToSvg, serializeAsJSON, convertToExcalidrawElements }
 import "@excalidraw/excalidraw/index.css";
 import axios from 'axios';
 import { Loader2, Save, X, Maximize2, Minimize2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast from '../../lib/toast';
 import { useTheme } from '../../hooks/useTheme';
 import { BlockEditor } from './BlockEditor';
 import './ExcalidrawEditor.css';

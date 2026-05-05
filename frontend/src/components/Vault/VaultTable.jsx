@@ -75,7 +75,7 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
 
 export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {

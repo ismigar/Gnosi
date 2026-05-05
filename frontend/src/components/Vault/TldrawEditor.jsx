@@ -8,7 +8,7 @@ import { Tldraw, createTLStore, defaultShapeUtils, getSnapshot, loadSnapshot } f
 import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { X, Loader2, Eye, ExternalLink, Copy } from 'lucide-react';
 
 // ──────────────── Page Actions Panel ────────────────

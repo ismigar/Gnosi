@@ -68,15 +68,22 @@ class MDChannel(BaseNotificationChannel):
 
     def _init_paths(self):
         if self._initialized: return
-        
+
         try:
             cfg = load_params(strict_env=False)
-            vault_p = cfg.paths.get("VAULT")
-            if not vault_p:
-                # Fallback to a system-wide default
-                vault_p = Path("/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi")
-            
-            self.log_file = Path(vault_p) / "system/notifications.md"
+            # Local-only: les notificacions són per-instància; escriure-les a
+            # un fitxer al vault sincronitzat (OneDrive) duplicava entries
+            # entre dispositius. LOCAL_DATA viu dins el container Docker i
+            # és per-instància — la ubicació correcta per a logs operatius.
+            local_data = cfg.paths.get("LOCAL_DATA")
+            if not local_data:
+                # Fallback raonable per execucions fora de Docker (host).
+                vault_p = cfg.paths.get("VAULT") or Path(
+                    "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi"
+                )
+                local_data = Path(vault_p) / ".gnosi"
+
+            self.log_file = Path(local_data) / "logs" / "notifications.md"
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
             
             if not self.log_file.exists():

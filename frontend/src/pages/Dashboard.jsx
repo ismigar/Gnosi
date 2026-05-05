@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge, X, Bug, FileText, AlertTriangle, Activity, Cpu, Layers, Database, ShieldCheck, Clock, Book, ExternalLink, ShieldAlert, Check, Search, Loader2, Eye, Edit2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import toast from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
 import { useApi } from '../hooks/use-api';
 import { useTranslation } from 'react-i18next';

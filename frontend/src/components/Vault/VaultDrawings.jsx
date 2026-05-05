@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Palette, Calendar, HardDrive, Trash2, ExternalLink, Loader2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast from '../../lib/toast';
 import ConfirmModal from '../ConfirmModal';
 
 const API_BASE_URL = '/api/vault';

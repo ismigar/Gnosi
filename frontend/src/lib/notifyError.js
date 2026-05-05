@@ -47,7 +47,7 @@ function _shouldShow(key) {
  * @param {boolean} [options.silent=false]- suppress everything but the event.
  */
 export function notifyError(scope, err, userMsg, options = {}) {
-    const { toast = true, silent = false } = options;
+    const { toast = true, silent = false, persist = true } = options;
     const tag = `[${scope}]`;
     const status = err?.response?.status;
     const detail = err?.response?.data?.detail;
@@ -65,6 +65,22 @@ export function notifyError(scope, err, userMsg, options = {}) {
         hotToast.error(baseMsg, { duration: 5000 });
     }
 
+    // Persisteix l'error al log central perquè aparegui al Control Center
+    // (Logs i Historial). Fire-and-forget: no esperem resposta ni bloquegem
+    // el flux UI si la xarxa cau. Saltable amb { persist: false } per a
+    // errors molt sorollosos (autosave background, etc.).
+    if (persist && !silent) {
+        try {
+            _persistNotification({
+                title: `[${scope}] error`,
+                message: baseMsg,
+                level: 'ERROR',
+            });
+        } catch {
+            /* no-op: el toast ja informa l'usuari */
+        }
+    }
+
     try {
         window.dispatchEvent(new CustomEvent('app-error', {
             detail: { scope, status, message: baseMsg, error: err },
@@ -77,4 +93,51 @@ export function notifyError(scope, err, userMsg, options = {}) {
 /** Convenience for cases where we want the error logged but no toast. */
 export function logError(scope, err) {
     notifyError(scope, err, null, { toast: false });
+}
+
+/**
+ * Registra un esdeveniment positiu o informatiu al log central. NO mostra
+ * toast — això es deixa al caller (toast.success quan calgui). Pensat per
+ * fer que el Control Center tingui un historial complet, no només errors.
+ */
+export function notifySuccess(scope, message) {
+    _persistNotification({
+        title: `[${scope}]`,
+        message: String(message || ''),
+        level: 'SUCCESS',
+    });
+}
+
+export function notifyInfo(scope, message) {
+    _persistNotification({
+        title: `[${scope}]`,
+        message: String(message || ''),
+        level: 'INFO',
+    });
+}
+
+// Exportada perquè el wrapper de toast pugui registrar `toast.error` /
+// `toast.success` com a entrades del Control Center.
+export function _persistNotification({ title, message, level }) {
+    // useApi és un hook React i no es pot usar fora d'un component. Fem un
+    // fetch directe amb els mateixos headers que `useApi.apiFetch` aplica.
+    try {
+        const workspaceId = (typeof localStorage !== 'undefined'
+            && localStorage.getItem('gnosi_workspace_id')) || 'personal';
+        const userEmail = (typeof localStorage !== 'undefined'
+            && localStorage.getItem('gnosi_user_email')) || '';
+        fetch('/api/system/notifications', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Workspace-ID': workspaceId,
+                'X-User-ID': 'ismael-legacy',
+                'X-User-Email': userEmail,
+            },
+            body: JSON.stringify({ title, message, level, workspace_id: workspaceId }),
+            keepalive: true,
+        }).catch(() => { /* fire-and-forget */ });
+    } catch {
+        /* localStorage absent o fetch absent — silenciem */
+    }
 }

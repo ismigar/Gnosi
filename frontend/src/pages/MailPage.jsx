@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../lib/toast';
 import MailSidebar from '../components/Mail/MailSidebar';
 import MailList from '../components/Mail/MailList';
 import MailViewer from '../components/Mail/MailViewer';

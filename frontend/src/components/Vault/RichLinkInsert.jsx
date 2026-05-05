@@ -13,10 +13,13 @@
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { FolderOpen, Image as ImageIcon, X, Globe, FileText, Upload, Link as LinkIcon } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { fileUrlToSentinel } from './markdown-mapper';
-import { FilesystemPickerModal } from '../FilesystemPickerModal';
+// FilesystemPickerModal: stub inline mentre el component compartit no estigui
+// disponible. La pestanya "Local" segueix funcional via input de text manual;
+// el botó del picker simplement no obre cap modal.
+const FilesystemPickerModal = () => null;
 
 const TABS = [
     { key: 'url', icon: Globe, labelKey: 'editor.link_tab_url', fallback: 'URL' },

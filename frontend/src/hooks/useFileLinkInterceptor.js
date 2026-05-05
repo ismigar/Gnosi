@@ -24,7 +24,7 @@
  *      listeners directes (resistent a stopPropagation tercer).
  */
 import { useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { FILE_PROTOCOL_SENTINEL, sentinelToFileUrl } from '../components/Vault/markdown-mapper';
 

@@ -4,7 +4,7 @@ import { useCreateBlockNote } from "@blocknote/react";
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 import { useTheme } from '../../hooks/useTheme';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 
 async function uploadFileToVault(file) {
     const formData = new FormData();

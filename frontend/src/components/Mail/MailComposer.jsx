@@ -4,7 +4,7 @@ import {
     Send, X, Paperclip, Sparkles, RefreshCw, ChevronDown, File as FileIcon,
     Calendar, ChevronLeft, ChevronRight, Trash2, Type, Reply, ReplyAll, Forward
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import axios from 'axios';

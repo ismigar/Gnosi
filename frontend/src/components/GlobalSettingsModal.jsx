@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast } from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';

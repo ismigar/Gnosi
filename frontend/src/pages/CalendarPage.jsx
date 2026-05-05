@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast } from '../lib/toast';
 import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';

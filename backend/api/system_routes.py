@@ -34,6 +34,47 @@ async def get_notifications(
     }
 
 
+class NotificationCreate(BaseModel):
+    title: str
+    message: str = ""
+    level: str = "INFO"  # INFO | SUCCESS | WARNING | ERROR
+    workspace_id: str = "default"
+
+
+@router.post("/notifications", response_model=NotificationResponse)
+async def create_notification(
+    payload: NotificationCreate,
+    db: Session = Depends(get_mgmt_db),
+):
+    """Persisteix una notificació al log central.
+
+    Els clients (frontend, scripts) escriuen aquí perquè els errors,
+    successos i avisos quedin al Control Center i no només com a toasts
+    efímers. Sense protecció de role: qualsevol caller autenticat pot
+    registrar-hi entries (és un log, no una acció destructiva).
+    """
+    try:
+        level = (payload.level or "INFO").strip().upper()
+        if level not in {"INFO", "SUCCESS", "WARNING", "ERROR"}:
+            level = "INFO"
+        notif = Notification(
+            workspace_id=payload.workspace_id or "default",
+            title=(payload.title or "").strip()[:200] or "(sense títol)",
+            message=(payload.message or "")[:4000],
+            level=level,
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+        return NotificationResponse.from_orm(notif)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /notifications"),
+        )
+
+
 @router.delete("/notifications", dependencies=[Depends(require_role("admin"))])
 async def clear_notifications(db: Session = Depends(get_mgmt_db)):
     """Deletes all system notifications."""
