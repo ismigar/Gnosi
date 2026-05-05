@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast } from '../lib/toast';
 import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Clock, BookOpen, Filter, History, ChevronRight } from 'lucide-react';
 import { FeedManagerModal } from '../components/FeedManagerModal';
 import { AppHeader } from '../components/AppHeader';

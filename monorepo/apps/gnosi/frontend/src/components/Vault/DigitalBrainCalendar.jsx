@@ -9,7 +9,7 @@ import multiMonthPlugin from '@fullcalendar/multimonth';
 import caLocale from '@fullcalendar/core/locales/ca';
 import esLocale from '@fullcalendar/core/locales/es';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';

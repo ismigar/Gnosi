@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../hooks/use-api';
 import { X } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast from '../lib/toast';
 import './SettingsModal.css';
 
 export function SettingsModal({ isOpen, onClose }) {

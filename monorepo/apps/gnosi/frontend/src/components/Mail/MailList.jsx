@@ -5,7 +5,7 @@ import { Star, Paperclip, MoreVertical, RefreshCw, CheckCircle2, Archive, Trash2
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import ConfirmModal from '../ConfirmModal';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { translateFolderName } from './mailFolderUtils';
 import { useMailTags } from '../../hooks/useMailTags';
 import MailTagPicker, { TagPill } from './MailTagPicker';

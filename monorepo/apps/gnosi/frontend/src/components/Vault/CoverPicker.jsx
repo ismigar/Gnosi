@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Link2, Upload, Search, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
 
 const PREDEFINED_COVERS = {

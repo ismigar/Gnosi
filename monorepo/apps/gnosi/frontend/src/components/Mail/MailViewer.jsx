@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { format, addHours, addDays, nextMonday } from 'date-fns';
 import { ca } from 'date-fns/locale';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useMailTags } from '../../hooks/useMailTags';
 import axios from 'axios';

@@ -14,7 +14,7 @@ import ContactsPage from './pages/ContactsPage';
 
 import SchedulerPage from './pages/SchedulerPage';
 import ComposerPage from './pages/ComposerPage';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from './lib/toast';
 
 import AgentChat from './components/AgentChat';
 import { useTheme } from './hooks/useTheme';

@@ -21,7 +21,7 @@ import {
   Save,
   FolderOpen
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../lib/toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PERSPECTIVES = [ // Mantenim per referència o inbox, però prioritzem àlbums

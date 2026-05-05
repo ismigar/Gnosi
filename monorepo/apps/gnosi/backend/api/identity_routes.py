@@ -28,8 +28,9 @@ class IdentityProfile(BaseModel):
     notes: Optional[str] = ""
 
 def get_identity_path() -> Path:
+    # Configs sincronitzats vault-first viuen a `.gnosi/`.
     base = get_active_vault_path()
-    path = base / "data" / "identity.json"
+    path = base / ".gnosi" / "identity.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 

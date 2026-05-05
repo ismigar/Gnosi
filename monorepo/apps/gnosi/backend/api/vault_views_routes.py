@@ -41,6 +41,12 @@ class ViewSection(BaseModel):
     filter: Optional[ViewFilter] = None
     columns: List[str] = ["title"]
 
+    def model_post_init(self, _ctx) -> None:
+        # Sanititzar heading: salts de línia parteixen el markdown final i
+        # generen `# Heading\nresta` invàlid. Aplanem a espais.
+        if self.heading:
+            self.heading = " ".join(self.heading.splitlines()).strip()
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -123,6 +129,32 @@ async def upsert_page_view(page_id: str, view: ViewSection):
 
         registry, registry_path = _load_registry(vault_path)
 
+        # Validació de la taula origen abans de tocar res al registry: així
+        # els errors són clars (422) en lloc d'un 200 silenciós amb
+        # md_synced: False que confonia l'usuari.
+        tables = registry.get("tables") or []
+        target_table = next(
+            (t for t in tables if str(t.get("id")) == str(view.source_table_id)),
+            None,
+        )
+        if target_table is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Taula origen '{view.source_table_id}' no existeix al registry.",
+            )
+
+        # Si hi ha filtre, validar que el camp existeixi a la taula.
+        if view.filter and view.filter.field:
+            prop_names = {p.get("name") for p in (target_table.get("properties") or [])}
+            if view.filter.field not in prop_names:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"El camp de filtre '{view.filter.field}' no existeix a la taula "
+                        f"'{target_table.get('name')}'."
+                    ),
+                )
+
         # Inicialitza `pages` si no existeix
         if "pages" not in registry:
             registry["pages"] = {}
@@ -148,6 +180,37 @@ async def upsert_page_view(page_id: str, view: ViewSection):
 
         # Sync el .md
         synced = _sync_page(page_id, registry, vault_path)
+
+        # Si el sync no ha modificat res però la vista és nova, és que el .md
+        # de la pàgina no s'ha trobat (page_id sense fitxer al disc).
+        if not synced and action == "created":
+            from pathlib import Path as _P
+            found = False
+            try:
+                dw = vault_path / ".Dashboards"
+                if dw.exists():
+                    for f in dw.iterdir():
+                        if f.suffix == ".md":
+                            try:
+                                txt = f.read_text(encoding="utf-8", errors="replace")
+                                if f"id: {page_id}" in txt:
+                                    found = True
+                                    break
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+            if not found:
+                # Revertim la vista afegida per no deixar lixo al registry.
+                if existing_idx is None:
+                    sections.pop()
+                    _save_registry(registry, registry_path)
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"Pàgina {page_id} no trobada al disc. La vista no s'ha creat."
+                    ),
+                )
 
         return {
             "ok": True,

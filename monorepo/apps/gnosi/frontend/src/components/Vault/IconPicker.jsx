@@ -6,7 +6,7 @@ import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
 
 export const VAULT_COLORS = [
