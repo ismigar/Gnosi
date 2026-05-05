@@ -105,10 +105,12 @@ def get_p(key: str) -> Path:
         "PLANTILLES": base / "Templates",
         "DIBUIXOS": base / "Drawings",
         "WIKI": base / "Wiki",
-        "DASHWORKS": base / ".Dashworks",
+        "DASHBOARDS": base / ".Dashboards",
         "NEWSLETTERS": base / "Newsletters",
-        "DATA": base / "data",
-        "CUSTOM_ICONS": base / "data" / "vault_custom_icons.json",
+        # Configs sincronitzats vault-first viuen a `.gnosi/`. La carpeta
+        # llegacy `data/` al vault ja no s'utilitza.
+        "GNOSI_CONFIG": base / ".gnosi",
+        "CUSTOM_ICONS": base / ".gnosi" / "vault_custom_icons.json",
         # Local-only paths — caches, indices, system DBs. Mirror paths_config.py
         "LOCAL_DATA": local_data,
         "LOCAL_CACHE": local_data / "cache",
@@ -129,9 +131,9 @@ def __getattr__(name: str):
         "PLANTILLES_PATH": "PLANTILLES",
         "DIBUIXOS_PATH": "DIBUIXOS",
         "WIKI_PATH": "WIKI",
-        "DASHWORKS_PATH": "DASHWORKS",
+        "DASHBOARDS_PATH": "DASHBOARDS",
         "NEWSLETTERS_PATH": "NEWSLETTERS",
-        "DATA_PATH": "DATA"
+        "GNOSI_CONFIG_PATH": "GNOSI_CONFIG",
     }
     if name in path_keys:
         return get_p(path_keys[name])
@@ -294,7 +296,7 @@ def get_rule_engine():
 
 # Instead of a global constant, we use a function
 def get_custom_icons_path():
-    return get_p("DATA") / "vault_custom_icons.json"
+    return get_p("CUSTOM_ICONS")
 
 _table_recalc_lock = threading.Lock()
 _table_recalc_state = {}
@@ -708,8 +710,8 @@ def init_vault():
         return
         
     paths_to_create = [
-        get_p("VAULT"), get_p("ASSETS"), get_p("CALENDAR"), get_p("DIBUIXOS"), get_p("DATABASES"), 
-        get_p("DEFAULT_DB"), get_p("DEFAULT_TABLE"), get_p("NEWSLETTERS"), get_p("WIKI"), get_p("DASHWORKS")
+        get_p("VAULT"), get_p("ASSETS"), get_p("CALENDAR"), get_p("DIBUIXOS"), get_p("DATABASES"),
+        get_p("DEFAULT_DB"), get_p("DEFAULT_TABLE"), get_p("WIKI"), get_p("DASHBOARDS")
     ]
     
     for p in paths_to_create:
@@ -901,14 +903,14 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
     """Moves notes between Wiki/Templates/Calendar/BD based on metadata."""
     is_template = metadata.get("is_template") is True
     is_calendar = is_calendar_entry(metadata)
-    is_dashworks = metadata.get("is_dashworks") is True
+    is_dashboard = metadata.get("is_dashboard") is True
 
     if is_template:
         target_dir = get_p("PLANTILLES")
     elif is_calendar:
         target_dir = get_p("CALENDAR")
-    elif is_dashworks:
-        target_dir = get_p("DASHWORKS")
+    elif is_dashboard:
+        target_dir = get_p("DASHBOARDS")
     else:
         table_folder = _resolve_table_folder_from_metadata(metadata)
         if table_folder:
@@ -924,7 +926,7 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
         or file_path.parent == get_p("PLANTILLES")
         or file_path.parent == get_p("CALENDAR")
         or file_path.parent == get_p("WIKI")
-        or file_path.parent == get_p("DASHWORKS")
+        or file_path.parent == get_p("DASHBOARDS")
     )
 
     if can_relocate and file_path.parent != target_dir:
@@ -1033,17 +1035,17 @@ def _safe_filename(title: str, target_dir: Path) -> str:
     return _resolve_unique_filename(target_dir, safe)
 
 
-def _is_dashworks_file_path(file_path: Path) -> bool:
-    if not file_path or file_path.suffix.lower() != ".json" or not get_p("DASHWORKS"):
+def _is_dashboard_file_path(file_path: Path) -> bool:
+    if not file_path or file_path.suffix.lower() != ".json" or not get_p("DASHBOARDS"):
         return False
     try:
-        file_path.resolve().relative_to(get_p("DASHWORKS").resolve())
+        file_path.resolve().relative_to(get_p("DASHBOARDS").resolve())
         return True
     except Exception:
         return False
 
 
-def _read_dashworks_file(file_path: Path) -> tuple[dict, str]:
+def _read_dashboard_file(file_path: Path) -> tuple[dict, str]:
     data = json.loads(file_path.read_text(encoding="utf-8"))
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     metadata = dict(metadata)
@@ -1056,7 +1058,7 @@ def _read_dashworks_file(file_path: Path) -> tuple[dict, str]:
     metadata["title"] = title
     if parent_id is not None:
         metadata["parent_id"] = parent_id
-    metadata["is_dashworks"] = True
+    metadata["is_dashboard"] = True
     metadata.setdefault("content_format", "json")
 
     body = data.get("content")
@@ -1068,7 +1070,7 @@ def _read_dashworks_file(file_path: Path) -> tuple[dict, str]:
     return metadata, body
 
 
-def _write_dashworks_file(
+def _write_dashboard_file(
     file_path: Path,
     page_id: str,
     title: str,
@@ -1088,8 +1090,8 @@ def _write_dashworks_file(
     safe_write_json(file_path, payload, indent=2, ensure_ascii=False)
 
 
-def _ensure_page_extension(file_path: Path, is_dashworks: bool) -> Path:
-    desired_extension = ".json" if is_dashworks else ".md"
+def _ensure_page_extension(file_path: Path, is_dashboard: bool) -> Path:
+    desired_extension = ".json" if is_dashboard else ".md"
     if file_path.suffix.lower() == desired_extension:
         return file_path
 
@@ -1789,12 +1791,35 @@ def _read_frontmatter_partial(file_path: Path):
     return {}, ""
 
 
+def _is_metadata_stub(metadata: Dict[str, Any]) -> bool:
+    """Heurística: el cache va ser inicialitzat des d'un índex parcial
+    (només id/title/description) i no s'ha rellegit el frontmatter encara.
+    Si la metadata té només claus bàsiques, considerem que cal refrescar-la
+    del fitxer abans de retornar-la al frontend.
+    """
+    if not metadata:
+        return True
+    keys = set(metadata.keys())
+    bare = {"id", "title", "parent_id", "description", "is_database"}
+    return keys.issubset(bare)
+
+
 def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
+    # body sempre definit: si la branca dashboard o l'except descarten body,
+    # el return de més avall el referencia → NameError → caller buida tot el
+    # cache i el GET següent retorna 404 (rglob només cerca *.md).
+    body = ""
+    parse_failed = False
     try:
-        if _is_dashworks_file_path(file_path):
-            metadata, _ = _read_dashworks_file(file_path)
+        if _is_dashboard_file_path(file_path):
+            metadata, body = _read_dashboard_file(file_path)
         else:
             metadata, body = _read_frontmatter_partial(file_path)
+            # Si _read_frontmatter_partial retorna ({}, "") és que ha fallat
+            # (Errno 35 retries esgotats). Marquem-ho per evitar persistir
+            # una entry amb metadata buida que sobreescriuria una de bona.
+            if not metadata and not body:
+                parse_failed = True
             metadata = _process_metadata_paths(metadata)
             # Support Catalan 'data' as 'date' alias
             if "data" in metadata and "date" not in metadata:
@@ -1802,6 +1827,7 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     except Exception as e:
         log.warning(f"Error parsing frontmatter for {file_path.name}: {e}")
         metadata = {}
+        parse_failed = True
 
     file_id = str(metadata.get("id") or file_path.stem)
     rel_folder = str(file_path.parent.relative_to(get_p("VAULT"))).replace("\\", "/")
@@ -1813,7 +1839,7 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     if not title:
         title = file_path.stem
 
-    return {
+    entry = {
         "path": str(file_path),
         "mtime_ns": stat_result.st_mtime_ns,
         "mtime": stat_result.st_mtime,
@@ -1828,6 +1854,66 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         },
         "folder": rel_folder,
     }
+    # Marca per al caller: si el parse del frontmatter ha fallat, evita
+    # sobreescriure una entry vella amb dades bones (Errno 35 OneDrive).
+    if parse_failed:
+        entry["_parse_failed"] = True
+    return entry
+
+
+def _refresh_table_pages_metadata(filtered: List[Any]) -> None:
+    """Per a cada PageInfo amb metadata stub, rellegeix el frontmatter del
+    fitxer i actualitza el cache in-memory. Paralelitzat amb thread pool:
+    sense paralelisme una taula de 270 fitxers triga 35-40s en OneDrive;
+    amb 16 workers, baixa a 3-5s.
+    """
+    from backend.services.context_vars import get_active_vault_path
+    from concurrent.futures import ThreadPoolExecutor
+    v_path = get_active_vault_path()
+    if not v_path:
+        return
+    v_str = str(v_path)
+
+    targets = []
+    for p in filtered:
+        if not _is_metadata_stub(p.metadata or {}):
+            continue
+        file_path = Path(p.path) if getattr(p, "path", None) else None
+        if not file_path or not file_path.exists():
+            continue
+        targets.append((p, file_path))
+
+    if not targets:
+        return
+
+    def _read_one(item):
+        page_obj, file_path = item
+        try:
+            entry = _build_page_cache_entry(file_path, file_path.stat())
+            return page_obj, file_path, entry
+        except Exception as e:
+            log.debug(f"refresh read fail {file_path.name}: {e}")
+            return page_obj, file_path, None
+
+    max_workers = min(16, len(targets))
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        results = list(ex.map(_read_one, targets))
+
+    for page_obj, file_path, entry in results:
+        if entry is None:
+            continue
+        if entry.pop("_parse_failed", False):
+            continue
+        new_meta = entry.get("metadata") or {}
+        if _is_metadata_stub(new_meta):
+            continue
+        page_obj.metadata = new_meta
+        if entry.get("title"):
+            page_obj.title = entry.get("title")
+        with _page_index_lock:
+            cached = _page_index_entries.setdefault(v_str, {}).get(str(file_path))
+            if cached is not None:
+                cached.update(entry)
 
 
 def _get_cached_page_entries(
@@ -1874,7 +1960,7 @@ def _get_cached_page_entries(
     }
     
     root_paths = search_paths if search_paths else [v_path]
-    dashworks_path = get_p("DASHWORKS")
+    dashboard_path = get_p("DASHBOARDS")
     
     for root in root_paths:
         if not root.exists(): continue
@@ -1896,7 +1982,7 @@ def _get_cached_page_entries(
                 if f.startswith('.'): continue
                 if f.endswith(".md"):
                     candidate_files.append(Path(dirpath) / f)
-                elif f.endswith(".json") and dashworks_path and str(dirpath).startswith(str(dashworks_path)):
+                elif f.endswith(".json") and dashboard_path and str(dirpath).startswith(str(dashboard_path)):
                     candidate_files.append(Path(dirpath) / f)
 
     log.info(f"🔍 Indexer found {len(candidate_files)} candidate files.")
@@ -1912,7 +1998,7 @@ def _get_cached_page_entries(
         cached_snapshot = dict(_page_index_entries[v_str])
 
     for file_path in candidate_files:
-        is_dashworks_file = _is_dashworks_file_path(file_path)
+        is_dashboard_file = _is_dashboard_file_path(file_path)
         try:
             rel_path = file_path.relative_to(v_path)
             parts = rel_path.parts
@@ -1964,7 +2050,13 @@ def _get_cached_page_entries(
             continue
 
         # Heavy part: parsing frontmatter
-        new_entries[path_str] = _build_page_cache_entry(file_path, stat_result)
+        built = _build_page_cache_entry(file_path, stat_result)
+        # Si el parse ha fallat (Errno 35) i tenim una entry vella amb
+        # metadata real, conservem la vella en lloc d'escombrar-la.
+        if built.pop("_parse_failed", False) and cached and not _is_metadata_stub(cached.get("metadata") or {}):
+            new_entries[path_str] = cached
+        else:
+            new_entries[path_str] = built
 
     # 5. Merge and persist inside lock (Briefly)
     with _page_index_lock:
@@ -2226,6 +2318,9 @@ async def list_pages_by_table(table_id: str, include_templates: bool = Query(Tru
     filtered = [p for p in pages if p.resolved_table_id == table_id]
     if not include_templates:
         filtered = [p for p in filtered if not p.metadata.get("is_template")]
+    # Re-fetch metadata lazy per a fitxers amb metadata stub (cache parcial).
+    # Cost: només els fitxers d'aquesta taula, no el vault sencer.
+    await asyncio.to_thread(_refresh_table_pages_metadata, filtered)
     table_obj = _table_by_id(table_id)
     _vf_inject_for_table(table_obj, filtered, get_p("DATABASES") / "vault_graph.json")
     if table_obj:
@@ -2244,6 +2339,9 @@ async def list_pages_by_table_snapshot(table_id: str):
     pages = await asyncio.to_thread(_get_pages_snapshot)
     raw_pages = [p for p in pages if p.resolved_table_id == table_id]
     visible_pages = _canonical_visible_table_pages(table_id, raw_pages)
+
+    # Lazy re-fetch del frontmatter per fitxers amb metadata stub.
+    await asyncio.to_thread(_refresh_table_pages_metadata, visible_pages)
 
     table_obj = _table_by_id(table_id)
     _vf_inject_for_table(table_obj, visible_pages, get_p("DATABASES") / "vault_graph.json")
@@ -2342,8 +2440,9 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         metadata["parent_id"] = request.parent_id
     if request.is_database:
         metadata["is_database"] = True
-    if metadata.get("is_dashworks") is True:
-        metadata["content_format"] = "json"
+    if metadata.get("is_dashboard") is True:
+        # Dashboards són markdown; el flag content_format=json era llegacy.
+        metadata.pop("content_format", None)
 
     # Apply automations and formulas during creation as well (old_metadata empty)
     try:
@@ -2354,43 +2453,32 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     metadata = _persist_metadata_assets(metadata)
 
     is_template = metadata.get("is_template") is True
-    is_dashworks = metadata.get("is_dashworks") is True
+    is_dashboard = metadata.get("is_dashboard") is True
 
     # Determinar directori destí
     if is_template:
         target_dir = get_p("PLANTILLES")
     elif is_calendar_entry(metadata):
         target_dir = get_p("CALENDAR")
-    elif is_dashworks:
-        target_dir = get_p("DASHWORKS")
+    elif is_dashboard:
+        target_dir = get_p("DASHBOARDS")
     else:
         table_folder = _resolve_table_folder_from_metadata(metadata)
         target_dir = table_folder if table_folder else get_p("WIKI")
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate filename from title (not UUID)
-    file_extension = ".json" if is_dashworks else ".md"
-    file_path = _get_unique_filepath(target_dir, request.title, extension=file_extension)
-    
+    # Tots els tipus de pàgina (incloses Dashboards) són markdown amb
+    # frontmatter. El JSON era un format llegacy ja eliminat.
+    file_path = _get_unique_filepath(target_dir, request.title, extension=".md")
+
     log.info(f"Creating new page at: {file_path.absolute()}")
 
     frontmatter = generate_frontmatter(metadata)
     full_content = f"{frontmatter}\n{request.content}"
 
     try:
-        if is_dashworks:
-            _write_dashworks_file(
-                file_path=file_path,
-                page_id=page_id,
-                title=request.title,
-                metadata=metadata,
-                content=request.content,
-                parent_id=request.parent_id,
-                is_database=request.is_database,
-            )
-        else:
-            safe_write_text(file_path, full_content)
+        safe_write_text(file_path, full_content)
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
         )
@@ -2577,9 +2665,9 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
     if direct_path.exists():
         return direct_path
 
-    dashworks_direct_path = get_p("DASHWORKS") / f"{page_id}.json" if get_p("DASHWORKS") else None
-    if dashworks_direct_path and dashworks_direct_path.exists():
-        return dashworks_direct_path
+    dashboard_direct_path = get_p("DASHBOARDS") / f"{page_id}.json" if get_p("DASHBOARDS") else None
+    if dashboard_direct_path and dashboard_direct_path.exists():
+        return dashboard_direct_path
 
     # 4. Full scan (cache fred o buit — costós però correcte). Canonical
     # compare so dash/no-dash and case differences don't cause false negatives.
@@ -2625,8 +2713,8 @@ async def get_page(page_id: str):
         )
 
     def _read_and_parse():
-        if _is_dashworks_file_path(file_path):
-            return _read_dashworks_file(file_path)
+        if _is_dashboard_file_path(file_path):
+            return _read_dashboard_file(file_path)
         # OneDrive sync pot retornar Errno 35 (Resource deadlock avoided)
         # durant fins a 5 segons quan està estabilitzant un fitxer. Reintenta
         # fins a 8 cops amb backoff exponencial: 0.05, 0.1, 0.2, 0.4, 0.8,
@@ -2749,8 +2837,8 @@ async def get_page_preview(page_id: str):
         )
 
     def _read_and_parse():
-        if _is_dashworks_file_path(file_path):
-            return _read_dashworks_file(file_path)
+        if _is_dashboard_file_path(file_path):
+            return _read_dashboard_file(file_path)
         last_error = None
         delays = [0.05, 0.1, 0.2]
         for attempt in range(len(delays) + 1):
@@ -2845,19 +2933,20 @@ async def save_page(
 
     if request.is_database:
         metadata["is_database"] = True
-    if metadata.get("is_dashworks") is True:
-        metadata["content_format"] = "json"
+    if metadata.get("is_dashboard") is True:
+        # Dashboards són markdown; el flag content_format=json era llegacy.
+        metadata.pop("content_format", None)
 
     is_template = metadata.get("is_template") is True
-    is_dashworks = metadata.get("is_dashworks") is True
+    is_dashboard = metadata.get("is_dashboard") is True
     if not file_path:
         # If it doesn't exist, we create it in the correct folder according to metadata.
         if is_template:
             target_dir = get_p("PLANTILLES")
         elif is_calendar_entry(metadata):
             target_dir = get_p("CALENDAR")
-        elif is_dashworks:
-            target_dir = get_p("DASHWORKS")
+        elif is_dashboard:
+            target_dir = get_p("DASHBOARDS")
         else:
             table_folder = _resolve_table_folder_from_metadata(metadata)
             target_dir = table_folder if table_folder else get_p("WIKI")
@@ -2872,9 +2961,8 @@ async def save_page(
         canonical = _canonicalize_id(page_id)
         existing_local = None
         try:
-            file_extension = ".json" if is_dashworks else ".md"
             for candidate in target_dir.iterdir():
-                if not candidate.is_file() or candidate.suffix != file_extension:
+                if not candidate.is_file() or candidate.suffix != ".md":
                     continue
                 try:
                     raw_existing = candidate.read_text(encoding="utf-8")
@@ -2899,12 +2987,10 @@ async def save_page(
             log.info(f"♻️ Reusing existing file for {page_id}: {file_path}")
         else:
             safe_name = _safe_filename(request.title, target_dir)
-            file_extension = ".json" if is_dashworks else ".md"
-            file_path = target_dir / f"{safe_name}{file_extension}"
+            file_path = target_dir / f"{safe_name}.md"
     else:
-        # Ensure it's in the correct folder
+        # Ensure it's in the correct folder. Tots els tipus són markdown ara.
         file_path = ensure_correct_page_location(file_path, metadata)
-        file_path = _ensure_page_extension(file_path, is_dashworks)
         file_path = _rename_page_file_to_match_title(file_path, request.title)
 
     # Read previous metadata to detect manual overrides — off the event loop
@@ -2935,21 +3021,11 @@ async def save_page(
     def _write_now():
         # Both the version backup and the actual file write are real I/O on
         # OneDrive — pushed onto a worker thread together so the request
-        # path stays unblocked.
+        # path stays unblocked. Tots els tipus de pàgina (incloses Dashboards)
+        # s'escriuen com a markdown amb frontmatter.
         if file_path and file_path.exists():
             _create_page_version(page_id, file_path)
-        if is_dashworks:
-            _write_dashworks_file(
-                file_path=file_path,
-                page_id=page_id,
-                title=request.title,
-                metadata=metadata,
-                content=request.content,
-                parent_id=request.parent_id,
-                is_database=request.is_database,
-            )
-        else:
-            safe_write_text(file_path, full_content)
+        safe_write_text(file_path, full_content)
 
     try:
         await asyncio.to_thread(_write_now)
@@ -3031,8 +3107,8 @@ async def patch_page(
             )
 
     def _read_file():
-        if _is_dashworks_file_path(file_path):
-            return _read_dashworks_file(file_path)
+        if _is_dashboard_file_path(file_path):
+            return _read_dashboard_file(file_path)
         raw_content = file_path.read_text(encoding="utf-8")
         return parse_frontmatter(raw_content, file_path)
 
@@ -3054,12 +3130,12 @@ async def patch_page(
         # Normalitzar IDs legacy
         metadata = normalize_metadata_ids(metadata)
         metadata = normalize_table_context(metadata)
-        if metadata.get("is_dashworks") is True:
+        if metadata.get("is_dashboard") is True:
             metadata["content_format"] = "json"
 
         # Move if type changes (template / non-template)
         file_path = ensure_correct_page_location(file_path, metadata)
-        file_path = _ensure_page_extension(file_path, metadata.get("is_dashworks") is True)
+        file_path = _ensure_page_extension(file_path, metadata.get("is_dashboard") is True)
         if request.title is not None:
             file_path = _rename_page_file_to_match_title(file_path, request.title)
 
@@ -3085,21 +3161,11 @@ async def patch_page(
         full_content = f"{frontmatter}\n{content.lstrip()}"
 
         # Backup + write off the loop so concurrent requests aren't stuck on
-        # OneDrive while we save.
+        # OneDrive while we save. Tots els tipus de pàgina (incloses
+        # Dashboards) són markdown amb frontmatter.
         def _write_now():
             _create_page_version(page_id, file_path)
-            if metadata.get("is_dashworks") is True:
-                _write_dashworks_file(
-                    file_path=file_path,
-                    page_id=page_id,
-                    title=metadata.get("title", "Untitled"),
-                    metadata=metadata,
-                    content=content,
-                    parent_id=metadata.get("parent_id"),
-                    is_database=bool(metadata.get("is_database")),
-                )
-            else:
-                safe_write_text(file_path, full_content)
+            safe_write_text(file_path, full_content)
         await asyncio.to_thread(_write_now)
 
         # Actualitza el cache `_page_index_entries` IMMEDIATAMENT amb el nou
@@ -3758,8 +3824,8 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
         )
 
     try:
-        if _is_dashworks_file_path(source_path):
-            metadata, body = _read_dashworks_file(source_path)
+        if _is_dashboard_file_path(source_path):
+            metadata, body = _read_dashboard_file(source_path)
         else:
             raw_content = source_path.read_text(encoding="utf-8")
             metadata, body = parse_frontmatter(raw_content, source_path)
@@ -3775,9 +3841,9 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
         new_metadata["title"] = new_title
 
         # Copies are created in the same directory as the original
-        if _is_dashworks_file_path(source_path):
+        if _is_dashboard_file_path(source_path):
             new_file_path = source_path.parent / f"{new_page_id}.json"
-            _write_dashworks_file(
+            _write_dashboard_file(
                 file_path=new_file_path,
                 page_id=new_page_id,
                 title=new_title,
@@ -3828,11 +3894,11 @@ def trigger_n8n_webhook(filename: str, folder: str, content: str):
 # i /global-index, tots a la càrrega d'una pàgina. Reusem `_iter_linkable_page_documents`
 # (que ja té cau pròpia) per construir-lo.
 def build_id_title_index() -> Dict[str, str]:
-    """Builds a global mapping page_id -> title for vault and dashworks."""
+    """Builds a global mapping page_id -> title for vault and dashboard."""
     index: Dict[str, str] = {}
-    for file_path, metadata, _body, is_dashworks in _iter_linkable_page_documents():
+    for file_path, metadata, _body, is_dashboard in _iter_linkable_page_documents():
         try:
-            if is_dashworks:
+            if is_dashboard:
                 page_id = str(metadata.get("id") or file_path.stem)
             else:
                 page_id = str(
@@ -3913,7 +3979,7 @@ def _get_body_for_path(file_path: Path) -> str:
 
 
 def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, bool]]:
-    """Yields page documents as (path, metadata, body, is_dashworks).
+    """Yields page documents as (path, metadata, body, is_dashboard).
 
     Cached per `_ITER_DOCS_TTL` seconds. Quan la cache de la llista expira,
     els bodies individuals no es rellegeixen si el seu mtime no ha canviat
@@ -3958,13 +4024,13 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
                 except Exception as e:
                     log.warning(f"Error parsing linkable page {file_path.name}: {e}")
 
-        if get_p("DASHWORKS") and get_p("DASHWORKS").exists():
-            for file_path in get_p("DASHWORKS").rglob("*.json"):
+        if get_p("DASHBOARDS") and get_p("DASHBOARDS").exists():
+            for file_path in get_p("DASHBOARDS").rglob("*.json"):
                 try:
-                    metadata, body = _read_dashworks_file(file_path)
+                    metadata, body = _read_dashboard_file(file_path)
                     docs.append((file_path, metadata, body, True))
                 except Exception as e:
-                    log.warning(f"Error parsing dashworks page {file_path.name}: {e}")
+                    log.warning(f"Error parsing dashboard page {file_path.name}: {e}")
 
         _iter_docs_cache["docs"] = docs
         _iter_docs_cache["ts"] = time.time()
@@ -4202,7 +4268,7 @@ def _rebuild_link_index(persist: bool = True) -> None:
     new_tokens: Dict[str, frozenset] = {}
     new_meta: Dict[str, Dict[str, Any]] = {}
 
-    for file_path, metadata, body, _is_dashworks in docs:
+    for file_path, metadata, body, _is_dashboard in docs:
         try:
             pid = _resolve_page_id_from_metadata(metadata, file_path)
             if not pid:
@@ -4305,8 +4371,8 @@ def update_link_index_for_page(file_path: Path) -> None:
     if not file_path or not file_path.exists():
         return
     try:
-        if _is_dashworks_file_path(file_path):
-            metadata, body = _read_dashworks_file(file_path)
+        if _is_dashboard_file_path(file_path):
+            metadata, body = _read_dashboard_file(file_path)
         else:
             raw = _get_body_for_path(file_path)
             if not raw:
@@ -4507,8 +4573,8 @@ def get_backlinks(id: str):
     if not documents:
         return backlinks
 
-    # Busquem per tot el Vault/Dashworks notes que referenciïn aquest ID
-    for file_path, metadata, body, _is_dashworks_doc in documents:
+    # Busquem per tot el Vault/Dashboard notes que referenciïn aquest ID
+    for file_path, metadata, body, _is_dashboard_doc in documents:
         try:
             # Do not count ourselves as backlink
             current_id = str(metadata.get("id", file_path.stem) or file_path.stem).strip()
@@ -4675,8 +4741,8 @@ def get_unlinked_mentions(id: str):
         if not target_title:
             target_path = find_page_path(target_id)
             if target_path and target_path.exists():
-                if _is_dashworks_file_path(target_path):
-                    target_metadata, _ = _read_dashworks_file(target_path)
+                if _is_dashboard_file_path(target_path):
+                    target_metadata, _ = _read_dashboard_file(target_path)
                 else:
                     raw_target = target_path.read_text(encoding="utf-8")
                     target_metadata, _ = parse_frontmatter(raw_target, target_path)
@@ -4704,7 +4770,7 @@ def get_unlinked_mentions(id: str):
     if not documents:
         return results
 
-    for file_path, metadata, body, _is_dashworks_doc in documents:
+    for file_path, metadata, body, _is_dashboard_doc in documents:
         try:
             current_id = str(metadata.get("id") or file_path.stem)
             if current_id == target_id:
@@ -4759,9 +4825,9 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
 
     for file_path in candidates:
         try:
-            is_dashworks_doc = _is_dashworks_file_path(file_path)
-            if is_dashworks_doc:
-                metadata, body = _read_dashworks_file(file_path)
+            is_dashboard_doc = _is_dashboard_file_path(file_path)
+            if is_dashboard_doc:
+                metadata, body = _read_dashboard_file(file_path)
             else:
                 raw_content = file_path.read_text(encoding="utf-8")
                 metadata, body = parse_frontmatter(raw_content, file_path)
@@ -4778,8 +4844,8 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
                 continue
 
             _create_page_version(current_id, file_path)
-            if is_dashworks_doc:
-                _write_dashworks_file(
+            if is_dashboard_doc:
+                _write_dashboard_file(
                     file_path=file_path,
                     page_id=current_id,
                     title=str(metadata.get("title") or file_path.stem),
@@ -5108,7 +5174,10 @@ async def get_registry():
             ],
             key=_sort_key_name,
         )
-        registry["views"] = sorted(registry.get("views", []), key=_sort_key_name)
+        # Vistes: respectem l'ordre d'inserció (append) del fitxer per evitar
+        # que una vista nova amb nom "AAA…" salti al principi de les pestanyes.
+        # PUT /api/vault/views/order persisteix l'ordre triat per l'usuari.
+        registry["views"] = list(registry.get("views", []))
         return registry
     except Exception as e:
         logging.exception(f"ERROR in get_registry: {e}")
@@ -5578,6 +5647,43 @@ async def create_view(view: dict = Body(...)):
 
     save_registry(registry)
     return view
+
+
+@router.put("/views/order", dependencies=[Depends(require_role("editor"))])
+async def reorder_views(body: dict = Body(...)):
+    """Reordena les vistes d'una taula segons l'ordre rebut.
+
+    Body: {"table_id": "...", "ordered_ids": ["v1", "v2", "v3"]}.
+    Les vistes d'altres taules mantenen la seva posició relativa. Les vistes
+    de la taula referenciada es col·loquen al final del registry seguint
+    l'ordre indicat.
+    """
+    table_id = str(body.get("table_id") or "").strip()
+    ordered_ids = body.get("ordered_ids") or []
+    if not table_id or not isinstance(ordered_ids, list):
+        raise HTTPException(status_code=422, detail="Cal table_id i ordered_ids (list).")
+
+    registry = load_registry()
+    views = registry.get("views") or []
+    table_views = {v["id"]: v for v in views if v.get("table_id") == table_id}
+    if not table_views:
+        raise HTTPException(status_code=404, detail=f"No hi ha vistes per a la taula '{table_id}'.")
+
+    other_views = [v for v in views if v.get("table_id") != table_id]
+    seen = set()
+    ordered_table_views = []
+    for vid in ordered_ids:
+        v = table_views.get(vid)
+        if v and vid not in seen:
+            ordered_table_views.append(v)
+            seen.add(vid)
+    for v in views:
+        if v.get("table_id") == table_id and v["id"] not in seen:
+            ordered_table_views.append(v)
+
+    registry["views"] = other_views + ordered_table_views
+    save_registry(registry)
+    return {"ok": True, "table_id": table_id, "count": len(ordered_table_views)}
 
 
 @router.delete("/views/{view_id}", dependencies=[Depends(require_role("editor"))])

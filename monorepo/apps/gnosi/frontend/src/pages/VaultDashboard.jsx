@@ -66,7 +66,7 @@ export default function VaultDashboard() {
     const [pageToDelete, setPageToDelete] = useState(null);
     const [recordsToDelete, setRecordsToDelete] = useState(null); // State for confirming multiple deletion
     const [viewToDelete, setViewToDelete] = useState(null);
-    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashworks: false, isView: false, isRename: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
+    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
     // For now we support "editor" for all pages.
     // You can add "table" directly here or via custom blocks.
@@ -254,7 +254,7 @@ export default function VaultDashboard() {
             parentId: null, 
             isDatabase: false, 
             isDrawing: false, 
-            isDashworks: false,
+            isDashboard: false,
             isView: false, 
             isRename: false, 
             targetView: null, 
@@ -837,14 +837,24 @@ export default function VaultDashboard() {
     };
 
     const handleReorderViews = async (reorderedViews) => {
+        // Persisteix l'ordre via un únic PUT atomic (no race condition amb
+        // POSTs concurrents que no movien les entrades del registry).
+        if (!Array.isArray(reorderedViews) || reorderedViews.length === 0) return;
+        const tableId = reorderedViews[0]?.table_id;
+        if (!tableId) return;
+        const orderedIds = reorderedViews.map(v => v.id);
+        // Optimistic UI: actualitza el state local abans del round-trip.
+        setViews(reorderedViews);
         try {
-            const updates = reorderedViews.map((v, idx) => ({ ...v, order: idx }));
-            await Promise.all(updates.map(v => axios.post('/api/vault/views', v)));
+            await axios.put('/api/vault/views/order', {
+                table_id: tableId,
+                ordered_ids: orderedIds,
+            });
             await fetchRegistry();
-            setViews(reorderedViews);
         } catch (err) {
             console.error("Error reordenant vistes:", err);
-            toast.error(t('errors.reorder_views'));
+            toast.error(t('errors.reorder_views') || 'Error reordenant vistes');
+            await fetchRegistry();
         }
     };
 
@@ -1603,17 +1613,17 @@ export default function VaultDashboard() {
         setActiveTableId(null);
     };
 
-    const handleOpenCreatePrompt = (parentId = null, isDatabase = false, isDrawing = false, isDashworks = false) => {
+    const handleOpenCreatePrompt = (parentId = null, isDatabase = false, isDrawing = false, isDashboard = false) => {
         let defaultTitle = isDatabase ? t('common.new_database') : t('common.new_page');
         if (isDrawing) defaultTitle = t('common.new_drawing');
-        if (isDashworks) defaultTitle = t('common.new_dashboard');
+        if (isDashboard) defaultTitle = t('common.new_dashboard');
         setPromptModal({ 
             isOpen: true, 
             defaultTitle, 
             parentId, 
             isDatabase, 
             isDrawing, 
-            isDashworks,
+            isDashboard,
             isView: false,
             isRename: false,
             targetView: null,
@@ -1625,7 +1635,7 @@ export default function VaultDashboard() {
 
     const executeCreateContent = async (e) => {
         if (e) e.preventDefault();
-        const { inputValue, parentId, isDatabase, isDrawing, isDashworks, isView, isRename, viewType, isTemplate, isApp, databaseId } = promptModal;
+        const { inputValue, parentId, isDatabase, isDrawing, isDashboard, isView, isRename, viewType, isTemplate, isApp, databaseId } = promptModal;
         const title = inputValue?.trim();
 
         if (!title) {
@@ -1725,12 +1735,12 @@ export default function VaultDashboard() {
             } else {
                 const res = await axios.post(`/api/vault/pages`, {
                     title: title,
-                    content: isDashworks ? '{\n  \n}' : ``,
+                    content: isDashboard ? '{\n  \n}' : ``,
                     parent_id: parentId,
                     is_database: isDatabase,
-                    metadata: isDashworks
+                    metadata: isDashboard
                         ? {
-                            is_dashworks: true,
+                            is_dashboard: true,
                             content_format: 'json',
                         }
                         : undefined,
@@ -2142,7 +2152,7 @@ export default function VaultDashboard() {
             onPageSelect={loadPage}
             onOpenParallel={handleOpenParallel}
             onCreatePage={(parentId) => handleOpenCreatePrompt(parentId, false)}
-            onCreateDashworksPage={(parentId) => handleOpenCreatePrompt(parentId, false, false, true)}
+            onCreateDashboardPage={(parentId) => handleOpenCreatePrompt(parentId, false, false, true)}
             onSearch={() => setIsGlobalSearchOpen(true)}
             onOpenRecent={() => setIsRecentOpen(true)}
             onNavigate={(view) => {
@@ -3076,7 +3086,7 @@ export default function VaultDashboard() {
                                 {promptModal.isRename ? t('common.rename_view', { name: promptModal.targetView?.name }) :
                                     (promptModal.isView ? t('common.new_view') :
                                         (promptModal.isDrawing ? t('common.new_drawing') :
-                                            (promptModal.isDashworks ? t('common.new_dashboard') :
+                                            (promptModal.isDashboard ? t('common.new_dashboard') :
                                             (promptModal.isDatabase && promptModal.databaseId ? t('common.new_table') :
                                                 (promptModal.isApp ? t('common.new_app') :
                                                     (promptModal.isTemplate ? t('common.save_as_template') : t('common.new_page')))))))}

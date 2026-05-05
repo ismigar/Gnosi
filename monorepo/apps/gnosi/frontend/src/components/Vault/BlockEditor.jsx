@@ -709,7 +709,7 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     );
 };
 
-const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes, effectiveTheme }) => {
+const DashboardJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes, effectiveTheme }) => {
     const { t } = useTranslation();
     const [jsonText, setJsonText] = useState(String(initialContent || '{\n  \n}'));
     const [jsonError, setJsonError] = useState('');
@@ -820,7 +820,7 @@ const DashworksJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate,
                 content: nextText,
                 metadata: {
                     ...(metadata || {}),
-                    is_dashworks: true,
+                    is_dashboard: true,
                     content_format: 'json',
                 },
             };
@@ -2445,7 +2445,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta, { immediate: true }); };
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
-    const isDashworksJson = metadata?.is_dashworks === true || String(metadata?.content_format || '').toLowerCase() === 'json';
+    const isDashboardJson = metadata?.is_dashboard === true || String(metadata?.content_format || '').toLowerCase() === 'json';
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
     // `properties` is the filtered schema list shown above the body. Memoized
     // because the title input rerenders on every keystroke and recomputing
@@ -3092,8 +3092,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 </div>
                 <div className="relative min-h-[500px] px-12 pb-8">
                     <ErrorBoundary>
-                        {isDashworksJson ? (
-                            <DashworksJsonEditor
+                        {isDashboardJson ? (
+                            <DashboardJsonEditor
                                 noteFilename={noteFilename}
                                 initialContent={initialContent}
                                 metadata={metadata}
