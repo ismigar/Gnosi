@@ -273,28 +273,60 @@ class IntegrationManager:
     def is_imap_account(acc: dict) -> bool:
         """True for any account that should be accessed via IMAP.
 
-        Includes manual, Outlook, and any account with imap_host that is not
-        Google OAuth2.
+        Includes manual, Outlook, i — des de la migració XOAUTH2 — Google
+        OAuth2 (que abans anava per Gmail API). Els comptes Google només
+        compten com a IMAP si tenen `refresh_token` (cal per renovar
+        l'access_token automàticament).
         """
         if not acc:
             return False
         if IntegrationManager.is_google_account(acc):
-            return False
+            return bool(acc.get("refresh_token"))
         provider = acc.get("provider", "")
         return provider in ("manual", "outlook", "imap") or bool(acc.get("imap_host"))
 
     @staticmethod
+    def is_imap_oauth_account(acc: dict) -> bool:
+        """True per a comptes que necessiten autenticació SASL XOAUTH2 a IMAP.
+
+        Ara mateix només Google OAuth2. Microsoft 365 OAuth2 també hi cabria
+        en un futur (mecanisme XOAUTH2 al port 993 d'outlook.office365.com).
+        """
+        return IntegrationManager.is_google_account(acc) and bool(acc.get("refresh_token"))
+
+    @staticmethod
     def resolve_imap_defaults(acc: dict) -> dict:
-        """Returns the account dict with default IMAP settings filled in for
-        known providers (e.g. Outlook) when the caller hasn't set them explicitly."""
+        """Returns the account dict with default IMAP/SMTP settings filled in
+        for known providers (Outlook, Google) when the caller hasn't set them
+        explicitly. No persisteix; només omple en memòria."""
+        if not acc:
+            return acc
         provider = acc.get("provider", "")
+        email = acc.get("email", "")
+
         if provider == "outlook" and not acc.get("imap_host"):
             acc = {
                 **acc,
                 "imap_host": "outlook.office365.com",
                 "imap_port": acc.get("imap_port") or 993,
                 "imap_encryption": acc.get("imap_encryption") or "ssl",
-                "imap_user": acc.get("imap_user") or acc.get("email", ""),
+                "imap_user": acc.get("imap_user") or email,
+                "smtp_host": acc.get("smtp_host") or "smtp.office365.com",
+                "smtp_port": acc.get("smtp_port") or 587,
+                "smtp_encryption": acc.get("smtp_encryption") or "starttls",
+                "smtp_user": acc.get("smtp_user") or email,
+            }
+        elif IntegrationManager.is_google_account(acc) and not acc.get("imap_host"):
+            acc = {
+                **acc,
+                "imap_host": "imap.gmail.com",
+                "imap_port": acc.get("imap_port") or 993,
+                "imap_encryption": acc.get("imap_encryption") or "ssl",
+                "imap_user": acc.get("imap_user") or email,
+                "smtp_host": acc.get("smtp_host") or "smtp.gmail.com",
+                "smtp_port": acc.get("smtp_port") or 465,
+                "smtp_encryption": acc.get("smtp_encryption") or "ssl",
+                "smtp_user": acc.get("smtp_user") or email,
             }
         return acc
 
