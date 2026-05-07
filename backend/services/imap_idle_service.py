@@ -30,7 +30,9 @@ log = logging.getLogger(__name__)
 
 
 _IDLE_REFRESH_S = 28 * 60   # renovar IDLE cada 28 min
-_RECONNECT_BACKOFF_S = (5, 15, 60, 120, 300)  # backoff exponencial per reconnect
+_RECONNECT_BACKOFF_S = (1, 15, 60, 120, 300)  # backoff exponencial per reconnect
+# Primer reintent a 1s perquè Gmail sovint talla IDLE als ~60s; volem
+# reduir el gap de cobertura push (1s entre cicles enlloc de 5s).
 
 
 class _Subscriber:
