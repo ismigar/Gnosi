@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -108,6 +109,29 @@ def safe_write_json(path: PathLike, obj: Any, **dumps_kwargs: Any) -> None:
     dumps_kwargs.setdefault("ensure_ascii", False)
     dumps_kwargs.setdefault("indent", 2)
     safe_write_text(path, json.dumps(obj, **dumps_kwargs))
+
+
+# Caràcters/forms prohibits a OneDrive/Windows. Veure
+# docs/dev_memory/directives/onedrive_filename_safety.md.
+_FILENAME_FORBIDDEN_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def sanitize_filename_component(value: str) -> str:
+    """Return `value` cleaned for use inside a single path component.
+
+    Removes: reserved chars (`<>:"/\\|?*`), control chars, and any whitespace
+    (incloent `\\r\\n` que apareix als headers Message-ID folded). Strip
+    extern de `.` i espais. Adequat per Message-IDs, slugs, títols.
+    """
+    if value is None:
+        return ""
+    # Treu reserved + control
+    cleaned = _FILENAME_FORBIDDEN_RE.sub("", str(value))
+    # Treu qualsevol whitespace (Message-IDs no en duen mai legítim)
+    cleaned = re.sub(r"\s+", "", cleaned)
+    # Strip extern de chars que Windows no accepta a final/inici de nom
+    cleaned = cleaned.strip(" .")
+    return cleaned
 
 
 def file_mtime_ns(path: PathLike) -> Optional[int]:
