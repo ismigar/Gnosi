@@ -20,14 +20,32 @@ Per a apps amb scopes "sensitive" (Gmail, Calendar, Contacts, Drive) i ús **per
 
 ### Pas 2 — Verificar configuració de l'app
 
-Camps mínims que han de constar abans de publicar:
-- **App name**: `Gnosi` (o el nom que prefereixis).
+> **Avís previ**: per a usuari únic amb `localhost`, sovint **no cal publicar**. El refresh proactiu (cada ~50 min mentre l'app corre) ja evita que els tokens caduquin si fas servir Gnosi setmanalment. Publica només si: (a) preveus períodes llargs sense usar l'app, (b) compartiràs amb tercers, o (c) vols zero-friction permanent.
+
+Camps mínims abans de publicar:
+- **App name**: `Gnosi`.
 - **User support email**: `ismigar@gmail.com`.
-- **App logo**: opcional, però professional ajuda.
-- **Application home page**: URL de la teva instància (p.ex. `https://gnosi.local` o domini real).
-- **Application privacy policy link**: necessari per a publicar — pot ser una pàgina simple amb la teva política. Fes-ne una a `docs/legal/privacy.md` i serveix-la.
-- **Authorized domains**: el domini sense protocol (`gnosi.local`, `tudominy.com`).
+- **App logo**: opcional.
+- **Application home page**: `https://ismigar.github.io` (el repo de pàgines del propi usuari, ja existent).
+- **Application privacy policy link**: `https://ismigar.github.io/privacy.html` (crear-la al repo `ismigar.github.io/`; sync-landing.yml propaga automàticament). Plantilla mínima:
+  ```html
+  <!DOCTYPE html>
+  <html><body>
+  <h1>Privacy Policy — Gnosi</h1>
+  <p>Gnosi és una aplicació personal. Les dades obtingudes via OAuth2
+  (Gmail/Calendar/Contacts) es processen i emmagatzemen exclusivament al
+  dispositiu local de l'usuari. No es transmeten a servidors de tercers.
+  L'usuari pot revocar l'accés des de myaccount.google.com/permissions.</p>
+  <p>Contacte: ismigar@gmail.com</p>
+  </body></html>
+  ```
+- **Authorized domains**: `ismigar.github.io` (sense `https://`).
+- **Application terms of service link**: opcional, deixar buit.
 - **Developer contact information**: `ismigar@gmail.com`.
+
+> **Important**: el redirect URI OAuth segueix sent `http://localhost:5002/api/auth/google/callback`. Google permet `localhost` com a redirect_uri en apps publicades. La diferència és:
+> - **Authorized domain** = domini públic on viu la documentació (privacy, home).
+> - **Redirect URI** = on Google envia el callback OAuth (pot ser localhost).
 
 ### Pas 3 — Revisar scopes
 
