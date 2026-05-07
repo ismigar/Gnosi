@@ -3527,15 +3527,28 @@ async def get_asset(asset_path: str):
 # --- Media Manager (ARXIU AVANÇAT) ---
 
 @router.get("/media")
-async def get_all_media(album: Optional[str] = Query(None)):
+async def get_all_media(
+    album: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
     """Llista tots els mitjans, opcionalment filtrats per àlbum."""
-    return media_service.get_all_media(album)
+    return media_service.get_all_media(album, limit=limit, offset=offset)
 
 
 @router.get("/media/albums")
 async def get_albums():
-    """Retorna la llista d'àlbums (carpetes)."""
+    """Retorna la llista d'àlbums de primer nivell. Compat: el front nou
+    fa servir /media/tree per a la navegació jeràrquica."""
     return media_service.get_albums()
+
+
+@router.get("/media/tree")
+async def get_media_tree(path: Optional[str] = Query(None)):
+    """Retorna les subcarpetes immediates de `Images/path` (lazy). Cada node
+    inclou `has_children` perquè la UI dibuixi el chevron sense haver de
+    carregar tot l'arbre (l'arxiu té ~33k directoris)."""
+    return media_service.get_tree_node(path)
 
 
 @router.post("/media/upload", dependencies=[Depends(require_role("editor"))])
@@ -3562,63 +3575,193 @@ async def update_media_metadata(
     return {"status": "ok"}
 
 
+# Limita el nombre de lectures concurrents a OneDrive: bind-mounts grpcfuse al
+# Docker Desktop poden retornar Errno 35 (Resource deadlock avoided) sota
+# pressió. Amb HTTP/1.1 el navegador ja en limita ~6 per host, però amb fitxers
+# diferents (cada un materialitzat separadament a OneDrive) cal serialitzar més.
+_VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
+
+# Daemon al host que materialitza fitxers OneDrive online-only; necessari
+# perquè el File Provider no rep el trigger a través del bind-mount Docker.
+# Vegeu sh/onedrive_warmup_daemon.py.
+_WARMUP_URL = os.environ.get(
+    "ONEDRIVE_WARMUP_URL",
+    "http://host.docker.internal:5009/warmup",
+)
+_WARMUP_TIMEOUT_S = float(os.environ.get("ONEDRIVE_WARMUP_TIMEOUT", "100"))
+# Serialitzem warmups: OneDrive baixa més de pressa quan no rep peticions
+# concurrents, i així evitem que un sol client (50 thumbs alhora) sature el
+# daemon. Combinat amb una cache curta per evitar duplicats consecutius.
+_WARMUP_SEMAPHORE = asyncio.Semaphore(2)
+_WARMUP_INFLIGHT: Dict[str, asyncio.Future] = {}
+
+
+async def _warmup_onedrive_file(container_path: Path) -> bool:
+    """Demana al daemon del host que materialitzi `container_path`.
+    Retorna True si el fitxer està disponible localment després de la crida.
+    """
+    vault_host_path = os.environ.get("VAULT_HOST_PATH")
+    if not vault_host_path:
+        log.debug("VAULT_HOST_PATH no configurat: warmup desactivat")
+        return False
+    try:
+        rel = container_path.relative_to(Path("/vault"))
+    except ValueError:
+        log.debug("Path fora de /vault, no es pot warmup: %s", container_path)
+        return False
+    host_path = str(Path(vault_host_path) / rel)
+
+    # Coalesce: si dues peticions volen el mateix fitxer alhora, només
+    # materialitzem una vegada.
+    inflight = _WARMUP_INFLIGHT.get(host_path)
+    if inflight is not None:
+        try:
+            return await inflight
+        except Exception:
+            return False
+
+    fut: asyncio.Future = asyncio.get_event_loop().create_future()
+    _WARMUP_INFLIGHT[host_path] = fut
+    try:
+        async with _WARMUP_SEMAPHORE:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=_WARMUP_TIMEOUT_S) as cli:
+                    r = await cli.get(_WARMUP_URL, params={"path": host_path})
+                body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+                ok = r.status_code == 200 and body.get("status") == "materialized"
+                if ok:
+                    log.info(
+                        "☁️→💾 Materialitzat OneDrive %s (blocks=%s, %.1fs)",
+                        rel, body.get("blocks"), body.get("elapsed", 0),
+                    )
+                else:
+                    log.warning(
+                        "☁️ Warmup ha fallat per %s: HTTP %s %s",
+                        rel, r.status_code, body,
+                    )
+                fut.set_result(ok)
+                return ok
+            except Exception as e:
+                log.warning("☁️ Warmup ha llançat excepció per %s: %r", rel, e)
+                fut.set_result(False)
+                return False
+    finally:
+        _WARMUP_INFLIGHT.pop(host_path, None)
+
+
+_NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
+
+
+def _image_error(status: int, detail: str) -> HTTPException:
+    """Retorna HTTPException amb headers `no-store` per evitar que el navegador
+    persistisi errors transitoris (warmup en curs, timeouts) i deixi de
+    redemanar la imatge. Sense això, els 410/503 quedaven al disk cache de
+    Chrome i les fotos apareixien com 'No descarregat' indefinidament.
+    """
+    return HTTPException(status_code=status, detail=detail, headers=_NO_STORE_HEADERS)
+
+
 @router.get("/images/{image_path:path}")
 async def serve_vault_image(image_path: str):
     """Serveix imatges directament des de VAULT/Images."""
     v_path = get_p("VAULT")
     if not v_path:
-        raise HTTPException(status_code=500, detail="Vault not configured")
-        
+        raise _image_error(500, "Vault not configured")
+
     img_root = (v_path / "Images").resolve()
-    
+
     # Decodificar el path per si ve amb caràcters escapats extra
-    from starlette.concurrency import run_in_threadpool
-    from backend.services.path_resolver import path_resolver
     from urllib.parse import unquote
     decoded_path = unquote(image_path)
-    
+
     requested = (img_root / decoded_path).resolve()
-    
+
     # Validació de seguretat robusta
     try:
         # is_relative_to està disponible a Python 3.9+
         if not requested.is_relative_to(img_root):
             log.warning(f"⛔ Intent d'accés fora del root de media: {requested} (root: {img_root})")
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise _image_error(403, "Access denied")
     except (ValueError, AttributeError):
         # Fallback per a versions anteriors o errors de resolució
         if not str(requested).startswith(str(img_root)):
             log.warning(f"⛔ Fallback startswith: Accés denegat per a {requested}")
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise _image_error(403, "Access denied")
 
     if not requested.exists() or not requested.is_file():
         log.error(f"❌ Imatge no trobada al disc: {requested}")
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise _image_error(404, "Image not found")
 
-    # Detecció de fitxers placeholder de OneDrive (mida 0 bytes)
+    # Detecció de fitxers OneDrive online-only: mida lògica > 0 però st_blocks == 0
+    # → no estan materialitzats al disc local. Llegir-los via bind-mount Docker
+    # provoca Errno 35 (Resource deadlock avoided). No té sentit fer retry: cal
+    # que l'usuari els marqui "Always keep on this device" a OneDrive.
     try:
-        size_zero = requested.stat().st_size == 0
+        st = requested.stat()
     except OSError as e:
-        log.error(f"Error comprovant mida del fitxer: {e}")
-        size_zero = False
-    if size_zero:
-        log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
-        raise HTTPException(status_code=404, detail="Image is an empty placeholder (OneDrive)")
+        log.warning(f"stat() ha fallat per {requested}: {e}")
+        raise _image_error(503, "Image temporarily unavailable")
 
-    media_type, _ = mimetypes.guess_type(str(requested))
-    if not media_type:
-        # Fallback segons extensió
-        ext = requested.suffix.lower()
-        media_type = {
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-            ".webp": "image/webp",
-            ".gif": "image/gif",
-            ".svg": "image/svg+xml"
-        }.get(ext, "application/octet-stream")
-        
-    return FileResponse(path=str(requested), media_type=media_type)
+    if st.st_size == 0:
+        log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
+        raise _image_error(404, "Image is an empty placeholder (OneDrive)")
+
+    if getattr(st, "st_blocks", 1) == 0:
+        # Online-only: demanem al daemon del host que dispari la baixada via
+        # File Provider. Si funciona, refrequem el stat i continuem.
+        if await _warmup_onedrive_file(requested):
+            try:
+                st = requested.stat()
+            except OSError as e:
+                log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
+                raise _image_error(503, "Image temporarily unavailable")
+        if getattr(st, "st_blocks", 1) == 0:
+            log.warning(f"☁️ Fitxer OneDrive online-only encara no descarregat: {requested}")
+            raise _image_error(503, "Image temporarily unavailable; OneDrive warmup pending")
+
+    async with _VAULT_IMAGE_SEMAPHORE:
+        # Warm-up: open(1 byte) per estabilitzar la lectura abans del
+        # FileResponse. Reintents per Errno 35 (Resource deadlock avoided) amb
+        # backoff exponencial. Patró usat a _read_frontmatter_partial.
+        last_error: Optional[OSError] = None
+        for attempt in range(5):
+            try:
+                with open(requested, "rb") as f:
+                    f.read(1)
+                last_error = None
+                break
+            except OSError as e:
+                last_error = e
+                if e.errno == 35 and attempt < 4:
+                    await asyncio.sleep(0.2 * (2 ** attempt))
+                    continue
+                break
+
+        if last_error is not None:
+            log.warning(f"☁️ Lectura fallida després de retries per {requested}: {last_error}")
+            raise _image_error(503, "Image temporarily unavailable")
+
+        media_type, _ = mimetypes.guess_type(str(requested))
+        if not media_type:
+            ext = requested.suffix.lower()
+            media_type = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+                ".gif": "image/gif",
+                ".svg": "image/svg+xml"
+            }.get(ext, "application/octet-stream")
+
+        # Cache curt al navegador per a fitxers servits OK; els errors mai es
+        # caché-en (vegeu _image_error) per evitar que un fitxer cloud-only
+        # quedi marcat com 'No descarregat' permanentment.
+        return FileResponse(
+            path=str(requested),
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=300"},
+        )
 
 
 @router.get("/custom-icons")
