@@ -1,6 +1,6 @@
 # Directiva: Noms de fitxer segurs per OneDrive (i Windows)
 
-**Última actualització:** 2026-05-07
+**Última actualització:** 2026-05-08
 
 ## Problema
 
@@ -57,3 +57,18 @@ renomena `.md` + `.html`, reescriu el frontmatter i actualitza la taula
 - **Si OneDrive ja ha bloquejat el fitxer**, executa la migració amb
   l'OneDrive en pause (icona menubar) per evitar conflictes de rename
   durant la sincronització.
+- **Reiniciar `gnosi_backend` després de patchar serveis Python**: el
+  bind mount actualitza els `.py` al disc, però el procés Python ja té
+  el codi vell carregat a memòria. Mentre no es reinicia, el sync IMAP
+  segueix produint fitxers amb el bug. Comanda:
+  `docker compose restart gnosi_backend` (o `docker restart gnosi_backend`).
+  Verificació ràpida que el codi nou està viu:
+  `docker exec gnosi_backend grep -n sanitize_filename_component /app/backend/services/imap_mail_sync_service.py`.
+
+## Cas observat (2026-05-08)
+
+2 fitxers `RE ESCRITO REVISTA CONNEXIÓ ASPACE.{md,html}` van aparèixer
+de nou perquè el sync IMAP de les 17:59 i 18:32 (després del commit del
+fix) va córrer encara amb el codi vell en memòria. Va caldre reiniciar
+el container i tornar a executar la migració. Lliçó: el patch al codi
+**no és efectiu fins al restart del procés**.
