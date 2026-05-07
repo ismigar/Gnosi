@@ -23,6 +23,7 @@ from pathlib import Path
 from backend.data.db import get_engine_for_path
 from backend.services.context_vars import get_active_vault_path
 from backend.models.reader import FeedSource, Article
+from backend.utils.safe_io import sanitize_filename_component
 
 # Load .env_shared (global) then .env (local override)
 # Works both locally (deep path) and inside Docker (/app/...)
@@ -212,7 +213,7 @@ def fetch_and_store_newsletters():
                     content = '\n'.join(f'<p>{p.strip()}</p>' for p in paragraphs if p.strip())
 
                 # Unique identifier
-                message_id = msg.get('Message-ID', '').strip('<>')
+                message_id = sanitize_filename_component(msg.get('Message-ID', ''))
                 if not message_id:
                     # Fallback: use subject + date hash
                     import hashlib
