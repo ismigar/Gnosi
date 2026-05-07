@@ -12,6 +12,7 @@ from typing import Optional
 
 from backend.services.google_mail_service import get_gmail_service
 from backend.services.integration_manager import integration_manager
+from backend.utils.safe_io import sanitize_filename_component
 
 log = logging.getLogger(__name__)
 
@@ -607,7 +608,7 @@ def imap_list_messages(
             to      = _decode_mime(msg.get("To", ""))
             cc      = _decode_mime(msg.get("Cc", ""))
             date_str = msg.get("Date", "")
-            message_id_hdr = msg.get("Message-ID", "").strip("<>")
+            message_id_hdr = sanitize_filename_component(msg.get("Message-ID", ""))
 
             messages.append({
                 "id":             f"imap_{uid}",
@@ -742,7 +743,7 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[di
                 else:
                     body_text = payload.decode(charset, errors="replace")
 
-        message_id_hdr = msg.get("Message-ID", "").strip("<>")
+        message_id_hdr = sanitize_filename_component(msg.get("Message-ID", ""))
         return {
             "id":              f"imap_{uid}",
             "imap_uid":        uid,

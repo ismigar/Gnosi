@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional, Union, List, Tuple, Dict, Set
 from backend.config.app_config import load_params
 from backend.services.integration_manager import integration_manager
-from backend.utils.safe_io import safe_write_text
+from backend.utils.safe_io import safe_write_text, sanitize_filename_component
 
 log = logging.getLogger(__name__)
 
@@ -491,7 +491,9 @@ class ImapMailSyncService:
             msg = email.message_from_bytes(raw_email)
 
             raw_subject = msg.get("Subject", "")
-            message_id = msg.get("Message-ID", "").strip("<>")
+            # `.strip("<>")` no aplana headers folded amb `\r\n` davant del
+            # `<`; usem sanitize que també treu reserved chars de Windows.
+            message_id = sanitize_filename_component(msg.get("Message-ID", ""))
             if not message_id:
                 date_val = msg.get("Date", "")
                 message_id = hashlib.md5(f"{raw_subject}{date_val}".encode()).hexdigest()
