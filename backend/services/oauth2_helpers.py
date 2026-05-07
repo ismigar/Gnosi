@@ -88,6 +88,7 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
     try:
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
+        import time
 
         creds = Credentials(
             token=account.get("token"),
@@ -97,7 +98,18 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
             client_secret=client_secret,
         )
 
-        if creds.expired and creds.refresh_token:
+        # Decideix si cal refrescar:
+        #   - `creds.expired` només és cert si tenim `expiry` (no el persistim).
+        #   - Per tant ens basem en `last_refresh_success_at`: si el token té
+        #     més de 50 min de vida (Google els emet a 1h), forcem refresh.
+        #   - Si mai no hem registrat un refresh exitós (compte legacy), forcem.
+        TOKEN_LIFETIME_S = 3600        # access_tokens duren 1h
+        REFRESH_MARGIN_S = 600         # refrescar 10 min abans de caducar
+        last_ok = account.get("last_refresh_success_at") or 0
+        age = time.time() - last_ok if last_ok else float("inf")
+        needs_refresh = age >= (TOKEN_LIFETIME_S - REFRESH_MARGIN_S)
+
+        if (creds.expired or needs_refresh) and creds.refresh_token:
             try:
                 creds.refresh(Request())
                 integration_manager.update_mail_account_token(email, creds.token)
