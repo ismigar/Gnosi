@@ -123,10 +123,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning(f"⚠️ Could not run main-view repair pass: {e}")
 
+    # 6. IMAP IDLE workers per push real (notificacions de mail nou).
+    #    Cada compte IMAP-eligible (inclou Google via XOAUTH2) llança un
+    #    thread daemon que manté una connexió IDLE oberta a INBOX. Els
+    #    events EXISTS/EXPUNGE/FETCH es publiquen a clients SSE
+    #    (/api/mail/events).
+    try:
+        from backend.services.imap_idle_service import idle_manager
+        idle_manager.start_all()
+        log.info("📬 IMAP IDLE workers started.")
+    except Exception as e:
+        log.warning(f"⚠️ Could not start IMAP IDLE workers: {e}")
+
     yield
 
     # SHUTDOWN
     log.info("🛑 Shutting down...")
+    try:
+        from backend.services.imap_idle_service import idle_manager
+        idle_manager.stop_all()
+    except Exception:
+        pass
     if hasattr(app.state, "mcp_client"):
         await app.state.mcp_client.stop()
         log.info("✅ MCP Client stopped.")

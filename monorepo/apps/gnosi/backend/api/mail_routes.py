@@ -223,24 +223,26 @@ def get_unix_timestamp(date_str):
 
 @router.get("/counts")
 async def get_mail_counts(email: str = Query(...)):
-    """Returns unread and total counts per folder/category via Gmail API or IMAP."""
+    """Returns unread and total counts per folder/category via IMAP or Microsoft Graph.
+
+    Migració XOAUTH2: els comptes Google passen pel camí IMAP (és_imap_account
+    inclou Google amb refresh_token). Microsoft 365 segueix per Graph API.
+    """
     cached = _COUNTS_CACHE.get(email)
     if cached is not None:
         return cached
 
-    from backend.services.hybrid_mail_service import gmail_get_counts, imap_get_counts
+    from backend.services.hybrid_mail_service import imap_get_counts
     from backend.services.integration_manager import integration_manager
 
     acc = integration_manager.get_mail_account(email)
-    # asyncio.get_event_loop() és deprecat dins async; asyncio.to_thread és
-    # l'equivalent modern (Python 3.9+) i no requereix referenciar el loop.
-    if integration_manager.is_google_account(acc):
-        counts = await asyncio.to_thread(gmail_get_counts, email)
-    elif integration_manager.is_microsoft_account(acc):
+    if integration_manager.is_microsoft_account(acc):
         from backend.services.microsoft_mail_service import microsoft_get_counts
         counts = await asyncio.to_thread(microsoft_get_counts, email)
-    else:
+    elif integration_manager.is_imap_account(acc):
         counts = await asyncio.to_thread(imap_get_counts, email)
+    else:
+        counts = {}
 
     _COUNTS_CACHE.set(email, counts)
     return counts
@@ -296,8 +298,8 @@ async def get_messages(
     search: Optional[str] = Query(None),
     force: bool = Query(False),
 ):
-    """Hybrid: consulta Gmail API o IMAP directament (sense vault)."""
-    from backend.services.hybrid_mail_service import gmail_list_messages, imap_list_messages
+    """Hybrid: consulta IMAP (Google+manuals) o Microsoft Graph directament."""
+    from backend.services.hybrid_mail_service import imap_list_messages
     from backend.services.integration_manager import integration_manager
 
     cache_key = f"{email}|{folder}|{category}|{page_token}|{offset}|{search}"
@@ -315,16 +317,7 @@ async def get_messages(
     # imap_mail_sync_service and the axios default on the frontend.
     REMOTE_LIST_TIMEOUT_S = 30
     try:
-        if integration_manager.is_google_account(acc):
-            result = await asyncio.wait_for(
-                asyncio.to_thread(
-                    gmail_list_messages, email,
-                    folder=folder or "all", category=category,
-                    search=search, limit=limit, page_token=page_token,
-                ),
-                timeout=REMOTE_LIST_TIMEOUT_S,
-            )
-        elif integration_manager.is_microsoft_account(acc):
+        if integration_manager.is_microsoft_account(acc):
             from backend.services.microsoft_mail_service import microsoft_list_messages
             result = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -353,7 +346,7 @@ async def get_messages(
                 f"{email}. The remote server is unreachable or slow."
             ),
         }
-    if not integration_manager.is_google_account(acc) and not integration_manager.is_microsoft_account(acc):
+    if not integration_manager.is_microsoft_account(acc):
         if folder and folder.upper() in ("DRAFTS", "DRAFT"):
             vault_drafts = _load_vault_drafts(email)
             existing_ids = {m.get("id") for m in result.get("messages", [])}
@@ -381,23 +374,25 @@ async def get_message(
     email: Optional[str] = Query(None),
     folder: Optional[str] = Query(None),
 ):
-    """Hybrid: obté el detall d'un missatge de Gmail API o IMAP."""
-    from backend.services.hybrid_mail_service import gmail_get_message, imap_get_message
+    """Hybrid: obté el detall d'un missatge via IMAP o Microsoft Graph.
+
+    Tots els missatges porten prefix `imap_` excepte els de Microsoft. Per
+    compatibilitat retro, si arriba un id sense prefix però el compte és
+    IMAP, s'interpreta com a UID nu.
+    """
+    from backend.services.hybrid_mail_service import imap_get_message
     from backend.services.integration_manager import integration_manager
 
     if email:
         acc = integration_manager.get_mail_account(email)
-        if message_id.startswith("imap_"):
-            uid = message_id[5:]
-            result = await asyncio.to_thread(imap_get_message, email, uid, folder or "INBOX")
-        elif integration_manager.is_google_account(acc):
-            result = await asyncio.to_thread(gmail_get_message, email, message_id)
-        elif integration_manager.is_microsoft_account(acc):
+        if integration_manager.is_microsoft_account(acc):
             from backend.services.microsoft_mail_service import microsoft_get_message
             result = await asyncio.to_thread(microsoft_get_message, email, message_id)
-        else:
+        elif integration_manager.is_imap_account(acc):
             uid = message_id[5:] if message_id.startswith("imap_") else message_id
             result = await asyncio.to_thread(imap_get_message, email, uid, folder or "INBOX")
+        else:
+            result = None
 
         if result:
             return result
@@ -439,28 +434,114 @@ async def get_message(
 
 @router.get("/threads/{thread_id}")
 async def get_thread(thread_id: str, email: str = Query(...)):
-    """Retorna tots els missatges d'un thread de Gmail (inclou INBOX i SENT)."""
-    from backend.services.hybrid_mail_service import _parse_gmail_meta
+    """Retorna tots els missatges d'un thread.
+
+    Per a comptes IMAP-OAuth (Gmail via XOAUTH2): usa `X-GM-THRID` cercant
+    a "All Mail" per agrupar INBOX + SENT del mateix thread.
+    Per a comptes Microsoft: per ara retorna el missatge sol (no implementat).
+    Comptes Google sense IMAP-OAuth (refresh_token absent): fallback a la
+    Gmail API tradicional.
+    """
     from backend.services.integration_manager import integration_manager
 
     acc = integration_manager.get_mail_account(email)
-    if not integration_manager.is_google_account(acc):
+    if not acc:
         return {"messages": []}
 
-    thread = await asyncio.to_thread(get_thread_details, email, thread_id)
-    if not thread:
-        return {"messages": []}
+    # Camí IMAP-XOAUTH2 amb X-GM-THRID
+    if integration_manager.is_imap_oauth_account(acc):
+        from backend.services.imap_mail_sync_service import imap_sync_service
+        # Si el thread_id ve d'imap_get_message és el gm_thrid (numèric)
+        # Si ve d'una vista antiga pot ser un Message-ID, busquem-lo primer
+        gm_thrid = thread_id
+        if not thread_id.isdigit():
+            # No és un X-GM-THRID, mirem si és un UID actual
+            uid_only = thread_id[5:] if thread_id.startswith("imap_") else thread_id
+            from backend.services.hybrid_mail_service import imap_get_message
+            mail = await asyncio.to_thread(imap_get_message, email, uid_only, "INBOX")
+            if mail and mail.get("gm_thrid"):
+                gm_thrid = mail["gm_thrid"]
+            else:
+                # No es pot resoldre el thread; retornem sol el missatge actual.
+                return {"messages": [mail] if mail else []}
 
-    messages = []
-    for msg in thread.get("messages", []):
+        messages = await asyncio.to_thread(
+            imap_sync_service.fetch_thread_by_gm_thrid, email, gm_thrid
+        )
+        return {"messages": messages}
+
+    # Fallback: Gmail API (només si encara queda algun compte sense refresh_token)
+    if integration_manager.is_google_account(acc):
+        from backend.services.hybrid_mail_service import _parse_gmail_meta
+        thread = await asyncio.to_thread(get_thread_details, email, thread_id)
+        if not thread:
+            return {"messages": []}
+        messages = []
+        for msg in thread.get("messages", []):
+            try:
+                messages.append(_parse_gmail_meta(msg, email))
+            except Exception:
+                pass
+        messages.sort(key=lambda m: m.get("timestamp", 0))
+        return {"messages": messages}
+
+    return {"messages": []}
+
+
+# ── Push notifications via IMAP IDLE → SSE ───────────────────────────────────
+
+@router.get("/events")
+async def mail_events(email: Optional[str] = Query(None)):
+    """Server-Sent Events stream amb notificacions push d'IMAP IDLE.
+
+    El client (frontend) s'hi pot subscriure amb `EventSource` i rebrà:
+      - `event: new_message` quan EXISTS s'incrementa al servidor
+      - `event: message_removed` quan EXPUNGE
+      - `event: flags_changed` quan FETCH (FLAGS ...)
+      - `event: ping` cada 25s per mantenir la connexió viva
+
+    Si `email` és present, el stream filtra a només aquell compte.
+    """
+    from fastapi.responses import StreamingResponse
+    from backend.services.imap_idle_service import idle_manager
+
+    sub = idle_manager.subscribe(account_filter=email)
+
+    async def event_generator():
+        last_ping = time.monotonic()
         try:
-            normalized = _parse_gmail_meta(msg, email)
-            messages.append(normalized)
-        except Exception:
-            pass
+            yield "event: ready\ndata: {}\n\n"
+            while True:
+                # pop_blocking és síncron; fer-lo a un thread per no bloquejar el loop.
+                evt = await asyncio.to_thread(sub.pop_blocking, 5.0)
+                if evt:
+                    name = evt.get("type", "event")
+                    import json as _json
+                    payload = _json.dumps({
+                        "account": evt.get("account"),
+                        "type": name,
+                        "raw": evt.get("raw"),
+                    })
+                    yield f"event: {name}\ndata: {payload}\n\n"
 
-    messages.sort(key=lambda m: m.get("timestamp", 0))
-    return {"messages": messages}
+                # Ping de heartbeat cada ~25s perquè proxies no tallin la connexió.
+                now = time.monotonic()
+                if now - last_ping > 25:
+                    yield "event: ping\ndata: {}\n\n"
+                    last_ping = now
+        except asyncio.CancelledError:
+            raise
+        finally:
+            idle_manager.unsubscribe(sub)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # nginx: deshabilita buffering
+        },
+    )
 
 
 @router.post("/sync", dependencies=[Depends(require_role("editor"))])
@@ -759,10 +840,21 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
 
 @router.post("/drafts")
 async def save_draft(payload: dict = Body(...)):
-    """Auto-saves a draft. For Gmail accounts uses the Gmail Drafts API; falls back to local vault for IMAP."""
+    """Auto-saves a draft.
+
+    Per a comptes IMAP (inclou Google via XOAUTH2), fa `IMAP APPEND` a la
+    carpeta de Drafts del servidor (p.ex. `[Gmail]/Drafts`) amb la flag
+    `\\Draft`, així apareix al Gmail/Outlook web. El vault local es manté
+    com a cache per a visibilitat immediata i com a fallback si APPEND
+    falla (p.ex. token caducat o ofline).
+
+    Per als comptes sense IMAP (mai no hauria d'arribar després de la
+    migració, però per seguretat), només es guarda al vault.
+    """
     from backend.services.integration_manager import integration_manager
 
     draft_id = payload.get("draft_id") or None
+    prev_imap_uid = payload.get("imap_uid") or None
     to = payload.get("to", "")
     cc = payload.get("cc", "")
     bcc = payload.get("bcc", "")
@@ -772,19 +864,20 @@ async def save_draft(payload: dict = Body(...)):
 
     acc = integration_manager.get_mail_account(email_account) if email_account else None
 
-    if acc and integration_manager.is_google_account(acc):
-        from backend.services.google_mail_service import save_gmail_draft
-        new_id = await asyncio.to_thread(
-            save_gmail_draft,
-            email_account, to, subject, body,
-            cc=cc, bcc=bcc, gmail_draft_id=draft_id,
-        )
-        if new_id:
-            _invalidate_mail_cache()
-            return {"status": "success", "draft_id": new_id}
-        raise HTTPException(status_code=500, detail="Error saving Gmail draft")
+    # APPEND a IMAP/Drafts si el compte ho permet
+    new_imap_uid = None
+    if acc and integration_manager.is_imap_account(acc):
+        from backend.services.imap_mail_sync_service import imap_sync_service
+        try:
+            new_imap_uid = await asyncio.to_thread(
+                imap_sync_service.append_draft,
+                email_account, to, subject, body,
+                cc=cc, bcc=bcc, replace_uid=prev_imap_uid,
+            )
+        except Exception as e:
+            log.warning(f"[Drafts] APPEND IMAP fallit per {email_account}: {e}; segueixo al vault.")
 
-    # Fallback: local vault (IMAP accounts)
+    # Vault local (cache + fallback)
     import uuid as _uuid
     draft_id = draft_id or f"draft_{_uuid.uuid4().hex[:12]}"
     mail_path = get_mail_vault_path()
@@ -801,10 +894,16 @@ async def save_draft(payload: dict = Body(...)):
         "category": "Main", "archived": False, "spam": False,
         "account": email_account, "database_table_id": "mail",
     }
+    if new_imap_uid:
+        metadata["imap_uid"] = new_imap_uid
     yaml_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
     safe_write_text(mail_path / filename, f"---\n{yaml_front}---\n\n{body}\n")
     _invalidate_mail_cache()
-    return {"status": "success", "draft_id": draft_id}
+    return {
+        "status": "success",
+        "draft_id": draft_id,
+        "imap_uid": new_imap_uid,
+    }
 
 
 @router.delete("/drafts/{draft_id}", dependencies=[Depends(require_role("editor"))])
@@ -1413,7 +1512,12 @@ async def get_attachment(
     disposition = "inline" if inline else "attachment"
     acc = integration_manager.get_mail_account(email)
 
-    if integration_manager.is_google_account(acc):
+    # Tots els proveïdors IMAP (inclou Google amb refresh_token) usen part_index.
+    # Microsoft Graph manté l'API original; Gmail API només queda com a fallback
+    # per comptes Google sense refresh_token (cas degradat).
+    if integration_manager.is_imap_account(acc):
+        pass  # cau a IMAP path
+    elif integration_manager.is_google_account(acc):
         data, _ = await _gmail_get_attachment_bytes(email, message_id, att_id)
         if not data:
             raise HTTPException(status_code=404, detail="Adjunt no trobat")
@@ -1469,7 +1573,11 @@ async def get_cid_image(
 
     acc = integration_manager.get_mail_account(email)
 
-    if integration_manager.is_google_account(acc):
+    # IMAP-eligible (inclou Google amb refresh_token) → IMAP path.
+    # Gmail API només per comptes Google sense refresh_token (cas degradat).
+    if integration_manager.is_imap_account(acc):
+        pass  # IMAP path
+    elif integration_manager.is_google_account(acc):
         # For Gmail, fetch full message to find CID→attachmentId mapping
         from backend.services.hybrid_mail_service import gmail_get_message
         mail = await asyncio.to_thread(gmail_get_message, email, message_id)
