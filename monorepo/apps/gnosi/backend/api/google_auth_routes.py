@@ -179,6 +179,7 @@ async def callback(request: Request):
         
         # Format to be recognized by the frontend in general lists of emails and calendars.
         # Camps IMAP/SMTP injectats perquè el mail va via IMAP+XOAUTH2 (no Gmail API).
+        import time as _time
         account_data = {
             "id": f"google_{email}",
             "email": email,
@@ -193,6 +194,9 @@ async def callback(request: Request):
             "token_uri": credentials.token_uri,
             "token_status": "connected",
             "refresh_token_status": "connected",
+            # Marca el moment del callback com a últim refresh exitós perquè
+            # `ensure_fresh_token` sàpiga quan tornar a refrescar.
+            "last_refresh_success_at": int(_time.time()),
             "imap_host": "imap.gmail.com",
             "imap_port": 993,
             "imap_encryption": "ssl",
