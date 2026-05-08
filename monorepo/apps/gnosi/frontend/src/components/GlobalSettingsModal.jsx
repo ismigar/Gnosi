@@ -72,8 +72,20 @@ export const FormGroup = ({ label, children, description, horizontal = false }) 
     </div>
 );
 
-const PasswordInput = ({ value, onChange, placeholder = 'Introdueix la contrasenya...', className = 'gnosi-input', style }) => {
+const PasswordInput = ({
+    value,
+    onChange,
+    placeholder = '••••••••',
+    className = 'gnosi-input',
+    style,
+    name,
+    id,
+    autoComplete = 'current-password',
+}) => {
     const [show, setShow] = React.useState(false);
+    const { t } = useTranslation();
+    const labelShow = t('subs_news_password_show');
+    const labelHide = t('subs_news_password_hide');
     return (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <input
@@ -82,11 +94,16 @@ const PasswordInput = ({ value, onChange, placeholder = 'Introdueix la contrasen
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
+                name={name}
+                id={id}
+                autoComplete={autoComplete}
                 style={{ paddingRight: '40px', width: '100%', boxSizing: 'border-box', ...style }}
             />
             <button
                 type="button"
                 onClick={() => setShow(s => !s)}
+                aria-label={show ? labelHide : labelShow}
+                title={show ? labelHide : labelShow}
                 tabIndex={-1}
                 style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0', display: 'flex', alignItems: 'center' }}
             >
@@ -384,7 +401,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [newsletterAccountTesting, setNewsletterAccountTesting] = useState(false);
     const [newsletterAccountSyncing, setNewsletterAccountSyncing] = useState(false);
     const [newsletterPasswordDirty, setNewsletterPasswordDirty] = useState(false);
-    const [showNewsletterPassword, setShowNewsletterPassword] = useState(false);
     
     // Account Integration State
     const [addAccountType, setAddAccountType] = useState(null); // 'calendar' | 'contacts' | 'mail' | null
@@ -1322,7 +1338,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div className="animate-in" style={{ marginTop: '30px', padding: '30px', borderRadius: '24px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                                                 <FormGroup label="Usuari Admin Org"><input type="text" className="gnosi-input" value={draft.settings.org_user} onChange={e => setDraft({...draft, settings: {...draft.settings, org_user: e.target.value}})} /></FormGroup>
-                                                <FormGroup label="Pasword Admin"><PasswordInput value={draft.settings.org_password} onChange={e => setDraft({...draft, settings: {...draft.settings, org_password: e.target.value}})} /></FormGroup>
+                                                <FormGroup label="Password Admin"><PasswordInput value={draft.settings.org_password} onChange={e => setDraft({...draft, settings: {...draft.settings, org_password: e.target.value}})} name="org-admin-password" autoComplete="new-password" /></FormGroup>
                                             </div>
                                         </div>
                                     )}
@@ -1637,6 +1653,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             type="email"
                                                             className="gnosi-input"
                                                             value={addAccountEmail}
+                                                            name="mail-account-username"
+                                                            autoComplete="username"
                                                             onChange={e => {
                                                                 setAddAccountEmail(e.target.value);
                                                                 setAddAccountEmailBlurred(false);
@@ -1832,14 +1850,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             </div>
 
                                                             {/* SECCIÓ IMAP */}
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                                            <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                                 <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>Servidor IMAP (Recepció)</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
                                                                     <FormGroup label="Servidor"><input type="text" className="gnosi-input" value={mailImapHost} onChange={e => setMailImapHost(e.target.value)} placeholder="imap.pangea.org" /></FormGroup>
                                                                     <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailImapPort} onChange={e => setMailImapPort(e.target.value)} placeholder="993" /></FormGroup>
                                                                 </div>
-                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailImapUser} onChange={e => setMailImapUser(e.target.value)} /></FormGroup>
-                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailImapPass} onChange={e => setMailImapPass(e.target.value)} /></FormGroup>
+                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailImapUser} onChange={e => setMailImapUser(e.target.value)} name="imap-username" autoComplete="username" /></FormGroup>
+                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailImapPass} onChange={e => setMailImapPass(e.target.value)} name="imap-password" autoComplete="current-password" /></FormGroup>
                                                                 <FormGroup label="Seguretat">
                                                                     <select className="gnosi-select" value={mailImapEnc} onChange={e => setMailImapEnc(e.target.value)}>
                                                                         <option value="ssl">SSL/TLS</option>
@@ -1847,17 +1865,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <option value="none">Cap</option>
                                                                     </select>
                                                                 </FormGroup>
-                                                            </div>
+                                                            </form>
 
                                                             {/* SECCIÓ SMTP */}
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                                            <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                                 <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>Servidor SMTP (Enviament)</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
                                                                     <FormGroup label="Servidor"><input type="text" className="gnosi-input" value={mailSmtpHost} onChange={e => setMailSmtpHost(e.target.value)} placeholder="smtp.pangea.org" /></FormGroup>
                                                                     <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailSmtpPort} onChange={e => setMailSmtpPort(e.target.value)} placeholder="465" /></FormGroup>
                                                                 </div>
-                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailSmtpUser} onChange={e => setMailSmtpUser(e.target.value)} /></FormGroup>
-                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailSmtpPass} onChange={e => setMailSmtpPass(e.target.value)} /></FormGroup>
+                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailSmtpUser} onChange={e => setMailSmtpUser(e.target.value)} name="smtp-username" autoComplete="username" /></FormGroup>
+                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailSmtpPass} onChange={e => setMailSmtpPass(e.target.value)} name="smtp-password" autoComplete="current-password" /></FormGroup>
                                                                 <FormGroup label="Seguretat">
                                                                     <select className="gnosi-select" value={mailSmtpEnc} onChange={e => setMailSmtpEnc(e.target.value)}>
                                                                         <option value="ssl">SSL/TLS</option>
@@ -1865,7 +1883,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <option value="none">Cap</option>
                                                                     </select>
                                                                 </FormGroup>
-                                                            </div>
+                                                            </form>
 
                                                             <div style={{ gridColumn: 'span 2' }}>
                                                                 <FormGroup label="Signatura HTML (Opcional)" description="Aquesta signatura s'afegirà automàticament als correus que enviïs.">
@@ -1961,7 +1979,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 />
                                                             </FormGroup>
                                                             <FormGroup label="Contrasenya">
-                                                                <PasswordInput value={manualPassword} onChange={e => setManualPassword(e.target.value)} />
+                                                                <PasswordInput value={manualPassword} onChange={e => setManualPassword(e.target.value)} name="mail-account-password" autoComplete="current-password" />
                                                             </FormGroup>
                                                             
                                                             <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
@@ -2407,33 +2425,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             />
                                                         </FormGroup>
                                                         <FormGroup label={t('subs_news_field_password')}>
-                                                            <div style={{ position: 'relative' }}>
-                                                                <input
-                                                                    type={showNewsletterPassword ? 'text' : 'password'}
-                                                                    className="gnosi-input"
-                                                                    value={newsletterAccount.password}
-                                                                    onChange={e => { setNewsletterAccount(a => ({ ...a, password: e.target.value })); setNewsletterPasswordDirty(true); }}
-                                                                    placeholder="••••••••"
-                                                                    name="newsletter-pop3-password"
-                                                                    autoComplete="current-password"
-                                                                    style={{ paddingRight: '44px' }}
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setShowNewsletterPassword(s => !s)}
-                                                                    aria-label={showNewsletterPassword ? t('subs_news_password_hide') : t('subs_news_password_show')}
-                                                                    title={showNewsletterPassword ? t('subs_news_password_hide') : t('subs_news_password_show')}
-                                                                    style={{
-                                                                        position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)',
-                                                                        background: 'transparent', border: 'none', padding: '6px', borderRadius: '8px',
-                                                                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                                                        color: 'var(--text-secondary)'
-                                                                    }}
-                                                                    className="hover-bg"
-                                                                >
-                                                                    {showNewsletterPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                                </button>
-                                                            </div>
+                                                            <PasswordInput
+                                                                value={newsletterAccount.password}
+                                                                onChange={e => { setNewsletterAccount(a => ({ ...a, password: e.target.value })); setNewsletterPasswordDirty(true); }}
+                                                                name="newsletter-pop3-password"
+                                                                autoComplete="current-password"
+                                                            />
                                                         </FormGroup>
                                                     </div>
                                                 </form>
@@ -3293,7 +3290,7 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                                 </div>
 
                                 <FormGroup label="API Key / Token" description="La teva clau secreta d'accés.">
-                                    <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
+                                    <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." name="ai-api-key" autoComplete="off" />
                                 </FormGroup>
 
                                 <FormGroup label="Base URL (Opcional)" description="Només si cal sobrescriure l'endpoint per defecte.">
