@@ -1033,6 +1033,8 @@
   "subs_news_field_email": "Cuenta de correo",
   "subs_news_field_email_placeholder": "newsletters@ejemplo.org",
   "subs_news_field_password": "Contraseña",
+  "subs_news_password_show": "Mostrar contraseña",
+  "subs_news_password_hide": "Ocultar contraseña",
   "subs_news_field_delete": "Borrar correos del servidor después de descargarlos",
   "subs_news_btn_test": "Probar conexión",
   "subs_news_btn_test_loading": "Probando...",
