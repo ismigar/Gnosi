@@ -388,6 +388,13 @@ def kickoff_index_warmup(v_path: Path) -> None:
                     v_str, state="ready", finished_at=time.time(),
                     files_indexed=n,
                 )
+                # Disparem el link-index rebuild ABANS del force_refresh.
+                # Si el deixéssim al final, un rescan lent d'OneDrive (que pot
+                # trigar minuts amb 4000 fitxers) bloquejaria la construcció
+                # de l'índex de wikilinks i la reescriptura automàtica al
+                # rename no s'aplicaria fins després. kickoff_link_index_rebuild
+                # ja allotja la seva pròpia thread, no bloqueja aquest fluxe.
+                kickoff_link_index_rebuild()
                 # Schedule a refresh in the background so the cache stays
                 # warm against external changes — non-blocking.
                 try:
@@ -397,7 +404,6 @@ def kickoff_index_warmup(v_path: Path) -> None:
                     _set_indexer_status(v_str, files_indexed=n)
                 except Exception as e:
                     log.warning(f"Background index refresh failed: {e}")
-                kickoff_link_index_rebuild()
                 return
             # 2. No cache — full scan
             _get_cached_page_entries(force_refresh=True)
@@ -2702,7 +2708,34 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
     if dashboard_direct_path and dashboard_direct_path.exists():
         return dashboard_direct_path
 
-    # 4. Full scan (cache fred o buit — costós però correcte). Canonical
+    # 4. Title-based lookup (resilient fallback). Si el `page_id` no és un
+    # UUID però coincideix amb el títol d'una pàgina indexada, retornem
+    # aquella. Cobreix el cas de wikilinks amb títol literal (`[[Foo]]`) que
+    # arriben aquí sense ser resolts pel frontend (idToTitle stale o pendent
+    # de refrescar després d'un move). Sense aquesta passada, els wikilinks
+    # per títol fallen amb 404 silenciosament. Cost: scan linear sobre dict
+    # in-memory (~3000 entries) → barat.
+    title_lower = str(page_id or "").strip().lower()
+    is_uuid_like = bool(
+        title_lower and re.fullmatch(
+            r"[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}",
+            title_lower,
+        )
+    )
+    if title_lower and not is_uuid_like:
+        with _page_index_lock:
+            entries = _page_index_entries.get(v_str, {})
+            for p_str, entry in list(entries.items()):
+                entry_title = str(entry.get("title") or "").strip().lower()
+                if entry_title and entry_title == title_lower:
+                    p = Path(p_str)
+                    if p.exists():
+                        entry_id = entry.get("id")
+                        if entry_id:
+                            _page_id_to_path.setdefault(v_str, {})[entry_id] = p_str
+                        return p
+
+    # 5. Full scan (cache fred o buit — costós però correcte). Canonical
     # compare so dash/no-dash and case differences don't cause false negatives.
     # Skipped when the caller knows the page can't exist yet (PUT to a fresh
     # id) — saves a multi-second OneDrive rglob.
@@ -2852,6 +2885,38 @@ def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
         excerpt = cut.rstrip(".,;:") + "…"
 
     return excerpt
+
+
+@router.get("/resolve-by-title")
+async def resolve_by_title(title: str):
+    """Resol un títol literal a UUID consultant el _page_index_entries.
+
+    Cas d'ús: el frontend ha rebut un wikilink `[[Foo]]` però el seu
+    `idToTitle` està buit o desactualitzat (just després d'una mutació de
+    parent_id, una neteja de cache, o navegació directa per URL). En lloc
+    de fer GET /pages/<title> i deixar al backend el match (que ara té
+    fallback per títol gràcies a `find_page_path`), el frontend pot
+    consultar aquí i obtenir l'UUID directament — ràpid i sense sorolls.
+    """
+    title_lower = str(title or "").strip().lower()
+    if not title_lower:
+        raise HTTPException(status_code=400, detail="title is required")
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        raise HTTPException(status_code=503, detail="No active vault")
+    v_str = str(v_path)
+    with _page_index_lock:
+        entries = _page_index_entries.get(v_str, {})
+        for entry in list(entries.values()):
+            entry_title = str(entry.get("title") or "").strip().lower()
+            if entry_title and entry_title == title_lower:
+                return {
+                    "id": entry.get("id"),
+                    "title": entry.get("title"),
+                    "folder": entry.get("folder"),
+                }
+    return {"id": None, "title": None, "folder": None}
 
 
 @router.get("/pages/{page_id}/preview")
@@ -3038,6 +3103,10 @@ async def save_page(
         except Exception:
             return {}
     old_metadata = await asyncio.to_thread(_read_old_meta)
+    # Capturem el títol previ per detectar canvis al final i reescriure
+    # els wikilinks `[[Old Title]]` → `[[New Title]]`. PUT pot rebre tant
+    # `request.title` com `metadata.title` (consolidats en `metadata`).
+    previous_title = str(old_metadata.get("title") or "").strip() if old_metadata else ""
 
     # Aplicar automatitzacions i fòrmules
     try:
@@ -3079,6 +3148,17 @@ async def save_page(
             pass
 
         background_tasks.add_task(update_link_index_for_page, file_path)
+
+        # Si el títol ha canviat, reescriu els wikilinks per títol literal a
+        # les pàgines que referencien aquesta. Veure rewrite_wikilinks_on_title_change.
+        new_title = str(metadata.get("title") or request.title or "").strip()
+        if previous_title and new_title and previous_title != new_title:
+            background_tasks.add_task(
+                rewrite_wikilinks_on_title_change,
+                page_id,
+                previous_title,
+                new_title,
+            )
 
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
@@ -3147,6 +3227,12 @@ async def patch_page(
 
     try:
         metadata, body = await asyncio.to_thread(_read_file)
+
+        # Capturem el títol previ ABANS de mutar `metadata`. Si canvia, al
+        # final del PATCH llançarem un background task que reescriu els
+        # wikilinks `[[Old Title]]` → `[[New Title]]` a totes les pàgines
+        # que la referencien.
+        previous_title = str(metadata.get("title") or "").strip()
 
         if request.title is not None:
             metadata["title"] = request.title
@@ -3234,6 +3320,18 @@ async def patch_page(
             log.debug(f"Cache invalidation after PATCH failed: {e}")
 
         background_tasks.add_task(update_link_index_for_page, file_path)
+
+        # Si el títol ha canviat, reescriu els wikilinks per títol literal
+        # a les pàgines que referencien aquesta. update_link_index_for_page
+        # del background task anterior actualitzarà les fonts modificades.
+        new_title = str(metadata.get("title") or "").strip()
+        if previous_title and new_title and previous_title != new_title:
+            background_tasks.add_task(
+                rewrite_wikilinks_on_title_change,
+                page_id,
+                previous_title,
+                new_title,
+            )
 
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", content
@@ -4596,6 +4694,115 @@ def remove_from_link_index(page_id: str) -> None:
         _page_meta_by_id.pop(pid, None)
         _rebuild_backlinks_invertion_locked()
     _schedule_link_index_persist()
+
+
+def rewrite_wikilinks_on_title_change(
+    target_id: str, old_title: str, new_title: str
+) -> int:
+    """Reescriu els wikilinks per títol literal quan el target canvia de títol.
+
+    Patrons modificats (match case-insensitive del títol, preservant àlies i secció):
+      - `[[Old Title]]`               → `[[New Title]]`
+      - `[[Old Title|alias]]`         → `[[New Title|alias]]`
+      - `[[Old Title#Section]]`       → `[[New Title#Section]]`
+      - `[[Old Title#Section|alias]]` → `[[New Title#Section|alias]]`
+
+    No toca wikilinks per UUID (`[[uuid|...]]`) ni transclusions (`![[...]]`)
+    perquè continuen funcionant sense canvis. Només reescriu fitxers que
+    referencien el target via _backlinks_by_target / _backlinks_by_target_title.
+
+    Retorna el nombre de fitxers efectivament modificats. Crida segura per
+    invocar des d'un BackgroundTask: si l'índex no està construït o no hi ha
+    backlinks, retorna 0 sense fer res.
+    """
+    old_clean = str(old_title or "").strip()
+    new_clean = str(new_title or "").strip()
+    if not old_clean or not new_clean or old_clean == new_clean:
+        return 0
+    if not _link_index_built:
+        return 0
+    tid = str(target_id or "").strip()
+    if not tid:
+        return 0
+
+    # Recopilar candidats: pàgines que referencien per id resolt o per
+    # títol antic literal. Deduplicate per source id.
+    with _link_index_lock:
+        by_id = list(_backlinks_by_target.get(tid, []))
+        by_title = list(_backlinks_by_target_title.get(old_clean.lower(), []))
+        page_meta_snapshot = dict(_page_meta_by_id)
+
+    seen: set = set()
+    candidates: List[Dict[str, str]] = []
+    for src in by_id + by_title:
+        sid = (src.get("id") or "").strip()
+        if not sid or sid == tid or sid in seen:
+            continue
+        seen.add(sid)
+        candidates.append(src)
+
+    if not candidates:
+        return 0
+
+    # Pattern: [[ TitolAntic (#section)? (|alias)? ]]
+    # Important: el match del cos exclou `|` i `[` i `]` per no creuar
+    # límits de wikilinks; i exclou `#` per separar la secció (capturada
+    # com a grup independent).
+    escaped = re.escape(old_clean)
+    pattern = re.compile(
+        r"(?P<open>!?\[\[)\s*"
+        + escaped
+        + r"\s*(?P<section>#[^\]\|]+)?(?P<alias>\|[^\]]+)?(?P<close>\]\])",
+        re.IGNORECASE,
+    )
+
+    def _replace(m: re.Match) -> str:
+        section = m.group("section") or ""
+        alias = m.group("alias") or ""
+        return f"{m.group('open')}{new_clean}{section}{alias}{m.group('close')}"
+
+    modified_count = 0
+    for source in candidates:
+        sid = source.get("id")
+        if not sid:
+            continue
+        meta = page_meta_snapshot.get(sid) or {}
+        path_str = meta.get("path") or source.get("path")
+        if not path_str:
+            continue
+        path = Path(path_str)
+        if not path.exists():
+            continue
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except Exception as e:
+            log.warning(f"🔁 rewrite skip {path.name}: {e}")
+            continue
+        new_raw, n_subs = pattern.subn(_replace, raw)
+        if n_subs == 0 or new_raw == raw:
+            continue
+        try:
+            safe_write_text(path, new_raw)
+            modified_count += 1
+            # Actualitza l'índex per aquesta source perquè els outlinks/tokens
+            # reflecteixin el text nou. update_link_index_for_page és segur
+            # de cridar dins el mateix lock RLock (és re-entrant).
+            update_link_index_for_page(path)
+            log.debug(
+                f"🔁 rewrote {n_subs} wikilink(s) in {path.name}: "
+                f"'{old_clean}' → '{new_clean}'"
+            )
+        except Exception as e:
+            log.warning(f"🔁 rewrite write fail {path.name}: {e}")
+            continue
+
+    if modified_count > 0:
+        log.info(
+            f"🔁 Rewrote wikilinks: '{old_clean}' → '{new_clean}' "
+            f"on {modified_count}/{len(candidates)} source pages"
+        )
+
+    return modified_count
 
 
 @router.get("/global-index")
