@@ -397,10 +397,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [newsletterAccount, setNewsletterAccount] = useState({ mail_server: '', mail_port: 110, mail_ssl: 'starttls', email: '', password: '', delete_after_ingest: true });
     const [newsletterAccountLoaded, setNewsletterAccountLoaded] = useState(false);
     const [newsletterAccountStatus, setNewsletterAccountStatus] = useState('');
-    const [newsletterAccountSaving, setNewsletterAccountSaving] = useState(false);
     const [newsletterAccountTesting, setNewsletterAccountTesting] = useState(false);
     const [newsletterAccountSyncing, setNewsletterAccountSyncing] = useState(false);
     const [newsletterPasswordDirty, setNewsletterPasswordDirty] = useState(false);
+    const newsletterAccountSaveTimerRef = useRef(null);
+    const lastSavedNewsletterAccountRef = useRef(null);
     
     // Account Integration State
     const [addAccountType, setAddAccountType] = useState(null); // 'calendar' | 'contacts' | 'mail' | null
@@ -763,14 +764,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const res = await fetch('/api/reader/newsletter-account');
             if (!res.ok) return;
             const data = await res.json();
-            setNewsletterAccount({
+            const next = {
                 mail_server: data.mail_server || '',
                 mail_port: data.mail_port || 110,
                 mail_ssl: data.mail_ssl || 'starttls',
                 email: data.email || '',
                 password: data.password_set ? '••••••••' : '',
                 delete_after_ingest: data.delete_after_ingest !== false
-            });
+            };
+            setNewsletterAccount(next);
+            // Baseline per evitar autosave en falsos canvis (per ex. recàrrega post-save).
+            lastSavedNewsletterAccountRef.current = JSON.stringify({ ...next, _passwordDirty: false });
             setNewsletterAccountLoaded(true);
             setNewsletterPasswordDirty(false);
         } catch (err) {
@@ -778,9 +782,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
+    /**
+     * Persisteix la config POP3. Silent per a l'autosave (només actualitza
+     * l'indicador global "Desat / Al dia / Error" del modal). Si l'usuari
+     * no ha tocat la contrasenya, no s'envia al payload — el backend manté
+     * la guardada.
+     */
     const saveNewsletterAccount = async () => {
-        setNewsletterAccountSaving(true);
-        setNewsletterAccountStatus(t('subs_news_btn_save_loading'));
+        if (!newsletterAccountLoaded) return;
+        setSavingStatus('saving');
         try {
             const payload = {
                 mail_server: newsletterAccount.mail_server,
@@ -798,18 +808,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 body: JSON.stringify(payload)
             });
             if (!res.ok) {
-                const j = await res.json().catch(() => ({}));
-                setNewsletterAccountStatus(j.detail || t('subs_news_status_save_error'));
+                setSavingStatus('error');
                 return;
             }
-            setNewsletterAccountStatus(t('subs_news_status_saved'));
+            setSavingStatus('saved');
+            setTimeout(() => setSavingStatus('idle'), 2000);
             setNewsletterPasswordDirty(false);
             await loadNewsletterAccount();
         } catch (err) {
             console.error('Error saving newsletter account:', err);
-            setNewsletterAccountStatus(t('subs_news_status_save_conn_error'));
-        } finally {
-            setNewsletterAccountSaving(false);
+            setSavingStatus('error');
         }
     };
 
@@ -923,12 +931,31 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
+    // Auto-save Effect for Newsletter POP3 account (debounced 800ms).
+    // Skips the very first run (load) and any change that doesn't actually
+    // differ from the last persisted state.
+    useEffect(() => {
+        if (!isOpen || !newsletterAccountLoaded) return;
+        const current = JSON.stringify({ ...newsletterAccount, _passwordDirty: newsletterPasswordDirty });
+        if (lastSavedNewsletterAccountRef.current === current) return;
+
+        if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
+        newsletterAccountSaveTimerRef.current = setTimeout(() => {
+            lastSavedNewsletterAccountRef.current = current;
+            saveNewsletterAccount();
+        }, 800);
+
+        return () => {
+            if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
+        };
+    }, [newsletterAccount, newsletterPasswordDirty, newsletterAccountLoaded, isOpen]);
+
     // Auto-save Effect
     useEffect(() => {
         if (!isOpen) return;
-        
+
         if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
-        
+
         autoSaveTimeoutRef.current = setTimeout(() => {
             triggerAutoSave();
         }, 800); // 800ms debounce
@@ -2446,7 +2473,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                                         <button onClick={testNewsletterAccount} disabled={newsletterAccountTesting} className="btn-gnosi-secondary" style={{ padding: '10px 18px', borderRadius: '12px', fontSize: '0.85rem', opacity: newsletterAccountTesting ? 0.6 : 1 }}>{newsletterAccountTesting ? t('subs_news_btn_test_loading') : t('subs_news_btn_test')}</button>
                                                         <button onClick={syncNewsletterAccount} disabled={newsletterAccountSyncing} className="btn-gnosi-secondary" style={{ padding: '10px 18px', borderRadius: '12px', fontSize: '0.85rem', opacity: newsletterAccountSyncing ? 0.6 : 1 }}>{newsletterAccountSyncing ? t('subs_news_btn_sync_loading') : t('subs_news_btn_sync')}</button>
-                                                        <button onClick={saveNewsletterAccount} disabled={newsletterAccountSaving} className="btn-gnosi-primary" style={{ padding: '10px 24px', borderRadius: '12px', fontSize: '0.85rem', opacity: newsletterAccountSaving ? 0.6 : 1 }}>{newsletterAccountSaving ? t('subs_news_btn_save_loading') : t('subs_news_btn_save')}</button>
                                                     </div>
                                                 </div>
                                             </>
