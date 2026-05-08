@@ -145,6 +145,70 @@ def sanitize_html(raw_html):
     return str(soup)
 
 
+def _decode_mime_words(raw: str) -> str:
+    """Decode an RFC2047-encoded header value to a plain Python string."""
+    if not raw:
+        return ""
+    try:
+        parts = decode_header(raw)
+        out = ""
+        for part, enc in parts:
+            if isinstance(part, bytes):
+                out += part.decode(enc if enc else "utf-8", errors='replace')
+            else:
+                out += part
+        return out.strip()
+    except Exception:
+        return raw
+
+
+def _extract_sender(msg) -> tuple[str, str]:
+    """Extract (display_name, email) from the From header. Falls back gracefully."""
+    raw_from = msg.get("From", "") or msg.get("Sender", "") or ""
+    decoded = _decode_mime_words(raw_from)
+    name, addr = email.utils.parseaddr(decoded)
+    addr = (addr or "").strip().lower()
+    name = (name or "").strip().strip('"').strip("'")
+    if not name:
+        # Use the part before @ as a friendly name
+        name = addr.split("@")[0] if addr else "Unknown sender"
+    return name, addr
+
+
+def _get_or_create_sender_source(db: Session, msg) -> FeedSource:
+    """
+    Returns the FeedSource for the sender of this email.
+    Each unique sender email gets its own FeedSource (type=newsletter)
+    so users can filter by individual newsletter in the reader.
+    """
+    name, addr = _extract_sender(msg)
+    source_url = f"mailto:{addr}" if addr else "mailto:unknown@local"
+    auto_name = addr.split("@")[0] if addr else ""
+    new_is_real = bool(name) and name != auto_name
+
+    existing = db.query(FeedSource).filter(FeedSource.url == source_url).first()
+    if existing:
+        # Only upgrade the display name if the new one is a real "From"
+        # (not just the email's local part). Avoids degrading a friendly
+        # name to "username" when later emails arrive without From name.
+        if new_is_real and existing.name != name:
+            existing.name = name
+            db.commit()
+        return existing
+
+    new_source = FeedSource(
+        name=name or addr or "Newsletter",
+        url=source_url,
+        category="Newsletters",
+        type="newsletter",
+    )
+    db.add(new_source)
+    db.commit()
+    db.refresh(new_source)
+    log.info(f"  ➕ New newsletter source: {new_source.name} <{addr}>")
+    return new_source
+
+
 def _connect_pop3(server: str, port: int, ssl_mode: str, email: str, password: str):
     """Connect to POP3 server with appropriate encryption."""
     ssl_mode = (ssl_mode or "starttls").lower()
@@ -189,19 +253,6 @@ def fetch_and_store_newsletters():
         if not cfg["email"] or not cfg["password"]:
             log.warning("⚠️ Mail credentials not configured. Skipping newsletters.")
             return 0
-
-        # Create or get the "Newsletters Inbox" source
-        source = db.query(FeedSource).filter(FeedSource.type == "newsletter").first()
-        if not source:
-            source = FeedSource(
-                name="Newsletters Inbox",
-                url=cfg["email"],
-                category="Newsletters",
-                type="newsletter"
-            )
-            db.add(source)
-            db.commit()
-            db.refresh(source)
 
         try:
             pop = _connect_pop3(
@@ -268,8 +319,9 @@ def fetch_and_store_newsletters():
                 existing = db.query(Article).filter(Article.url == unique_url).first()
 
                 if not existing:
+                    sender_source = _get_or_create_sender_source(db, msg)
                     new_article = Article(
-                        source_id=source.id,
+                        source_id=sender_source.id,
                         title=subject.strip(),
                         url=unique_url,
                         content=content,
@@ -278,7 +330,7 @@ def fetch_and_store_newsletters():
                     )
                     db.add(new_article)
                     new_articles_count += 1
-                    log.info(f"  📩 {subject.strip()[:80]}")
+                    log.info(f"  📩 [{sender_source.name}] {subject.strip()[:60]}")
 
                 # Mark for deletion (always, since POP3 is "consume & clear")
                 if cfg["delete_after_ingest"]:
