@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowRight, ExternalLink, Columns2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -6,21 +6,110 @@ import { useTranslation } from 'react-i18next';
 /**
  * Menú contextual per a wikilinks (clic dret).
  * Ofereix obrir a la mateixa pestanya, en una de nova, o en panell paral·lel.
+ * Suporta navegació per teclat: ↑ / ↓ entre opcions, Enter per executar.
  */
 export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, onOpenNewTab, onOpenParallel }) => {
     const { t } = useTranslation();
     const menuRef = useRef(null);
     const [adjustedPos, setAdjustedPos] = useState(position);
 
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+    const cmdLabel = isMac ? '⌘' : 'Ctrl';
+
+    const items = useMemo(() => [
+        {
+            id: 'sameTab',
+            label: t('wikilink.open_same_tab', 'Obrir aquí'),
+            shortcut: t('wikilink.shortcut_click', 'Clic'),
+            icon: ArrowRight,
+            onClick: onOpenSameTab,
+        },
+        {
+            id: 'newTab',
+            label: t('wikilink.open_new_tab', 'Obrir en una nova pestanya'),
+            shortcut: `${cmdLabel} + ${t('wikilink.shortcut_click', 'Clic')}`,
+            icon: ExternalLink,
+            onClick: onOpenNewTab,
+        },
+        {
+            id: 'parallel',
+            label: t('wikilink.open_parallel', 'Obrir en panell paral·lel'),
+            shortcut: `⇧ + ${t('wikilink.shortcut_click', 'Clic')}`,
+            icon: Columns2,
+            onClick: onOpenParallel,
+        },
+    ], [t, cmdLabel, onOpenSameTab, onOpenNewTab, onOpenParallel]);
+
+    // Selecció via teclat. Comencem sense cap selecció (-1) per no donar
+    // pista visual abans que l'usuari premi una fletxa; la primera ↓/↑
+    // selecciona la primera/última opció habilitada.
+    const [selectedIdx, setSelectedIdx] = useState(-1);
+
     useEffect(() => {
         if (!isOpen) return;
+        setSelectedIdx(-1);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const enabledIndices = items
+            .map((it, i) => (typeof it.onClick === 'function' ? i : -1))
+            .filter(i => i >= 0);
+
+        const moveSelection = (delta) => {
+            if (enabledIndices.length === 0) return;
+            setSelectedIdx(curr => {
+                if (curr < 0) {
+                    return delta > 0 ? enabledIndices[0] : enabledIndices[enabledIndices.length - 1];
+                }
+                const pos = enabledIndices.indexOf(curr);
+                const nextPos = (pos + delta + enabledIndices.length) % enabledIndices.length;
+                return enabledIndices[nextPos];
+            });
+        };
+
         const handleClick = (e) => {
             if (menuRef.current && !menuRef.current.contains(e.target)) {
                 onClose();
             }
         };
         const handleKey = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onClose();
+                return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                moveSelection(1);
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                moveSelection(-1);
+                return;
+            }
+            if (e.key === 'Home') {
+                e.preventDefault();
+                if (enabledIndices.length > 0) setSelectedIdx(enabledIndices[0]);
+                return;
+            }
+            if (e.key === 'End') {
+                e.preventDefault();
+                if (enabledIndices.length > 0) setSelectedIdx(enabledIndices[enabledIndices.length - 1]);
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // Si no hi ha res seleccionat, Enter executa la primera opció
+                // (comportament de menú estàndard al ser activat amb teclat).
+                const idx = selectedIdx >= 0 ? selectedIdx : (enabledIndices[0] ?? -1);
+                const item = items[idx];
+                if (item && typeof item.onClick === 'function') {
+                    item.onClick();
+                }
+                onClose();
+            }
         };
         const handleScroll = () => onClose();
         // Defer per evitar tancar immediatament amb el mateix clic dret
@@ -35,7 +124,7 @@ export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, 
             document.removeEventListener('keydown', handleKey);
             window.removeEventListener('scroll', handleScroll, true);
         };
-    }, [isOpen, onClose]);
+    }, [isOpen, onClose, items, selectedIdx]);
 
     // Ajustar posició si surt de la pantalla
     useLayoutEffect(() => {
@@ -56,51 +145,38 @@ export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, 
     if (!isOpen || !position) return null;
 
     const pos = adjustedPos || position;
-    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-    const cmdLabel = isMac ? '⌘' : 'Ctrl';
-
-    const items = [
-        {
-            label: t('wikilink.open_same_tab', 'Obrir aquí'),
-            shortcut: t('wikilink.shortcut_click', 'Clic'),
-            icon: ArrowRight,
-            onClick: onOpenSameTab,
-        },
-        {
-            label: t('wikilink.open_new_tab', 'Obrir en una nova pestanya'),
-            shortcut: `${cmdLabel} + ${t('wikilink.shortcut_click', 'Clic')}`,
-            icon: ExternalLink,
-            onClick: onOpenNewTab,
-        },
-        {
-            label: t('wikilink.open_parallel', 'Obrir en panell paral·lel'),
-            shortcut: `⇧ + ${t('wikilink.shortcut_click', 'Clic')}`,
-            icon: Columns2,
-            onClick: onOpenParallel,
-        },
-    ];
 
     const menu = (
         <div
             ref={menuRef}
+            role="menu"
+            aria-orientation="vertical"
             className="fixed z-[9999] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700/60 py-1.5 min-w-[240px] animate-in fade-in zoom-in-95 duration-150"
             style={{ top: pos.y, left: pos.x }}
         >
-            {items.map((item) => {
+            {items.map((item, idx) => {
                 const Icon = item.icon;
                 const enabled = typeof item.onClick === 'function';
+                const isSelected = idx === selectedIdx;
                 return (
                     <button
-                        key={item.label}
+                        key={item.id}
                         type="button"
+                        role="menuitem"
                         disabled={!enabled}
+                        aria-disabled={!enabled}
+                        onMouseEnter={() => enabled && setSelectedIdx(idx)}
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             if (enabled) item.onClick();
                             onClose();
                         }}
-                        className="w-full flex items-center justify-between gap-4 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
+                        className={`w-full flex items-center justify-between gap-4 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left ${
+                            isSelected
+                                ? 'bg-slate-100 dark:bg-slate-800'
+                                : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
                     >
                         <span className="flex items-center gap-2.5">
                             <Icon size={15} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />

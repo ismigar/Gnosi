@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import { WikilinkHoverPreview } from './WikilinkHoverPreview';
 import { WikilinkContextMenu } from './WikilinkContextMenu';
 import { VaultEditorContext } from './VaultEditorContext';
@@ -7,13 +8,33 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const HOVER_OPEN_DELAY = 450;
 const HOVER_CLOSE_DELAY = 180;
 
+// Cache de resolucions títol → UUID compartit entre instàncies. Evita
+// peticions repetides al backend quan el mateix wikilink apareix moltes
+// vegades a la pàgina (5min TTL).
+const TITLE_RESOLVE_CACHE = new Map();
+const TITLE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function readResolveCache(key) {
+    const entry = TITLE_RESOLVE_CACHE.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.ts > TITLE_CACHE_TTL_MS) {
+        TITLE_RESOLVE_CACHE.delete(key);
+        return undefined;
+    }
+    return entry.value;
+}
+
+function writeResolveCache(key, value) {
+    TITLE_RESOLVE_CACHE.set(key, { ts: Date.now(), value });
+}
+
 /**
- * Resol un target de wikilink a un page_id.
+ * Resol un target de wikilink a un page_id usant el lookup local idToTitle.
  *  - Si és UUID, retorna directament (eliminant possible #section).
  *  - Si és un títol, fa lookup invers a idToTitle (case-insensitive).
- *  - Si no troba res, retorna el target original (el backend retornarà 404).
+ *  - Si no troba res, retorna el target original (cal fallback a backend).
  */
-function resolveTarget(raw, idToTitle) {
+function resolveTargetLocal(raw, idToTitle) {
     if (!raw) return raw;
     const hashIdx = raw.indexOf('#');
     const base = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
@@ -26,6 +47,29 @@ function resolveTarget(raw, idToTitle) {
         }
     }
     return base;
+}
+
+/**
+ * Resol async amb fallback al backend (`/api/vault/resolve-by-title`).
+ * Útil quan `idToTitle` està buit o desactualitzat (just després d'un move,
+ * navegació directa per URL, etc.). Retorna l'UUID o el target original
+ * si tampoc el backend té coincidència.
+ */
+async function resolveTargetWithBackend(raw, idToTitle) {
+    const local = resolveTargetLocal(raw, idToTitle);
+    if (!local || UUID_RE.test(local)) return local;
+    const cacheKey = local.toLowerCase().trim();
+    const cached = readResolveCache(cacheKey);
+    if (cached !== undefined) return cached || local;
+    try {
+        const res = await axios.get('/api/vault/resolve-by-title', { params: { title: local } });
+        const id = res?.data?.id;
+        writeResolveCache(cacheKey, id || null);
+        return id || local;
+    } catch {
+        writeResolveCache(cacheKey, null);
+        return local;
+    }
 }
 
 /**
@@ -59,28 +103,38 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
     const [anchorRect, setAnchorRect] = useState(null);
     const [menuPos, setMenuPos] = useState(null);
 
-    const resolvedId = resolveTarget(target, idToTitle);
+    // Resolució síncrona local (per al hover preview, que no pot ser async).
+    const resolvedId = resolveTargetLocal(target, idToTitle);
 
-    const callOpen = useCallback((mode) => {
-        if (!resolvedId) return;
+    const callOpen = useCallback(async (mode) => {
+        if (!target) return;
+        // Per a clicks/menú: si la resolució local ha tornat un títol
+        // (idToTitle no el coneix) fem un fallback ràpid al backend abans
+        // de cridar el handler. Així el wikilink no és "mort" quan globalIndex
+        // està buit o stale (per exemple just després d'un move).
+        let id = resolvedId || target;
+        if (!UUID_RE.test(id)) {
+            id = await resolveTargetWithBackend(target, idToTitle);
+        }
+        if (!id) return;
         if (mode === 'parallel' && onOpenParallel) {
-            onOpenParallel(resolvedId);
+            onOpenParallel(id);
             return;
         }
         if (mode === 'newTab' && onOpenInNewTab) {
-            onOpenInNewTab(resolvedId);
+            onOpenInNewTab(id);
             return;
         }
         if (mode === 'sameTab' && onOpenInCurrentTab) {
-            onOpenInCurrentTab(resolvedId);
+            onOpenInCurrentTab(id);
             return;
         }
         // Fallbacks: si l'embebedor no proporciona el handler específic,
         // degradem cap als disponibles per no fer un click "mort".
-        if (onOpenInCurrentTab) onOpenInCurrentTab(resolvedId);
-        else if (onOpenInNewTab) onOpenInNewTab(resolvedId);
-        else if (onOpenParallel) onOpenParallel(resolvedId);
-    }, [resolvedId, onOpenInCurrentTab, onOpenInNewTab, onOpenParallel]);
+        if (onOpenInCurrentTab) onOpenInCurrentTab(id);
+        else if (onOpenInNewTab) onOpenInNewTab(id);
+        else if (onOpenParallel) onOpenParallel(id);
+    }, [resolvedId, target, idToTitle, onOpenInCurrentTab, onOpenInNewTab, onOpenParallel]);
 
     // Cancel·la timers pendents en desmuntatge.
     useEffect(() => () => {
@@ -130,6 +184,10 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
     };
 
     const handleClick = (e) => {
+        // Ignorar el botó dret: `onAuxClick` també dispara amb el clic dret
+        // i, sense filtre, navegaria a "sameTab" tancant el menú contextual.
+        // 0 = esquerre, 1 = mig, 2 = dret.
+        if (typeof e.button === 'number' && e.button === 2) return;
         e.preventDefault();
         e.stopPropagation();
         if (typeof e.stopImmediatePropagation === 'function') {
@@ -140,7 +198,12 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
         setHoverActive(false);
         setAnchorRect(null);
         setMenuPos(null);
-        if (!resolvedId) return;
+        if (!target) return;
+        // Click amb botó del mig → nova tab (com els navegadors).
+        if (e.button === 1) {
+            callOpen('newTab');
+            return;
+        }
         if (e.shiftKey) {
             callOpen('parallel');
         } else if (e.metaKey || e.ctrlKey) {
