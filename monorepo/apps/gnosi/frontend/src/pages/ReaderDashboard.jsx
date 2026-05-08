@@ -18,12 +18,12 @@ const ReaderDashboard = () => {
     // Set d'IDs seleccionats. Buit = "Tots els mitjans" (cap filtre).
     const [selectedSourceIds, setSelectedSourceIds] = useState(() => new Set());
     const [sourceSearch, setSourceSearch] = useState('');
-    const [showUnreadOnly, setShowUnreadOnly] = useState(true);
-    const [feedManagerOpen, setFeedManagerOpen] = useState(false);
     // Estat propi del <details> dels filtres: l'usuari el controla amb el clic
     // al <summary>. Necessari per evitar que un re-render colapsi el panel
     // quan l'usuari escriu al cercador o canvia altres camps interns.
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const [showUnreadOnly, setShowUnreadOnly] = useState(true);
+    const [feedManagerOpen, setFeedManagerOpen] = useState(false);
 
     useEffect(() => {
         fetchSources();
