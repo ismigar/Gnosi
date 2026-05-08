@@ -20,6 +20,10 @@ const ReaderDashboard = () => {
     const [sourceSearch, setSourceSearch] = useState('');
     const [showUnreadOnly, setShowUnreadOnly] = useState(true);
     const [feedManagerOpen, setFeedManagerOpen] = useState(false);
+    // Estat propi del <details> dels filtres: l'usuari el controla amb el clic
+    // al <summary>. Necessari per evitar que un re-render colapsi el panel
+    // quan l'usuari escriu al cercador o canvia altres camps interns.
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     useEffect(() => {
         fetchSources();
@@ -236,7 +240,11 @@ const ReaderDashboard = () => {
                             const selectedCount = selectedSourceIds.size;
                             return (
                                 <div className="px-4 py-4">
-                                    <details className="group bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl overflow-hidden transition-all duration-300" open={selectedCount > 0}>
+                                    <details
+                                        className="group bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl overflow-hidden transition-all duration-300"
+                                        open={filtersOpen}
+                                        onToggle={(e) => setFiltersOpen(e.currentTarget.open)}
+                                    >
                                         <summary className="flex items-center justify-between p-4 cursor-pointer font-semibold text-sm text-slate-700 hover:bg-slate-100">
                                             <div className="flex items-center space-x-2">
                                                 <Filter size={16} className="text-slate-500" />
