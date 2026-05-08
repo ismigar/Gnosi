@@ -23,6 +23,7 @@ from pathlib import Path
 from backend.data.db import get_engine_for_path
 from backend.services.context_vars import get_active_vault_path
 from backend.models.reader import FeedSource, Article, NewsletterAccount
+from backend.utils.safe_io import sanitize_filename_component
 
 # Load .env_shared (global) then .env (local override)
 # Works both locally (deep path) and inside Docker (/app/...)
