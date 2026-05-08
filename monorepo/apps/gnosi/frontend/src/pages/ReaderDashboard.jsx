@@ -23,8 +23,11 @@ const ReaderDashboard = () => {
 
     useEffect(() => {
         fetchSources();
-        fetchArticles();
         checkPodcast();
+    }, []);
+
+    useEffect(() => {
+        fetchArticles();
     }, [selectedSourceIds, showUnreadOnly]);
 
     const toggleSourceSelection = (id) => {
