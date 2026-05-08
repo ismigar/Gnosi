@@ -22,7 +22,7 @@ from pathlib import Path
 
 from backend.data.db import get_engine_for_path
 from backend.services.context_vars import get_active_vault_path
-from backend.models.reader import FeedSource, Article
+from backend.models.reader import FeedSource, Article, NewsletterAccount
 
 # Load .env_shared (global) then .env (local override)
 # Works both locally (deep path) and inside Docker (/app/...)
@@ -46,13 +46,37 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-# ── POP3 Config ──
-MAIL_SERVER = os.environ.get("NEWSLETTERS_MAIL_SERVER", "mail.pangea.org")
-MAIL_PORT = int(os.environ.get("NEWSLETTERS_MAIL_PORT", "110"))
-MAIL_USE_SSL = os.environ.get("NEWSLETTERS_MAIL_SSL", "starttls").lower()  # "starttls" | "ssl" | "none"
-EMAIL_ACCOUNT = os.environ.get("NEWSLETTERS_EMAIL", "")
-EMAIL_PASSWORD = os.environ.get("NEWSLETTERS_PASSWORD", "")
-DELETE_AFTER_INGEST = os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "true").lower() in ("true", "1", "yes")
+# ── POP3 Config defaults (from env) ──
+# These act ONLY as a fallback if no NewsletterAccount row exists in the DB yet.
+# The source of truth is the NewsletterAccount table — see _load_account_config().
+_ENV_MAIL_SERVER = os.environ.get("NEWSLETTERS_MAIL_SERVER", "mail.pangea.org")
+_ENV_MAIL_PORT = int(os.environ.get("NEWSLETTERS_MAIL_PORT", "110"))
+_ENV_MAIL_SSL = os.environ.get("NEWSLETTERS_MAIL_SSL", "starttls").lower()
+_ENV_EMAIL = os.environ.get("NEWSLETTERS_EMAIL", "")
+_ENV_PASSWORD = os.environ.get("NEWSLETTERS_PASSWORD", "")
+_ENV_DELETE_AFTER_INGEST = os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "true").lower() in ("true", "1", "yes")
+
+
+def _load_account_config(db: Session):
+    """Load POP3 config from DB; fall back to env vars if no row exists yet."""
+    acc = db.query(NewsletterAccount).first()
+    if acc is None:
+        return {
+            "server": _ENV_MAIL_SERVER,
+            "port": _ENV_MAIL_PORT,
+            "ssl_mode": _ENV_MAIL_SSL,
+            "email": _ENV_EMAIL,
+            "password": _ENV_PASSWORD,
+            "delete_after_ingest": _ENV_DELETE_AFTER_INGEST,
+        }
+    return {
+        "server": acc.mail_server or _ENV_MAIL_SERVER,
+        "port": int(acc.mail_port or _ENV_MAIL_PORT),
+        "ssl_mode": (acc.mail_ssl or _ENV_MAIL_SSL).lower(),
+        "email": acc.email or _ENV_EMAIL,
+        "password": acc.password or _ENV_PASSWORD,
+        "delete_after_ingest": bool(acc.delete_after_ingest),
+    }
 
 
 def get_email_body(msg):
@@ -121,41 +145,57 @@ def sanitize_html(raw_html):
     return str(soup)
 
 
-def _connect_pop3():
+def _connect_pop3(server: str, port: int, ssl_mode: str, email: str, password: str):
     """Connect to POP3 server with appropriate encryption."""
-    if MAIL_USE_SSL == "ssl":
+    ssl_mode = (ssl_mode or "starttls").lower()
+    if ssl_mode == "ssl":
         # Direct SSL (port 995 typically)
-        pop = poplib.POP3_SSL(MAIL_SERVER, MAIL_PORT)
+        pop = poplib.POP3_SSL(server, port)
     else:
-        # Plain or STARTTLS (port 110)
-        pop = poplib.POP3(MAIL_SERVER, MAIL_PORT)
-        if MAIL_USE_SSL == "starttls":
+        # Plain or STARTTLS
+        pop = poplib.POP3(server, port)
+        if ssl_mode == "starttls":
             pop.stls()
 
-    pop.user(EMAIL_ACCOUNT)
-    pop.pass_(EMAIL_PASSWORD)
+    pop.user(email)
+    pop.pass_(password)
     return pop
+
+
+def test_connection(server: str, port: int, ssl_mode: str, email: str, password: str) -> int:
+    """Open a POP3 connection, count messages, log out. Raises on any failure."""
+    pop = _connect_pop3(server=server, port=port, ssl_mode=ssl_mode, email=email, password=password)
+    try:
+        n = len(pop.list()[1])
+    finally:
+        try:
+            pop.quit()
+        except Exception:
+            pass
+    return n
 
 
 def fetch_and_store_newsletters():
     """
     Connects to POP3 server, downloads all emails, stores them as
     articles in the DB, and deletes them from the server.
+    Reads config from the NewsletterAccount table; falls back to env vars.
     """
-    if not EMAIL_ACCOUNT or not EMAIL_PASSWORD:
-        log.warning("⚠️ Mail credentials not configured. Skipping newsletters.")
-        return 0
-
     v_path = get_active_vault_path()
     _, SessionLocal = get_engine_for_path(v_path)
     db: Session = SessionLocal()
     try:
+        cfg = _load_account_config(db)
+        if not cfg["email"] or not cfg["password"]:
+            log.warning("⚠️ Mail credentials not configured. Skipping newsletters.")
+            return 0
+
         # Create or get the "Newsletters Inbox" source
         source = db.query(FeedSource).filter(FeedSource.type == "newsletter").first()
         if not source:
             source = FeedSource(
                 name="Newsletters Inbox",
-                url=EMAIL_ACCOUNT,
+                url=cfg["email"],
                 category="Newsletters",
                 type="newsletter"
             )
@@ -164,9 +204,15 @@ def fetch_and_store_newsletters():
             db.refresh(source)
 
         try:
-            pop = _connect_pop3()
+            pop = _connect_pop3(
+                server=cfg["server"],
+                port=cfg["port"],
+                ssl_mode=cfg["ssl_mode"],
+                email=cfg["email"],
+                password=cfg["password"],
+            )
             num_messages = len(pop.list()[1])
-            log.info(f"📬 Connected to {MAIL_SERVER}. {num_messages} message(s) in the mailbox.")
+            log.info(f"📬 Connected to {cfg['server']}. {num_messages} message(s) in the mailbox.")
 
             if num_messages == 0:
                 pop.quit()
@@ -235,13 +281,13 @@ def fetch_and_store_newsletters():
                     log.info(f"  📩 {subject.strip()[:80]}")
 
                 # Mark for deletion (always, since POP3 is "consume & clear")
-                if DELETE_AFTER_INGEST:
+                if cfg["delete_after_ingest"]:
                     delete_ids.append(i)
 
             db.commit()
 
             # Delete from server
-            if DELETE_AFTER_INGEST and delete_ids:
+            if cfg["delete_after_ingest"] and delete_ids:
                 for msg_id in delete_ids:
                     pop.dele(msg_id)
                 log.info(f"🗑️ {len(delete_ids)} email(s) deleted from the mailbox.")
