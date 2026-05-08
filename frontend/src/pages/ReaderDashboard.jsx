@@ -302,7 +302,7 @@ const ReaderDashboard = () => {
                                                         disabled={visibleSources.length === 0}
                                                         className="px-2 py-1 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed"
                                                     >
-                                                        Sel·lecciona{q ? ' (visibles)' : ' totes'}
+                                                        Selecciona{q ? ' (visibles)' : ' totes'}
                                                     </button>
                                                     <button
                                                         onClick={clearSourceSelection}
