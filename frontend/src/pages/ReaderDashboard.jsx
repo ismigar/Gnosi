@@ -452,7 +452,7 @@ const ReaderDashboard = () => {
                                         return (
                                             <iframe
                                                 srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>body{font-family:Inter,system-ui,sans-serif;color:${fg};background:${bg};line-height:1.7;padding:0;margin:0;}img{max-width:100%;height:auto;border-radius:8px}a{color:${linkColor}}</style></head><body>${selectedArticle.content}</body></html>`}
-                                                sandbox="allow-same-origin allow-popups"
+                                                sandbox="allow-popups"
                                                 title="article-content"
                                                 style={{ width: '100%', minHeight: '600px', border: 'none' }}
                                             />
