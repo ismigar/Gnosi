@@ -367,11 +367,23 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     // Newsletter State
     const [newsletterSources, setNewsletterSources] = useState([]);
+    const [newsletterSourcesLoaded, setNewsletterSourcesLoaded] = useState(false);
+    const [newsletterSourcesError, setNewsletterSourcesError] = useState('');
+    const [newsletterSourcesLoading, setNewsletterSourcesLoading] = useState(false);
     const [newsletterName, setNewsletterName] = useState('');
     const [newsletterAddress, setNewsletterAddress] = useState('');
     const [newsletterType, setNewsletterType] = useState('rss');
     const [newsletterStatus, setNewsletterStatus] = useState('');
+    const [newsletterOpmlLoading, setNewsletterOpmlLoading] = useState(false);
     const newsletterOpmlRef = useRef(null);
+    // Compte POP3 newsletters
+    const [newsletterAccount, setNewsletterAccount] = useState({ mail_server: '', mail_port: 110, mail_ssl: 'starttls', email: '', password: '', delete_after_ingest: true });
+    const [newsletterAccountLoaded, setNewsletterAccountLoaded] = useState(false);
+    const [newsletterAccountStatus, setNewsletterAccountStatus] = useState('');
+    const [newsletterAccountSaving, setNewsletterAccountSaving] = useState(false);
+    const [newsletterAccountTesting, setNewsletterAccountTesting] = useState(false);
+    const [newsletterAccountSyncing, setNewsletterAccountSyncing] = useState(false);
+    const [newsletterPasswordDirty, setNewsletterPasswordDirty] = useState(false);
     
     // Account Integration State
     const [addAccountType, setAddAccountType] = useState(null); // 'calendar' | 'contacts' | 'mail' | null
@@ -567,6 +579,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             loadZoteroData();
             loadIntegrations();
             loadNewsletterSources();
+            loadNewsletterAccount();
             checkGoogleAuth();
             loadIdentity();
             loadSocialSettings();
@@ -709,13 +722,123 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     const loadNewsletterSources = async () => {
+        setNewsletterSourcesLoading(true);
+        setNewsletterSourcesError('');
         try {
             const res = await fetch('/api/reader/sources');
-            if (res.ok) {
-                const sources = await res.json();
-                setNewsletterSources((sources || []).filter(s => ['rss', 'newsletter', 'youtube', 'newsletter_account'].includes(s.type)));
+            if (!res.ok) {
+                setNewsletterSourcesError(t('subs_sources_load_error_status', { status: res.status }));
+                return;
             }
-        } catch (err) { console.error("Error loading newsletters:", err); }
+            const sources = await res.json();
+            setNewsletterSources((sources || []).filter(s => ['rss', 'newsletter', 'youtube', 'newsletter_account'].includes(s.type)));
+            setNewsletterSourcesLoaded(true);
+        } catch (err) {
+            console.error("Error loading newsletters:", err);
+            setNewsletterSourcesError(t('subs_sources_load_error_conn'));
+        } finally {
+            setNewsletterSourcesLoading(false);
+        }
+    };
+
+    const loadNewsletterAccount = async () => {
+        try {
+            const res = await fetch('/api/reader/newsletter-account');
+            if (!res.ok) return;
+            const data = await res.json();
+            setNewsletterAccount({
+                mail_server: data.mail_server || '',
+                mail_port: data.mail_port || 110,
+                mail_ssl: data.mail_ssl || 'starttls',
+                email: data.email || '',
+                password: data.password_set ? '••••••••' : '',
+                delete_after_ingest: data.delete_after_ingest !== false
+            });
+            setNewsletterAccountLoaded(true);
+            setNewsletterPasswordDirty(false);
+        } catch (err) {
+            console.error('Error loading newsletter account:', err);
+        }
+    };
+
+    const saveNewsletterAccount = async () => {
+        setNewsletterAccountSaving(true);
+        setNewsletterAccountStatus(t('subs_news_btn_save_loading'));
+        try {
+            const payload = {
+                mail_server: newsletterAccount.mail_server,
+                mail_port: parseInt(newsletterAccount.mail_port, 10) || 110,
+                mail_ssl: newsletterAccount.mail_ssl,
+                email: newsletterAccount.email,
+                delete_after_ingest: !!newsletterAccount.delete_after_ingest
+            };
+            if (newsletterPasswordDirty) {
+                payload.password = newsletterAccount.password;
+            }
+            const res = await fetch('/api/reader/newsletter-account', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                setNewsletterAccountStatus(j.detail || t('subs_news_status_save_error'));
+                return;
+            }
+            setNewsletterAccountStatus(t('subs_news_status_saved'));
+            setNewsletterPasswordDirty(false);
+            await loadNewsletterAccount();
+        } catch (err) {
+            console.error('Error saving newsletter account:', err);
+            setNewsletterAccountStatus(t('subs_news_status_save_conn_error'));
+        } finally {
+            setNewsletterAccountSaving(false);
+        }
+    };
+
+    const testNewsletterAccount = async () => {
+        setNewsletterAccountTesting(true);
+        setNewsletterAccountStatus(t('subs_news_status_testing'));
+        try {
+            // Enviem els valors actuals del form: així l'usuari pot provar abans de desar.
+            // Si l'usuari no ha tocat la contrasenya (encara és '••••••••'), no l'enviem
+            // perquè el backend usi la guardada a la BD.
+            const payload = {
+                mail_server: newsletterAccount.mail_server,
+                mail_port: parseInt(newsletterAccount.mail_port, 10) || 110,
+                mail_ssl: newsletterAccount.mail_ssl,
+                email: newsletterAccount.email
+            };
+            if (newsletterPasswordDirty && newsletterAccount.password) {
+                payload.password = newsletterAccount.password;
+            }
+            const res = await fetch('/api/reader/newsletter-account/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            setNewsletterAccountStatus(data.message || data.detail || (res.ok ? '' : t('subs_news_status_test_error')));
+        } catch (err) {
+            setNewsletterAccountStatus(t('subs_news_status_test_error'));
+        } finally {
+            setNewsletterAccountTesting(false);
+        }
+    };
+
+    const syncNewsletterAccount = async () => {
+        setNewsletterAccountSyncing(true);
+        setNewsletterAccountStatus(t('subs_news_status_syncing'));
+        try {
+            const res = await fetch('/api/reader/newsletter-account/sync', { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            setNewsletterAccountStatus(data.message || (res.ok ? t('subs_news_status_sync_started') : t('subs_news_status_sync_error')));
+            await loadNewsletterSources();
+        } catch (err) {
+            setNewsletterAccountStatus(t('subs_news_status_sync_conn_error'));
+        } finally {
+            setNewsletterAccountSyncing(false);
+        }
     };
 
 
@@ -978,20 +1101,106 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         });
     };
 
+    /**
+     * Si l'usuari enganxa una URL de canal YouTube, la converteix al feed XML públic.
+     * Patrons reconeguts:
+     *   - youtube.com/channel/UC...        → youtube.com/feeds/videos.xml?channel_id=UC...
+     *   - youtube.com/user/NAME            → youtube.com/feeds/videos.xml?user=NAME
+     *   - youtube.com/playlist?list=PL...  → youtube.com/feeds/videos.xml?playlist_id=PL...
+     * Pels handles (@nom) cal channel_id real → mostrem un avís perquè l'usuari el copïi manualment.
+     * Si ja és una URL de feed XML o no és YouTube, retorna la URL tal qual.
+     */
+    const normalizeYoutubeUrl = (rawUrl) => {
+        if (!rawUrl) return { url: rawUrl, warning: '' };
+        const url = rawUrl.trim();
+        if (url.includes('/feeds/videos.xml')) return { url, warning: '' };
+        let m;
+        m = url.match(/youtube\.com\/channel\/(UC[\w-]+)/i);
+        if (m) return { url: `https://www.youtube.com/feeds/videos.xml?channel_id=${m[1]}`, warning: '' };
+        m = url.match(/youtube\.com\/user\/([\w.-]+)/i);
+        if (m) return { url: `https://www.youtube.com/feeds/videos.xml?user=${m[1]}`, warning: '' };
+        m = url.match(/youtube\.com\/playlist\?list=([\w-]+)/i);
+        if (m) return { url: `https://www.youtube.com/feeds/videos.xml?playlist_id=${m[1]}`, warning: '' };
+        m = url.match(/youtube\.com\/@([\w.-]+)/i);
+        if (m) return {
+            url,
+            warning: `No es pot convertir automàticament un handle (@${m[1]}). Obre el canal, fes clic dret a la pàgina → "Veure codi font" i busca "channelId". Després enganxa: https://www.youtube.com/feeds/videos.xml?channel_id=UC...`
+        };
+        return { url, warning: '' };
+    };
+
     const handleAddNewsletter = async () => {
         if (!newsletterAddress.trim()) return;
-        setNewsletterStatus('Afegint...');
+        setNewsletterStatus(t('subs_form_status_adding'));
+
+        let finalUrl = newsletterAddress.trim();
+        if (newsletterType === 'youtube') {
+            const { url: converted, warning } = normalizeYoutubeUrl(finalUrl);
+            if (warning) {
+                // El warning ve de normalizeYoutubeUrl en català com a fallback;
+                // si conté '@handle', el reformulem amb la clau i18n.
+                const handleMatch = finalUrl.match(/youtube\.com\/@([\w.-]+)/i);
+                if (handleMatch) {
+                    setNewsletterStatus(t('subs_form_status_youtube_handle_warning', { handle: handleMatch[1] }));
+                } else {
+                    setNewsletterStatus(warning);
+                }
+                return;
+            }
+            finalUrl = converted;
+        }
+
         try {
             const res = await fetch('/api/reader/sources', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newsletterName || newsletterAddress, url: newsletterAddress, type: newsletterType })
+                body: JSON.stringify({ name: newsletterName || finalUrl, url: finalUrl, type: newsletterType })
             });
             if (res.ok) {
                 setNewsletterName(''); setNewsletterAddress(''); loadNewsletterSources();
-                setNewsletterStatus('Fet!');
-            } else { setNewsletterStatus('Error'); }
-        } catch { setNewsletterStatus('Error'); }
+                setNewsletterStatus(newsletterType === 'youtube' && finalUrl !== newsletterAddress.trim()
+                    ? t('subs_form_status_youtube_converted', { url: finalUrl })
+                    : t('subs_form_status_added'));
+            } else {
+                const j = await res.json().catch(() => ({}));
+                setNewsletterStatus(j.detail || t('subs_form_status_error'));
+            }
+        } catch { setNewsletterStatus(t('subs_form_status_error')); }
+    };
+
+    const handleNewsletterOpmlUpload = async (file) => {
+        if (!file) return;
+
+        setNewsletterOpmlLoading(true);
+        setNewsletterStatus(t('subs_opml_status_importing'));
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/api/reader/sources/opml', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                setNewsletterStatus(data?.detail || t('subs_opml_status_failed'));
+                return;
+            }
+
+            setNewsletterStatus(data?.message || t('subs_opml_status_done'));
+            await loadNewsletterSources();
+        } catch (err) {
+            console.error('Error importing OPML newsletters:', err);
+            setNewsletterStatus(t('subs_opml_status_error'));
+        } finally {
+            setNewsletterOpmlLoading(false);
+            if (newsletterOpmlRef.current) {
+                newsletterOpmlRef.current.value = '';
+            }
+        }
     };
 
     // if (!draft.settings) return null; // Eliminar per evitar que el pare no renderitzi res
@@ -2094,50 +2303,150 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </>
                             )}
 
-                            {/* NEWSLETTERS */}
+                            {/* NEWSLETTERS — formulari dinàmic + llista */}
                             {activeTab === 'newsletters' && (
-                                <Section title="Fonts d'Informació" icon={Rss} extra={
-                                    <button onClick={() => newsletterOpmlRef.current?.click()} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap' }}><FileUp size={16} /> Importar OPML</button>
+                                <Section title={t('subs_section_title')} icon={Rss} extra={
+                                    <div style={{ display: 'inline-flex', gap: '8px' }}>
+                                        <button onClick={() => loadNewsletterSources()} disabled={newsletterSourcesLoading} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', opacity: newsletterSourcesLoading ? 0.6 : 1, cursor: newsletterSourcesLoading ? 'wait' : 'pointer' }}>{newsletterSourcesLoading ? t('subs_btn_reload_loading') : t('subs_btn_reload')}</button>
+                                        <button onClick={() => newsletterOpmlRef.current?.click()} disabled={newsletterOpmlLoading} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', opacity: newsletterOpmlLoading ? 0.6 : 1, cursor: newsletterOpmlLoading ? 'wait' : 'pointer' }}><FileUp size={16} /> {newsletterOpmlLoading ? t('subs_btn_import_opml_loading') : t('subs_btn_import_opml')}</button>
+                                    </div>
                                 }>
-                                    <input ref={newsletterOpmlRef} type="file" accept=".opml,.xml" style={{ display: 'none' }} />
-                                    
-                                    <div className="animate-in" style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '28px', border: '1px solid var(--settings-border)', marginBottom: '40px', boxShadow: '0 12px 40px rgba(0,0,0,0.05)' }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '28px' }}>
-                                            <FormGroup label="Nom de la Font"><input type="text" className="gnosi-input" value={newsletterName} onChange={e => setNewsletterName(e.target.value)} placeholder="Ej: TechCrunch / Perplexity" /></FormGroup>
-                                            <FormGroup label="URL del Feed"><input type="text" className="gnosi-input" value={newsletterAddress} onChange={e => setNewsletterAddress(e.target.value)} placeholder="https://..." /></FormGroup>
+                                    <input ref={newsletterOpmlRef} type="file" accept=".opml,.xml" onChange={(e) => handleNewsletterOpmlUpload(e.target.files?.[0])} style={{ display: 'none' }} />
+                                    {newsletterSourcesError && (
+                                        <div style={{ marginBottom: '20px', padding: '14px 20px', borderRadius: '14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#dc2626', fontSize: '0.9rem' }}>{newsletterSourcesError}</div>
+                                    )}
+
+                                    {/* FORMULARI DINÀMIC ÚNIC */}
+                                    <div className="animate-in" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', marginBottom: '40px', boxShadow: '0 12px 40px rgba(0,0,0,0.05)' }}>
+                                        {/* Toggle 3-way */}
+                                        <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                                            {[
+                                                { v: 'rss', icon: '📰' },
+                                                { v: 'youtube', icon: '📺' },
+                                                { v: 'newsletter', icon: '📧' }
+                                            ].map(({ v, icon }) => (
+                                                <button key={v} onClick={() => { setNewsletterType(v); setNewsletterStatus(''); setNewsletterAccountStatus(''); }} style={{
+                                                    padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--settings-border)',
+                                                    background: newsletterType === v ? 'var(--gnosi-blue)' : 'transparent',
+                                                    color: newsletterType === v ? 'white' : 'var(--text-secondary)',
+                                                    fontSize: '0.85rem', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                                    display: 'inline-flex', alignItems: 'center', gap: '8px'
+                                                }}>
+                                                    <span>{icon}</span>
+                                                    <span>{v}</span>
+                                                </button>
+                                            ))}
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                {['rss', 'youtube', 'newsletter'].map(t => (
-                                                    <button key={t} onClick={() => setNewsletterType(t)} style={{
-                                                        padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--settings-border)',
-                                                        background: newsletterType === t ? 'var(--gnosi-blue)' : 'transparent',
-                                                        color: newsletterType === t ? 'white' : 'var(--text-secondary)',
-                                                        fontSize: '0.85rem', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em'
-                                                    }}>{t}</button>
-                                                ))}
-                                            </div>
-                                            <button onClick={handleAddNewsletter} className="btn-gnosi-primary" style={{ padding: '12px 32px', borderRadius: '14px' }}>Afegir Font</button>
-                                        </div>
+
+                                        {/* Subtítol del formulari (canvia segons el tipus) */}
+                                        <h4 style={{ margin: '0 0 18px 0', fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 900 }}>
+                                            {newsletterType === 'rss' && t('subs_form_title_rss')}
+                                            {newsletterType === 'youtube' && t('subs_form_title_youtube')}
+                                            {newsletterType === 'newsletter' && t('subs_form_title_newsletter')}
+                                        </h4>
+
+                                        {/* Camps RSS / YOUTUBE */}
+                                        {(newsletterType === 'rss' || newsletterType === 'youtube') && (
+                                            <>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                                                    <FormGroup label={t('subs_form_field_name')}>
+                                                        <input type="text" className="gnosi-input" value={newsletterName} onChange={e => setNewsletterName(e.target.value)} placeholder={t('subs_form_field_name_placeholder')} />
+                                                    </FormGroup>
+                                                    <FormGroup label={newsletterType === 'youtube' ? t('subs_form_youtube_url_label') : t('subs_form_rss_url_label')}>
+                                                        <input type="text" className="gnosi-input" value={newsletterAddress} onChange={e => setNewsletterAddress(e.target.value)} placeholder={newsletterType === 'youtube' ? t('subs_form_youtube_url_placeholder') : t('subs_form_rss_url_placeholder')} />
+                                                    </FormGroup>
+                                                </div>
+                                                {newsletterType === 'youtube' && (
+                                                    <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '10px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                                                        {t('subs_form_youtube_help')}
+                                                    </div>
+                                                )}
+                                                {newsletterStatus && (
+                                                    <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '10px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{newsletterStatus}</div>
+                                                )}
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <button onClick={handleAddNewsletter} className="btn-gnosi-primary" style={{ padding: '12px 32px', borderRadius: '14px' }}>{t('subs_form_btn_add')}</button>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Camps NEWSLETTER (config POP3) */}
+                                        {newsletterType === 'newsletter' && (
+                                            <>
+                                                <div style={{ marginBottom: '18px', padding: '14px 18px', borderRadius: '12px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                                    {t('subs_news_warning')}
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                                                    <FormGroup label={t('subs_news_field_server')}>
+                                                        <input type="text" className="gnosi-input" value={newsletterAccount.mail_server} onChange={e => setNewsletterAccount(a => ({ ...a, mail_server: e.target.value }))} placeholder={t('subs_news_field_server_placeholder')} />
+                                                    </FormGroup>
+                                                    <FormGroup label={t('subs_news_field_port')}>
+                                                        <input type="number" className="gnosi-input" value={newsletterAccount.mail_port} onChange={e => setNewsletterAccount(a => ({ ...a, mail_port: e.target.value }))} placeholder="110" />
+                                                    </FormGroup>
+                                                    <FormGroup label={t('subs_news_field_ssl')}>
+                                                        <select className="gnosi-input" value={newsletterAccount.mail_ssl} onChange={e => setNewsletterAccount(a => ({ ...a, mail_ssl: e.target.value }))}>
+                                                            <option value="starttls">{t('subs_news_ssl_starttls')}</option>
+                                                            <option value="ssl">{t('subs_news_ssl_ssl')}</option>
+                                                            <option value="none">{t('subs_news_ssl_none')}</option>
+                                                        </select>
+                                                    </FormGroup>
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                                                    <FormGroup label={t('subs_news_field_email')}>
+                                                        <input type="email" className="gnosi-input" value={newsletterAccount.email} onChange={e => setNewsletterAccount(a => ({ ...a, email: e.target.value }))} placeholder={t('subs_news_field_email_placeholder')} />
+                                                    </FormGroup>
+                                                    <FormGroup label={t('subs_news_field_password')}>
+                                                        <input type="password" className="gnosi-input" value={newsletterAccount.password} onChange={e => { setNewsletterAccount(a => ({ ...a, password: e.target.value })); setNewsletterPasswordDirty(true); }} placeholder="••••••••" />
+                                                    </FormGroup>
+                                                </div>
+                                                {newsletterAccountStatus && (
+                                                    <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '10px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{newsletterAccountStatus}</div>
+                                                )}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                                    <FormGroup label={t('subs_news_field_delete')} horizontal>
+                                                        <div className={`gnosi-toggle ${newsletterAccount.delete_after_ingest ? 'active' : ''}`} onClick={() => setNewsletterAccount(a => ({ ...a, delete_after_ingest: !a.delete_after_ingest }))}>
+                                                            <div className="gnosi-toggle-handle" />
+                                                        </div>
+                                                    </FormGroup>
+                                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                        <button onClick={testNewsletterAccount} disabled={newsletterAccountTesting} className="btn-gnosi-secondary" style={{ padding: '10px 18px', borderRadius: '12px', fontSize: '0.85rem', opacity: newsletterAccountTesting ? 0.6 : 1 }}>{newsletterAccountTesting ? t('subs_news_btn_test_loading') : t('subs_news_btn_test')}</button>
+                                                        <button onClick={syncNewsletterAccount} disabled={newsletterAccountSyncing} className="btn-gnosi-secondary" style={{ padding: '10px 18px', borderRadius: '12px', fontSize: '0.85rem', opacity: newsletterAccountSyncing ? 0.6 : 1 }}>{newsletterAccountSyncing ? t('subs_news_btn_sync_loading') : t('subs_news_btn_sync')}</button>
+                                                        <button onClick={saveNewsletterAccount} disabled={newsletterAccountSaving} className="btn-gnosi-primary" style={{ padding: '10px 24px', borderRadius: '12px', fontSize: '0.85rem', opacity: newsletterAccountSaving ? 0.6 : 1 }}>{newsletterAccountSaving ? t('subs_news_btn_save_loading') : t('subs_news_btn_save')}</button>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
 
+                                    {/* COMPTADOR + LLISTA DE FONTS */}
+                                    <div style={{ marginBottom: '14px', color: 'var(--text-secondary)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800 }}>
+                                        {newsletterSourcesLoading ? t('subs_count_loading', { count: newsletterSources.length }) : t('subs_count', { count: newsletterSources.length })}
+                                    </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                        {!newsletterSourcesLoading && newsletterSourcesLoaded && newsletterSources.length === 0 && (
+                                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', background: 'var(--settings-sidebar-bg)', border: '1px dashed var(--settings-border)', borderRadius: '16px' }}>
+                                                {t('subs_empty_state')}
+                                            </div>
+                                        )}
                                         {newsletterSources.map(s => (
                                             <div key={s.id} className="account-row hover-scale" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderRadius: '24px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
-                                                    <div style={{ width: '56px', height: '56px', background: 'rgba(59,130,246,0.12)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '22px', minWidth: 0, flex: 1 }}>
+                                                    <div style={{ width: '56px', height: '56px', background: 'rgba(59,130,246,0.12)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
                                                         {s.type === 'rss' ? '📰' : (s.type === 'youtube' ? '📺' : '📧')}
                                                     </div>
-                                                    <div>
-                                                        <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{s.name}</div>
-                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.7, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.url}</div>
+                                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                                        <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.05rem' }}>{s.name}</div>
+                                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.url}</div>
+                                                        {s.category && s.category !== 'Uncategorized' && (
+                                                            <div style={{ display: 'inline-block', marginTop: '6px', padding: '3px 10px', borderRadius: '8px', background: 'rgba(59,130,246,0.1)', color: 'var(--gnosi-blue)', fontSize: '0.72rem', fontWeight: 700 }}>{s.category}</div>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <button onClick={() => {
                                                     setConfirmConfig({
                                                         isOpen: true,
-                                                        title: 'Eliminar Subscripció',
-                                                        message: `Estàs segur que vols eliminar la font "${s.name}"?`,
+                                                        title: t('subs_delete_modal_title'),
+                                                        message: t('subs_delete_modal_message', { name: s.name }),
                                                         onConfirm: async () => {
                                                             try {
                                                                 await fetch(`/api/reader/sources/${s.id}`, { method: 'DELETE' });

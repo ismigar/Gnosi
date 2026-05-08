@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 
 from backend.data.db import get_db
@@ -59,26 +59,153 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
     except ET.ParseError:
         raise HTTPException(status_code=400, detail="Invalid XML format")
 
+    parent_map = {child: parent for parent in tree.iter() for child in parent}
+
     imported_count = 0
-    # Basic OPML parsing
     for outline in tree.findall('.//outline'):
-        if 'xmlUrl' in outline.attrib:
-            url = outline.attrib.get('xmlUrl')
-            title = outline.attrib.get('title', outline.attrib.get('text', 'Unknown'))
-            
-            # Traverse up to find the category
-            category = "Uncategorized"
-            parent = getattr(outline, "parent", None) # xml.etree doesn't make parents easy, let's simplify
-            
-            # Check if exists
-            existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
-            if not existing:
-                new_source = models.FeedSource(name=title, url=url, category=category, type="rss")
-                db.add(new_source)
-                imported_count += 1
-                
+        if 'xmlUrl' not in outline.attrib:
+            continue
+
+        url = outline.attrib.get('xmlUrl')
+        title = outline.attrib.get('title', outline.attrib.get('text', 'Unknown'))
+
+        category = "Uncategorized"
+        ancestor = parent_map.get(outline)
+        while ancestor is not None and ancestor.tag == 'outline':
+            if 'xmlUrl' not in ancestor.attrib:
+                category = ancestor.attrib.get('title', ancestor.attrib.get('text', category))
+                break
+            ancestor = parent_map.get(ancestor)
+
+        existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
+        if not existing:
+            new_source = models.FeedSource(name=title, url=url, category=category, type="rss")
+            db.add(new_source)
+            imported_count += 1
+
     db.commit()
     return {"message": f"Successfully imported {imported_count} new feeds."}
+
+
+# -- Newsletter POP3 account --
+
+def _get_or_create_account(db: Session) -> models.NewsletterAccount:
+    """Single-row table: get the first row, or create one with defaults from env vars."""
+    acc = db.query(models.NewsletterAccount).first()
+    if acc is None:
+        acc = models.NewsletterAccount(
+            mail_server=os.environ.get("NEWSLETTERS_MAIL_SERVER", ""),
+            mail_port=int(os.environ.get("NEWSLETTERS_MAIL_PORT", "110") or 110),
+            mail_ssl=os.environ.get("NEWSLETTERS_MAIL_SSL", "starttls").lower(),
+            email=os.environ.get("NEWSLETTERS_EMAIL", ""),
+            password=os.environ.get("NEWSLETTERS_PASSWORD", ""),
+            delete_after_ingest=os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "true").lower() in ("true", "1", "yes"),
+        )
+        db.add(acc)
+        db.commit()
+        db.refresh(acc)
+    return acc
+
+
+def _account_to_response(acc: models.NewsletterAccount) -> models.NewsletterAccountResponse:
+    return models.NewsletterAccountResponse(
+        mail_server=acc.mail_server or "",
+        mail_port=acc.mail_port or 110,
+        mail_ssl=acc.mail_ssl or "starttls",
+        email=acc.email or "",
+        delete_after_ingest=bool(acc.delete_after_ingest),
+        password_set=bool(acc.password),
+        updated_at=acc.updated_at,
+    )
+
+
+@router.get("/newsletter-account", response_model=models.NewsletterAccountResponse)
+def get_newsletter_account(db: Session = Depends(get_db)):
+    """Read POP3 newsletter account config (password is never returned)."""
+    acc = _get_or_create_account(db)
+    return _account_to_response(acc)
+
+
+@router.put("/newsletter-account", response_model=models.NewsletterAccountResponse, dependencies=[Depends(require_role("editor"))])
+def update_newsletter_account(payload: models.NewsletterAccountUpdate, db: Session = Depends(get_db)):
+    """Update POP3 newsletter account. Only fields provided are updated; password optional."""
+    acc = _get_or_create_account(db)
+    if payload.mail_server is not None:
+        acc.mail_server = payload.mail_server.strip()
+    if payload.mail_port is not None:
+        acc.mail_port = int(payload.mail_port)
+    if payload.mail_ssl is not None:
+        ssl = (payload.mail_ssl or "starttls").lower()
+        if ssl not in ("starttls", "ssl", "none"):
+            raise HTTPException(status_code=400, detail="mail_ssl must be 'starttls', 'ssl', or 'none'")
+        acc.mail_ssl = ssl
+    if payload.email is not None:
+        acc.email = payload.email.strip()
+    if payload.password is not None and payload.password != "":
+        # Only overwrite password if a non-empty new value is provided.
+        acc.password = payload.password
+    if payload.delete_after_ingest is not None:
+        acc.delete_after_ingest = bool(payload.delete_after_ingest)
+    acc.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(acc)
+    return _account_to_response(acc)
+
+
+@router.post("/newsletter-account/test", dependencies=[Depends(require_role("editor"))])
+def test_newsletter_account(payload: Optional[models.NewsletterAccountUpdate] = None, db: Session = Depends(get_db)):
+    """Try to log in to the POP3 server and report number of messages waiting.
+
+    If a payload is provided, those values override the stored ones (useful for
+    testing credentials before saving). Empty/None fields fall back to DB values.
+    """
+    from backend.services.mail_ingester import test_connection
+    acc = _get_or_create_account(db)
+
+    server = acc.mail_server
+    port = int(acc.mail_port or 110)
+    ssl_mode = acc.mail_ssl or "starttls"
+    email_account = acc.email
+    password = acc.password
+
+    if payload:
+        if payload.mail_server is not None and payload.mail_server.strip():
+            server = payload.mail_server.strip()
+        if payload.mail_port is not None:
+            port = int(payload.mail_port)
+        if payload.mail_ssl is not None and payload.mail_ssl.strip():
+            ssl_mode = payload.mail_ssl.strip().lower()
+        if payload.email is not None and payload.email.strip():
+            email_account = payload.email.strip()
+        if payload.password is not None and payload.password != "":
+            password = payload.password
+
+    if not email_account or not password or not server:
+        raise HTTPException(status_code=400, detail="Falta completar el servidor, l'email i la contrasenya.")
+
+    try:
+        n = test_connection(
+            server=server,
+            port=port,
+            ssl_mode=ssl_mode,
+            email=email_account,
+            password=password,
+        )
+        return {"ok": True, "messages": n, "message": f"Connexió OK. {n} missatge(s) a la bústia."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Connexió fallida: {e}")
+
+
+@router.post("/newsletter-account/sync", dependencies=[Depends(require_role("editor"))])
+def sync_newsletter_account():
+    """Trigger a one-shot ingestion run."""
+    from backend.services.mail_ingester import fetch_and_store_newsletters
+    try:
+        count = fetch_and_store_newsletters()
+        return {"ok": True, "new_articles": int(count or 0), "message": f"Sincronització OK. {count or 0} article(s) nou(s)."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Sincronització fallida: {e}")
+
 
 # -- Articles --
 
