@@ -269,6 +269,8 @@
   "subs_news_field_email": "Compte de messagerie",
   "subs_news_field_email_placeholder": "newsletters@exemple.org",
   "subs_news_field_password": "Mot de passe",
+  "subs_news_password_show": "Afficher le mot de passe",
+  "subs_news_password_hide": "Masquer le mot de passe",
   "subs_news_field_delete": "Supprimer les e-mails du serveur après téléchargement",
   "subs_news_btn_test": "Tester la connexion",
   "subs_news_btn_test_loading": "Test en cours...",

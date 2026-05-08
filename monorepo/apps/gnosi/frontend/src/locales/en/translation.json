@@ -1138,6 +1138,8 @@
   "subs_news_field_email": "Mail account",
   "subs_news_field_email_placeholder": "newsletters@example.org",
   "subs_news_field_password": "Password",
+  "subs_news_password_show": "Show password",
+  "subs_news_password_hide": "Hide password",
   "subs_news_field_delete": "Delete emails from the server after downloading them",
   "subs_news_btn_test": "Test connection",
   "subs_news_btn_test_loading": "Testing...",

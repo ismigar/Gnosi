@@ -384,6 +384,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [newsletterAccountTesting, setNewsletterAccountTesting] = useState(false);
     const [newsletterAccountSyncing, setNewsletterAccountSyncing] = useState(false);
     const [newsletterPasswordDirty, setNewsletterPasswordDirty] = useState(false);
+    const [showNewsletterPassword, setShowNewsletterPassword] = useState(false);
     
     // Account Integration State
     const [addAccountType, setAddAccountType] = useState(null); // 'calendar' | 'contacts' | 'mail' | null
@@ -2391,14 +2392,51 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         </select>
                                                     </FormGroup>
                                                 </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-                                                    <FormGroup label={t('subs_news_field_email')}>
-                                                        <input type="email" className="gnosi-input" value={newsletterAccount.email} onChange={e => setNewsletterAccount(a => ({ ...a, email: e.target.value }))} placeholder={t('subs_news_field_email_placeholder')} />
-                                                    </FormGroup>
-                                                    <FormGroup label={t('subs_news_field_password')}>
-                                                        <input type="password" className="gnosi-input" value={newsletterAccount.password} onChange={e => { setNewsletterAccount(a => ({ ...a, password: e.target.value })); setNewsletterPasswordDirty(true); }} placeholder="••••••••" />
-                                                    </FormGroup>
-                                                </div>
+                                                {/* Form wrapper perquè el gestor de contrasenyes del navegador associï user+password */}
+                                                <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ marginBottom: '20px' }}>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                        <FormGroup label={t('subs_news_field_email')}>
+                                                            <input
+                                                                type="email"
+                                                                className="gnosi-input"
+                                                                value={newsletterAccount.email}
+                                                                onChange={e => setNewsletterAccount(a => ({ ...a, email: e.target.value }))}
+                                                                placeholder={t('subs_news_field_email_placeholder')}
+                                                                name="newsletter-pop3-username"
+                                                                autoComplete="username"
+                                                            />
+                                                        </FormGroup>
+                                                        <FormGroup label={t('subs_news_field_password')}>
+                                                            <div style={{ position: 'relative' }}>
+                                                                <input
+                                                                    type={showNewsletterPassword ? 'text' : 'password'}
+                                                                    className="gnosi-input"
+                                                                    value={newsletterAccount.password}
+                                                                    onChange={e => { setNewsletterAccount(a => ({ ...a, password: e.target.value })); setNewsletterPasswordDirty(true); }}
+                                                                    placeholder="••••••••"
+                                                                    name="newsletter-pop3-password"
+                                                                    autoComplete="current-password"
+                                                                    style={{ paddingRight: '44px' }}
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowNewsletterPassword(s => !s)}
+                                                                    aria-label={showNewsletterPassword ? t('subs_news_password_hide') : t('subs_news_password_show')}
+                                                                    title={showNewsletterPassword ? t('subs_news_password_hide') : t('subs_news_password_show')}
+                                                                    style={{
+                                                                        position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)',
+                                                                        background: 'transparent', border: 'none', padding: '6px', borderRadius: '8px',
+                                                                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                                        color: 'var(--text-secondary)'
+                                                                    }}
+                                                                    className="hover-bg"
+                                                                >
+                                                                    {showNewsletterPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                                </button>
+                                                            </div>
+                                                        </FormGroup>
+                                                    </div>
+                                                </form>
                                                 {newsletterAccountStatus && (
                                                     <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '10px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{newsletterAccountStatus}</div>
                                                 )}
