@@ -20,6 +20,11 @@ services:
       - /Users/ismaelgarciafernandez/Projectes/monorepo/.antigravity:/Users/ismaelgarciafernandez/Projectes/monorepo/.antigravity:rw
       - /Users/ismaelgarciafernandez/.gnosi:/root/.gnosi:ro
       - ./backend:/app/backend
+      # Credencials d'integracions (tokens Google, contrasenyes IMAP/SMTP)
+      # editades via UI han de persistir entre rebuilds del container. La
+      # resta de `pipeline/` queda a la imatge perquè és codi versionat;
+      # només els secrets es mantenen al host (gitignored a apps/gnosi/.gitignore).
+      - ./pipeline/private_skills/secrets:/app/pipeline/private_skills/secrets
       # Local-only data (SQLite, caches, indices). NEVER point at cloud-synced
       # storage — SQLite + cloud sync = corruption. See paths_config.py.
       - gnosi_local_data:/app/data
