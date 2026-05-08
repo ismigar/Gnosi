@@ -104,7 +104,6 @@ const PasswordInput = ({
                 onClick={() => setShow(s => !s)}
                 aria-label={show ? labelHide : labelShow}
                 title={show ? labelHide : labelShow}
-                tabIndex={-1}
                 style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0', display: 'flex', alignItems: 'center' }}
             >
                 {show ? <EyeOff size={16} /> : <Eye size={16} />}
