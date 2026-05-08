@@ -179,12 +179,12 @@ const ReaderDashboard = () => {
                     {/* Header Options (STAY FIXED) */}
                     <div className="p-6 border-b border-[var(--border-primary)] bg-[var(--bg-primary)]/80 backdrop-blur-md sticky top-0 z-10 flex justify-between items-center">
                         <div>
-                            <h2 className="text-xl font-bold tracking-tight text-slate-800">Actualitat</h2>
+                            <h2 className="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Actualitat</h2>
                         </div>
                         <div className="flex items-center space-x-1">
                             <button
                                 onClick={handleSyncAll}
-                                className={`p-2 rounded-full hover:bg-slate-100 transition-colors ${loading ? "text-indigo-500 bg-indigo-50" : "text-slate-500"}`}
+                                className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${loading ? "text-indigo-500 bg-indigo-50 dark:bg-indigo-500/15" : "text-slate-500 dark:text-slate-400"}`}
                                 title="Sincronitzar actualitat"
                                 disabled={loading}
                             >
@@ -245,15 +245,15 @@ const ReaderDashboard = () => {
                                         open={filtersOpen}
                                         onToggle={(e) => setFiltersOpen(e.currentTarget.open)}
                                     >
-                                        <summary className="flex items-center justify-between p-4 cursor-pointer font-semibold text-sm text-slate-700 hover:bg-slate-100">
+                                        <summary className="flex items-center justify-between p-4 cursor-pointer font-semibold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
                                             <div className="flex items-center space-x-2">
-                                                <Filter size={16} className="text-slate-500" />
+                                                <Filter size={16} className="text-slate-500 dark:text-slate-400" />
                                                 <span>Filtres de contingut</span>
                                                 {selectedCount > 0 && (
                                                     <span className="ml-2 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">{selectedCount}</span>
                                                 )}
                                             </div>
-                                            <ChevronRight size={16} className="transform transition-transform group-open:rotate-90 text-slate-400" />
+                                            <ChevronRight size={16} className="transform transition-transform group-open:rotate-90 text-slate-400 dark:text-slate-500" />
                                         </summary>
 
                                         <div className="p-4 pt-0 space-y-4">
@@ -261,14 +261,14 @@ const ReaderDashboard = () => {
                                             <div className="flex items-center gap-3">
                                                 <button
                                                     onClick={() => setShowUnreadOnly(true)}
-                                                    className={`btn flex-1 flex items-center justify-center space-x-2 ${showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                                    className={`btn flex-1 flex items-center justify-center space-x-2 ${showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
                                                 >
                                                     <BookOpen size={16} />
                                                     <span>Pendents</span>
                                                 </button>
                                                 <button
                                                     onClick={() => setShowUnreadOnly(false)}
-                                                    className={`btn flex-1 flex items-center justify-center space-x-2 ${!showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                                    className={`btn flex-1 flex items-center justify-center space-x-2 ${!showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
                                                 >
                                                     <History size={16} />
                                                     <span>Històric</span>
@@ -277,19 +277,19 @@ const ReaderDashboard = () => {
 
                                             {/* Source search box */}
                                             <div className="relative">
-                                                <Search size={14} className="absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 pointer-events-none" />
+                                                <Search size={14} className="absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 dark:text-slate-500 pointer-events-none" />
                                                 <input
                                                     type="text"
                                                     value={sourceSearch}
                                                     onChange={(e) => setSourceSearch(e.target.value)}
                                                     placeholder="Cerca fonts per nom o categoria..."
-                                                    className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                    className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-500/20"
                                                 />
                                                 {sourceSearch && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setSourceSearch('')}
-                                                        className="absolute top-1/2 -translate-y-1/2 right-2 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                                        className="absolute top-1/2 -translate-y-1/2 right-2 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                                                         aria-label="Netejar cerca"
                                                         title="Netejar cerca"
                                                     >
@@ -299,23 +299,23 @@ const ReaderDashboard = () => {
                                             </div>
 
                                             {/* Bulk actions row */}
-                                            <div className="flex items-center justify-between text-xs text-slate-500">
+                                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                                                 <span>
                                                     {visibleSources.length} de {sources.length} font(s)
-                                                    {selectedCount > 0 && <> · <span className="font-semibold text-indigo-600">{selectedCount} seleccionada(es)</span></>}
+                                                    {selectedCount > 0 && <> · <span className="font-semibold text-indigo-600 dark:text-indigo-400">{selectedCount} seleccionada(es)</span></>}
                                                 </span>
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => selectAllVisibleSources(visibleSources)}
                                                         disabled={visibleSources.length === 0}
-                                                        className="px-2 py-1 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        className="px-2 py-1 rounded text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                                                     >
                                                         Selecciona{q ? ' (visibles)' : ' totes'}
                                                     </button>
                                                     <button
                                                         onClick={clearSourceSelection}
                                                         disabled={selectedCount === 0}
-                                                        className="px-2 py-1 rounded text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        className="px-2 py-1 rounded text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                                     >
                                                         Neteja
                                                     </button>
@@ -326,7 +326,7 @@ const ReaderDashboard = () => {
                                             <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto pr-1">
                                                 <button
                                                     onClick={clearSourceSelection}
-                                                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedCount === 0 ? 'bg-slate-800 text-white border-slate-800 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedCount === 0 ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-800 dark:border-slate-100 shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'}`}
                                                 >
                                                     Tots els mitjans
                                                 </button>
@@ -336,7 +336,7 @@ const ReaderDashboard = () => {
                                                         <button
                                                             key={source.id}
                                                             onClick={() => toggleSourceSelection(source.id)}
-                                                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${active ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${active ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'}`}
                                                             title={source.url}
                                                         >
                                                             {source.name}
@@ -344,7 +344,7 @@ const ReaderDashboard = () => {
                                                     );
                                                 })}
                                                 {q && visibleSources.length === 0 && (
-                                                    <span className="text-xs text-slate-400 italic px-3 py-1.5">Cap font coincideix amb «{sourceSearch}»</span>
+                                                    <span className="text-xs text-slate-400 dark:text-slate-500 italic px-3 py-1.5">Cap font coincideix amb «{sourceSearch}»</span>
                                                 )}
                                             </div>
                                         </div>
@@ -356,40 +356,40 @@ const ReaderDashboard = () => {
                         {/* List of articles */}
                         <div className="px-4 space-y-2 pb-12">
                             {loading && articles.length === 0 ? (
-                                <div className="flex justify-center p-8 text-slate-400">Carregant articles...</div>
+                                <div className="flex justify-center p-8 text-slate-400 dark:text-slate-500">Carregant articles...</div>
                             ) : articles.length === 0 ? (
                                 <div className="text-center py-12 px-4">
-                                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
-                                        <CheckCircle size={28} className="text-slate-400" />
+                                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
+                                        <CheckCircle size={28} className="text-slate-400 dark:text-slate-500" />
                                     </div>
-                                    <p className="text-slate-600 font-medium">No tens articles pendents</p>
-                                    <p className="text-slate-400 text-sm mt-1">Estàs al dia de l'actualitat.</p>
+                                    <p className="text-slate-600 dark:text-slate-300 font-medium">No tens articles pendents</p>
+                                    <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Estàs al dia de l'actualitat.</p>
                                 </div>
                             ) : (
                                 articles.map((article) => (
                                     <div
                                         key={article.id}
                                         onClick={() => setSelectedArticle(article)}
-                                        className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border-l-4 ${selectedArticle?.id === article.id ? 'bg-indigo-50/50 border-indigo-500 shadow-sm' : 'hover:bg-slate-50 border-transparent hover:border-slate-300 bg-white border border-slate-100'}`}
+                                        className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border-l-4 ${selectedArticle?.id === article.id ? 'bg-indigo-50/50 dark:bg-indigo-500/10 border-indigo-500 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800'}`}
                                     >
                                         <div className="flex justify-between items-start mb-2">
-                                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+                                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
                                                 {new Date(article.published_at).toLocaleDateString('ca-ES')}
                                             </span>
                                             {article.source_name && (
-                                                <span className="text-xs font-medium text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md truncate max-w-[160px]">
+                                                <span className="text-xs font-medium text-indigo-500 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15 px-2 py-1 rounded-md truncate max-w-[160px]">
                                                     {article.source_name}
                                                 </span>
                                             )}
                                             <button
                                                 onClick={(e) => markAsRead(article.id, e)}
-                                                className="text-slate-300 hover:text-green-500 transition-colors p-1"
+                                                className="text-slate-300 dark:text-slate-600 hover:text-green-500 dark:hover:text-green-400 transition-colors p-1"
                                                 title="Marcar com a llegit"
                                             >
                                                 <CheckCircle size={18} />
                                             </button>
                                         </div>
-                                        <h3 className={`font-semibold text-slate-800 leading-snug line-clamp-3 ${selectedArticle?.id === article.id ? 'text-indigo-900' : ''}`}>
+                                        <h3 className={`font-semibold leading-snug line-clamp-3 ${selectedArticle?.id === article.id ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-800 dark:text-slate-100'}`}>
                                             {article.title}
                                         </h3>
                                     </div>
@@ -405,37 +405,37 @@ const ReaderDashboard = () => {
                         <div className="max-w-3xl mx-auto py-12 px-6 md:px-12 relative animate-fade-in-up">
                             <button
                                 onClick={() => setSelectedArticle(null)}
-                                className="md:hidden mb-6 flex items-center space-x-2 text-slate-500 hover:text-slate-800 transition-colors"
+                                className="md:hidden mb-6 flex items-center space-x-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
                             >
                                 <ArrowLeft size={20} />
                                 <span>Tornar a la llista</span>
                             </button>
                             <div className="mb-10">
-                                <span className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium text-sm mb-4">
+                                <span className="inline-block px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium text-sm mb-4">
                                     {new Date(selectedArticle.published_at).toLocaleString('ca-ES')}
                                 </span>
-                                <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 leading-tight mb-6">
+                                <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 dark:text-slate-100 leading-tight mb-6">
                                     {selectedArticle.title}
                                 </h1>
                                 <div className="flex items-center gap-4">
                                     <button
                                         onClick={() => markAsRead(selectedArticle.id)}
-                                        className="flex items-center space-x-2 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-full transition-colors"
+                                        className="flex items-center space-x-2 text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 px-4 py-2 rounded-full transition-colors"
                                     >
                                         <CheckCircle size={16} />
                                         <span>Llegit & Arxiva</span>
                                     </button>
-                                    <a href={selectedArticle.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+                                    <a href={selectedArticle.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
                                         Veure font original &rarr;
                                     </a>
                                 </div>
                             </div>
 
-                            <div className="prose prose-lg prose-slate max-w-none 
-                  prose-headings:font-bold prose-headings:text-slate-800 
-                  prose-p:text-slate-700 prose-p:leading-relaxed prose-p:mb-6
-                  prose-a:text-indigo-600 prose-a:font-medium prose-a:underline-offset-2 hover:prose-a:text-indigo-800
-                  prose-strong:font-bold prose-strong:text-slate-900
+                            <div className="prose prose-lg prose-slate dark:prose-invert max-w-none
+                  prose-headings:font-bold prose-headings:text-slate-800 dark:prose-headings:text-slate-100
+                  prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-p:leading-relaxed prose-p:mb-6
+                  prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-a:font-medium prose-a:underline-offset-2 hover:prose-a:text-indigo-800 dark:hover:prose-a:text-indigo-300
+                  prose-strong:font-bold prose-strong:text-slate-900 dark:prose-strong:text-slate-100
                   prose-img:rounded-lg prose-img:max-w-full"
                             >
                                 {selectedArticle.content && selectedArticle.content.includes('<') ? (
@@ -444,12 +444,20 @@ const ReaderDashboard = () => {
                                     // dangerouslySetInnerHTML al document principal —que
                                     // executaria scripts incrustats— el renderitzem dins
                                     // un iframe sandbox sense `allow-scripts`.
-                                    <iframe
-                                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>body{font-family:Inter,system-ui,sans-serif;color:#1e293b;line-height:1.7;padding:0;margin:0;}img{max-width:100%;height:auto;border-radius:8px}a{color:#4f46e5}</style></head><body>${selectedArticle.content}</body></html>`}
-                                        sandbox="allow-same-origin allow-popups"
-                                        title="article-content"
-                                        style={{ width: '100%', minHeight: '600px', border: 'none' }}
-                                    />
+                                    (() => {
+                                        const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+                                        const fg = isDark ? '#e2e8f0' : '#1e293b';
+                                        const bg = isDark ? '#0a0a0a' : 'transparent';
+                                        const linkColor = isDark ? '#818cf8' : '#4f46e5';
+                                        return (
+                                            <iframe
+                                                srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>body{font-family:Inter,system-ui,sans-serif;color:${fg};background:${bg};line-height:1.7;padding:0;margin:0;}img{max-width:100%;height:auto;border-radius:8px}a{color:${linkColor}}</style></head><body>${selectedArticle.content}</body></html>`}
+                                                sandbox="allow-same-origin allow-popups"
+                                                title="article-content"
+                                                style={{ width: '100%', minHeight: '600px', border: 'none' }}
+                                            />
+                                        );
+                                    })()
                                 ) : (
                                     selectedArticle.content?.split('\n').map((paragraph, idx) => (
                                         <p key={idx}>{paragraph}</p>
@@ -458,11 +466,11 @@ const ReaderDashboard = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                            <div className="w-24 h-24 mb-6 rounded-3xl bg-slate-100 flex items-center justify-center rotate-3 shadow-inner">
-                                <span className="text-4xl text-slate-300">📖</span>
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                            <div className="w-24 h-24 mb-6 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center rotate-3 shadow-inner">
+                                <span className="text-4xl text-slate-300 dark:text-slate-600">📖</span>
                             </div>
-                            <p className="text-xl font-medium text-slate-500">Selecciona un article per llegir</p>
+                            <p className="text-xl font-medium text-slate-500 dark:text-slate-400">Selecciona un article per llegir</p>
                             <p className="text-sm mt-2 opacity-75">O bé tria escoltar el podcast diari d'avui.</p>
                         </div>
                     )}
