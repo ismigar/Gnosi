@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
 
 from backend.data.db import get_db
 from backend.models import reader as models
+import logging
 import os
 import xml.etree.ElementTree as ET
 from fastapi.responses import FileResponse
 from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR, generate_daily_podcast
 from backend.services.workspace_service import get_workspace_context, require_role
-from fastapi import Depends
+
+log = logging.getLogger(__name__)
+ALLOWED_SSL_MODES = ("starttls", "ssl", "none")
 
 # Taules i models ara es gestionen automàticament per cada vault a db.py
 router = APIRouter(prefix="/api/reader", tags=["reader"], dependencies=[Depends(get_workspace_context)])
@@ -89,31 +92,47 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
 
 # -- Newsletter POP3 account --
 
-def _get_or_create_account(db: Session) -> models.NewsletterAccount:
-    """Single-row table: get the first row, or create one with defaults from env vars."""
-    acc = db.query(models.NewsletterAccount).first()
-    if acc is None:
-        acc = models.NewsletterAccount(
-            mail_server=os.environ.get("NEWSLETTERS_MAIL_SERVER", ""),
-            mail_port=int(os.environ.get("NEWSLETTERS_MAIL_PORT", "110") or 110),
-            mail_ssl=os.environ.get("NEWSLETTERS_MAIL_SSL", "starttls").lower(),
-            email=os.environ.get("NEWSLETTERS_EMAIL", ""),
-            password=os.environ.get("NEWSLETTERS_PASSWORD", ""),
-            delete_after_ingest=os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "true").lower() in ("true", "1", "yes"),
-        )
-        db.add(acc)
-        db.commit()
-        db.refresh(acc)
+def _env_default_account_dict() -> dict:
+    """Default values from env vars when no DB row exists yet."""
+    return {
+        "mail_server": os.environ.get("NEWSLETTERS_MAIL_SERVER", ""),
+        "mail_port": int(os.environ.get("NEWSLETTERS_MAIL_PORT", "110") or 110),
+        "mail_ssl": os.environ.get("NEWSLETTERS_MAIL_SSL", "starttls").lower(),
+        "email": os.environ.get("NEWSLETTERS_EMAIL", ""),
+        "password": os.environ.get("NEWSLETTERS_PASSWORD", ""),
+        "delete_after_ingest": os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "true").lower() in ("true", "1", "yes"),
+    }
+
+
+def _create_account_with_env_defaults(db: Session) -> models.NewsletterAccount:
+    """Persist a new NewsletterAccount row using env-var defaults. Caller commits."""
+    defaults = _env_default_account_dict()
+    acc = models.NewsletterAccount(**defaults)
+    db.add(acc)
+    db.commit()
+    db.refresh(acc)
     return acc
 
 
-def _account_to_response(acc: models.NewsletterAccount) -> models.NewsletterAccountResponse:
+def _account_to_response(acc: Optional[models.NewsletterAccount]) -> models.NewsletterAccountResponse:
+    """Render a sanitized response. If no row exists, fall back to env defaults."""
+    if acc is None:
+        d = _env_default_account_dict()
+        return models.NewsletterAccountResponse(
+            mail_server=d["mail_server"] or "",
+            mail_port=d["mail_port"] or 110,
+            mail_ssl=d["mail_ssl"] or "starttls",
+            email=d["email"] or "",
+            delete_after_ingest=bool(d["delete_after_ingest"]),
+            password_set=bool(d["password"]),
+            updated_at=None,
+        )
     return models.NewsletterAccountResponse(
         mail_server=acc.mail_server or "",
         mail_port=acc.mail_port or 110,
         mail_ssl=acc.mail_ssl or "starttls",
         email=acc.email or "",
-        delete_after_ingest=bool(acc.delete_after_ingest),
+        delete_after_ingest=acc.delete_after_ingest if acc.delete_after_ingest is not None else _env_default_account_dict()["delete_after_ingest"],
         password_set=bool(acc.password),
         updated_at=acc.updated_at,
     )
@@ -121,23 +140,31 @@ def _account_to_response(acc: models.NewsletterAccount) -> models.NewsletterAcco
 
 @router.get("/newsletter-account", response_model=models.NewsletterAccountResponse)
 def get_newsletter_account(db: Session = Depends(get_db)):
-    """Read POP3 newsletter account config (password is never returned)."""
-    acc = _get_or_create_account(db)
+    """
+    Read POP3 newsletter account config. Side-effect-free: if no row exists,
+    returns env-var defaults without persisting anything. Password is never
+    returned (only the boolean `password_set`).
+    """
+    acc = db.query(models.NewsletterAccount).first()
     return _account_to_response(acc)
 
 
 @router.put("/newsletter-account", response_model=models.NewsletterAccountResponse, dependencies=[Depends(require_role("editor"))])
 def update_newsletter_account(payload: models.NewsletterAccountUpdate, db: Session = Depends(get_db)):
     """Update POP3 newsletter account. Only fields provided are updated; password optional."""
-    acc = _get_or_create_account(db)
+    # PUT is the path that may persist a new row if none exists yet.
+    acc = db.query(models.NewsletterAccount).first()
+    if acc is None:
+        acc = _create_account_with_env_defaults(db)
+
     if payload.mail_server is not None:
         acc.mail_server = payload.mail_server.strip()
     if payload.mail_port is not None:
         acc.mail_port = int(payload.mail_port)
     if payload.mail_ssl is not None:
         ssl = (payload.mail_ssl or "starttls").lower()
-        if ssl not in ("starttls", "ssl", "none"):
-            raise HTTPException(status_code=400, detail="mail_ssl must be 'starttls', 'ssl', or 'none'")
+        if ssl not in ALLOWED_SSL_MODES:
+            raise HTTPException(status_code=400, detail=f"mail_ssl must be one of {ALLOWED_SSL_MODES}")
         acc.mail_ssl = ssl
     if payload.email is not None:
         acc.email = payload.email.strip()
@@ -156,17 +183,20 @@ def update_newsletter_account(payload: models.NewsletterAccountUpdate, db: Sessi
 def test_newsletter_account(payload: Optional[models.NewsletterAccountUpdate] = None, db: Session = Depends(get_db)):
     """Try to log in to the POP3 server and report number of messages waiting.
 
-    If a payload is provided, those values override the stored ones (useful for
-    testing credentials before saving). Empty/None fields fall back to DB values.
+    Side-effect-free: never persists anything. If a payload is provided, those
+    values override the stored ones (useful for testing credentials before
+    saving). Empty/None fields fall back to DB values, then to env defaults.
     """
     from backend.services.mail_ingester import test_connection
-    acc = _get_or_create_account(db)
 
-    server = acc.mail_server
-    port = int(acc.mail_port or 110)
-    ssl_mode = acc.mail_ssl or "starttls"
-    email_account = acc.email
-    password = acc.password
+    # Start from DB row (or env defaults) without creating a row.
+    acc = db.query(models.NewsletterAccount).first()
+    defaults = _env_default_account_dict()
+    server = (acc.mail_server if acc else None) or defaults["mail_server"]
+    port = int((acc.mail_port if acc else None) or defaults["mail_port"])
+    ssl_mode = (acc.mail_ssl if acc else None) or defaults["mail_ssl"]
+    email_account = (acc.email if acc else None) or defaults["email"]
+    password = (acc.password if acc else None) or defaults["password"]
 
     if payload:
         if payload.mail_server is not None and payload.mail_server.strip():
@@ -174,7 +204,10 @@ def test_newsletter_account(payload: Optional[models.NewsletterAccountUpdate] = 
         if payload.mail_port is not None:
             port = int(payload.mail_port)
         if payload.mail_ssl is not None and payload.mail_ssl.strip():
-            ssl_mode = payload.mail_ssl.strip().lower()
+            ssl_candidate = payload.mail_ssl.strip().lower()
+            if ssl_candidate not in ALLOWED_SSL_MODES:
+                raise HTTPException(status_code=400, detail=f"mail_ssl must be one of {ALLOWED_SSL_MODES}")
+            ssl_mode = ssl_candidate
         if payload.email is not None and payload.email.strip():
             email_account = payload.email.strip()
         if payload.password is not None and payload.password != "":
@@ -193,18 +226,30 @@ def test_newsletter_account(payload: Optional[models.NewsletterAccountUpdate] = 
         )
         return {"ok": True, "messages": n, "message": f"Connexió OK. {n} missatge(s) a la bústia."}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Connexió fallida: {e}")
+        # Log the raw error server-side; return a stable, non-leaky message to the UI.
+        log.warning("POP3 test_connection failed for %s@%s:%s: %s", email_account, server, port, e)
+        raise HTTPException(status_code=400, detail="Connexió POP3 fallida. Comprova servidor, port, encriptació i credencials.")
 
 
-@router.post("/newsletter-account/sync", dependencies=[Depends(require_role("editor"))])
-def sync_newsletter_account():
-    """Trigger a one-shot ingestion run."""
+def _run_newsletter_sync_safe() -> None:
+    """Background task wrapper that swallows exceptions (logs them)."""
     from backend.services.mail_ingester import fetch_and_store_newsletters
     try:
         count = fetch_and_store_newsletters()
-        return {"ok": True, "new_articles": int(count or 0), "message": f"Sincronització OK. {count or 0} article(s) nou(s)."}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Sincronització fallida: {e}")
+        log.info("Newsletter sync finished: %s new article(s)", count or 0)
+    except Exception:
+        log.exception("Newsletter sync failed")
+
+
+@router.post("/newsletter-account/sync", dependencies=[Depends(require_role("editor"))])
+def sync_newsletter_account(background_tasks: BackgroundTasks):
+    """
+    Schedule a newsletter ingestion run. Returns immediately (202 Accepted-ish);
+    the actual POP3 fetch happens in the background to avoid blocking the
+    request when the mailbox has many messages or POP3 is slow.
+    """
+    background_tasks.add_task(_run_newsletter_sync_safe)
+    return {"ok": True, "message": "Sincronització iniciada en segon pla."}
 
 
 # -- Articles --

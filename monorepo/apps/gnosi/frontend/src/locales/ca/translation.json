@@ -1153,6 +1153,8 @@
   "subs_news_field_email": "Compte de correu",
   "subs_news_field_email_placeholder": "newsletters@exemple.org",
   "subs_news_field_password": "Contrasenya",
+  "subs_news_password_show": "Mostrar contrasenya",
+  "subs_news_password_hide": "Amagar contrasenya",
   "subs_news_field_delete": "Esborrar correus del servidor després de baixar-los",
   "subs_news_btn_test": "Provar connexió",
   "subs_news_btn_test_loading": "Provant...",
