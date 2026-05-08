@@ -279,8 +279,10 @@ const ReaderDashboard = () => {
                                                 />
                                                 {sourceSearch && (
                                                     <button
+                                                        type="button"
                                                         onClick={() => setSourceSearch('')}
                                                         className="absolute top-1/2 -translate-y-1/2 right-2 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                                        aria-label="Netejar cerca"
                                                         title="Netejar cerca"
                                                     >
                                                         <X size={14} />
