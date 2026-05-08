@@ -258,7 +258,7 @@ def fetch_and_store_newsletters():
                     content = '\n'.join(f'<p>{p.strip()}</p>' for p in paragraphs if p.strip())
 
                 # Unique identifier
-                message_id = msg.get('Message-ID', '').strip('<>')
+                message_id = sanitize_filename_component(msg.get('Message-ID', ''))
                 if not message_id:
                     # Fallback: use subject + date hash
                     import hashlib

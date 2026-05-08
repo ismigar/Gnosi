@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Privacy Policy — Gnosi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1.2rem; line-height: 1.55; color: #222; }
+h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
+h2 { font-size: 1.15rem; margin-top: 1.6rem; }
+small { color: #777; }
+ul { padding-left: 1.4rem; }
+.box { background: #f5f5f7; padding: 1rem 1.2rem; border-radius: 8px; margin: 1rem 0; }
+a { color: #0066ff; }
+</style>
+</head>
+<body>
+
+<h1>Gnosi Privacy Policy</h1>
+<small>Last updated: May 7, 2026</small>
+
+<div class="box">
+<strong>Summary:</strong> Gnosi is a personal application for private use. All data is processed locally on the user's device. No data is transmitted to or stored on third-party servers other than the user's own (Google APIs, mail accounts, etc.) for authentication and access to their own data.
+</div>
+
+<h2>Who we are</h2>
+<p>Gnosi is a personal project maintained by Ismael Garcia Fernandez (<a href="mailto:ismigar@gmail.com">ismigar@gmail.com</a>). It is not a commercial service. It has no monetization.</p>
+
+<h2>What data Gnosi uses</h2>
+<p>With the user's explicit OAuth2 authorization, Gnosi may access the following data from the user's Google accounts:</p>
+<ul>
+  <li><strong>Gmail</strong> (scope <code>https://mail.google.com/</code>): to read, send, and organize the user's mail via IMAP+SMTP+XOAUTH2.</li>
+  <li><strong>Calendar</strong> (scope <code>calendar</code>): to read and synchronize calendar events.</li>
+  <li><strong>Contacts</strong> (scope <code>contacts</code>): to read contacts and enrich references in messages and events.</li>
+  <li><strong>OpenID + email</strong>: to identify the connected account.</li>
+</ul>
+
+<h2>Where data is stored</h2>
+<p>All data obtained via OAuth2 is stored <strong>exclusively on the user's local device</strong> (filesystem, local Vault). Gnosi never sends, shares, sells, or stores data on third-party servers, nor does it perform aggregate behavioral analysis.</p>
+<p>OAuth2 tokens (access_token and refresh_token) are stored in the <code>integrations.json</code> file protected by the user's filesystem permissions.</p>
+
+<h2>How to delete your data</h2>
+<p>The user can revoke access at any time from <a href="https://myaccount.google.com/permissions">Google Account permissions</a>. The user can also delete the local Vault files and configuration.</p>
+
+<h2>Cookies and tracking</h2>
+<p>Gnosi does not use tracking cookies, analytics, or third-party services beyond the APIs explicitly authorized by the user.</p>
+
+<h2>Changes to this policy</h2>
+<p>If the policy changes, the updated version will appear at this same URL with the new date. The latest version is always authoritative.</p>
+
+<h2>Contact</h2>
+<p>For any privacy-related questions or requests, please email <a href="mailto:ismigar@gmail.com">ismigar@gmail.com</a>.</p>
+
+<hr>
+<p><a href="/">Back to home</a></p>
+
+</body>
+</html>
