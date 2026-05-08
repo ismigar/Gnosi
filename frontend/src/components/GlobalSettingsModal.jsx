@@ -941,8 +941,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
         if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
         newsletterAccountSaveTimerRef.current = setTimeout(() => {
-            lastSavedNewsletterAccountRef.current = current;
-            saveNewsletterAccount();
+            Promise.resolve(saveNewsletterAccount())
+                .then(() => {
+                    lastSavedNewsletterAccountRef.current = current;
+                })
+                .catch(() => {
+                    // Keep the previous baseline so autosave can retry unchanged data.
+                });
         }, 800);
 
         return () => {
