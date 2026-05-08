@@ -12,6 +12,7 @@ from typing import Optional
 
 from backend.services.google_mail_service import get_gmail_service
 from backend.services.integration_manager import integration_manager
+from backend.utils.safe_io import sanitize_filename_component
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,11 @@ _IMAP_LOCKS: dict[str, threading.Lock] = {}
 _IMAP_META = threading.Lock()   # protegeix _IMAP_POOL i _IMAP_LOCKS
 
 _IMAP_TIMEOUT = 20  # segons
+
+# Últim motiu d'error d'autenticació per email. S'omple a `_imap_connect_fresh`
+# i el llegeixen els endpoints (list/get/counts) per retornar un missatge
+# explicatiu si el compte cau per OAuth (vs network/host).
+_LAST_AUTH_ERROR: dict[str, str] = {}
 
 
 def _imap_pool_acquire(acc: dict) -> Optional[imaplib.IMAP4]:
@@ -146,8 +152,9 @@ def _ts(date_str: str) -> int:
 def _get_imap_account(email: str) -> Optional[dict]:
     """Returns the account dict if *email* should be accessed via IMAP.
 
-    Covers: manual (any IMAP), Outlook (injects default host/port), and any
-    account with an explicit imap_host that is not Google OAuth2.
+    Covers: manual (any IMAP), Outlook (injects default host/port), and
+    Google OAuth2 (injects imap.gmail.com/smtp.gmail.com i autentica per
+    XOAUTH2 al connectar). Per Google cal `refresh_token` desat al compte.
     """
     acc = integration_manager.get_mail_account(email)
     if not integration_manager.is_imap_account(acc):
@@ -158,9 +165,11 @@ def _get_imap_account(email: str) -> Optional[dict]:
 def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
     host = acc.get("imap_host")
     port = int(acc.get("imap_port") or 993)
-    user = acc.get("imap_user") or acc.get("imap_username")
-    pwd  = acc.get("imap_password")
+    user = acc.get("imap_user") or acc.get("imap_username") or acc.get("email")
     enc  = acc.get("imap_encryption", "ssl").lower()
+    if not host or not user:
+        log.error(f"[IMAP] Manquen host o user per a {acc.get('email')}")
+        return None
     try:
         if enc == "ssl":
             imap = imaplib.IMAP4_SSL(host, port, timeout=_IMAP_TIMEOUT)
@@ -168,7 +177,47 @@ def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
             imap = imaplib.IMAP4(host, port, timeout=_IMAP_TIMEOUT)
             if enc == "starttls":
                 imap.starttls()
-        imap.login(user, pwd)
+
+        if integration_manager.is_imap_oauth_account(acc):
+            from backend.services.oauth2_helpers import (
+                ensure_fresh_token, xoauth2_imap_login, OAuth2RefreshError,
+            )
+            email = acc.get("email")
+            try:
+                access_token, _ = ensure_fresh_token(email)
+            except OAuth2RefreshError as e:
+                log.error(f"[IMAP-XOAUTH2] Refresh_token caducat per {email}")
+                _LAST_AUTH_ERROR[email] = str(e)
+                try:
+                    imap.logout()
+                except Exception:
+                    pass
+                return None
+            if not access_token:
+                msg = (
+                    f"No s'ha pogut obtenir access_token OAuth2 per a {email}. "
+                    f"Comprova les credencials a Configuració."
+                )
+                log.error(f"[IMAP-XOAUTH2] {msg}")
+                _LAST_AUTH_ERROR[email] = msg
+                try:
+                    imap.logout()
+                except Exception:
+                    pass
+                return None
+            xoauth2_imap_login(imap, email, access_token)
+            _LAST_AUTH_ERROR.pop(email, None)
+            log.debug(f"[IMAP-XOAUTH2] Login OK per {email}@{host}")
+        else:
+            pwd = acc.get("imap_password")
+            if not pwd:
+                log.error(f"[IMAP] No password per {user}@{host}")
+                try:
+                    imap.logout()
+                except Exception:
+                    pass
+                return None
+            imap.login(user, pwd)
         return imap
     except Exception as e:
         log.error(f"[IMAP] Connexió fallida per {user}@{host}: {e}")
@@ -494,6 +543,9 @@ def imap_list_messages(
 
     imap = _imap_pool_acquire(acc)
     if not imap:
+        auth_err = _LAST_AUTH_ERROR.get(email)
+        if auth_err:
+            return {"messages": [], "total": 0, "error": auth_err}
         return {"messages": [], "total": 0}
 
     try:
@@ -528,7 +580,11 @@ def imap_list_messages(
             return {"messages": [], "total": total}
 
         uid_str = b",".join(selected).decode()
-        status, fetch_data = imap.uid("fetch", uid_str, "(FLAGS RFC822.HEADER)")
+        # Si el servidor és Gmail (X-GM-EXT-1), demanem X-GM-THRID per al
+        # threading transparent. Altres IMAPs ignorarien l'argument.
+        is_gmail = integration_manager.is_imap_oauth_account(acc)
+        fetch_args = "(FLAGS X-GM-THRID RFC822.HEADER)" if is_gmail else "(FLAGS RFC822.HEADER)"
+        status, fetch_data = imap.uid("fetch", uid_str, fetch_args)
         if status != "OK":
             return {"messages": [], "total": total}
 
@@ -543,6 +599,8 @@ def imap_list_messages(
                 continue
             flags_m = re.search(r'FLAGS \(([^)]*)\)', info, re.IGNORECASE)
             flags = (flags_m.group(1) if flags_m else "").lower()
+            thrid_m = re.search(r"X-GM-THRID (\d+)", info)
+            gm_thrid = thrid_m.group(1) if thrid_m else None
 
             msg = email_lib.message_from_bytes(part[1])
             subject = _decode_mime(msg.get("Subject", "(sense assumpte)"))
@@ -550,10 +608,13 @@ def imap_list_messages(
             to      = _decode_mime(msg.get("To", ""))
             cc      = _decode_mime(msg.get("Cc", ""))
             date_str = msg.get("Date", "")
+            message_id_hdr = sanitize_filename_component(msg.get("Message-ID", ""))
 
             messages.append({
                 "id":             f"imap_{uid}",
                 "imap_uid":       uid,
+                "thread_id":      gm_thrid or message_id_hdr or f"imap_{uid}",
+                "gm_thrid":       gm_thrid,
                 "subject":        subject,
                 "sender":         sender,
                 "recipient":      to,
@@ -601,18 +662,24 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[di
         if status != "OK":
             return None
 
-        status, data = imap.uid("fetch", uid, "(FLAGS BODY[])")
+        is_gmail = integration_manager.is_imap_oauth_account(acc)
+        fetch_args = "(FLAGS X-GM-THRID BODY[])" if is_gmail else "(FLAGS BODY[])"
+        status, data = imap.uid("fetch", uid, fetch_args)
         if status != "OK" or not data:
             return None
 
         raw_bytes = None
         flags = ""
+        gm_thrid = None
         for part in data:
             if isinstance(part, tuple):
                 info = part[0].decode("utf-8", errors="replace")
                 flags_m = re.search(r'FLAGS \(([^)]*)\)', info, re.IGNORECASE)
                 if flags_m:
                     flags = flags_m.group(1).lower()
+                thrid_m = re.search(r"X-GM-THRID (\d+)", info)
+                if thrid_m:
+                    gm_thrid = thrid_m.group(1)
                 raw_bytes = part[1]
                 break
 
@@ -676,9 +743,12 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[di
                 else:
                     body_text = payload.decode(charset, errors="replace")
 
+        message_id_hdr = sanitize_filename_component(msg.get("Message-ID", ""))
         return {
             "id":              f"imap_{uid}",
             "imap_uid":        uid,
+            "thread_id":       gm_thrid or message_id_hdr or f"imap_{uid}",
+            "gm_thrid":        gm_thrid,
             "subject":         subject,
             "sender":          sender,
             "recipient":       to,

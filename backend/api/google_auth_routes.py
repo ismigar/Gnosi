@@ -53,6 +53,56 @@ async def status():
         "client_id": get_env("GOOGLE_OAUTH_CLIENT_ID") if config else None
     }
 
+
+@router.get("/health")
+async def health():
+    """Diagnòstic OAuth2 per al UI: estat de la configuració, comptes connectats
+    i heurístiques sobre si l'app és en mode Testing o Production.
+
+    Heurística per a "testing":
+      - Si tenim algun compte amb `last_token_refresh_failure` recent (<14 dies)
+        i la causa va ser `invalid_grant`, és probable que estigui en Testing.
+      - Si tots els comptes amb refresh_token tenen tokens recents (<7 dies),
+        l'app pot ser en Production.
+      - Si no hi ha dades suficients, retornem `unknown`.
+    """
+    from backend.services.integration_manager import integration_manager
+    config = get_google_config()
+    accounts = integration_manager.get_all_mail_accounts()
+    google_accs = [a for a in accounts if integration_manager.is_google_account(a)]
+
+    has_refresh = sum(1 for a in google_accs if a.get("refresh_token"))
+    recently_failed = sum(
+        1 for a in google_accs
+        if a.get("last_refresh_error") and "invalid_grant" in str(a.get("last_refresh_error", ""))
+    )
+
+    if recently_failed:
+        app_status = "testing-likely"
+        hint = (
+            "Algun compte ha rebut invalid_grant recentment, símptoma típic "
+            "del mode Testing (refresh_token caducat als 7 dies). "
+            "Considera publicar l'app: vegeu docs/dev_memory/directives/publish_google_app.md."
+        )
+    elif has_refresh and not recently_failed:
+        app_status = "healthy"
+        hint = "Tots els comptes Google tenen refresh_token vàlid."
+    else:
+        app_status = "unknown"
+        hint = "Cap compte Google connectat o falten dades per inferir l'estat."
+
+    return {
+        "configured": config is not None,
+        "client_id_present": bool(get_env("GOOGLE_OAUTH_CLIENT_ID")),
+        "scopes": SCOPES,
+        "google_accounts_total": len(google_accs),
+        "google_accounts_with_refresh_token": has_refresh,
+        "google_accounts_recently_failed": recently_failed,
+        "app_status": app_status,
+        "hint": hint,
+        "publish_guide": "/docs/dev_memory/directives/publish_google_app.md",
+    }
+
 @router.get("/login")
 async def login(type: str = None):
     config = get_google_config()
@@ -127,7 +177,9 @@ async def callback(request: Request):
         email = user_info.get("email")
         log.info(f"Google OAuth successful for email: {email}")
         
-        # Format to be recognized by the frontend in general lists of emails and calendars
+        # Format to be recognized by the frontend in general lists of emails and calendars.
+        # Camps IMAP/SMTP injectats perquè el mail va via IMAP+XOAUTH2 (no Gmail API).
+        import time as _time
         account_data = {
             "id": f"google_{email}",
             "email": email,
@@ -141,7 +193,19 @@ async def callback(request: Request):
             "client_secret": credentials.client_secret,
             "token_uri": credentials.token_uri,
             "token_status": "connected",
-            "refresh_token_status": "connected"
+            "refresh_token_status": "connected",
+            # Marca el moment del callback com a últim refresh exitós perquè
+            # `ensure_fresh_token` sàpiga quan tornar a refrescar.
+            "last_refresh_success_at": int(_time.time()),
+            "imap_host": "imap.gmail.com",
+            "imap_port": 993,
+            "imap_encryption": "ssl",
+            "imap_user": email,
+            "smtp_host": "smtp.gmail.com",
+            "smtp_port": 465,
+            "smtp_encryption": "ssl",
+            "smtp_user": email,
+            "mail_transport": "imap-xoauth2",
         }
         
         # We save it as a calendar and email integration if applicable

@@ -388,6 +388,13 @@ def kickoff_index_warmup(v_path: Path) -> None:
                     v_str, state="ready", finished_at=time.time(),
                     files_indexed=n,
                 )
+                # Disparem el link-index rebuild ABANS del force_refresh.
+                # Si el deixéssim al final, un rescan lent d'OneDrive (que pot
+                # trigar minuts amb 4000 fitxers) bloquejaria la construcció
+                # de l'índex de wikilinks i la reescriptura automàtica al
+                # rename no s'aplicaria fins després. kickoff_link_index_rebuild
+                # ja allotja la seva pròpia thread, no bloqueja aquest fluxe.
+                kickoff_link_index_rebuild()
                 # Schedule a refresh in the background so the cache stays
                 # warm against external changes — non-blocking.
                 try:
@@ -397,7 +404,6 @@ def kickoff_index_warmup(v_path: Path) -> None:
                     _set_indexer_status(v_str, files_indexed=n)
                 except Exception as e:
                     log.warning(f"Background index refresh failed: {e}")
-                kickoff_link_index_rebuild()
                 return
             # 2. No cache — full scan
             _get_cached_page_entries(force_refresh=True)
@@ -2702,7 +2708,34 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
     if dashboard_direct_path and dashboard_direct_path.exists():
         return dashboard_direct_path
 
-    # 4. Full scan (cache fred o buit — costós però correcte). Canonical
+    # 4. Title-based lookup (resilient fallback). Si el `page_id` no és un
+    # UUID però coincideix amb el títol d'una pàgina indexada, retornem
+    # aquella. Cobreix el cas de wikilinks amb títol literal (`[[Foo]]`) que
+    # arriben aquí sense ser resolts pel frontend (idToTitle stale o pendent
+    # de refrescar després d'un move). Sense aquesta passada, els wikilinks
+    # per títol fallen amb 404 silenciosament. Cost: scan linear sobre dict
+    # in-memory (~3000 entries) → barat.
+    title_lower = str(page_id or "").strip().lower()
+    is_uuid_like = bool(
+        title_lower and re.fullmatch(
+            r"[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}",
+            title_lower,
+        )
+    )
+    if title_lower and not is_uuid_like:
+        with _page_index_lock:
+            entries = _page_index_entries.get(v_str, {})
+            for p_str, entry in list(entries.items()):
+                entry_title = str(entry.get("title") or "").strip().lower()
+                if entry_title and entry_title == title_lower:
+                    p = Path(p_str)
+                    if p.exists():
+                        entry_id = entry.get("id")
+                        if entry_id:
+                            _page_id_to_path.setdefault(v_str, {})[entry_id] = p_str
+                        return p
+
+    # 5. Full scan (cache fred o buit — costós però correcte). Canonical
     # compare so dash/no-dash and case differences don't cause false negatives.
     # Skipped when the caller knows the page can't exist yet (PUT to a fresh
     # id) — saves a multi-second OneDrive rglob.
@@ -2852,6 +2885,38 @@ def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
         excerpt = cut.rstrip(".,;:") + "…"
 
     return excerpt
+
+
+@router.get("/resolve-by-title")
+async def resolve_by_title(title: str):
+    """Resol un títol literal a UUID consultant el _page_index_entries.
+
+    Cas d'ús: el frontend ha rebut un wikilink `[[Foo]]` però el seu
+    `idToTitle` està buit o desactualitzat (just després d'una mutació de
+    parent_id, una neteja de cache, o navegació directa per URL). En lloc
+    de fer GET /pages/<title> i deixar al backend el match (que ara té
+    fallback per títol gràcies a `find_page_path`), el frontend pot
+    consultar aquí i obtenir l'UUID directament — ràpid i sense sorolls.
+    """
+    title_lower = str(title or "").strip().lower()
+    if not title_lower:
+        raise HTTPException(status_code=400, detail="title is required")
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        raise HTTPException(status_code=503, detail="No active vault")
+    v_str = str(v_path)
+    with _page_index_lock:
+        entries = _page_index_entries.get(v_str, {})
+        for entry in list(entries.values()):
+            entry_title = str(entry.get("title") or "").strip().lower()
+            if entry_title and entry_title == title_lower:
+                return {
+                    "id": entry.get("id"),
+                    "title": entry.get("title"),
+                    "folder": entry.get("folder"),
+                }
+    return {"id": None, "title": None, "folder": None}
 
 
 @router.get("/pages/{page_id}/preview")
@@ -3038,6 +3103,10 @@ async def save_page(
         except Exception:
             return {}
     old_metadata = await asyncio.to_thread(_read_old_meta)
+    # Capturem el títol previ per detectar canvis al final i reescriure
+    # els wikilinks `[[Old Title]]` → `[[New Title]]`. PUT pot rebre tant
+    # `request.title` com `metadata.title` (consolidats en `metadata`).
+    previous_title = str(old_metadata.get("title") or "").strip() if old_metadata else ""
 
     # Aplicar automatitzacions i fòrmules
     try:
@@ -3079,6 +3148,17 @@ async def save_page(
             pass
 
         background_tasks.add_task(update_link_index_for_page, file_path)
+
+        # Si el títol ha canviat, reescriu els wikilinks per títol literal a
+        # les pàgines que referencien aquesta. Veure rewrite_wikilinks_on_title_change.
+        new_title = str(metadata.get("title") or request.title or "").strip()
+        if previous_title and new_title and previous_title != new_title:
+            background_tasks.add_task(
+                rewrite_wikilinks_on_title_change,
+                page_id,
+                previous_title,
+                new_title,
+            )
 
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
@@ -3147,6 +3227,12 @@ async def patch_page(
 
     try:
         metadata, body = await asyncio.to_thread(_read_file)
+
+        # Capturem el títol previ ABANS de mutar `metadata`. Si canvia, al
+        # final del PATCH llançarem un background task que reescriu els
+        # wikilinks `[[Old Title]]` → `[[New Title]]` a totes les pàgines
+        # que la referencien.
+        previous_title = str(metadata.get("title") or "").strip()
 
         if request.title is not None:
             metadata["title"] = request.title
@@ -3234,6 +3320,18 @@ async def patch_page(
             log.debug(f"Cache invalidation after PATCH failed: {e}")
 
         background_tasks.add_task(update_link_index_for_page, file_path)
+
+        # Si el títol ha canviat, reescriu els wikilinks per títol literal
+        # a les pàgines que referencien aquesta. update_link_index_for_page
+        # del background task anterior actualitzarà les fonts modificades.
+        new_title = str(metadata.get("title") or "").strip()
+        if previous_title and new_title and previous_title != new_title:
+            background_tasks.add_task(
+                rewrite_wikilinks_on_title_change,
+                page_id,
+                previous_title,
+                new_title,
+            )
 
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", content
@@ -3527,15 +3625,28 @@ async def get_asset(asset_path: str):
 # --- Media Manager (ARXIU AVANÇAT) ---
 
 @router.get("/media")
-async def get_all_media(album: Optional[str] = Query(None)):
+async def get_all_media(
+    album: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
     """Llista tots els mitjans, opcionalment filtrats per àlbum."""
-    return media_service.get_all_media(album)
+    return media_service.get_all_media(album, limit=limit, offset=offset)
 
 
 @router.get("/media/albums")
 async def get_albums():
-    """Retorna la llista d'àlbums (carpetes)."""
+    """Retorna la llista d'àlbums de primer nivell. Compat: el front nou
+    fa servir /media/tree per a la navegació jeràrquica."""
     return media_service.get_albums()
+
+
+@router.get("/media/tree")
+async def get_media_tree(path: Optional[str] = Query(None)):
+    """Retorna les subcarpetes immediates de `Images/path` (lazy). Cada node
+    inclou `has_children` perquè la UI dibuixi el chevron sense haver de
+    carregar tot l'arbre (l'arxiu té ~33k directoris)."""
+    return media_service.get_tree_node(path)
 
 
 @router.post("/media/upload", dependencies=[Depends(require_role("editor"))])
@@ -3562,63 +3673,193 @@ async def update_media_metadata(
     return {"status": "ok"}
 
 
+# Limita el nombre de lectures concurrents a OneDrive: bind-mounts grpcfuse al
+# Docker Desktop poden retornar Errno 35 (Resource deadlock avoided) sota
+# pressió. Amb HTTP/1.1 el navegador ja en limita ~6 per host, però amb fitxers
+# diferents (cada un materialitzat separadament a OneDrive) cal serialitzar més.
+_VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
+
+# Daemon al host que materialitza fitxers OneDrive online-only; necessari
+# perquè el File Provider no rep el trigger a través del bind-mount Docker.
+# Vegeu sh/onedrive_warmup_daemon.py.
+_WARMUP_URL = os.environ.get(
+    "ONEDRIVE_WARMUP_URL",
+    "http://host.docker.internal:5009/warmup",
+)
+_WARMUP_TIMEOUT_S = float(os.environ.get("ONEDRIVE_WARMUP_TIMEOUT", "100"))
+# Serialitzem warmups: OneDrive baixa més de pressa quan no rep peticions
+# concurrents, i així evitem que un sol client (50 thumbs alhora) sature el
+# daemon. Combinat amb una cache curta per evitar duplicats consecutius.
+_WARMUP_SEMAPHORE = asyncio.Semaphore(2)
+_WARMUP_INFLIGHT: Dict[str, asyncio.Future] = {}
+
+
+async def _warmup_onedrive_file(container_path: Path) -> bool:
+    """Demana al daemon del host que materialitzi `container_path`.
+    Retorna True si el fitxer està disponible localment després de la crida.
+    """
+    vault_host_path = os.environ.get("VAULT_HOST_PATH")
+    if not vault_host_path:
+        log.debug("VAULT_HOST_PATH no configurat: warmup desactivat")
+        return False
+    try:
+        rel = container_path.relative_to(Path("/vault"))
+    except ValueError:
+        log.debug("Path fora de /vault, no es pot warmup: %s", container_path)
+        return False
+    host_path = str(Path(vault_host_path) / rel)
+
+    # Coalesce: si dues peticions volen el mateix fitxer alhora, només
+    # materialitzem una vegada.
+    inflight = _WARMUP_INFLIGHT.get(host_path)
+    if inflight is not None:
+        try:
+            return await inflight
+        except Exception:
+            return False
+
+    fut: asyncio.Future = asyncio.get_event_loop().create_future()
+    _WARMUP_INFLIGHT[host_path] = fut
+    try:
+        async with _WARMUP_SEMAPHORE:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=_WARMUP_TIMEOUT_S) as cli:
+                    r = await cli.get(_WARMUP_URL, params={"path": host_path})
+                body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+                ok = r.status_code == 200 and body.get("status") == "materialized"
+                if ok:
+                    log.info(
+                        "☁️→💾 Materialitzat OneDrive %s (blocks=%s, %.1fs)",
+                        rel, body.get("blocks"), body.get("elapsed", 0),
+                    )
+                else:
+                    log.warning(
+                        "☁️ Warmup ha fallat per %s: HTTP %s %s",
+                        rel, r.status_code, body,
+                    )
+                fut.set_result(ok)
+                return ok
+            except Exception as e:
+                log.warning("☁️ Warmup ha llançat excepció per %s: %r", rel, e)
+                fut.set_result(False)
+                return False
+    finally:
+        _WARMUP_INFLIGHT.pop(host_path, None)
+
+
+_NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
+
+
+def _image_error(status: int, detail: str) -> HTTPException:
+    """Retorna HTTPException amb headers `no-store` per evitar que el navegador
+    persistisi errors transitoris (warmup en curs, timeouts) i deixi de
+    redemanar la imatge. Sense això, els 410/503 quedaven al disk cache de
+    Chrome i les fotos apareixien com 'No descarregat' indefinidament.
+    """
+    return HTTPException(status_code=status, detail=detail, headers=_NO_STORE_HEADERS)
+
+
 @router.get("/images/{image_path:path}")
 async def serve_vault_image(image_path: str):
     """Serveix imatges directament des de VAULT/Images."""
     v_path = get_p("VAULT")
     if not v_path:
-        raise HTTPException(status_code=500, detail="Vault not configured")
-        
+        raise _image_error(500, "Vault not configured")
+
     img_root = (v_path / "Images").resolve()
-    
+
     # Decodificar el path per si ve amb caràcters escapats extra
-    from starlette.concurrency import run_in_threadpool
-    from backend.services.path_resolver import path_resolver
     from urllib.parse import unquote
     decoded_path = unquote(image_path)
-    
+
     requested = (img_root / decoded_path).resolve()
-    
+
     # Validació de seguretat robusta
     try:
         # is_relative_to està disponible a Python 3.9+
         if not requested.is_relative_to(img_root):
             log.warning(f"⛔ Intent d'accés fora del root de media: {requested} (root: {img_root})")
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise _image_error(403, "Access denied")
     except (ValueError, AttributeError):
         # Fallback per a versions anteriors o errors de resolució
         if not str(requested).startswith(str(img_root)):
             log.warning(f"⛔ Fallback startswith: Accés denegat per a {requested}")
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise _image_error(403, "Access denied")
 
     if not requested.exists() or not requested.is_file():
         log.error(f"❌ Imatge no trobada al disc: {requested}")
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise _image_error(404, "Image not found")
 
-    # Detecció de fitxers placeholder de OneDrive (mida 0 bytes)
+    # Detecció de fitxers OneDrive online-only: mida lògica > 0 però st_blocks == 0
+    # → no estan materialitzats al disc local. Llegir-los via bind-mount Docker
+    # provoca Errno 35 (Resource deadlock avoided). No té sentit fer retry: cal
+    # que l'usuari els marqui "Always keep on this device" a OneDrive.
     try:
-        size_zero = requested.stat().st_size == 0
+        st = requested.stat()
     except OSError as e:
-        log.error(f"Error comprovant mida del fitxer: {e}")
-        size_zero = False
-    if size_zero:
-        log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
-        raise HTTPException(status_code=404, detail="Image is an empty placeholder (OneDrive)")
+        log.warning(f"stat() ha fallat per {requested}: {e}")
+        raise _image_error(503, "Image temporarily unavailable")
 
-    media_type, _ = mimetypes.guess_type(str(requested))
-    if not media_type:
-        # Fallback segons extensió
-        ext = requested.suffix.lower()
-        media_type = {
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-            ".webp": "image/webp",
-            ".gif": "image/gif",
-            ".svg": "image/svg+xml"
-        }.get(ext, "application/octet-stream")
-        
-    return FileResponse(path=str(requested), media_type=media_type)
+    if st.st_size == 0:
+        log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
+        raise _image_error(404, "Image is an empty placeholder (OneDrive)")
+
+    if getattr(st, "st_blocks", 1) == 0:
+        # Online-only: demanem al daemon del host que dispari la baixada via
+        # File Provider. Si funciona, refrequem el stat i continuem.
+        if await _warmup_onedrive_file(requested):
+            try:
+                st = requested.stat()
+            except OSError as e:
+                log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
+                raise _image_error(503, "Image temporarily unavailable")
+        if getattr(st, "st_blocks", 1) == 0:
+            log.warning(f"☁️ Fitxer OneDrive online-only encara no descarregat: {requested}")
+            raise _image_error(503, "Image temporarily unavailable; OneDrive warmup pending")
+
+    async with _VAULT_IMAGE_SEMAPHORE:
+        # Warm-up: open(1 byte) per estabilitzar la lectura abans del
+        # FileResponse. Reintents per Errno 35 (Resource deadlock avoided) amb
+        # backoff exponencial. Patró usat a _read_frontmatter_partial.
+        last_error: Optional[OSError] = None
+        for attempt in range(5):
+            try:
+                with open(requested, "rb") as f:
+                    f.read(1)
+                last_error = None
+                break
+            except OSError as e:
+                last_error = e
+                if e.errno == 35 and attempt < 4:
+                    await asyncio.sleep(0.2 * (2 ** attempt))
+                    continue
+                break
+
+        if last_error is not None:
+            log.warning(f"☁️ Lectura fallida després de retries per {requested}: {last_error}")
+            raise _image_error(503, "Image temporarily unavailable")
+
+        media_type, _ = mimetypes.guess_type(str(requested))
+        if not media_type:
+            ext = requested.suffix.lower()
+            media_type = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+                ".gif": "image/gif",
+                ".svg": "image/svg+xml"
+            }.get(ext, "application/octet-stream")
+
+        # Cache curt al navegador per a fitxers servits OK; els errors mai es
+        # caché-en (vegeu _image_error) per evitar que un fitxer cloud-only
+        # quedi marcat com 'No descarregat' permanentment.
+        return FileResponse(
+            path=str(requested),
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=300"},
+        )
 
 
 @router.get("/custom-icons")
@@ -4453,6 +4694,115 @@ def remove_from_link_index(page_id: str) -> None:
         _page_meta_by_id.pop(pid, None)
         _rebuild_backlinks_invertion_locked()
     _schedule_link_index_persist()
+
+
+def rewrite_wikilinks_on_title_change(
+    target_id: str, old_title: str, new_title: str
+) -> int:
+    """Reescriu els wikilinks per títol literal quan el target canvia de títol.
+
+    Patrons modificats (match case-insensitive del títol, preservant àlies i secció):
+      - `[[Old Title]]`               → `[[New Title]]`
+      - `[[Old Title|alias]]`         → `[[New Title|alias]]`
+      - `[[Old Title#Section]]`       → `[[New Title#Section]]`
+      - `[[Old Title#Section|alias]]` → `[[New Title#Section|alias]]`
+
+    No toca wikilinks per UUID (`[[uuid|...]]`) ni transclusions (`![[...]]`)
+    perquè continuen funcionant sense canvis. Només reescriu fitxers que
+    referencien el target via _backlinks_by_target / _backlinks_by_target_title.
+
+    Retorna el nombre de fitxers efectivament modificats. Crida segura per
+    invocar des d'un BackgroundTask: si l'índex no està construït o no hi ha
+    backlinks, retorna 0 sense fer res.
+    """
+    old_clean = str(old_title or "").strip()
+    new_clean = str(new_title or "").strip()
+    if not old_clean or not new_clean or old_clean == new_clean:
+        return 0
+    if not _link_index_built:
+        return 0
+    tid = str(target_id or "").strip()
+    if not tid:
+        return 0
+
+    # Recopilar candidats: pàgines que referencien per id resolt o per
+    # títol antic literal. Deduplicate per source id.
+    with _link_index_lock:
+        by_id = list(_backlinks_by_target.get(tid, []))
+        by_title = list(_backlinks_by_target_title.get(old_clean.lower(), []))
+        page_meta_snapshot = dict(_page_meta_by_id)
+
+    seen: set = set()
+    candidates: List[Dict[str, str]] = []
+    for src in by_id + by_title:
+        sid = (src.get("id") or "").strip()
+        if not sid or sid == tid or sid in seen:
+            continue
+        seen.add(sid)
+        candidates.append(src)
+
+    if not candidates:
+        return 0
+
+    # Pattern: [[ TitolAntic (#section)? (|alias)? ]]
+    # Important: el match del cos exclou `|` i `[` i `]` per no creuar
+    # límits de wikilinks; i exclou `#` per separar la secció (capturada
+    # com a grup independent).
+    escaped = re.escape(old_clean)
+    pattern = re.compile(
+        r"(?P<open>!?\[\[)\s*"
+        + escaped
+        + r"\s*(?P<section>#[^\]\|]+)?(?P<alias>\|[^\]]+)?(?P<close>\]\])",
+        re.IGNORECASE,
+    )
+
+    def _replace(m: re.Match) -> str:
+        section = m.group("section") or ""
+        alias = m.group("alias") or ""
+        return f"{m.group('open')}{new_clean}{section}{alias}{m.group('close')}"
+
+    modified_count = 0
+    for source in candidates:
+        sid = source.get("id")
+        if not sid:
+            continue
+        meta = page_meta_snapshot.get(sid) or {}
+        path_str = meta.get("path") or source.get("path")
+        if not path_str:
+            continue
+        path = Path(path_str)
+        if not path.exists():
+            continue
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except Exception as e:
+            log.warning(f"🔁 rewrite skip {path.name}: {e}")
+            continue
+        new_raw, n_subs = pattern.subn(_replace, raw)
+        if n_subs == 0 or new_raw == raw:
+            continue
+        try:
+            safe_write_text(path, new_raw)
+            modified_count += 1
+            # Actualitza l'índex per aquesta source perquè els outlinks/tokens
+            # reflecteixin el text nou. update_link_index_for_page és segur
+            # de cridar dins el mateix lock RLock (és re-entrant).
+            update_link_index_for_page(path)
+            log.debug(
+                f"🔁 rewrote {n_subs} wikilink(s) in {path.name}: "
+                f"'{old_clean}' → '{new_clean}'"
+            )
+        except Exception as e:
+            log.warning(f"🔁 rewrite write fail {path.name}: {e}")
+            continue
+
+    if modified_count > 0:
+        log.info(
+            f"🔁 Rewrote wikilinks: '{old_clean}' → '{new_clean}' "
+            f"on {modified_count}/{len(candidates)} source pages"
+        )
+
+    return modified_count
 
 
 @router.get("/global-index")

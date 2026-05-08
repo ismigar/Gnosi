@@ -245,6 +245,46 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         fetchMessages();
     }, [account, accounts, folder, category]);
 
+    // ── Push notifications via Server-Sent Events (IMAP IDLE) ────────────────
+    // Mantenim una `fetchMessages` ref perquè l'EventSource es creï un cop
+    // i pugui cridar sempre la versió més recent del fetch.
+    const fetchRef = useRef(fetchMessages);
+    useEffect(() => { fetchRef.current = fetchMessages; });
+
+    useEffect(() => {
+        // Si només mostrem un compte concret, filtrem per email perquè
+        // events d'altres comptes no facin reload innecessari.
+        const url = account?.email
+            ? `/api/mail/events?email=${encodeURIComponent(account.email)}`
+            : `/api/mail/events`;
+
+        let es;
+        try {
+            es = new EventSource(url);
+        } catch {
+            return;
+        }
+
+        const onNew = () => {
+            // Invalida cache i refà fetch silenciós (stale-while-revalidate).
+            const emails = account?.email
+                ? [account.email]
+                : enabledAccounts.map(a => a.email || a.username).filter(Boolean);
+            const cacheKey = `${emails.join(',')}|${folder || ''}|${category || ''}`;
+            delete msgCacheRef.current[cacheKey];
+            fetchRef.current?.(true);
+        };
+
+        es.addEventListener('new_message', onNew);
+        es.addEventListener('message_removed', onNew);
+        es.addEventListener('flags_changed', onNew);
+        es.onerror = () => { /* el navegador re-intenta automàticament */ };
+
+        return () => {
+            try { es.close(); } catch { /* no-op */ }
+        };
+    }, [account, enabledAccounts, folder, category]);
+
     // Fetch tags for visible messages after load
     useEffect(() => {
         if (!messages.length) return;

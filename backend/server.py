@@ -85,13 +85,24 @@ async def lifespan(app: FastAPI):
     #    cloud-mounted storage. The endpoint /api/vault/indexer-status lets
     #    the UI poll progress.
     try:
-        from backend.api.vault_routes import kickoff_index_warmup
+        from backend.api.vault_routes import (
+            kickoff_index_warmup,
+            kickoff_link_index_rebuild,
+        )
         from backend.config.app_config import load_params
         cfg = load_params(strict_env=False)
         v_path = cfg.paths.get("VAULT")
         if v_path:
             kickoff_index_warmup(v_path)
             log.info(f"🔥 Indexer warmup launched in background for {v_path}")
+            # Trigger redundant del link-index rebuild: si l'indexer warmup
+            # triga (OneDrive lent fent rglob), l'índex de wikilinks arrenca
+            # igualment des d'aquí. kickoff_link_index_rebuild fa load-from-disk
+            # primer (mil·lisegons) i després rebuild en background — així la
+            # reescriptura automàtica de wikilinks al rename queda activa des
+            # del primer instant.
+            kickoff_link_index_rebuild()
+            log.info("🔗 Link-index rebuild kickstarted at lifespan startup")
     except Exception as e:
         log.warning(f"⚠️ Could not launch indexer warmup: {e}")
 
@@ -123,10 +134,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning(f"⚠️ Could not run main-view repair pass: {e}")
 
+    # 6. IMAP IDLE workers per push real (notificacions de mail nou).
+    #    Cada compte IMAP-eligible (inclou Google via XOAUTH2) llança un
+    #    thread daemon que manté una connexió IDLE oberta a INBOX. Els
+    #    events EXISTS/EXPUNGE/FETCH es publiquen a clients SSE
+    #    (/api/mail/events).
+    try:
+        from backend.services.imap_idle_service import idle_manager
+        idle_manager.start_all()
+        log.info("📬 IMAP IDLE workers started.")
+    except Exception as e:
+        log.warning(f"⚠️ Could not start IMAP IDLE workers: {e}")
+
     yield
 
     # SHUTDOWN
     log.info("🛑 Shutting down...")
+    try:
+        from backend.services.imap_idle_service import idle_manager
+        idle_manager.stop_all()
+    except Exception:
+        pass
     if hasattr(app.state, "mcp_client"):
         await app.state.mcp_client.stop()
         log.info("✅ MCP Client stopped.")

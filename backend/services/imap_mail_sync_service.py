@@ -9,7 +9,9 @@ Vault metadata added per message:
 """
 import imaplib
 import email
+import email.utils
 import hashlib
+import re
 import socket
 import time
 import yaml
@@ -20,7 +22,7 @@ from pathlib import Path
 from typing import Optional, Union, List, Tuple, Dict, Set
 from backend.config.app_config import load_params
 from backend.services.integration_manager import integration_manager
-from backend.utils.safe_io import safe_write_text
+from backend.utils.safe_io import safe_write_text, sanitize_filename_component
 
 log = logging.getLogger(__name__)
 
@@ -191,37 +193,68 @@ class ImapMailSyncService:
 
     @contextmanager
     def _connect(self, email_account: str):
-        """Context manager: yields authenticated IMAP connection."""
+        """Context manager: yields authenticated IMAP connection.
+
+        Suporta dos modes d'autenticació:
+        - Password (LOGIN) per comptes manuals/IMAP convencionals.
+        - SASL XOAUTH2 per comptes Google OAuth2 (i, en futur, Microsoft).
+
+        L'`integration_manager.resolve_imap_defaults` injecta hosts per
+        defecte (imap.gmail.com per Google) si no estan configurats.
+        """
         account_data = self._get_account_data(email_account)
         if not account_data:
             log.warning(f"[IMAP] Compte no trobat: {email_account}")
             yield None
             return
 
+        # Resol els defaults (Google → imap.gmail.com, etc.) abans de validar.
+        account_data = integration_manager.resolve_imap_defaults(account_data)
+        is_oauth = integration_manager.is_imap_oauth_account(account_data)
+
         imap_host = account_data.get("imap_host")
         imap_port = int(account_data.get("imap_port") or 993)
-        imap_user = account_data.get("imap_user") or account_data.get("imap_username")
+        imap_user = account_data.get("imap_user") or account_data.get("imap_username") or email_account
         imap_password = account_data.get("imap_password")
 
-        if not all([imap_host, imap_user, imap_password]):
-            missing = [k for k, v in {"imap_host": imap_host, "imap_user": imap_user, "imap_password": imap_password}.items() if not v]
-            log.error(f"[IMAP] Credencials incompletes per a {email_account}. Falten: {missing}")
+        if not imap_host or not imap_user:
+            log.error(f"[IMAP] Manquen host/user per a {email_account}")
+            yield None
+            return
+
+        if not is_oauth and not imap_password:
+            log.error(f"[IMAP] No password per a {email_account} (no-OAuth)")
             yield None
             return
 
         encryption = account_data.get("imap_encryption", "ssl").lower()
         imap = None
         try:
-            # imaplib accepta timeout=N als constructors (Python 3.9+). Abans
-            # fèiem `socket.setdefaulttimeout(30)` que canviava el timeout
-            # GLOBAL del procés (afectant graph fetches, calendar APIs, etc).
             if encryption == "ssl":
                 imap = imaplib.IMAP4_SSL(imap_host, imap_port, timeout=30)
             else:
                 imap = imaplib.IMAP4(imap_host, imap_port, timeout=30)
                 if encryption == "starttls":
                     imap.starttls()
-            imap.login(imap_user, imap_password)
+
+            if is_oauth:
+                from backend.services.oauth2_helpers import (
+                    ensure_fresh_token, xoauth2_imap_login, OAuth2RefreshError,
+                )
+                try:
+                    access_token, _ = ensure_fresh_token(email_account)
+                except OAuth2RefreshError:
+                    log.error(f"[IMAP-XOAUTH2] Refresh_token caducat per {email_account}")
+                    yield None
+                    return
+                if not access_token:
+                    log.error(f"[IMAP-XOAUTH2] Sense access_token per {email_account}")
+                    yield None
+                    return
+                xoauth2_imap_login(imap, email_account, access_token)
+                log.debug(f"[IMAP-XOAUTH2] Login OK per {email_account}")
+            else:
+                imap.login(imap_user, imap_password)
             yield imap
         except imaplib.IMAP4.error as e:
             log.error(f"[IMAP] Error d'autenticació per a {email_account} ({imap_host}:{imap_port}): {e}")
@@ -458,7 +491,9 @@ class ImapMailSyncService:
             msg = email.message_from_bytes(raw_email)
 
             raw_subject = msg.get("Subject", "")
-            message_id = msg.get("Message-ID", "").strip("<>")
+            # `.strip("<>")` no aplana headers folded amb `\r\n` davant del
+            # `<`; usem sanitize que també treu reserved chars de Windows.
+            message_id = sanitize_filename_component(msg.get("Message-ID", ""))
             if not message_id:
                 date_val = msg.get("Date", "")
                 message_id = hashlib.md5(f"{raw_subject}{date_val}".encode()).hexdigest()
@@ -917,6 +952,209 @@ class ImapMailSyncService:
                 log.error(f"[IMAP] Error buidant carpeta {folder_name}: {e}")
                 return False
 
+    # ------------------------------------------------------------------
+    # DRAFTS — APPEND a [Gmail]/Drafts (o equivalent IMAP)
+    # ------------------------------------------------------------------
+
+    def append_draft(
+        self,
+        email_account: str,
+        to: str,
+        subject: str,
+        body: str,
+        cc: str = "",
+        bcc: str = "",
+        replace_uid: Optional[str] = None,
+    ) -> Optional[str]:
+        """APPEND un missatge amb flag \\Draft a la carpeta de Drafts del compte.
+
+        Si `replace_uid` està definit, intenta esborrar la versió antiga
+        (auto-save: l'usuari escriu i cada N segons s'actualitza el draft).
+
+        Retorna l'UID del draft persistit al servidor, o None si ha fallat.
+        """
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        import time
+
+        with self._connect(email_account) as imap:
+            if imap is None:
+                return None
+
+            drafts_folder = self._find_server_folder(imap, "Draft")
+            if not drafts_folder:
+                log.warning(f"[IMAP] No s'ha trobat carpeta Drafts per a {email_account}")
+                return None
+
+            content_type = "html" if body.strip().startswith("<") else "plain"
+            msg = MIMEMultipart("alternative") if content_type == "html" else MIMEText(body, content_type, "utf-8")
+            if isinstance(msg, MIMEMultipart):
+                msg.attach(MIMEText(body, "html", "utf-8"))
+            msg["From"] = email_account
+            msg["To"] = to or ""
+            msg["Subject"] = subject or ""
+            if cc:
+                msg["Cc"] = cc
+            if bcc:
+                msg["Bcc"] = bcc
+            msg["Date"] = email.utils.formatdate(localtime=True)
+
+            raw_bytes = msg.as_bytes()
+
+            try:
+                # Esborra la versió anterior abans d'afegir la nova (auto-save)
+                if replace_uid:
+                    try:
+                        imap.select(_imap_name(drafts_folder))
+                        uid_b = replace_uid.encode() if isinstance(replace_uid, str) else replace_uid
+                        imap.uid("store", uid_b, "+FLAGS", "\\Deleted")
+                        imap.expunge()
+                    except Exception as e:
+                        log.debug(f"[IMAP] No s'ha pogut esborrar draft antic UID={replace_uid}: {e}")
+
+                # APPEND amb flag \Draft. RFC 3501 secció 6.3.11.
+                date_time = imaplib.Time2Internaldate(time.time())
+                status, data = imap.append(
+                    _imap_name(drafts_folder),
+                    "(\\Draft)",
+                    date_time,
+                    raw_bytes,
+                )
+                if status != "OK":
+                    log.error(f"[IMAP] APPEND draft fallit: {status} {data}")
+                    return None
+
+                # Recuperem l'UID assignat. Gmail/IMAP reporten APPENDUID si el
+                # servidor suporta UIDPLUS (RFC 4315). Fallback: cercar pel
+                # Message-ID que acabem de generar.
+                new_uid = None
+                if data and isinstance(data[0], bytes):
+                    txt = data[0].decode("utf-8", errors="replace")
+                    m = re.search(r"\[APPENDUID\s+\d+\s+(\d+)\]", txt)
+                    if m:
+                        new_uid = m.group(1)
+
+                if not new_uid:
+                    # Fallback: cerca per Date + Subject més recent
+                    try:
+                        imap.select(_imap_name(drafts_folder))
+                        st, d = imap.uid("search", None, "ALL")
+                        if st == "OK" and d and d[0]:
+                            uids = d[0].split()
+                            if uids:
+                                new_uid = uids[-1].decode() if isinstance(uids[-1], bytes) else str(uids[-1])
+                    except Exception:
+                        pass
+
+                log.info(f"[IMAP] Draft afegit a {drafts_folder} per {email_account} (UID={new_uid})")
+                return new_uid
+            except Exception as e:
+                log.error(f"[IMAP] Error fent APPEND a {drafts_folder}: {e}")
+                return None
+
+    # ------------------------------------------------------------------
+    # THREADING — Gmail X-GM-THRID via IMAP
+    # ------------------------------------------------------------------
+
+    def fetch_thread_by_gm_thrid(self, email_account: str, gm_thrid: str) -> list[dict]:
+        """Retorna tots els missatges d'un thread Gmail (X-GM-THRID) via IMAP.
+
+        Funciona només per a comptes Google (Gmail IMAP suporta X-GM-EXT-1
+        amb capacitats X-GM-MSGID, X-GM-THRID, X-GM-LABELS).
+
+        Cerca a "All Mail" perquè conté els missatges de totes les carpetes
+        d'un mateix thread (INBOX + SENT, p.ex.).
+        """
+        with self._connect(email_account) as imap:
+            if imap is None:
+                return []
+
+            # Verifiquem capacitat X-GM-EXT-1
+            try:
+                _, caps_data = imap.capability()
+                caps = b" ".join(caps_data).decode().upper() if caps_data else ""
+                if "X-GM-EXT-1" not in caps:
+                    log.debug(f"[IMAP] Servidor sense X-GM-EXT-1 per {email_account}")
+                    return []
+            except Exception:
+                return []
+
+            # "[Gmail]/All Mail" conté tots els missatges (INBOX + SENT + arxiu).
+            # El nom localitzat varia: provem el flag \All primer.
+            all_mail = self._find_server_folder(imap, "Archived") or "[Gmail]/All Mail"
+            try:
+                status, _ = imap.select(_imap_name(all_mail), readonly=True)
+                if status != "OK":
+                    log.warning(f"[IMAP] No s'ha pogut seleccionar {all_mail}")
+                    return []
+
+                # Cerca per X-GM-THRID. Format: `X-GM-THRID 1234567890123456789`
+                status, data = imap.uid("search", None, f"X-GM-THRID {gm_thrid}")
+                if status != "OK" or not data or not data[0]:
+                    return []
+
+                uids = data[0].split()
+                if not uids:
+                    return []
+
+                uid_str = b",".join(uids).decode()
+                status, fetch_data = imap.uid(
+                    "fetch", uid_str,
+                    "(FLAGS X-GM-THRID X-GM-LABELS BODY.PEEK[HEADER])",
+                )
+                if status != "OK":
+                    return []
+
+                messages = []
+                for part in fetch_data:
+                    if not isinstance(part, tuple):
+                        continue
+                    info = part[0].decode("utf-8", errors="replace")
+                    uid_m = re.search(r"UID (\d+)", info)
+                    if not uid_m:
+                        continue
+                    uid = uid_m.group(1)
+                    flags_m = re.search(r"FLAGS \(([^)]*)\)", info)
+                    flags = (flags_m.group(1) if flags_m else "").lower()
+
+                    msg_obj = email.message_from_bytes(part[1])
+                    raw_subject = msg_obj.get("Subject", "")
+                    raw_from = msg_obj.get("From", "")
+                    raw_to = msg_obj.get("To", "")
+                    raw_date = msg_obj.get("Date", "")
+
+                    # Decodificar capçaleres MIME
+                    def _dec(v):
+                        return _decode_str(v) if v else ""
+
+                    messages.append({
+                        "id": f"imap_{uid}",
+                        "imap_uid": uid,
+                        "subject": _dec(raw_subject) or "(sense assumpte)",
+                        "sender": _dec(raw_from),
+                        "recipient": _dec(raw_to),
+                        "date": raw_date,
+                        "is_read": "\\seen" in flags,
+                        "is_starred": "\\flagged" in flags,
+                        "imap_folder": all_mail,
+                        "source": "imap",
+                        "account": email_account,
+                        "gm_thrid": gm_thrid,
+                    })
+
+                # Ordre cronològic: APIs de mail solen mostrar més antics primer al thread
+                from email.utils import parsedate_to_datetime
+                def _ts(m):
+                    try:
+                        return parsedate_to_datetime(m.get("date", "")).timestamp()
+                    except Exception:
+                        return 0
+                messages.sort(key=_ts)
+                return messages
+            except Exception as e:
+                log.error(f"[IMAP] Error obtenint thread {gm_thrid} per {email_account}: {e}")
+                return []
+
 
 imap_sync_service = ImapMailSyncService()
 
@@ -932,7 +1170,12 @@ def imap_smtp_send(
     from_email: str = None,
     from_name: str = None,
 ) -> bool:
-    """Send a message via SMTP using an IMAP account's SMTP config."""
+    """Send a message via SMTP using an IMAP account's SMTP config.
+
+    Suporta dos modes d'autenticació:
+    - LOGIN amb password (comptes manuals/IMAP).
+    - SASL XOAUTH2 (comptes Google OAuth2): refresca l'access_token si cal.
+    """
     import smtplib
     import ssl
     from email.mime.text import MIMEText
@@ -940,10 +1183,15 @@ def imap_smtp_send(
     from email.mime.base import MIMEBase
     from email import encoders
     from email.utils import formataddr
+    from backend.services.integration_manager import integration_manager
+
+    # Resol defaults (Google → smtp.gmail.com, etc.)
+    account = integration_manager.resolve_imap_defaults(account)
+    is_oauth = integration_manager.is_imap_oauth_account(account)
 
     smtp_host = account.get("smtp_host", "")
     smtp_port = int(account.get("smtp_port", 465))
-    smtp_user = account.get("smtp_user") or account.get("imap_user", "")
+    smtp_user = account.get("smtp_user") or account.get("imap_user") or account.get("email", "")
     smtp_pass = account.get("smtp_password") or account.get("imap_password", "")
     smtp_enc = (account.get("smtp_encryption") or "ssl").lower()
     sender_email = from_email or account.get("email") or smtp_user
@@ -982,14 +1230,33 @@ def imap_smtp_send(
     if bcc:
         recipients += [a.strip() for a in bcc.split(",")]
 
+    access_token = None
+    if is_oauth:
+        from backend.services.oauth2_helpers import ensure_fresh_token, OAuth2RefreshError
+        try:
+            access_token, _ = ensure_fresh_token(account.get("email"))
+        except OAuth2RefreshError as e:
+            log.error(f"[SMTP-XOAUTH2] {e}")
+            return False
+        if not access_token:
+            log.error(f"[SMTP-XOAUTH2] Sense access_token per {account.get('email')}")
+            return False
+
+    def _authenticate(server):
+        if is_oauth:
+            from backend.services.oauth2_helpers import xoauth2_smtp_login
+            xoauth2_smtp_login(server, account.get("email"), access_token)
+        elif smtp_user and smtp_pass:
+            server.login(smtp_user, smtp_pass)
+
     try:
         ctx = ssl.create_default_context()
         # timeout=30 evita que un servidor SMTP penjat bloquegi el thread
         # de FastAPI fins minuts (l'usuari fa "Send" i no torna res).
         if smtp_enc == "ssl":
             with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=30) as server:
-                if smtp_user and smtp_pass:
-                    server.login(smtp_user, smtp_pass)
+                server.ehlo()
+                _authenticate(server)
                 server.sendmail(sender_email, recipients, msg.as_bytes())
         else:
             with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
@@ -997,10 +1264,9 @@ def imap_smtp_send(
                 if smtp_enc == "starttls":
                     server.starttls(context=ctx)
                     server.ehlo()
-                if smtp_user and smtp_pass:
-                    server.login(smtp_user, smtp_pass)
+                _authenticate(server)
                 server.sendmail(sender_email, recipients, msg.as_bytes())
-        log.info(f"[SMTP] Missatge enviat de {sender_email} a {to}")
+        log.info(f"[SMTP{'-XOAUTH2' if is_oauth else ''}] Missatge enviat de {sender_email} a {to}")
         return True
     except Exception as e:
         log.error(f"[SMTP] Error enviant de {sender_email}: {e}")
