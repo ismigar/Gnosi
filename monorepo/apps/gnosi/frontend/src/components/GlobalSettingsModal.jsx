@@ -595,6 +595,52 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         try { localStorage.setItem('gnosi_mail_sync_errors', JSON.stringify([...syncErrorAccounts])); } catch { /* quota */ }
     }, [syncErrorAccounts]);
 
+    // Quan s'obre la pestanya de Correu, fer un health check passiu cridant
+    // /api/mail/counts per cada compte. Si retorna {} (autenticació o
+    // connexió IMAP fallida), marca el compte com a error; si retorna
+    // dades, treu-lo del Set. Així es corregeix l'estat ERROR persistit
+    // a localStorage de comptes que ja funcionen correctament.
+    useEffect(() => {
+        if (activeTab !== 'mail' || !isOpen) return;
+        const accs = [
+            ...(integrations.mail_accounts || []),
+            ...(integrations.emails || []),
+        ];
+        const seen = new Set();
+        const emails = accs
+            .map(a => a.email || a.username)
+            .filter(e => {
+                if (!e) return false;
+                const k = e.toLowerCase();
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+        if (emails.length === 0) return;
+        let cancelled = false;
+        Promise.all(emails.map(async email => {
+            try {
+                const r = await fetch(`/api/mail/counts?email=${encodeURIComponent(email)}`);
+                if (!r.ok) return { email, ok: false };
+                const data = await r.json();
+                return { email, ok: data && Object.keys(data).length > 0 };
+            } catch {
+                return { email, ok: false };
+            }
+        })).then(results => {
+            if (cancelled) return;
+            setSyncErrorAccounts(prev => {
+                const next = new Set(prev);
+                results.forEach(({ email, ok }) => {
+                    if (ok) next.delete(email);
+                    else next.add(email);
+                });
+                return next;
+            });
+        });
+        return () => { cancelled = true; };
+    }, [activeTab, isOpen, integrations.mail_accounts, integrations.emails]);
+
     // Keyboard support - Escape/Enter to close
     useEffect(() => {
         const handleKeyPress = (e) => {

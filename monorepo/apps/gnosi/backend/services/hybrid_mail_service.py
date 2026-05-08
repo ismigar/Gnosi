@@ -589,10 +589,18 @@ def imap_list_messages(
             return {"messages": [], "total": total}
 
         messages = []
-        for part in fetch_data:
+        for i, part in enumerate(fetch_data):
             if not isinstance(part, tuple):
                 continue
-            info = part[0].decode("utf-8", errors="replace")
+            # Servers like Gmail return FETCH attributes (FLAGS, X-GM-THRID)
+            # after the RFC822.HEADER literal — i.e. in the trailing bytes
+            # element that follows the tuple. Combine head + tail so the
+            # regexes below find them regardless of the server's order.
+            info_head = part[0].decode("utf-8", errors="replace")
+            tail = ""
+            if i + 1 < len(fetch_data) and isinstance(fetch_data[i + 1], (bytes, bytearray)):
+                tail = bytes(fetch_data[i + 1]).decode("utf-8", errors="replace")
+            info = info_head + " " + tail
             uid_m = re.search(r'UID (\d+)', info, re.IGNORECASE)
             uid = uid_m.group(1) if uid_m else None
             if not uid:

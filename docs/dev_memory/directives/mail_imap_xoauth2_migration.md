@@ -146,6 +146,51 @@ Limitació "publicar l'app a Google Cloud":
 - El `thread_id` de cada missatge usa el `gm_thrid` numèric quan està disponible, o el `Message-ID` com a fallback per servidors no-Gmail.
 - `/api/mail/threads/{id}` cerca a "All Mail" amb `X-GM-THRID <thrid>` per agrupar tots els missatges del thread (INBOX + SENT).
 
+## 10.bis Restricció — parsing de la resposta FETCH
+
+Quan es demana `(FLAGS RFC822.HEADER)` o `(FLAGS X-GM-THRID RFC822.HEADER)`, **Gmail (i altres servidors IMAP)** retorna els atributs `FLAGS` **DESPRÉS** del literal `RFC822.HEADER`, és a dir, en l'element `bytes` que segueix la tupla amb el header. Exemple real:
+
+```python
+[
+  (b'13 (UID 94520 RFC822.HEADER {7224}', b'<header_bytes>'),
+  b' FLAGS (\\Seen))',
+  (b'14 (UID 94530 RFC822.HEADER {8406}', b'<header_bytes>'),
+  b' FLAGS (\\Seen))',
+]
+```
+
+- **No fer**: parsejar només `part[0]` quan és `tuple` → causa que la regex `FLAGS \(...\)` mai trobi els flags i tot quedi com `is_read=False` mentre `STATUS UNSEEN` reporta `0` (discrepància entre badge del sidebar i punts blaus de la llista).
+- **Fer**: concatenar `part[0]` + el següent element `bytes` abans d'aplicar les regex de `FLAGS`/`UID`/`X-GM-THRID`. Així es cobreix tant el cas en què els atributs van abans del literal com el cas en què van després.
+- Detectat el 2026-05-08 a `imap_list_messages` (hybrid_mail_service.py): tots els missatges de l'INBOX de Gmail apareixien com a no llegits tot i estar marcats `\Seen` al servidor i correctament a Mail.app.
+
+## 10.ter Restricció — estat ERROR persistit a la modal de Configuració
+
+`syncErrorAccounts` (a `GlobalSettingsModal.jsx`) és un `Set` persistit a `localStorage` (`gnosi_mail_sync_errors`) que només es desmarca quan l'usuari clica el botó de sync i la sync va bé. Si una sync va fallar mai (per exemple, durant la migració XOAUTH2 o un episodi puntual de credencials), el badge **ERROR** queda enganxat indefinidament tot i que el compte ja funcioni.
+
+- **No fer**: confiar només en l'estat persistit a `localStorage` per pintar el badge "Connectat/Error".
+- **Fer**: en obrir la pestanya `mail` de la modal, fer un health check passiu cridant `/api/mail/counts?email=X` per cada compte. Si la resposta té claus (`INBOX`, `SENT`, …), treure'l del Set; si retorna `{}` o falla, afegir-lo. Així el badge reflecteix l'estat real, sense dependre del darrer sync manual.
+- Detectat el 2026-05-08: després de patchar el bug del parsing de `FLAGS` (vegeu §10.bis), els 3 comptes encara apareixien com `ERROR` perquè el Set s'havia enganxat al `localStorage`.
+
+## 10.quater Restricció — invalidació en canvi de credencials
+
+Quan la UI desa noves credencials d'un compte (`POST /api/integrations/bulk` o `PUT /api/integrations/{id}`) **cal invalidar pool, error d'auth i caches** del compte afectat — si no, fins que caduqui `_COUNTS_CACHE` (5 min) o el worker IDLE faci el seu reintent (5 min de backoff), el backend continua intentant connectar amb les credencials antigues.
+
+Implementat a `integrations_routes.py`:
+- `_snapshot_mail_credentials()` agafa una foto dels camps sensibles (`imap_host`, `imap_port`, `imap_user`, `imap_password`, `imap_encryption`, els equivalents SMTP, més `token`, `refresh_token`, `mail_transport`) abans i després de cada escriptura.
+- `_diff_mail_credentials()` retorna els emails amb canvis reals.
+- `_invalidate_imap_state()` fa: `_imap_pool_invalidate(em)` + `_LAST_AUTH_ERROR.pop(em, None)` + `_COUNTS_CACHE.pop(em)` + `_MAIL_CACHE.clear()` + `idle_manager.stop_worker(em); start_worker(em)`.
+- Detall de seguretat: `_merge_dict` ja ignora els values que comencen per `********` (la representació visual del password no s'envia mai com a nova contrasenya), així que un submit del formulari sense modificar el password produeix snapshot abans = després → no invalida res.
+
+## 10.quinquies Persistència — `integrations.json` muntat al host
+
+El `Dockerfile.backend` només munta `./backend:/app/backend` i `gnosi_local_data:/app/data`. Tot `pipeline/` quedava dins la imatge, així que els canvis de la UI (tokens Google refrescats, contrasenyes IMAP/SMTP modificades) **es perdien si es reconstruïa el container**. Detectat el 2026-05-08: el host tenia un fitxer del 23 abril mentre el container tenia versions molt més noves (tokens, hosts IMAP afegits, contrasenyes diferents).
+
+- **Fer**: muntar només el directori `secrets/`, no tot `pipeline/`. Així el codi versionat (`skills/`, `utils/`) segueix vivint dins la imatge i els secrets són persistents al host (gitignored a `apps/gnosi/.gitignore:25`).
+  ```yaml
+  - ./pipeline/private_skills/secrets:/app/pipeline/private_skills/secrets
+  ```
+- **Migració amb estat existent**: abans d'afegir el mount cal **copiar el contingut del container al host** (no a l'inrevés). El host pot tenir versions obsoletes; el container sempre té l'estat real. Fer backup del host (`integrations.json.host-backup-<data>`) abans de sobreescriure.
+
 ## 11. Push (IMAP IDLE)
 
 Arquitectura:
