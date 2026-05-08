@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from '../lib/toast';
 import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Clock, BookOpen, Filter, History, ChevronRight, Search, X } from 'lucide-react';
@@ -28,11 +28,11 @@ const ReaderDashboard = () => {
     useEffect(() => {
         fetchSources();
         checkPodcast();
-    }, []);
+    }, [fetchSources, checkPodcast]);
 
     useEffect(() => {
         fetchArticles();
-    }, [selectedSourceIds, showUnreadOnly]);
+    }, [fetchArticles]);
 
     const toggleSourceSelection = (id) => {
         setSelectedSourceIds(prev => {
@@ -48,16 +48,16 @@ const ReaderDashboard = () => {
         setSelectedSourceIds(new Set(visibleSources.map(s => s.id)));
     };
 
-    const fetchSources = async () => {
+    const fetchSources = useCallback(async () => {
         try {
             const res = await axios.get(`${API_BASE}/reader/sources`);
             setSources(res.data);
         } catch (error) {
             console.error("Error fetching sources:", error);
         }
-    };
+    }, []);
 
-    const fetchArticles = async () => {
+    const fetchArticles = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
@@ -71,9 +71,9 @@ const ReaderDashboard = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedSourceIds, showUnreadOnly]);
 
-    const checkPodcast = async () => {
+    const checkPodcast = useCallback(async () => {
         try {
             const res = await axios.get(`${API_BASE}/reader/podcast/info`);
             if (res.data.exists) {
@@ -88,7 +88,7 @@ const ReaderDashboard = () => {
             // — el podcast info és opcional. Loggeja sense alarmar.
             console.debug('podcast info fetch failed:', error?.message);
         }
-    };
+    }, []);
 
     const markAsRead = async (id, e) => {
         if (e) e.stopPropagation();
