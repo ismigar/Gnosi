@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from '../lib/toast';
-import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Clock, BookOpen, Filter, History, ChevronRight } from 'lucide-react';
+import { Play, RotateCw, CheckCircle, Headphones, ArrowLeft, Loader, Clock, BookOpen, Filter, History, ChevronRight, Search, X } from 'lucide-react';
 import { FeedManagerModal } from '../components/FeedManagerModal';
 import { AppHeader } from '../components/AppHeader';
 
@@ -15,42 +15,65 @@ const ReaderDashboard = () => {
     const [podcastUrl, setPodcastUrl] = useState(null);
     const [podcastInfo, setPodcastInfo] = useState(null);
     const [sources, setSources] = useState([]);
-    const [selectedSourceId, setSelectedSourceId] = useState(null);
+    // Set d'IDs seleccionats. Buit = "Tots els mitjans" (cap filtre).
+    const [selectedSourceIds, setSelectedSourceIds] = useState(() => new Set());
+    const [sourceSearch, setSourceSearch] = useState('');
+    // Estat propi del <details> dels filtres: l'usuari el controla amb el clic
+    // al <summary>. Necessari per evitar que un re-render colapsi el panel
+    // quan l'usuari escriu al cercador o canvia altres camps interns.
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const [showUnreadOnly, setShowUnreadOnly] = useState(true);
     const [feedManagerOpen, setFeedManagerOpen] = useState(false);
 
     useEffect(() => {
         fetchSources();
-        fetchArticles();
         checkPodcast();
-    }, [selectedSourceId, showUnreadOnly]);
+    }, [fetchSources, checkPodcast]);
 
-    const fetchSources = async () => {
+    useEffect(() => {
+        fetchArticles();
+    }, [fetchArticles]);
+
+    const toggleSourceSelection = (id) => {
+        setSelectedSourceIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const clearSourceSelection = () => setSelectedSourceIds(new Set());
+
+    const selectAllVisibleSources = (visibleSources) => {
+        setSelectedSourceIds(new Set(visibleSources.map(s => s.id)));
+    };
+
+    const fetchSources = useCallback(async () => {
         try {
             const res = await axios.get(`${API_BASE}/reader/sources`);
             setSources(res.data);
         } catch (error) {
             console.error("Error fetching sources:", error);
         }
-    };
+    }, []);
 
-    const fetchArticles = async () => {
+    const fetchArticles = useCallback(async () => {
         setLoading(true);
         try {
-            let url = `${API_BASE}/reader/articles?unread_only=${showUnreadOnly}`;
-            if (selectedSourceId) {
-                url += `&source_id=${selectedSourceId}`;
-            }
-            const res = await axios.get(url);
+            const params = new URLSearchParams();
+            params.set('unread_only', String(showUnreadOnly));
+            // Repetim source_id per cada font seleccionada; backend ho interpreta com a OR.
+            for (const id of selectedSourceIds) params.append('source_id', String(id));
+            const res = await axios.get(`${API_BASE}/reader/articles?${params.toString()}`);
             setArticles(res.data);
         } catch (error) {
             console.error("Error fetching articles:", error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedSourceIds, showUnreadOnly]);
 
-    const checkPodcast = async () => {
+    const checkPodcast = useCallback(async () => {
         try {
             const res = await axios.get(`${API_BASE}/reader/podcast/info`);
             if (res.data.exists) {
@@ -65,7 +88,7 @@ const ReaderDashboard = () => {
             // — el podcast info és opcional. Loggeja sense alarmar.
             console.debug('podcast info fetch failed:', error?.message);
         }
-    };
+    }, []);
 
     const markAsRead = async (id, e) => {
         if (e) e.stopPropagation();
@@ -209,57 +232,126 @@ const ReaderDashboard = () => {
                         </div>
 
                         {/* Filters Dropdown (Fieldset/Details) */}
-                        <div className="px-4 py-4">
-                            <details className="group bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl overflow-hidden transition-all duration-300" open={selectedSourceId !== null}>
-                                <summary className="flex items-center justify-between p-4 cursor-pointer font-semibold text-sm text-slate-700 hover:bg-slate-100">
-                                    <div className="flex items-center space-x-2">
-                                        <Filter size={16} className="text-slate-500" />
-                                        <span>Filtres de contingut</span>
-                                        {selectedSourceId && <span className="ml-2 w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>}
-                                    </div>
-                                    <ChevronRight size={16} className="transform transition-transform group-open:rotate-90 text-slate-400" />
-                                </summary>
-                                
-                                <div className="p-4 pt-0 space-y-4">
-                                    {/* Unread/History Toggle */}
-                                    <div className="flex items-center gap-3">
-                                        <button 
-                                            onClick={() => setShowUnreadOnly(true)}
-                                            className={`btn flex-1 flex items-center justify-center space-x-2 ${showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                                        >
-                                            <BookOpen size={16} />
-                                            <span>Pendents</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => setShowUnreadOnly(false)}
-                                            className={`btn flex-1 flex items-center justify-center space-x-2 ${!showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                                        >
-                                            <History size={16} />
-                                            <span>Històric</span>
-                                        </button>
-                                    </div>
+                        {(() => {
+                            const q = sourceSearch.trim().toLowerCase();
+                            const visibleSources = q
+                                ? sources.filter(s => (s.name || '').toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q))
+                                : sources;
+                            const selectedCount = selectedSourceIds.size;
+                            return (
+                                <div className="px-4 py-4">
+                                    <details
+                                        className="group bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl overflow-hidden transition-all duration-300"
+                                        open={filtersOpen}
+                                        onToggle={(e) => setFiltersOpen(e.currentTarget.open)}
+                                    >
+                                        <summary className="flex items-center justify-between p-4 cursor-pointer font-semibold text-sm text-slate-700 hover:bg-slate-100">
+                                            <div className="flex items-center space-x-2">
+                                                <Filter size={16} className="text-slate-500" />
+                                                <span>Filtres de contingut</span>
+                                                {selectedCount > 0 && (
+                                                    <span className="ml-2 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">{selectedCount}</span>
+                                                )}
+                                            </div>
+                                            <ChevronRight size={16} className="transform transition-transform group-open:rotate-90 text-slate-400" />
+                                        </summary>
 
-                                    {/* Source Filter Wrap Layout */}
-                                    <div className="flex flex-wrap gap-2">
-                                        <button
-                                            onClick={() => setSelectedSourceId(null)}
-                                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${!selectedSourceId ? 'bg-slate-800 text-white border-slate-800 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
-                                        >
-                                            Tots els mitjans
-                                        </button>
-                                        {sources.map(source => (
-                                            <button
-                                                key={source.id}
-                                                onClick={() => setSelectedSourceId(source.id)}
-                                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedSourceId === source.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
-                                            >
-                                                {source.name}
-                                            </button>
-                                        ))}
-                                    </div>
+                                        <div className="p-4 pt-0 space-y-4">
+                                            {/* Unread/History Toggle */}
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => setShowUnreadOnly(true)}
+                                                    className={`btn flex-1 flex items-center justify-center space-x-2 ${showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                                >
+                                                    <BookOpen size={16} />
+                                                    <span>Pendents</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowUnreadOnly(false)}
+                                                    className={`btn flex-1 flex items-center justify-center space-x-2 ${!showUnreadOnly ? 'btn-gnosi-primary' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                                >
+                                                    <History size={16} />
+                                                    <span>Històric</span>
+                                                </button>
+                                            </div>
+
+                                            {/* Source search box */}
+                                            <div className="relative">
+                                                <Search size={14} className="absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    value={sourceSearch}
+                                                    onChange={(e) => setSourceSearch(e.target.value)}
+                                                    placeholder="Cerca fonts per nom o categoria..."
+                                                    className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                />
+                                                {sourceSearch && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSourceSearch('')}
+                                                        className="absolute top-1/2 -translate-y-1/2 right-2 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                                        aria-label="Netejar cerca"
+                                                        title="Netejar cerca"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Bulk actions row */}
+                                            <div className="flex items-center justify-between text-xs text-slate-500">
+                                                <span>
+                                                    {visibleSources.length} de {sources.length} font(s)
+                                                    {selectedCount > 0 && <> · <span className="font-semibold text-indigo-600">{selectedCount} seleccionada(es)</span></>}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => selectAllVisibleSources(visibleSources)}
+                                                        disabled={visibleSources.length === 0}
+                                                        className="px-2 py-1 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    >
+                                                        Selecciona{q ? ' (visibles)' : ' totes'}
+                                                    </button>
+                                                    <button
+                                                        onClick={clearSourceSelection}
+                                                        disabled={selectedCount === 0}
+                                                        className="px-2 py-1 rounded text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    >
+                                                        Neteja
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Source Filter Wrap Layout */}
+                                            <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto pr-1">
+                                                <button
+                                                    onClick={clearSourceSelection}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedCount === 0 ? 'bg-slate-800 text-white border-slate-800 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                                >
+                                                    Tots els mitjans
+                                                </button>
+                                                {visibleSources.map(source => {
+                                                    const active = selectedSourceIds.has(source.id);
+                                                    return (
+                                                        <button
+                                                            key={source.id}
+                                                            onClick={() => toggleSourceSelection(source.id)}
+                                                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${active ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                                            title={source.url}
+                                                        >
+                                                            {source.name}
+                                                        </button>
+                                                    );
+                                                })}
+                                                {q && visibleSources.length === 0 && (
+                                                    <span className="text-xs text-slate-400 italic px-3 py-1.5">Cap font coincideix amb «{sourceSearch}»</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </details>
                                 </div>
-                            </details>
-                        </div>
+                            );
+                        })()}
 
                         {/* List of articles */}
                         <div className="px-4 space-y-2 pb-12">
