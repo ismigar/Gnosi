@@ -58,7 +58,7 @@ _ENV_DELETE_AFTER_INGEST = os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "tr
 
 
 def _load_account_config(db: Session):
-    """Load POP3 config from DB; fall back to env vars if no row exists yet."""
+    """Load POP3 config from DB; fall back to env vars for any missing/NULL field."""
     acc = db.query(NewsletterAccount).first()
     if acc is None:
         return {
@@ -69,13 +69,18 @@ def _load_account_config(db: Session):
             "password": _ENV_PASSWORD,
             "delete_after_ingest": _ENV_DELETE_AFTER_INGEST,
         }
+    # Treat NULL distinctly from False for delete_after_ingest, otherwise a NULL
+    # column would silently disable deletion (changing semantics).
+    delete_after = acc.delete_after_ingest
+    if delete_after is None:
+        delete_after = _ENV_DELETE_AFTER_INGEST
     return {
         "server": acc.mail_server or _ENV_MAIL_SERVER,
         "port": int(acc.mail_port or _ENV_MAIL_PORT),
         "ssl_mode": (acc.mail_ssl or _ENV_MAIL_SSL).lower(),
         "email": acc.email or _ENV_EMAIL,
         "password": acc.password or _ENV_PASSWORD,
-        "delete_after_ingest": bool(acc.delete_after_ingest),
+        "delete_after_ingest": bool(delete_after),
     }
 
 

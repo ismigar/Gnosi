@@ -1151,7 +1151,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
      *   - youtube.com/channel/UC...        → youtube.com/feeds/videos.xml?channel_id=UC...
      *   - youtube.com/user/NAME            → youtube.com/feeds/videos.xml?user=NAME
      *   - youtube.com/playlist?list=PL...  → youtube.com/feeds/videos.xml?playlist_id=PL...
-     * Pels handles (@nom) cal channel_id real → mostrem un avís perquè l'usuari el copïi manualment.
+     * Pels handles (@nom) cal channel_id real → mostrem un avís perquè l'usuari el copiï manualment.
      * Si ja és una URL de feed XML o no és YouTube, retorna la URL tal qual.
      */
     const normalizeYoutubeUrl = (rawUrl) => {
