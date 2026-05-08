@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -255,17 +255,27 @@ def sync_newsletter_account(background_tasks: BackgroundTasks):
 # -- Articles --
 
 @router.get("/articles", response_model=List[models.ArticleResponse])
-def get_articles(unread_only: bool = True, source_id: int = None, limit: int = 500, db: Session = Depends(get_db)):
-    """List articles (options: unread only, filter by source)"""
+def get_articles(
+    unread_only: bool = True,
+    source_id: Optional[List[int]] = Query(default=None),
+    limit: int = 500,
+    db: Session = Depends(get_db),
+):
+    """List articles. Filters: unread only, one or more source IDs.
+
+    `source_id` can be repeated (`?source_id=1&source_id=2`) or omitted to
+    return articles from all sources.
+    """
     from sqlalchemy.orm import joinedload
     query = db.query(models.Article).options(joinedload(models.Article.source))
-    
+
     if unread_only:
         query = query.filter(models.Article.is_read == False)
-    
+
     if source_id:
-        query = query.filter(models.Article.source_id == source_id)
-    
+        # Filter by any of the provided source IDs (OR semantics).
+        query = query.filter(models.Article.source_id.in_(source_id))
+
     articles = query.order_by(models.Article.published_at.desc()).limit(limit).all()
     
     result = []
