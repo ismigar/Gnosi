@@ -290,6 +290,66 @@ function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
   );
 }
 
+// Confirm centrat reutilitzable. Substitueix `window.confirm` (nadiu, ancorat
+// a dalt) perquè els dialogs de l'app siguin consistents.
+function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel = 'D\'acord',
+  cancelLabel = 'Cancel·la',
+  danger = false,
+  Icon = AlertCircle,
+  onCancel,
+  onConfirm,
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onCancel} />
+      <div
+        className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); onConfirm(); }
+          if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+        }}
+        tabIndex={-1}
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`p-2 rounded-lg ${danger ? 'bg-red-500/10 text-red-500' : 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'}`}>
+            <Icon size={20} />
+          </div>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{title}</h3>
+        </div>
+        {message && (
+          <p className="text-sm text-[var(--text-secondary)] mb-5">{message}</p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg border border-[var(--border-primary)] text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-all"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            autoFocus
+            className={`px-4 py-2 rounded-lg text-white text-sm font-bold transition-all ${
+              danger
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90'
+            }`}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Pills de tipus al toolbar. L'ordre defineix l'ordre visual.
 const KIND_OPTIONS = [
   { key: 'image', label: 'Imatges', Icon: ImageIcon },
@@ -770,17 +830,30 @@ export default function MediaCenter() {
     }
   }, [activeViewId, activeRoot, activeAlbum, filters, sort, views]);
 
-  const handleDeleteView = useCallback(async (id) => {
-    if (!window.confirm('Esborrar aquesta vista?')) return;
-    try {
-      await axios.delete(`/api/vault/media/views/${id}`);
-      setViews(prev => prev.filter(v => v.id !== id));
-      if (activeViewId === id) setActiveViewId(null);
-    } catch (err) {
-      console.error('Error esborrant vista:', err);
-      toast.error('No s\'ha pogut esborrar la vista');
-    }
-  }, [activeViewId]);
+  // Confirm dialog genèric: si no és `null`, renderitzem el modal centrat.
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const handleDeleteView = useCallback((id) => {
+    const view = views.find(v => v.id === id);
+    setConfirmDialog({
+      title: 'Esborrar vista',
+      message: view ? `«${view.label}» s'eliminarà del sidecar. Aquesta acció no es pot desfer.` : 'Aquesta acció no es pot desfer.',
+      confirmLabel: 'Esborra',
+      danger: true,
+      Icon: Trash2,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await axios.delete(`/api/vault/media/views/${id}`);
+          setViews(prev => prev.filter(v => v.id !== id));
+          if (activeViewId === id) setActiveViewId(null);
+        } catch (err) {
+          console.error('Error esborrant vista:', err);
+          toast.error('No s\'ha pogut esborrar la vista');
+        }
+      },
+    });
+  }, [activeViewId, views]);
 
   // Reset al canviar d'àlbum, root, filtres o ordenació. Tots disparen una
   // nova petició amb offset=0 perquè el `total` reportat depèn dels filtres.
@@ -1295,6 +1368,18 @@ export default function MediaCenter() {
         open={viewPromptOpen}
         onCancel={() => setViewPromptOpen(false)}
         onConfirm={submitNewView}
+      />
+
+      <ConfirmDialog
+        open={confirmDialog != null}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        danger={confirmDialog?.danger}
+        Icon={confirmDialog?.Icon}
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => confirmDialog?.onConfirm?.()}
       />
     </div>
   );
