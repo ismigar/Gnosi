@@ -43,6 +43,14 @@ def get_pages(table_id: str) -> list[dict]:
     return data if isinstance(data, list) else data.get("pages", [])
 
 
+def get_property_names(table_id: str) -> dict[str, str]:
+    """Resolves `property_id → property.name actual` via the inspect endpoint."""
+    res = requests.get(f"{VAULT_API}/api/zotero/inspect/{table_id}", timeout=30)
+    res.raise_for_status()
+    data = res.json()
+    return {p["id"]: p.get("name", "") for p in data.get("properties", []) if p.get("id")}
+
+
 def get_zotero_conn(path: str) -> sqlite3.Connection:
     expanded = os.path.expanduser(path)
     if not os.path.exists(expanded):
@@ -107,7 +115,19 @@ def sync() -> None:
         print("No target table configured.")
         return
 
-    vault_field_to_zotero = {v: k for k, v in mapping.items()}
+    # Resolem property_id → name actual per llegir del metadata. El mapping
+    # persisteix UUIDs immutables, però el frontmatter desa per name vigent.
+    prop_names = get_property_names(table_id)
+
+    # Per cada zotero_field, sabem la property que li toca → el name actual.
+    zfield_to_name: dict[str, str] = {}
+    for z_field, pid in mapping.items():
+        if pid and pid in prop_names:
+            zfield_to_name[z_field] = prop_names[pid]
+
+    zkey_meta_key = zfield_to_name.get("key", "zotero_key")
+    title_meta_key = zfield_to_name.get("title")
+
     pages = get_pages(table_id)
 
     z_conn = get_zotero_conn(zotero_db)
@@ -116,7 +136,7 @@ def sync() -> None:
     try:
         for page in pages:
             meta = page.get("metadata", {})
-            zkey = meta.get("zotero_key") or meta.get(mapping.get("key", "zotero_key"))
+            zkey = meta.get(zkey_meta_key) or meta.get("zotero_key")
             if not zkey:
                 skipped += 1
                 continue
@@ -126,11 +146,15 @@ def sync() -> None:
                 skipped += 1
                 continue
 
-            for vault_field, zotero_field in vault_field_to_zotero.items():
-                if zotero_field not in UPDATABLE_FIELDS:
+            for z_field, meta_key in zfield_to_name.items():
+                if z_field not in UPDATABLE_FIELDS:
                     continue
-                zotero_db_field = UPDATABLE_FIELDS[zotero_field][0]
-                value = meta.get(vault_field) or (page.get("title") if vault_field == mapping.get("title") else "")
+                zotero_db_field = UPDATABLE_FIELDS[z_field][0]
+                # Title pot venir al camp `title` directe de la pàgina si no
+                # tenim metadata explícita.
+                value = meta.get(meta_key)
+                if not value and z_field == "title" and title_meta_key:
+                    value = page.get("title")
                 if value:
                     update_item_field(z_conn, item_id, zotero_db_field, str(value))
 
