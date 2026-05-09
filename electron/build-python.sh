@@ -81,6 +81,7 @@ $PYTHON_VENV -m pip install chromadb || echo "Warning: ChromaDB may have issues"
 
 echo ""
 echo "4. Running PyInstaller..."
+mkdir -p "$PYTHON_BUILD_DIR"
 cd "$PYTHON_BUILD_DIR"
 
 $PYTHON_VENV << PYSCRIPT
