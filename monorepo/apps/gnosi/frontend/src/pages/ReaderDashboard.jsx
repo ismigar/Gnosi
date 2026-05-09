@@ -258,7 +258,7 @@ const ReaderDashboard = () => {
         return Object.entries(buckets)
             .filter(([, items]) => items.length > 0)
             .map(([key, items]) => ({ key, label: labels[key], items }));
-    }, [displayArticles, t]);
+    }, [displayArticles, t, i18n.resolvedLanguage]);
 
     return (
         <div className="flex flex-col h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans overflow-hidden">
