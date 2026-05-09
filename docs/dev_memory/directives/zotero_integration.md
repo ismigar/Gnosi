@@ -90,6 +90,7 @@ L'usuari pot renombrar lliurement després de la creació; gràcies a §4 el syn
 | 3. Robustesa del sync | ✅ 2026-05-09 | Match per títol normalitzat per pàgines pre-existents (counter `linked`), sync incremental (skip per `dateModified > last_sync_at`), `READ_ONLY_FIELDS` que mai s'escriuen a sqlite. |
 | 4. UX/observabilitat | ✅ 2026-05-09 | `GET /last-sync` endpoint, panell "Darrera sincronització" amb timestamps i comptadors per direcció, polling post-sync amb toast estructurat, selector `existing_pages_strategy`, logs estructurats al backend que parsegen el JSON dels scripts. |
 | 5. Documentació | ✅ 2026-05-09 | Directiu i SKILL.md tancats; memòria persistent `feedback_zotero_mapping.md`. |
+| 6. Linked attachments (PDFs) | ✅ 2026-05-10 | Camp `attachmentPath` resolt des de `itemAttachments`; suport per `attachments:` (linked base = Biblioteca per defecte) i `storage:` (`~/Zotero/storage`). Cap còpia: tant Zotero com Gnosi apunten al mateix PDF. |
 
 ## 7. Restriccions
 
@@ -122,3 +123,4 @@ L'usuari pot renombrar lliurement després de la creació; gràcies a §4 el syn
 | 2026-05-09 | Sync escrivia camps owned-by-Zotero | El cicle G→Z propagava `dateAdded`/`dateModified` cap a sqlite | `READ_ONLY_FIELDS` filtra sempre, encara que estiguin al mapping (Fase 3). |
 | 2026-05-09 | Sense visibilitat del que feia el sync | Els scripts només imprimien una línia genèrica | JSON resum a stdout + `GET /last-sync` + panell UI amb comptadors per direcció (Fase 4). |
 | 2026-05-09 | Subprocess no podia importar `safe_io` | Scripts standalone sense `sys.path` cap a `backend/` | Reimplementació local del patró tmp+`os.replace` per escriptures atòmiques (Fase 3). |
+| 2026-05-10 | PDFs duplicats si gestionats a mà | Sync inicial només portava metadata, no attachments | `attachmentPath` resolt des de `itemAttachments` (linkMode `attachments:` o `storage:`); ruta absoluta compartida sense duplicats (Fase 6). |

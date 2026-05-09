@@ -798,6 +798,13 @@
         "skipped_unknown_item": "Ítem desconegut",
         "errors": "Errors"
       },
+      "zotero_db_label": "Ruta de la BD Zotero",
+      "zotero_db_desc": "Camí absolut a la base de dades local de Zotero (zotero.sqlite).",
+      "linked_base_label": "Linked Attachment Base Directory",
+      "linked_base_desc": "Carpeta on viuen els PDFs enllaçats per Zotero. Per defecte: la carpeta Biblioteca del Vault. Tant Zotero com Gnosi apunten al mateix fitxer; no es duplica res.",
+      "linked_base_placeholder": "(per defecte: Biblioteca)",
+      "target_table_label": "Taula de Destí del Vault",
+      "target_table_desc": "Taula on s'emmagatzemaran les referències. Es pot reanomenar lliurement.",
       "fields": {
         "key": "Clau Zotero",
         "title": "Títol",
@@ -809,7 +816,8 @@
         "doi": "DOI",
         "abstractNote": "Resum",
         "dateAdded": "Data d'addició",
-        "dateModified": "Data de modificació"
+        "dateModified": "Data de modificació",
+        "attachmentPath": "Ruta de l'arxiu"
       },
       "mapping": {
         "title": "Mapping de camps Zotero",

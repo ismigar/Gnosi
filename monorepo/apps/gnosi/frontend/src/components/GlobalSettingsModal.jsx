@@ -264,7 +264,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             physics: { gravity: 0.1, repulsion: 1000, friction: 10 }
         },
         ai: { agents: [], providers: {}, active_agent_id: '' },
-        zotero: { enabled: false, zotero_db: '~/Zotero/zotero.sqlite', user: '', pwd: '', workspace: '', target_table: '', mapping: {} },
+        zotero: { enabled: false, zotero_db: '~/Zotero/zotero.sqlite', user: '', pwd: '', workspace: '', target_table: '', mapping: {}, linked_attachments_base: '' },
         identity: {
             full_name: '', first_name: '', last_name: '', email: '',
             phone: '', address: '', city: '', zip_code: '', dni_nie: '', notes: ''
@@ -3281,11 +3281,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         {/* Configuració (només si activat) */}
                                         {draft.zotero.enabled && (
                                             <div style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '32px', border: '1px solid var(--settings-border)', boxShadow: '0 10px 40px rgba(0,0,0,0.03)' }}>
-                                                <FormGroup label="Ruta de la BD Zotero" description="Camí absolut a la base de dades local de Zotero (zotero.sqlite).">
+                                                <FormGroup label={t('settings.zotero.zotero_db_label') || "Ruta de la BD Zotero"} description={t('settings.zotero.zotero_db_desc') || "Camí absolut a la base de dades local de Zotero (zotero.sqlite)."}>
                                                     <input type="text" className="gnosi-input" value={draft.zotero.zotero_db || ''} onChange={e => setDraft({...draft, zotero: {...draft.zotero, zotero_db: e.target.value}})} placeholder="~/Zotero/zotero.sqlite" />
                                                 </FormGroup>
                                                 <div style={{ marginTop: '28px' }}>
-                                                    <FormGroup label="Taula de Destí del Vault" description="Taula on s'emmagatzemaran les referències. Es pot reanomenar lliurement.">
+                                                    <FormGroup label={t('settings.zotero.linked_base_label') || "Linked Attachment Base Directory"} description={t('settings.zotero.linked_base_desc') || "Carpeta on viuen els PDFs enllaçats per Zotero. Per defecte: la carpeta Biblioteca del Vault."}>
+                                                        <input type="text" className="gnosi-input" value={draft.zotero.linked_attachments_base || ''} onChange={e => setDraft({...draft, zotero: {...draft.zotero, linked_attachments_base: e.target.value}})} placeholder={t('settings.zotero.linked_base_placeholder') || "(per defecte: Biblioteca)"} />
+                                                    </FormGroup>
+                                                </div>
+                                                <div style={{ marginTop: '28px' }}>
+                                                    <FormGroup label={t('settings.zotero.target_table_label') || "Taula de Destí del Vault"} description={t('settings.zotero.target_table_desc') || "Taula on s'emmagatzemaran les referències. Es pot reanomenar lliurement."}>
                                                         <select
                                                             className="gnosi-select"
                                                             value={draft.zotero.target_table}
