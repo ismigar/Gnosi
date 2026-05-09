@@ -87,16 +87,24 @@ def fetch_and_store_feeds():
                     if not existing:
                         try:
                             processed_urls.add(article_link)
-                            # Clean HTML content
-                            content_raw = entry.get('content', [{'value': entry.get('summary', '')}])[0]['value']
-                            soup = BeautifulSoup(content_raw, 'html.parser')
-                            text_content = soup.get_text(separator=' ', strip=True)
+                            # Keep raw HTML so the reader frontend can render
+                            # rich formatting (paragraphs, headings, images,
+                            # blockquotes, etc.) inside its sandbox iframe.
+                            # The previous BeautifulSoup get_text() flattened
+                            # everything to a single paragraph and lost
+                            # structure — see directive
+                            # reader_minimalist_redesign.md for the iframe
+                            # XSS mitigation.
+                            content_raw = entry.get(
+                                'content',
+                                [{'value': entry.get('summary', '')}],
+                            )[0]['value']
 
                             new_article = Article(
                                 source_id=source.id,
                                 title=entry.get('title', 'Untitled'),
                                 url=article_link,
-                                content=text_content,
+                                content=content_raw,
                                 published_at=pub_date,
                                 is_read=False
                             )
