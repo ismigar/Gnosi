@@ -1,7 +1,7 @@
 # Directiva: Abstracció FilesProvider (suport multi-proveïdor d'emmagatzematge)
 
 **Última actualització:** 2026-05-09
-**Estat:** ACTIVE (Fase 1)
+**Estat:** ACTIVE (Fase 2)
 **Mòdul:** `monorepo/apps/gnosi/backend/services/files_provider/`
 
 ## Problema
@@ -26,7 +26,9 @@ NextCloud Virtual Files o un disc local pur, la lògica actual:
 ## Objectiu
 
 Introduir una capa fina d'abstracció que aïllï la detecció + materialització
-darrere d'una interfície estable. La fase 1 cobreix dos proveïdors:
+darrere d'una interfície estable.
+
+**Fase 1** cobreix:
 
 - **`LocalProvider`**: vault sobre disc local pur. `is_online_only()`
   sempre `False`, `materialize()` no-op `True`.
@@ -34,8 +36,18 @@ darrere d'una interfície estable. La fase 1 cobreix dos proveïdors:
   Encapsula el semàfor, la cache "inflight" i les variables d'entorn
   `ONEDRIVE_WARMUP_URL`, `ONEDRIVE_WARMUP_TIMEOUT`, `VAULT_HOST_PATH`.
 
-Fases 2+ (no incloses ara): `GoogleDriveFileStreamProvider`,
-`iCloudDriveProvider`, `NextCloudProvider`.
+**Fase 2** afegeix:
+
+- **`iCloudDriveProvider`** (subclass de `OneDriveProvider`): mateix
+  patró File Provider de macOS (`st_blocks==0`, materialització via
+  `open()`). Reutilitza el daemon `sh/onedrive_warmup_daemon.py`
+  (que és agnòstic al proveïdor — només fa `open()/read()` sobre un
+  path absolut). Prioritza env vars `ICLOUD_WARMUP_URL` /
+  `ICLOUD_WARMUP_TIMEOUT`; cau a les `ONEDRIVE_*` si no estan
+  definides. `name = "icloud"` (visible al log).
+
+Fases 3+ (no incloses ara): `GoogleDriveFileStreamProvider` (FUSE,
+detecció diferent), `NextCloudProvider` (WebDAV, mecanisme propi).
 
 ## Interfície
 
@@ -56,9 +68,11 @@ class FilesProvider(Protocol):
 
 `get_files_provider()` (singleton) decideix segons:
 
-1. Env var explícita `GNOSI_FILES_PROVIDER` (`local` | `onedrive`).
-2. Si no està definida i `VAULT_HOST_PATH` existeix i conté `OneDrive`
-   o `OneDrive-` al path → `onedrive`.
+1. Env var explícita `GNOSI_FILES_PROVIDER`
+   (`local` | `onedrive` | `icloud`).
+2. Si no està definida i `VAULT_HOST_PATH` existeix:
+   - conté `OneDrive` → `onedrive`.
+   - conté `Mobile Documents` o `iCloud` (case-insensitive) → `icloud`.
 3. Altrament → `local`.
 
 L'usuari pot forçar el comportament via env var. La detecció heurística
@@ -152,3 +166,33 @@ daemon vell amb `kill $(cat /tmp/onedrive_warmup_daemon.pid)`), després
 demanar una imatge online-only — el log ha de mostrar
 `warmup timeout per ... després de Ts` dins el TIMEOUT_S configurat,
 no més.
+
+### 2026-05-09 — Fase 2: `iCloudDriveProvider` afegit
+
+S'afegeix el segon proveïdor cloud-on-demand. iCloud Drive a macOS
+utilitza el mateix File Provider framework que OneDrive: detecció
+via `st_blocks==0`, materialització via `open()`. El daemon HTTP del
+host és agnòstic al proveïdor i serveix per ambdós casos sense canvis.
+
+**Reutilització de codi:** `iCloudDriveProvider(OneDriveProvider)`
+sobreescriu només `name="icloud"` i prioritza env vars `ICLOUD_*`
+abans de caure a les `ONEDRIVE_*`. No duplica lògica.
+
+**Tests d'unitat (9 assertions, totes passen):**
+- Detecció heurística per `Mobile Documents` i `iCloud` als paths.
+- Detecció no regressa per OneDrive (`OneDrive` al path).
+- Override explícit via `GNOSI_FILES_PROVIDER=icloud`.
+- Prioritat `ICLOUD_WARMUP_URL` > `ONEDRIVE_WARMUP_URL` > default.
+- `ICLOUD_WARMUP_TIMEOUT` respectat.
+- Valor desconegut a `GNOSI_FILES_PROVIDER` → log warning + heurística.
+
+**Per provar amb un usuari real d'iCloud:**
+
+1. Munta el vault dins de `~/Library/Mobile Documents/com~apple~CloudDocs/Gnosi/`.
+2. Configura `VAULT_HOST_PATH` al `docker-compose.yml` amb aquest path.
+3. Arrenca el daemon de warmup amb FDA al Terminal: `sh/start_warmup_daemon.sh --bg`.
+4. Comprova el log del backend: `FilesProvider actiu: icloud`.
+
+Si en algun moment cal un daemon dedicat a iCloud (per separar mètriques,
+limitats per Apple, etc.), defineix `ICLOUD_WARMUP_URL=http://...:6000/warmup`
+i arrenca un segon daemon en aquell port.
