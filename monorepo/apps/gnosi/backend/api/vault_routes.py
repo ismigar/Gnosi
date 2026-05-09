@@ -3650,12 +3650,52 @@ async def get_all_media(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     root: str = Query("images"),
+    # Filtres (tots opcionals — sense cap, manté el comportament històric)
+    kinds: Optional[str] = Query(None, description="csv: image,video,audio,pdf,other"),
+    extensions: Optional[str] = Query(None, description="csv sense punt: jpg,png,..."),
+    q: Optional[str] = Query(None, description="substring sobre filename"),
+    desc_contains: Optional[str] = Query(None, description="substring sobre descripció"),
+    tags_any: Optional[str] = Query(None, description="csv de tags (OR)"),
+    tags_all: Optional[str] = Query(None, description="csv de tags (AND)"),
+    tags_none: Optional[str] = Query(None, description="csv de tags (NOT)"),
+    size_min: Optional[int] = Query(None, ge=0, description="KB"),
+    size_max: Optional[int] = Query(None, ge=0, description="KB"),
+    mtime_from: Optional[str] = Query(None, description="ISO date"),
+    mtime_to: Optional[str] = Query(None, description="ISO date"),
+    sort: str = Query("mtime", description="mtime|filename|size|kind"),
+    dir: str = Query("desc", description="asc|desc"),
 ):
     """Llista mitjans, opcionalment filtrats per àlbum i carpeta arrel.
     El root per defecte és `images` per back-compat amb la galeria històrica.
+
+    Filtres EXIF (date_taken, has_gps) NO estan disponibles en aquesta fase
+    (F1). Queden per F2 amb un índex EXIF persistit. Sort per `date_taken`
+    tampoc és viable encara — `sort=mtime` és el fallback raonable.
     """
     _validate_root(root)
-    return media_service.get_all_media(album, limit=limit, offset=offset, root=root)
+    if sort not in {"mtime", "filename", "size", "kind"}:
+        raise HTTPException(status_code=400, detail=f"sort invàlid: {sort!r}")
+    if dir not in {"asc", "desc"}:
+        raise HTTPException(status_code=400, detail=f"dir invàlid: {dir!r}")
+    return media_service.get_all_media(
+        album,
+        limit=limit,
+        offset=offset,
+        root=root,
+        kinds=kinds,
+        extensions=extensions,
+        q=q,
+        desc_contains=desc_contains,
+        tags_any=tags_any,
+        tags_all=tags_all,
+        tags_none=tags_none,
+        size_min=size_min,
+        size_max=size_max,
+        mtime_from=mtime_from,
+        mtime_to=mtime_to,
+        sort=sort,
+        dir_=dir,
+    )
 
 
 @router.get("/media/albums")
@@ -3692,12 +3732,27 @@ async def upload_media(
 
 @router.patch("/media/metadata", dependencies=[Depends(require_role("editor"))])
 async def update_media_metadata(
-    filename: str = Body(...),
-    album: str = Body(...),
-    metadata: Dict[str, Any] = Body(...)
+    metadata: Dict[str, Any] = Body(..., description="{tags?: string[], description?: string}"),
+    path_in_root: Optional[str] = Body(None, description="Path relatiu al root (preferent)"),
+    root: str = Body("images"),
+    # Compat amb crides antigues (filename + album); reconstrueix el path.
+    filename: Optional[str] = Body(None),
+    album: Optional[str] = Body(None),
 ):
-    """Actualitza tags, descripció o data manualment."""
-    success = media_service.update_metadata(filename, album, metadata)
+    """Actualitza tags i/o descripció d'un fitxer del MediaCenter.
+
+    El payload prefer és `{root, path_in_root, metadata}`. Es manté la forma
+    antiga `{filename, album, metadata}` per compatibilitat amb clients que
+    encara no envien `path_in_root`; en aquest cas el path es reconstrueix
+    com a `{album}/{filename}`.
+    """
+    _validate_root(root)
+    resolved = path_in_root
+    if not resolved:
+        if not filename:
+            raise HTTPException(status_code=400, detail="Cal `path_in_root` o `filename`")
+        resolved = f"{album}/{filename}" if album else filename
+    success = media_service.update_metadata(resolved, metadata, root=root)
     if not success:
         raise HTTPException(status_code=500, detail="Error de persistència")
     return {"status": "ok"}

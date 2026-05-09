@@ -59,12 +59,21 @@ _VAULT_SKIP_DIRS = {
 
 
 class MediaService:
+    # Sidecar de metadades d'usuari (tags + descripció). Viu DINS el vault
+    # perquè són dades semàntiques de l'usuari i han de sincronitzar entre
+    # dispositius via OneDrive — la regla "caches fora d'OneDrive" no aplica
+    # a dades, només a caches/índexs derivables.
+    _USER_META_FILENAME = "media_metadata.json"
+
     def __init__(self):
         # Ja no inicialitzem el path aquí per evitar errors al boot
         self._media_dir_cache = None
         self._scan_cache: Dict[str, Tuple[float, List[Tuple[Path, float]]]] = {}
         self._scan_locks: Dict[str, threading.Lock] = {}
         self._locks_guard = threading.Lock()
+        # Sidecar lazy: es carrega al primer ús (update_metadata o filtre per tags).
+        self._user_metadata: Optional[Dict[str, Any]] = None
+        self._user_metadata_lock = threading.RLock()
         try:
             _PERSIST_DIR.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -254,6 +263,260 @@ class MediaService:
             except OSError:
                 pass
 
+    # ------------------------------------------------------------------
+    # Sidecar de metadades d'usuari (tags + descripció)
+    # ------------------------------------------------------------------
+
+    def _user_meta_path(self) -> Optional[Path]:
+        base = get_active_vault_path()
+        if base is None:
+            return None
+        d = base / ".gnosi"
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            log.debug(f"No es pot crear {d}: {e}")
+            return None
+        return d / self._USER_META_FILENAME
+
+    def _ensure_user_metadata_loaded(self) -> None:
+        if self._user_metadata is not None:
+            return
+        with self._user_metadata_lock:
+            if self._user_metadata is not None:
+                return
+            path = self._user_meta_path()
+            loaded = {"version": 1, "items": {}}
+            if path and path.exists():
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        raw = json.load(f)
+                    if isinstance(raw, dict) and isinstance(raw.get("items"), dict):
+                        loaded = raw
+                except (OSError, json.JSONDecodeError) as e:
+                    log.warning(
+                        f"media_metadata.json corrupte ({path}): {e} — reinicialitzant"
+                    )
+            self._user_metadata = loaded
+
+    @staticmethod
+    def _user_meta_key(root: str, rel_path_in_root: str) -> str:
+        return f"{root}::{rel_path_in_root}"
+
+    def _save_user_metadata(self) -> bool:
+        path = self._user_meta_path()
+        if path is None:
+            return False
+        with self._user_metadata_lock:
+            try:
+                tmp = path.with_suffix(path.suffix + ".tmp")
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(self._user_metadata, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, path)
+                return True
+            except OSError as e:
+                log.warning(f"No es pot desar media_metadata.json: {e}")
+                return False
+
+    def _get_user_meta_for(self, root: str, rel_path_in_root: str) -> Dict[str, Any]:
+        """Retorna {tags, description} del sidecar (defaults si no hi és)."""
+        self._ensure_user_metadata_loaded()
+        item = self._user_metadata["items"].get(
+            self._user_meta_key(root, rel_path_in_root)
+        )
+        if not item:
+            return {"tags": [], "description": ""}
+        return {
+            "tags": list(item.get("tags") or []),
+            "description": str(item.get("description") or ""),
+        }
+
+    def update_metadata(
+        self,
+        path_in_root: str,
+        metadata: Dict[str, Any],
+        root: str = "images",
+    ) -> bool:
+        """Actualitza tags/descripció per (root, path_in_root) al sidecar.
+
+        `path_in_root` és relatiu al root (p.e. `Viatges/2026/IMG.jpg`). El
+        camp arriba al payload de `_get_file_info` com a `path_in_root`.
+        """
+        if not path_in_root:
+            return False
+        # Validem que el path no surti del root (prevenció path traversal).
+        r_dir = self._root_dir(root)
+        if r_dir is None:
+            return False
+        try:
+            (r_dir / path_in_root).resolve().relative_to(r_dir.resolve())
+        except ValueError:
+            log.warning(f"update_metadata: path fora del root {root!r}: {path_in_root!r}")
+            return False
+
+        self._ensure_user_metadata_loaded()
+        key = self._user_meta_key(root, path_in_root)
+        with self._user_metadata_lock:
+            existing = self._user_metadata["items"].get(key, {})
+
+            # Tags: normalitzem a minúscules sense espais; ordenats i sense
+            # duplicats per consistència entre escriptures.
+            if "tags" in metadata:
+                raw_tags = metadata.get("tags") or []
+                norm_tags = sorted({
+                    (t or "").strip().lower()
+                    for t in raw_tags
+                    if (t or "").strip()
+                })
+            else:
+                norm_tags = list(existing.get("tags") or [])
+
+            if "description" in metadata:
+                description = str(metadata.get("description") or "")
+            else:
+                description = str(existing.get("description") or "")
+
+            self._user_metadata["items"][key] = {
+                "tags": norm_tags,
+                "description": description,
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+            }
+        return self._save_user_metadata()
+
+    # ------------------------------------------------------------------
+    # Filtres + sort post-cache (per get_all_media)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_iso_to_epoch(iso_str: Optional[str], end_of_day: bool = False) -> Optional[float]:
+        """`YYYY-MM-DD` o ISO complet → epoch seconds. None si invàlid."""
+        if not iso_str:
+            return None
+        try:
+            s = iso_str.strip()
+            if "T" in s:
+                dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            else:
+                dt = datetime.fromisoformat(s)
+                if end_of_day:
+                    dt = dt.replace(hour=23, minute=59, second=59)
+            return dt.timestamp()
+        except (ValueError, AttributeError):
+            return None
+
+    def _apply_filters_and_sort(
+        self,
+        entries: List[Tuple[Path, float]],
+        root: str,
+        *,
+        kinds: Optional[set],
+        extensions: Optional[set],
+        q: Optional[str],
+        desc_contains: Optional[str],
+        tags_any: Optional[set],
+        tags_all: Optional[set],
+        tags_none: Optional[set],
+        size_min_bytes: Optional[int],
+        size_max_bytes: Optional[int],
+        mtime_from_ts: Optional[float],
+        mtime_to_ts: Optional[float],
+        sort: str,
+        dir_: str,
+    ) -> List[Tuple[Path, float]]:
+        """Filtra (path, mtime) pel conjunt de filtres declarat i ordena.
+
+        Els filtres dependents del sidecar (tags/desc) carreguen la cache de
+        metadades una sola vegada; els que necessiten `st.st_size` o sort per
+        size disparen un `path.stat()` per fitxer (relativament barat un cop
+        l'index està en RAM, però no gratis a OneDrive).
+        """
+        needs_meta = bool(tags_any or tags_all or tags_none or desc_contains)
+        if needs_meta:
+            self._ensure_user_metadata_loaded()
+        needs_size = (
+            size_min_bytes is not None
+            or size_max_bytes is not None
+            or sort == "size"
+        )
+
+        r_dir = self._root_dir(root)
+        r_resolved = r_dir.resolve() if r_dir else None
+
+        out: List[Tuple[Path, float, Optional[int]]] = []
+        for path, mtime in entries:
+            ext_no_dot = path.suffix.lstrip(".").lower()
+            if extensions is not None and ext_no_dot not in extensions:
+                continue
+            if kinds is not None and self.classify_kind("." + ext_no_dot) not in kinds:
+                continue
+            if q is not None and q not in path.name.lower():
+                continue
+            if mtime_from_ts is not None and mtime < mtime_from_ts:
+                continue
+            if mtime_to_ts is not None and mtime > mtime_to_ts:
+                continue
+
+            if needs_meta:
+                if r_resolved is not None:
+                    try:
+                        rel_path = path.resolve().relative_to(r_resolved).as_posix()
+                    except ValueError:
+                        rel_path = path.name
+                else:
+                    rel_path = path.name
+                item = self._user_metadata["items"].get(
+                    self._user_meta_key(root, rel_path), {}
+                )
+                tags_set = set(item.get("tags") or [])
+                description = (item.get("description") or "").lower()
+                if tags_any and tags_set.isdisjoint(tags_any):
+                    continue
+                if tags_all and not tags_all.issubset(tags_set):
+                    continue
+                if tags_none and not tags_set.isdisjoint(tags_none):
+                    continue
+                if desc_contains and desc_contains not in description:
+                    continue
+
+            size: Optional[int] = None
+            if needs_size:
+                try:
+                    size = path.stat().st_size
+                except OSError:
+                    continue
+                if size_min_bytes is not None and size < size_min_bytes:
+                    continue
+                if size_max_bytes is not None and size > size_max_bytes:
+                    continue
+
+            out.append((path, mtime, size))
+
+        reverse = dir_ != "asc"
+        if sort == "filename":
+            out.sort(key=lambda t: t[0].name.lower(), reverse=reverse)
+        elif sort == "size":
+            out.sort(key=lambda t: (t[2] or 0), reverse=reverse)
+        elif sort == "kind":
+            out.sort(
+                key=lambda t: self.classify_kind(t[0].suffix.lower()),
+                reverse=reverse,
+            )
+        else:  # "mtime" o desconegut → comportament històric
+            out.sort(key=lambda t: t[1], reverse=reverse)
+
+        return [(p, m) for p, m, _ in out]
+
+    @staticmethod
+    def _csv_to_set(value: Optional[str], lower: bool = True) -> Optional[set]:
+        if value is None:
+            return None
+        items = {
+            (s.strip().lower() if lower else s.strip())
+            for s in value.split(",")
+            if s.strip()
+        }
+        return items or None
+
     def _resolve_album_dir(self, album: Optional[str], root: str = "images") -> Optional[Path]:
         """Resol l'`album` (relatiu al root indicat) a un Path absolut, validant
         que no surt del root. Retorna None si és invalid."""
@@ -271,24 +534,101 @@ class MediaService:
             return None
         return candidate
 
-    def get_all_media(self, album: Optional[str] = None, limit: int = 50, offset: int = 0, root: str = "images") -> Dict[str, Any]:
-        """Llista fitxers de mitjans amb paginació i optimització.
+    def get_all_media(
+        self,
+        album: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+        root: str = "images",
+        *,
+        kinds: Optional[str] = None,
+        extensions: Optional[str] = None,
+        q: Optional[str] = None,
+        desc_contains: Optional[str] = None,
+        tags_any: Optional[str] = None,
+        tags_all: Optional[str] = None,
+        tags_none: Optional[str] = None,
+        size_min: Optional[int] = None,  # KB
+        size_max: Optional[int] = None,  # KB
+        mtime_from: Optional[str] = None,  # ISO
+        mtime_to: Optional[str] = None,    # ISO
+        sort: str = "mtime",
+        dir_: str = "desc",
+    ) -> Dict[str, Any]:
+        """Llista fitxers de mitjans amb paginació, filtres i ordenació.
 
         `album` pot ser un path relatiu amb subdirectoris (`Pueblo/Sierra`).
         Sempre escaneja recursivament el directori indicat.
         `root` selecciona la carpeta arrel: images|assets|biblioteca|vault.
+
+        Filtres acceptats (tots opcionals, csv on aplica):
+        - kinds: image,video,audio,pdf,other
+        - extensions: jpg,png,...  (sense punt)
+        - q: substring sobre filename (case-insensitive)
+        - desc_contains: substring sobre descripció (case-insensitive)
+        - tags_any / tags_all / tags_none: csv de tags (normalitzats a minúscules)
+        - size_min / size_max: en KB
+        - mtime_from / mtime_to: dates ISO (`YYYY-MM-DD` o complet)
+        - sort: mtime|filename|size|kind  (def: mtime)
+        - dir_: asc|desc  (def: desc)
         """
         target_dir = self._resolve_album_dir(album, root=root)
         if target_dir is None or not target_dir.exists():
-            return {"items": [], "total": 0, "limit": limit, "offset": offset, "root": root}
+            return {
+                "items": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "root": root,
+            }
 
         # Per al root="vault" saltem carpetes de sistema. Per la resta, no.
         skip = _VAULT_SKIP_DIRS if root == "vault" else None
         all_entries = self._scan_with_cache(target_dir, skip_dirs=skip)
-        total = len(all_entries)
 
-        # Paginació
-        paged = all_entries[offset : offset + limit]
+        kinds_set = self._csv_to_set(kinds)
+        ext_set = self._csv_to_set(extensions)
+        if ext_set is not None:
+            ext_set = {e.lstrip(".") for e in ext_set}
+        tags_any_set = self._csv_to_set(tags_any)
+        tags_all_set = self._csv_to_set(tags_all)
+        tags_none_set = self._csv_to_set(tags_none)
+        size_min_b = size_min * 1024 if size_min is not None else None
+        size_max_b = size_max * 1024 if size_max is not None else None
+
+        any_filter_active = any([
+            kinds_set, ext_set, q, desc_contains,
+            tags_any_set, tags_all_set, tags_none_set,
+            size_min_b is not None, size_max_b is not None,
+            mtime_from, mtime_to,
+        ])
+        custom_sort = sort != "mtime" or dir_ != "desc"
+
+        if any_filter_active or custom_sort:
+            entries = self._apply_filters_and_sort(
+                all_entries,
+                root,
+                kinds=kinds_set,
+                extensions=ext_set,
+                q=(q.lower() if q else None),
+                desc_contains=(desc_contains.lower() if desc_contains else None),
+                tags_any=tags_any_set,
+                tags_all=tags_all_set,
+                tags_none=tags_none_set,
+                size_min_bytes=size_min_b,
+                size_max_bytes=size_max_b,
+                mtime_from_ts=self._parse_iso_to_epoch(mtime_from),
+                mtime_to_ts=self._parse_iso_to_epoch(mtime_to, end_of_day=True),
+                sort=sort,
+                dir_=dir_,
+            )
+        else:
+            # Path ràpid back-compat: cap filtre, sort per defecte → reutilitzem
+            # exactament l'ordre del cache (ja és mtime desc).
+            entries = all_entries
+
+        total = len(entries)
+        paged = entries[offset : offset + limit]
         items = [self._get_file_info(p, fast=True, root=root) for p, _ in paged]
 
         return {
@@ -439,6 +779,7 @@ class MediaService:
             url_rel = path.relative_to(r_dir).as_posix() if r_dir else path.name
             url = f"{prefix}{url_rel}"
         except ValueError:
+            url_rel = path.name
             url = f"{prefix}{path.name}"
 
         # Si estem en mode ràpid, no mirem EXIF (que obre el fitxer)
@@ -448,11 +789,17 @@ class MediaService:
 
         st = path.stat()
         ext = path.suffix.lower()
+
+        # Hidratació de tags + descripció des del sidecar (clau `<root>::<rel>`).
+        # Lookup O(1) en memòria — no fa I/O addicional per fitxer.
+        user_meta = self._get_user_meta_for(root, url_rel)
+
         return {
             "id": path.stem,
             "filename": path.name,
             "url": url,
             "path": str(rel_path),
+            "path_in_root": url_rel,
             "album": album,
             "root": root,
             "kind": self.classify_kind(ext),
@@ -460,7 +807,9 @@ class MediaService:
             "last_modified": datetime.fromtimestamp(st.st_mtime).isoformat(),
             "extension": ext,
             "date_taken": exif.get("date_taken"),
-            "location": {"lat": exif.get("lat"), "lng": exif.get("lng")} if not fast else None
+            "location": {"lat": exif.get("lat"), "lng": exif.get("lng")} if not fast else None,
+            "tags": user_meta["tags"],
+            "description": user_meta["description"],
         }
 
 # Instància global segueix sent vàlida ja que el constructor és segur ara

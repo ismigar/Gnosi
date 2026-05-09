@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
   Image as ImageIcon,
@@ -19,12 +19,20 @@ import {
   Tag,
   FileText,
   X,
-  Save,
   Folder,
   FolderOpen,
   CloudOff,
   Library,
-  Database
+  Database,
+  Music,
+  Video,
+  ArrowDown,
+  ArrowUp,
+  Eraser,
+  HardDrive,
+  Check,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -188,6 +196,229 @@ const ROOT_META = {
   vault: { Icon: Database, label: 'Tot el Vault' },
 };
 
+// Pills de tipus al toolbar. L'ordre defineix l'ordre visual.
+const KIND_OPTIONS = [
+  { key: 'image', label: 'Imatges', Icon: ImageIcon },
+  { key: 'video', label: 'Vídeos', Icon: Video },
+  { key: 'audio', label: 'Àudio', Icon: Music },
+  { key: 'pdf', label: 'PDFs', Icon: FileText },
+  { key: 'other', label: 'Altres', Icon: HardDrive },
+];
+
+// Presets de rang de mtime. `days=null` = personalitzat (input de dates).
+const DATE_PRESETS = [
+  { key: 'all', label: 'Sempre', days: 0 },
+  { key: '7d', label: '7 dies', days: 7 },
+  { key: '30d', label: '30 dies', days: 30 },
+  { key: '365d', label: 'Aquest any', days: 365 },
+  { key: 'custom', label: 'Personalitzat', days: null },
+];
+
+const SIZE_PRESETS = [
+  { key: 'all', label: 'Tot', min: null, max: null },
+  { key: 'small', label: '<500 KB', min: null, max: 500 },
+  { key: 'medium', label: '500 KB – 5 MB', min: 500, max: 5120 },
+  { key: 'large', label: '>5 MB', min: 5120, max: null },
+];
+
+const SORT_OPTIONS = [
+  { key: 'mtime', label: 'Modificació' },
+  { key: 'filename', label: 'Nom' },
+  { key: 'size', label: 'Mida' },
+  { key: 'kind', label: 'Tipus' },
+];
+
+const DEFAULT_FILTERS = Object.freeze({
+  kinds: [],
+  q: '',
+  tagsAny: [],
+  datePreset: 'all',
+  mtimeFrom: '',
+  mtimeTo: '',
+  sizePreset: 'all',
+});
+const DEFAULT_SORT = Object.freeze({ field: 'mtime', dir: 'desc' });
+
+const isoDaysAgo = (days) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+};
+
+// Toolbar de filtres + sort. F1: estat només en memòria del component pare,
+// no es persisteixen com a "vistes" encara (això és F3).
+function MediaToolbar({ filters, sort, onFiltersChange, onSortChange, onReset, hasActiveFilters }) {
+  const [tagDraft, setTagDraft] = useState('');
+
+  const toggleKind = (key) => {
+    const set = new Set(filters.kinds);
+    if (set.has(key)) set.delete(key); else set.add(key);
+    onFiltersChange({ ...filters, kinds: Array.from(set) });
+  };
+
+  const setDatePreset = (key) => {
+    if (key === 'all') {
+      onFiltersChange({ ...filters, datePreset: key, mtimeFrom: '', mtimeTo: '' });
+    } else if (key === 'custom') {
+      onFiltersChange({ ...filters, datePreset: key });
+    } else {
+      const preset = DATE_PRESETS.find(p => p.key === key);
+      onFiltersChange({
+        ...filters,
+        datePreset: key,
+        mtimeFrom: isoDaysAgo(preset.days),
+        mtimeTo: '',
+      });
+    }
+  };
+
+  const setSizePreset = (key) => {
+    onFiltersChange({ ...filters, sizePreset: key });
+  };
+
+  const addTag = () => {
+    const t = tagDraft.trim().toLowerCase();
+    if (!t) return;
+    if (filters.tagsAny.includes(t)) { setTagDraft(''); return; }
+    onFiltersChange({ ...filters, tagsAny: [...filters.tagsAny, t] });
+    setTagDraft('');
+  };
+
+  const removeTag = (t) => {
+    onFiltersChange({ ...filters, tagsAny: filters.tagsAny.filter(x => x !== t) });
+  };
+
+  return (
+    <div className="px-6 py-3 bg-[var(--bg-primary)] border-b border-[var(--border-primary)] flex flex-wrap items-center gap-3 text-xs">
+      {/* Tipus */}
+      <div className="flex items-center gap-1">
+        {KIND_OPTIONS.map(({ key, label, Icon }) => {
+          const active = filters.kinds.includes(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleKind(key)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+                active
+                  ? 'bg-[var(--gnosi-primary)] text-white border-[var(--gnosi-primary)]'
+                  : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]'
+              }`}
+              title={label}
+            >
+              <Icon size={12} />
+              <span className="font-medium">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="h-5 w-px bg-[var(--border-primary)] opacity-60" />
+
+      {/* Data (mtime) */}
+      <label className="flex items-center gap-1.5 text-[var(--text-tertiary)]">
+        <Calendar size={12} />
+        <select
+          value={filters.datePreset}
+          onChange={(e) => setDatePreset(e.target.value)}
+          className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
+        >
+          {DATE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+        </select>
+      </label>
+      {filters.datePreset === 'custom' && (
+        <div className="flex items-center gap-1">
+          <input
+            type="date"
+            value={filters.mtimeFrom}
+            onChange={(e) => onFiltersChange({ ...filters, mtimeFrom: e.target.value })}
+            className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
+          />
+          <span className="text-[var(--text-tertiary)]">–</span>
+          <input
+            type="date"
+            value={filters.mtimeTo}
+            onChange={(e) => onFiltersChange({ ...filters, mtimeTo: e.target.value })}
+            className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+      )}
+
+      <div className="h-5 w-px bg-[var(--border-primary)] opacity-60" />
+
+      {/* Tags */}
+      <div className="flex items-center gap-1.5">
+        <Tag size={12} className="text-[var(--text-tertiary)]" />
+        {filters.tagsAny.map(t => (
+          <span key={t} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] font-medium">
+            {t}
+            <button type="button" onClick={() => removeTag(t)} className="hover:text-red-500">
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          placeholder="Tag + Enter"
+          value={tagDraft}
+          onChange={(e) => setTagDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+          className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs w-28"
+        />
+      </div>
+
+      <div className="h-5 w-px bg-[var(--border-primary)] opacity-60" />
+
+      {/* Mida */}
+      <label className="flex items-center gap-1.5 text-[var(--text-tertiary)]">
+        <HardDrive size={12} />
+        <select
+          value={filters.sizePreset}
+          onChange={(e) => setSizePreset(e.target.value)}
+          className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
+        >
+          {SIZE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+        </select>
+      </label>
+
+      <div className="h-5 w-px bg-[var(--border-primary)] opacity-60" />
+
+      {/* Sort */}
+      <div className="flex items-center gap-1">
+        <select
+          value={sort.field}
+          onChange={(e) => onSortChange({ ...sort, field: e.target.value })}
+          className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
+          title="Camp d'ordenació"
+        >
+          {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+        <button
+          type="button"
+          onClick={() => onSortChange({ ...sort, dir: sort.dir === 'desc' ? 'asc' : 'desc' })}
+          className="p-1 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]"
+          title={sort.dir === 'desc' ? 'Descendent' : 'Ascendent'}
+        >
+          {sort.dir === 'desc' ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
+        </button>
+      </div>
+
+      {/* Reset */}
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={onReset}
+          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-all"
+          title="Netejar filtres i ordenació"
+        >
+          <Eraser size={12} />
+          <span>Netejar</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function MediaCenter() {
   const [media, setMedia] = useState([]);
   const [albums, setAlbums] = useState([]);
@@ -211,6 +442,24 @@ export default function MediaCenter() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
+
+  // F1: filtres i ordenació viuen només en memòria del component (no
+  // persisteixen com a "vistes" — això és F3). Reseteja paginació en canviar.
+  const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
+  const [sort, setSort] = useState({ ...DEFAULT_SORT });
+  const hasActiveFilters = (
+    filters.kinds.length > 0
+    || filters.q.trim() !== ''
+    || filters.tagsAny.length > 0
+    || filters.datePreset !== 'all'
+    || filters.sizePreset !== 'all'
+    || sort.field !== DEFAULT_SORT.field
+    || sort.dir !== DEFAULT_SORT.dir
+  );
+  const resetFilters = useCallback(() => {
+    setFilters({ ...DEFAULT_FILTERS });
+    setSort({ ...DEFAULT_SORT });
+  }, []);
 
   const fetchAlbums = useCallback(async (root = activeRoot) => {
     try {
@@ -242,6 +491,22 @@ export default function MediaCenter() {
       const params = { limit: PAGE_SIZE, offset: currentOffset, root: activeRoot };
       if (activeAlbum) params.album = activeAlbum;
 
+      // Filtres (només els actius es propaguen al backend)
+      if (filters.kinds.length > 0) params.kinds = filters.kinds.join(',');
+      if (filters.q.trim()) params.q = filters.q.trim();
+      if (filters.tagsAny.length > 0) params.tags_any = filters.tagsAny.join(',');
+      if (filters.mtimeFrom) params.mtime_from = filters.mtimeFrom;
+      if (filters.mtimeTo) params.mtime_to = filters.mtimeTo;
+      const sizePreset = SIZE_PRESETS.find(p => p.key === filters.sizePreset);
+      if (sizePreset?.min != null) params.size_min = sizePreset.min;
+      if (sizePreset?.max != null) params.size_max = sizePreset.max;
+
+      // Ordenació (només si difereix del defecte server-side)
+      if (sort.field !== 'mtime' || sort.dir !== 'desc') {
+        params.sort = sort.field;
+        params.dir = sort.dir;
+      }
+
       // 'Totes les fotos' pot trigar minuts la primera vegada a OneDrive,
       // sobretot per al root="vault" (escaneja tot l'arxiu).
       const res = await axios.get('/api/vault/media', { params, timeout: 600000 });
@@ -263,7 +528,7 @@ export default function MediaCenter() {
     } finally {
       setLoading(false);
     }
-  }, [activeAlbum, activeRoot, offset]);
+  }, [activeAlbum, activeRoot, offset, filters, sort]);
 
   // Carrega els roots disponibles un cop, al muntatge.
   useEffect(() => {
@@ -289,11 +554,12 @@ export default function MediaCenter() {
     setOffset(0);
   }, [activeRoot, fetchAlbums]);
 
-  // Reset al canviar d'àlbum
+  // Reset al canviar d'àlbum, root, filtres o ordenació. Tots disparen una
+  // nova petició amb offset=0 perquè el `total` reportat depèn dels filtres.
   useEffect(() => {
     fetchMedia(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAlbum, activeRoot]);
+  }, [activeAlbum, activeRoot, filters, sort]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -333,23 +599,80 @@ export default function MediaCenter() {
     });
   };
 
-  const saveMetadata = async () => {
-    if (!selectedPhoto) return;
-    try {
-      toast.loading('Desant...', { id: 'meta' });
-      await axios.patch('/api/vault/media/metadata', {
-        filename: selectedPhoto.filename,
-        album: selectedPhoto.album,
-        metadata: editingMetadata
-      });
-      toast.success('Metadades desades', { id: 'meta' });
-      // Actualitzar info local
-      setMedia(media.map(m => m.id === selectedPhoto.id ? { ...m, ...editingMetadata } : m));
-      setSelectedPhoto({ ...selectedPhoto, ...editingMetadata });
-    } catch (err) {
-      toast.error('Error en desar', { id: 'meta' });
+  // Auto-save: cap botó "Desar". Cada modificació de tags/descripció dispara
+  // un PATCH debounced (600 ms). Mostrem "Desant…/Desat" al peu del panell.
+  // - `initialMetaRef`: snapshot per (foto) per evitar saves a l'obrir.
+  // - `saveAbortRef`: cancel·la peticions en curs si arriba una nova edició.
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
+  const initialMetaRef = useRef({ id: null, tags: [], description: '' });
+  const saveTimerRef = useRef(null);
+  const saveAbortRef = useRef(null);
+
+  const flushSave = useCallback(async (photo, meta) => {
+    if (saveAbortRef.current) {
+      try { saveAbortRef.current.abort(); } catch { /* noop */ }
     }
-  };
+    const ctrl = new AbortController();
+    saveAbortRef.current = ctrl;
+    setSaveStatus('saving');
+    try {
+      await axios.patch('/api/vault/media/metadata', {
+        root: photo.root || activeRoot,
+        path_in_root: photo.path_in_root,
+        filename: photo.filename,
+        album: photo.album,
+        metadata: meta,
+      }, { signal: ctrl.signal });
+      // Sincronitzem l'snapshot perquè el següent diff parteixi del valor desat.
+      initialMetaRef.current = {
+        id: photo.id,
+        tags: [...(meta.tags || [])],
+        description: meta.description || '',
+      };
+      setSaveStatus('saved');
+      setMedia(prev => prev.map(m => m.id === photo.id
+        ? { ...m, tags: meta.tags, description: meta.description }
+        : m
+      ));
+    } catch (err) {
+      if (axios.isCancel(err) || err?.name === 'CanceledError') return;
+      console.error('Error desant metadades:', err);
+      setSaveStatus('error');
+    }
+  }, [activeRoot]);
+
+  // Quan obrim una foto, registrem el seu snapshot inicial. Cap save aquí.
+  useEffect(() => {
+    if (selectedPhoto) {
+      initialMetaRef.current = {
+        id: selectedPhoto.id,
+        tags: [...(selectedPhoto.tags || [])],
+        description: selectedPhoto.description || '',
+      };
+      setSaveStatus('idle');
+    }
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
+    if (saveAbortRef.current) { try { saveAbortRef.current.abort(); } catch { /* noop */ } saveAbortRef.current = null; }
+  }, [selectedPhoto?.id]);
+
+  // Auto-save debounced quan editingMetadata difereix de l'snapshot inicial.
+  useEffect(() => {
+    if (!selectedPhoto) return;
+    const initial = initialMetaRef.current;
+    if (initial.id !== selectedPhoto.id) return; // snapshot encara no quadra
+
+    const sameTags = initial.tags.length === editingMetadata.tags.length
+      && initial.tags.every((t, i) => t === editingMetadata.tags[i]);
+    const sameDesc = (initial.description || '') === (editingMetadata.description || '');
+    if (sameTags && sameDesc) return;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    const photoSnap = selectedPhoto;
+    const metaSnap = { tags: [...editingMetadata.tags], description: editingMetadata.description };
+    saveTimerRef.current = setTimeout(() => flushSave(photoSnap, metaSnap), 600);
+
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [editingMetadata, selectedPhoto, flushSave]);
 
   const filteredMedia = media.filter(item => 
     item.filename.toLowerCase().includes(searchTerm.toLowerCase())
@@ -407,6 +730,18 @@ export default function MediaCenter() {
           )}
         </div>
       </header>
+
+      {/* Toolbar de filtres + ordenació (només quan hi ha àlbum actiu) */}
+      {activeAlbum !== null && (
+        <MediaToolbar
+          filters={filters}
+          sort={sort}
+          onFiltersChange={setFilters}
+          onSortChange={setSort}
+          onReset={resetFilters}
+          hasActiveFilters={hasActiveFilters}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Albums */}
@@ -647,21 +982,34 @@ export default function MediaCenter() {
                 </div>
               </div>
 
-              <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] grid grid-cols-2 gap-3">
-                <button 
+              <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex items-center gap-3">
+                <button
                   className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[var(--border-primary)] text-[var(--text-primary)] rounded-xl text-xs font-bold hover:bg-[var(--bg-primary)] transition-all shadow-sm"
                   onClick={() => toast.success('Properament: Creació de nota Markdown')}
                 >
                   <FileText size={16} className="text-purple-500" />
                   Crear Nota
                 </button>
-                <button 
-                  onClick={saveMetadata}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-xl text-xs font-bold hover:bg-[var(--gnosi-primary)]/90 transition-all shadow-sm"
-                >
-                  <Save size={16} />
-                  Desar
-                </button>
+                <div className="flex-1 text-right text-[10px] font-medium" aria-live="polite">
+                  {saveStatus === 'saving' && (
+                    <span className="text-[var(--text-tertiary)] inline-flex items-center gap-1.5">
+                      <Loader2 size={12} className="animate-spin" /> Desant…
+                    </span>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <span className="text-emerald-600 inline-flex items-center gap-1.5">
+                      <Check size={12} /> Desat
+                    </span>
+                  )}
+                  {saveStatus === 'error' && (
+                    <span className="text-red-500 inline-flex items-center gap-1.5">
+                      <AlertCircle size={12} /> Error en desar
+                    </span>
+                  )}
+                  {saveStatus === 'idle' && (
+                    <span className="text-[var(--text-tertiary)]">Auto-desat actiu</span>
+                  )}
+                </div>
               </div>
             </motion.aside>
           )}
