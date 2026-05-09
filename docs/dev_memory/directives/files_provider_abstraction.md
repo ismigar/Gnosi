@@ -123,4 +123,32 @@ A `monorepo/apps/gnosi/backend/api/vault_routes.py`:
 
 ## Casos observats
 
-*(buit; emplenar a mesura que apareguin regressions o aprenentatges)*
+### 2026-05-09 — Daemon de warmup ignorava el seu propi TIMEOUT_S
+
+Durant el QA E2E de la Fase 1 (instal·lació actual: `OneDriveProvider`),
+peticions a imatges online-only retornaven 503 sistemàticament després
+de 100s (el timeout HTTP del backend). La crida directa al daemon
+`http://localhost:5009/warmup?path=...` també penjava >120s sense
+resposta, amb el daemon "running" i Full Disk Access actiu.
+
+**Causa arrel:** la versió original de `_materialize()` comprovava
+`time.time() - t0 > TIMEOUT_S` *entre* `f.read(1MB)`. Quan OneDrive
+no fa progrés (xarxa lenta, sync pausat, fitxer remot inaccessible),
+`read()` queda bloquejat al kernel i la comprovació mai s'executa.
+
+**Fix:** executem el `read()` en un thread daemon i fem `join(TIMEOUT_S)`.
+Si el thread no acaba a temps, retornem `timeout`; el thread queda
+corrent en background fins que el `read()` retorni o el procés mori.
+Així la propera petició pel mateix fitxer ja el trobarà materialitzat
+si OneDrive ha acabat per sota.
+
+**Lliçó:** entre I/O bloquejant i deadlines, una flag cooperativa
+*entre* iteracions no n'hi ha prou — cal un mecanisme que pugui
+interrompre la crida en si (thread+join, signal.alarm, o non-blocking
+fd + select).
+
+**Verificació:** `sh/start_warmup_daemon.sh --bg` (després de matar el
+daemon vell amb `kill $(cat /tmp/onedrive_warmup_daemon.pid)`), després
+demanar una imatge online-only — el log ha de mostrar
+`warmup timeout per ... després de Ts` dins el TIMEOUT_S configurat,
+no més.
