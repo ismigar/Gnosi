@@ -63,8 +63,15 @@ VENV_DIR="$ELECTRON_DIR/.venv-python"
 rm -rf "$VENV_DIR"
 $PYTHON_CMD -m venv "$VENV_DIR"
 
-PYTHON_VENV="$VENV_DIR/bin/python"
-PIP_VENV="$VENV_DIR/bin/pip"
+# Cross-platform venv layout: POSIX uses bin/, Windows venvs use Scripts/.
+# This script runs under Git Bash / MSYS on the Windows runner.
+if [ -x "$VENV_DIR/Scripts/python.exe" ]; then
+    PYTHON_VENV="$VENV_DIR/Scripts/python.exe"
+    PIP_VENV="$VENV_DIR/Scripts/pip.exe"
+else
+    PYTHON_VENV="$VENV_DIR/bin/python"
+    PIP_VENV="$VENV_DIR/bin/pip"
+fi
 
 echo ""
 echo "3. Installing dependencies into the virtual environment..."

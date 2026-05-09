@@ -2,6 +2,7 @@
   "name": "cervell-digital",
   "version": "1.0.0",
   "description": "Cervell Digital - Gnosi Application",
+  "homepage": "https://github.com/ismigar/Gnosi",
   "main": "main.js",
   "author": "Ismael Garcia Fernandez",
   "license": "MIT",
