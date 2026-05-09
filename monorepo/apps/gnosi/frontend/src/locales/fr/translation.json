@@ -105,6 +105,13 @@
         "skipped_unknown_item": "Élément inconnu",
         "errors": "Erreurs"
       },
+      "zotero_db_label": "Chemin de la BD Zotero",
+      "zotero_db_desc": "Chemin absolu vers la base de données locale de Zotero (zotero.sqlite).",
+      "linked_base_label": "Linked Attachment Base Directory",
+      "linked_base_desc": "Dossier où vivent les PDFs liés par Zotero. Par défaut : le dossier Biblioteca du Vault. Zotero et Gnosi pointent vers le même fichier ; rien n'est dupliqué.",
+      "linked_base_placeholder": "(défaut : Biblioteca)",
+      "target_table_label": "Table cible du Vault",
+      "target_table_desc": "Table où seront stockées les références. Peut être renommée librement.",
       "fields": {
         "key": "Clé Zotero",
         "title": "Titre",
@@ -116,7 +123,8 @@
         "doi": "DOI",
         "abstractNote": "Résumé",
         "dateAdded": "Date d'ajout",
-        "dateModified": "Date de modification"
+        "dateModified": "Date de modification",
+        "attachmentPath": "Chemin du fichier"
       },
       "mapping": {
         "title": "Mappage des champs Zotero",
