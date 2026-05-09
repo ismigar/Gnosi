@@ -62,6 +62,7 @@ import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 import { RichLinkInsertModal } from './RichLinkInsert';
+import { MediaInsertDialog } from './MediaInsertDialog';
 import { blocknoteCa } from '../../locales/blocknote/ca';
 
 const normalizeVaultAssetUrl = (value) => {
@@ -1167,13 +1168,39 @@ export function EditorInner({
     const tableId = metadata?.table_id || metadata?.database_table_id || '';
 
     // Ref estable: el valor de tableId pot canviar entre renders però la
-    // funció uploadFileToAssets ha de mantenir SEMPRE la mateixa referència
+    // funció requestMediaInsert ha de mantenir SEMPRE la mateixa referència
     // perquè useCreateBlockNote no recreï l'editor (cosa que esborraria el
     // contingut en curs d'edició).
     const tableIdRef = useRef(tableId);
     useEffect(() => { tableIdRef.current = tableId; }, [tableId]);
 
-    const uploadFileToAssets = useCallback(async (file) => {
+    // Estat per al MediaInsertDialog. Quan BlockNote o el handler de drop
+    // demanen pujar un fitxer, en lloc de pujar-lo directament, mostrem el
+    // dialog amb 3 opcions (buscar al vault / pujar a Assets / enllaçar local)
+    // i resolem la promise amb la URL final que es passi al bloc.
+    const [pendingMedia, setPendingMedia] = useState(null);
+    const pendingMediaRef = useRef(null);
+    useEffect(() => { pendingMediaRef.current = pendingMedia; }, [pendingMedia]);
+
+    const requestMediaInsert = useCallback((file = null) => {
+        // Si hi ha una petició pendent, la rebutgem perquè BlockNote/handler
+        // no quedi penjat esperant la nova promise. (No hauria d'arribar però
+        // és un guard barat.)
+        const prev = pendingMediaRef.current;
+        if (prev?.reject) {
+            try { prev.reject(new Error('superseded')); } catch { /* noop */ }
+        }
+        return new Promise((resolve, reject) => {
+            setPendingMedia({ file, resolve, reject });
+        });
+    }, []);
+
+    // Compat: alguns helpers (RichLinkInsertModal, drops manuals de PDF) ja
+    // existents reben `uploadFile` amb la signatura antiga (puja directe a
+    // Assets). Mantenim aquesta variant simple per a aquells casos: dins el
+    // RichLink l'usuari ja tria explícitament el mode d'enllaç, no cal repetir
+    // la pregunta.
+    const uploadFileToAssetsDirect = useCallback(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
         const tid = tableIdRef.current;
@@ -1188,7 +1215,7 @@ export function EditorInner({
         schema,
         initialContent: blocks || undefined,
         dropCursor: multiColumnDropCursor,
-        uploadFile: uploadFileToAssets,
+        uploadFile: requestMediaInsert,
         dictionary: blocknoteCa,
         tables: {
             splitCells: true,
@@ -1931,28 +1958,20 @@ export function EditorInner({
                     e.stopPropagation();
                     for (const file of pdfs) {
                         try {
-                            const formData = new FormData();
-                            formData.append('file', file);
-                            const pdfUploadUrl = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
-                            const res = await fetch(pdfUploadUrl, { method: 'POST', body: formData });
-                            if (!res.ok) {
-                                // Sense aquest check, un 4xx/5xx feia que data.url
-                                // fos undefined i s'inseria `[name](undefined)`.
-                                throw new Error(`PDF upload failed: HTTP ${res.status}`);
-                            }
-                            const data = await res.json();
-                            if (!data?.url) {
-                                throw new Error('PDF upload response missing url');
-                            }
+                            // El drop de PDF passa pel dialog igual que la resta
+                            // de mitjans (img/video) perquè l'usuari pugui triar
+                            // entre pujar, enllaçar local o buscar al vault.
+                            const finalUrl = await requestMediaInsert(file);
+                            if (!finalUrl) continue;
                             const pos = editor.getTextCursorPosition();
                             editor.insertBlocks(
-                                [{ type: 'paragraph', content: `📎 [${file.name}](${data.url})` }],
+                                [{ type: 'paragraph', content: `📎 [${file.name}](${finalUrl})` }],
                                 pos.block, 'after'
                             );
                         } catch (err) {
-                            // Notify user — silent dropping was confusing: the PDF
-                            // disappeared and nothing happened.
-                            console.error('PDF drop upload failed', err);
+                            // Cancel·lació de l'usuari (reject) → silenciós.
+                            if (String(err?.message || '').match(/cancelled|superseded/)) continue;
+                            console.error('PDF drop insert failed', err);
                         }
                     }
                 }}
@@ -2310,7 +2329,22 @@ export function EditorInner({
                 open={isRichLinkOpen}
                 onClose={() => setIsRichLinkOpen(false)}
                 editor={editor}
-                uploadFile={uploadFileToAssets}
+                uploadFile={uploadFileToAssetsDirect}
+            />
+            <MediaInsertDialog
+                open={Boolean(pendingMedia)}
+                initialFile={pendingMedia?.file || null}
+                tableId={tableIdRef.current}
+                onResolve={(url) => {
+                    const p = pendingMediaRef.current;
+                    setPendingMedia(null);
+                    try { p?.resolve?.(url); } catch { /* noop */ }
+                }}
+                onClose={() => {
+                    const p = pendingMediaRef.current;
+                    setPendingMedia(null);
+                    try { p?.reject?.(new Error('cancelled')); } catch { /* noop */ }
+                }}
             />
         </VaultEditorContext.Provider>
     );
