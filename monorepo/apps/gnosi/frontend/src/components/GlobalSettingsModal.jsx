@@ -377,6 +377,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     ], [integrations]);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerField, setPickerField] = useState(null);
+    const [zoteroBasePickerOpen, setZoteroBasePickerOpen] = useState(false);
     const [aiValidationStatus, setAiValidationStatus] = useState({});
     const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
 
@@ -3285,8 +3286,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <input type="text" className="gnosi-input" value={draft.zotero.zotero_db || ''} onChange={e => setDraft({...draft, zotero: {...draft.zotero, zotero_db: e.target.value}})} placeholder="~/Zotero/zotero.sqlite" />
                                                 </FormGroup>
                                                 <div style={{ marginTop: '28px' }}>
-                                                    <FormGroup label={t('settings.zotero.linked_base_label') || "Linked Attachment Base Directory"} description={t('settings.zotero.linked_base_desc') || "Carpeta on viuen els PDFs enllaçats per Zotero. Per defecte: la carpeta Biblioteca del Vault."}>
-                                                        <input type="text" className="gnosi-input" value={draft.zotero.linked_attachments_base || ''} onChange={e => setDraft({...draft, zotero: {...draft.zotero, linked_attachments_base: e.target.value}})} placeholder={t('settings.zotero.linked_base_placeholder') || "(per defecte: Biblioteca)"} />
+                                                    <FormGroup label={t('settings.zotero.linked_base_label') || "Carpeta de PDFs enllaçats"} description={t('settings.zotero.linked_base_desc') || "Directori on Zotero té els PDFs enllaçats. Per defecte, la carpeta Biblioteca del Vault."}>
+                                                        <div style={{ display: 'flex', gap: '14px' }}>
+                                                            <input
+                                                                type="text"
+                                                                className="gnosi-input"
+                                                                value={draft.zotero.linked_attachments_base || ''}
+                                                                readOnly
+                                                                placeholder={t('settings.zotero.linked_base_placeholder') || "(per defecte: Biblioteca)"}
+                                                                style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }}
+                                                            />
+                                                            <button
+                                                                onClick={() => setZoteroBasePickerOpen(true)}
+                                                                className="btn-gnosi-secondary"
+                                                                style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0 }}
+                                                                title={t('settings.zotero.linked_base_label') || "Carpeta de PDFs enllaçats"}
+                                                            >
+                                                                <FolderOpen size={18} />
+                                                            </button>
+                                                        </div>
                                                     </FormGroup>
                                                 </div>
                                                 <div style={{ marginTop: '28px' }}>
@@ -3446,6 +3464,29 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         paths: { ...prev.paths, [pickerField]: path }
                     }));
                     setPickerOpen(false);
+                }}
+            />
+
+            {/* ZOTERO LINKED ATTACHMENT BASE DIRECTORY PICKER */}
+            <FolderPickerModal
+                isOpen={zoteroBasePickerOpen}
+                onClose={() => setZoteroBasePickerOpen(false)}
+                initialPath={draft.zotero?.linked_attachments_base || draft.paths?.vault || ''}
+                onSelect={async (path) => {
+                    const newZotero = { ...draft.zotero, linked_attachments_base: path };
+                    setDraft(prev => ({ ...prev, zotero: newZotero }));
+                    setZoteroBasePickerOpen(false);
+                    // Persisteix immediatament — el sync llegeix el config via API,
+                    // així que cal que el canvi s'apliqui al fitxer abans del proper run.
+                    try {
+                        await fetch('/api/zotero/config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newZotero),
+                        });
+                    } catch (e) {
+                        console.error('Zotero linked_attachments_base save error:', e);
+                    }
                 }}
             />
 
