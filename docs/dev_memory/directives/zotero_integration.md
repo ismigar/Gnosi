@@ -85,11 +85,11 @@ L'usuari pot renombrar lliurement després de la creació; gràcies a §4 el syn
 | Fase | Estat | Resum |
 |---|---|---|
 | 0. Consolidació skills | ✅ 2026-05-09 | Unificació `zotero_sync` + `zotero_management` → única skill canònica. |
-| 1. Backend: `inspect`, `suggest-mapping`, `setup` localitzat | 🚧 | Endpoints per descobrir l'esquema i suggerir un mapping per heurística. Migració de mappings legacy. |
-| 2. UI de mapping | ⏳ | `ZoteroMappingModal.jsx` amb selects per `property_id` i auto-suggeriment. |
-| 3. Robustesa del sync | ⏳ | Match per títol normalitzat per pàgines pre-existents, sync incremental, validació de tipus. |
-| 4. UX/observabilitat | ⏳ | `last-sync` endpoint, comptadors, logs estructurats. |
-| 5. Documentació | ⏳ | Tancament del directiu + memòria. |
+| 1. Backend: `inspect`, `suggest-mapping`, `setup` localitzat | ✅ 2026-05-09 | Endpoints per descobrir l'esquema i suggerir un mapping per heurística. Migració de mappings legacy idempotent. Schema localitzat ca/es/en/fr a `POST /setup`. |
+| 2. UI de mapping | ✅ 2026-05-09 | `ZoteroMappingModal.jsx` amb selects per `property_id` i auto-suggeriment. Auto-launch de la modal després de `setup` quan hi ha unmapped/conflicts. Badge d'estat al panell. |
+| 3. Robustesa del sync | ✅ 2026-05-09 | Match per títol normalitzat per pàgines pre-existents (counter `linked`), sync incremental (skip per `dateModified > last_sync_at`), `READ_ONLY_FIELDS` que mai s'escriuen a sqlite. |
+| 4. UX/observabilitat | ✅ 2026-05-09 | `GET /last-sync` endpoint, panell "Darrera sincronització" amb timestamps i comptadors per direcció, polling post-sync amb toast estructurat, selector `existing_pages_strategy`, logs estructurats al backend que parsegen el JSON dels scripts. |
+| 5. Documentació | ✅ 2026-05-09 | Directiu i SKILL.md tancats; memòria persistent `feedback_zotero_mapping.md`. |
 
 ## 7. Restriccions
 
@@ -116,5 +116,9 @@ L'usuari pot renombrar lliurement després de la creació; gràcies a §4 el syn
 |---|---|---|---|
 | 2026-04-08 | Skills fragmentades | Directius duplicats (backup vs sync) | Skill unificada `zotero_management`. |
 | 2026-05-09 | `zotero_management` i `zotero_sync` divergien | API apuntava a `zotero_sync`; docs a `zotero_management` | Consolidació en `zotero_sync` (Fase 0). |
-| 2026-05-09 | Mapping fràgil davant renames | Config persisteix `name` de property | Migració a `property_id` (Fase 1, planificada). |
-| 2026-05-09 | Schema barreja idiomes | `RECURSOS_SCHEMA` constant en català/anglès | Schema localitzat a `POST /setup` (Fase 1, planificada). |
+| 2026-05-09 | Mapping fràgil davant renames | Config persistia `name` de property | Mapping per `property_id` (UUID immutable); resolució `id → name` al runtime (Fase 1). |
+| 2026-05-09 | Schema barreja idiomes | `RECURSOS_SCHEMA` constant en català/anglès | Schema localitzat a `POST /setup` segons `lang` actiu (Fase 1). |
+| 2026-05-09 | Pàgines pre-existents duplicades | Identitat per `zotero_key` només; pàgines manuals quedaven invisibles | Match per títol normalitzat amb counter `linked` que omple el `zotero_key` que faltava (Fase 3). |
+| 2026-05-09 | Sync escrivia camps owned-by-Zotero | El cicle G→Z propagava `dateAdded`/`dateModified` cap a sqlite | `READ_ONLY_FIELDS` filtra sempre, encara que estiguin al mapping (Fase 3). |
+| 2026-05-09 | Sense visibilitat del que feia el sync | Els scripts només imprimien una línia genèrica | JSON resum a stdout + `GET /last-sync` + panell UI amb comptadors per direcció (Fase 4). |
+| 2026-05-09 | Subprocess no podia importar `safe_io` | Scripts standalone sense `sys.path` cap a `backend/` | Reimplementació local del patró tmp+`os.replace` per escriptures atòmiques (Fase 3). |
