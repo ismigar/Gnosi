@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from backend.config.app_config import load_params
 from backend.services.workspace_service import require_role
 from backend.api.vault_routes import (
+    get_p,
     load_registry,
     save_registry,
     _ensure_asset_dirs_for_table_entry,
@@ -46,6 +47,11 @@ ZOTERO_FIELDS: List[Dict[str, str]] = [
     {"id": "abstractNote", "slug": "abstract"},
     {"id": "dateAdded", "slug": "date_added"},
     {"id": "dateModified", "slug": "date_modified"},
+    # Phase 6 — ruta absoluta al PDF/attachment principal de l'ítem.
+    # No dupliquem el fitxer: tant Zotero com Gnosi apunten a la mateixa
+    # còpia que viu a la carpeta `Biblioteca` (o on l'usuari hagi configurat
+    # `linked_attachments_base`).
+    {"id": "attachmentPath", "slug": "attachment_path"},
 ]
 
 ZOTERO_FIELD_TYPES: Dict[str, str] = {
@@ -60,6 +66,7 @@ ZOTERO_FIELD_TYPES: Dict[str, str] = {
     "tags": "multi_select",
     "date_added": "date",
     "date_modified": "date",
+    "attachment_path": "text",
 }
 
 # ---------------------------------------------------------------------------
@@ -81,6 +88,7 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Tags",
         "date_added": "Created",
         "date_modified": "Modified",
+        "attachment_path": "File path",
         "table_name": "Resources",
     },
     "ca": {
@@ -95,6 +103,7 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Etiquetes",
         "date_added": "Creat",
         "date_modified": "Modificat",
+        "attachment_path": "Ruta de l'arxiu",
         "table_name": "Recursos",
     },
     "es": {
@@ -109,6 +118,7 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Etiquetas",
         "date_added": "Creado",
         "date_modified": "Modificado",
+        "attachment_path": "Ruta del archivo",
         "table_name": "Recursos",
     },
     "fr": {
@@ -123,6 +133,7 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Étiquettes",
         "date_added": "Créé",
         "date_modified": "Modifié",
+        "attachment_path": "Chemin du fichier",
         "table_name": "Ressources",
     },
 }
@@ -143,6 +154,12 @@ MAPPING_SYNONYMS: Dict[str, List[str]] = {
     "tags": ["tags", "etiquetes", "etiquetas", "etiquettes", "keywords"],
     "date_added": ["dateadded", "creat", "creado", "cree", "created", "createdtime", "createdat"],
     "date_modified": ["datemodified", "modificat", "modificado", "modifie", "modified", "lasteditedtime", "updatedat"],
+    "attachment_path": [
+        "attachmentpath", "filepath", "path", "rutaarxiu", "rutadelarxiu",
+        "rutaarchivo", "rutadelarchivo", "cheminfichier", "cheminduFichier",
+        "adjunt", "adjunts", "adjunto", "adjuntos", "attachment", "attachments",
+        "pdf", "pdfpath", "fitxer",
+    ],
 }
 
 
@@ -190,6 +207,7 @@ def build_recursos_schema(lang: str) -> List[Dict[str, str]]:
             "tags",
             "date_added",
             "date_modified",
+            "attachment_path",
         ]
     ]
 
@@ -354,6 +372,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "last_sync_z_to_g": None,        # ISO de l'última Z→G
     "last_sync_g_to_z": None,        # ISO de l'última G→Z
     "last_sync_summary": None,       # dict resum del darrer sync (per UI)
+    # Phase 6 — linked attachments. Quan és buit, el GET /config el resol
+    # automàticament a `<vault>/../Biblioteca` (la mateixa carpeta on
+    # l'usuari acostuma a tenir els PDFs). L'usuari pot sobreescriure'l
+    # des de la UI si Zotero té configurada una altra base directory.
+    "linked_attachments_base": "",
 }
 
 
@@ -374,9 +397,37 @@ def save_json(path: Path, data: Any) -> None:
     safe_write_json(path, data, indent=2, ensure_ascii=False)
 
 
+def _resolve_linked_attachments_base(value: Any) -> str:
+    """Returns the absolute path the scripts should use as the Linked
+    Attachment Base Directory.
+
+    - If the user has set a non-empty value at config time, return it as-is
+      (after expanding `~`).
+    - Otherwise fall back to the active vault's `Biblioteca` sibling, which
+      is what `vault_routes.get_p("BIBLIOTECA")` resolves to.
+
+    Returns empty string if neither resolves (no active vault, no override).
+    """
+    if value:
+        try:
+            return str(Path(str(value)).expanduser())
+        except Exception:
+            return str(value)
+    try:
+        biblio = get_p("BIBLIOTECA")
+        return str(biblio) if biblio else ""
+    except Exception:
+        return ""
+
+
 def load_config_with_migration() -> Dict[str, Any]:
     """Loads the persisted config, applies legacy mapping migration if needed,
     and persists the migration result so subsequent reads are stable.
+
+    Also resolves `linked_attachments_base` to an absolute path on the fly
+    (without persisting it), so callers — including the standalone sync
+    subprocesses — can rely on `cfg["linked_attachments_base"]` being a usable
+    filesystem path even when the user never set one.
     """
     raw = load_json(CONFIG_PATH, {}) or {}
     merged = {**DEFAULT_CONFIG, **raw}
@@ -385,6 +436,12 @@ def load_config_with_migration() -> Dict[str, Any]:
     after = json.dumps(migrated.get("mapping") or {}, sort_keys=True)
     if before != after:
         save_json(CONFIG_PATH, migrated)
+
+    # Runtime resolution: never persist this so changing the vault path or the
+    # Biblioteca location keeps working without a manual config update.
+    migrated["linked_attachments_base"] = _resolve_linked_attachments_base(
+        raw.get("linked_attachments_base")
+    )
     return migrated
 
 
