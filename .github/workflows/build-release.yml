@@ -47,6 +47,10 @@ jobs:
           ./build-python.sh
 
       - name: Build Electron app (macOS ARM64)
+        env:
+          # No Apple Developer cert in CI; tell electron-builder not to
+          # auto-discover identities so it produces an unsigned DMG cleanly.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           cd monorepo/apps/gnosi/electron
           npm run build:mac
