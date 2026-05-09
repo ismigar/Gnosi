@@ -332,11 +332,28 @@ def _migrate_legacy_mapping(config: Dict[str, Any], registry: Dict[str, Any]) ->
 # ---------------------------------------------------------------------------
 
 
+# Camps Zotero que NO han de propagar-se de tornada al sqlite (només Zotero
+# els hauria de mutar). Si l'usuari els té al mapping, el sync G→Z els salta.
+READ_ONLY_FIELDS: List[str] = ["dateAdded", "dateModified", "key"]
+
+# Estratègies de match per pàgines pre-existents sense `zotero_key`.
+# - match_by_title: indexa pàgines per títol normalitzat; un match → PUT que
+#   omple el zotero_key que faltava (sense duplicar).
+# - skip: ignora pàgines sense zotero_key (comportament heretat).
+EXISTING_PAGE_STRATEGIES: List[str] = ["match_by_title", "skip"]
+DEFAULT_EXISTING_PAGE_STRATEGY = "match_by_title"
+
+
 DEFAULT_CONFIG: Dict[str, Any] = {
     "enabled": False,
     "zotero_db": "~/Zotero/zotero.sqlite",
     "target_table": "",
     "mapping": {},
+    "existing_pages_strategy": DEFAULT_EXISTING_PAGE_STRATEGY,
+    "last_sync_at": None,            # ISO timestamp de l'última sync (qualsevol direcció)
+    "last_sync_z_to_g": None,        # ISO de l'última Z→G
+    "last_sync_g_to_z": None,        # ISO de l'última G→Z
+    "last_sync_summary": None,       # dict resum del darrer sync (per UI)
 }
 
 
@@ -385,8 +402,26 @@ async def get_config():
 async def save_config(config: Dict[str, Any] = Body(...)):
     existing = load_json(CONFIG_PATH, {}) or {}
     merged = {**DEFAULT_CONFIG, **existing, **config}
+
+    # Sanejat: només acceptem estratègies conegudes per a `existing_pages_strategy`.
+    strategy = merged.get("existing_pages_strategy")
+    if strategy not in EXISTING_PAGE_STRATEGIES:
+        merged["existing_pages_strategy"] = DEFAULT_EXISTING_PAGE_STRATEGY
+
     save_json(CONFIG_PATH, merged)
     return {"status": "success"}
+
+
+@router.get("/last-sync")
+async def get_last_sync():
+    """Reports timestamps + summary of the most recent sync runs (Z→G and G→Z)."""
+    cfg = load_config_with_migration()
+    return {
+        "last_sync_at": cfg.get("last_sync_at"),
+        "last_sync_z_to_g": cfg.get("last_sync_z_to_g"),
+        "last_sync_g_to_z": cfg.get("last_sync_g_to_z"),
+        "last_sync_summary": cfg.get("last_sync_summary"),
+    }
 
 
 @router.get("/fields")
