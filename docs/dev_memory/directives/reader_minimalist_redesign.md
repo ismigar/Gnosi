@@ -10,7 +10,7 @@ Reduir el soroll visual del Lector mantenint la capçalera (`AppHeader`) i el si
 ## Filosofia
 "Reeder/Readwise": tipografia protagonista, un sol accent (`--gnosi-blue`), separadors *hairline* en lloc de targetes, accions secundàries *text-only*.
 
-## Canvis a `apps/gnosi/frontend/src/pages/ReaderDashboard.jsx`
+## Canvis a `monorepo/apps/gnosi/frontend/src/pages/ReaderDashboard.jsx`
 
 ### 1. Header de la sidebar
 - Treure `backdrop-blur-md sticky` (no aporta).
