@@ -8,6 +8,7 @@ import { AppHeader } from '../components/AppHeader';
 
 const API_BASE = '/api';
 const LOCALE_MAP = { ca: 'ca-ES', es: 'es-ES', en: 'en-US', fr: 'fr-FR' };
+const MAX_UNREAD_ARTICLES_FETCH_LIMIT = 10000;
 
 const ReaderDashboard = () => {
     const { t, i18n } = useTranslation();
@@ -66,7 +67,7 @@ const ReaderDashboard = () => {
 
     const fetchUnreadCounts = async () => {
         try {
-            const res = await axios.get(`${API_BASE}/reader/articles?unread_only=true&limit=10000`);
+            const res = await axios.get(`${API_BASE}/reader/articles?unread_only=true&limit=${MAX_UNREAD_ARTICLES_FETCH_LIMIT}`);
             setUnreadArticles(res.data || []);
         } catch (error) {
             console.error("Error fetching unread counts:", error);
