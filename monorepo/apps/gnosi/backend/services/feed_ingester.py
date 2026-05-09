@@ -8,6 +8,10 @@ from sqlalchemy.orm import Session
 from backend.data.db import get_engine_for_path
 from backend.services.context_vars import get_active_vault_path
 from backend.models.reader import FeedSource, Article
+from backend.services.article_extractor import (
+    extract_full_content,
+    looks_like_excerpt,
+)
 
 log = logging.getLogger(__name__)
 
@@ -100,11 +104,23 @@ def fetch_and_store_feeds():
                                 [{'value': entry.get('summary', '')}],
                             )[0]['value']
 
+                            # When the feed only ships a teaser, fetch the
+                            # canonical URL and extract the full body. We do
+                            # this synchronously inside the ingester (which
+                            # already runs as a scheduled job, so the extra
+                            # HTTP per article doesn't block any user
+                            # request). On failure we fall back to whatever
+                            # the feed gave us.
+                            full_content = None
+                            if looks_like_excerpt(content_raw):
+                                full_content = extract_full_content(article_link)
+
                             new_article = Article(
                                 source_id=source.id,
                                 title=entry.get('title', 'Untitled'),
                                 url=article_link,
                                 content=content_raw,
+                                full_content=full_content,
                                 published_at=pub_date,
                                 is_read=False
                             )

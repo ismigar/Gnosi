@@ -25,6 +25,7 @@ langchain-chroma>=0.1.0
 langgraph-checkpoint-sqlite>=1.0.0
 psutil>=5.9.0
 simpleeval>=0.9.13
+trafilatura>=1.12
 sentence-transformers>=2.2.0
 langchain-huggingface>=0.0.1
 icalendar>=5.0.0
