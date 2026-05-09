@@ -688,20 +688,7 @@ async def trigger_sync(background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="No hi ha cap taula de destí configurada.")
 
     def run_sync():
-        try:
-            result = subprocess.run(
-                ["python3", str(SYNC_SCRIPT_PATH)],
-                capture_output=True,
-                text=True,
-                cwd=str(BASE_DIR),
-                timeout=300,  # 5 min — biblioteca Zotero gran pot trigar
-            )
-            if result.returncode != 0:
-                log.error(f"Zotero→Vault sync failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            log.error("Zotero→Vault sync timeout (5 min)")
-        except Exception as e:
-            log.error(f"Zotero sync error: {e}")
+        _run_sync_subprocess(SYNC_SCRIPT_PATH, "zotero→vault")
 
     background_tasks.add_task(run_sync)
     return {"status": "started", "direction": "zotero→vault"}
@@ -723,20 +710,46 @@ async def trigger_sync_back(background_tasks: BackgroundTasks):
         return {"status": "zotero_open", "message": "Tanca Zotero abans de sincronitzar els canvis de Gnosi cap a Zotero."}
 
     def run_sync_back():
-        try:
-            result = subprocess.run(
-                ["python3", str(SYNC_BACK_SCRIPT_PATH)],
-                capture_output=True,
-                text=True,
-                cwd=str(BASE_DIR),
-                timeout=300,
-            )
-            if result.returncode != 0:
-                log.error(f"Vault→Zotero sync failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            log.error("Vault→Zotero sync timeout (5 min)")
-        except Exception as e:
-            log.error(f"Zotero sync-back error: {e}")
+        _run_sync_subprocess(SYNC_BACK_SCRIPT_PATH, "vault→zotero")
 
     background_tasks.add_task(run_sync_back)
     return {"status": "started", "direction": "vault→zotero"}
+
+
+def _run_sync_subprocess(script_path: Path, direction: str) -> None:
+    """Runs a sync script and logs a structured one-line summary on success.
+
+    The scripts print a single JSON line to stdout with their counters; we
+    parse it and emit a clean log line. On failure, stderr is logged for
+    debugging.
+    """
+    try:
+        result = subprocess.run(
+            ["python3", str(script_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(BASE_DIR),
+            timeout=300,
+        )
+        if result.returncode != 0:
+            log.error(f"Zotero {direction} sync failed (rc={result.returncode}): {result.stderr.strip()}")
+            return
+        # Parse the last non-empty stdout line as JSON summary.
+        summary = None
+        for line in reversed((result.stdout or "").splitlines()):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                summary = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            break
+        if summary:
+            log.info(f"Zotero {direction} sync done: {summary}")
+        else:
+            log.info(f"Zotero {direction} sync done (no summary parsed)")
+    except subprocess.TimeoutExpired:
+        log.error(f"Zotero {direction} sync timeout (5 min)")
+    except Exception as e:
+        log.error(f"Zotero {direction} sync error: {e}")
