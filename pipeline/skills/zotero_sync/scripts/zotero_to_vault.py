@@ -36,6 +36,18 @@ VAULT_API = "http://localhost:8000"
 
 
 def load_config() -> dict:
+    """Loads the Zotero config.
+
+    Tries the API first (so derived fields like `linked_attachments_base`
+    arrive resolved by the backend) and falls back to the JSON file if the
+    backend is unreachable.
+    """
+    try:
+        r = requests.get(f"{VAULT_API}/api/zotero/config", timeout=5)
+        if r.ok:
+            return r.json()
+    except requests.RequestException:
+        pass
     if not CONFIG_PATH.exists():
         raise FileNotFoundError(f"Config not found at {CONFIG_PATH}")
     with open(CONFIG_PATH) as f:
@@ -118,7 +130,94 @@ def get_zotero_conn(path: str) -> sqlite3.Connection:
     return sqlite3.connect(TEMP_ZOTERO_PATH)
 
 
-def extract_items(z_conn: sqlite3.Connection) -> list:
+# ---------------------------------------------------------------------------
+# Attachment resolution (Phase 6).
+# Zotero stores three flavours we care about:
+#   - `attachments:<rel>`  → path relatiu a la "Linked Attachment Base
+#     Directory" (configurable a `linked_attachments_base`; default = la
+#     carpeta `Biblioteca` del Vault). Aquest és el cas comú quan els PDFs
+#     viuen fora de Zotero i Zotero només els lliga.
+#   - `storage:<file>`     → fitxer dins `~/Zotero/storage/<att_key>/<file>`.
+#   - `/absolute/path.pdf` → ruta absoluta legacy.
+# Tornem una ruta absoluta usable directament per `_safe_open_target` del
+# Vault. No tornem cap fitxer si el path no es pot resoldre o no existeix.
+# ---------------------------------------------------------------------------
+
+
+def resolve_attachment_path(att: dict, linked_base: str, zotero_storage: str):
+    """Returns absolute filesystem path for `att`, or None if unresolvable.
+
+    `att` is a row from `itemAttachments` enriched with the attachment's own
+    item.key (`att_key`).
+    """
+    raw = (att or {}).get("path") or ""
+    if not raw:
+        return None
+    if raw.startswith("attachments:"):
+        rel = raw[len("attachments:"):]
+        if not linked_base:
+            return None
+        return os.path.join(os.path.expanduser(linked_base), rel)
+    if raw.startswith("storage:"):
+        rel = raw[len("storage:"):]
+        att_key = (att or {}).get("att_key") or ""
+        if not att_key or not zotero_storage:
+            return None
+        return os.path.join(os.path.expanduser(zotero_storage), att_key, rel)
+    if raw.startswith("/"):
+        return raw
+    return None
+
+
+def extract_attachments_for(z_conn: sqlite3.Connection, parent_item_id: int) -> list:
+    """Returns the attachments belonging to `parent_item_id`, sorted by
+    insertion order. Each row is a dict with keys: att_key, linkMode, path,
+    contentType.
+    """
+    cur = z_conn.cursor()
+    cur.execute(
+        """
+        SELECT items.key as att_key, ia.linkMode, ia.path, ia.contentType
+        FROM itemAttachments ia
+        JOIN items ON items.itemID = ia.itemID
+        WHERE ia.parentItemID = ?
+        ORDER BY items.dateAdded ASC, items.itemID ASC
+        """,
+        (parent_item_id,),
+    )
+    return [
+        {"att_key": row[0], "linkMode": row[1], "path": row[2], "contentType": row[3]}
+        for row in cur.fetchall()
+    ]
+
+
+def pick_main_attachment(atts: list, linked_base: str, zotero_storage: str):
+    """Selects the canonical attachment for a Zotero item.
+
+    Preference order:
+      1. First `application/pdf` whose path resolves and the file exists.
+      2. First `application/pdf` whose path resolves (even if the file is missing —
+         we still surface the path so the user can investigate).
+      3. First any-content attachment with a resolvable path.
+    Returns the absolute path string or None.
+    """
+    pdfs = [a for a in atts if (a.get("contentType") or "").lower() == "application/pdf"]
+    others = [a for a in atts if a not in pdfs]
+
+    def _try(seq, require_exists: bool):
+        for a in seq:
+            p = resolve_attachment_path(a, linked_base, zotero_storage)
+            if not p:
+                continue
+            if require_exists and not os.path.exists(p):
+                continue
+            return p
+        return None
+
+    return _try(pdfs, True) or _try(pdfs, False) or _try(others, False)
+
+
+def extract_items(z_conn: sqlite3.Connection, linked_base: str = "", zotero_storage: str = "") -> list:
     cur = z_conn.cursor()
     cur.execute("""
         SELECT items.itemID, items.key, itemTypes.typeName, items.dateAdded, items.dateModified
@@ -151,6 +250,9 @@ def extract_items(z_conn: sqlite3.Connection) -> list:
         """, (item_id,))
         tags = ", ".join(r[0] for r in cur.fetchall())
 
+        atts = extract_attachments_for(z_conn, item_id)
+        attachment_path = pick_main_attachment(atts, linked_base, zotero_storage) or ""
+
         items.append({
             "key": item_key,
             "typeName": type_name,
@@ -163,6 +265,7 @@ def extract_items(z_conn: sqlite3.Connection) -> list:
             "date": fields.get("date", ""),
             "url": fields.get("url", ""),
             "abstractNote": fields.get("abstractNote", ""),
+            "attachmentPath": attachment_path,
         })
     return items
 
@@ -259,6 +362,10 @@ def sync() -> dict:
     strategy = config.get("existing_pages_strategy", "match_by_title")
     last_sync_at = config.get("last_sync_at")
     last_sync_dt = parse_zotero_ts(last_sync_at) if last_sync_at else None
+    linked_base = config.get("linked_attachments_base", "") or ""
+    # Storage dir: sibling of the live zotero.sqlite. Works for the standard
+    # Zotero data directory layout.
+    zotero_storage = str(Path(os.path.expanduser(zotero_db)).parent / "storage")
 
     if not table_id:
         return {"status": "no_target_table"}
@@ -267,7 +374,7 @@ def sync() -> dict:
 
     z_conn = get_zotero_conn(zotero_db)
     try:
-        items = extract_items(z_conn)
+        items = extract_items(z_conn, linked_base=linked_base, zotero_storage=zotero_storage)
     finally:
         z_conn.close()
         if os.path.exists(TEMP_ZOTERO_PATH):

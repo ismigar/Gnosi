@@ -795,6 +795,13 @@
         "skipped_unknown_item": "Unknown item",
         "errors": "Errors"
       },
+      "zotero_db_label": "Zotero DB path",
+      "zotero_db_desc": "Absolute path to the local Zotero database (zotero.sqlite).",
+      "linked_base_label": "Linked Attachment Base Directory",
+      "linked_base_desc": "Folder where Zotero's linked PDFs live. Defaults to the Vault's Biblioteca folder. Both Zotero and Gnosi point to the same file — nothing is duplicated.",
+      "linked_base_placeholder": "(default: Biblioteca)",
+      "target_table_label": "Target Vault table",
+      "target_table_desc": "Table that will store the references. Can be renamed freely.",
       "fields": {
         "key": "Zotero Key",
         "title": "Title",
@@ -806,7 +813,8 @@
         "doi": "DOI",
         "abstractNote": "Abstract",
         "dateAdded": "Date added",
-        "dateModified": "Date modified"
+        "dateModified": "Date modified",
+        "attachmentPath": "File path"
       },
       "mapping": {
         "title": "Zotero field mapping",
