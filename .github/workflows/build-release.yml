@@ -22,13 +22,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'apps/gnosi/electron/package-lock.json'
+          # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
 
       - name: Install npm dependencies
         run: |
-          cd apps/gnosi/electron
-          npm ci
+          cd monorepo/apps/gnosi/electron
+          npm install
 
       - name: Setup Python 3.11
         run: |
@@ -38,25 +37,25 @@ jobs:
 
       - name: Build frontend
         run: |
-          cd apps/gnosi/frontend
-          npm ci
+          cd monorepo/apps/gnosi/frontend
+          npm install
           npm run build
 
       - name: Build Python bundle
         run: |
-          cd apps/gnosi/electron
+          cd monorepo/apps/gnosi/electron
           ./build-python.sh
 
       - name: Build Electron app (macOS ARM64)
         run: |
-          cd apps/gnosi/electron
+          cd monorepo/apps/gnosi/electron
           npm run build:mac
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-arm64
-          path: apps/gnosi/electron/dist/*.dmg
+          path: monorepo/apps/gnosi/electron/dist/*.dmg
           retention-days: 5
 
   build-linux:
@@ -69,33 +68,32 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'apps/gnosi/electron/package-lock.json'
+          # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3.11 python3.11-venv python3-pip
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Install npm dependencies
         run: |
-          cd apps/gnosi/electron
-          npm ci
+          cd monorepo/apps/gnosi/electron
+          npm install
 
       - name: Build frontend
         run: |
-          cd apps/gnosi/frontend
-          npm ci
+          cd monorepo/apps/gnosi/frontend
+          npm install
           npm run build
 
       - name: Build Python bundle
         run: |
-          cd apps/gnosi/electron
+          cd monorepo/apps/gnosi/electron
           ./build-python.sh
 
       - name: Build Electron app (Linux)
         run: |
-          cd apps/gnosi/electron
+          cd monorepo/apps/gnosi/electron
           npm run build:linux
 
       - name: Upload Linux artifacts
@@ -103,8 +101,8 @@ jobs:
         with:
           name: linux-x64
           path: |
-            apps/gnosi/electron/dist/*.AppImage
-            apps/gnosi/electron/dist/*.deb
+            monorepo/apps/gnosi/electron/dist/*.AppImage
+            monorepo/apps/gnosi/electron/dist/*.deb
           retention-days: 5
 
   build-windows:
@@ -117,8 +115,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'apps/gnosi/electron/package-lock.json'
+          # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -127,30 +124,30 @@ jobs:
 
       - name: Install npm dependencies
         run: |
-          cd apps/gnosi/electron
-          npm ci
+          cd monorepo/apps/gnosi/electron
+          npm install
 
       - name: Build frontend
         run: |
-          cd apps/gnosi/frontend
-          npm ci
+          cd monorepo/apps/gnosi/frontend
+          npm install
           npm run build
 
       - name: Build Python bundle
         run: |
-          cd apps/gnosi/electron
+          cd monorepo/apps/gnosi/electron
           ./build-python.sh
 
       - name: Build Electron app (Windows)
         run: |
-          cd apps/gnosi/electron
+          cd monorepo/apps/gnosi/electron
           npm run build:win
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64
-          path: apps/gnosi/electron/dist/*Setup*.exe
+          path: monorepo/apps/gnosi/electron/dist/*Setup*.exe
           retention-days: 5
 
   release:
