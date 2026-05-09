@@ -18,12 +18,19 @@ import threading
 from typing import Optional
 
 from .base import FilesProvider
+from .icloud import iCloudDriveProvider
 from .local import LocalProvider
 from .onedrive import OneDriveProvider
 
 log = logging.getLogger(__name__)
 
-__all__ = ["FilesProvider", "LocalProvider", "OneDriveProvider", "get_files_provider"]
+__all__ = [
+    "FilesProvider",
+    "LocalProvider",
+    "OneDriveProvider",
+    "iCloudDriveProvider",
+    "get_files_provider",
+]
 
 _provider_instance: Optional[FilesProvider] = None
 _provider_lock = threading.Lock()
@@ -33,12 +40,15 @@ def _detect_provider_name() -> str:
     """Decideix quin proveïdor instanciar segons env vars.
 
     Prioritat:
-    1. `GNOSI_FILES_PROVIDER` (explícit: "local" | "onedrive").
-    2. Heurística: si `VAULT_HOST_PATH` conté "OneDrive" → "onedrive".
-    3. Fallback: "local".
+    1. `GNOSI_FILES_PROVIDER` (explícit: "local" | "onedrive" | "icloud").
+    2. Heurística sobre `VAULT_HOST_PATH`:
+       - conté "OneDrive"           → "onedrive"
+       - conté "Mobile Documents"
+         o "iCloud" (case-insens.)  → "icloud"
+       - altrament                  → "local"
     """
     explicit = os.environ.get("GNOSI_FILES_PROVIDER", "").strip().lower()
-    if explicit in {"local", "onedrive"}:
+    if explicit in {"local", "onedrive", "icloud"}:
         return explicit
     if explicit:
         log.warning(
@@ -49,12 +59,19 @@ def _detect_provider_name() -> str:
     vault_host = os.environ.get("VAULT_HOST_PATH", "")
     if "OneDrive" in vault_host:
         return "onedrive"
+    # `Mobile Documents` és el nom intern de macOS per al directori sincronitzat
+    # amb iCloud (~/Library/Mobile Documents/com~apple~CloudDocs/...). Alguns
+    # usuaris muntem alies amb "iCloud" al nom; cobrim ambdós casos.
+    if "Mobile Documents" in vault_host or "icloud" in vault_host.lower():
+        return "icloud"
     return "local"
 
 
 def _build_provider(name: str) -> FilesProvider:
     if name == "onedrive":
         return OneDriveProvider()
+    if name == "icloud":
+        return iCloudDriveProvider()
     if name == "local":
         return LocalProvider()
     raise ValueError(f"Proveïdor desconegut: {name!r}")
