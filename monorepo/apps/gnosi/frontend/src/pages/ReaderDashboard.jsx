@@ -16,7 +16,8 @@ const ReaderDashboard = () => {
     const [displayArticles, setDisplayArticles] = useState([]);
     const [unreadArticles, setUnreadArticles] = useState([]);
     const [selectedArticle, setSelectedArticle] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [articlesLoading, setArticlesLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
     const [generatingPodcast, setGeneratingPodcast] = useState(false);
     const [podcastUrl, setPodcastUrl] = useState(null);
     const [podcastInfo, setPodcastInfo] = useState(null);
@@ -50,7 +51,7 @@ const ReaderDashboard = () => {
     };
 
     const fetchDisplayArticles = async () => {
-        setLoading(true);
+        setArticlesLoading(true);
         try {
             let url = `${API_BASE}/reader/articles?unread_only=${showUnreadOnly}`;
             if (selectedSourceId) url += `&source_id=${selectedSourceId}`;
@@ -59,7 +60,7 @@ const ReaderDashboard = () => {
         } catch (error) {
             console.error("Error fetching articles:", error);
         } finally {
-            setLoading(false);
+            setArticlesLoading(false);
         }
     };
 
@@ -149,7 +150,7 @@ const ReaderDashboard = () => {
     }, []);
 
     const handleSyncAll = async () => {
-        setLoading(true);
+        setSyncing(true);
         try {
             await Promise.all([
                 axios.post(`${API_BASE}/schedulers/fetch_feeds/run`),
@@ -159,7 +160,7 @@ const ReaderDashboard = () => {
         } catch (error) {
             console.error("Error durant la sincronització:", error);
         } finally {
-            setLoading(false);
+            setSyncing(false);
         }
     };
 
@@ -272,11 +273,11 @@ const ReaderDashboard = () => {
                 </button>
                 <button
                     onClick={handleSyncAll}
-                    disabled={loading}
+                    disabled={syncing}
                     title={t('reader_sync')}
                     className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors disabled:opacity-50"
                 >
-                    <RotateCw size={16} className={loading ? "animate-spin" : ""} />
+                    <RotateCw size={16} className={syncing ? "animate-spin" : ""} />
                 </button>
             </AppHeader>
 
@@ -429,7 +430,7 @@ const ReaderDashboard = () => {
                                     {selectedSource ? selectedSource.name : t('reader_all_articles')}
                                 </h2>
                                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                    {loading && displayArticles.length === 0
+                                    {articlesLoading && displayArticles.length === 0
                                         ? t('reader_loading')
                                         : showUnreadOnly
                                             ? formatPending(displayArticles.length)
@@ -455,7 +456,7 @@ const ReaderDashboard = () => {
                     </div>
 
                     <div className="overflow-y-auto flex-1">
-                        {displayArticles.length === 0 && !loading ? (
+                        {displayArticles.length === 0 && !articlesLoading ? (
                             <div className="px-6 py-12 text-sm text-slate-400 dark:text-slate-500">
                                 {selectedSource
                                     ? t('reader_no_articles_source', { source: selectedSource.name })
