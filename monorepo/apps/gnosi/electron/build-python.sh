@@ -9,7 +9,10 @@ ELECTRON_DIR="$SCRIPT_DIR"
 PYTHON_BUILD_DIR="$ELECTRON_DIR/python-build"
 DIST_DIR="$ELECTRON_DIR/dist-python"
 GNOSI_DIR="$(dirname "$ELECTRON_DIR")"
-BACKEND_DIR="$GNOSI_DIR/backend"
+# Exported so the embedded Python heredoc below sees it via os.environ.
+# Without `export`, Python falls back to a hardcoded user-specific path
+# that doesn't exist in CI runners.
+export BACKEND_DIR="$GNOSI_DIR/backend"
 
 echo "   Script dir: $SCRIPT_DIR"
 echo "   Electron dir: $ELECTRON_DIR"
@@ -51,11 +54,11 @@ if [[ "$PYTHON_VERSION" < "Python 3.10" ]]; then
 fi
 
 echo ""
-echo "2. Installing PyInstaller..."
-$PYTHON_CMD -m pip install pyinstaller --quiet --upgrade pip
-
-echo ""
-echo "3. Creating virtual environment for clean build..."
+echo "2. Creating virtual environment for clean build..."
+# Avoid `pip install` against the system interpreter: Homebrew/apt Pythons
+# follow PEP 668 ("externally-managed-environment") and refuse global
+# installs without --break-system-packages. Everything (PyInstaller
+# included) goes inside this venv.
 VENV_DIR="$ELECTRON_DIR/.venv-python"
 rm -rf "$VENV_DIR"
 $PYTHON_CMD -m venv "$VENV_DIR"
@@ -64,8 +67,9 @@ PYTHON_VENV="$VENV_DIR/bin/python"
 PIP_VENV="$VENV_DIR/bin/pip"
 
 echo ""
-echo "4. Activating virtual environment and installing dependencies..."
+echo "3. Installing dependencies into the virtual environment..."
 $PYTHON_VENV -m pip install --upgrade pip setuptools wheel
+$PYTHON_VENV -m pip install pyinstaller
 
 $PYTHON_VENV -m pip install PyYAML python-dotenv Flask flask-cors requests httpx fastapi uvicorn pydantic psutil
 $PYTHON_VENV -m pip install notion-client networkx numpy sqlalchemy python-multipart feedparser beautifulsoup4
@@ -76,7 +80,7 @@ $PYTHON_VENV -m pip install --no-deps groq cloudinary simpleeval
 $PYTHON_VENV -m pip install chromadb || echo "Warning: ChromaDB may have issues"
 
 echo ""
-echo "5. Running PyInstaller..."
+echo "4. Running PyInstaller..."
 cd "$PYTHON_BUILD_DIR"
 
 $PYTHON_VENV << PYSCRIPT
@@ -159,7 +163,7 @@ PYSCRIPT
 $PYTHON_VENV -m PyInstaller backend.spec --clean 2>&1 || true
 
 echo ""
-echo "6. Copying build to dist-python..."
+echo "5. Copying build to dist-python..."
 rm -rf "$DIST_DIR"
 
 if [ -d "$PYTHON_BUILD_DIR/dist/cervell_backend" ]; then
