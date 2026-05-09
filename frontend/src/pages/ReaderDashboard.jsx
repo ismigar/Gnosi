@@ -431,7 +431,17 @@ const ReaderDashboard = () => {
                                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                                     {loading && displayArticles.length === 0
                                         ? t('reader_loading')
-                                        : formatPending(displayArticles.length)}
+                                        : showUnreadOnly
+                                            ? formatPending(displayArticles.length)
+                                            : t(
+                                                displayArticles.length === 1 ? 'reader_articles_count_one' : 'reader_articles_count_other',
+                                                {
+                                                    count: displayArticles.length,
+                                                    defaultValue: displayArticles.length === 1
+                                                        ? '{{count}} article'
+                                                        : '{{count}} articles',
+                                                }
+                                            )}
                                 </p>
                             </div>
                             <button
