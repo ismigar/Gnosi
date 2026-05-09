@@ -3902,7 +3902,7 @@ async def serve_vault_image(image_path: str):
 # tipus `../` o noms semblants (ex. `Assets-secret/`). Sense Cache-Control
 # llarg perquè els PDFs i vídeos poden actualitzar-se en lloc.
 
-def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileResponse:
+async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileResponse:
     if not root_dir or not root_dir.exists():
         raise HTTPException(status_code=404, detail="Root directory not available")
     try:
@@ -3921,14 +3921,61 @@ def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileResponse:
     if not requested.exists() or not requested.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
-    media_type, _ = mimetypes.guess_type(str(requested))
-    return FileResponse(path=str(requested), media_type=media_type)
+    # Mateixa protecció OneDrive online-only que `/images/`: sense això,
+    # FileResponse cau amb Errno 35 (Resource deadlock avoided) per qualsevol
+    # fitxer del vault no materialitzat al disc local. Afecta principalment
+    # `/raw/` (root=vault) on la majoria de fitxers vénen de OneDrive.
+    try:
+        st = requested.stat()
+    except OSError as e:
+        log.warning(f"stat() ha fallat per {requested}: {e}")
+        raise HTTPException(status_code=503, detail="File temporarily unavailable")
+
+    if st.st_size == 0:
+        raise HTTPException(status_code=404, detail="File is an empty placeholder (OneDrive)")
+
+    if getattr(st, "st_blocks", 1) == 0:
+        if await _warmup_onedrive_file(requested):
+            try:
+                st = requested.stat()
+            except OSError as e:
+                log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
+                raise HTTPException(status_code=503, detail="File temporarily unavailable")
+        if getattr(st, "st_blocks", 1) == 0:
+            log.warning(f"☁️ Fitxer OneDrive online-only encara no descarregat: {requested}")
+            raise HTTPException(status_code=503, detail="File temporarily unavailable; OneDrive warmup pending")
+
+    async with _VAULT_IMAGE_SEMAPHORE:
+        last_error: Optional[OSError] = None
+        for attempt in range(5):
+            try:
+                with open(requested, "rb") as f:
+                    f.read(1)
+                last_error = None
+                break
+            except OSError as e:
+                last_error = e
+                if e.errno == 35 and attempt < 4:
+                    await asyncio.sleep(0.2 * (2 ** attempt))
+                    continue
+                break
+
+        if last_error is not None:
+            log.warning(f"☁️ Lectura fallida després de retries per {requested}: {last_error}")
+            raise HTTPException(status_code=503, detail="File temporarily unavailable")
+
+        media_type, _ = mimetypes.guess_type(str(requested))
+        return FileResponse(
+            path=str(requested),
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=300"},
+        )
 
 
 @router.get("/biblioteca/{rel_path:path}")
 async def serve_biblioteca_file(rel_path: str):
     """Serves files from the Biblioteca directory (sibling of the vault)."""
-    return _serve_file_with_containment(get_p("BIBLIOTECA"), rel_path)
+    return await _serve_file_with_containment(get_p("BIBLIOTECA"), rel_path)
 
 
 @router.get("/raw/{rel_path:path}")
@@ -3940,7 +3987,7 @@ async def serve_vault_raw_file(rel_path: str):
     `/api/vault/raw/Wiki/notes/img.jpg`. Containment is checked against
     VAULT, so paths cannot escape the vault.
     """
-    return _serve_file_with_containment(get_p("VAULT"), rel_path)
+    return await _serve_file_with_containment(get_p("VAULT"), rel_path)
 
 
 # --- Enllaços a fitxers locals (Variant C: cap còpia, cap upload) ---
