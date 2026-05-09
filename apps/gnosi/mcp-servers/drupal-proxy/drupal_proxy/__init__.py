@@ -1,1 +1,0 @@
-# Drupal MCP Proxy Package
