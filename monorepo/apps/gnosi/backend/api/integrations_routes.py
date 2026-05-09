@@ -15,6 +15,86 @@ router = APIRouter(prefix="/api/integrations", tags=["integrations"])
 log = logging.getLogger(__name__)
 
 
+# ── Cache/pool invalidation on credential changes ────────────────────────────
+# Camps que, si canvien, invaliden la connexió IMAP/SMTP cachejada del compte
+# afectat. Cobreix també XOAUTH2 (token, refresh_token) perquè un re-consent
+# manual des de la UI hauria d'aplicar-se sense esperar el polling.
+_MAIL_CRED_FIELDS = (
+    "imap_host", "imap_port", "imap_user", "imap_password", "imap_encryption",
+    "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_encryption",
+    "token", "refresh_token", "mail_transport",
+)
+
+
+def _snapshot_mail_credentials() -> dict[str, tuple]:
+    """Snapshot {email_lower → tupla de credencials sensibles} per detectar
+    canvis abans/després d'una escriptura a integrations.json."""
+    raw = integration_manager.get_raw("mail_accounts") + integration_manager.get_raw("emails")
+    snapshot = {}
+    for acc in raw:
+        if not isinstance(acc, dict):
+            continue
+        email = (acc.get("email") or acc.get("username") or "").strip().lower()
+        if not email:
+            continue
+        snapshot[email] = tuple(acc.get(f, "") for f in _MAIL_CRED_FIELDS)
+    return snapshot
+
+
+def _diff_mail_credentials(before: dict[str, tuple], after: dict[str, tuple]) -> set[str]:
+    """Retorna els emails amb credencials modificades respecte al snapshot anterior."""
+    changed = set()
+    for email, vals in after.items():
+        if before.get(email) != vals:
+            changed.add(email)
+    return changed
+
+
+def _invalidate_imap_state(emails: set[str]) -> None:
+    """Treu del pool, esborra l'últim error d'auth i invalida counts per cada
+    compte, i reinicia el seu worker IDLE perquè reconnecti amb les noves
+    credencials immediatament en lloc d'esperar el reintent de 5 min."""
+    if not emails:
+        return
+    try:
+        from backend.services.hybrid_mail_service import (
+            _imap_pool_invalidate, _LAST_AUTH_ERROR,
+        )
+        from backend.api.mail_routes import _MAIL_CACHE, _COUNTS_CACHE
+    except Exception as e:
+        log.warning(f"[CRED-CHANGE] No s'han pogut importar mòduls per invalidar: {e}")
+        return
+
+    for email in emails:
+        try:
+            _imap_pool_invalidate(email)
+            _LAST_AUTH_ERROR.pop(email, None)
+            _COUNTS_CACHE.pop(email)
+        except Exception as e:
+            log.debug(f"[CRED-CHANGE] Error invalidant cache per {email}: {e}")
+    # El _MAIL_CACHE indexa per (email, folder, category, ...); fem clear total
+    # ja que filtrar per email és complex i el cost és baix (TTL curt).
+    try:
+        _MAIL_CACHE.clear()
+    except Exception:
+        pass
+
+    # Reinicia worker IDLE per cada compte. Si el compte no és IMAP-eligible
+    # start_worker farà no-op a la pràctica (el manager comprova capacitats).
+    try:
+        from backend.services.imap_idle_service import idle_manager
+        for email in emails:
+            try:
+                idle_manager.stop_worker(email)
+                idle_manager.start_worker(email)
+            except Exception as e:
+                log.debug(f"[CRED-CHANGE] Error reiniciant IDLE per {email}: {e}")
+    except Exception:
+        pass
+
+    log.info(f"[CRED-CHANGE] Invalidades IMAP cache/pool/idle per {len(emails)} comptes: {sorted(emails)}")
+
+
 @router.get("")
 async def get_integrations():
     """Returns safe masked integration configuration for the UI."""
@@ -152,7 +232,10 @@ async def test_calendar_connection(payload: dict = Body(...)):
 async def update_integration(integration_id: str, payload: dict = Body(...)):
     """Updates a specific integration (e.g. 'email', 'ai')"""
     try:
+        before = _snapshot_mail_credentials() if integration_id in ("mail_accounts", "emails") else {}
         integration_manager.update(integration_id, payload)
+        if before:
+            _invalidate_imap_state(_diff_mail_credentials(before, _snapshot_mail_credentials()))
         return {"status": "success", "message": f"Integration {integration_id} updated"}
     except Exception as e:
         log.error(f"Error updating integration {integration_id}: {e}")
@@ -233,7 +316,9 @@ async def update_default_contacts(payload: dict = Body(...)):
 async def bulk_update_integrations(payload: dict = Body(...)):
     """Updates multiple integrations at once."""
     try:
+        before = _snapshot_mail_credentials()
         integration_manager.bulk_update(payload)
+        _invalidate_imap_state(_diff_mail_credentials(before, _snapshot_mail_credentials()))
         return {"status": "success", "message": "Integrations updated in bulk"}
     except Exception as e:
         log.error(f"Error bulk updating integrations: {e}")

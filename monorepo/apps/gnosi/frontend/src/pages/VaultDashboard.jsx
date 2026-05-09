@@ -557,7 +557,9 @@ export default function VaultDashboard() {
         // `globalIndex` o `pages`. Sense això, GET /api/vault/pages/<títol>
         // retorna 404. globalIndex pot estar buit en la primera càrrega
         // si la cerca és immediata; per això hi ha un segon fallback a
-        // `pages` (que carrega també al startup).
+        // `pages` i un tercer fallback al backend (`/resolve-by-title`)
+        // — aquest darrer cobreix moves on globalIndex encara no s'ha
+        // refrescat al frontend.
         const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!UUID_RE.test(pageId)) {
             const lower = String(pageId).toLowerCase().trim();
@@ -575,6 +577,13 @@ export default function VaultDashboard() {
                     p => String(p.title || '').toLowerCase().trim() === lower
                 );
                 if (match) resolved = match.id;
+            }
+            // 3) Backend (/resolve-by-title) — tolerant a moves recents.
+            if (!resolved) {
+                try {
+                    const r = await axios.get('/api/vault/resolve-by-title', { params: { title: pageId } });
+                    if (r?.data?.id) resolved = r.data.id;
+                } catch { /* ignore — caurem al 404 estàndard */ }
             }
             if (resolved && resolved !== pageId) {
                 pageId = resolved;
@@ -696,6 +705,11 @@ export default function VaultDashboard() {
             });
             toast.success(t('success.page_moved') || 'Pàgina moguda');
             void fetchPages();
+            // Refresca globalIndex perquè els wikilinks per títol segueixin
+            // resolent correctament (idToTitle s'usa al BlockEditor sense
+            // re-fetch automàtic). Sense això, després d'un move pot quedar
+            // stale fins a la propera càrrega.
+            void fetchGlobalIndex();
         } catch (err) {
             notifyError('move-page', err, t('errors.move_page'));
             // Roll back optimistic update on error
@@ -1915,6 +1929,12 @@ export default function VaultDashboard() {
             ));
 
             await fetchPages();
+            // Refresca globalIndex perquè el títol nou aparegui al lookup
+            // títol→id (els wikilinks `[[Antic títol]]` pendents quedaran
+            // sense match però `[[Nou títol]]` resoldrà correctament; el
+            // backend tampoc no fa "rewrite" automàtic dels wikilinks
+            // existents, això requeriria un job separat).
+            void fetchGlobalIndex();
             toast.success("Títol actualitzat");
         } catch {
             toast.error("Error renomenant la pàgina");
