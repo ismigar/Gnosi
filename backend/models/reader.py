@@ -33,6 +33,21 @@ class Article(Base):
 
     source = relationship("FeedSource", back_populates="articles")
 
+
+class NewsletterAccount(Base):
+    """POP3 mailbox configuration for newsletter ingestion (single row per vault)."""
+    __tablename__ = "newsletter_account"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mail_server = Column(String, default="")
+    mail_port = Column(Integer, default=110)
+    # 'starttls' | 'ssl' | 'none'
+    mail_ssl = Column(String, default="starttls")
+    email = Column(String, default="")
+    password = Column(String, default="")  # stored plaintext locally; same vault as the rest of secrets
+    delete_after_ingest = Column(Boolean, default=True)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 # --- Pydantic Schemas for API ---
 
 class FeedSourceBase(BaseModel):
@@ -69,3 +84,26 @@ class ArticleResponse(ArticleBase):
 
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+
+class NewsletterAccountResponse(BaseModel):
+    """Sanitized view of NewsletterAccount: never returns the password value."""
+    mail_server: str = ""
+    mail_port: int = 110
+    mail_ssl: str = "starttls"
+    email: str = ""
+    delete_after_ingest: bool = True
+    password_set: bool = False
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NewsletterAccountUpdate(BaseModel):
+    """Payload for PUT /newsletter-account. Password is optional: only updates if provided."""
+    mail_server: Optional[str] = None
+    mail_port: Optional[int] = None
+    mail_ssl: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    delete_after_ingest: Optional[bool] = None

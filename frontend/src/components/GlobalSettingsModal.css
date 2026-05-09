@@ -221,16 +221,36 @@
     font-weight: 700 !important;
 }
 
-/* Scrollbar tuning */
+/* Scrollbar tuning — visible i clicable amb el cursor */
+.settings-sidebar,
+.settings-main {
+    scrollbar-width: thin;
+    scrollbar-color: var(--settings-border) transparent;
+}
+
 .settings-sidebar::-webkit-scrollbar,
 .settings-main::-webkit-scrollbar {
-    width: 4px;
+    width: 10px;
+}
+
+.settings-sidebar::-webkit-scrollbar-track,
+.settings-main::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .settings-sidebar::-webkit-scrollbar-thumb,
 .settings-main::-webkit-scrollbar-thumb {
     background: var(--settings-border);
     border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    min-height: 40px;
+}
+
+.settings-sidebar::-webkit-scrollbar-thumb:hover,
+.settings-main::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+    background-clip: padding-box;
 }
 
 /* Sidebar Item Improvements */

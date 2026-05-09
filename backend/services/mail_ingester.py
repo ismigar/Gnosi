@@ -22,7 +22,7 @@ from pathlib import Path
 
 from backend.data.db import get_engine_for_path
 from backend.services.context_vars import get_active_vault_path
-from backend.models.reader import FeedSource, Article
+from backend.models.reader import FeedSource, Article, NewsletterAccount
 from backend.utils.safe_io import sanitize_filename_component
 
 # Load .env_shared (global) then .env (local override)
@@ -47,13 +47,42 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-# ── POP3 Config ──
-MAIL_SERVER = os.environ.get("NEWSLETTERS_MAIL_SERVER", "mail.pangea.org")
-MAIL_PORT = int(os.environ.get("NEWSLETTERS_MAIL_PORT", "110"))
-MAIL_USE_SSL = os.environ.get("NEWSLETTERS_MAIL_SSL", "starttls").lower()  # "starttls" | "ssl" | "none"
-EMAIL_ACCOUNT = os.environ.get("NEWSLETTERS_EMAIL", "")
-EMAIL_PASSWORD = os.environ.get("NEWSLETTERS_PASSWORD", "")
-DELETE_AFTER_INGEST = os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "true").lower() in ("true", "1", "yes")
+# ── POP3 Config defaults (from env) ──
+# These act ONLY as a fallback if no NewsletterAccount row exists in the DB yet.
+# The source of truth is the NewsletterAccount table — see _load_account_config().
+_ENV_MAIL_SERVER = os.environ.get("NEWSLETTERS_MAIL_SERVER", "mail.pangea.org")
+_ENV_MAIL_PORT = int(os.environ.get("NEWSLETTERS_MAIL_PORT", "110"))
+_ENV_MAIL_SSL = os.environ.get("NEWSLETTERS_MAIL_SSL", "starttls").lower()
+_ENV_EMAIL = os.environ.get("NEWSLETTERS_EMAIL", "")
+_ENV_PASSWORD = os.environ.get("NEWSLETTERS_PASSWORD", "")
+_ENV_DELETE_AFTER_INGEST = os.environ.get("NEWSLETTERS_DELETE_AFTER_INGEST", "true").lower() in ("true", "1", "yes")
+
+
+def _load_account_config(db: Session):
+    """Load POP3 config from DB; fall back to env vars for any missing/NULL field."""
+    acc = db.query(NewsletterAccount).first()
+    if acc is None:
+        return {
+            "server": _ENV_MAIL_SERVER,
+            "port": _ENV_MAIL_PORT,
+            "ssl_mode": _ENV_MAIL_SSL,
+            "email": _ENV_EMAIL,
+            "password": _ENV_PASSWORD,
+            "delete_after_ingest": _ENV_DELETE_AFTER_INGEST,
+        }
+    # Treat NULL distinctly from False for delete_after_ingest, otherwise a NULL
+    # column would silently disable deletion (changing semantics).
+    delete_after = acc.delete_after_ingest
+    if delete_after is None:
+        delete_after = _ENV_DELETE_AFTER_INGEST
+    return {
+        "server": acc.mail_server or _ENV_MAIL_SERVER,
+        "port": int(acc.mail_port or _ENV_MAIL_PORT),
+        "ssl_mode": (acc.mail_ssl or _ENV_MAIL_SSL).lower(),
+        "email": acc.email or _ENV_EMAIL,
+        "password": acc.password or _ENV_PASSWORD,
+        "delete_after_ingest": bool(delete_after),
+    }
 
 
 def get_email_body(msg):
@@ -122,52 +151,125 @@ def sanitize_html(raw_html):
     return str(soup)
 
 
-def _connect_pop3():
+def _decode_mime_words(raw: str) -> str:
+    """Decode an RFC2047-encoded header value to a plain Python string."""
+    if not raw:
+        return ""
+    try:
+        parts = decode_header(raw)
+        out = ""
+        for part, enc in parts:
+            if isinstance(part, bytes):
+                out += part.decode(enc if enc else "utf-8", errors='replace')
+            else:
+                out += part
+        return out.strip()
+    except Exception:
+        return raw
+
+
+def _extract_sender(msg) -> tuple[str, str]:
+    """Extract (display_name, email) from the From header. Falls back gracefully."""
+    raw_from = msg.get("From", "") or msg.get("Sender", "") or ""
+    decoded = _decode_mime_words(raw_from)
+    name, addr = email.utils.parseaddr(decoded)
+    addr = (addr or "").strip().lower()
+    name = (name or "").strip().strip('"').strip("'")
+    if not name:
+        # Use the part before @ as a friendly name
+        name = addr.split("@")[0] if addr else "Unknown sender"
+    return name, addr
+
+
+def _get_or_create_sender_source(db: Session, msg) -> FeedSource:
+    """
+    Returns the FeedSource for the sender of this email.
+    Each unique sender email gets its own FeedSource (type=newsletter)
+    so users can filter by individual newsletter in the reader.
+    """
+    name, addr = _extract_sender(msg)
+    source_url = f"mailto:{addr}" if addr else "mailto:unknown@local"
+    auto_name = addr.split("@")[0] if addr else ""
+    new_is_real = bool(name) and name != auto_name
+
+    existing = db.query(FeedSource).filter(FeedSource.url == source_url).first()
+    if existing:
+        # Only upgrade the display name if the new one is a real "From"
+        # (not just the email's local part). Avoids degrading a friendly
+        # name to "username" when later emails arrive without From name.
+        if new_is_real and existing.name != name:
+            existing.name = name
+            db.commit()
+        return existing
+
+    new_source = FeedSource(
+        name=name or addr or "Newsletter",
+        url=source_url,
+        category="Newsletters",
+        type="newsletter",
+    )
+    db.add(new_source)
+    db.commit()
+    db.refresh(new_source)
+    log.info(f"  ➕ New newsletter source: {new_source.name} <{addr}>")
+    return new_source
+
+
+def _connect_pop3(server: str, port: int, ssl_mode: str, email: str, password: str):
     """Connect to POP3 server with appropriate encryption."""
-    if MAIL_USE_SSL == "ssl":
+    ssl_mode = (ssl_mode or "starttls").lower()
+    if ssl_mode == "ssl":
         # Direct SSL (port 995 typically)
-        pop = poplib.POP3_SSL(MAIL_SERVER, MAIL_PORT)
+        pop = poplib.POP3_SSL(server, port)
     else:
-        # Plain or STARTTLS (port 110)
-        pop = poplib.POP3(MAIL_SERVER, MAIL_PORT)
-        if MAIL_USE_SSL == "starttls":
+        # Plain or STARTTLS
+        pop = poplib.POP3(server, port)
+        if ssl_mode == "starttls":
             pop.stls()
 
-    pop.user(EMAIL_ACCOUNT)
-    pop.pass_(EMAIL_PASSWORD)
+    pop.user(email)
+    pop.pass_(password)
     return pop
+
+
+def test_connection(server: str, port: int, ssl_mode: str, email: str, password: str) -> int:
+    """Open a POP3 connection, count messages, log out. Raises on any failure."""
+    pop = _connect_pop3(server=server, port=port, ssl_mode=ssl_mode, email=email, password=password)
+    try:
+        n = len(pop.list()[1])
+    finally:
+        try:
+            pop.quit()
+        except Exception:
+            pass
+    return n
 
 
 def fetch_and_store_newsletters():
     """
     Connects to POP3 server, downloads all emails, stores them as
     articles in the DB, and deletes them from the server.
+    Reads config from the NewsletterAccount table; falls back to env vars.
     """
-    if not EMAIL_ACCOUNT or not EMAIL_PASSWORD:
-        log.warning("⚠️ Mail credentials not configured. Skipping newsletters.")
-        return 0
-
     v_path = get_active_vault_path()
     _, SessionLocal = get_engine_for_path(v_path)
     db: Session = SessionLocal()
     try:
-        # Create or get the "Newsletters Inbox" source
-        source = db.query(FeedSource).filter(FeedSource.type == "newsletter").first()
-        if not source:
-            source = FeedSource(
-                name="Newsletters Inbox",
-                url=EMAIL_ACCOUNT,
-                category="Newsletters",
-                type="newsletter"
-            )
-            db.add(source)
-            db.commit()
-            db.refresh(source)
+        cfg = _load_account_config(db)
+        if not cfg["email"] or not cfg["password"]:
+            log.warning("⚠️ Mail credentials not configured. Skipping newsletters.")
+            return 0
 
         try:
-            pop = _connect_pop3()
+            pop = _connect_pop3(
+                server=cfg["server"],
+                port=cfg["port"],
+                ssl_mode=cfg["ssl_mode"],
+                email=cfg["email"],
+                password=cfg["password"],
+            )
             num_messages = len(pop.list()[1])
-            log.info(f"📬 Connected to {MAIL_SERVER}. {num_messages} message(s) in the mailbox.")
+            log.info(f"📬 Connected to {cfg['server']}. {num_messages} message(s) in the mailbox.")
 
             if num_messages == 0:
                 pop.quit()
@@ -223,8 +325,9 @@ def fetch_and_store_newsletters():
                 existing = db.query(Article).filter(Article.url == unique_url).first()
 
                 if not existing:
+                    sender_source = _get_or_create_sender_source(db, msg)
                     new_article = Article(
-                        source_id=source.id,
+                        source_id=sender_source.id,
                         title=subject.strip(),
                         url=unique_url,
                         content=content,
@@ -233,16 +336,16 @@ def fetch_and_store_newsletters():
                     )
                     db.add(new_article)
                     new_articles_count += 1
-                    log.info(f"  📩 {subject.strip()[:80]}")
+                    log.info(f"  📩 [{sender_source.name}] {subject.strip()[:60]}")
 
                 # Mark for deletion (always, since POP3 is "consume & clear")
-                if DELETE_AFTER_INGEST:
+                if cfg["delete_after_ingest"]:
                     delete_ids.append(i)
 
             db.commit()
 
             # Delete from server
-            if DELETE_AFTER_INGEST and delete_ids:
+            if cfg["delete_after_ingest"] and delete_ids:
                 for msg_id in delete_ids:
                     pop.dele(msg_id)
                 log.info(f"🗑️ {len(delete_ids)} email(s) deleted from the mailbox.")
