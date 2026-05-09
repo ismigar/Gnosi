@@ -3624,14 +3624,37 @@ async def get_asset(asset_path: str):
 
 # --- Media Manager (ARXIU AVANÇAT) ---
 
+# Roots vàlids: la UI envia ?root=images|assets|biblioteca|vault. La
+# resposta de /media/roots indica quins tenen carpeta al disc.
+_VALID_MEDIA_ROOTS = {"images", "assets", "biblioteca", "vault"}
+
+
+def _validate_root(root: str) -> str:
+    if root not in _VALID_MEDIA_ROOTS:
+        raise HTTPException(status_code=400, detail=f"Root invàlid: {root!r}")
+    return root
+
+
+@router.get("/media/roots")
+async def get_media_roots():
+    """Retorna els roots disponibles per la cerca de mitjans (Images, Assets,
+    Biblioteca, Vault). Cada element indica `available` segons si la carpeta
+    existeix actualment al disc."""
+    return media_service.get_roots()
+
+
 @router.get("/media")
 async def get_all_media(
     album: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
+    root: str = Query("images"),
 ):
-    """Llista tots els mitjans, opcionalment filtrats per àlbum."""
-    return media_service.get_all_media(album, limit=limit, offset=offset)
+    """Llista mitjans, opcionalment filtrats per àlbum i carpeta arrel.
+    El root per defecte és `images` per back-compat amb la galeria històrica.
+    """
+    _validate_root(root)
+    return media_service.get_all_media(album, limit=limit, offset=offset, root=root)
 
 
 @router.get("/media/albums")
@@ -3642,11 +3665,17 @@ async def get_albums():
 
 
 @router.get("/media/tree")
-async def get_media_tree(path: Optional[str] = Query(None)):
-    """Retorna les subcarpetes immediates de `Images/path` (lazy). Cada node
+async def get_media_tree(
+    path: Optional[str] = Query(None),
+    root: str = Query("images"),
+):
+    """Retorna les subcarpetes immediates de `<root>/path` (lazy). Cada node
     inclou `has_children` perquè la UI dibuixi el chevron sense haver de
-    carregar tot l'arbre (l'arxiu té ~33k directoris)."""
-    return media_service.get_tree_node(path)
+    carregar tot l'arbre (l'arxiu té ~33k directoris).
+    Per al root="vault" exclou carpetes de sistema (.git, BD, .gnosi, etc.).
+    """
+    _validate_root(root)
+    return media_service.get_tree_node(path, root=root)
 
 
 @router.post("/media/upload", dependencies=[Depends(require_role("editor"))])
@@ -3860,6 +3889,171 @@ async def serve_vault_image(image_path: str):
             media_type=media_type,
             headers={"Cache-Control": "public, max-age=300"},
         )
+
+
+# --- Servidors de fitxers per als roots multi-arrel ---
+#
+# `/images/...` ja existia (galeria històrica amb warmup OneDrive). Per fer que
+# la cerca multi-root pugui retornar URLs servibles per Assets/Biblioteca/Vault,
+# afegim:
+#   - /biblioteca/{path}   → serveix Biblioteca/ (germana del vault)
+#   - /raw/{path}          → serveix qualsevol path dins de VAULT/
+# Validen containment estricte (`is_relative_to`) per evitar escapatòries
+# tipus `../` o noms semblants (ex. `Assets-secret/`). Sense Cache-Control
+# llarg perquè els PDFs i vídeos poden actualitzar-se en lloc.
+
+def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileResponse:
+    if not root_dir or not root_dir.exists():
+        raise HTTPException(status_code=404, detail="Root directory not available")
+    try:
+        root_resolved = root_dir.resolve()
+        requested = (root_dir / rel_path).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    try:
+        if not requested.is_relative_to(root_resolved):
+            raise HTTPException(status_code=403, detail="Access denied")
+    except AttributeError:
+        if not str(requested).startswith(str(root_resolved) + os.sep) and requested != root_resolved:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    if not requested.exists() or not requested.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    media_type, _ = mimetypes.guess_type(str(requested))
+    return FileResponse(path=str(requested), media_type=media_type)
+
+
+@router.get("/biblioteca/{rel_path:path}")
+async def serve_biblioteca_file(rel_path: str):
+    """Serves files from the Biblioteca directory (sibling of the vault)."""
+    return _serve_file_with_containment(get_p("BIBLIOTECA"), rel_path)
+
+
+@router.get("/raw/{rel_path:path}")
+async def serve_vault_raw_file(rel_path: str):
+    """Serves any file under VAULT/ with containment check.
+
+    Used by the multi-root media picker when `root=vault`. The frontend may
+    receive URLs like `/api/vault/raw/Assets/Inline/foo.png` or
+    `/api/vault/raw/Wiki/notes/img.jpg`. Containment is checked against
+    VAULT, so paths cannot escape the vault.
+    """
+    return _serve_file_with_containment(get_p("VAULT"), rel_path)
+
+
+# --- Enllaços a fitxers locals (Variant C: cap còpia, cap upload) ---
+#
+# Quan l'usuari tria "Enllaçar fitxer local" al MediaInsertDialog, el path
+# absolut s'escull via `/pick-file` (osascript) i es registra aquí. Tornem un
+# token opac i una URL `/api/vault/local-file/{token}` que el frontend pot
+# inserir al BlockEditor com src d'imatge/vídeo.
+#
+# Per què tokens i no servir el path directament a la URL?
+#  1) Els paths poden contenir caràcters problemàtics (apostrofs, espais).
+#  2) Sense allowlist explícit, qualsevol GET a /local-file/<path> permetria
+#     llegir tota la home de l'usuari. Amb tokens només servim paths que
+#     l'usuari ha registrat explícitament a través del picker natiu.
+#  3) Si el path original es mou, podem invalidar el token sense canviar la URL
+#     guardada al document.
+
+import secrets
+
+_LOCAL_LINKS_LOCK = threading.Lock()
+
+
+def _local_links_file() -> Path:
+    """Resol el path del JSON de links de manera lazy. No es pot fer
+    `_LOCAL_LINKS_FILE = get_p("LOCAL_DATA") / ...` a top-level perquè
+    `get_p` requereix el vault context (només existeix dins una request)."""
+    base = os.environ.get("GNOSI_LOCAL_DATA")
+    return (Path(base) if base else Path("/app/data")) / "local_file_links.json"
+
+
+def _load_local_links() -> Dict[str, str]:
+    """Carrega el mapping {token: absolute_path}. Ràpid (<1KB típic)."""
+    f_path = _local_links_file()
+    if not f_path.exists():
+        return {}
+    try:
+        with open(f_path, "r", encoding="utf-8") as f:
+            return json.load(f) or {}
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning(f"No es pot llegir {f_path}: {e}")
+        return {}
+
+
+def _save_local_links(mapping: Dict[str, str]) -> None:
+    f_path = _local_links_file()
+    try:
+        f_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = f_path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(mapping, f, indent=2, ensure_ascii=False)
+        tmp.replace(f_path)
+    except OSError as e:
+        log.error(f"No es pot persistir local-links a {f_path}: {e}")
+
+
+@router.post("/local-file/register", dependencies=[Depends(require_role("editor"))])
+async def register_local_file(body: dict):
+    """Registra un path absolut i retorna un token + URL servible.
+
+    Body: { "file_path": "/abs/path/to/file" }
+    Resposta: { "token": "...", "url": "/api/vault/local-file/<token>",
+                "name": "...", "size": N, "kind": "image|video|pdf|..." }
+
+    Si el mateix path ja està registrat, reutilitzem el token: així si
+    l'usuari registra dues vegades el mateix fitxer no acumulem entrades.
+    """
+    file_path = str(body.get("file_path", "")).strip()
+    if not file_path:
+        raise HTTPException(status_code=400, detail="file_path is mandatory")
+
+    p = Path(file_path)
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+
+    abs_path = str(p.resolve())
+    with _LOCAL_LINKS_LOCK:
+        mapping = _load_local_links()
+        token = next((t for t, v in mapping.items() if v == abs_path), None)
+        if token is None:
+            token = secrets.token_urlsafe(16)
+            mapping[token] = abs_path
+            _save_local_links(mapping)
+
+    ext = p.suffix.lower()
+    return {
+        "token": token,
+        "url": f"/api/vault/local-file/{token}",
+        "name": p.name,
+        "size": p.stat().st_size,
+        "kind": media_service.classify_kind(ext),
+        "extension": ext,
+        "path": abs_path,
+    }
+
+
+@router.get("/local-file/{token}")
+async def serve_local_file(token: str):
+    """Serveix un fitxer registrat via /local-file/register.
+
+    Si el token no existeix → 404. Si el path ja no és accessible (l'usuari
+    ha mogut/esborrat el fitxer) → 410 Gone perquè la UI ho pugui distingir
+    d'un token mai registrat.
+    """
+    with _LOCAL_LINKS_LOCK:
+        mapping = _load_local_links()
+        abs_path = mapping.get(token)
+    if not abs_path:
+        raise HTTPException(status_code=404, detail="Local file token not found")
+    p = Path(abs_path)
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=410, detail=f"Local file no longer available: {p.name}")
+    media_type, _ = mimetypes.guess_type(str(p))
+    return FileResponse(path=str(p), media_type=media_type)
 
 
 @router.get("/custom-icons")

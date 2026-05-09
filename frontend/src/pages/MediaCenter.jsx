@@ -22,7 +22,9 @@ import {
   Save,
   Folder,
   FolderOpen,
-  CloudOff
+  CloudOff,
+  Library,
+  Database
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,7 +45,7 @@ const normalizeUrl = (url) => {
 // TreeNode és recursiu i lazy: només demana les subcarpetes quan l'usuari
 // expandeix el node. Sense això, indexar els ~33k directoris de l'arxiu
 // faria inviable el muntatge de la sidebar.
-const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSelect }) {
+const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSelect, root = 'images' }) {
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -56,7 +58,7 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
       setLoading(true);
       try {
         const res = await axios.get('/api/vault/media/tree', {
-          params: { path: node.path },
+          params: { path: node.path, root },
           timeout: 30000,
         });
         setChildren(res.data || []);
@@ -122,6 +124,7 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
           depth={depth + 1}
           activeAlbum={activeAlbum}
           onSelect={onSelect}
+          root={root}
         />
       ))}
     </>
@@ -176,6 +179,15 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode }) {
   );
 });
 
+// Metadades visuals dels roots disponibles. La llista efectiva ve del backend
+// (/media/roots) i només mostrem els que tenen `available=true`.
+const ROOT_META = {
+  images: { Icon: ImageIcon, label: 'Imatges' },
+  assets: { Icon: Folder, label: 'Assets' },
+  biblioteca: { Icon: Library, label: 'Biblioteca' },
+  vault: { Icon: Database, label: 'Tot el Vault' },
+};
+
 export default function MediaCenter() {
   const [media, setMedia] = useState([]);
   const [albums, setAlbums] = useState([]);
@@ -188,27 +200,35 @@ export default function MediaCenter() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editingMetadata, setEditingMetadata] = useState({ tags: [], description: '' });
-  
+
+  // Multi-root: la galeria pot mirar Images/ (default), Assets/, Biblioteca/
+  // o tot el Vault. Els roots disponibles vénen del backend.
+  const [roots, setRoots] = useState([]);
+  const [activeRoot, setActiveRoot] = useState('images');
+
   // Estats de paginació
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
 
-  const fetchAlbums = async () => {
+  const fetchAlbums = useCallback(async (root = activeRoot) => {
     try {
-      // Arrel de l'arbre: subcarpetes immediates de Images/.
-      const res = await axios.get('/api/vault/media/tree', { timeout: 30000 });
+      const res = await axios.get('/api/vault/media/tree', {
+        params: { root },
+        timeout: 30000,
+      });
       setAlbums(res.data || []);
     } catch (err) {
       console.error('Error carregant arbre:', err);
     }
-  };
+  }, [activeRoot]);
 
   const fetchMedia = useCallback(async (reset = false) => {
     // `activeAlbum === null` (undefined) → no carreguem res. Cal que l'usuari
     // triï un àlbum o demani explícitament 'Totes les fotos' (string buida ''),
-    // que dispara un escaneig recursiu de tot Images/ (lent la primera vegada).
+    // que dispara un escaneig recursiu de tot el root actiu (lent la primera
+    // vegada a OneDrive).
     if (activeAlbum === null) {
       setMedia([]);
       setTotal(0);
@@ -219,12 +239,12 @@ export default function MediaCenter() {
     try {
       setLoading(true);
       const currentOffset = reset ? 0 : offset;
-      // Backend interpreta album buit com a "tot Images/".
-      const albumParam = activeAlbum ? `&album=${encodeURIComponent(activeAlbum)}` : '';
-      const url = `/api/vault/media?limit=${PAGE_SIZE}&offset=${currentOffset}${albumParam}`;
+      const params = { limit: PAGE_SIZE, offset: currentOffset, root: activeRoot };
+      if (activeAlbum) params.album = activeAlbum;
 
-      // 'Totes les fotos' pot trigar minuts la primera vegada a OneDrive.
-      const res = await axios.get(url, { timeout: 300000 });
+      // 'Totes les fotos' pot trigar minuts la primera vegada a OneDrive,
+      // sobretot per al root="vault" (escaneja tot l'arxiu).
+      const res = await axios.get('/api/vault/media', { params, timeout: 600000 });
       const { items, total: totalCount } = res.data;
 
       if (reset) {
@@ -243,17 +263,37 @@ export default function MediaCenter() {
     } finally {
       setLoading(false);
     }
-  }, [activeAlbum, offset]);
+  }, [activeAlbum, activeRoot, offset]);
 
-  // Carrega la llista d'àlbums un cop, al muntatge.
+  // Carrega els roots disponibles un cop, al muntatge.
   useEffect(() => {
-    fetchAlbums();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get('/api/vault/media/roots', { timeout: 15000 });
+        if (cancelled) return;
+        const all = (res.data || []).filter(r => r.available);
+        setRoots(all);
+      } catch (err) {
+        console.error('No s\'han pogut carregar els roots:', err);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  // Recarrega l'arbre quan canvia el root actiu, i reinicia la selecció.
+  useEffect(() => {
+    fetchAlbums(activeRoot);
+    setActiveAlbum(null);
+    setMedia([]);
+    setOffset(0);
+  }, [activeRoot, fetchAlbums]);
 
   // Reset al canviar d'àlbum
   useEffect(() => {
     fetchMedia(true);
-  }, [activeAlbum]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAlbum, activeRoot]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -261,17 +301,24 @@ export default function MediaCenter() {
 
     const formData = new FormData();
     formData.append('file', file);
-    
-    const album = activeAlbum || 'General';
 
     try {
       setIsUploading(true);
-      toast.loading('Pujant imatge...', { id: 'upload' });
-      await axios.post(`/api/vault/media/upload?album=${album}`, formData);
-      toast.success('Imatge pujada correctament', { id: 'upload' });
-      fetchMedia();
+      toast.loading('Pujant fitxer...', { id: 'upload' });
+      // Per al root "images" mantenim el flux antic (galeria amb àlbums).
+      // Per a la resta, derivar a /assets/upload (no hi ha noció d'àlbum).
+      let url;
+      if (activeRoot === 'images') {
+        const album = activeAlbum || 'General';
+        url = `/api/vault/media/upload?album=${encodeURIComponent(album)}`;
+      } else {
+        url = '/api/vault/assets/upload';
+      }
+      await axios.post(url, formData);
+      toast.success('Fitxer pujat correctament', { id: 'upload' });
+      fetchMedia(true);
     } catch (err) {
-      console.error('Error pujant imatge:', err);
+      console.error('Error pujant fitxer:', err);
       toast.error('Error en la càrrega', { id: 'upload' });
     } finally {
       setIsUploading(false);
@@ -317,8 +364,10 @@ export default function MediaCenter() {
             <ImageIcon size={24} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Arxiu Fotogràfic KPM</h1>
-            <p className="text-xs text-[var(--text-tertiary)]">Memòria visual i gestió del coneixement</p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Gestor de Mitjans</h1>
+            <p className="text-xs text-[var(--text-tertiary)]">
+              Imatges, vídeos, PDFs · {ROOT_META[activeRoot]?.label || activeRoot}
+            </p>
           </div>
         </div>
 
@@ -360,26 +409,58 @@ export default function MediaCenter() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Albums */}
         <aside className="w-64 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-2">Àlbums (Carpetes)</p>
-          
+          {/* Tabs de root: Images, Assets, Biblioteca, Vault */}
+          {roots.length > 1 && (
+            <>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1">Origen</p>
+              <div className="grid grid-cols-2 gap-1.5 mb-2">
+                {roots.map((r) => {
+                  const meta = ROOT_META[r.key] || { Icon: Folder, label: r.label };
+                  const Icon = meta.Icon;
+                  const active = r.key === activeRoot;
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={() => setActiveRoot(r.key)}
+                      title={r.label}
+                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        active
+                          ? 'bg-[var(--gnosi-primary)] text-white border-[var(--gnosi-primary)] shadow-sm'
+                          : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]'
+                      }`}
+                    >
+                      <Icon size={13} />
+                      <span className="truncate">{meta.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="h-px bg-[var(--border-primary)] mx-2 opacity-50" />
+            </>
+          )}
+
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-2 mt-1">Carpetes</p>
+
           <button
             onClick={() => setActiveAlbum('')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeAlbum === '' ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] shadow-sm' : 'hover:bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
-            title="Indexa recursivament totes les fotos del Vault. La primera vegada pot trigar minuts."
+            title="Indexa recursivament tot el contingut del root actiu. La primera vegada pot trigar minuts."
           >
             <ImageIcon size={18} />
-            <span className="text-sm font-medium">Totes les fotos</span>
+            <span className="text-sm font-medium">Tot {ROOT_META[activeRoot]?.label || activeRoot}</span>
           </button>
-          
+
           <div className="h-px bg-[var(--border-primary)] my-2 mx-2 opacity-50" />
 
           {albums.map((node) => (
             <TreeNode
-              key={node.path}
+              key={`${activeRoot}::${node.path}`}
               node={node}
               depth={0}
               activeAlbum={activeAlbum}
               onSelect={setActiveAlbum}
+              root={activeRoot}
             />
           ))}
         </aside>
