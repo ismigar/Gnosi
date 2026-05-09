@@ -1,11 +1,21 @@
-"""Vault → Zotero sync: reads modified pages from Vault and writes them to local Zotero SQLite."""
+"""Vault → Zotero sync: reads modified pages from Vault and writes them to local Zotero SQLite.
+
+Phase 3 robustness:
+  - `read_only` Zotero fields (`dateAdded`, `dateModified`, `key`) are never
+    written back to sqlite — only Zotero itself should mutate them.
+  - Persists `last_sync_g_to_z` and `last_sync_summary` back to the config
+    using a tmp+rename atomic write.
+  - Detailed counters in the JSON summary printed to stdout.
+"""
 
 import json
 import os
-import re
 import shutil
 import sqlite3
 import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -15,6 +25,9 @@ CONFIG_PATH = Path(__file__).resolve().parents[1] / "zotero_db_config.json"
 TEMP_ZOTERO_PATH = "/tmp/gnosi_to_zotero_temp.sqlite"
 VAULT_API = "http://localhost:8000"
 
+# Zotero `fields.fieldName` → (target field name in sqlite, kind hint).
+# Only fields the user can sensibly edit from Gnosi appear here. The keys
+# match the canonical Zotero field ids used everywhere in the integration.
 UPDATABLE_FIELDS = {
     "title": ("title", "title"),
     "url": ("url", "url"),
@@ -22,6 +35,14 @@ UPDATABLE_FIELDS = {
     "abstractNote": ("abstractNote", "text"),
     "date": ("date", "text"),
 }
+
+# Fields owned by Zotero — never propagate from Vault to sqlite.
+READ_ONLY_FIELDS = {"dateAdded", "dateModified", "key", "typeName", "tags", "creators"}
+
+
+# ---------------------------------------------------------------------------
+# Config helpers (atomic write — see zotero_to_vault.py for rationale).
+# ---------------------------------------------------------------------------
 
 
 def load_config() -> dict:
@@ -31,19 +52,45 @@ def load_config() -> dict:
         return json.load(f)
 
 
+def save_config_atomic(data: dict) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix=".zotero_db_config.", suffix=".tmp", dir=str(CONFIG_PATH.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, CONFIG_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def zotero_running() -> bool:
     result = subprocess.run(["pgrep", "-x", "Zotero"], capture_output=True)
     return result.returncode == 0
 
 
-def get_pages(table_id: str) -> list[dict]:
+# ---------------------------------------------------------------------------
+# Vault & Zotero accessors.
+# ---------------------------------------------------------------------------
+
+
+def get_pages(table_id: str) -> list:
     res = requests.get(f"{VAULT_API}/api/vault/pages/by-table/{table_id}", timeout=30)
     res.raise_for_status()
     data = res.json()
     return data if isinstance(data, list) else data.get("pages", [])
 
 
-def get_property_names(table_id: str) -> dict[str, str]:
+def get_property_names(table_id: str) -> dict:
     """Resolves `property_id → property.name actual` via the inspect endpoint."""
     res = requests.get(f"{VAULT_API}/api/zotero/inspect/{table_id}", timeout=30)
     res.raise_for_status()
@@ -59,7 +106,7 @@ def get_zotero_conn(path: str) -> sqlite3.Connection:
     return sqlite3.connect(TEMP_ZOTERO_PATH)
 
 
-def get_field_id(z_conn: sqlite3.Connection, field_name: str) -> int | None:
+def get_field_id(z_conn: sqlite3.Connection, field_name: str):
     row = z_conn.execute("SELECT fieldID FROM fields WHERE fieldName = ?", (field_name,)).fetchone()
     return row[0] if row else None
 
@@ -92,76 +139,98 @@ def update_item_field(z_conn: sqlite3.Connection, item_id: int, field_name: str,
         )
 
 
-def get_item_id_by_key(z_conn: sqlite3.Connection, key: str) -> int | None:
+def get_item_id_by_key(z_conn: sqlite3.Connection, key: str):
     row = z_conn.execute("SELECT itemID FROM items WHERE key = ?", (key,)).fetchone()
     return row[0] if row else None
 
 
-def sync() -> None:
+def writable_zfield_to_meta_key(mapping: dict, prop_names: dict) -> dict:
+    """Returns `{zotero_field: vault_metadata_key}` for fields we should write
+    back. Skips read-only fields and any mapping entry whose property has
+    been deleted.
+    """
+    out = {}
+    for z_field, pid in (mapping or {}).items():
+        if z_field in READ_ONLY_FIELDS:
+            continue
+        if z_field not in UPDATABLE_FIELDS:
+            continue
+        if not pid or pid not in prop_names:
+            continue
+        out[z_field] = prop_names[pid]
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Sync logic.
+# ---------------------------------------------------------------------------
+
+
+def sync() -> dict:
     config = load_config()
     if not config.get("enabled"):
-        print("Zotero integration is disabled.")
-        return
+        return {"status": "disabled"}
 
     if zotero_running():
-        print("ERROR: Zotero is open. Close Zotero before running Gnosi → Zotero sync.")
-        return
+        return {"status": "zotero_open"}
 
     table_id = config.get("target_table", "")
     mapping = config.get("mapping", {})
     zotero_db = config.get("zotero_db", "~/Zotero/zotero.sqlite")
 
     if not table_id:
-        print("No target table configured.")
-        return
+        return {"status": "no_target_table"}
 
-    # Resolem property_id → name actual per llegir del metadata. El mapping
-    # persisteix UUIDs immutables, però el frontmatter desa per name vigent.
     prop_names = get_property_names(table_id)
+    zfield_to_meta_key = writable_zfield_to_meta_key(mapping, prop_names)
 
-    # Per cada zotero_field, sabem la property que li toca → el name actual.
-    zfield_to_name: dict[str, str] = {}
-    for z_field, pid in mapping.items():
-        if pid and pid in prop_names:
-            zfield_to_name[z_field] = prop_names[pid]
-
-    zkey_meta_key = zfield_to_name.get("key", "zotero_key")
-    title_meta_key = zfield_to_name.get("title")
+    # zotero_key i title sí els llegim del metadata, però no els ESCRIVIM —
+    # només els usem per identificar la pàgina.
+    zkey_meta_key = (prop_names.get(mapping.get("key")) if mapping.get("key") else None) or "zotero_key"
+    title_pid = mapping.get("title")
+    title_meta_key = prop_names.get(title_pid) if title_pid else None
 
     pages = get_pages(table_id)
 
     z_conn = get_zotero_conn(zotero_db)
-    updated = skipped = 0
+    counters = {"updated": 0, "skipped_no_key": 0, "skipped_unknown_item": 0, "errors": 0}
 
     try:
         for page in pages:
             meta = page.get("metadata", {})
             zkey = meta.get(zkey_meta_key) or meta.get("zotero_key")
             if not zkey:
-                skipped += 1
+                counters["skipped_no_key"] += 1
                 continue
 
-            item_id = get_item_id_by_key(z_conn, zkey)
+            try:
+                item_id = get_item_id_by_key(z_conn, zkey)
+            except sqlite3.Error as e:
+                counters["errors"] += 1
+                print(f"[gnosi→zotero] sqlite error for {zkey}: {e}", file=sys.stderr)
+                continue
+
             if item_id is None:
-                skipped += 1
+                counters["skipped_unknown_item"] += 1
                 continue
 
-            for z_field, meta_key in zfield_to_name.items():
-                if z_field not in UPDATABLE_FIELDS:
-                    continue
+            wrote_anything = False
+            for z_field, meta_key in zfield_to_meta_key.items():
                 zotero_db_field = UPDATABLE_FIELDS[z_field][0]
-                # Title pot venir al camp `title` directe de la pàgina si no
-                # tenim metadata explícita.
+                # Title pot venir al camp `title` de la pàgina si no hi ha
+                # metadata explícita amb la mateixa clau.
                 value = meta.get(meta_key)
                 if not value and z_field == "title" and title_meta_key:
                     value = page.get("title")
                 if value:
                     update_item_field(z_conn, item_id, zotero_db_field, str(value))
+                    wrote_anything = True
 
-            z_conn.execute(
-                "UPDATE items SET dateModified = datetime('now') WHERE itemID = ?", (item_id,)
-            )
-            updated += 1
+            if wrote_anything:
+                z_conn.execute(
+                    "UPDATE items SET dateModified = datetime('now') WHERE itemID = ?", (item_id,)
+                )
+                counters["updated"] += 1
 
         z_conn.commit()
     finally:
@@ -173,8 +242,23 @@ def sync() -> None:
     if os.path.exists(TEMP_ZOTERO_PATH):
         os.remove(TEMP_ZOTERO_PATH)
 
-    print(f"Vault→Zotero sync done. Updated: {updated}, Skipped: {skipped}")
+    summary = {
+        "direction": "g_to_z",
+        "ts": now_iso(),
+        "pages_seen": len(pages),
+        "writable_fields": list(zfield_to_meta_key.keys()),
+        **counters,
+    }
+
+    fresh = load_config()
+    fresh["last_sync_at"] = summary["ts"]
+    fresh["last_sync_g_to_z"] = summary["ts"]
+    fresh["last_sync_summary"] = summary
+    save_config_atomic(fresh)
+
+    return summary
 
 
 if __name__ == "__main__":
-    sync()
+    out = sync()
+    print(json.dumps(out, ensure_ascii=False))
