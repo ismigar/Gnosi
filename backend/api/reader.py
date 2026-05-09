@@ -59,24 +59,30 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
     except ET.ParseError:
         raise HTTPException(status_code=400, detail="Invalid XML format")
 
+    parent_map = {child: parent for parent in tree.iter() for child in parent}
+
     imported_count = 0
-    # Basic OPML parsing
     for outline in tree.findall('.//outline'):
-        if 'xmlUrl' in outline.attrib:
-            url = outline.attrib.get('xmlUrl')
-            title = outline.attrib.get('title', outline.attrib.get('text', 'Unknown'))
-            
-            # Traverse up to find the category
-            category = "Uncategorized"
-            parent = getattr(outline, "parent", None) # xml.etree doesn't make parents easy, let's simplify
-            
-            # Check if exists
-            existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
-            if not existing:
-                new_source = models.FeedSource(name=title, url=url, category=category, type="rss")
-                db.add(new_source)
-                imported_count += 1
-                
+        if 'xmlUrl' not in outline.attrib:
+            continue
+
+        url = outline.attrib.get('xmlUrl')
+        title = outline.attrib.get('title', outline.attrib.get('text', 'Unknown'))
+
+        category = "Uncategorized"
+        ancestor = parent_map.get(outline)
+        while ancestor is not None and ancestor.tag == 'outline':
+            if 'xmlUrl' not in ancestor.attrib:
+                category = ancestor.attrib.get('title', ancestor.attrib.get('text', category))
+                break
+            ancestor = parent_map.get(ancestor)
+
+        existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
+        if not existing:
+            new_source = models.FeedSource(name=title, url=url, category=category, type="rss")
+            db.add(new_source)
+            imported_count += 1
+
     db.commit()
     return {"message": f"Successfully imported {imported_count} new feeds."}
 
