@@ -284,6 +284,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [zoteroSyncMsg, setZoteroSyncMsg] = useState('');
     const [zoteroMappingOpen, setZoteroMappingOpen] = useState(false);
     const [zoteroValidation, setZoteroValidation] = useState(null);  // { ok, errors[], warnings[] }
+    const [zoteroLastSync, setZoteroLastSync] = useState(null);     // { last_sync_at, last_sync_z_to_g, last_sync_g_to_z, last_sync_summary }
 
     const language = draft.settings.language || 'ca';
 
@@ -788,6 +789,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             fetch('/api/zotero/validate-config').then(async res => {
                 if (res.ok) setZoteroValidation(await res.json());
             }).catch(e => console.error("Zotero validate error:", e));
+
+            // Resultat de l'última sync (panell d'observabilitat)
+            fetch('/api/zotero/last-sync').then(async res => {
+                if (res.ok) setZoteroLastSync(await res.json());
+            }).catch(e => console.error("Zotero last-sync error:", e));
 
         } catch (err) { console.error("General loading error:", err); }
     };
@@ -3120,29 +3126,94 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* ZOTERO */}
                             {activeTab === 'zotero' && (() => {
+                                const formatSyncSummary = (summary) => {
+                                    if (!summary) return '';
+                                    const parts = [];
+                                    const fields = ['created', 'updated', 'linked', 'skipped_unchanged', 'skipped_no_match', 'skipped_no_key', 'skipped_unknown_item', 'errors'];
+                                    for (const k of fields) {
+                                        const v = summary[k];
+                                        if (typeof v === 'number' && v > 0) {
+                                            const label = t(`settings.zotero.summary.${k}`) || k;
+                                            parts.push(`${label}: ${v}`);
+                                        }
+                                    }
+                                    return parts.join(' · ');
+                                };
+
                                 const runZoteroSync = async (direction) => {
                                     setZoteroSyncing(direction);
                                     setZoteroSyncMsg('');
+
+                                    // Captura el last_sync_at actual com a baseline per detectar el completion.
+                                    let baseline = null;
+                                    try {
+                                        const r0 = await fetch('/api/zotero/last-sync');
+                                        if (r0.ok) {
+                                            const d0 = await r0.json();
+                                            baseline = d0.last_sync_at;
+                                        }
+                                    } catch (_) { /* no-op */ }
+
                                     try {
                                         if (direction === 'z-to-g' || direction === 'both') {
                                             const r = await fetch('/api/zotero/sync', { method: 'POST' });
                                             if (!r.ok) {
                                                 const err = await r.json().catch(() => ({}));
-                                                setZoteroSyncMsg(err.detail || 'Error en Z→G');
-                                                setZoteroSyncing(null); return;
+                                                setZoteroSyncMsg(err.detail || (t('settings.zotero.sync_error_z_to_g') || 'Error en Z→G'));
+                                                setZoteroSyncing(null);
+                                                return;
                                             }
                                         }
                                         if (direction === 'g-to-z' || direction === 'both') {
                                             const r = await fetch('/api/zotero/sync-back', { method: 'POST' });
                                             const data = await r.json().catch(() => ({}));
-                                            if (!r.ok) { setZoteroSyncMsg(data.detail || 'Error en G→Z'); setZoteroSyncing(null); return; }
-                                            if (data.status === 'zotero_open') { setZoteroSyncMsg(data.message); setZoteroSyncing(null); return; }
+                                            if (!r.ok) {
+                                                setZoteroSyncMsg(data.detail || (t('settings.zotero.sync_error_g_to_z') || 'Error en G→Z'));
+                                                setZoteroSyncing(null);
+                                                return;
+                                            }
+                                            if (data.status === 'zotero_open') {
+                                                setZoteroSyncMsg(data.message);
+                                                setZoteroSyncing(null);
+                                                return;
+                                            }
                                         }
-                                        setZoteroSyncMsg(direction === 'both' ? 'Sincronització bidireccional iniciada en segon pla.' : direction === 'z-to-g' ? 'Importació Z→G iniciada en segon pla.' : 'Exportació G→Z iniciada en segon pla.');
+
+                                        setZoteroSyncMsg(t('settings.zotero.sync_in_progress') || 'Sincronització en curs…');
+
+                                        // Polling: cada 2.5s, max ~30s, fins que last_sync_at canviï.
+                                        const MAX_TRIES = 12;
+                                        const POLL_MS = 2500;
+                                        let tries = 0;
+                                        const poll = async () => {
+                                            tries++;
+                                            try {
+                                                const rr = await fetch('/api/zotero/last-sync');
+                                                if (rr.ok) {
+                                                    const d = await rr.json();
+                                                    if (d.last_sync_at && d.last_sync_at !== baseline) {
+                                                        setZoteroLastSync(d);
+                                                        const summaryStr = formatSyncSummary(d.last_sync_summary);
+                                                        const head = t('settings.zotero.sync_done') || 'Sincronització completada';
+                                                        toast.success(summaryStr ? `${head} — ${summaryStr}` : head);
+                                                        setZoteroSyncMsg('');
+                                                        setZoteroSyncing(null);
+                                                        return;
+                                                    }
+                                                }
+                                            } catch (_) { /* no-op */ }
+                                            if (tries < MAX_TRIES) {
+                                                setTimeout(poll, POLL_MS);
+                                            } else {
+                                                setZoteroSyncMsg(t('settings.zotero.sync_takes_long') || 'Sincronització en segon pla. Refresca el panell per veure resultats.');
+                                                setZoteroSyncing(null);
+                                            }
+                                        };
+                                        setTimeout(poll, POLL_MS);
                                     } catch (e) {
                                         setZoteroSyncMsg(`Error: ${e.message}`);
+                                        setZoteroSyncing(null);
                                     }
-                                    setZoteroSyncing(null);
                                 };
                                 const btnStyle = { padding: '8px 14px', fontSize: '0.85rem', borderRadius: '12px', opacity: zoteroSyncing ? 0.6 : 1 };
                                 return (
@@ -3276,6 +3347,69 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         </button>
                                                     </div>
                                                 )}
+                                            </div>
+                                        )}
+
+                                        {/* Estratègia per a pàgines pre-existents sense zotero_key */}
+                                        {draft.zotero.enabled && draft.zotero.target_table && (
+                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '24px 32px', borderRadius: '24px', border: '1px solid var(--settings-border)' }}>
+                                                <FormGroup
+                                                    label={t('settings.zotero.strategy_label') || 'Estratègia per a pàgines existents sense Clau Zotero'}
+                                                    description={t('settings.zotero.strategy_desc') || 'Què fer quan trobem una pàgina al Vault sense zotero_key però amb un títol que coincideix amb un ítem de Zotero.'}
+                                                >
+                                                    <select
+                                                        className="gnosi-select"
+                                                        value={draft.zotero.existing_pages_strategy || 'match_by_title'}
+                                                        onChange={async e => {
+                                                            const v = e.target.value;
+                                                            const next = { ...draft.zotero, existing_pages_strategy: v };
+                                                            setDraft(prev => ({ ...prev, zotero: next }));
+                                                            await fetch('/api/zotero/config', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify(next),
+                                                            }).catch(() => {});
+                                                        }}
+                                                    >
+                                                        <option value="match_by_title">{t('settings.zotero.strategy_match_by_title') || 'Enllaçar per títol (recomanat)'}</option>
+                                                        <option value="skip">{t('settings.zotero.strategy_skip') || 'Ignorar pàgines sense clau'}</option>
+                                                    </select>
+                                                </FormGroup>
+                                            </div>
+                                        )}
+
+                                        {/* Panell d'observabilitat: darrera sincronització */}
+                                        {draft.zotero.enabled && zoteroLastSync && zoteroLastSync.last_sync_at && (
+                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '24px 32px', borderRadius: '24px', border: '1px solid var(--settings-border)' }}>
+                                                <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800, marginBottom: '14px' }}>
+                                                    {t('settings.zotero.last_sync_title') || 'Darrera sincronització'}
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
+                                                    {[
+                                                        { key: 'last_sync_z_to_g', label: t('settings.zotero.last_sync_z_to_g') || 'Zotero → Gnosi' },
+                                                        { key: 'last_sync_g_to_z', label: t('settings.zotero.last_sync_g_to_z') || 'Gnosi → Zotero' },
+                                                    ].map(({ key, label }) => {
+                                                        const ts = zoteroLastSync[key];
+                                                        let humanTs = '—';
+                                                        if (ts) {
+                                                            try {
+                                                                humanTs = new Date(ts).toLocaleString(i18n.language || 'ca');
+                                                            } catch (_) { humanTs = ts; }
+                                                        }
+                                                        const isLatest = ts && ts === zoteroLastSync.last_sync_at;
+                                                        const summary = isLatest ? zoteroLastSync.last_sync_summary : null;
+                                                        const summaryStr = formatSyncSummary(summary);
+                                                        return (
+                                                            <div key={key} style={{ padding: '12px 14px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)' }}>
+                                                                <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '4px' }}>{label}</div>
+                                                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{humanTs}</div>
+                                                                {summaryStr && (
+                                                                    <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>{summaryStr}</div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         )}
 
