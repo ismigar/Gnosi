@@ -58,6 +58,7 @@ router = APIRouter(dependencies=[Depends(get_workspace_context)])
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.media_service import media_service
+from backend.services.files_provider import get_files_provider
 from backend.api.virtual_fields import (
     inject_for_table as _vf_inject_for_table,
     inject_for_single_page as _vf_inject_for_single_page,
@@ -3708,73 +3709,10 @@ async def update_media_metadata(
 # diferents (cada un materialitzat separadament a OneDrive) cal serialitzar més.
 _VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
 
-# Daemon al host que materialitza fitxers OneDrive online-only; necessari
-# perquè el File Provider no rep el trigger a través del bind-mount Docker.
-# Vegeu sh/onedrive_warmup_daemon.py.
-_WARMUP_URL = os.environ.get(
-    "ONEDRIVE_WARMUP_URL",
-    "http://host.docker.internal:5009/warmup",
-)
-_WARMUP_TIMEOUT_S = float(os.environ.get("ONEDRIVE_WARMUP_TIMEOUT", "100"))
-# Serialitzem warmups: OneDrive baixa més de pressa quan no rep peticions
-# concurrents, i així evitem que un sol client (50 thumbs alhora) sature el
-# daemon. Combinat amb una cache curta per evitar duplicats consecutius.
-_WARMUP_SEMAPHORE = asyncio.Semaphore(2)
-_WARMUP_INFLIGHT: Dict[str, asyncio.Future] = {}
-
-
-async def _warmup_onedrive_file(container_path: Path) -> bool:
-    """Demana al daemon del host que materialitzi `container_path`.
-    Retorna True si el fitxer està disponible localment després de la crida.
-    """
-    vault_host_path = os.environ.get("VAULT_HOST_PATH")
-    if not vault_host_path:
-        log.debug("VAULT_HOST_PATH no configurat: warmup desactivat")
-        return False
-    try:
-        rel = container_path.relative_to(Path("/vault"))
-    except ValueError:
-        log.debug("Path fora de /vault, no es pot warmup: %s", container_path)
-        return False
-    host_path = str(Path(vault_host_path) / rel)
-
-    # Coalesce: si dues peticions volen el mateix fitxer alhora, només
-    # materialitzem una vegada.
-    inflight = _WARMUP_INFLIGHT.get(host_path)
-    if inflight is not None:
-        try:
-            return await inflight
-        except Exception:
-            return False
-
-    fut: asyncio.Future = asyncio.get_event_loop().create_future()
-    _WARMUP_INFLIGHT[host_path] = fut
-    try:
-        async with _WARMUP_SEMAPHORE:
-            try:
-                import httpx
-                async with httpx.AsyncClient(timeout=_WARMUP_TIMEOUT_S) as cli:
-                    r = await cli.get(_WARMUP_URL, params={"path": host_path})
-                body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
-                ok = r.status_code == 200 and body.get("status") == "materialized"
-                if ok:
-                    log.info(
-                        "☁️→💾 Materialitzat OneDrive %s (blocks=%s, %.1fs)",
-                        rel, body.get("blocks"), body.get("elapsed", 0),
-                    )
-                else:
-                    log.warning(
-                        "☁️ Warmup ha fallat per %s: HTTP %s %s",
-                        rel, r.status_code, body,
-                    )
-                fut.set_result(ok)
-                return ok
-            except Exception as e:
-                log.warning("☁️ Warmup ha llançat excepció per %s: %r", rel, e)
-                fut.set_result(False)
-                return False
-    finally:
-        _WARMUP_INFLIGHT.pop(host_path, None)
+# La detecció + materialització de fitxers cloud-on-demand viu a
+# `backend.services.files_provider`. La instància (OneDriveProvider o
+# LocalProvider) la decideix la factory segons env vars; aquí només la
+# consumim. Vegeu docs/dev_memory/directives/files_provider_abstraction.md.
 
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
@@ -3834,18 +3772,19 @@ async def serve_vault_image(image_path: str):
         log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
         raise _image_error(404, "Image is an empty placeholder (OneDrive)")
 
-    if getattr(st, "st_blocks", 1) == 0:
-        # Online-only: demanem al daemon del host que dispari la baixada via
-        # File Provider. Si funciona, refrequem el stat i continuem.
-        if await _warmup_onedrive_file(requested):
-            try:
-                st = requested.stat()
-            except OSError as e:
-                log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
-                raise _image_error(503, "Image temporarily unavailable")
-        if getattr(st, "st_blocks", 1) == 0:
-            log.warning(f"☁️ Fitxer OneDrive online-only encara no descarregat: {requested}")
-            raise _image_error(503, "Image temporarily unavailable; OneDrive warmup pending")
+    provider = get_files_provider()
+    if provider.is_online_only(requested, st):
+        # Online-only: demanem al proveïdor (típicament OneDrive) que
+        # dispari la baixada. Si funciona, refrequem el stat i continuem.
+        await provider.materialize(requested)
+        try:
+            st = requested.stat()
+        except OSError as e:
+            log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
+            raise _image_error(503, "Image temporarily unavailable")
+        if provider.is_online_only(requested, st):
+            log.warning(f"☁️ Fitxer online-only encara no descarregat: {requested}")
+            raise _image_error(503, "Image temporarily unavailable; warmup pending")
 
     async with _VAULT_IMAGE_SEMAPHORE:
         # Warm-up: open(1 byte) per estabilitzar la lectura abans del
@@ -3934,16 +3873,17 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
     if st.st_size == 0:
         raise HTTPException(status_code=404, detail="File is an empty placeholder (OneDrive)")
 
-    if getattr(st, "st_blocks", 1) == 0:
-        if await _warmup_onedrive_file(requested):
-            try:
-                st = requested.stat()
-            except OSError as e:
-                log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
-                raise HTTPException(status_code=503, detail="File temporarily unavailable")
-        if getattr(st, "st_blocks", 1) == 0:
-            log.warning(f"☁️ Fitxer OneDrive online-only encara no descarregat: {requested}")
-            raise HTTPException(status_code=503, detail="File temporarily unavailable; OneDrive warmup pending")
+    provider = get_files_provider()
+    if provider.is_online_only(requested, st):
+        await provider.materialize(requested)
+        try:
+            st = requested.stat()
+        except OSError as e:
+            log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
+            raise HTTPException(status_code=503, detail="File temporarily unavailable")
+        if provider.is_online_only(requested, st):
+            log.warning(f"☁️ Fitxer online-only encara no descarregat: {requested}")
+            raise HTTPException(status_code=503, detail="File temporarily unavailable; warmup pending")
 
     async with _VAULT_IMAGE_SEMAPHORE:
         last_error: Optional[OSError] = None
