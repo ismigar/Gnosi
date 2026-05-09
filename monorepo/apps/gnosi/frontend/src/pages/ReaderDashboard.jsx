@@ -10,6 +10,135 @@ const API_BASE = '/api';
 const LOCALE_MAP = { ca: 'ca-ES', es: 'es-ES', en: 'en-US', fr: 'fr-FR' };
 const MAX_UNREAD_ARTICLES_FETCH_LIMIT = 10000;
 
+// Google's favicon service: covers all public domains, returns a 32px PNG
+// with sane fallbacks. Trade-off: each source URL leaks once to Google when
+// the column renders. Acceptable here because the user already pulls these
+// feeds publicly. If we want zero-leak, swap for `${origin}/favicon.ico`.
+const getFaviconUrl = (sourceUrl) => {
+    try {
+        const hostname = new URL(sourceUrl).hostname;
+        return `https://www.google.com/s2/favicons?sz=32&domain=${hostname}`;
+    } catch {
+        return null;
+    }
+};
+
+// Typography for the iframe-rendered article body. Kept here so the CSS is
+// applied consistently regardless of the host page's stylesheet (the iframe
+// is a clean document). `prefers-color-scheme` covers dark mode without
+// needing JS to push a class in.
+const ARTICLE_IFRAME_CSS = `
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1.7;
+        color: #1e293b;
+        margin: 0;
+        padding: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    @media (prefers-color-scheme: dark) {
+        body { color: #e2e8f0; }
+        blockquote { color: #94a3b8; border-color: #475569; }
+        code, pre { background: rgba(255,255,255,0.07); }
+        th { background: rgba(255,255,255,0.04); }
+        th, td, hr { border-color: #334155; }
+        a { color: #93c5fd; }
+        a:hover { border-bottom-color: #93c5fd; }
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: 600;
+        line-height: 1.3;
+        margin: 1.6em 0 0.5em;
+        letter-spacing: -0.01em;
+    }
+    h1 { font-size: 1.5em; }
+    h2 { font-size: 1.3em; }
+    h3 { font-size: 1.15em; }
+    h4 { font-size: 1.05em; }
+    p { margin: 0 0 1em; }
+    ul, ol { padding-left: 1.5em; margin: 0 0 1em; }
+    li { margin: 0.25em 0; }
+    li > p:last-child { margin-bottom: 0; }
+    blockquote {
+        border-left: 3px solid #cbd5e1;
+        padding-left: 1em;
+        margin: 1em 0;
+        color: #64748b;
+        font-style: italic;
+    }
+    code {
+        background: rgba(0,0,0,0.06);
+        padding: 0.15em 0.35em;
+        border-radius: 3px;
+        font-size: 0.9em;
+        font-family: ui-monospace, SF Mono, Menlo, monospace;
+    }
+    pre {
+        background: rgba(0,0,0,0.06);
+        padding: 1em;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 1em 0;
+    }
+    pre code { background: none; padding: 0; font-size: 0.9em; }
+    img, video {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 1em 0;
+        display: block;
+    }
+    a {
+        color: #4f46e5;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(79,70,229,0.3);
+    }
+    a:hover { border-bottom-color: currentColor; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1em 0;
+        font-size: 0.95em;
+    }
+    th, td { border: 1px solid #cbd5e1; padding: 0.5em 0.75em; text-align: left; vertical-align: top; }
+    th { background: rgba(0,0,0,0.04); font-weight: 600; }
+    hr { border: none; border-top: 1px solid #cbd5e1; margin: 2em 0; }
+    figure { margin: 1em 0; }
+    figcaption { font-size: 0.85em; color: #64748b; margin-top: 0.5em; text-align: center; }
+    iframe { max-width: 100%; }
+`;
+
+// Resize the article iframe to fit its content. Without this, electrón-style
+// renderers cap iframes at the height attribute and the article is cut off.
+const fitIframeToContent = (event) => {
+    const iframe = event.currentTarget;
+    try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) return;
+        const measure = () => {
+            const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+            iframe.style.height = `${h + 16}px`;
+        };
+        measure();
+        // Images and webfonts settle async; remeasure once they're loaded.
+        const imgs = Array.from(doc.images || []);
+        if (imgs.length === 0) return;
+        let pending = imgs.filter((img) => !img.complete).length;
+        if (pending === 0) return;
+        imgs.forEach((img) => {
+            if (img.complete) return;
+            img.addEventListener('load', () => { if (--pending <= 0) measure(); }, { once: true });
+            img.addEventListener('error', () => { if (--pending <= 0) measure(); }, { once: true });
+        });
+    } catch {
+        // Cross-origin or sandbox quirks: leave the default height.
+    }
+};
+
 const ReaderDashboard = () => {
     const { t, i18n } = useTranslation();
     const locale = LOCALE_MAP[i18n.language?.split('-')[0]] || 'ca-ES';
@@ -96,11 +225,11 @@ const ReaderDashboard = () => {
             setDisplayArticles((prev) => (
                 showUnreadOnly
                     ? prev.filter((a) => a.id !== id)
-                    : prev.map((a) => (a.id === id ? { ...a, read: true } : a))
+                    : prev.map((a) => (a.id === id ? { ...a, is_read: true } : a))
             ));
             setUnreadArticles((prev) => prev.filter((a) => a.id !== id));
             if (selectedArticle?.id === id) {
-                setSelectedArticle(showUnreadOnly ? null : { ...selectedArticle, read: true });
+                setSelectedArticle(showUnreadOnly ? null : { ...selectedArticle, is_read: true });
             }
         } catch (error) {
             console.error("Error marking as read", error);
@@ -350,16 +479,31 @@ const ReaderDashboard = () => {
                                     {!collapsed && group.items.map((source) => {
                                         const isActive = selectedSourceId === source.id;
                                         const count = articleCountsBySource.get(source.id) || 0;
+                                        const favicon = getFaviconUrl(source.url);
                                         return (
                                             <button
                                                 key={source.id}
                                                 onClick={() => handleSelectSource(source.id)}
-                                                className={`relative w-full flex items-center justify-between pl-8 pr-5 py-1.5 text-sm transition-colors ${isActive ? 'text-[var(--text-primary)] font-medium' : 'text-slate-600 dark:text-slate-300 hover:text-[var(--text-primary)]'}`}
+                                                className={`relative w-full flex items-center justify-between pl-5 pr-5 py-1.5 text-sm transition-colors ${isActive ? 'text-[var(--text-primary)] font-medium' : 'text-slate-600 dark:text-slate-300 hover:text-[var(--text-primary)]'}`}
                                             >
                                                 {isActive && (
                                                     <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[var(--gnosi-blue)]" aria-hidden="true" />
                                                 )}
-                                                <span className="truncate">{source.name}</span>
+                                                <span className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                                                        {favicon && (
+                                                            <img
+                                                                src={favicon}
+                                                                alt=""
+                                                                loading="lazy"
+                                                                referrerPolicy="no-referrer"
+                                                                className="w-3.5 h-3.5 rounded-sm opacity-90"
+                                                                onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+                                                            />
+                                                        )}
+                                                    </span>
+                                                    <span className="truncate">{source.name}</span>
+                                                </span>
                                                 {count > 0 && (
                                                     <span className={`text-[11px] tabular-nums flex-shrink-0 ml-2 ${isActive ? 'text-[var(--gnosi-blue)]' : 'text-slate-400'}`}>{count}</span>
                                                 )}
@@ -471,6 +615,7 @@ const ReaderDashboard = () => {
                                     </h3>
                                     {group.items.map((article) => {
                                         const isSelected = selectedArticle?.id === article.id;
+                                        const isRead = !!article.is_read;
                                         return (
                                             <div
                                                 key={article.id}
@@ -480,10 +625,17 @@ const ReaderDashboard = () => {
                                                 {isSelected && (
                                                     <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[var(--gnosi-blue)]" aria-hidden="true" />
                                                 )}
-                                                <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 truncate">
+                                                {!isRead && !isSelected && (
+                                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--gnosi-blue)]" aria-hidden="true" />
+                                                )}
+                                                <div className={`text-[11px] mb-1.5 truncate ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>
                                                     {formatArticleMeta(article)}
                                                 </div>
-                                                <h4 className={`text-[15px] leading-snug line-clamp-3 ${isSelected ? 'font-semibold text-[var(--text-primary)]' : 'font-medium text-slate-700 dark:text-slate-200'}`}>
+                                                <h4 className={`text-[15px] leading-snug line-clamp-3 ${
+                                                    isSelected ? 'font-semibold text-[var(--text-primary)]'
+                                                    : isRead ? 'font-normal text-slate-400 dark:text-slate-500'
+                                                    : 'font-medium text-slate-800 dark:text-slate-100'
+                                                }`}>
                                                     {article.title}
                                                 </h4>
                                             </div>
@@ -541,10 +693,12 @@ const ReaderDashboard = () => {
                                 // executaria scripts incrustats— el renderitzem dins
                                 // un iframe sandbox sense `allow-scripts`.
                                 <iframe
-                                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>body{font-family:Inter,system-ui,sans-serif;color:#1e293b;line-height:1.7;padding:0;margin:0;}img{max-width:100%;height:auto;border-radius:8px}a{color:#4f46e5}</style></head><body>${selectedArticle.content}</body></html>`}
+                                    key={selectedArticle.id}
+                                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>${ARTICLE_IFRAME_CSS}</style></head><body>${selectedArticle.content}</body></html>`}
                                     sandbox="allow-same-origin allow-popups"
                                     title="article-content"
-                                    style={{ width: '100%', minHeight: '600px', border: 'none' }}
+                                    onLoad={fitIframeToContent}
+                                    style={{ width: '100%', minHeight: '200px', border: 'none', display: 'block' }}
                                 />
                             ) : (
                                 <div className="prose prose-slate dark:prose-invert max-w-none
@@ -554,9 +708,25 @@ const ReaderDashboard = () => {
                                     prose-strong:font-semibold
                                     prose-img:rounded-md prose-img:max-w-full"
                                 >
-                                    {selectedArticle.content?.split('\n').map((paragraph, idx) => (
-                                        <p key={idx}>{paragraph}</p>
-                                    ))}
+                                    {/*
+                                        Plain-text fallback for articles whose
+                                        content was flattened to plain text by
+                                        the old ingester. Split on blank lines
+                                        when possible; if there are none, keep
+                                        the text in a single paragraph with
+                                        pre-wrap so single-line breaks and
+                                        spacing are preserved.
+                                    */}
+                                    {(() => {
+                                        const txt = selectedArticle.content || '';
+                                        const paragraphs = txt.split(/\n\s*\n/).filter(p => p.trim());
+                                        if (paragraphs.length > 1) {
+                                            return paragraphs.map((p, i) => (
+                                                <p key={i} style={{ whiteSpace: 'pre-wrap' }}>{p}</p>
+                                            ));
+                                        }
+                                        return <p style={{ whiteSpace: 'pre-wrap' }}>{txt}</p>;
+                                    })()}
                                 </div>
                             )}
                         </article>
