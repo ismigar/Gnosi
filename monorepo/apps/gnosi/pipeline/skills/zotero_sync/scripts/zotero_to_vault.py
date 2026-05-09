@@ -105,12 +105,36 @@ def get_existing_pages(table_id: str) -> dict[str, dict]:
     return {p.get("metadata", {}).get("zotero_key", ""): p for p in pages if p.get("metadata", {}).get("zotero_key")}
 
 
-def build_page_payload(item: dict, mapping: dict, table_id: str) -> dict:
+def get_property_names(table_id: str) -> dict[str, str]:
+    """Resolves `property_id → property.name` actual via the inspect endpoint.
+
+    Mapping persisteix `property_id` (UUID immutable); el name és cosmètic i pot
+    canviar quan l'usuari renombra columnes. Aquesta resolució es fa cada sync.
+    """
+    res = requests.get(f"{VAULT_API}/api/zotero/inspect/{table_id}", timeout=30)
+    res.raise_for_status()
+    data = res.json()
+    return {p["id"]: p.get("name", "") for p in data.get("properties", []) if p.get("id")}
+
+
+def build_page_payload(item: dict, mapping: dict, table_id: str, prop_names: dict[str, str]) -> dict:
+    """Construeix el payload per `/api/vault/pages` amb keys de metadata actualitzades.
+
+    `mapping` és `{zotero_field_id: property_id}`. Resolem property_id → name actual
+    abans d'escriure al metadata, així renombrar columnes mai trenca el sync.
+    """
     meta = {"database_table_id": table_id, "source": "Gnosi"}
-    for z_field, vault_field in mapping.items():
+    for z_field, prop_id in mapping.items():
+        if not prop_id:
+            continue
+        prop_name = prop_names.get(prop_id)
+        if not prop_name:
+            # Property eliminada o id orfe — saltem silenciosament; validate-config
+            # ho reportarà a l'usuari.
+            continue
         value = item.get(z_field, "")
         if value:
-            meta[vault_field] = value
+            meta[prop_name] = value
     return {
         "title": item.get("title") or item.get("key", ""),
         "content": "",
@@ -132,6 +156,8 @@ def sync() -> None:
         print("No target table configured.")
         return
 
+    prop_names = get_property_names(table_id)
+
     z_conn = get_zotero_conn(zotero_db)
     try:
         items = extract_items(z_conn)
@@ -144,7 +170,7 @@ def sync() -> None:
     created = updated = 0
 
     for item in items:
-        payload = build_page_payload(item, mapping, table_id)
+        payload = build_page_payload(item, mapping, table_id, prop_names)
         zkey = item["key"]
         if zkey in existing:
             page_id = existing[zkey].get("id") or existing[zkey].get("metadata", {}).get("id")
