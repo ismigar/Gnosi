@@ -70,10 +70,10 @@ jobs:
           node-version: '20'
           # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3.11 python3.11-venv python3-pip
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Install npm dependencies
         run: |
