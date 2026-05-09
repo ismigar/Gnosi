@@ -291,10 +291,41 @@ def mark_article_read(article_id: int, read: bool = True, db: Session = Depends(
     db_article = db.query(models.Article).filter(models.Article.id == article_id).first()
     if not db_article:
         raise HTTPException(status_code=404, detail="Article not found")
-    
+
     db_article.is_read = read
     db.commit()
     return {"message": f"Article marked as {'read' if read else 'unread'}"}
+
+
+@router.post(
+    "/articles/{article_id}/extract",
+    dependencies=[Depends(require_role("editor"))],
+)
+def extract_article_full_content(article_id: int, db: Session = Depends(get_db)):
+    """Force a full-text extraction for an existing article.
+
+    Used to recover the body for old rows ingested before the extractor
+    existed, or to refresh `full_content` when the publisher updated the
+    article. Returns 200 with the extracted length on success, or 422 if
+    extraction returned nothing (paywall, JS-rendered, blocked, etc.).
+    """
+    from backend.services.article_extractor import extract_full_content as _extract
+
+    db_article = db.query(models.Article).filter(models.Article.id == article_id).first()
+    if not db_article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    extracted = _extract(db_article.url)
+    if not extracted:
+        raise HTTPException(
+            status_code=422,
+            detail="Could not extract full content from the article URL.",
+        )
+
+    db_article.full_content = extracted
+    db.commit()
+    return {"message": "ok", "length": len(extracted)}
+
 
 # -- Podcast --
 

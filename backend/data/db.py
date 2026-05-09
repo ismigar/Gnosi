@@ -12,6 +12,29 @@ _lock = threading.Lock()
 Base = declarative_base()
 
 
+def _apply_lazy_migrations(engine):
+    """Add new columns idempotently to existing tables.
+
+    `Base.metadata.create_all()` only creates tables that don't exist yet —
+    it does NOT add new columns to tables that are already there. Because
+    this project doesn't use Alembic, we apply additive schema changes by
+    hand here, keyed off `inspect()`. Each migration must be a no-op when
+    the column already exists.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+
+    if "articles" in inspector.get_table_names():
+        cols = {c["name"] for c in inspector.get_columns("articles")}
+        if "full_content" not in cols:
+            with engine.begin() as conn:
+                # SQLite supports ADD COLUMN since 3.2 (2005); no IF NOT
+                # EXISTS clause needed because the inspector check above
+                # already gates this branch.
+                conn.execute(text("ALTER TABLE articles ADD COLUMN full_content TEXT"))
+
+
 class VaultNotConfiguredError(Exception):
     """Raised when no vault path has been configured by the user."""
 
@@ -55,6 +78,7 @@ def get_engine_for_path(vault_path: Path):
                 pool_recycle=1800,
             )
             Base.metadata.create_all(bind=engine)
+            _apply_lazy_migrations(engine)
 
             _engines[v_str] = engine
             _sessionmakers[v_str] = sessionmaker(
