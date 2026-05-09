@@ -15,6 +15,7 @@ import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
 import IdentityProfile from './Vault/IdentityProfile';
+import ZoteroMappingModal from './Zotero/ZoteroMappingModal';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -281,6 +282,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [saveStatus, setSaveStatus] = useState('');
     const [zoteroSyncing, setZoteroSyncing] = useState(null);
     const [zoteroSyncMsg, setZoteroSyncMsg] = useState('');
+    const [zoteroMappingOpen, setZoteroMappingOpen] = useState(false);
+    const [zoteroValidation, setZoteroValidation] = useState(null);  // { ok, errors[], warnings[] }
 
     const language = draft.settings.language || 'ca';
 
@@ -781,8 +784,26 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 if (res.ok) setDatabases(await res.json());
             }).catch(e => console.error("Databases fetch error:", e));
 
+            // Validació del mapping (badge "Mapping vàlid/incomplet/invàlid")
+            fetch('/api/zotero/validate-config').then(async res => {
+                if (res.ok) setZoteroValidation(await res.json());
+            }).catch(e => console.error("Zotero validate error:", e));
+
         } catch (err) { console.error("General loading error:", err); }
     };
+
+    // Refresca la validació quan canvia target_table o mapping
+    useEffect(() => {
+        if (!draft.zotero?.enabled || !draft.zotero?.target_table) {
+            setZoteroValidation(null);
+            return;
+        }
+        let cancelled = false;
+        fetch('/api/zotero/validate-config')
+            .then(async res => { if (res.ok && !cancelled) setZoteroValidation(await res.json()); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [draft.zotero?.enabled, draft.zotero?.target_table, JSON.stringify(draft.zotero?.mapping || {})]);
 
     const loadNewsletterSources = async () => {
         setNewsletterSourcesLoading(true);
@@ -3162,11 +3183,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     }).catch(() => {});
                                                     if (newEnabled && !draft.zotero.target_table) {
                                                         try {
-                                                            const res = await fetch('/api/zotero/setup', { method: 'POST' });
+                                                            const res = await fetch('/api/zotero/setup', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ lang: i18n.language || 'en' }),
+                                                            });
                                                             if (res.ok) {
                                                                 const data = await res.json();
-                                                                setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, enabled: true, target_table: data.table_id } }));
+                                                                setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, enabled: true, target_table: data.table_id, mapping: data.mapping || {} } }));
                                                                 fetch('/api/vault/tables').then(async r => { if (r.ok) setTables(await r.json()); });
+                                                                // Si el setup ha trobat camps no mapejats o tipus desalineats,
+                                                                // obrim la modal de mapping perquè l'usuari resolgui els forats.
+                                                                const needsReview = (data.unmapped && data.unmapped.length > 0) || (data.conflicts && data.conflicts.length > 0);
+                                                                if (needsReview) {
+                                                                    setZoteroMappingOpen(true);
+                                                                }
                                                             }
                                                         } catch (e) { console.error('Zotero setup error:', e); }
                                                     }
@@ -3184,12 +3215,67 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </FormGroup>
                                                 <div style={{ marginTop: '28px' }}>
                                                     <FormGroup label="Taula de Destí del Vault" description="Taula on s'emmagatzemaran les referències. Es pot reanomenar lliurement.">
-                                                        <select className="gnosi-select" value={draft.zotero.target_table} onChange={e => setDraft({...draft, zotero: {...draft.zotero, target_table: e.target.value}})}>
+                                                        <select
+                                                            className="gnosi-select"
+                                                            value={draft.zotero.target_table}
+                                                            onChange={async e => {
+                                                                const newTableId = e.target.value;
+                                                                setDraft({ ...draft, zotero: { ...draft.zotero, target_table: newTableId, mapping: {} } });
+                                                                if (newTableId) {
+                                                                    // Quan canvies de taula, obrim la modal perquè l'usuari
+                                                                    // confirmi/ajusti el mapping contra les noves columnes.
+                                                                    setZoteroMappingOpen(true);
+                                                                }
+                                                            }}
+                                                        >
                                                             <option value="">Selecciona una taula del Vault...</option>
                                                             {tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                                         </select>
                                                     </FormGroup>
                                                 </div>
+
+                                                {draft.zotero.target_table && (
+                                                    <div style={{
+                                                        marginTop: '24px', padding: '18px 22px', borderRadius: '20px',
+                                                        background: 'var(--settings-bg)',
+                                                        border: '1px solid var(--settings-border)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px',
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            {zoteroValidation && (
+                                                                <span style={{
+                                                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                                    padding: '4px 10px', borderRadius: '999px',
+                                                                    fontSize: '0.72rem', fontWeight: 800,
+                                                                    background: zoteroValidation.ok
+                                                                        ? 'rgba(34, 197, 94, 0.1)'
+                                                                        : 'rgba(245, 158, 11, 0.1)',
+                                                                    color: zoteroValidation.ok
+                                                                        ? 'rgb(34, 197, 94)'
+                                                                        : 'rgb(245, 158, 11)',
+                                                                }}>
+                                                                    {zoteroValidation.ok
+                                                                        ? (t('settings.zotero.mapping_status_ok') || 'Mapping vàlid')
+                                                                        : ((zoteroValidation.errors || []).length > 0
+                                                                            ? (t('settings.zotero.mapping_status_invalid') || 'Mapping invàlid')
+                                                                            : (t('settings.zotero.mapping_status_incomplete') || 'Mapping incomplet'))}
+                                                                </span>
+                                                            )}
+                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                                {Object.keys(draft.zotero.mapping || {}).length > 0
+                                                                    ? `${Object.keys(draft.zotero.mapping).length} ${t('settings.zotero.field_mapping') || 'camps mapejats'}`
+                                                                    : (t('settings.zotero.no_map') || 'Sense mapping')}
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            className="btn-gnosi-secondary"
+                                                            onClick={() => setZoteroMappingOpen(true)}
+                                                            style={{ padding: '8px 16px', fontSize: '0.85rem', borderRadius: '12px' }}
+                                                        >
+                                                            {t('settings.zotero.edit_mapping') || 'Editar mapping'}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
@@ -3211,9 +3297,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             </div>
 
             {/* FOLDER PICKER MODAL */}
-            <FolderPickerModal 
-                isOpen={pickerOpen} 
-                onClose={() => setPickerOpen(false)} 
+            <FolderPickerModal
+                isOpen={pickerOpen}
+                onClose={() => setPickerOpen(false)}
                 initialPath={draft.paths[pickerField] || ''}
                 onSelect={(path) => {
                     setDraft(prev => ({
@@ -3221,7 +3307,24 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         paths: { ...prev.paths, [pickerField]: path }
                     }));
                     setPickerOpen(false);
-                }} 
+                }}
+            />
+
+            {/* ZOTERO MAPPING MODAL */}
+            <ZoteroMappingModal
+                isOpen={zoteroMappingOpen}
+                onClose={() => setZoteroMappingOpen(false)}
+                tableId={draft.zotero?.target_table}
+                onSaved={(newMapping) => {
+                    setDraft(prev => ({
+                        ...prev,
+                        zotero: { ...prev.zotero, mapping: newMapping },
+                    }));
+                    // Refresca validació immediatament després del desat
+                    fetch('/api/zotero/validate-config')
+                        .then(async r => { if (r.ok) setZoteroValidation(await r.json()); })
+                        .catch(() => {});
+                }}
             />
 
             <ConfirmModal 
