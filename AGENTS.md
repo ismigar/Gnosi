@@ -7,6 +7,12 @@
 2. **Execute:** Python scripts in `pipeline/sandbox/` strictly following the directive.
 3. **Test & Learn:** Fix code + update directive with constraints learned. Move mature tools to `pipeline/skills/[name]/SKILL.md`.
 
+## Repo Structure (CRITICAL — read first)
+
+The Gnosi code lives at **`monorepo/apps/gnosi/...`**. This is the path Docker mounts (`docker inspect gnosi_backend`), the dev server reads, `build-release.yml` packages, and the public `Gnosi.git` sync (`sync.yml`) exports. When editing backend, frontend, mail, vault, reader, etc., always use `monorepo/apps/gnosi/...`.
+
+A second `apps/gnosi/...` tree at the repo root used to exist as an obsolete mirror (last synced 2026-04-06 by a workflow that no longer exists); it was removed in `chore: remove apps/ mirror`. If you ever see it reappear, treat it as fossil — only `monorepo/apps/...` is authoritative.
+
 ## Components
 
 | Component | Location | Purpose |
