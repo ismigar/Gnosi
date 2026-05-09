@@ -220,6 +220,76 @@ const ROOT_META = {
   vault: { Icon: Database, label: 'Tot el Vault', allLabel: 'Tot el Vault' },
 };
 
+// Modal centrat per demanar el nom d'una vista. Substitueix `window.prompt`
+// (nadiu del navegador, ancorat a dalt-esquerra) per ser consistent amb la
+// resta de modals de l'app.
+function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
+  const [value, setValue] = useState(defaultValue || '');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      setValue(defaultValue || '');
+      setTimeout(() => inputRef.current?.select(), 50);
+    }
+  }, [open, defaultValue]);
+
+  if (!open) return null;
+
+  const submit = () => {
+    const v = value.trim();
+    if (!v) return;
+    onConfirm(v);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onCancel} />
+      <div
+        className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); submit(); }
+          if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+        }}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-[var(--gnosi-primary)]/10 rounded-lg text-[var(--gnosi-primary)]">
+            <BookmarkPlus size={20} />
+          </div>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">Desa com a vista</h3>
+        </div>
+        <label className="block text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2">Nom de la vista</label>
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          autoFocus
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Ex: Vídeos del 2026"
+          className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/30 mb-5"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg border border-[var(--border-primary)] text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-all"
+          >
+            Cancel·la
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!value.trim()}
+            className="px-4 py-2 rounded-lg bg-[var(--gnosi-primary)] text-white text-sm font-bold hover:bg-[var(--gnosi-primary)]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            Desa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Pills de tipus al toolbar. L'ordre defineix l'ordre visual.
 const KIND_OPTIONS = [
   { key: 'image', label: 'Imatges', Icon: ImageIcon },
@@ -659,12 +729,16 @@ export default function MediaCenter() {
     setSort(targetSort);
   }, [activeRoot]);
 
-  const handleSaveAsView = useCallback(async () => {
-    const label = window.prompt('Nom de la vista', '');
-    if (!label || !label.trim()) return;
+  // El modal centrat substitueix `window.prompt` (nadiu, ancorat a dalt).
+  const [viewPromptOpen, setViewPromptOpen] = useState(false);
+  const handleSaveAsView = useCallback(() => {
+    setViewPromptOpen(true);
+  }, []);
+  const submitNewView = useCallback(async (label) => {
+    setViewPromptOpen(false);
     try {
       const r = await axios.post('/api/vault/media/views', {
-        label: label.trim(),
+        label,
         scope: { root: activeRoot, album: activeAlbum || '' },
         filters,
         sort,
@@ -1216,6 +1290,12 @@ export default function MediaCenter() {
           )}
         </AnimatePresence>
       </div>
+
+      <ViewNamePromptModal
+        open={viewPromptOpen}
+        onCancel={() => setViewPromptOpen(false)}
+        onConfirm={submitNewView}
+      />
     </div>
   );
 }
