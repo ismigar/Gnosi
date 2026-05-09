@@ -569,10 +569,14 @@ export default function MediaCenter() {
     return () => { cancelled = true; };
   }, []);
 
-  // Recarrega l'arbre quan canvia el root actiu, i reinicia la selecció.
+  // Recarrega l'arbre quan canvia el root actiu i selecciona "Tot el root"
+  // automàticament (`activeAlbum=''`). Així apareix el toolbar de filtres
+  // (que requereix `activeAlbum !== null`) i el grid es carrega sense que
+  // l'usuari hagi de clicar enlloc. La primera passada per root nou pot
+  // trigar a OneDrive; després el cache persistent la fa instantània.
   useEffect(() => {
     fetchAlbums(activeRoot);
-    setActiveAlbum(null);
+    setActiveAlbum('');
     setMedia([]);
     setOffset(0);
   }, [activeRoot, fetchAlbums]);
