@@ -139,24 +139,49 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
   );
 });
 
+// Placeholders visuals per a fitxers que `<img>` no pot renderitzar
+// (vídeo, pdf, àudio, altres). Sense això surten com a quadres negres
+// mentre `<img>` falla en bucle.
+const NON_IMAGE_THUMB = {
+  video: { Icon: Video, label: 'Vídeo', accent: 'text-rose-400' },
+  pdf:   { Icon: FileText, label: 'PDF', accent: 'text-orange-400' },
+  audio: { Icon: Music, label: 'Àudio', accent: 'text-cyan-400' },
+  other: { Icon: HardDrive, label: 'Fitxer', accent: 'text-slate-400' },
+};
+
 // Thumb gestiona el seu estat de càrrega/error per imatge. Si OneDrive està
 // materialitzant un fitxer en background, el primer GET pot retornar 503;
 // reintentem un parell de cops abans d'ensenyar el placeholder cloud-off.
-const Thumb = React.memo(function Thumb({ src, alt, viewMode }) {
+const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   const MAX_RETRIES = 2;
   const RETRY_DELAY_MS = 4000;
+
+  const wrapperClass = viewMode === 'grid'
+    ? 'aspect-square relative overflow-hidden bg-gray-900'
+    : 'w-24 h-24 relative rounded-xl overflow-hidden flex-shrink-0 bg-gray-900';
+
+  // Vídeo / PDF / àudio / altres: mai van a `<img>` — placeholder amb icona
+  // del tipus i nom del fitxer.
+  if (kind && kind !== 'image') {
+    const meta = NON_IMAGE_THUMB[kind] || NON_IMAGE_THUMB.other;
+    const Icon = meta.Icon;
+    return (
+      <div className={`${wrapperClass} bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center gap-1.5 p-2`}>
+        <Icon size={viewMode === 'grid' ? 36 : 24} className={`${meta.accent} opacity-90`} />
+        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">{meta.label}</span>
+        <span className="text-[9px] text-slate-500 truncate w-full text-center" title={alt}>{alt}</span>
+      </div>
+    );
+  }
 
   // El query param `?_r=N` força el navegador a no servir-ho del cache.
   const finalSrc = attempt === 0 ? src : `${src}${src.includes('?') ? '&' : '?'}_r=${attempt}`;
 
   if (failed) {
     return (
-      <div className={`${viewMode === 'grid'
-        ? 'aspect-square'
-        : 'w-24 h-24 rounded-xl flex-shrink-0'
-      } relative overflow-hidden bg-slate-800 text-slate-400 flex flex-col items-center justify-center gap-1 p-2`}>
+      <div className={`${wrapperClass} bg-slate-800 text-slate-400 flex flex-col items-center justify-center gap-1 p-2`}>
         <CloudOff size={28} className="opacity-60" />
         <span className="text-[9px] text-center leading-tight opacity-70">No descarregat</span>
       </div>
@@ -164,11 +189,7 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode }) {
   }
 
   return (
-    <div className={
-      viewMode === 'grid'
-        ? "aspect-square relative overflow-hidden bg-gray-900"
-        : "w-24 h-24 relative rounded-xl overflow-hidden flex-shrink-0 bg-gray-900"
-    }>
+    <div className={wrapperClass}>
       <img
         src={finalSrc}
         alt={alt}
@@ -250,10 +271,12 @@ const isoDaysAgo = (days) => {
 function MediaToolbar({ filters, sort, onFiltersChange, onSortChange, onReset, hasActiveFilters }) {
   const [tagDraft, setTagDraft] = useState('');
 
+  // Single-select: clicar el tipus actiu el deselecciona (= "Tot"); clicar
+  // un altre el reemplaça. Evita la confusió de toggles OR ("he clicat
+  // Vídeos i veig fotos" perquè "Imatges" seguia activa).
   const toggleKind = (key) => {
-    const set = new Set(filters.kinds);
-    if (set.has(key)) set.delete(key); else set.add(key);
-    onFiltersChange({ ...filters, kinds: Array.from(set) });
+    const isActive = filters.kinds.length === 1 && filters.kinds[0] === key;
+    onFiltersChange({ ...filters, kinds: isActive ? [] : [key] });
   };
 
   const setDatePreset = (key) => {
@@ -856,6 +879,7 @@ export default function MediaCenter() {
                       src={normalizeUrl(item.url)}
                       alt={item.filename}
                       viewMode={viewMode}
+                      kind={item.kind}
                     />
                   </motion.div>
                 ))}
