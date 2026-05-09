@@ -686,21 +686,32 @@ const ReaderDashboard = () => {
                                 </a>
                             </div>
 
-                            {selectedArticle.content && selectedArticle.content.includes('<') ? (
-                                // XSS prevention: el contingut RSS ve de fonts externes
-                                // (atacant-controlables). En lloc d'injectar amb
-                                // dangerouslySetInnerHTML al document principal —que
-                                // executaria scripts incrustats— el renderitzem dins
-                                // un iframe sandbox sense `allow-scripts`.
-                                <iframe
-                                    key={selectedArticle.id}
-                                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>${ARTICLE_IFRAME_CSS}</style></head><body>${selectedArticle.content}</body></html>`}
-                                    sandbox="allow-same-origin allow-popups"
-                                    title="article-content"
-                                    onLoad={fitIframeToContent}
-                                    style={{ width: '100%', minHeight: '200px', border: 'none', display: 'block' }}
-                                />
-                            ) : (
+                            {(() => {
+                                // Prefer the extracted full body when the
+                                // backend has it (for feeds that only ship
+                                // an excerpt). Otherwise use the raw RSS
+                                // content. Either way, if it contains tags
+                                // we render it inside the sandbox iframe.
+                                const body = selectedArticle.full_content || selectedArticle.content || '';
+                                const isHtml = body.includes('<');
+                                if (!isHtml) return null;
+                                return (
+                                    // XSS prevention: el contingut RSS ve de fonts externes
+                                    // (atacant-controlables). En lloc d'injectar amb
+                                    // dangerouslySetInnerHTML al document principal —que
+                                    // executaria scripts incrustats— el renderitzem dins
+                                    // un iframe sandbox sense `allow-scripts`.
+                                    <iframe
+                                        key={selectedArticle.id}
+                                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>${ARTICLE_IFRAME_CSS}</style></head><body>${body}</body></html>`}
+                                        sandbox="allow-same-origin allow-popups"
+                                        title="article-content"
+                                        onLoad={fitIframeToContent}
+                                        style={{ width: '100%', minHeight: '200px', border: 'none', display: 'block' }}
+                                    />
+                                );
+                            })()}
+                            {!(selectedArticle.full_content || selectedArticle.content || '').includes('<') && (
                                 <div className="prose prose-slate dark:prose-invert max-w-none
                                     prose-headings:font-semibold prose-headings:tracking-tight
                                     prose-p:leading-7

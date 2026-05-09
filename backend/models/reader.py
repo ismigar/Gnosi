@@ -26,7 +26,12 @@ class Article(Base):
     source_id = Column(Integer, ForeignKey("feed_sources.id"))
     title = Column(String)
     url = Column(String, unique=True)
+    # `content` is whatever the RSS feed shipped (often a short summary).
+    # `full_content` is the article body extracted from the canonical URL
+    # via trafilatura (set when the feed only ships an excerpt). The reader
+    # frontend prefers `full_content` when present.
     content = Column(Text)
+    full_content = Column(Text, nullable=True)
     published_at = Column(DateTime)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -81,6 +86,7 @@ class ArticleResponse(ArticleBase):
     is_read: bool
     created_at: datetime
     source_name: Optional[str] = None
+    full_content: Optional[str] = None
 
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
