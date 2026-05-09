@@ -398,11 +398,13 @@ export default function MediaCenter() {
             </button>
           </div>
 
-          <label className="flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg hover:bg-[var(--gnosi-primary)]/90 cursor-pointer transition-all shadow-lg active:scale-95">
-            <Plus size={18} />
-            <span className="text-sm font-medium">Afegir Foto</span>
-            <input type="file" className="hidden" onChange={handleUpload} />
-          </label>
+          {(activeRoot === 'images' || activeRoot === 'assets') && (
+            <label className="flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg hover:bg-[var(--gnosi-primary)]/90 cursor-pointer transition-all shadow-lg active:scale-95">
+              <Plus size={18} />
+              <span className="text-sm font-medium">Afegir Foto</span>
+              <input type="file" className="hidden" onChange={handleUpload} />
+            </label>
+          )}
         </div>
       </header>
 
