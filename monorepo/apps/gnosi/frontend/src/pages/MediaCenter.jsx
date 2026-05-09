@@ -1113,7 +1113,7 @@ export default function MediaCenter() {
                         className="px-2 opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-red-500 transition-all"
                         title="Esborrar vista"
                       >
-                        <X size={14} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   );
