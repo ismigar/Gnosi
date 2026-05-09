@@ -3758,10 +3758,12 @@ async def update_media_metadata(
     return {"status": "ok"}
 
 
-# Limita el nombre de lectures concurrents a OneDrive: bind-mounts grpcfuse al
-# Docker Desktop poden retornar Errno 35 (Resource deadlock avoided) sota
-# pressió. Amb HTTP/1.1 el navegador ja en limita ~6 per host, però amb fitxers
-# diferents (cada un materialitzat separadament a OneDrive) cal serialitzar més.
+# Limita el nombre de lectures concurrents sobre el bind-mount del vault:
+# `grpcfuse` (Docker Desktop) pot retornar Errno 35 (Resource deadlock
+# avoided) sota pressió, especialment quan el filesystem subjacent és
+# cloud-on-demand (OneDrive/iCloud File Provider) i cada fitxer es
+# materialitza per separat. Amb HTTP/1.1 el navegador ja en limita ~6
+# per host, però cal serialitzar més per no encadenar errors.
 _VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
 
 # La detecció + materialització de fitxers cloud-on-demand viu a
