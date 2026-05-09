@@ -91,9 +91,15 @@ const ReaderDashboard = () => {
         if (e) e.stopPropagation();
         try {
             await axios.patch(`${API_BASE}/reader/articles/${id}/read?read=true`);
-            setDisplayArticles((prev) => prev.filter((a) => a.id !== id));
+            setDisplayArticles((prev) => (
+                showUnreadOnly
+                    ? prev.filter((a) => a.id !== id)
+                    : prev.map((a) => (a.id === id ? { ...a, read: true } : a))
+            ));
             setUnreadArticles((prev) => prev.filter((a) => a.id !== id));
-            if (selectedArticle?.id === id) setSelectedArticle(null);
+            if (selectedArticle?.id === id) {
+                setSelectedArticle(showUnreadOnly ? null : { ...selectedArticle, read: true });
+            }
         } catch (error) {
             console.error("Error marking as read", error);
         }
