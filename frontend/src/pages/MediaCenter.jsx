@@ -32,7 +32,10 @@ import {
   HardDrive,
   Check,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Bookmark,
+  BookmarkPlus,
+  BookmarkCheck
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -211,10 +214,10 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
 // Metadades visuals dels roots disponibles. La llista efectiva ve del backend
 // (/media/roots) i només mostrem els que tenen `available=true`.
 const ROOT_META = {
-  images: { Icon: ImageIcon, label: 'Imatges' },
-  assets: { Icon: Folder, label: 'Assets' },
-  biblioteca: { Icon: Library, label: 'Biblioteca' },
-  vault: { Icon: Database, label: 'Tot el Vault' },
+  images: { Icon: ImageIcon, label: 'Imatges', allLabel: 'Totes les imatges' },
+  assets: { Icon: Folder, label: 'Assets', allLabel: 'Tots els assets' },
+  biblioteca: { Icon: Library, label: 'Biblioteca', allLabel: 'Tota la biblioteca' },
+  vault: { Icon: Database, label: 'Tot el Vault', allLabel: 'Tot el Vault' },
 };
 
 // Pills de tipus al toolbar. L'ordre defineix l'ordre visual.
@@ -268,7 +271,17 @@ const isoDaysAgo = (days) => {
 
 // Toolbar de filtres + sort. F1: estat només en memòria del component pare,
 // no es persisteixen com a "vistes" encara (això és F3).
-function MediaToolbar({ filters, sort, onFiltersChange, onSortChange, onReset, hasActiveFilters }) {
+function MediaToolbar({
+  filters,
+  sort,
+  onFiltersChange,
+  onSortChange,
+  onReset,
+  hasActiveFilters,
+  activeViewId,
+  onSaveAsView,
+  onUpdateView,
+}) {
   const [tagDraft, setTagDraft] = useState('');
 
   // Single-select: clicar el tipus actiu el deselecciona (= "Tot"); clicar
@@ -426,17 +439,42 @@ function MediaToolbar({ filters, sort, onFiltersChange, onSortChange, onReset, h
         </button>
       </div>
 
-      {/* Reset */}
-      {hasActiveFilters && (
-        <button
-          type="button"
-          onClick={onReset}
-          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-all"
-          title="Netejar filtres i ordenació"
-        >
-          <Eraser size={12} />
-          <span>Netejar</span>
-        </button>
+      {/* Vistes + Reset */}
+      {(hasActiveFilters || activeViewId) && (
+        <div className="ml-auto flex items-center gap-2">
+          {activeViewId ? (
+            <button
+              type="button"
+              onClick={onUpdateView}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 transition-all font-medium"
+              title="Sobreescriu la vista activa amb els filtres actuals"
+            >
+              <BookmarkCheck size={12} />
+              <span>Actualitzar vista</span>
+            </button>
+          ) : hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={onSaveAsView}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 transition-all font-medium"
+              title="Desa els filtres actuals com a vista"
+            >
+              <BookmarkPlus size={12} />
+              <span>Desa com a vista</span>
+            </button>
+          ) : null}
+          {(hasActiveFilters || activeViewId) && (
+            <button
+              type="button"
+              onClick={onReset}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-all"
+              title="Netejar filtres, ordenació i vista activa"
+            >
+              <Eraser size={12} />
+              <span>Netejar</span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -466,10 +504,16 @@ export default function MediaCenter() {
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
 
-  // F1: filtres i ordenació viuen només en memòria del component (no
-  // persisteixen com a "vistes" — això és F3). Reseteja paginació en canviar.
+  // Filtres i ordenació. Es poden desar com a "vista" (sidecar al vault)
+  // i tornar-se a aplicar des de la sidebar.
   const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
   const [sort, setSort] = useState({ ...DEFAULT_SORT });
+  const [views, setViews] = useState([]);
+  const [activeViewId, setActiveViewId] = useState(null);
+  // Quan apliquem una vista canviem `activeRoot` i el useEffect que escolta
+  // `activeRoot` reseteja `activeAlbum=''`. Aquesta ref evita que aquest
+  // reset sobreescrigui l'`activeAlbum` que la vista demana.
+  const applyingViewRef = useRef(false);
   const hasActiveFilters = (
     filters.kinds.length > 0
     || filters.q.trim() !== ''
@@ -482,6 +526,7 @@ export default function MediaCenter() {
   const resetFilters = useCallback(() => {
     setFilters({ ...DEFAULT_FILTERS });
     setSort({ ...DEFAULT_SORT });
+    setActiveViewId(null);
   }, []);
 
   const fetchAlbums = useCallback(async (root = activeRoot) => {
@@ -574,12 +619,94 @@ export default function MediaCenter() {
   // (que requereix `activeAlbum !== null`) i el grid es carrega sense que
   // l'usuari hagi de clicar enlloc. La primera passada per root nou pot
   // trigar a OneDrive; després el cache persistent la fa instantània.
+  // Si estem aplicant una vista, no resetegem `activeAlbum` (el set posterior
+  // de `applyView` el sobreescriuria però el render seria inestable).
   useEffect(() => {
     fetchAlbums(activeRoot);
-    setActiveAlbum('');
+    if (applyingViewRef.current) {
+      applyingViewRef.current = false;
+    } else {
+      setActiveAlbum('');
+    }
     setMedia([]);
     setOffset(0);
   }, [activeRoot, fetchAlbums]);
+
+  // Carga inicial de vistes desades.
+  const fetchViews = useCallback(async () => {
+    try {
+      const r = await axios.get('/api/vault/media/views', { timeout: 15000 });
+      setViews(Array.isArray(r.data) ? r.data : []);
+    } catch (err) {
+      console.error('Error carregant vistes:', err);
+    }
+  }, []);
+  useEffect(() => { fetchViews(); }, [fetchViews]);
+
+  const applyView = useCallback((view) => {
+    if (!view) return;
+    const targetRoot = view.scope?.root || 'images';
+    const targetAlbum = view.scope?.album || '';
+    const targetFilters = { ...DEFAULT_FILTERS, ...(view.filters || {}) };
+    const targetSort = { ...DEFAULT_SORT, ...(view.sort || {}) };
+    if (targetRoot !== activeRoot) {
+      applyingViewRef.current = true;
+    }
+    setActiveViewId(view.id);
+    setActiveRoot(targetRoot);
+    setActiveAlbum(targetAlbum);
+    setFilters(targetFilters);
+    setSort(targetSort);
+  }, [activeRoot]);
+
+  const handleSaveAsView = useCallback(async () => {
+    const label = window.prompt('Nom de la vista', '');
+    if (!label || !label.trim()) return;
+    try {
+      const r = await axios.post('/api/vault/media/views', {
+        label: label.trim(),
+        scope: { root: activeRoot, album: activeAlbum || '' },
+        filters,
+        sort,
+      });
+      setViews(prev => [...prev, r.data]);
+      setActiveViewId(r.data.id);
+      toast.success('Vista desada');
+    } catch (err) {
+      console.error('Error desant vista:', err);
+      toast.error('No s\'ha pogut desar la vista');
+    }
+  }, [activeRoot, activeAlbum, filters, sort]);
+
+  const handleUpdateView = useCallback(async () => {
+    if (!activeViewId) return;
+    const current = views.find(v => v.id === activeViewId);
+    try {
+      const r = await axios.patch(`/api/vault/media/views/${activeViewId}`, {
+        label: current?.label || '',
+        scope: { root: activeRoot, album: activeAlbum || '' },
+        filters,
+        sort,
+      });
+      setViews(prev => prev.map(v => v.id === activeViewId ? r.data : v));
+      toast.success('Vista actualitzada');
+    } catch (err) {
+      console.error('Error actualitzant vista:', err);
+      toast.error('No s\'ha pogut actualitzar la vista');
+    }
+  }, [activeViewId, activeRoot, activeAlbum, filters, sort, views]);
+
+  const handleDeleteView = useCallback(async (id) => {
+    if (!window.confirm('Esborrar aquesta vista?')) return;
+    try {
+      await axios.delete(`/api/vault/media/views/${id}`);
+      setViews(prev => prev.filter(v => v.id !== id));
+      if (activeViewId === id) setActiveViewId(null);
+    } catch (err) {
+      console.error('Error esborrant vista:', err);
+      toast.error('No s\'ha pogut esborrar la vista');
+    }
+  }, [activeViewId]);
 
   // Reset al canviar d'àlbum, root, filtres o ordenació. Tots disparen una
   // nova petició amb offset=0 perquè el `total` reportat depèn dels filtres.
@@ -716,7 +843,7 @@ export default function MediaCenter() {
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Gestor de Mitjans</h1>
             <p className="text-xs text-[var(--text-tertiary)]">
-              Imatges, vídeos, PDFs · {ROOT_META[activeRoot]?.label || activeRoot}
+              Imatges, vídeos, àudio i PDFs · {ROOT_META[activeRoot]?.label || activeRoot}
             </p>
           </div>
         </div>
@@ -751,7 +878,7 @@ export default function MediaCenter() {
           {(activeRoot === 'images' || activeRoot === 'assets') && (
             <label className="flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg hover:bg-[var(--gnosi-primary)]/90 cursor-pointer transition-all shadow-lg active:scale-95">
               <Plus size={18} />
-              <span className="text-sm font-medium">Afegir Foto</span>
+              <span className="text-sm font-medium">Penjar fitxer</span>
               <input type="file" className="hidden" onChange={handleUpload} />
             </label>
           )}
@@ -767,6 +894,9 @@ export default function MediaCenter() {
           onSortChange={setSort}
           onReset={resetFilters}
           hasActiveFilters={hasActiveFilters}
+          activeViewId={activeViewId}
+          onSaveAsView={handleSaveAsView}
+          onUpdateView={handleUpdateView}
         />
       )}
 
@@ -804,6 +934,48 @@ export default function MediaCenter() {
             </>
           )}
 
+          {/* Vistes desades — apareixen sobre la llista de carpetes. Aplicar
+              una vista canvia root, àlbum, filtres i ordenació alhora. */}
+          {views.length > 0 && (
+            <>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1 mt-1">Vistes</p>
+              <div className="flex flex-col gap-1 mb-2">
+                {views.map((v) => {
+                  const isActive = activeViewId === v.id;
+                  return (
+                    <div
+                      key={v.id}
+                      className={`group flex items-stretch rounded-xl transition-all ${
+                        isActive
+                          ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] shadow-sm'
+                          : 'hover:bg-[var(--bg-secondary)] text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => applyView(v)}
+                        className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left"
+                        title={v.label}
+                      >
+                        <Bookmark size={14} className="shrink-0" />
+                        <span className="text-sm font-medium truncate">{v.label}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteView(v.id); }}
+                        className="px-2 opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-red-500 transition-all"
+                        title="Esborrar vista"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="h-px bg-[var(--border-primary)] mx-2 opacity-50 mb-2" />
+            </>
+          )}
+
           <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-2 mt-1">Carpetes</p>
 
           <button
@@ -812,7 +984,7 @@ export default function MediaCenter() {
             title="Indexa recursivament tot el contingut del root actiu. La primera vegada pot trigar minuts."
           >
             <ImageIcon size={18} />
-            <span className="text-sm font-medium">Tot {ROOT_META[activeRoot]?.label || activeRoot}</span>
+            <span className="text-sm font-medium">{ROOT_META[activeRoot]?.allLabel || `Tot ${activeRoot}`}</span>
           </button>
 
           <div className="h-px bg-[var(--border-primary)] my-2 mx-2 opacity-50" />
@@ -834,10 +1006,7 @@ export default function MediaCenter() {
           {activeAlbum === null ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]/30 rounded-2xl border-2 border-dashed border-[var(--border-primary)]">
               <Folder size={64} className="mb-4 opacity-20" />
-              <p className="text-sm font-medium">Tria un àlbum a la barra lateral</p>
-              <p className="text-xs opacity-60 mt-1 max-w-xs text-center">
-                O bé clica «Totes les fotos» per veure tot l'arxiu (la primera vegada triga uns minuts).
-              </p>
+              <p className="text-sm font-medium">Selecciona una vista o un àlbum a la barra lateral</p>
             </div>
           ) : loading && media.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]/30 rounded-2xl border-2 border-dashed border-[var(--border-primary)]">
@@ -848,18 +1017,22 @@ export default function MediaCenter() {
               >
                 <ImageIcon size={48} className="opacity-20" />
               </motion.div>
-              <p className="text-sm font-medium">Indexant galeria...</p>
+              <p className="text-sm font-medium">Indexant fitxers…</p>
               <p className="text-xs opacity-60 mt-1 max-w-xs text-center">
                 {activeAlbum
                   ? `Llegint «${activeAlbum}»`
-                  : 'La primera indexació de tot l\'arxiu pot trigar uns minuts. Després serà instantani.'}
+                  : 'La primera indexació de tot l\'origen pot trigar uns minuts. Després serà instantània.'}
               </p>
             </div>
           ) : filteredMedia.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)]">
               <ImageIcon size={64} className="mb-4 opacity-10" />
-              <p className="text-lg font-medium">No s'han trobat fotos</p>
-              <p className="text-sm">Prova amb un altre filtre o puja una nova imatge</p>
+              <p className="text-lg font-medium">No s'ha trobat cap fitxer</p>
+              <p className="text-sm">
+                {hasActiveFilters
+                  ? 'Prova amb un altre filtre o neteja\'ls.'
+                  : 'Aquesta carpeta està buida.'}
+              </p>
             </div>
           ) : (
             <>
