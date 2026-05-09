@@ -66,7 +66,7 @@ const ReaderDashboard = () => {
 
     const fetchUnreadCounts = async () => {
         try {
-            const res = await axios.get(`${API_BASE}/reader/articles?unread_only=true`);
+            const res = await axios.get(`${API_BASE}/reader/articles?unread_only=true&limit=10000`);
             setUnreadArticles(res.data || []);
         } catch (error) {
             console.error("Error fetching unread counts:", error);
@@ -200,8 +200,8 @@ const ReaderDashboard = () => {
     const articleCountsBySource = useMemo(() => {
         const counts = new Map();
         for (const a of unreadArticles) {
-            if (!a.source_name) continue;
-            counts.set(a.source_name, (counts.get(a.source_name) || 0) + 1);
+            if (!a.source_id) continue;
+            counts.set(a.source_id, (counts.get(a.source_id) || 0) + 1);
         }
         return counts;
     }, [unreadArticles]);
@@ -217,7 +217,7 @@ const ReaderDashboard = () => {
         const entries = Array.from(grouped.entries()).map(([cat, items]) => ({
             category: cat,
             items: items.slice().sort((a, b) => a.name.localeCompare(b.name, locale)),
-            unread: items.reduce((acc, s) => acc + (articleCountsBySource.get(s.name) || 0), 0)
+            unread: items.reduce((acc, s) => acc + (articleCountsBySource.get(s.id) || 0), 0)
         }));
         entries.sort((a, b) => {
             if (isUncat(a.category)) return 1;
@@ -348,7 +348,7 @@ const ReaderDashboard = () => {
                                     </button>
                                     {!collapsed && group.items.map((source) => {
                                         const isActive = selectedSourceId === source.id;
-                                        const count = articleCountsBySource.get(source.name) || 0;
+                                        const count = articleCountsBySource.get(source.id) || 0;
                                         return (
                                             <button
                                                 key={source.id}
