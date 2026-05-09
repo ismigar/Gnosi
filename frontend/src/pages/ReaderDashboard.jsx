@@ -8,6 +8,7 @@ import { AppHeader } from '../components/AppHeader';
 
 const API_BASE = '/api';
 const LOCALE_MAP = { ca: 'ca-ES', es: 'es-ES', en: 'en-US', fr: 'fr-FR' };
+const MAX_UNREAD_ARTICLES_FETCH_LIMIT = 10000;
 
 const ReaderDashboard = () => {
     const { t, i18n } = useTranslation();
@@ -16,7 +17,8 @@ const ReaderDashboard = () => {
     const [displayArticles, setDisplayArticles] = useState([]);
     const [unreadArticles, setUnreadArticles] = useState([]);
     const [selectedArticle, setSelectedArticle] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [articlesLoading, setArticlesLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
     const [generatingPodcast, setGeneratingPodcast] = useState(false);
     const [podcastUrl, setPodcastUrl] = useState(null);
     const [podcastInfo, setPodcastInfo] = useState(null);
@@ -50,7 +52,7 @@ const ReaderDashboard = () => {
     };
 
     const fetchDisplayArticles = async () => {
-        setLoading(true);
+        setArticlesLoading(true);
         try {
             let url = `${API_BASE}/reader/articles?unread_only=${showUnreadOnly}`;
             if (selectedSourceId) url += `&source_id=${selectedSourceId}`;
@@ -59,13 +61,13 @@ const ReaderDashboard = () => {
         } catch (error) {
             console.error("Error fetching articles:", error);
         } finally {
-            setLoading(false);
+            setArticlesLoading(false);
         }
     };
 
     const fetchUnreadCounts = async () => {
         try {
-            const res = await axios.get(`${API_BASE}/reader/articles?unread_only=true`);
+            const res = await axios.get(`${API_BASE}/reader/articles?unread_only=true&limit=${MAX_UNREAD_ARTICLES_FETCH_LIMIT}`);
             setUnreadArticles(res.data || []);
         } catch (error) {
             console.error("Error fetching unread counts:", error);
@@ -91,9 +93,15 @@ const ReaderDashboard = () => {
         if (e) e.stopPropagation();
         try {
             await axios.patch(`${API_BASE}/reader/articles/${id}/read?read=true`);
-            setDisplayArticles((prev) => prev.filter((a) => a.id !== id));
+            setDisplayArticles((prev) => (
+                showUnreadOnly
+                    ? prev.filter((a) => a.id !== id)
+                    : prev.map((a) => (a.id === id ? { ...a, read: true } : a))
+            ));
             setUnreadArticles((prev) => prev.filter((a) => a.id !== id));
-            if (selectedArticle?.id === id) setSelectedArticle(null);
+            if (selectedArticle?.id === id) {
+                setSelectedArticle(showUnreadOnly ? null : { ...selectedArticle, read: true });
+            }
         } catch (error) {
             console.error("Error marking as read", error);
         }
@@ -143,7 +151,7 @@ const ReaderDashboard = () => {
     }, []);
 
     const handleSyncAll = async () => {
-        setLoading(true);
+        setSyncing(true);
         try {
             await Promise.all([
                 axios.post(`${API_BASE}/schedulers/fetch_feeds/run`),
@@ -153,7 +161,7 @@ const ReaderDashboard = () => {
         } catch (error) {
             console.error("Error durant la sincronització:", error);
         } finally {
-            setLoading(false);
+            setSyncing(false);
         }
     };
 
@@ -193,8 +201,8 @@ const ReaderDashboard = () => {
     const articleCountsBySource = useMemo(() => {
         const counts = new Map();
         for (const a of unreadArticles) {
-            if (!a.source_name) continue;
-            counts.set(a.source_name, (counts.get(a.source_name) || 0) + 1);
+            if (!a.source_id) continue;
+            counts.set(a.source_id, (counts.get(a.source_id) || 0) + 1);
         }
         return counts;
     }, [unreadArticles]);
@@ -210,7 +218,7 @@ const ReaderDashboard = () => {
         const entries = Array.from(grouped.entries()).map(([cat, items]) => ({
             category: cat,
             items: items.slice().sort((a, b) => a.name.localeCompare(b.name, locale)),
-            unread: items.reduce((acc, s) => acc + (articleCountsBySource.get(s.name) || 0), 0)
+            unread: items.reduce((acc, s) => acc + (articleCountsBySource.get(s.id) || 0), 0)
         }));
         entries.sort((a, b) => {
             if (isUncat(a.category)) return 1;
@@ -252,7 +260,7 @@ const ReaderDashboard = () => {
         return Object.entries(buckets)
             .filter(([, items]) => items.length > 0)
             .map(([key, items]) => ({ key, label: labels[key], items }));
-    }, [displayArticles, t]);
+    }, [displayArticles, t, i18n.resolvedLanguage]);
 
     return (
         <div className="flex flex-col h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans overflow-hidden">
@@ -266,11 +274,11 @@ const ReaderDashboard = () => {
                 </button>
                 <button
                     onClick={handleSyncAll}
-                    disabled={loading}
+                    disabled={syncing}
                     title={t('reader_sync')}
                     className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors disabled:opacity-50"
                 >
-                    <RotateCw size={16} className={loading ? "animate-spin" : ""} />
+                    <RotateCw size={16} className={syncing ? "animate-spin" : ""} />
                 </button>
             </AppHeader>
 
@@ -341,7 +349,7 @@ const ReaderDashboard = () => {
                                     </button>
                                     {!collapsed && group.items.map((source) => {
                                         const isActive = selectedSourceId === source.id;
-                                        const count = articleCountsBySource.get(source.name) || 0;
+                                        const count = articleCountsBySource.get(source.id) || 0;
                                         return (
                                             <button
                                                 key={source.id}
@@ -423,9 +431,19 @@ const ReaderDashboard = () => {
                                     {selectedSource ? selectedSource.name : t('reader_all_articles')}
                                 </h2>
                                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                    {loading && displayArticles.length === 0
+                                    {articlesLoading && displayArticles.length === 0
                                         ? t('reader_loading')
-                                        : formatPending(displayArticles.length)}
+                                        : showUnreadOnly
+                                            ? formatPending(displayArticles.length)
+                                            : t(
+                                                displayArticles.length === 1 ? 'reader_articles_count_one' : 'reader_articles_count_other',
+                                                {
+                                                    count: displayArticles.length,
+                                                    defaultValue: displayArticles.length === 1
+                                                        ? '{{count}} article'
+                                                        : '{{count}} articles',
+                                                }
+                                            )}
                                 </p>
                             </div>
                             <button
@@ -439,7 +457,7 @@ const ReaderDashboard = () => {
                     </div>
 
                     <div className="overflow-y-auto flex-1">
-                        {displayArticles.length === 0 && !loading ? (
+                        {displayArticles.length === 0 && !articlesLoading ? (
                             <div className="px-6 py-12 text-sm text-slate-400 dark:text-slate-500">
                                 {selectedSource
                                     ? t('reader_no_articles_source', { source: selectedSource.name })
