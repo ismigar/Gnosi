@@ -32,6 +32,7 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -53,29 +54,68 @@ log = logging.getLogger("onedrive-warmup")
 
 
 def _materialize(path: Path) -> dict:
-    """Llegeix el fitxer sencer (dispara i bloqueja fins que la baixada del
-    File Provider acaba). En macOS, `read()` sobre un dataless file és
-    sincronitzat amb la baixada — el byte només arriba quan ja és local.
+    """Llegeix el fitxer sencer en un thread aïllat amb deadline TIMEOUT_S.
+
+    En macOS, `read()` sobre un dataless file està sincronitzat amb la
+    baixada del File Provider: el byte només arriba quan ja és local. Si
+    OneDrive no fa progrés (xarxa lenta, sync pausat, fitxer remot
+    inaccessible), `read()` pot quedar bloquejant indefinidament al
+    kernel i la comprovació `time.time() > TIMEOUT_S` entre chunks mai
+    s'avalua.
+
+    Per garantir el deadline executem la lectura en un thread daemon i
+    fem join amb timeout. Si el thread no acaba a temps retornem
+    `timeout`; el thread queda corrent en background fins que el read()
+    finalment retorni o el procés daemon mori. Acceptable: així
+    OneDrive té oportunitat d'acabar la baixada i la propera petició
+    pel mateix fitxer ja la trobarà materialitzada.
     """
     if not path.exists() or not path.is_file():
         return {"status": "notfound"}
 
+    bytes_read = [0]
+    error_box: list = [None]
+    cancel_event = threading.Event()
+
+    def _reader() -> None:
+        try:
+            with open(path, "rb") as f:
+                while not cancel_event.is_set():
+                    chunk = f.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    bytes_read[0] += len(chunk)
+        except OSError as e:
+            error_box[0] = e
+
     t0 = time.time()
-    try:
-        # Lectura per chunks per no carregar fitxers grans en memòria a un cop.
-        # No retornem el contingut: només volem el side-effect de la baixada.
-        bytes_read = 0
-        with open(path, "rb") as f:
-            while True:
-                chunk = f.read(1024 * 1024)
-                if not chunk:
-                    break
-                bytes_read += len(chunk)
-                if time.time() - t0 > TIMEOUT_S:
-                    return {"status": "timeout", "bytes_read": bytes_read, "elapsed": time.time() - t0}
-    except OSError as e:
-        log.warning("Read fallit per %s: %s", path, e)
-        return {"status": "read_error", "errno": e.errno, "elapsed": time.time() - t0}
+    th = threading.Thread(target=_reader, daemon=True, name=f"warmup-{path.name}")
+    th.start()
+    th.join(TIMEOUT_S)
+    elapsed = time.time() - t0
+
+    if th.is_alive():
+        # Cooperative cancel: si el read() acaba aviat, el thread
+        # surt al següent cicle del while. Si està bloquejat al kernel
+        # ho farà només quan retorni dades, però retornem ja ara.
+        cancel_event.set()
+        log.warning(
+            "warmup timeout per %s després de %.1fs (thread continua en bg, bytes_read=%d)",
+            path, elapsed, bytes_read[0],
+        )
+        return {
+            "status": "timeout",
+            "bytes_read": bytes_read[0],
+            "elapsed": elapsed,
+        }
+
+    if error_box[0] is not None:
+        log.warning("Read fallit per %s: %s", path, error_box[0])
+        return {
+            "status": "read_error",
+            "errno": error_box[0].errno,
+            "elapsed": elapsed,
+        }
 
     # Re-stat per confirmar que ja està materialitzat.
     try:
@@ -83,7 +123,12 @@ def _materialize(path: Path) -> dict:
     except OSError:
         blocks = 0
 
-    return {"status": "materialized", "blocks": blocks, "bytes_read": bytes_read, "elapsed": time.time() - t0}
+    return {
+        "status": "materialized",
+        "blocks": blocks,
+        "bytes_read": bytes_read[0],
+        "elapsed": elapsed,
+    }
 
 
 class WarmupHandler(BaseHTTPRequestHandler):
