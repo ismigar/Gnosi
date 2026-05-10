@@ -216,7 +216,14 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
 
                 {!loading && !error && (
                     <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                        {/* Capçalera sticky: queda enganxada al top de la zona scrollable
+                            mentre l'usuari recorre els 36 camps. Background opac i z-index
+                            perquè les files no es transparentin per sota. */}
                         <div style={{
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 2,
+                            background: 'var(--settings-bg)',
                             display: 'grid',
                             gridTemplateColumns: '1fr 1.4fr auto',
                             gap: '10px 16px',
@@ -226,7 +233,8 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
                             textTransform: 'uppercase',
                             letterSpacing: '0.06em',
                             fontWeight: 800,
-                            paddingBottom: '8px',
+                            paddingTop: '4px',
+                            paddingBottom: '10px',
                             borderBottom: '1px solid var(--settings-border)',
                             marginBottom: '8px',
                         }}>
