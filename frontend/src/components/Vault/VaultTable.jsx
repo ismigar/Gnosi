@@ -1235,59 +1235,61 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
                     <td
                         style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
-                        className={`py-2.5 px-4 flex items-center gap-1.5 font-medium text-[var(--text-primary)] sticky left-10 z-20 overflow-hidden align-top
+                        className={`py-2.5 px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top
                             ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
                             ${isListView ? 'group-hover:bg-[var(--bg-secondary)]' : 'border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]'}`}
                         onClick={() => onNoteSelect(note.id)}
                     >
-                        {isChild && (
-                            <div className="flex shrink-0" style={{ width: depth * 20 }}>
-                                <div className="flex-1" />
-                                <span className="w-5 flex items-center justify-center text-[var(--text-tertiary)]">└</span>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                            {isChild && (
+                                <div className="flex shrink-0" style={{ width: depth * 20 }}>
+                                    <div className="flex-1" />
+                                    <span className="w-5 flex items-center justify-center text-[var(--text-tertiary)]">└</span>
+                                </div>
+                            )}
 
-                        {enableSubitems && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setExpandedRows(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(note.id)) next.delete(note.id);
-                                        else next.add(note.id);
-                                        return next;
-                                    });
-                                }}
-                                className={`p-0.5 rounded transition-colors shrink-0 ${hasChildren ? 'text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-500/10' : 'text-transparent pointer-events-none'}`}
-                                title={hasChildren ? (isExpanded ? t('table.collapse_subitems') : t('table.expand_subitems')) : ''}
-                            >
-                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                        )}
+                            {enableSubitems && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedRows(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(note.id)) next.delete(note.id);
+                                            else next.add(note.id);
+                                            return next;
+                                        });
+                                    }}
+                                    className={`p-0.5 rounded transition-colors shrink-0 ${hasChildren ? 'text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-500/10' : 'text-transparent pointer-events-none'}`}
+                                    title={hasChildren ? (isExpanded ? t('table.collapse_subitems') : t('table.expand_subitems')) : ''}
+                                >
+                                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                </button>
+                            )}
 
-                        <IconRenderer icon={note.metadata?.icon} size={16} />
-                        <span className="truncate flex-1">{note.title}</span>
+                            <IconRenderer icon={note.metadata?.icon} size={16} />
+                            <span className="truncate flex-1">{note.title}</span>
 
-                        {enableSubitems && hasChildren && !isExpanded && (
-                            <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-[var(--gnosi-primary)]/20 text-[var(--gnosi-primary)] rounded-full shrink-0">
-                                {childrenMap[note.id].length}
-                            </span>
-                        )}
+                            {enableSubitems && hasChildren && !isExpanded && (
+                                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-[var(--gnosi-primary)]/20 text-[var(--gnosi-primary)] rounded-full shrink-0">
+                                    {childrenMap[note.id].length}
+                                </span>
+                            )}
 
-                        {!isListView && enableSubitems && onCreateRecord && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setExpandedRows(prev => new Set([...prev, note.id]));
-                                    setAddingSubitemFor(note.id);
-                                    setNewSubitemTitle('');
-                                }}
-                                className="opacity-0 group-hover/row:opacity-100 ml-1 p-0.5 rounded text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-500/10 transition-all shrink-0"
-                                title={t('table.add_subitem')}
-                            >
-                                <Plus size={12} />
-                            </button>
-                        )}
+                            {!isListView && enableSubitems && onCreateRecord && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedRows(prev => new Set([...prev, note.id]));
+                                        setAddingSubitemFor(note.id);
+                                        setNewSubitemTitle('');
+                                    }}
+                                    className="opacity-0 group-hover/row:opacity-100 ml-1 p-0.5 rounded text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-500/10 transition-all shrink-0"
+                                    title={t('table.add_subitem')}
+                                >
+                                    <Plus size={12} />
+                                </button>
+                            )}
+                        </div>
                     </td>
 
                     {dynamicColumns.map(([key, type]) => {
