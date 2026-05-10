@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '../hooks/use-api';
 import { X } from 'lucide-react';
 import toast from '../lib/toast';
+import { emitConfigChanged } from '../lib/configEvents';
 import './SettingsModal.css';
 
 export function SettingsModal({ isOpen, onClose }) {
@@ -68,6 +69,9 @@ export function SettingsModal({ isOpen, onClose }) {
                         body: JSON.stringify(envVars),
                     });
                 }
+                // Notifica els consumidors (Dashboard, GraphPage, AgentChat,
+                // VaultGraph) perquè refetchin sense recarregar la pàgina.
+                emitConfigChanged();
             } catch (err) {
                 console.error('Error saving settings:', err);
                 toast.error(t('settings.save_error', 'Error desant els canvis'));

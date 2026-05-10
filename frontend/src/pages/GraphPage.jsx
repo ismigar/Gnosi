@@ -15,6 +15,7 @@ import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
 import { applyFilters, getEffectiveTableId, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
+import { useConfigChanged } from '../lib/configEvents';
 
 
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
@@ -205,12 +206,19 @@ function GraphPage() {
         }
     }, [graphData]);
 
-    useEffect(() => {
-        fetchGraphData();
+    const fetchConfigData = () => {
         fetch('/api/config')
             .then(res => res.json())
             .then(data => setConfig(data))
             .catch(err => console.error("Error loading config:", err));
+    };
+
+    // Re-fetch quan els modals de Settings emeten l'event (sense reload).
+    useConfigChanged(fetchConfigData);
+
+    useEffect(() => {
+        fetchGraphData();
+        fetchConfigData();
 
         // Fetch table metadata for filter UI
         fetch('/api/vault/tables')

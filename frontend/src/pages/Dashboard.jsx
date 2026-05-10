@@ -6,6 +6,7 @@ import { AppHeader } from '../components/AppHeader';
 import { useApi } from '../hooks/use-api';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
+import { useConfigChanged } from '../lib/configEvents';
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -170,6 +171,9 @@ function Dashboard() {
             console.error("Error fetching config", e);
         }
     }, [apiFetch]);
+
+    // Re-fetch quan el modal de Settings ha desat canvis (sense reload).
+    useConfigChanged(fetchConfig);
 
     const fetchPendingTools = useCallback(async () => {
         try {

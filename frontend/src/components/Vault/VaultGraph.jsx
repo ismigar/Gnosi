@@ -3,6 +3,7 @@ import axios from 'axios';
 import { GraphViewer } from '../GraphViewer';
 import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target } from 'lucide-react';
 import { matchesFilters, matchesSearch } from '../../utils/vaultFilters';
+import { useConfigChanged } from '../../lib/configEvents';
 
 /**
  * VaultGraph.jsx
@@ -40,6 +41,17 @@ export function VaultGraph({
         };
         fetchData();
     }, []);
+
+    // Re-fetch només la config quan els modals de Settings emeten l'event
+    // (el graf en si no canvia per canvis de config).
+    useConfigChanged(async () => {
+        try {
+            const res = await axios.get('/api/config');
+            setConfig(res.data);
+        } catch (err) {
+            console.error('Error refetching config:', err);
+        }
+    });
 
     // Preparar filtres basats en la vista activa del Vault
     const filters = useMemo(() => {

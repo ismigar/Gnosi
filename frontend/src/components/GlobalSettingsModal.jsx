@@ -11,6 +11,7 @@ import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
 import { toast } from '../lib/toast';
+import { emitConfigChanged } from '../lib/configEvents';
 import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
@@ -1075,7 +1076,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             lastSavedData.current = currentData;
             setSavingStatus('saved');
             setTimeout(() => setSavingStatus('idle'), 3000);
-        } catch (err) { 
+            // Notifica consumidors de `/api/config` perquè refetchin sense reload.
+            emitConfigChanged();
+        } catch (err) {
             console.error("Auto-save error:", err);
             setSavingStatus('error');
         } finally {
