@@ -18,8 +18,10 @@ import threading
 from typing import Optional
 
 from .base import FilesProvider
+from .gdrive import GoogleDriveProvider
 from .icloud import iCloudDriveProvider
 from .local import LocalProvider
+from .nextcloud import NextCloudProvider
 from .onedrive import OneDriveProvider
 
 log = logging.getLogger(__name__)
@@ -29,6 +31,8 @@ __all__ = [
     "LocalProvider",
     "OneDriveProvider",
     "iCloudDriveProvider",
+    "GoogleDriveProvider",
+    "NextCloudProvider",
     "get_files_provider",
 ]
 
@@ -36,19 +40,28 @@ _provider_instance: Optional[FilesProvider] = None
 _provider_lock = threading.Lock()
 
 
+_KNOWN_PROVIDERS = {"local", "onedrive", "icloud", "gdrive", "nextcloud"}
+
+
 def _detect_provider_name() -> str:
     """Decideix quin proveïdor instanciar segons env vars.
 
     Prioritat:
-    1. `GNOSI_FILES_PROVIDER` (explícit: "local" | "onedrive" | "icloud").
+    1. `GNOSI_FILES_PROVIDER` (explícit: un de `_KNOWN_PROVIDERS`).
     2. Heurística sobre `VAULT_HOST_PATH`:
-       - conté "OneDrive"           → "onedrive"
+       - conté "OneDrive"                       → "onedrive"
+       - conté "GoogleDrive" o "Google Drive"   → "gdrive"
        - conté "Mobile Documents"
-         o "iCloud" (case-insens.)  → "icloud"
-       - altrament                  → "local"
+         o "iCloud" (case-insens.)              → "icloud"
+       - conté "Nextcloud" (case-insens.)       → "nextcloud"
+       - altrament                              → "local"
+
+    L'ordre de comprovacions és deliberat — `OneDrive` apareix primer
+    perquè és la instal·lació més comuna i té match exacte; els altres
+    són heurística de fallback.
     """
     explicit = os.environ.get("GNOSI_FILES_PROVIDER", "").strip().lower()
-    if explicit in {"local", "onedrive", "icloud"}:
+    if explicit in _KNOWN_PROVIDERS:
         return explicit
     if explicit:
         log.warning(
@@ -57,13 +70,19 @@ def _detect_provider_name() -> str:
         )
 
     vault_host = os.environ.get("VAULT_HOST_PATH", "")
+    vault_host_lower = vault_host.lower()
     if "OneDrive" in vault_host:
         return "onedrive"
+    # Drive for Desktop (macOS modern) viu a `~/Library/CloudStorage/GoogleDrive-<account>/`.
+    if "GoogleDrive" in vault_host or "Google Drive" in vault_host:
+        return "gdrive"
     # `Mobile Documents` és el nom intern de macOS per al directori sincronitzat
     # amb iCloud (~/Library/Mobile Documents/com~apple~CloudDocs/...). Alguns
     # usuaris muntem alies amb "iCloud" al nom; cobrim ambdós casos.
-    if "Mobile Documents" in vault_host or "icloud" in vault_host.lower():
+    if "Mobile Documents" in vault_host or "icloud" in vault_host_lower:
         return "icloud"
+    if "nextcloud" in vault_host_lower:
+        return "nextcloud"
     return "local"
 
 
@@ -72,6 +91,10 @@ def _build_provider(name: str) -> FilesProvider:
         return OneDriveProvider()
     if name == "icloud":
         return iCloudDriveProvider()
+    if name == "gdrive":
+        return GoogleDriveProvider()
+    if name == "nextcloud":
+        return NextCloudProvider()
     if name == "local":
         return LocalProvider()
     raise ValueError(f"Proveïdor desconegut: {name!r}")
