@@ -1175,7 +1175,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     onDoubleClick={() => onNoteSelect(note.id)}
                 >
                     {/* Acció cel·la */}
-                    <td className={`w-10 px-2 sticky left-0 z-20 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-500/10' : isChild ? 'bg-[var(--bg-secondary)]/30' : 'bg-[var(--bg-primary)]'}`}>
+                    <td className={`w-10 px-2 sticky left-0 z-20 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
                         <div className="flex items-center justify-center gap-0.5">
                             {/* Checkbox de selecció */}
                             <label
@@ -1236,7 +1236,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     <td
                         style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
                         className={`py-2.5 px-4 flex items-center gap-1.5 font-medium text-[var(--text-primary)] sticky left-10 z-20 overflow-hidden align-top
-                            ${isSelected(note.id) ? 'bg-indigo-500/10' : isChild ? 'bg-[var(--bg-secondary)]/50' : 'bg-[var(--bg-primary)]'}
+                            ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
                             ${isListView ? 'group-hover:bg-[var(--bg-secondary)]' : 'border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]'}`}
                         onClick={() => onNoteSelect(note.id)}
                     >
@@ -1389,7 +1389,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     />
                 )}
 
-                <div className={`bg-[var(--bg-primary)] overflow-auto flex-1 custom-scrollbar pt-vault-header-top ${isEmbedded ? 'rounded border border-[var(--border-primary)] shadow-sm' : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
+                <div className={`bg-[var(--bg-primary)] overflow-auto flex-1 custom-scrollbar ${isEmbedded ? 'rounded border border-[var(--border-primary)] shadow-sm' : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
                     <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                         {!isListView && (
                             <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-primary)] text-[var(--text-secondary)] font-semibold select-none group/table sticky top-0 z-30">
