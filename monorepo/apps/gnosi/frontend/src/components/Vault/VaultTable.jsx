@@ -26,7 +26,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave })
     };
 
     const filtered = options.filter(opt =>
-        (idToTitle[opt] || opt).toLowerCase().includes(search.toLowerCase()) &&
+        String(idToTitle[opt] ?? opt ?? '').toLowerCase().includes(search.toLowerCase()) &&
         !localValues.includes(opt)
     );
 
