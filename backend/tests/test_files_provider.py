@@ -32,7 +32,9 @@ import pytest
 import backend.services.files_provider as fp
 from backend.services.files_provider import (
     FilesProvider,
+    GoogleDriveProvider,
     LocalProvider,
+    NextCloudProvider,
     OneDriveProvider,
     get_files_provider,
     iCloudDriveProvider,
@@ -48,6 +50,11 @@ ENV_KEYS = (
     "ONEDRIVE_WARMUP_TIMEOUT",
     "ICLOUD_WARMUP_URL",
     "ICLOUD_WARMUP_TIMEOUT",
+    "GDRIVE_WARMUP_URL",
+    "GDRIVE_WARMUP_TIMEOUT",
+    "NEXTCLOUD_WARMUP_URL",
+    "NEXTCLOUD_WARMUP_TIMEOUT",
+    "NEXTCLOUD_PLACEHOLDER_EXT",
 )
 
 
@@ -106,6 +113,51 @@ def test_explicit_icloud_overrides_heuristic(monkeypatch):
     monkeypatch.setenv("GNOSI_FILES_PROVIDER", "icloud")
     monkeypatch.setenv("VAULT_HOST_PATH", "/some/random/path")
     assert get_files_provider().name == "icloud"
+
+
+# --- Heurística: GoogleDrive i NextCloud ---------------------------------
+
+def test_gdrive_path_detected(monkeypatch):
+    monkeypatch.setenv(
+        "VAULT_HOST_PATH",
+        "/Users/foo/Library/CloudStorage/GoogleDrive-foo@gmail.com/My Drive/Gnosi",
+    )
+    p = get_files_provider()
+    assert p.name == "gdrive"
+    assert isinstance(p, GoogleDriveProvider)
+
+
+def test_gdrive_path_with_space_detected(monkeypatch):
+    """Algunes traduccions o configs antigues mostren 'Google Drive' amb espai."""
+    monkeypatch.setenv("VAULT_HOST_PATH", "/Volumes/Google Drive/Gnosi")
+    assert get_files_provider().name == "gdrive"
+
+
+def test_nextcloud_path_detected_case_insensitive(monkeypatch):
+    monkeypatch.setenv("VAULT_HOST_PATH", "/Users/foo/Nextcloud/Gnosi")
+    p = get_files_provider()
+    assert p.name == "nextcloud"
+    assert isinstance(p, NextCloudProvider)
+
+
+def test_explicit_gdrive_override(monkeypatch):
+    monkeypatch.setenv("GNOSI_FILES_PROVIDER", "gdrive")
+    assert get_files_provider().name == "gdrive"
+
+
+def test_explicit_nextcloud_override(monkeypatch):
+    monkeypatch.setenv("GNOSI_FILES_PROVIDER", "nextcloud")
+    assert get_files_provider().name == "nextcloud"
+
+
+def test_onedrive_takes_precedence_over_other_keywords(monkeypatch):
+    """Si el path té múltiples keywords, OneDrive guanya (instal·lació
+    més comuna a Gnosi)."""
+    monkeypatch.setenv(
+        "VAULT_HOST_PATH",
+        "/Users/foo/OneDrive-Personal/Backups/Nextcloud-export/Gnosi",
+    )
+    assert get_files_provider().name == "onedrive"
 
 
 def test_unknown_explicit_falls_back_to_heuristic(monkeypatch, caplog):
@@ -206,9 +258,92 @@ def test_icloud_timeout_from_icloud_env(monkeypatch):
     assert p.warmup_timeout_s == 42.0
 
 
+# --- GoogleDriveProvider -------------------------------------------------
+
+def test_gdrive_inherits_and_has_correct_name():
+    p = GoogleDriveProvider()
+    assert isinstance(p, OneDriveProvider)
+    assert p.name == "gdrive"
+
+
+def test_gdrive_prefers_gdrive_env_over_onedrive(monkeypatch):
+    monkeypatch.setenv("GDRIVE_WARMUP_URL", "http://gdrive:7000/warmup")
+    monkeypatch.setenv("ONEDRIVE_WARMUP_URL", "http://onedrive:5009/warmup")
+    p = GoogleDriveProvider()
+    assert p.warmup_url == "http://gdrive:7000/warmup"
+
+
+def test_gdrive_falls_back_to_onedrive_env(monkeypatch):
+    monkeypatch.setenv("ONEDRIVE_WARMUP_URL", "http://shared:5009/warmup")
+    p = GoogleDriveProvider()
+    assert p.warmup_url == "http://shared:5009/warmup"
+
+
+def test_gdrive_timeout_from_gdrive_env(monkeypatch):
+    monkeypatch.setenv("GDRIVE_WARMUP_TIMEOUT", "55")
+    p = GoogleDriveProvider()
+    assert p.warmup_timeout_s == 55.0
+
+
+# --- NextCloudProvider ---------------------------------------------------
+
+def test_nextcloud_name_and_inheritance():
+    p = NextCloudProvider()
+    assert p.name == "nextcloud"
+    assert isinstance(p, OneDriveProvider)
+    assert isinstance(p, FilesProvider)
+
+
+def test_nextcloud_default_placeholder_extension():
+    p = NextCloudProvider()
+    assert p.placeholder_ext == ".nc-virt"
+
+
+def test_nextcloud_placeholder_extension_from_env(monkeypatch):
+    monkeypatch.setenv("NEXTCLOUD_PLACEHOLDER_EXT", ".ncfile")
+    p = NextCloudProvider()
+    assert p.placeholder_ext == ".ncfile"
+
+
+def test_nextcloud_is_online_only_by_extension(tmp_path):
+    p = NextCloudProvider()
+    f = tmp_path / "doc.nc-virt"
+    f.write_bytes(b"placeholder")
+    assert p.is_online_only(f) is True
+
+
+def test_nextcloud_is_online_only_normal_file(tmp_path):
+    p = NextCloudProvider()
+    f = tmp_path / "doc.md"
+    f.write_text("# real content")
+    # Sense xattr ni extensió → no és online-only.
+    assert p.is_online_only(f) is False
+
+
+def test_nextcloud_is_online_only_missing_path(tmp_path):
+    p = NextCloudProvider()
+    assert p.is_online_only(tmp_path / "missing.txt") is False
+
+
+def test_nextcloud_prefers_own_env(monkeypatch):
+    monkeypatch.setenv("NEXTCLOUD_WARMUP_URL", "http://nextcloud:8000/warmup")
+    monkeypatch.setenv("ONEDRIVE_WARMUP_URL", "http://onedrive:5009/warmup")
+    p = NextCloudProvider()
+    assert p.warmup_url == "http://nextcloud:8000/warmup"
+
+
 # --- Contract: tots compleixen FilesProvider ----------------------------
 
-@pytest.mark.parametrize("cls", [LocalProvider, OneDriveProvider, iCloudDriveProvider])
+@pytest.mark.parametrize(
+    "cls",
+    [
+        LocalProvider,
+        OneDriveProvider,
+        iCloudDriveProvider,
+        GoogleDriveProvider,
+        NextCloudProvider,
+    ],
+)
 def test_provider_class_satisfies_interface(cls):
     p = cls()
     assert isinstance(p, FilesProvider)
