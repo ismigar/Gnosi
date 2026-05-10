@@ -6702,3 +6702,200 @@ async def purge_page_history(page_id: str):
     except Exception as e:
         log.error(f"Error purging history for {page_id}: {e}")
         raise HTTPException(status_code=500, detail="Error deleting history")
+
+
+# ---------------------------------------------------------------------------
+# Skills — actions triggered from `button`-typed fields in the table schema.
+# Each skill expects the row id and any action-specific payload, runs its
+# logic synchronously (creating subitems, calling external APIs, etc.) and
+# returns a structured summary the UI can surface.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/skills/translate-row", dependencies=[Depends(require_role("editor"))])
+async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    """Translate the translatable fields of a row to one subitem per language.
+
+    Body:
+        {
+          "item_id": "<uuid of the row>",
+          "target_languages": ["en", "es", ...],
+          "button_action": "translate_row"  # validated; rejects others
+        }
+
+    The row's table must have `translation_enabled: true` and at least one
+    property marked with `translatable: true`. For each target language a new
+    subitem is created (`parent_id = item_id`), with the translated values
+    keyed by the same property `id`/`name` as the parent row.
+    """
+    item_id = (payload.get("item_id") or "").strip()
+    target_languages = payload.get("target_languages") or []
+    button_action = payload.get("button_action") or "translate_row"
+
+    if not item_id:
+        raise HTTPException(status_code=400, detail="item_id is required")
+    if not isinstance(target_languages, list) or not target_languages:
+        raise HTTPException(status_code=400, detail="target_languages must be a non-empty list")
+    if button_action != "translate_row":
+        raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
+
+    # Defer the import so a missing `requests` dependency at startup doesn't
+    # break the whole API — translation is opt-in per table.
+    try:
+        from pipeline.skills.translate_row.scripts.translate_text import (
+            translate as _translate,
+            detect_source_lang as _detect_source_lang,
+        )
+    except Exception as exc:
+        log.error(f"translate_row skill not importable: {exc}")
+        raise HTTPException(status_code=500, detail="translate_row skill unavailable")
+
+    # Read the DeepL API key from the Keychain — preferred location for
+    # secrets in Gnosi. Falls back silently to env var if Keychain isn't
+    # available. The Softcatalà URL lives in .env_shared since it isn't a
+    # secret, so we let the skill read it from os.environ.
+    deepl_api_key = ""
+    try:
+        from backend.security.keychain_manager import get_keychain
+        kc = get_keychain()
+        if kc.has_credential("deepl_api_key"):
+            deepl_api_key = kc.get_credential("deepl_api_key") or ""
+    except Exception as exc:
+        log.warning(f"translate_row: keychain unavailable, using env fallback: {exc}")
+
+    # 1. Locate and read the source page.
+    file_path = await asyncio.to_thread(find_page_path, item_id)
+    if not file_path or not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Page not found (ID: {item_id})")
+    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+    metadata, body = parse_frontmatter(raw_content, file_path)
+
+    # 2. Resolve the parent table.
+    table_id = get_table_id(metadata)
+    table = _table_by_id(table_id) if table_id else None
+    if not table:
+        raise HTTPException(status_code=400, detail="Row is not part of a table")
+    if not table.get("translation_enabled"):
+        raise HTTPException(
+            status_code=400,
+            detail="This table is not configured for translation. Enable it in the schema config.",
+        )
+
+    # 3. Filter translatable properties — they carry the explicit flag the
+    #    SchemaConfigModal writes into each property's config.
+    properties = table.get("properties") or []
+    translatable_props = [p for p in properties if p.get("translatable") is True]
+    if not translatable_props:
+        raise HTTPException(
+            status_code=400,
+            detail="No translatable fields configured on this table.",
+        )
+
+    def _read_meta(prop: dict):
+        prop_id = prop.get("id") or prop.get("name")
+        prop_name = prop.get("name") or ""
+        if prop_id and prop_id in metadata:
+            return metadata.get(prop_id)
+        if prop_name and prop_name in metadata:
+            return metadata.get(prop_name)
+        return None
+
+    # 4. Detect source language from the longest non-empty translatable value.
+    sample = ""
+    for p in translatable_props:
+        val = _read_meta(p)
+        if isinstance(val, str) and len(val.strip()) > len(sample):
+            sample = val.strip()
+    if not sample:
+        sample = str(metadata.get("title") or "")
+    source_lang = _detect_source_lang(sample) if sample else "ca"
+
+    # 5. Translate per language and create subitems.
+    parent_title = str(metadata.get("title") or "")
+    title_is_translatable = any(
+        (p.get("name") == "title" or p.get("type") == "title") and p.get("translatable") is True
+        for p in translatable_props
+    )
+    created = []
+    skipped = []
+
+    for lang in target_languages:
+        if not isinstance(lang, str) or not lang.strip():
+            continue
+        lang = lang.strip().lower()
+        if lang == source_lang:
+            skipped.append({"lang": lang, "reason": "same as source"})
+            continue
+
+        sub_metadata: Dict[str, Any] = {
+            "table_id": table_id,
+            "database_table_id": table_id,
+            "translation_lang": lang,
+            "translation_source_lang": source_lang,
+            "translation_origin_id": item_id,
+        }
+        providers_used = set()
+        any_translated = False
+        translated_title = ""
+        first_text_translation = ""
+
+        for prop in translatable_props:
+            val = _read_meta(prop)
+            if not isinstance(val, str) or not val.strip():
+                continue
+            try:
+                translated, provider = _translate(val, source_lang, lang, deepl_api_key=deepl_api_key)
+            except Exception as exc:
+                log.warning(f"translate_row: failed translating field {prop.get('name')} → {lang}: {exc}")
+                translated = f"[error: {exc}]"
+                provider = "error"
+            providers_used.add(provider)
+            # Persist by the same key the parent row uses, preferring stable id.
+            key = prop.get("id") or prop.get("name")
+            if key:
+                sub_metadata[key] = translated
+            any_translated = True
+            if (prop.get("name") == "title" or prop.get("type") == "title") and not translated_title:
+                translated_title = translated
+            elif not first_text_translation and prop.get("type") in ("text", "rich_text"):
+                first_text_translation = translated
+
+        if not any_translated:
+            skipped.append({"lang": lang, "reason": "no translatable content"})
+            continue
+
+        if title_is_translatable and translated_title:
+            sub_title = translated_title
+        elif first_text_translation:
+            sub_title = first_text_translation[:120]
+        else:
+            sub_title = f"{parent_title} ({lang})" if parent_title else lang
+        sub_metadata["translation_provider"] = (
+            "mixed" if len(providers_used) > 1 else (next(iter(providers_used), "placeholder"))
+        )
+
+        sub_request = PageSaveRequest(
+            title=sub_title,
+            content="",
+            parent_id=item_id,
+            metadata=sub_metadata,
+        )
+        try:
+            result = await create_page(sub_request, background_tasks)
+            created.append({
+                "id": result.get("id"),
+                "lang": lang,
+                "providers": sorted(providers_used),
+                "title": sub_title,
+            })
+        except Exception as exc:
+            log.error(f"translate_row: failed creating subitem for {lang}: {exc}")
+            skipped.append({"lang": lang, "reason": f"create failed: {exc}"})
+
+    return {
+        "status": "ok",
+        "item_id": item_id,
+        "source_lang": source_lang,
+        "created": created,
+        "skipped": skipped,
+    }

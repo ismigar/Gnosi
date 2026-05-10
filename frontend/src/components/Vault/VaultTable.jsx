@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty } from './VaultDateProperty';
 
@@ -74,6 +74,7 @@ import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
+import { TranslateLanguagesModal } from './TranslateLanguagesModal';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
@@ -106,6 +107,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const [openingResourceId, setOpeningResourceId] = useState(null);
     const [visibleRowsCount, setVisibleRowsCount] = useState(ROWS_BATCH_SIZE);
     const [newRowTitle, setNewRowTitle] = useState('');
+    // Acció pendent disparada per un camp de tipus `button`. Si està set,
+    // mostrem el modal corresponent a l'acció (ara mateix només `translate_row`).
+    const [pendingAction, setPendingAction] = useState(null);
     const dropdownRef = useRef(null);
     const subitemInputRef = useRef(null);
     const newRowInputRef = useRef(null);
@@ -922,6 +926,31 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         const isManual = note?.metadata?.[`${originalMetaKey}_manual`];
         const isImageLikeField = /(image|imatge|cover|thumbnail|thumb|foto|imagen)/i.test(String(field || ''));
 
+        // Botó d'acció: el camp no té valor, sempre mostra el botó. En clicar
+        // dispara l'acció configurada (ara mateix `translate_row`).
+        if (type === 'button') {
+            const cfg = getFieldConfig(schema, field) || {};
+            const action = cfg.button_action || 'translate_row';
+            const label = cfg.button_label?.trim() || (action === 'translate_row'
+                ? t('schema.button_label_translate', 'Traduir')
+                : field);
+            const Icon = action === 'translate_row' ? Languages : Zap;
+            return (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingAction({ noteId, field, fieldConfig: cfg, action });
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/30 hover:bg-[var(--gnosi-primary)]/20 transition-colors"
+                    title={label}
+                >
+                    <Icon size={12} />
+                    {label}
+                </button>
+            );
+        }
+
         if (isEditing) {
             if (type === 'status' || type === 'select') {
                 const options = getAvailableOptions(field, type);
@@ -1304,7 +1333,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     e.stopPropagation();
                                     const fieldType = getFieldType(schema, key);
                                     const isComputed = fieldType === 'formula' || fieldType === 'rollup';
-                                    if (!isComputed) {
+                                    const isAction = fieldType === 'button';
+                                    if (!isComputed && !isAction) {
                                         setEditingCell({ rowId: note.id, field: key, originalMetaKey });
                                     }
                                 }}
@@ -1605,6 +1635,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 </div>
             </div>
             {dropdownPortal}
+
+            {pendingAction && pendingAction.action === 'translate_row' && (
+                <TranslateLanguagesModal
+                    isOpen={true}
+                    onClose={() => setPendingAction(null)}
+                    noteId={pendingAction.noteId}
+                    fieldConfig={pendingAction.fieldConfig}
+                />
+            )}
         </div>
     );
 };

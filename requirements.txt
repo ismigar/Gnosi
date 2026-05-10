@@ -48,3 +48,7 @@ cryptography>=42.0.0
 aiosqlite>=0.20.0
 Pillow>=10.0.0
 email-validator==2.3.0
+# OPUS-MT models (Marian) for translate_row skill — used only on demand
+# (es↔fr lazy load + auto-unload). Torch and transformers come transitively
+# from sentence-transformers.
+sentencepiece>=0.2.0
