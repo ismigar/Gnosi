@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as LucideIcons from 'lucide-react';
 import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive } from 'lucide-react';
+import { useConfigChanged } from '../lib/configEvents';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v1';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id';
@@ -259,6 +260,9 @@ const AgentChat = () => {
             console.error("Error loading agent config", e);
         }
     };
+
+    // Re-fetch quan els modals de Settings emeten l'event (sense reload).
+    useConfigChanged(loadConfig);
 
     useEffect(() => {
         if (!agentList.length) return;
