@@ -47,11 +47,21 @@ class OneDriveProvider(FilesProvider):
 
         # Serialitzem warmups: OneDrive baixa més de pressa quan no rep
         # peticions concurrents, i evitem que un sol client (50 thumbs
-        # alhora) sature el daemon.
-        self._semaphore = asyncio.Semaphore(max_concurrent_warmups)
+        # alhora) sature el daemon. Creació lazy (al primer ús de
+        # `materialize`) perquè `asyncio.Semaphore()` a Python 3.9
+        # requereix event loop al constructor — i aquest provider es
+        # pot instanciar abans que existeixi cap loop (p. ex. tests
+        # síncrons o startup mòdul).
+        self._max_concurrent_warmups = max_concurrent_warmups
+        self._semaphore: Optional[asyncio.Semaphore] = None
         # Coalesce: si dues peticions volen el mateix fitxer alhora,
         # només cridem el daemon una vegada.
         self._inflight: Dict[str, asyncio.Future] = {}
+
+    def _get_semaphore(self) -> asyncio.Semaphore:
+        if self._semaphore is None:
+            self._semaphore = asyncio.Semaphore(self._max_concurrent_warmups)
+        return self._semaphore
 
     def is_online_only(
         self,
@@ -96,7 +106,7 @@ class OneDriveProvider(FilesProvider):
         fut: asyncio.Future = asyncio.get_event_loop().create_future()
         self._inflight[host_path] = fut
         try:
-            async with self._semaphore:
+            async with self._get_semaphore():
                 try:
                     import httpx
                     async with httpx.AsyncClient(timeout=self.warmup_timeout_s) as cli:
