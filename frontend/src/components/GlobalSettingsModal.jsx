@@ -1331,6 +1331,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         <>
             <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
             <div className={`settings-modal ${isOpen ? 'active' : ''}`}>
+                {/* Botó X fora de .settings-main perquè s'ancori al modal i no
+                    desaparegui amb el scroll del contingut. */}
+                <button onClick={onClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
+                    <X />
+                </button>
                 {!draft.settings ? (
                     <div className="flex items-center justify-center h-full">
                         <RefreshCw size={32} className="animate-spin text-[var(--gnosi-blue)]" />
@@ -1399,10 +1404,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                     {/* CONTENT AREA */}
                     <main className="settings-main">
-                        <button onClick={onClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
-                            <X />
-                        </button>
-
                         <div className="settings-content-wrap">
                             
                              {/* PERFIL D'IDENTITAT */}
