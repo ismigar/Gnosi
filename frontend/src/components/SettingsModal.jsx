@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../hooks/use-api';
 import { X } from 'lucide-react';
@@ -12,35 +12,70 @@ export function SettingsModal({ isOpen, onClose }) {
     const [envVars, setEnvVars] = useState(null);
     const [activeTab, setActiveTab] = useState('general');
     const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
     const [credentials, setCredentials] = useState([]);
     const [editingCredential, setEditingCredential] = useState(null);
     const [credentialValue, setCredentialValue] = useState('');
     const [schedulers, setSchedulers] = useState([]);
+    const initializedRef = useRef(false);
+    const skipNextAutosaveRef = useRef(false);
 
     useEffect(() => {
-        if (isOpen) {
-            loadConfig();
-            loadEnvVars();
-            loadSchedulers();
-            loadCredentials();
+        if (!isOpen) {
+            initializedRef.current = false;
+            skipNextAutosaveRef.current = false;
+            return;
         }
+        loadConfig();
+        loadEnvVars();
+        loadSchedulers();
+        loadCredentials();
     }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                onClose();
-            } else if (e.key === 'Enter') {
-                if (document.activeElement.tagName === 'TEXTAREA') return;
-                handleSave();
-            }
+            if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, handleSave]);
+    }, [isOpen, onClose]);
+
+    // Autosave silenciós (debounce 800ms — més llarg que altres modals
+    // perquè aquí es toquen color pickers que disparen molts canvis
+    // ràpidament). Errors via toast. Sense reload de pàgina; alguns canvis
+    // (com colors visuals globals) poden requerir refresc manual.
+    useEffect(() => {
+        if (!isOpen) return;
+        if (!initializedRef.current) return;
+        if (skipNextAutosaveRef.current) {
+            skipNextAutosaveRef.current = false;
+            return;
+        }
+        const handle = setTimeout(async () => {
+            try {
+                if (config) {
+                    await fetch('/api/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(config),
+                    });
+                }
+                if (envVars) {
+                    await fetch('/api/env', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(envVars),
+                    });
+                }
+            } catch (err) {
+                console.error('Error saving settings:', err);
+                toast.error(t('settings.save_error', 'Error desant els canvis'));
+            }
+        }, 800);
+        return () => clearTimeout(handle);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, config, envVars]);
 
     const loadSchedulers = async () => {
         try {
@@ -67,7 +102,11 @@ export function SettingsModal({ isOpen, onClose }) {
         try {
             const res = await fetch('/api/config');
             const data = await res.json();
+            // Marquem skip abans d'aplicar el setter per evitar autosave redundant
+            // amb el payload acabat de carregar del backend.
+            skipNextAutosaveRef.current = true;
             setConfig(data);
+            initializedRef.current = true;
         } catch (err) {
             console.error("Error loading config:", err);
         } finally {
@@ -79,38 +118,10 @@ export function SettingsModal({ isOpen, onClose }) {
         try {
             const res = await fetch('/api/env');
             const data = await res.json();
+            skipNextAutosaveRef.current = true;
             setEnvVars(data);
         } catch (err) {
             console.error("Error loading env vars:", err);
-        }
-    };
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            // Save params.yaml config
-            await fetch('/api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            });
-
-            // Save .env variables
-            if (envVars) {
-                await fetch('/api/env', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(envVars)
-                });
-            }
-
-            onClose();
-            // Reload page to apply all changes cleanly
-            window.location.reload();
-        } catch (err) {
-            console.error("Error saving config:", err);
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -560,11 +571,10 @@ export function SettingsModal({ isOpen, onClose }) {
                                                     const res = await fetch('/api/credentials/migrate', { method: 'POST' });
                                                     const data = await res.json();
                                                     if (data.status === 'success') {
-                                                        alert(`Migrades ${data.total} claus!`);
                                                         loadCredentials();
                                                     }
                                                 } catch (err) {
-                                                    alert('Error migrant: ' + err.message);
+                                                    toast.error('Error migrant: ' + err.message);
                                                 }
                                             }}
                                             style={{ padding: '10px 20px', background: '#805ad5', border: 'none', borderRadius: '5px', cursor: 'pointer', color: 'white' }}
@@ -578,12 +588,6 @@ export function SettingsModal({ isOpen, onClose }) {
                     )}
                 </div>
 
-                <div className="settings-footer">
-                    <button className="cancel-btn" onClick={onClose}>Cancel</button>
-                    <button className="save-btn" onClick={handleSave} disabled={saving}>
-                        {saving ? 'Saving...' : 'Save & Reload'}
-                    </button>
-                </div>
             </div>
         </div>
     );

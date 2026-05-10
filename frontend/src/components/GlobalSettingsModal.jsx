@@ -511,7 +511,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 body: JSON.stringify(updated),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            toast.success('Xarxes desades');
         } catch (err) {
             // Sense aquesta restauració, l'UI mostrava els canvis com si
             // s'haguessin desat tot i que el backend tenia l'estat antic.
@@ -531,7 +530,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 body: JSON.stringify(updated),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            toast.success('Streams desats');
         } catch (err) {
             setSocialStreams(previous);
             toast.error('Error desant streams');
@@ -671,7 +669,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         setTranslateState(s => ({ ...s, saving_deepl: true }));
         try {
             await axios.post('/api/credentials/', { key: 'deepl_api_key', value });
-            toast.success(t('translate_settings.deepl_saved') || 'API key de DeepL desada al Keychain.');
             setTranslateState(s => ({ ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false }));
         } catch (err) {
             console.error('Error saving DeepL API key:', err);
@@ -684,7 +681,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         setTranslateState(s => ({ ...s, saving_deepl: true }));
         try {
             await axios.delete('/api/credentials/deepl_api_key');
-            toast.success(t('translate_settings.deepl_deleted') || 'API key de DeepL eliminada.');
             setTranslateState(s => ({ ...s, deepl_has_value: false, deepl_input: '', saving_deepl: false }));
         } catch (err) {
             console.error('Error deleting DeepL API key:', err);
@@ -701,7 +697,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             // sobreescriure i, si l'usuari volia eliminar, el backend ho
             // persisteix com a `SOFTCATALA_API_URL=` (la skill cau al default).
             await axios.post('/api/env', { SOFTCATALA_API_URL: value });
-            toast.success(t('translate_settings.softcatala_saved') || 'URL de Softcatalà actualitzada.');
             setTranslateState(s => ({ ...s, saving_softcatala: false }));
         } catch (err) {
             console.error('Error saving Softcatalà URL:', err);
@@ -1437,27 +1432,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <h2 className="settings-sidebar-title">Configuració</h2>
                             </div>
                             
-                            {/* INDICADOR DE SAVING */}
-                            <div className={`settings-status-indicator ${savingStatus}`} style={{ 
-                                marginTop: '20px', padding: '10px 14px', borderRadius: '14px', 
-                                background: 'rgba(59, 130, 246, 0.05)', border: '1px solid var(--settings-border)', 
-                                display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.3s'
-                            }}>
-                                {savingStatus === 'saving' ? (
-                                    <RefreshCw size={14} className="animate-spin text-[var(--gnosi-blue)]" />
-                                ) : (
-                                    <Check size={14} style={{ color: savingStatus === 'error' ? '#ef4444' : '#10b981', opacity: savingStatus === 'idle' ? 0.4 : 1 }} />
-                                )}
-                                <span style={{ 
-                                    fontSize: '0.72rem', fontWeight: '800', 
-                                    color: savingStatus === 'error' ? '#ef4444' : 'var(--text-secondary)',
-                                    opacity: savingStatus === 'idle' ? 0.6 : 1
-                                }}>
-                                    {savingStatus === 'saving' ? 'Desant...' : 
-                                     (savingStatus === 'error' ? 'Error' : 
-                                     (savingStatus === 'saved' ? 'Desat' : 'Al dia'))}
-                                </span>
-                            </div>
                         </div>
 
                         <div className="settings-sidebar-nav">
@@ -1993,7 +1967,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 try {
                                                                     await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
                                                                     setSavingStatus('saved');
-                                                                    toast.success('Compte connectat correctament');
                                                                     setAddAccountType(null);
                                                                     setAddAccountEmail('');
                                                                     setMailDisplayName(''); setMailSubjectPrefix(''); setMailAliases([]);
@@ -3280,9 +3253,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     const d = await rr.json();
                                                     if (d.last_sync_at && d.last_sync_at !== baseline) {
                                                         setZoteroLastSync(d);
-                                                        const summaryStr = formatSyncSummary(d.last_sync_summary);
-                                                        const head = t('settings.zotero.sync_done') || 'Sincronització completada';
-                                                        toast.success(summaryStr ? `${head} — ${summaryStr}` : head);
                                                         setZoteroSyncMsg('');
                                                         setZoteroSyncing(null);
                                                         return;

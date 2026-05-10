@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from '../../lib/toast';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -49,50 +50,6 @@ const TRANSLATABLE_FIELD_TYPES = new Set([
 const BUTTON_ACTIONS = [
     { id: 'translate_row', label_key: 'schema.button_action_translate_row', label_default: 'Traduir fila a subitems' },
 ];
-
-// Indicador d'autosave que es mostra al peu del modal. Reemplaça els
-// botons "Cancel·lar" i "Desar estructura" — el modal ara persisteix
-// canvis en background amb debounce.
-function SaveStatusIndicator({ status, t }) {
-    const kind = status?.kind || 'idle';
-    if (kind === 'idle') return <span />;
-    if (kind === 'pending' || kind === 'saving') {
-        return (
-            <span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]/70">
-                <Loader2 size={13} className="animate-spin" />
-                {t('schema.autosave_saving', 'Desant…')}
-            </span>
-        );
-    }
-    if (kind === 'saved') {
-        return (
-            <span className="flex items-center gap-1.5 text-xs text-[var(--gnosi-primary)]">
-                <Check size={13} />
-                {t('schema.autosave_saved', 'Desat')}
-            </span>
-        );
-    }
-    if (kind === 'invalid') {
-        return (
-            <span
-                className="flex items-center gap-1.5 text-xs text-amber-500 max-w-[60%] truncate"
-                title={status.message}
-            >
-                <AlertCircle size={13} />
-                {status.message}
-            </span>
-        );
-    }
-    if (kind === 'error') {
-        return (
-            <span className="flex items-center gap-1.5 text-xs text-red-500">
-                <AlertCircle size={13} />
-                {status.message || t('schema.error_saving')}
-            </span>
-        );
-    }
-    return <span />;
-}
 
 // Child component for each draggable property
 function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false }) {
@@ -430,11 +387,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     // arriben amb noves referències i sobreescriurien edicions de l'usuari
     // que encara no ha desat (toggles, camps afegits, etc.).
     const initializedRef = useRef(false);
-    // Estat d'autosave: 'idle' (acabat d'obrir, res a desar),
-    // 'pending' (canvis pendents de debounce), 'saving' (POST en vol),
-    // 'saved' (últim save OK), 'invalid' (validació falla — no enviem res),
-    // 'error' (servidor ha respost malament).
-    const [saveStatus, setSaveStatus] = useState({ kind: 'idle' });
     // Ref per saltar-se el primer trigger d'autosave: just després de la
     // inicialització, els setters causen un re-render que faria saltar
     // l'autosave amb un payload idèntic al backend. No té sentit enviar-ho.
@@ -444,7 +396,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         if (!isOpen) {
             initializedRef.current = false;
             skipNextAutosaveRef.current = false;
-            setSaveStatus({ kind: 'idle' });
             return;
         }
         if (initializedRef.current) return;
@@ -679,8 +630,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     };
 
     // Autosave amb debounce: després d'un canvi, espera 600ms d'inactivitat,
-    // valida i envia. Si la validació falla, marca l'estat com a 'invalid'
-    // i no envia res — l'usuari veu el motiu al peu del modal.
+    // valida i envia. Si la validació falla silenciosament: l'estat queda
+    // sense desar fins que l'usuari completi els camps requerits. Només
+    // notifiquem amb toast quan el servidor falla — els altres modals de
+    // l'app també segueixen aquest patró (silenci per defecte).
     useEffect(() => {
         if (!isOpen) return;
         if (!initializedRef.current) return; // primera renderització: no autosave
@@ -690,14 +643,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             skipNextAutosaveRef.current = false;
             return;
         }
-        const validationError = validate();
-        if (validationError) {
-            setSaveStatus({ kind: 'invalid', message: validationError });
-            return;
-        }
-        setSaveStatus({ kind: 'pending' });
+        if (validate()) return; // validació silenciosa
         const handle = setTimeout(async () => {
-            setSaveStatus({ kind: 'saving' });
             try {
                 const { newSchemaObj, visibleProperties } = buildPayload();
                 if (onSave) {
@@ -706,10 +653,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
                 }
                 onSchemaUpdated?.(newSchemaObj);
-                setSaveStatus({ kind: 'saved' });
             } catch (err) {
                 console.error(err);
-                setSaveStatus({ kind: 'error', message: t('schema.error_saving') });
+                toast.error(t('schema.error_saving'));
             }
         }, 600);
         return () => clearTimeout(handle);
@@ -749,13 +695,22 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                         </h3>
 
                         <div>
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableSubitems ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'}`}>
+                            <label
+                                className={`flex items-center gap-3 group ${enableTranslation ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                title={enableTranslation ? t('schema.subitems_locked_by_translation', 'Els subitems són necessaris per a la traducció. Desactiva primer "Taula traduïble".') : undefined}
+                            >
+                                <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableSubitems ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'} ${enableTranslation ? 'opacity-60' : ''}`}>
                                     <input
                                         type="checkbox"
                                         className="hidden"
                                         checked={enableSubitems}
-                                        onChange={(e) => setEnableSubitems(e.target.checked)}
+                                        disabled={enableTranslation}
+                                        onChange={(e) => {
+                                            // Bloquejat mentre la taula sigui traduïble: les
+                                            // traduccions es persisteixen com a subitems.
+                                            if (enableTranslation && !e.target.checked) return;
+                                            setEnableSubitems(e.target.checked);
+                                        }}
                                     />
                                     <div className={`bg-[var(--bg-primary)] w-4 h-4 rounded-full shadow-sm transform transition-transform ${enableSubitems ? 'translate-x-4' : 'translate-x-0'}`} />
                                 </div>
@@ -764,7 +719,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                 </span>
                             </label>
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
-                                {t('schema.subitems_hint')}
+                                {enableTranslation
+                                    ? t('schema.subitems_required_for_translation', 'Activat automàticament: les traduccions es desen com a subitems.')
+                                    : t('schema.subitems_hint')}
                             </p>
                         </div>
 
@@ -825,12 +782,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     </button>
                 </div>
 
-                <div className="px-6 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-between items-center shrink-0">
-                    <span className="text-[11px] text-[var(--text-secondary)]/60">
-                        {t('schema.autosave_hint', 'Els canvis es desen automàticament. Tanca amb Esc o ✕.')}
-                    </span>
-                    <SaveStatusIndicator status={saveStatus} t={t} />
-                </div>
             </div>
         </div>
     );
