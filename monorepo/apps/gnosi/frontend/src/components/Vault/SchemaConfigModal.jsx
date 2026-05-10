@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap } from 'lucide-react';
@@ -37,10 +37,11 @@ const ROLLUP_AGGREGATIONS = [
 ];
 
 // Tipus de camp que poden marcar-se com a traduïbles. Exclou camps derivats
-// (formula/rollup/virtual), camps que no tenen contingut textual i tipus
-// estructurals com `button` o `title`.
+// (formula/rollup/virtual), camps sense contingut textual i tipus
+// estructurals com `button`. El `title` sí que s'admet: el backend
+// (translate_row) usa la traducció del títol com a títol del subitem.
 const TRANSLATABLE_FIELD_TYPES = new Set([
-    'text', 'rich_text', 'select', 'multi_select', 'status', 'url'
+    'title', 'text', 'rich_text', 'select', 'multi_select', 'status', 'url'
 ]);
 
 // Catàleg d'accions que pot executar un camp de tipus `button`. Per ara
@@ -380,9 +381,21 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const [virtualComputers, setVirtualComputers] = useState([]);
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
     const [enableTranslation, setEnableTranslation] = useState(initialEnableTranslation);
+    // Guard d'inicialització: només volem sincronitzar l'estat local amb les
+    // props quan el modal s'obre. Si el pare re-renderitza mentre està obert
+    // (p.ex. fetchRegistry posterior a una acció no relacionada), les props
+    // arriben amb noves referències i sobreescriurien edicions de l'usuari
+    // que encara no ha desat (toggles, camps afegits, etc.).
+    const initializedRef = useRef(false);
 
     useEffect(() => {
-        if (isOpen) {
+        if (!isOpen) {
+            initializedRef.current = false;
+            return;
+        }
+        if (initializedRef.current) return;
+        initializedRef.current = true;
+        {
             // Transform object to array for editing.
             const fieldsArray = getSchemaFieldNames(currentSchema || {}).map((name) => {
                 const cfg = getFieldConfig(currentSchema || {}, name);
