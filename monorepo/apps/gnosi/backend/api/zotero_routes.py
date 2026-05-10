@@ -312,7 +312,10 @@ MAPPING_SYNONYMS: Dict[str, List[str]] = {
     "date": ["date", "data", "fecha", "any", "year"],
     "url": ["url", "link", "enllac", "enlace"],
     "doi": ["doi"],
-    "abstract": ["abstract", "abstractnote", "resum", "resumen", "resume", "summary"],
+    "abstract": [
+        "abstract", "abstractnote", "resum", "resumen", "resume", "summary",
+        "description", "descripcio", "descripción", "synopsis", "sinopsi", "sinopsis",
+    ],
     "tags": ["tags", "etiquetes", "etiquetas", "etiquettes", "keywords"],
     "date_added": ["dateadded", "creat", "creado", "cree", "created", "createdtime", "createdat"],
     "date_modified": ["datemodified", "modificat", "modificado", "modifie", "modified", "lasteditedtime", "updatedat"],
@@ -341,7 +344,10 @@ MAPPING_SYNONYMS: Dict[str, List[str]] = {
     # --- Bibliografia avançada ---
     "book_title": ["booktitle", "titoldelllibre", "titulodelibro", "titreduLivre", "containertitle"],
     "series": ["series", "colleccio", "coleccion", "collection"],
-    "series_number": ["seriesnumber", "numerodecoleccio", "numerodecoleccion", "numerodecollection"],
+    "series_number": [
+        "seriesnumber", "numerodecoleccio", "numerodecolleccio",  # ca: "Número de col·lecció" (l·l → ll)
+        "numerodecoleccion", "numerodecollection",
+    ],
     "edition": ["edition", "edicio", "edicion"],
     "num_pages": ["numpages", "numpagines", "numpaginas", "nbpages"],
     "num_volumes": ["numberofvolumes", "numvolums", "numvolumenes", "nbvolumes"],
@@ -462,22 +468,35 @@ def default_mapping_for_table(props: List[Dict[str, Any]], lang: str) -> Dict[st
 def _suggest_property_for_slug(slug: str, props: List[Dict[str, Any]]) -> Optional[str]:
     """Finds the most likely property id for a Zotero canonical slug.
 
-    Strategy:
-      1. Exact normalized match against synonyms list.
-      2. Substring containment fallback (e.g. "Modification date" → date_modified).
+    Strategy (ordenada per fiabilitat decreixent):
+      1. Match exacte normalitzat amb la llista de sinònims.
+      2. Match per prefix/sufix amb mínim de 4 chars i una cadena cobrint
+         ≥ 60% de l'altra. Així evitem falsos positius del tipus
+         `mes` ⊂ `volu**mes**` que generaven mapejos absurds.
     """
     candidates = MAPPING_SYNONYMS.get(slug, [slug])
     norm_targets = [_norm(c) for c in candidates if _norm(c)]
     by_norm = [(p, _norm(p.get("name", ""))) for p in props if p.get("id")]
 
+    # 1) Match exacte
     for target in norm_targets:
         for prop, pname in by_norm:
             if pname == target:
                 return prop["id"]
 
+    # 2) Match per prefix/sufix (no qualsevol substring) amb thresholds
+    MIN_LEN = 4               # cadenes de 1-3 chars són massa promíscues
+    MIN_RATIO = 0.6           # la curta ha de cobrir ≥ 60% de la llarga
     for target in norm_targets:
+        if len(target) < MIN_LEN:
+            continue
         for prop, pname in by_norm:
-            if pname and (target in pname or pname in target):
+            if not pname or len(pname) < MIN_LEN:
+                continue
+            short, long = (target, pname) if len(target) <= len(pname) else (pname, target)
+            if len(short) / len(long) < MIN_RATIO:
+                continue
+            if long.startswith(short) or long.endswith(short):
                 return prop["id"]
 
     return None
