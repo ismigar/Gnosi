@@ -253,20 +253,27 @@ def extract_items(z_conn: sqlite3.Connection, linked_base: str = "", zotero_stor
         atts = extract_attachments_for(z_conn, item_id)
         attachment_path = pick_main_attachment(atts, linked_base, zotero_storage) or ""
 
-        items.append({
+        # Phase 7 — exposem TOTS els camps Zotero (~123 possibles, segons l'item
+        # type). El payload final només envia els que tenen mapping configurat,
+        # així que l'únic cost d'exposar-los tots és afegir-los al dict en
+        # memòria. Camps amb casing especial (DOI, ISBN, ISSN, PMID, PMCID) ja
+        # vénen amb el seu casing original de la taula `fields`.
+        item = {
             "key": item_key,
             "typeName": type_name,
             "dateAdded": date_added,
             "dateModified": date_modified,
             "creators": authors,
             "tags": tags,
-            "title": fields.get("title", ""),
-            "doi": fields.get("DOI", "") or fields.get("doi", ""),
-            "date": fields.get("date", ""),
-            "url": fields.get("url", ""),
-            "abstractNote": fields.get("abstractNote", ""),
             "attachmentPath": attachment_path,
-        })
+            **fields,
+        }
+        # Compatibilitat enrere amb mappings persistits que usaven `doi`
+        # (lowercase) abans que el catàleg canònic adoptés `DOI` (Fase 7).
+        if "DOI" in fields and "doi" not in item:
+            item["doi"] = fields["DOI"]
+
+        items.append(item)
     return items
 
 

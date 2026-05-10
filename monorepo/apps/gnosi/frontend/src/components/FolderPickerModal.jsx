@@ -74,8 +74,12 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
     );
 
     const modalContent = (
-        <div className="settings-overlay">
-            <div className="settings-modal" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        // CAL la classe `active` perquè `.settings-overlay` sense `active`
+        // té `display: none` definit a GlobalSettingsModal.css. Sense
+        // aquesta classe el portal queda invisible (i els clics passen a
+        // través per `pointer-events: none`).
+        <div className="settings-overlay active" onClick={onClose}>
+            <div className="settings-modal active" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
                 <div className="settings-modal__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
                     <h2 className="settings-modal__title" style={{ margin: 0, fontSize: '1.1em' }}>📁 Seleccionar Carpeta</h2>
                     <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">

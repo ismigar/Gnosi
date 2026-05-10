@@ -3297,9 +3297,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }}
                                                             />
                                                             <button
-                                                                onClick={() => setZoteroBasePickerOpen(true)}
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setZoteroBasePickerOpen(true);
+                                                                }}
                                                                 className="btn-gnosi-secondary"
-                                                                style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0 }}
+                                                                style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0, cursor: 'pointer' }}
                                                                 title={t('settings.zotero.linked_base_label') || "Carpeta de PDFs enllaçats"}
                                                             >
                                                                 <FolderOpen size={18} />
