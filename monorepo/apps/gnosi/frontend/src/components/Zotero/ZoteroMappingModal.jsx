@@ -62,6 +62,16 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
         return () => window.removeEventListener('keydown', onKey);
     }, [isOpen, onClose]);
 
+    // IMPORTANT: tots els hooks han d'anar abans de qualsevol early return
+    // (Rules of Hooks). Aquest useMemo originalment vivia després del
+    // `if (!isOpen) return null` i provocava "Rendered more hooks than during
+    // the previous render" quan la modal canviava entre tancada i oberta.
+    const conflictByZField = useMemo(() => {
+        const out = {};
+        conflicts.forEach(c => { out[c.zotero_field] = c; });
+        return out;
+    }, [conflicts]);
+
     if (!isOpen) return null;
 
     const handleSelectChange = (zFieldId, value) => {
@@ -132,12 +142,6 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
         const translated = t(key);
         return translated === key ? zField.id : translated;
     };
-
-    const conflictByZField = useMemo(() => {
-        const out = {};
-        conflicts.forEach(c => { out[c.zotero_field] = c; });
-        return out;
-    }, [conflicts]);
 
     const pagesWithoutKey = tableInfo?.pages_without_zotero_key || 0;
 
