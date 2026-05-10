@@ -57,7 +57,10 @@ function App() {
           <Route path="/contacts" element={<ContactsPage />} />
         </Routes>
       </div>
-      <Toaster position="bottom-right" />
+      {/* z-index per sobre de tots els overlays modals (GlobalSettingsModal:10000,
+          ZoteroMappingModal i AIAgentModal:100000). Sense això, els toasts
+          quedaven amagats darrere de qualsevol modal oberta. */}
+      <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
       <AgentChat />
     </div>
   );
