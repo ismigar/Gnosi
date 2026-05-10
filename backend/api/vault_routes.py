@@ -3758,6 +3758,39 @@ async def update_media_metadata(
     return {"status": "ok"}
 
 
+# --- Vistes desades (filtres + sort + scope amb nom) ---
+
+@router.get("/media/views")
+async def list_media_views():
+    """Retorna les vistes desades de l'usuari (sidecar JSON al vault)."""
+    return media_service.list_views()
+
+
+@router.post("/media/views", dependencies=[Depends(require_role("editor"))])
+async def create_media_view(payload: Dict[str, Any] = Body(...)):
+    """Crea una vista nova. Payload: {label, scope, filters, sort}."""
+    try:
+        return media_service.create_view(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/media/views/{view_id}", dependencies=[Depends(require_role("editor"))])
+async def update_media_view(view_id: str, payload: Dict[str, Any] = Body(...)):
+    """Actualitza una vista existent."""
+    updated = media_service.update_view(view_id, payload)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Vista no trobada")
+    return updated
+
+
+@router.delete("/media/views/{view_id}", dependencies=[Depends(require_role("editor"))])
+async def delete_media_view(view_id: str):
+    """Esborra una vista."""
+    if not media_service.delete_view(view_id):
+        raise HTTPException(status_code=404, detail="Vista no trobada")
+    return {"status": "ok"}
+
 # Limita el nombre de lectures concurrents sobre el bind-mount del vault:
 # `grpcfuse` (Docker Desktop) pot retornar Errno 35 (Resource deadlock
 # avoided) sota pressió, especialment quan el filesystem subjacent és

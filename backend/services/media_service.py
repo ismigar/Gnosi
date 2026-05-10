@@ -64,6 +64,9 @@ class MediaService:
     # dispositius via OneDrive — la regla "caches fora d'OneDrive" no aplica
     # a dades, només a caches/índexs derivables.
     _USER_META_FILENAME = "media_metadata.json"
+    # Vistes desades de l'usuari (filtres + sort + scope amb nom). Mateixa
+    # raó que _USER_META_FILENAME: dades d'usuari, dins el vault.
+    _VIEWS_FILENAME = "media_views.json"
 
     def __init__(self):
         # Ja no inicialitzem el path aquí per evitar errors al boot
@@ -74,6 +77,9 @@ class MediaService:
         # Sidecar lazy: es carrega al primer ús (update_metadata o filtre per tags).
         self._user_metadata: Optional[Dict[str, Any]] = None
         self._user_metadata_lock = threading.RLock()
+        # Vistes lazy: es carreguen al primer accés.
+        self._views: Optional[Dict[str, Any]] = None
+        self._views_lock = threading.RLock()
         try:
             _PERSIST_DIR.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -382,6 +388,136 @@ class MediaService:
                 "updated_at": datetime.utcnow().isoformat() + "Z",
             }
         return self._save_user_metadata()
+
+    # ------------------------------------------------------------------
+    # Vistes desades (filtres + sort + scope amb nom)
+    # ------------------------------------------------------------------
+
+    def _views_path(self) -> Optional[Path]:
+        base = get_active_vault_path()
+        if base is None:
+            return None
+        d = base / ".gnosi"
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            log.debug(f"No es pot crear {d}: {e}")
+            return None
+        return d / self._VIEWS_FILENAME
+
+    def _ensure_views_loaded(self) -> None:
+        if self._views is not None:
+            return
+        with self._views_lock:
+            if self._views is not None:
+                return
+            path = self._views_path()
+            loaded = {"version": 1, "items": []}
+            if path and path.exists():
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        raw = json.load(f)
+                    if isinstance(raw, dict) and isinstance(raw.get("items"), list):
+                        loaded = raw
+                except (OSError, json.JSONDecodeError) as e:
+                    log.warning(
+                        f"media_views.json corrupte ({path}): {e} — reinicialitzant"
+                    )
+            self._views = loaded
+
+    def _save_views(self) -> bool:
+        path = self._views_path()
+        if path is None:
+            return False
+        with self._views_lock:
+            try:
+                tmp = path.with_suffix(path.suffix + ".tmp")
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(self._views, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, path)
+                return True
+            except OSError as e:
+                log.warning(f"No es pot desar media_views.json: {e}")
+                return False
+
+    @staticmethod
+    def _normalize_view_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanititza el payload d'una vista: només camps coneguts, sense
+        deixar passar coses arbitràries que puguin omplir el JSON."""
+        scope = data.get("scope") or {}
+        filters = data.get("filters") or {}
+        sort = data.get("sort") or {}
+        return {
+            "label": str(data.get("label") or "").strip()[:120],
+            "scope": {
+                "root": str(scope.get("root") or "images"),
+                "album": (str(scope.get("album")) if scope.get("album") is not None else ""),
+            },
+            "filters": {
+                "kinds": list(filters.get("kinds") or []),
+                "q": str(filters.get("q") or ""),
+                "tagsAny": list(filters.get("tagsAny") or []),
+                "datePreset": str(filters.get("datePreset") or "all"),
+                "mtimeFrom": str(filters.get("mtimeFrom") or ""),
+                "mtimeTo": str(filters.get("mtimeTo") or ""),
+                "sizePreset": str(filters.get("sizePreset") or "all"),
+            },
+            "sort": {
+                "field": str(sort.get("field") or "mtime"),
+                "dir": str(sort.get("dir") or "desc"),
+            },
+        }
+
+    def list_views(self) -> List[Dict[str, Any]]:
+        self._ensure_views_loaded()
+        return list(self._views.get("items") or [])
+
+    def create_view(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        self._ensure_views_loaded()
+        norm = self._normalize_view_payload(data)
+        if not norm["label"]:
+            raise ValueError("Cal un nom per a la vista")
+        now = datetime.utcnow().isoformat() + "Z"
+        view = {
+            "id": f"view_{int(time.time() * 1000)}",
+            **norm,
+            "created_at": now,
+            "updated_at": now,
+        }
+        with self._views_lock:
+            self._views["items"].append(view)
+        self._save_views()
+        return view
+
+    def update_view(self, view_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        self._ensure_views_loaded()
+        norm = self._normalize_view_payload(data)
+        with self._views_lock:
+            for i, v in enumerate(self._views["items"]):
+                if v.get("id") == view_id:
+                    if not norm["label"]:
+                        norm["label"] = v.get("label", "")
+                    updated = {
+                        **v,
+                        **norm,
+                        "updated_at": datetime.utcnow().isoformat() + "Z",
+                    }
+                    self._views["items"][i] = updated
+                    self._save_views()
+                    return updated
+        return None
+
+    def delete_view(self, view_id: str) -> bool:
+        self._ensure_views_loaded()
+        with self._views_lock:
+            before = len(self._views["items"])
+            self._views["items"] = [
+                v for v in self._views["items"] if v.get("id") != view_id
+            ]
+            if len(self._views["items"]) == before:
+                return False
+            self._save_views()
+            return True
 
     # ------------------------------------------------------------------
     # Filtres + sort post-cache (per get_all_media)

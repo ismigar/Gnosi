@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from backend.config.app_config import load_params
 from backend.services.workspace_service import require_role
 from backend.api.vault_routes import (
+    get_p,
     load_registry,
     save_registry,
     _ensure_asset_dirs_for_table_entry,
@@ -35,6 +36,7 @@ SYNC_BACK_SCRIPT_PATH = BASE_DIR / "pipeline/skills/zotero_sync/scripts/gnosi_to
 # El frontend els tradueix via i18n; el backend només els usa com a clau.
 # ---------------------------------------------------------------------------
 ZOTERO_FIELDS: List[Dict[str, str]] = [
+    # --- Identitat i taxonomia (sempre al schema per defecte) ---
     {"id": "key", "slug": "zotero_key"},
     {"id": "title", "slug": "title"},
     {"id": "typeName", "slug": "item_type"},
@@ -46,9 +48,43 @@ ZOTERO_FIELDS: List[Dict[str, str]] = [
     {"id": "abstractNote", "slug": "abstract"},
     {"id": "dateAdded", "slug": "date_added"},
     {"id": "dateModified", "slug": "date_modified"},
+    # Phase 6 — ruta absoluta al PDF/attachment principal de l'ítem.
+    # No dupliquem el fitxer: tant Zotero com Gnosi apunten a la mateixa
+    # còpia que viu a la carpeta `Biblioteca` (o on l'usuari hagi configurat
+    # `linked_attachments_base`).
+    {"id": "attachmentPath", "slug": "attachment_path"},
+    # --- Bibliografia (Tier 1 — al schema per defecte) ---
+    {"id": "publicationTitle", "slug": "publication_title"},
+    {"id": "publisher", "slug": "publisher"},
+    {"id": "place", "slug": "place"},
+    {"id": "pages", "slug": "pages"},
+    {"id": "ISBN", "slug": "isbn"},
+    {"id": "ISSN", "slug": "issn"},
+    {"id": "volume", "slug": "volume"},
+    {"id": "issue", "slug": "issue"},
+    {"id": "accessDate", "slug": "access_date"},
+    # --- Bibliografia avançada (Tier 2 — disponibles via mapping, no al schema per defecte) ---
+    {"id": "bookTitle", "slug": "book_title"},
+    {"id": "series", "slug": "series"},
+    {"id": "seriesNumber", "slug": "series_number"},
+    {"id": "edition", "slug": "edition"},
+    {"id": "numPages", "slug": "num_pages"},
+    {"id": "numberOfVolumes", "slug": "num_volumes"},
+    {"id": "language", "slug": "language"},
+    {"id": "extra", "slug": "extra"},
+    {"id": "shortTitle", "slug": "short_title"},
+    {"id": "institution", "slug": "institution"},
+    {"id": "university", "slug": "university"},
+    {"id": "journalAbbreviation", "slug": "journal_abbreviation"},
+    {"id": "libraryCatalog", "slug": "library_catalog"},
+    {"id": "callNumber", "slug": "call_number"},
+    {"id": "archive", "slug": "archive"},
+    {"id": "archiveLocation", "slug": "archive_location"},
+    {"id": "rights", "slug": "rights"},
 ]
 
 ZOTERO_FIELD_TYPES: Dict[str, str] = {
+    # Identitat i taxonomia
     "zotero_key": "text",
     "title": "title",
     "item_type": "select",
@@ -60,6 +96,35 @@ ZOTERO_FIELD_TYPES: Dict[str, str] = {
     "tags": "multi_select",
     "date_added": "date",
     "date_modified": "date",
+    "attachment_path": "text",
+    # Bibliografia comuna
+    "publication_title": "text",
+    "publisher": "text",
+    "place": "text",
+    "pages": "text",
+    "isbn": "text",
+    "issn": "text",
+    "volume": "text",
+    "issue": "text",
+    "access_date": "date",
+    # Bibliografia avançada
+    "book_title": "text",
+    "series": "text",
+    "series_number": "text",
+    "edition": "text",
+    "num_pages": "text",
+    "num_volumes": "text",
+    "language": "text",
+    "extra": "rich_text",
+    "short_title": "text",
+    "institution": "text",
+    "university": "text",
+    "journal_abbreviation": "text",
+    "library_catalog": "text",
+    "call_number": "text",
+    "archive": "text",
+    "archive_location": "text",
+    "rights": "text",
 }
 
 # ---------------------------------------------------------------------------
@@ -81,6 +146,33 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Tags",
         "date_added": "Created",
         "date_modified": "Modified",
+        "attachment_path": "File path",
+        "publication_title": "Publication",
+        "publisher": "Publisher",
+        "place": "Place",
+        "pages": "Pages",
+        "isbn": "ISBN",
+        "issn": "ISSN",
+        "volume": "Volume",
+        "issue": "Issue",
+        "access_date": "Accessed",
+        "book_title": "Book title",
+        "series": "Series",
+        "series_number": "Series number",
+        "edition": "Edition",
+        "num_pages": "# pages",
+        "num_volumes": "# volumes",
+        "language": "Language",
+        "extra": "Extra",
+        "short_title": "Short title",
+        "institution": "Institution",
+        "university": "University",
+        "journal_abbreviation": "Journal abbreviation",
+        "library_catalog": "Library catalog",
+        "call_number": "Call number",
+        "archive": "Archive",
+        "archive_location": "Archive location",
+        "rights": "Rights",
         "table_name": "Resources",
     },
     "ca": {
@@ -95,6 +187,33 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Etiquetes",
         "date_added": "Creat",
         "date_modified": "Modificat",
+        "attachment_path": "Ruta de l'arxiu",
+        "publication_title": "Publicació",
+        "publisher": "Editorial",
+        "place": "Lloc",
+        "pages": "Pàgines",
+        "isbn": "ISBN",
+        "issn": "ISSN",
+        "volume": "Volum",
+        "issue": "Número",
+        "access_date": "Consultat",
+        "book_title": "Títol del llibre",
+        "series": "Col·lecció",
+        "series_number": "Número de col·lecció",
+        "edition": "Edició",
+        "num_pages": "Núm. pàgines",
+        "num_volumes": "Núm. volums",
+        "language": "Idioma",
+        "extra": "Extra",
+        "short_title": "Títol curt",
+        "institution": "Institució",
+        "university": "Universitat",
+        "journal_abbreviation": "Abreviatura revista",
+        "library_catalog": "Catàleg",
+        "call_number": "Signatura",
+        "archive": "Arxiu",
+        "archive_location": "Localització arxiu",
+        "rights": "Drets",
         "table_name": "Recursos",
     },
     "es": {
@@ -109,6 +228,33 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Etiquetas",
         "date_added": "Creado",
         "date_modified": "Modificado",
+        "attachment_path": "Ruta del archivo",
+        "publication_title": "Publicación",
+        "publisher": "Editorial",
+        "place": "Lugar",
+        "pages": "Páginas",
+        "isbn": "ISBN",
+        "issn": "ISSN",
+        "volume": "Volumen",
+        "issue": "Número",
+        "access_date": "Consultado",
+        "book_title": "Título del libro",
+        "series": "Colección",
+        "series_number": "Número de colección",
+        "edition": "Edición",
+        "num_pages": "Núm. páginas",
+        "num_volumes": "Núm. volúmenes",
+        "language": "Idioma",
+        "extra": "Extra",
+        "short_title": "Título corto",
+        "institution": "Institución",
+        "university": "Universidad",
+        "journal_abbreviation": "Abreviatura revista",
+        "library_catalog": "Catálogo",
+        "call_number": "Signatura",
+        "archive": "Archivo",
+        "archive_location": "Localización archivo",
+        "rights": "Derechos",
         "table_name": "Recursos",
     },
     "fr": {
@@ -123,6 +269,33 @@ RECURSOS_LABELS: Dict[str, Dict[str, str]] = {
         "tags": "Étiquettes",
         "date_added": "Créé",
         "date_modified": "Modifié",
+        "attachment_path": "Chemin du fichier",
+        "publication_title": "Publication",
+        "publisher": "Éditeur",
+        "place": "Lieu",
+        "pages": "Pages",
+        "isbn": "ISBN",
+        "issn": "ISSN",
+        "volume": "Volume",
+        "issue": "Numéro",
+        "access_date": "Consulté le",
+        "book_title": "Titre du livre",
+        "series": "Collection",
+        "series_number": "Numéro de collection",
+        "edition": "Édition",
+        "num_pages": "Nb pages",
+        "num_volumes": "Nb volumes",
+        "language": "Langue",
+        "extra": "Extra",
+        "short_title": "Titre court",
+        "institution": "Institution",
+        "university": "Université",
+        "journal_abbreviation": "Abréviation revue",
+        "library_catalog": "Catalogue",
+        "call_number": "Cote",
+        "archive": "Archive",
+        "archive_location": "Emplacement archive",
+        "rights": "Droits",
         "table_name": "Ressources",
     },
 }
@@ -143,6 +316,46 @@ MAPPING_SYNONYMS: Dict[str, List[str]] = {
     "tags": ["tags", "etiquetes", "etiquetas", "etiquettes", "keywords"],
     "date_added": ["dateadded", "creat", "creado", "cree", "created", "createdtime", "createdat"],
     "date_modified": ["datemodified", "modificat", "modificado", "modifie", "modified", "lasteditedtime", "updatedat"],
+    "attachment_path": [
+        "attachmentpath", "filepath", "path", "rutaarxiu", "rutadelarxiu",
+        "rutaarchivo", "rutadelarchivo", "cheminfichier", "cheminduFichier",
+        "adjunt", "adjunts", "adjunto", "adjuntos", "attachment", "attachments",
+        "pdf", "pdfpath", "fitxer",
+    ],
+    # --- Bibliografia comuna ---
+    "publication_title": [
+        "publicationtitle", "publicacio", "publicacion", "publication", "revista",
+        "journal", "magazine", "source", "font", "fuente",
+    ],
+    "publisher": ["publisher", "editorial", "editor", "editeur"],
+    "place": ["place", "lloc", "lugar", "lieu", "city", "ciudad", "ciutat", "ville"],
+    "pages": ["pages", "pagines", "paginas", "pp"],
+    "isbn": ["isbn"],
+    "issn": ["issn"],
+    "volume": ["volume", "volum", "volumen", "vol"],
+    "issue": ["issue", "numero", "numero", "num", "no"],
+    "access_date": [
+        "accessdate", "consultat", "consultado", "consulte", "accessed",
+        "dataconsulta", "fechaconsulta", "dateconsultation", "dateaccessed",
+    ],
+    # --- Bibliografia avançada ---
+    "book_title": ["booktitle", "titoldelllibre", "titulodelibro", "titreduLivre", "containertitle"],
+    "series": ["series", "colleccio", "coleccion", "collection"],
+    "series_number": ["seriesnumber", "numerodecoleccio", "numerodecoleccion", "numerodecollection"],
+    "edition": ["edition", "edicio", "edicion"],
+    "num_pages": ["numpages", "numpagines", "numpaginas", "nbpages"],
+    "num_volumes": ["numberofvolumes", "numvolums", "numvolumenes", "nbvolumes"],
+    "language": ["language", "idioma", "lang", "langue", "lengua", "llengua"],
+    "extra": ["extra", "notes", "anotacions", "anotaciones", "remarques", "comments"],
+    "short_title": ["shorttitle", "titolcurt", "titulocorto", "titrecourt"],
+    "institution": ["institution", "institucio", "institucion"],
+    "university": ["university", "universitat", "universidad", "universite"],
+    "journal_abbreviation": ["journalabbreviation", "abrevrevista", "abreviaturarevista"],
+    "library_catalog": ["librarycatalog", "cataleg", "catalogo", "catalogue"],
+    "call_number": ["callnumber", "signatura"],
+    "archive": ["archive", "arxiu", "archivo"],
+    "archive_location": ["archivelocation", "localitzacioarxiu", "localizacionarchivo"],
+    "rights": ["rights", "drets", "derechos", "droits", "license", "licencia", "llicencia"],
 }
 
 
@@ -173,24 +386,44 @@ def _resolve_lang(value: Optional[str]) -> str:
     return code if code in RECURSOS_LABELS else DEFAULT_LANG
 
 
+# Slugs que apareixen al schema per defecte de la taula "Recursos" creada per
+# `POST /api/zotero/setup`. La resta dels camps a `ZOTERO_FIELDS` queden
+# disponibles via la modal de mapping (l'usuari els pot afegir si vol amb el
+# botó "Crear" — Fase 2). Llista pensada per cobrir el ~85% de la biblioteca
+# acadèmica típica sense saturar la taula amb columnes buides.
+DEFAULT_SCHEMA_SLUGS: List[str] = [
+    # Identitat i metadata bàsica
+    "title",
+    "zotero_key",
+    "item_type",
+    "authors",
+    "date",
+    "url",
+    "doi",
+    "abstract",
+    "tags",
+    "date_added",
+    "date_modified",
+    "attachment_path",
+    # Bibliografia comuna (Fase 7)
+    "publication_title",
+    "publisher",
+    "place",
+    "pages",
+    "isbn",
+    "issn",
+    "volume",
+    "issue",
+    "access_date",
+]
+
+
 def build_recursos_schema(lang: str) -> List[Dict[str, str]]:
     """Builds the property list for the Recursos table localized to `lang`."""
     labels = RECURSOS_LABELS[_resolve_lang(lang)]
     return [
         {"name": labels[slug], "type": ZOTERO_FIELD_TYPES[slug]}
-        for slug in [
-            "title",
-            "zotero_key",
-            "item_type",
-            "authors",
-            "date",
-            "url",
-            "doi",
-            "abstract",
-            "tags",
-            "date_added",
-            "date_modified",
-        ]
+        for slug in DEFAULT_SCHEMA_SLUGS
     ]
 
 
@@ -332,11 +565,33 @@ def _migrate_legacy_mapping(config: Dict[str, Any], registry: Dict[str, Any]) ->
 # ---------------------------------------------------------------------------
 
 
+# Camps Zotero que NO han de propagar-se de tornada al sqlite (només Zotero
+# els hauria de mutar). Si l'usuari els té al mapping, el sync G→Z els salta.
+READ_ONLY_FIELDS: List[str] = ["dateAdded", "dateModified", "key"]
+
+# Estratègies de match per pàgines pre-existents sense `zotero_key`.
+# - match_by_title: indexa pàgines per títol normalitzat; un match → PUT que
+#   omple el zotero_key que faltava (sense duplicar).
+# - skip: ignora pàgines sense zotero_key (comportament heretat).
+EXISTING_PAGE_STRATEGIES: List[str] = ["match_by_title", "skip"]
+DEFAULT_EXISTING_PAGE_STRATEGY = "match_by_title"
+
+
 DEFAULT_CONFIG: Dict[str, Any] = {
     "enabled": False,
     "zotero_db": "~/Zotero/zotero.sqlite",
     "target_table": "",
     "mapping": {},
+    "existing_pages_strategy": DEFAULT_EXISTING_PAGE_STRATEGY,
+    "last_sync_at": None,            # ISO timestamp de l'última sync (qualsevol direcció)
+    "last_sync_z_to_g": None,        # ISO de l'última Z→G
+    "last_sync_g_to_z": None,        # ISO de l'última G→Z
+    "last_sync_summary": None,       # dict resum del darrer sync (per UI)
+    # Phase 6 — linked attachments. Quan és buit, el GET /config el resol
+    # automàticament a `<vault>/../Biblioteca` (la mateixa carpeta on
+    # l'usuari acostuma a tenir els PDFs). L'usuari pot sobreescriure'l
+    # des de la UI si Zotero té configurada una altra base directory.
+    "linked_attachments_base": "",
 }
 
 
@@ -357,9 +612,37 @@ def save_json(path: Path, data: Any) -> None:
     safe_write_json(path, data, indent=2, ensure_ascii=False)
 
 
+def _resolve_linked_attachments_base(value: Any) -> str:
+    """Returns the absolute path the scripts should use as the Linked
+    Attachment Base Directory.
+
+    - If the user has set a non-empty value at config time, return it as-is
+      (after expanding `~`).
+    - Otherwise fall back to the active vault's `Biblioteca` sibling, which
+      is what `vault_routes.get_p("BIBLIOTECA")` resolves to.
+
+    Returns empty string if neither resolves (no active vault, no override).
+    """
+    if value:
+        try:
+            return str(Path(str(value)).expanduser())
+        except Exception:
+            return str(value)
+    try:
+        biblio = get_p("BIBLIOTECA")
+        return str(biblio) if biblio else ""
+    except Exception:
+        return ""
+
+
 def load_config_with_migration() -> Dict[str, Any]:
     """Loads the persisted config, applies legacy mapping migration if needed,
     and persists the migration result so subsequent reads are stable.
+
+    Also resolves `linked_attachments_base` to an absolute path on the fly
+    (without persisting it), so callers — including the standalone sync
+    subprocesses — can rely on `cfg["linked_attachments_base"]` being a usable
+    filesystem path even when the user never set one.
     """
     raw = load_json(CONFIG_PATH, {}) or {}
     merged = {**DEFAULT_CONFIG, **raw}
@@ -368,6 +651,12 @@ def load_config_with_migration() -> Dict[str, Any]:
     after = json.dumps(migrated.get("mapping") or {}, sort_keys=True)
     if before != after:
         save_json(CONFIG_PATH, migrated)
+
+    # Runtime resolution: never persist this so changing the vault path or the
+    # Biblioteca location keeps working without a manual config update.
+    migrated["linked_attachments_base"] = _resolve_linked_attachments_base(
+        raw.get("linked_attachments_base")
+    )
     return migrated
 
 
@@ -385,8 +674,26 @@ async def get_config():
 async def save_config(config: Dict[str, Any] = Body(...)):
     existing = load_json(CONFIG_PATH, {}) or {}
     merged = {**DEFAULT_CONFIG, **existing, **config}
+
+    # Sanejat: només acceptem estratègies conegudes per a `existing_pages_strategy`.
+    strategy = merged.get("existing_pages_strategy")
+    if strategy not in EXISTING_PAGE_STRATEGIES:
+        merged["existing_pages_strategy"] = DEFAULT_EXISTING_PAGE_STRATEGY
+
     save_json(CONFIG_PATH, merged)
     return {"status": "success"}
+
+
+@router.get("/last-sync")
+async def get_last_sync():
+    """Reports timestamps + summary of the most recent sync runs (Z→G and G→Z)."""
+    cfg = load_config_with_migration()
+    return {
+        "last_sync_at": cfg.get("last_sync_at"),
+        "last_sync_z_to_g": cfg.get("last_sync_z_to_g"),
+        "last_sync_g_to_z": cfg.get("last_sync_g_to_z"),
+        "last_sync_summary": cfg.get("last_sync_summary"),
+    }
 
 
 @router.get("/fields")
@@ -653,20 +960,7 @@ async def trigger_sync(background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="No hi ha cap taula de destí configurada.")
 
     def run_sync():
-        try:
-            result = subprocess.run(
-                ["python3", str(SYNC_SCRIPT_PATH)],
-                capture_output=True,
-                text=True,
-                cwd=str(BASE_DIR),
-                timeout=300,  # 5 min — biblioteca Zotero gran pot trigar
-            )
-            if result.returncode != 0:
-                log.error(f"Zotero→Vault sync failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            log.error("Zotero→Vault sync timeout (5 min)")
-        except Exception as e:
-            log.error(f"Zotero sync error: {e}")
+        _run_sync_subprocess(SYNC_SCRIPT_PATH, "zotero→vault")
 
     background_tasks.add_task(run_sync)
     return {"status": "started", "direction": "zotero→vault"}
@@ -688,20 +982,46 @@ async def trigger_sync_back(background_tasks: BackgroundTasks):
         return {"status": "zotero_open", "message": "Tanca Zotero abans de sincronitzar els canvis de Gnosi cap a Zotero."}
 
     def run_sync_back():
-        try:
-            result = subprocess.run(
-                ["python3", str(SYNC_BACK_SCRIPT_PATH)],
-                capture_output=True,
-                text=True,
-                cwd=str(BASE_DIR),
-                timeout=300,
-            )
-            if result.returncode != 0:
-                log.error(f"Vault→Zotero sync failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            log.error("Vault→Zotero sync timeout (5 min)")
-        except Exception as e:
-            log.error(f"Zotero sync-back error: {e}")
+        _run_sync_subprocess(SYNC_BACK_SCRIPT_PATH, "vault→zotero")
 
     background_tasks.add_task(run_sync_back)
     return {"status": "started", "direction": "vault→zotero"}
+
+
+def _run_sync_subprocess(script_path: Path, direction: str) -> None:
+    """Runs a sync script and logs a structured one-line summary on success.
+
+    The scripts print a single JSON line to stdout with their counters; we
+    parse it and emit a clean log line. On failure, stderr is logged for
+    debugging.
+    """
+    try:
+        result = subprocess.run(
+            ["python3", str(script_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(BASE_DIR),
+            timeout=300,
+        )
+        if result.returncode != 0:
+            log.error(f"Zotero {direction} sync failed (rc={result.returncode}): {result.stderr.strip()}")
+            return
+        # Parse the last non-empty stdout line as JSON summary.
+        summary = None
+        for line in reversed((result.stdout or "").splitlines()):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                summary = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            break
+        if summary:
+            log.info(f"Zotero {direction} sync done: {summary}")
+        else:
+            log.info(f"Zotero {direction} sync done (no summary parsed)")
+    except subprocess.TimeoutExpired:
+        log.error(f"Zotero {direction} sync timeout (5 min)")
+    except Exception as e:
+        log.error(f"Zotero {direction} sync error: {e}")
