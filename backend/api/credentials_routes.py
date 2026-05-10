@@ -59,6 +59,10 @@ CREDENTIAL_INFO = {
         "name": "Bluesky",
         "description": "App password for Bluesky",
     },
+    "deepl_api_key": {
+        "name": "DeepL",
+        "description": "API key for DeepL translation (used by translate_row skill)",
+    },
 }
 
 CREDENTIAL_KEYS = list(CREDENTIAL_INFO.keys())

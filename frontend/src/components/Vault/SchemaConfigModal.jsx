@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -36,8 +36,22 @@ const ROLLUP_AGGREGATIONS = [
     { value: 'show_original', label: 'Show original' },
 ];
 
+// Tipus de camp que poden marcar-se com a traduïbles. Exclou camps derivats
+// (formula/rollup/virtual), camps que no tenen contingut textual i tipus
+// estructurals com `button` o `title`.
+const TRANSLATABLE_FIELD_TYPES = new Set([
+    'text', 'rich_text', 'select', 'multi_select', 'status', 'url'
+]);
+
+// Catàleg d'accions que pot executar un camp de tipus `button`. Per ara
+// només la traducció de fila; afegir-hi noves accions implica registrar-les
+// també al backend (skills) i, si convé, a la UI.
+const BUTTON_ACTIONS = [
+    { id: 'translate_row', label_key: 'schema.button_action_translate_row', label_default: 'Traduir fila a subitems' },
+];
+
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [] }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -106,9 +120,28 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <option value="formula">{t('schema.type_formula')}</option>
                         <option value="rollup">{t('schema.type_rollup')}</option>
                         <option value="virtual">{t('schema.type_virtual', 'Derivat')}</option>
+                        <option value="button">{t('schema.type_button', 'Botó')}</option>
                         <option value="title">{t('schema.type_title')}</option>
                     </select>
                 </div>
+
+                {enableTranslation && TRANSLATABLE_FIELD_TYPES.has(field.type) && (
+                    <label
+                        className="flex items-center gap-1.5 cursor-pointer select-none px-2 py-1 rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
+                        title={t('schema.field_translatable_hint', 'Marca aquest camp com a traduïble — el botó de traducció el processarà.')}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={!!field.translatable}
+                            onChange={(e) => handleUpdateField(idx, 'translatable', e.target.checked)}
+                            className="w-3.5 h-3.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer"
+                        />
+                        <Languages size={13} className={field.translatable ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--text-secondary)]">
+                            {t('schema.field_translatable', 'Traduïble')}
+                        </span>
+                    </label>
+                )}
 
                 {field.type !== 'title' && (
                     <button
@@ -120,6 +153,41 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                     </button>
                 )}
             </div>
+
+            {/* Button: action + label config */}
+            {field.type === 'button' && (
+                <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
+                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 flex items-center gap-1.5">
+                            <Zap size={12} /> {t('schema.button_action', 'Acció del botó')}
+                        </label>
+                        <select
+                            value={field.button_action || 'translate_row'}
+                            onChange={(e) => handleUpdateField(idx, 'button_action', e.target.value)}
+                            className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                        >
+                            {BUTTON_ACTIONS.map(action => (
+                                <option key={action.id} value={action.id}>
+                                    {t(action.label_key, action.label_default)}
+                                </option>
+                            ))}
+                        </select>
+                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 mt-2 block">
+                            {t('schema.button_label', 'Etiqueta del botó')}
+                        </label>
+                        <input
+                            type="text"
+                            value={field.button_label || ''}
+                            onChange={(e) => handleUpdateField(idx, 'button_label', e.target.value)}
+                            placeholder={t('schema.button_label_placeholder', 'p.ex. Traduir')}
+                            className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                        />
+                        <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
+                            {t('schema.button_hint', "El botó executarà l'acció seleccionada sobre la fila i, en el cas de la traducció, crearà subitems amb les traduccions.")}
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Files: storage folder config */}
             {field.type === 'files' && (
@@ -285,7 +353,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
             )}
 
             {/* Default Value Section */}
-            {field.type !== 'title' && (
+            {field.type !== 'title' && field.type !== 'button' && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)]">
                     <div className="flex gap-3 items-center px-1">
                         <div className="flex-1">
@@ -305,36 +373,45 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
     );
 }
 
-export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null }) {
+export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false }) {
     const { t } = useTranslation();
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
     const [virtualComputers, setVirtualComputers] = useState([]);
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
+    const [enableTranslation, setEnableTranslation] = useState(initialEnableTranslation);
 
     useEffect(() => {
         if (isOpen) {
             // Transform object to array for editing.
-            const fieldsArray = getSchemaFieldNames(currentSchema || {}).map((name) => ({
-                // Reusem el field_id immutable del config si existeix; en cas
-                // contrari generem-ne un de nou que es persistirà al desar.
-                id: getFieldConfig(currentSchema || {}, name).id || generateFieldId(),
-                name,
-                type: getFieldType(currentSchema || {}, name),
-                formula: getFieldConfig(currentSchema || {}, name).formula || '',
-                compute: getFieldConfig(currentSchema || {}, name).compute || '',
-                defaultFormula: getFieldConfig(currentSchema || {}, name).defaultFormula || '',
-                relationField: getFieldConfig(currentSchema || {}, name).relationField || '',
-                targetProperty: getFieldConfig(currentSchema || {}, name).targetProperty || '',
-                aggregation: getFieldConfig(currentSchema || {}, name).aggregation || 'count_values',
-                limit: getFieldConfig(currentSchema || {}, name).limit ?? '',
-                fallbackValue: getFieldConfig(currentSchema || {}, name).fallbackValue ?? '',
-                relation_database_id: getFieldConfig(currentSchema || {}, name).relation_database_id || '',
-                cardinality: getFieldConfig(currentSchema || {}, name).cardinality || 'one-to-many',
-                visible: initialVisibleProperties ? initialVisibleProperties.includes(name) : true
-            }));
+            const fieldsArray = getSchemaFieldNames(currentSchema || {}).map((name) => {
+                const cfg = getFieldConfig(currentSchema || {}, name);
+                return {
+                    // Reusem el field_id immutable del config si existeix; en cas
+                    // contrari generem-ne un de nou que es persistirà al desar.
+                    id: cfg.id || generateFieldId(),
+                    name,
+                    type: getFieldType(currentSchema || {}, name),
+                    formula: cfg.formula || '',
+                    compute: cfg.compute || '',
+                    defaultFormula: cfg.defaultFormula || '',
+                    relationField: cfg.relationField || '',
+                    targetProperty: cfg.targetProperty || '',
+                    aggregation: cfg.aggregation || 'count_values',
+                    limit: cfg.limit ?? '',
+                    fallbackValue: cfg.fallbackValue ?? '',
+                    relation_database_id: cfg.relation_database_id || '',
+                    cardinality: cfg.cardinality || 'one-to-many',
+                    storage_folder: cfg.storage_folder || '',
+                    translatable: !!cfg.translatable,
+                    button_action: cfg.button_action || '',
+                    button_label: cfg.button_label || '',
+                    visible: initialVisibleProperties ? initialVisibleProperties.includes(name) : true
+                };
+            });
             setFields(fieldsArray);
             setEnableSubitems(initialEnableSubitems);
+            setEnableTranslation(initialEnableTranslation);
 
             // Load all tables for relations
             const fetchTables = async () => {
@@ -359,7 +436,17 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             };
             fetchVirtualComputers();
         }
-    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties]);
+    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation]);
+
+    // En activar traducció per primera vegada, els subitems són necessaris
+    // (les traduccions es desen com a fills). Si l'usuari el desactiva
+    // explícitament després, respectem la seva decisió.
+    const handleToggleTranslation = (next) => {
+        setEnableTranslation(next);
+        if (next && !enableSubitems) {
+            setEnableSubitems(true);
+        }
+    };
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -383,6 +470,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             fallbackValue: '',
             relation_database_id: '',
             cardinality: 'one-to-many',
+            storage_folder: '',
+            translatable: false,
+            button_action: '',
+            button_label: '',
             visible: true,
         }]);
     };
@@ -406,6 +497,19 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         if (key === 'type' && value !== 'relation') {
             newFields[index].relation_database_id = '';
             newFields[index].cardinality = 'one-to-many';
+        }
+        if (key === 'type' && value !== 'button') {
+            newFields[index].button_action = '';
+            newFields[index].button_label = '';
+        }
+        if (key === 'type' && value === 'button') {
+            // Defaults sensats: l'acció més comuna és la traducció.
+            if (!newFields[index].button_action) newFields[index].button_action = 'translate_row';
+            // Els botons no són traduïbles per ells mateixos.
+            newFields[index].translatable = false;
+        }
+        if (key === 'type' && !TRANSLATABLE_FIELD_TYPES.has(value)) {
+            newFields[index].translatable = false;
         }
         setFields(newFields);
     };
@@ -452,6 +556,16 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             return;
         }
 
+        if (fields.some(f => f.type === 'button' && !f.button_action?.trim())) {
+            toast.error(t('schema.error_button_action_required', "Cal seleccionar una acció per al camp de tipus botó."));
+            return;
+        }
+
+        if (enableTranslation && !fields.some(f => f.translatable)) {
+            toast.error(t('schema.error_no_translatable_fields', 'Si la taula és traduïble, marca almenys un camp com a traduïble.'));
+            return;
+        }
+
         // Convert back to object
         const newSchemaObj = {};
         const visibleProperties = [];
@@ -493,6 +607,20 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 }
                 config.cardinality = f.cardinality || 'one-to-many';
             }
+            if (f.type === 'files' && f.storage_folder) {
+                config.storage_folder = f.storage_folder;
+            }
+            if (f.type === 'button') {
+                config.button_action = (f.button_action || 'translate_row').trim();
+                if (f.button_label?.trim()) {
+                    config.button_label = f.button_label.trim();
+                }
+            }
+            // Només persistim `translatable: true` quan el camp està marcat
+            // i el seu tipus el suporta. Si no, no afegim la clau.
+            if (enableTranslation && f.translatable && TRANSLATABLE_FIELD_TYPES.has(f.type)) {
+                config.translatable = true;
+            }
             if (Object.keys(config).length > 0) {
                 newSchemaObj[`${cleanName}_config`] = config;
             }
@@ -504,7 +632,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         try {
             if (onSave) {
                 // Return both schema and new view settings
-                await onSave(newSchemaObj, { enableSubitems, visibleProperties });
+                await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation });
             } else {
                 await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
             }
@@ -548,12 +676,14 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 bg-[var(--bg-primary)]">
-                    <div className="bg-[var(--bg-secondary)] p-4 rounded-lg border border-[var(--border-primary)] shadow-sm mb-6">
-                        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+                    <div className="bg-[var(--bg-secondary)] p-4 rounded-lg border border-[var(--border-primary)] shadow-sm mb-6 space-y-4">
+                        <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                             <Layers size={16} className="text-[var(--gnosi-primary)]" />
                             {t('schema.table_config')}
                         </h3>
-                        <label className="flex items-center gap-3 cursor-pointer group">
+
+                        <div>
+                            <label className="flex items-center gap-3 cursor-pointer group">
                                 <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableSubitems ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'}`}>
                                     <input
                                         type="checkbox"
@@ -563,13 +693,35 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                     />
                                     <div className={`bg-[var(--bg-primary)] w-4 h-4 rounded-full shadow-sm transform transition-transform ${enableSubitems ? 'translate-x-4' : 'translate-x-0'}`} />
                                 </div>
-                            <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                                {t('schema.allow_subitems')}
-                            </span>
-                        </label>
-                        <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
-                            {t('schema.subitems_hint')}
-                        </p>
+                                <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                                    {t('schema.allow_subitems')}
+                                </span>
+                            </label>
+                            <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
+                                {t('schema.subitems_hint')}
+                            </p>
+                        </div>
+
+                        <div className="border-t border-[var(--border-primary)] pt-4">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableTranslation ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'}`}>
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={enableTranslation}
+                                        onChange={(e) => handleToggleTranslation(e.target.checked)}
+                                    />
+                                    <div className={`bg-[var(--bg-primary)] w-4 h-4 rounded-full shadow-sm transform transition-transform ${enableTranslation ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </div>
+                                <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-1.5">
+                                    <Languages size={14} className={enableTranslation ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
+                                    {t('schema.translation_enabled', 'Taula traduïble')}
+                                </span>
+                            </label>
+                            <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
+                                {t('schema.translation_hint', 'Permet marcar camps com a traduïbles i afegir botons que generen subitems amb la traducció a altres idiomes.')}
+                            </p>
+                        </div>
                     </div>
 
                     <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2 px-1">
@@ -592,6 +744,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                         virtualComputers={virtualComputers}
                                         handleUpdateField={handleUpdateField}
                                         handleRemoveField={handleRemoveField}
+                                        enableTranslation={enableTranslation}
                                     />
                                 ))}
                             </div>

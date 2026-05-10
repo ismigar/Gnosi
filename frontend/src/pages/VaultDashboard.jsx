@@ -3161,15 +3161,20 @@ export default function VaultDashboard() {
                             folder={activeTable?.name || t('common.table')}
                             currentSchema={currentSchemaObj}
                             initialEnableSubitems={cv?.enableSubitems}
+                            initialEnableTranslation={!!activeTable?.translation_enabled}
                             initialVisibleProperties={cv?.is_main ? getSchemaFieldNames(currentSchemaObj) : cv?.visibleProperties}
                             onSchemaUpdated={(newSchema) => setSchema(newSchema)}
                             onSave={async (newSchemaObj, viewConfig) => {
                                 const newProperties = buildTablePropertiesFromSchema(newSchemaObj);
                                 try {
-                                    // 1. Update table schema (Backend registry)
+                                    // 1. Update table schema (Backend registry).
+                                    // `translation_enabled` és metadada de la taula
+                                    // (no de la vista) perquè defineix què es pot
+                                    // traduir, no com es mostra.
                                     await axios.post(`/api/vault/tables`, {
                                         ...activeTable,
-                                        properties: newProperties
+                                        properties: newProperties,
+                                        translation_enabled: !!viewConfig.enableTranslation
                                     });
                                     setSchema(newSchemaObj);
 

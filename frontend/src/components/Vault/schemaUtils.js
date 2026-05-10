@@ -63,6 +63,10 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.cardinality) config.cardinality = prop.cardinality;
         if (prop.limit !== undefined && prop.limit !== '') config.limit = prop.limit;
         if (prop.fallbackValue !== undefined && prop.fallbackValue !== '') config.fallbackValue = prop.fallbackValue;
+        if (prop.storage_folder) config.storage_folder = prop.storage_folder;
+        if (prop.translatable === true) config.translatable = true;
+        if (prop.button_action) config.button_action = prop.button_action;
+        if (prop.button_label) config.button_label = prop.button_label;
         if (prop.id) config.id = prop.id;
         if (Object.keys(config).length > 0) {
             schema[`${prop.name}${RESERVED_KEYS_SUFFIX}`] = config;
