@@ -122,6 +122,49 @@ def extract_year(value: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Field value normalizers — apliquem aquí transformacions que serien fràgils
+# si les feiem a la cell del Vault després de sincronitzar (selects, etc.).
+# ---------------------------------------------------------------------------
+
+# Codis ISO 639 / locales → opcions canòniques del select "Idioma" del Vault.
+# Definim només els idiomes habituals; valors no llistats es passen tal qual
+# i quedaran com a opció no llistada al select (visible però fora del catàleg).
+_LANGUAGE_CODES = {
+    # Català
+    "ca": "CA", "cat": "CA", "catalan": "CA", "catalonian": "CA", "catalá": "CA",
+    "catala": "CA", "català": "CA",
+    # Castellà
+    "es": "ES", "spa": "ES", "spanish": "ES", "espanol": "ES", "español": "ES",
+    "castellano": "ES", "castella": "ES", "castellà": "ES",
+    # Anglès (mantenim el codi del select existent: EN-GB)
+    "en": "EN-GB", "eng": "EN-GB", "english": "EN-GB",
+    "en-gb": "EN-GB", "en_gb": "EN-GB", "en-uk": "EN-GB",
+    "en-us": "EN-GB", "en_us": "EN-GB",
+}
+
+
+def _normalize_language(value):
+    """Returns a canonical language code (CA/ES/EN-GB) when the input matches a
+    known ISO code, locale or human name. Unknown values are returned as-is so
+    nothing is silently dropped — they show up at the select as unlisted options.
+    """
+    if value is None:
+        return ""
+    raw = str(value).strip()
+    if not raw:
+        return ""
+    key = raw.lower().replace("_", "-")
+    if key in _LANGUAGE_CODES:
+        return _LANGUAGE_CODES[key]
+    # Locale "xx-YY" → prova amb el prefix.
+    if "-" in key:
+        prefix = key.split("-", 1)[0]
+        if prefix in _LANGUAGE_CODES:
+            return _LANGUAGE_CODES[prefix]
+    return raw  # passthrough
+
+
 def get_zotero_conn(path: str) -> sqlite3.Connection:
     expanded = os.path.expanduser(path)
     if not os.path.exists(expanded):
@@ -272,6 +315,12 @@ def extract_items(z_conn: sqlite3.Connection, linked_base: str = "", zotero_stor
         # (lowercase) abans que el catàleg canònic adoptés `DOI` (Fase 7).
         if "DOI" in fields and "doi" not in item:
             item["doi"] = fields["DOI"]
+
+        # Normalitza `language` a CA/ES/EN-GB perquè coincideixi amb el
+        # select "Idioma" típic del Vault. Valors desconeguts es deixen
+        # tal qual (passthrough); el sync no els descarta mai.
+        if "language" in item:
+            item["language"] = _normalize_language(item["language"])
 
         items.append(item)
     return items
