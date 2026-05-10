@@ -1,7 +1,7 @@
 # Directiva: Abstracció FilesProvider (suport multi-proveïdor d'emmagatzematge)
 
-**Última actualització:** 2026-05-09
-**Estat:** ACTIVE (Fase 2)
+**Última actualització:** 2026-05-10
+**Estat:** ACTIVE (Fase 3)
 **Mòdul:** `monorepo/apps/gnosi/backend/services/files_provider/`
 
 ## Problema
@@ -46,8 +46,31 @@ darrere d'una interfície estable.
   `ICLOUD_WARMUP_TIMEOUT`; cau a les `ONEDRIVE_*` si no estan
   definides. `name = "icloud"` (visible al log).
 
-Fases 3+ (no incloses ara): `GoogleDriveFileStreamProvider` (FUSE,
-detecció diferent), `NextCloudProvider` (WebDAV, mecanisme propi).
+**Fase 3** afegeix:
+
+- **`GoogleDriveProvider`** (subclass de `OneDriveProvider`): Drive
+  for Desktop a macOS modern (≥ 2023) usa el File Provider framework
+  exactament igual que OneDrive. Cap canvi de detecció ni
+  materialització; només `name = "gdrive"` i env vars `GDRIVE_*` amb
+  fallback a `ONEDRIVE_*`. El Drive File Stream antic (FUSE
+  `/Volumes/GoogleDrive/`, pre-2023) NO està suportat — Google va
+  migrar tots els usuaris al sistema modern.
+- **`NextCloudProvider`** (subclass de `OneDriveProvider`):
+  **EXPERIMENTAL**. NextCloud client no usa el File Provider de
+  macOS; en lloc d'això marca placeholder amb un xattr
+  `user.nextcloud.is-virtual-file` (Linux/macOS) o crea fitxers amb
+  extensió `.nc-virt` (configurable via `NEXTCLOUD_PLACEHOLDER_EXT`).
+  La detecció `is_online_only` usa aquests senyals; la materialització
+  delega al daemon HTTP igual que OneDrive (la majoria de versions
+  de NextCloud client responen a `open()/read()` amb la baixada). Si
+  la teva versió no respon, cal un daemon dedicat amb una comanda
+  CLI (`nextcloudcmd --download`) — configurable via
+  `NEXTCLOUD_WARMUP_URL`. Estat: esquelet sense validació a
+  instal·lació real.
+
+Fases futures (no incloses): `WindowsFilesOnDemandProvider` (Cloud
+Filter API + xattr `OFFLINE`), `WebDAVProvider` (mounts WebDAV
+genèrics fora del client NextCloud).
 
 ## Interfície
 
@@ -69,11 +92,19 @@ class FilesProvider(Protocol):
 `get_files_provider()` (singleton) decideix segons:
 
 1. Env var explícita `GNOSI_FILES_PROVIDER`
-   (`local` | `onedrive` | `icloud`).
-2. Si no està definida i `VAULT_HOST_PATH` existeix:
-   - conté `OneDrive` → `onedrive`.
-   - conté `Mobile Documents` o `iCloud` (case-insensitive) → `icloud`.
+   (`local` | `onedrive` | `icloud` | `gdrive` | `nextcloud`).
+2. Si no està definida i `VAULT_HOST_PATH` existeix, en aquest ordre:
+   - conté `OneDrive`                          → `onedrive`
+   - conté `GoogleDrive` o `Google Drive`      → `gdrive`
+   - conté `Mobile Documents` o `iCloud`
+     (case-insensitive)                        → `icloud`
+   - conté `nextcloud` (case-insensitive)      → `nextcloud`
 3. Altrament → `local`.
+
+L'ordre és deliberat: `OneDrive` és el match més comú a Gnosi i va
+primer; els altres serveixen com a fallback per a setups menys habituals.
+Si un path té múltiples keywords (p. ex. carpeta de backup amb noms
+barrejats), guanya el primer match.
 
 L'usuari pot forçar el comportament via env var. La detecció heurística
 existeix només per no trencar instal·lacions actuals.
@@ -196,3 +227,41 @@ abans de caure a les `ONEDRIVE_*`. No duplica lògica.
 Si en algun moment cal un daemon dedicat a iCloud (per separar mètriques,
 limitats per Apple, etc.), defineix `ICLOUD_WARMUP_URL=http://...:6000/warmup`
 i arrenca un segon daemon en aquell port.
+
+### 2026-05-10 — Fase 3: GoogleDrive + NextCloud
+
+S'afegeixen dos proveïdors més per cobrir els casos d'usuaris no-OneDrive.
+
+**`GoogleDriveProvider` (gdrive):** trivial — Drive for Desktop modern
+a macOS comparteix el File Provider framework, així que la subclass
+és gairebé idèntica a `iCloudDriveProvider`. Heurística: keyword
+`GoogleDrive` o `Google Drive` al `VAULT_HOST_PATH`. Env vars
+`GDRIVE_WARMUP_URL` / `GDRIVE_WARMUP_TIMEOUT` amb fallback a `ONEDRIVE_*`.
+
+**`NextCloudProvider` (nextcloud):** primer cas amb mecanisme
+*genuïnament diferent*. NextCloud client no usa File Provider de
+macOS — marca placeholders amb:
+
+- xattr `user.nextcloud.is-virtual-file` (Linux/macOS); o
+- extensió `.nc-virt` (configurable via `NEXTCLOUD_PLACEHOLDER_EXT`).
+
+Detecció via `os.listxattr` (no disponible a Windows → False) i
+comparació d'extensió. Si el bind-mount Docker no propaga xattrs
+(depèn del filesystem host), cau a la detecció per extensió.
+
+La materialització delega al daemon HTTP existent. Funciona si la
+versió del client NextCloud respon a `open()/read()` amb la baixada;
+cal validar amb la teva instal·lació concreta. Si no respon, configura
+`NEXTCLOUD_WARMUP_URL=http://host.docker.internal:5010/warmup` i
+arrenca un daemon dedicat que executi `nextcloudcmd` (no inclòs).
+
+**Tests d'unitat (41 totals):**
+- 19 nous (heurística per gdrive/nextcloud, env vars, override
+  explícit, precedència OneDrive sobre keywords múltiples, detecció
+  per extensió i xattr, no-regressió fitxers normals).
+- Test parametritzat de contracte ampliat als 5 providers.
+
+**Lliçó:** L'abstracció funciona. Afegir un proveïdor amb mecanisme
+de detecció diferent (xattr vs st_blocks) requereix sobreescriure
+només `is_online_only` — la materialització, la concurrency i el
+host-path mapping queden intactes a la base.
