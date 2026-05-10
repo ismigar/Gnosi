@@ -54,14 +54,29 @@ Fitxer: `zotero_db_config.json` (mateixa carpeta de la skill).
   "mapping": {
     "title": "<uuid-property-1>",
     "creators": "<uuid-property-2>",
+    "attachmentPath": "<uuid-property-N>",
     "...": "..."
-  }
+  },
+  "existing_pages_strategy": "match_by_title",
+  "last_sync_at": "2026-05-09T20:00:00Z",
+  "last_sync_z_to_g": "2026-05-09T20:00:00Z",
+  "last_sync_g_to_z": null,
+  "last_sync_summary": {"direction": "z_to_g", "created": 12, "updated": 3, "linked": 2, "...": "..."},
+  "linked_attachments_base": ""
 }
 ```
 
 > ⚠️ El `mapping` desa `property_id` (UUID immutable), **no** `property.name`. Així renombrar columnes des del UI no trenca el sync. La traducció `id → name` actual es fa al runtime contra el registry del Vault.
 
-Endpoint de gestió: `GET/POST /api/zotero/config` — escriptura atòmica via `safe_write_json`.
+> 📎 `linked_attachments_base` (Fase 6) és la carpeta on Zotero té els PDFs enllaçats. Si es deixa buit, el backend el resol automàticament a la carpeta `Biblioteca` del Vault. Tant Zotero com Gnosi apunten al mateix fitxer; no es duplica res.
+
+Endpoints de gestió:
+- `GET/POST /api/zotero/config` — escriptura atòmica via `safe_write_json` (backend) o tmp+`os.replace` (scripts).
+- `GET /api/zotero/inspect/{table_id}` — properties de la taula + comptatge `zotero_key`.
+- `POST /api/zotero/suggest-mapping` — auto-correlació heurística (sinònims ca/es/en/fr).
+- `POST /api/zotero/create-column` — afegeix una property tipada al registry.
+- `GET /api/zotero/validate-config` — errors/warnings vs registry actual.
+- `GET /api/zotero/last-sync` — telemetria de sync per la UI (Fase 4).
 
 ---
 
@@ -69,8 +84,10 @@ Endpoint de gestió: `GET/POST /api/zotero/config` — escriptura atòmica via `
 
 - **Direccionalitat:** sync independents Z→G i G→Z; no hi ha resolució de conflictes automàtica encara (last-write-wins implícit).
 - **Backup vs sync:** el backup mou tota la carpeta `~/Zotero`; no és necessari per al sync de metadata, que usa només `zotero.sqlite`.
-- **Identitat fora de Zotero:** pàgines del Vault sense `zotero_key` queden invisibles per al sync (potencial duplicat). La Fase 3 del pla introduirà match per títol normalitzat.
-- **Validació d'esquema:** el sync no valida tipus de propietat al Vault. Properties tipus `select`/`multi_select` poden rebre opcions no llistades. Pendent: pre-validació al Fase 1.
+- **Identitat fora de Zotero:** pàgines del Vault sense `zotero_key` s'enllacen automàticament per títol normalitzat si `existing_pages_strategy="match_by_title"` (Fase 3). Si no, l'estratègia `skip` les ignora i poden duplicar-se.
+- **Validació d'esquema:** disponible via `GET /api/zotero/validate-config` (Fase 1). La UI mostra un badge "Mapping vàlid/incomplet/invàlid" al panell.
+- **Camps `READ_ONLY_FIELDS`:** `dateAdded`, `dateModified`, `key`, `typeName`, `tags`, `creators` — Zotero és l'única font; mai es propaguen de Gnosi cap a sqlite (Fase 3).
+- **Sync incremental:** ítems amb `dateModified > last_sync_at` només (Fase 3).
 
 ---
 
@@ -80,7 +97,11 @@ Endpoint de gestió: `GET/POST /api/zotero/config` — escriptura atòmica via `
 | --- | --- | --- | --- |
 | 2026-02-09 | UnicodeDecodeError | Output de rsync | Decodificació segura al wrapper Python. |
 | 2026-04-08 | Memòria fragmentada | Directius duplicats | Unificació (skill `zotero_management`). |
-| 2026-05-09 | Skills duplicades | `zotero_sync` (API) i `zotero_management` (docs) divergien | Consolidació en aquesta skill canònica. |
+| 2026-05-09 | Skills duplicades | `zotero_sync` (API) i `zotero_management` (docs) divergien | Consolidació en aquesta skill canònica (Fase 0). |
+| 2026-05-09 | Pàgines del Vault duplicades en pre-existents | Identitat només per `zotero_key` | Match per títol normalitzat amb counter `linked` (Fase 3). |
+| 2026-05-09 | Camps owned-by-Zotero corromputs | Sync escrivia `dateAdded`/`dateModified` cap a sqlite | `READ_ONLY_FIELDS` mai escrits (Fase 3). |
+| 2026-05-09 | Manca de visibilitat post-sync | Logs genèrics, sense comptadors | JSON resum stdout + `last-sync` endpoint + panell UI (Fase 4). |
+| 2026-05-10 | PDFs duplicats al Vault | El sync inicial no portava attachments — l'usuari els hauria d'haver-hi mogut a mà | `attachment_path` resolt des de SQLite (linkMode `attachments:` o `storage:`); cap còpia, només una ruta absoluta compartida (Fase 6). |
 
 ---
 
