@@ -4,7 +4,7 @@ import {
     Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
     ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
-    PenTool, Image, Paperclip, Eye, EyeOff, User
+    PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FolderPickerModal } from './FolderPickerModal';
@@ -285,6 +285,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [zoteroMappingOpen, setZoteroMappingOpen] = useState(false);
     const [zoteroValidation, setZoteroValidation] = useState(null);  // { ok, errors[], warnings[] }
     const [zoteroLastSync, setZoteroLastSync] = useState(null);     // { last_sync_at, last_sync_z_to_g, last_sync_g_to_z, last_sync_summary }
+
+    // Translate-row skill: DeepL key viu al Keychain (`/api/credentials/`),
+    // l'URL de Softcatalà a `.env_shared` (no és secret). El bind és per
+    // separat perquè utilitzen endpoints diferents amb semàntiques diferents.
+    const [translateState, setTranslateState] = useState({
+        deepl_has_value: false,    // GET /api/credentials/deepl_api_key.has_value
+        deepl_input: '',           // valor nou pendent de desar (no es prepopula mai)
+        softcatala_url: '',        // valor actual de SOFTCATALA_API_URL a .env_shared
+        loading: false,
+        saving_deepl: false,
+        saving_softcatala: false,
+    });
 
     const language = draft.settings.language || 'ca';
 
@@ -625,6 +637,78 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 .catch(() => {});
         }
     }, [activeTab, isOpen]);
+
+    // Translate tab: carrega l'estat de la DeepL key (Keychain) i la URL de
+    // Softcatalà (env). Es crida a cada obertura de la pestanya per
+    // reflectir canvis fets via /api/credentials/migrate o edicions
+    // externes a .env_shared.
+    useEffect(() => {
+        if (activeTab !== 'translate' || !isOpen) return;
+        let cancelled = false;
+        setTranslateState(s => ({ ...s, loading: true }));
+        Promise.all([
+            axios.get('/api/credentials/deepl_api_key').then(r => r.data).catch(() => ({ has_value: false })),
+            axios.get('/api/env').then(r => r.data || {}).catch(() => ({})),
+        ]).then(([cred, env]) => {
+            if (cancelled) return;
+            setTranslateState(s => ({
+                ...s,
+                deepl_has_value: !!cred?.has_value,
+                softcatala_url: env?.SOFTCATALA_API_URL || '',
+                deepl_input: '',
+                loading: false,
+            }));
+        });
+        return () => { cancelled = true; };
+    }, [activeTab, isOpen]);
+
+    const handleSaveDeeplKey = async () => {
+        const value = translateState.deepl_input.trim();
+        if (!value) {
+            toast.error(t('translate_settings.error_deepl_required') || 'Introdueix una API key.');
+            return;
+        }
+        setTranslateState(s => ({ ...s, saving_deepl: true }));
+        try {
+            await axios.post('/api/credentials/', { key: 'deepl_api_key', value });
+            toast.success(t('translate_settings.deepl_saved') || 'API key de DeepL desada al Keychain.');
+            setTranslateState(s => ({ ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false }));
+        } catch (err) {
+            console.error('Error saving DeepL API key:', err);
+            toast.error(t('translate_settings.deepl_save_error') || "No s'ha pogut desar la clau de DeepL.");
+            setTranslateState(s => ({ ...s, saving_deepl: false }));
+        }
+    };
+
+    const handleDeleteDeeplKey = async () => {
+        setTranslateState(s => ({ ...s, saving_deepl: true }));
+        try {
+            await axios.delete('/api/credentials/deepl_api_key');
+            toast.success(t('translate_settings.deepl_deleted') || 'API key de DeepL eliminada.');
+            setTranslateState(s => ({ ...s, deepl_has_value: false, deepl_input: '', saving_deepl: false }));
+        } catch (err) {
+            console.error('Error deleting DeepL API key:', err);
+            toast.error(t('translate_settings.deepl_delete_error') || "No s'ha pogut eliminar la clau de DeepL.");
+            setTranslateState(s => ({ ...s, saving_deepl: false }));
+        }
+    };
+
+    const handleSaveSoftcatalaUrl = async () => {
+        const value = translateState.softcatala_url.trim();
+        setTranslateState(s => ({ ...s, saving_softcatala: true }));
+        try {
+            // Cadena buida → reset a default. Enviem string buida per
+            // sobreescriure i, si l'usuari volia eliminar, el backend ho
+            // persisteix com a `SOFTCATALA_API_URL=` (la skill cau al default).
+            await axios.post('/api/env', { SOFTCATALA_API_URL: value });
+            toast.success(t('translate_settings.softcatala_saved') || 'URL de Softcatalà actualitzada.');
+            setTranslateState(s => ({ ...s, saving_softcatala: false }));
+        } catch (err) {
+            console.error('Error saving Softcatalà URL:', err);
+            toast.error(t('translate_settings.softcatala_save_error') || "No s'ha pogut desar la URL de Softcatalà.");
+            setTranslateState(s => ({ ...s, saving_softcatala: false }));
+        }
+    };
 
     useEffect(() => {
         try { localStorage.setItem('gnosi_mail_sync_errors', JSON.stringify([...syncErrorAccounts])); } catch { /* quota */ }
@@ -1398,6 +1482,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
                             <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
                             <SidebarItem id="zotero" icon={BookOpen} label={t('settings.tabs.zotero') || 'Zotero'} active={activeTab === 'zotero'} onClick={() => { setActiveTab('zotero'); setAddAccountType(null); }} />
+                            <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
                         </div>
 
                     </aside>
@@ -3452,6 +3537,126 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </Section>
                                 );
                             })()}
+
+                            {/* TRADUCCIÓ */}
+                            {activeTab === 'translate' && (
+                                <Section
+                                    title={t('translate_settings.section_title') || 'Serveis de traducció'}
+                                    icon={Languages}
+                                >
+                                    <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '24px' }}>
+                                        {t('translate_settings.intro') || "Configura els proveïdors usats pel botó \"Traduir fila\". DeepL cobreix la majoria d'idiomes; Softcatalà s'usa per al català (DeepL no el suporta)."}
+                                    </div>
+
+                                    {/* DeepL */}
+                                    <FormGroup
+                                        label="DeepL — API key"
+                                        description={t('translate_settings.deepl_desc') || "Es desa al Keychain de macOS, no al fitxer .env_shared. Aconsegueix-ne una a deepl.com/pro-api."}
+                                    >
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {translateState.deepl_has_value && !translateState.deepl_input && (
+                                                <div style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    padding: '10px 14px', borderRadius: '12px',
+                                                    background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)',
+                                                    fontSize: '0.85rem', color: 'var(--text-primary)'
+                                                }}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                                                        <Check size={16} style={{ color: '#10b981' }} />
+                                                        {t('translate_settings.deepl_configured') || 'API key configurada al Keychain'}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDeleteDeeplKey}
+                                                        disabled={translateState.saving_deepl}
+                                                        style={{
+                                                            padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700,
+                                                            border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px',
+                                                            background: 'transparent', color: '#ef4444', cursor: 'pointer',
+                                                            opacity: translateState.saving_deepl ? 0.5 : 1,
+                                                        }}
+                                                    >
+                                                        {t('common.delete') || 'Eliminar'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <PasswordInput
+                                                        value={translateState.deepl_input}
+                                                        onChange={e => setTranslateState(s => ({ ...s, deepl_input: e.target.value }))}
+                                                        placeholder={translateState.deepl_has_value
+                                                            ? (t('translate_settings.deepl_placeholder_replace') || 'Introdueix una clau nova per substituir')
+                                                            : (t('translate_settings.deepl_placeholder') || 'Enganxa la teva DeepL API key…')}
+                                                        name="deepl-api-key"
+                                                        autoComplete="new-password"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSaveDeeplKey}
+                                                    disabled={translateState.saving_deepl || !translateState.deepl_input.trim()}
+                                                    className="btn-gnosi-primary"
+                                                    style={{
+                                                        padding: '0 22px', borderRadius: '12px', border: 'none',
+                                                        background: 'var(--gnosi-blue)', color: '#fff', fontWeight: 700,
+                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                                        opacity: (translateState.saving_deepl || !translateState.deepl_input.trim()) ? 0.5 : 1,
+                                                    }}
+                                                >
+                                                    {translateState.saving_deepl && <Loader2 size={14} className="animate-spin" />}
+                                                    <Save size={14} />
+                                                    {t('common.save') || 'Desar'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </FormGroup>
+
+                                    {/* Softcatalà */}
+                                    <FormGroup
+                                        label="Softcatalà — URL del traductor"
+                                        description={t('translate_settings.softcatala_desc') || "Endpoint del servei de traducció de Softcatalà (català). Es desa a .env_shared. Buida = usa el default."}
+                                    >
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+                                            <input
+                                                type="text"
+                                                className="gnosi-input"
+                                                value={translateState.softcatala_url}
+                                                onChange={e => setTranslateState(s => ({ ...s, softcatala_url: e.target.value }))}
+                                                placeholder="https://www.softcatala.org/api/traductor/traduir"
+                                                style={{ flex: 1 }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleSaveSoftcatalaUrl}
+                                                disabled={translateState.saving_softcatala}
+                                                className="btn-gnosi-primary"
+                                                style={{
+                                                    padding: '0 22px', borderRadius: '12px', border: 'none',
+                                                    background: 'var(--gnosi-blue)', color: '#fff', fontWeight: 700,
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                                    opacity: translateState.saving_softcatala ? 0.5 : 1,
+                                                }}
+                                            >
+                                                {translateState.saving_softcatala && <Loader2 size={14} className="animate-spin" />}
+                                                <Save size={14} />
+                                                {t('common.save') || 'Desar'}
+                                            </button>
+                                        </div>
+                                    </FormGroup>
+
+                                    <div style={{
+                                        marginTop: '20px', padding: '16px 20px', borderRadius: '14px',
+                                        background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)',
+                                        display: 'flex', gap: '14px', alignItems: 'flex-start'
+                                    }}>
+                                        <Info size={18} style={{ color: 'var(--gnosi-blue)', flexShrink: 0, marginTop: '2px' }} />
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                                            {t('translate_settings.usage_hint') || "Aquests valors els consumeix l'endpoint /api/vault/skills/translate-row. Després de desar la clau de DeepL pot caldre reiniciar el backend perquè el Keychain es recarregui."}
+                                        </div>
+                                    </div>
+                                </Section>
+                            )}
 
                         </div>
                     </main>
