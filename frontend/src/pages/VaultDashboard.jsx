@@ -3188,8 +3188,9 @@ export default function VaultDashboard() {
                                     }
 
                                     await fetchRegistry();
-                                    toast.success(t('common.structure_updated'));
-                                    setIsSchemaModalOpen(false);
+                                    // No tanquem el modal ni mostrem toast: el modal
+                                    // fa autosave continu — tancar-lo a cada save
+                                    // l'expulsava al primer canvi de l'usuari.
                                 } catch (err) {
                                     console.error("Error saving structure:", err);
                                     toast.error(t('errors.save_config'));
@@ -3213,9 +3214,9 @@ export default function VaultDashboard() {
                         initialSorts={viewToConfigure.sort}
                         initialTab={viewConfigTab}
                         onSave={async (config) => {
+                            // Autosave continu: no tanquem el modal a cada
+                            // canvi. L'usuari el tanca amb X o Esc quan vol.
                             await handleSaveViewConfig(config);
-                            setIsViewConfigOpen(false);
-                            setViewToConfigure(null);
                         }}
                     />
                 )
