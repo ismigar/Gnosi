@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -50,6 +49,50 @@ const TRANSLATABLE_FIELD_TYPES = new Set([
 const BUTTON_ACTIONS = [
     { id: 'translate_row', label_key: 'schema.button_action_translate_row', label_default: 'Traduir fila a subitems' },
 ];
+
+// Indicador d'autosave que es mostra al peu del modal. Reemplaça els
+// botons "Cancel·lar" i "Desar estructura" — el modal ara persisteix
+// canvis en background amb debounce.
+function SaveStatusIndicator({ status, t }) {
+    const kind = status?.kind || 'idle';
+    if (kind === 'idle') return <span />;
+    if (kind === 'pending' || kind === 'saving') {
+        return (
+            <span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]/70">
+                <Loader2 size={13} className="animate-spin" />
+                {t('schema.autosave_saving', 'Desant…')}
+            </span>
+        );
+    }
+    if (kind === 'saved') {
+        return (
+            <span className="flex items-center gap-1.5 text-xs text-[var(--gnosi-primary)]">
+                <Check size={13} />
+                {t('schema.autosave_saved', 'Desat')}
+            </span>
+        );
+    }
+    if (kind === 'invalid') {
+        return (
+            <span
+                className="flex items-center gap-1.5 text-xs text-amber-500 max-w-[60%] truncate"
+                title={status.message}
+            >
+                <AlertCircle size={13} />
+                {status.message}
+            </span>
+        );
+    }
+    if (kind === 'error') {
+        return (
+            <span className="flex items-center gap-1.5 text-xs text-red-500">
+                <AlertCircle size={13} />
+                {status.message || t('schema.error_saving')}
+            </span>
+        );
+    }
+    return <span />;
+}
 
 // Child component for each draggable property
 function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false }) {
@@ -387,14 +430,26 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     // arriben amb noves referències i sobreescriurien edicions de l'usuari
     // que encara no ha desat (toggles, camps afegits, etc.).
     const initializedRef = useRef(false);
+    // Estat d'autosave: 'idle' (acabat d'obrir, res a desar),
+    // 'pending' (canvis pendents de debounce), 'saving' (POST en vol),
+    // 'saved' (últim save OK), 'invalid' (validació falla — no enviem res),
+    // 'error' (servidor ha respost malament).
+    const [saveStatus, setSaveStatus] = useState({ kind: 'idle' });
+    // Ref per saltar-se el primer trigger d'autosave: just després de la
+    // inicialització, els setters causen un re-render que faria saltar
+    // l'autosave amb un payload idèntic al backend. No té sentit enviar-ho.
+    const skipNextAutosaveRef = useRef(false);
 
     useEffect(() => {
         if (!isOpen) {
             initializedRef.current = false;
+            skipNextAutosaveRef.current = false;
+            setSaveStatus({ kind: 'idle' });
             return;
         }
         if (initializedRef.current) return;
         initializedRef.current = true;
+        skipNextAutosaveRef.current = true;
         {
             // Transform object to array for editing.
             const fieldsArray = getSchemaFieldNames(currentSchema || {}).map((name) => {
@@ -542,44 +597,23 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         }
     };
 
-    const handleSave = async () => {
-        // Validate
-        if (fields.some(f => !f.name.trim())) {
-            toast.error(t('schema.error_name_required'));
-            return;
-        }
+    // Validació silenciosa: retorna un missatge si cal corregir alguna cosa,
+    // null si tot OK. No mostra toasts: l'estat es reflecteix a la barra
+    // d'autosave del peu.
+    const validate = () => {
+        if (fields.some(f => !f.name.trim())) return t('schema.error_name_required');
+        if (fields.some(f => f.type === 'formula' && !f.formula?.trim())) return t('schema.error_formula_required');
+        if (fields.some(f => f.type === 'virtual' && !f.compute?.trim())) return t('schema.error_compute_required', 'Cal seleccionar un computador per al camp derivat.');
+        if (fields.some(f => f.type === 'rollup' && !f.relationField?.trim())) return t('schema.error_relation_field_required');
+        if (fields.some(f => f.type === 'rollup' && f.aggregation !== 'count_all' && !f.targetProperty?.trim())) return t('schema.error_target_property_required');
+        if (fields.some(f => f.type === 'button' && !f.button_action?.trim())) return t('schema.error_button_action_required', "Cal seleccionar una acció per al camp de tipus botó.");
+        if (enableTranslation && !fields.some(f => f.translatable)) return t('schema.error_no_translatable_fields', 'Si la taula és traduïble, marca almenys un camp com a traduïble.');
+        return null;
+    };
 
-        if (fields.some(f => f.type === 'formula' && !f.formula?.trim())) {
-            toast.error(t('schema.error_formula_required'));
-            return;
-        }
-
-        if (fields.some(f => f.type === 'virtual' && !f.compute?.trim())) {
-            toast.error(t('schema.error_compute_required', 'Cal seleccionar un computador per al camp derivat.'));
-            return;
-        }
-
-        if (fields.some(f => f.type === 'rollup' && !f.relationField?.trim())) {
-            toast.error(t('schema.error_relation_field_required'));
-            return;
-        }
-
-        if (fields.some(f => f.type === 'rollup' && f.aggregation !== 'count_all' && !f.targetProperty?.trim())) {
-            toast.error(t('schema.error_target_property_required'));
-            return;
-        }
-
-        if (fields.some(f => f.type === 'button' && !f.button_action?.trim())) {
-            toast.error(t('schema.error_button_action_required', "Cal seleccionar una acció per al camp de tipus botó."));
-            return;
-        }
-
-        if (enableTranslation && !fields.some(f => f.translatable)) {
-            toast.error(t('schema.error_no_translatable_fields', 'Si la taula és traduïble, marca almenys un camp com a traduïble.'));
-            return;
-        }
-
-        // Convert back to object
+    // Construeix el schema serialitzable que s'envia al backend a partir de
+    // l'estat local. Pres directament del bloc anterior de `handleSave`.
+    const buildPayload = () => {
         const newSchemaObj = {};
         const visibleProperties = [];
         fields.forEach(f => {
@@ -641,38 +675,57 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 visibleProperties.push(cleanName);
             }
         });
-
-        try {
-            if (onSave) {
-                // Return both schema and new view settings
-                await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation });
-            } else {
-                await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
-            }
-            toast.success(t('schema.success_updated'));
-            onSchemaUpdated(newSchemaObj);
-            onClose();
-        } catch (err) {
-            console.error(err);
-            toast.error(t('schema.error_saving'));
-        }
+        return { newSchemaObj, visibleProperties };
     };
+
+    // Autosave amb debounce: després d'un canvi, espera 600ms d'inactivitat,
+    // valida i envia. Si la validació falla, marca l'estat com a 'invalid'
+    // i no envia res — l'usuari veu el motiu al peu del modal.
+    useEffect(() => {
+        if (!isOpen) return;
+        if (!initializedRef.current) return; // primera renderització: no autosave
+        if (skipNextAutosaveRef.current) {
+            // Els setters d'inicialització acaben de causar aquest trigger.
+            // El payload és idèntic al backend; res a desar.
+            skipNextAutosaveRef.current = false;
+            return;
+        }
+        const validationError = validate();
+        if (validationError) {
+            setSaveStatus({ kind: 'invalid', message: validationError });
+            return;
+        }
+        setSaveStatus({ kind: 'pending' });
+        const handle = setTimeout(async () => {
+            setSaveStatus({ kind: 'saving' });
+            try {
+                const { newSchemaObj, visibleProperties } = buildPayload();
+                if (onSave) {
+                    await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation });
+                } else {
+                    await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
+                }
+                onSchemaUpdated?.(newSchemaObj);
+                setSaveStatus({ kind: 'saved' });
+            } catch (err) {
+                console.error(err);
+                setSaveStatus({ kind: 'error', message: t('schema.error_saving') });
+            }
+        }, 600);
+        return () => clearTimeout(handle);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, fields, enableSubitems, enableTranslation]);
 
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
                 onClose();
-            } else if (e.key === 'Enter') {
-                if (document.activeElement.tagName === 'INPUT') {
-                   // Permetem Enter en inputs de nom de propietat etc.
-                }
-                handleSave();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, handleSave]);
+    }, [isOpen, onClose]);
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm">
@@ -772,13 +825,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     </button>
                 </div>
 
-                <div className="px-6 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-3 shrink-0">
-                    <button onClick={onClose} className="px-4 py-2 border border-[var(--border-primary)] rounded-md text-sm font-bold text-[var(--text-secondary)]/60 hover:bg-[var(--bg-primary)] transition-colors">
-                        {t('common.cancel')}
-                    </button>
-                    <button onClick={handleSave} className="btn-gnosi btn-gnosi-primary px-6">
-                        {t('schema.save_structure')}
-                    </button>
+                <div className="px-6 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-between items-center shrink-0">
+                    <span className="text-[11px] text-[var(--text-secondary)]/60">
+                        {t('schema.autosave_hint', 'Els canvis es desen automàticament. Tanca amb Esc o ✕.')}
+                    </span>
+                    <SaveStatusIndicator status={saveStatus} t={t} />
                 </div>
             </div>
         </div>
