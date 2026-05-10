@@ -1,5 +1,7 @@
-import { X, Eye, EyeOff, SlidersHorizontal, ArrowUpDown, Filter, Table, LayoutGrid, Columns2, List, CalendarRange } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Eye, EyeOff, SlidersHorizontal, ArrowUpDown, Filter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { toast } from '../../lib/toast';
 import { VIEW_TYPES } from './viewConstants';
 import { getSchemaFieldNames } from './schemaUtils';
 
@@ -61,31 +63,65 @@ export function ViewConfigModal({
     const [sorts, setSorts] = useState([]);
     const [currentViewType, setCurrentViewType] = useState(viewType || 'table');
     const allFields = schema ? getSchemaFieldNames(schema) : [];
+    const initializedRef = useRef(false);
+    const skipNextAutosaveRef = useRef(false);
 
     useEffect(() => {
-        if (isOpen) {
-            setActiveTab(initialTab || 'properties');
-            setVisibleProperties(initialVisibleProperties || allFields);
-            setCardSize(initialCardSize || 'medium');
-            setGalleryPreview(initialGalleryPreview || 'none');
-            setFilters(initialFilters || []);
-            setSorts(initialSorts || []);
-            setCurrentViewType(viewType || 'table');
+        if (!isOpen) {
+            initializedRef.current = false;
+            skipNextAutosaveRef.current = false;
+            return;
         }
+        if (initializedRef.current) return;
+        initializedRef.current = true;
+        skipNextAutosaveRef.current = true;
+        setActiveTab(initialTab || 'properties');
+        setVisibleProperties(initialVisibleProperties || allFields);
+        setCardSize(initialCardSize || 'medium');
+        setGalleryPreview(initialGalleryPreview || 'none');
+        setFilters(initialFilters || []);
+        setSorts(initialSorts || []);
+        setCurrentViewType(viewType || 'table');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialTab, initialVisibleProperties, initialCardSize, initialGalleryPreview, initialFilters, initialSorts, viewType]);
+
+    // Autosave silenciós (debounce 600ms). Errors via toast; sense
+    // indicadors visuals — la convenció de l'app és que els modals no
+    // mostrin estat de save.
+    useEffect(() => {
+        if (!isOpen) return;
+        if (!initializedRef.current) return;
+        if (skipNextAutosaveRef.current) {
+            skipNextAutosaveRef.current = false;
+            return;
+        }
+        const handle = setTimeout(() => {
+            try {
+                onSave?.({
+                    visibleProperties,
+                    cardSize,
+                    galleryPreview,
+                    filters,
+                    sort: sorts,
+                    type: currentViewType,
+                });
+            } catch (err) {
+                console.error(err);
+                toast.error(t('errors.save_view', 'Error en desar la vista'));
+            }
+        }, 600);
+        return () => clearTimeout(handle);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, visibleProperties, cardSize, galleryPreview, filters, sorts, currentViewType]);
 
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                onClose();
-            } else if (e.key === 'Enter') {
-                handleSave();
-            }
+            if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, handleSave]);
+    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 
@@ -117,17 +153,6 @@ export function ViewConfigModal({
 
     const removeSort = (id) => {
         setSorts(prev => prev.filter(s => s.id !== id));
-    };
-
-    const handleSave = () => {
-        onSave({
-            visibleProperties,
-            cardSize,
-            galleryPreview,
-            filters,
-            sort: sorts,
-            type: currentViewType,
-        });
     };
 
     return (
@@ -338,15 +363,6 @@ export function ViewConfigModal({
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-3 shrink-0">
-                    <button onClick={onClose} className="px-4 py-2 border border-[var(--border-primary)] rounded-lg text-sm font-semibold text-[var(--text-secondary)]/60 hover:bg-[var(--bg-primary)] transition-colors">
-                        {t('common.cancel')}
-                    </button>
-                    <button onClick={handleSave} className="btn-gnosi btn-gnosi-primary px-8">
-                        {t('common.apply')}
-                    </button>
-                </div>
             </div>
         </div>
     );

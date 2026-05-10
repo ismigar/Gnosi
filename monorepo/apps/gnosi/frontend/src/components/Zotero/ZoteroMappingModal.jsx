@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { X, Plus, RefreshCw, AlertTriangle, Info, Save } from 'lucide-react';
+import { X, Plus, RefreshCw, AlertTriangle } from 'lucide-react';
 import { toast } from '../../lib/toast';
 
 const IGNORE_VALUE = '__ignore__';
@@ -9,12 +9,13 @@ const IGNORE_VALUE = '__ignore__';
 export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
     const [tableInfo, setTableInfo] = useState(null);     // { table_name, properties[], total_pages, pages_with_zotero_key, pages_without_zotero_key }
     const [zFields, setZFields] = useState([]);            // [{id, slug}]
     const [mapping, setMapping] = useState({});             // { z_field_id: property_id | "" }
     const [conflicts, setConflicts] = useState([]);
     const [error, setError] = useState('');
+    const initializedRef = useRef(false);
+    const skipNextAutosaveRef = useRef(false);
 
     const propertyById = useMemo(() => {
         const out = {};
@@ -24,7 +25,12 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
 
     // Carrega inicial: inspect + fields + suggest-mapping
     useEffect(() => {
-        if (!isOpen || !tableId) return;
+        if (!isOpen) {
+            initializedRef.current = false;
+            skipNextAutosaveRef.current = false;
+            return;
+        }
+        if (!tableId) return;
         let cancelled = false;
         setLoading(true);
         setError('');
@@ -46,6 +52,11 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
                 Object.keys(merged).forEach(k => { if (!merged[k]) merged[k] = ''; });
                 setMapping(merged);
                 setConflicts(suggestRes.data?.conflicts || []);
+                // Marquem com a inicialitzat un cop tenim dades del backend; el
+                // canvi de `mapping` que ve a continuació és el del backend
+                // mateix, no una edició de l'usuari → cal saltar-se l'autosave.
+                initializedRef.current = true;
+                skipNextAutosaveRef.current = true;
             })
             .catch(e => {
                 if (!cancelled) setError(e?.response?.data?.detail || e.message || 'Error carregant dades');
@@ -61,6 +72,35 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [isOpen, onClose]);
+
+    // Autosave silenciós del mapping (debounce 600ms). Errors via toast.
+    useEffect(() => {
+        if (!isOpen) return;
+        if (!initializedRef.current) return;
+        if (skipNextAutosaveRef.current) {
+            skipNextAutosaveRef.current = false;
+            return;
+        }
+        const handle = setTimeout(async () => {
+            try {
+                const cleanMapping = Object.fromEntries(
+                    Object.entries(mapping).filter(([, v]) => !!v)
+                );
+                const cfgRes = await axios.get('/api/zotero/config');
+                const current = cfgRes.data || {};
+                await axios.post('/api/zotero/config', {
+                    ...current,
+                    target_table: tableId,
+                    mapping: cleanMapping,
+                });
+                if (onSaved) onSaved(cleanMapping);
+            } catch (e) {
+                toast.error(e?.response?.data?.detail || t('settings.zotero.mapping.save_error') || 'Error desant');
+            }
+        }, 600);
+        return () => clearTimeout(handle);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, mapping, tableId]);
 
     // IMPORTANT: tots els hooks han d'anar abans de qualsevol early return
     // (Rules of Hooks). Aquest useMemo originalment vivia després del
@@ -91,7 +131,6 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
                 properties: [...(prev?.properties || []), newProp],
             }));
             setMapping(prev => ({ ...prev, [zField.id]: newProp.id }));
-            toast.success(t('settings.zotero.mapping.column_created', { name: newProp.name }) || `Columna "${newProp.name}" creada`);
         } catch (e) {
             toast.error(e?.response?.data?.detail || t('settings.zotero.mapping.column_create_error') || 'Error creant columna');
         }
@@ -107,33 +146,8 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
             zFields.forEach(f => { fullMap[f.id] = suggested[f.id] || ''; });
             setMapping(fullMap);
             setConflicts(res.data?.conflicts || []);
-            toast.success(t('settings.zotero.mapping.suggestion_applied') || 'Suggerència aplicada');
         } catch (e) {
             toast.error(e?.response?.data?.detail || 'Error');
-        }
-    };
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            // Filtra valors buits — només desem mapping efectiu
-            const cleanMapping = Object.fromEntries(
-                Object.entries(mapping).filter(([, v]) => !!v)
-            );
-            const cfgRes = await axios.get('/api/zotero/config');
-            const current = cfgRes.data || {};
-            await axios.post('/api/zotero/config', {
-                ...current,
-                target_table: tableId,
-                mapping: cleanMapping,
-            });
-            toast.success(t('settings.zotero.mapping.saved') || 'Mapping desat');
-            if (onSaved) onSaved(cleanMapping);
-            onClose();
-        } catch (e) {
-            toast.error(e?.response?.data?.detail || t('settings.zotero.mapping.save_error') || 'Error desant');
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -303,7 +317,7 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
 
                 {!loading && (
                     <div style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        display: 'flex', justifyContent: 'flex-start', alignItems: 'center',
                         marginTop: '24px', paddingTop: '20px',
                         borderTop: '1px solid var(--settings-border)',
                     }}>
@@ -317,28 +331,6 @@ export default function ZoteroMappingModal({ isOpen, onClose, tableId, onSaved }
                         >
                             <RefreshCw size={14} /> {t('settings.zotero.mapping.reapply_suggestion') || 'Reaplica auto-suggerència'}
                         </button>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                className="btn-gnosi-secondary"
-                                onClick={onClose}
-                                style={{ padding: '10px 18px', fontSize: '0.85rem', borderRadius: '12px' }}
-                            >
-                                {t('common.cancel') || 'Cancel·lar'}
-                            </button>
-                            <button
-                                className="btn-gnosi-primary"
-                                onClick={handleSave}
-                                disabled={saving}
-                                style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                    padding: '10px 22px', fontSize: '0.9rem', borderRadius: '12px',
-                                    opacity: saving ? 0.6 : 1,
-                                }}
-                            >
-                                {saving ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
-                                {t('settings.zotero.mapping.save') || 'Desar mapping'}
-                            </button>
-                        </div>
                     </div>
                 )}
             </div>

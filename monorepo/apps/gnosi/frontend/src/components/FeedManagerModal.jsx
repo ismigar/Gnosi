@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Plus, Trash2, Upload, Rss, Mail, Clock, RefreshCw, AlertCircle, Check } from 'lucide-react';
+import { toast } from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
 
 const API_BASE = '/api';
@@ -10,15 +11,12 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('sources'); // sources | add | scheduler
     const [runningTask, setRunningTask] = useState(null); // name of currently running task
-    const [runResult, setRunResult] = useState(null); // { name, type, text }
     const [newUrl, setNewUrl] = useState('');
     const [newName, setNewName] = useState('');
     const [newCategory, setNewCategory] = useState('');
     const [addLoading, setAddLoading] = useState(false);
-    const [addMessage, setAddMessage] = useState(null);
 
     const fileRef = useRef(null);
-    const [opmlMessage, setOpmlMessage] = useState(null);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
 
     useEffect(() => {
@@ -72,7 +70,6 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         e.preventDefault();
         if (!newUrl.trim()) return;
         setAddLoading(true);
-        setAddMessage(null);
         try {
             const res = await fetch(`${API_BASE}/reader/sources`, {
                 method: 'POST',
@@ -85,17 +82,16 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                 }),
             });
             if (res.ok) {
-                setAddMessage({ type: 'success', text: '✅ Feed afegit!' });
                 setNewName('');
                 setNewUrl('');
                 setNewCategory('');
                 fetchSources();
             } else {
                 const err = await res.json();
-                setAddMessage({ type: 'error', text: `❌ ${err.detail || 'Error'}` });
+                toast.error(err.detail || 'Error afegint feed');
             }
         } catch {
-            setAddMessage({ type: 'error', text: '❌ No s\'ha pogut connectar' });
+            toast.error('No s\'ha pogut connectar');
         } finally {
             setAddLoading(false);
         }
@@ -124,7 +120,6 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function handleOpmlUpload(file) {
         if (!file) return;
-        setOpmlMessage(null);
         const formData = new FormData();
         formData.append('file', file);
         try {
@@ -134,13 +129,12 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
             });
             const data = await res.json();
             if (res.ok) {
-                setOpmlMessage({ type: 'success', text: `✅ ${data.message}` });
                 fetchSources();
             } else {
-                setOpmlMessage({ type: 'error', text: `❌ ${data.detail || 'Error'}` });
+                toast.error(data.detail || 'Error processant OPML');
             }
         } catch {
-            setOpmlMessage({ type: 'error', text: '❌ Error al pujar el fitxer' });
+            toast.error('Error al pujar el fitxer');
         }
     }
 
@@ -159,22 +153,19 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function handleRunTask(name) {
         setRunningTask(name);
-        setRunResult(null);
         try {
             const res = await fetch(`${API_BASE}/schedulers/${name}/run`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
-                const msg = data.result?.message || 'Executat correctament';
-                setRunResult({ name, type: 'success', text: `✅ ${msg}` });
                 fetchSources();
                 fetchScheduler();
                 if (onRefresh) onRefresh();
             } else {
-                setRunResult({ name, type: 'error', text: `❌ ${data.error || 'Error desconegut'}` });
+                toast.error(data.error || 'Error desconegut');
                 fetchScheduler();
             }
         } catch (e) {
-            setRunResult({ name, type: 'error', text: '❌ No s\'ha pogut executar' });
+            toast.error('No s\'ha pogut executar');
             console.error('Error running task:', e);
         } finally {
             setRunningTask(null);
@@ -305,9 +296,6 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                                         <span>{addLoading ? 'Afegint...' : 'Afegir Feed'}</span>
                                     </button>
                                 </form>
-                                {addMessage && (
-                                    <p className={`feed-msg feed-msg--${addMessage.type}`}>{addMessage.text}</p>
-                                )}
                             </section>
 
                             {/* OPML Import */}
@@ -339,9 +327,6 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                                         hidden
                                     />
                                 </div>
-                                {opmlMessage && (
-                                    <p className={`feed-msg feed-msg--${opmlMessage.type}`}>{opmlMessage.text}</p>
-                                )}
                             </section>
                         </div>
                     )}
@@ -395,9 +380,6 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                                                     </button>
                                                 </div>
                                             </div>
-                                            {runResult && runResult.name === task.name && (
-                                                <p className={`feed-msg feed-msg--${runResult.type}`} style={{ padding: '4px 16px 8px' }}>{runResult.text}</p>
-                                            )}
                                         </div>
                                     ))}
                                 </div>
