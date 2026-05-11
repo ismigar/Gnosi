@@ -2963,8 +2963,11 @@ async def get_page_preview(page_id: str, full: bool = False):
     def _read_and_parse():
         if _is_dashboard_file_path(file_path):
             return _read_dashboard_file(file_path)
+        # Mateixos reintents que get_page (~4.55s total). Amb només
+        # 0.35s, OneDrive encara està desperta i el preview es degradava
+        # silenciosament a buit → el feed mai mostrava body/imatges.
         last_error = None
-        delays = [0.05, 0.1, 0.2]
+        delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
         for attempt in range(len(delays) + 1):
             try:
                 raw_content = file_path.read_text(encoding="utf-8")
