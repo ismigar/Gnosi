@@ -11,7 +11,7 @@ import { isCalendarPage, isAppContent } from './schemaUtils';
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement, indented = false }) => (
     <button
         onClick={onClick}
-        className={`group w-full flex items-center gap-2 ${indented ? 'pl-[30px] pr-3' : 'px-3'} py-1.5 text-sm rounded-md transition-colors ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+        className={`group w-full flex items-center gap-2 ${indented ? 'pl-[34px] pr-3' : 'px-3'} py-1.5 text-sm rounded-md transition-colors ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
     >
         {emoji ? (
             <IconRenderer icon={emoji} size={16} />
