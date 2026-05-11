@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
   Image as ImageIcon,
-  Upload,
   Filter,
   ChevronRight,
   ChevronDown,
@@ -13,7 +12,6 @@ import {
   Search,
   Grid,
   List as ListIcon,
-  Plus,
   MapPin,
   Calendar,
   Tag,
@@ -35,10 +33,12 @@ import {
   AlertCircle,
   Bookmark,
   BookmarkPlus,
-  BookmarkCheck
+  BookmarkCheck,
+  PanelLeft
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AppHeader } from '../components/AppHeader';
 
 const PERSPECTIVES = [ // Mantenim per referència o inbox, però prioritzem àlbums
   { id: 'General', label: 'General', icon: FolderOpen, color: 'text-blue-500' },
@@ -619,7 +619,7 @@ export default function MediaCenter() {
   const [activeAlbum, setActiveAlbum] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
-  const [isUploading, setIsUploading] = useState(false);
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editingMetadata, setEditingMetadata] = useState({ tags: [], description: '' });
 
@@ -862,36 +862,6 @@ export default function MediaCenter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAlbum, activeRoot, filters, sort]);
 
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setIsUploading(true);
-      toast.loading('Pujant fitxer...', { id: 'upload' });
-      // Per al root "images" mantenim el flux antic (galeria amb àlbums).
-      // Per a la resta, derivar a /assets/upload (no hi ha noció d'àlbum).
-      let url;
-      if (activeRoot === 'images') {
-        const album = activeAlbum || 'General';
-        url = `/api/vault/media/upload?album=${encodeURIComponent(album)}`;
-      } else {
-        url = '/api/vault/assets/upload';
-      }
-      await axios.post(url, formData);
-      toast.success('Fitxer pujat correctament', { id: 'upload' });
-      fetchMedia(true);
-    } catch (err) {
-      console.error('Error pujant fitxer:', err);
-      toast.error('Error en la càrrega', { id: 'upload' });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   const handlePhotoClick = (item) => {
     setSelectedPhoto(item);
     setEditingMetadata({ 
@@ -980,57 +950,38 @@ export default function MediaCenter() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--bg-secondary)] overflow-hidden">
-      {/* Header */}
-      <header className="p-6 bg-[var(--bg-primary)] border-b border-[var(--border-primary)] flex justify-between items-center z-10 shadow-sm">
+    <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
+      <AppHeader icon={ImageIcon} title="Gestor de Mitjans">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[var(--gnosi-primary)]/10 rounded-lg text-[var(--gnosi-primary)]">
-            <ImageIcon size={24} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Gestor de Mitjans</h1>
-            <p className="text-xs text-[var(--text-tertiary)]">
-              Imatges, vídeos, àudio i PDFs · {ROOT_META[activeRoot]?.label || activeRoot}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] group-focus-within:text-[var(--gnosi-primary)] transition-colors" size={16} />
-            <input 
-              type="text" 
-              placeholder="Cerca en l'arxiu..." 
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none" size={14} />
+            <input
+              type="text"
+              placeholder="Cerca..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 w-64 transition-all"
+              className="h-7 pl-8 pr-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md text-[12px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/30 w-56"
             />
           </div>
 
-          <div className="flex bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-primary)]">
-            <button 
+          <div className="flex items-center gap-0.5 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
+            <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-[var(--bg-primary)] shadow-sm text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
+              title="Vista de quadrícula"
+              className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
             >
-              <Grid size={18} />
+              <Grid size={14} strokeWidth={2.5} />
             </button>
-            <button 
+            <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-[var(--bg-primary)] shadow-sm text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
+              title="Vista de llista"
+              className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
             >
-              <ListIcon size={18} />
+              <ListIcon size={14} strokeWidth={2.5} />
             </button>
           </div>
-
-          {(activeRoot === 'images' || activeRoot === 'assets') && (
-            <label className="flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg hover:bg-[var(--gnosi-primary)]/90 cursor-pointer transition-all shadow-lg active:scale-95">
-              <Plus size={18} />
-              <span className="text-sm font-medium">Penjar fitxer</span>
-              <input type="file" className="hidden" onChange={handleUpload} />
-            </label>
-          )}
         </div>
-      </header>
+      </AppHeader>
 
       {/* Toolbar de filtres + ordenació (només quan hi ha àlbum actiu) */}
       {activeAlbum !== null && (
@@ -1048,8 +999,12 @@ export default function MediaCenter() {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Albums */}
-        <aside className="w-64 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
+        {/* Sidebar Albums (col·lapsable) */}
+        <div
+          className="transition-[width] duration-300 ease-in-out overflow-hidden border-r border-[var(--border-primary)] min-w-0"
+          style={{ width: showLeftSidebar ? '16rem' : '0', borderRightWidth: showLeftSidebar ? '1px' : '0' }}
+        >
+        <aside className="w-64 h-full bg-[var(--bg-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
           {/* Tabs de root: Images, Assets, Biblioteca, Vault */}
           {roots.length > 1 && (
             <>
@@ -1147,9 +1102,23 @@ export default function MediaCenter() {
             />
           ))}
         </aside>
+        </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-3 py-2 border-b border-[var(--border-primary)] flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowLeftSidebar(!showLeftSidebar)}
+              title={showLeftSidebar ? "Amaga la barra lateral" : "Mostra la barra lateral"}
+              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-lg transition-colors shrink-0"
+            >
+              <PanelLeft size={16} />
+            </button>
+            <span className="text-xs text-[var(--text-tertiary)] truncate">
+              {ROOT_META[activeRoot]?.label || activeRoot}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
           {activeAlbum === null ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]/30 rounded-2xl border-2 border-dashed border-[var(--border-primary)]">
               <Folder size={64} className="mb-4 opacity-20" />
@@ -1210,6 +1179,7 @@ export default function MediaCenter() {
               </div>
             </>
           )}
+        </div>
         </div>
 
         {/* Details Panel */}
