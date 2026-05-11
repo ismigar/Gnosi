@@ -270,13 +270,13 @@ function RetryableImage({ src, title, onClick }) {
     const [hidden, setHidden] = useState(false);
     if (hidden) return null;
     return (
-        <button onClick={onClick} className="block" title={title}>
+        <button onClick={onClick} className="block w-full" title={title}>
             <img
                 key={attempt}
                 src={src}
                 alt=""
                 loading="lazy"
-                className="max-h-48 max-w-full rounded-md border border-[var(--border-primary)]/40 bg-[var(--bg-secondary)] object-cover"
+                className="w-full h-auto rounded-md border border-[var(--border-primary)]/40 bg-[var(--bg-secondary)]"
                 onError={() => {
                     if (attempt < 3) {
                         const delay = 500 * Math.pow(2, attempt);
@@ -443,7 +443,13 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
                     const c = normalizeAssetUrl(cover);
                     if (c && !norm.includes(c)) norm.unshift(c);
                 }
-                _cacheSet(row.id, { bodyMd: md, images: norm });
+                // No cachejar resultats buits: el backend pot haver retornat 200
+                // amb body_md i images buits durant una degradació transitòria
+                // d'OneDrive (Errno 35). Sense aquest guard, el feed quedaria
+                // permanentment sense imatges fins a recarregar la pestanya.
+                if (md || norm.length > 0) {
+                    _cacheSet(row.id, { bodyMd: md, images: norm });
+                }
                 setBodyMd(md);
                 setImages(norm);
                 setHydrated(true);

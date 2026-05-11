@@ -871,7 +871,13 @@ body {
 .bn-block-content > .node-gnosi_view.ProseMirror-selectednode,
 .ProseMirror-selectednode.node-gnosi_view,
 .bn-react-node-view-renderer.node-gnosi_view.ProseMirror-selectednode,
-.node-gnosi_view.ProseMirror-selectednode {
+.node-gnosi_view.ProseMirror-selectednode,
+/* Cobertura completa: BlockNote aplica outline a `> *` (qualsevol fill
+   directe), però el primer fill del DbViewEmbed no porta classe
+   `.node-gnosi_view`. Aquí atrapem qualsevol fill directe del wrapper
+   identificat per `data-content-type="gnosi_view"`. */
+.bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode > *,
+.ProseMirror-selectednode > .bn-block-content[data-content-type="gnosi_view"] > * {
     outline: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
