@@ -2097,6 +2097,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isPageViewModalOpen, setIsPageViewModalOpen] = useState(false);
     const [pageViewPreselectedTable, setPageViewPreselectedTable] = useState('');
+    const [pageViewEditingBlock, setPageViewEditingBlock] = useState(null);
     const [isAddingProp, setIsAddingProp] = useState(false);
     const [newPropName, setNewPropName] = useState("");
     const [incomingLinks, setIncomingLinks] = useState([]);
@@ -2115,8 +2116,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const titleInputRef = useRef(null);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
-    const openPageViewModalFromContext = useCallback((tableId = '') => {
+    const openPageViewModalFromContext = useCallback((tableId = '', editingBlock = null) => {
         setPageViewPreselectedTable(tableId);
+        setPageViewEditingBlock(editingBlock);
         setIsPageViewModalOpen(true);
     }, []);
 
@@ -2875,10 +2877,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 setSaveStatus={setSaveStatus}
                                 metadataRef={metadataRef}
                                 isEditable={isEditable}
-                                onOpenPageViewModal={(tableId = '') => {
-                                    setPageViewPreselectedTable(tableId);
-                                    setIsPageViewModalOpen(true);
-                                }}
+                                onOpenPageViewModal={contextValue.openPageViewModalFromContext}
                             />
                         )}
                     </ErrorBoundary>
@@ -2890,12 +2889,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 onClose={(changed) => {
                     setIsPageViewModalOpen(false);
                     setPageViewPreselectedTable('');
+                    setPageViewEditingBlock(null);
                     if (changed) onRefreshNotes?.();
                 }}
                 pageId={noteFilename}
                 allTables={allTables}
                 apiFetch={apiFetch}
                 preselectedTableId={pageViewPreselectedTable}
+                editingBlock={pageViewEditingBlock}
             />
 
             {/* Pickers Portals */}

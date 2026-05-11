@@ -1297,8 +1297,8 @@ export function DbViewEmbed({ block }) {
     }, [view, pageId]);
 
     const handleOpenConfig = useCallback(() => {
-        if (onOpenPageViewModal && tableId) onOpenPageViewModal(tableId);
-    }, [onOpenPageViewModal, tableId]);
+        if (onOpenPageViewModal && tableId) onOpenPageViewModal(tableId, block);
+    }, [onOpenPageViewModal, tableId, block]);
 
     if (loading) {
         return (
