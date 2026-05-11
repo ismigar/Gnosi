@@ -13,4 +13,5 @@ export const VaultEditorContext = createContext({
     onOpenParallel: null,
     idToTitle: {},
     registry: { databases: [], tables: [], views: [] },
+    pageId: null,
 });

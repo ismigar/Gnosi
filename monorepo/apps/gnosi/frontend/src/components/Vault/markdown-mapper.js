@@ -134,6 +134,15 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return `\`\`\`gnosi-database\n${JSON.stringify(block.props, null, 2)}\n\`\`\`\n`;
     }
 
+    if (block.type === "gnosi_view") {
+        const payload = {
+            view_id: String(block.props?.view_id || ''),
+            heading: String(block.props?.heading || ''),
+            heading_level: Number(block.props?.heading_level) || 1,
+        };
+        return `\`\`\`gnosi-view\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
+    }
+
     if (block.type === "transclusion") {
         const target = String(block?.props?.target || "").trim();
         const alias = String(block?.props?.alias || "").trim();
@@ -316,6 +325,38 @@ const processBlocksForWikilinks = (blocks) => {
             newBlock.children = processBlocksForWikilinks(newBlock.children);
         }
         return newBlock;
+    });
+};
+
+const codeBlockText = (block) => {
+    if (!block?.content) return '';
+    if (typeof block.content === 'string') return block.content;
+    if (!Array.isArray(block.content)) return '';
+    return block.content
+        .map(it => (it && typeof it === 'object' && typeof it.text === 'string') ? it.text : '')
+        .join('');
+};
+
+const promoteCustomFences = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        if (block?.children && Array.isArray(block.children)) {
+            block = { ...block, children: promoteCustomFences(block.children) };
+        }
+        if (block?.type !== 'codeBlock') return block;
+        const lang = String(block.props?.language || '').toLowerCase();
+        if (lang !== 'gnosi-view') return block;
+        let payload = null;
+        try { payload = JSON.parse(codeBlockText(block)); } catch { return block; }
+        if (!payload || typeof payload !== 'object') return block;
+        return {
+            type: 'gnosi_view',
+            props: {
+                view_id: String(payload.view_id || ''),
+                heading: String(payload.heading || ''),
+                heading_level: String(Number(payload.heading_level) || 1),
+            },
+        };
     });
 };
 
@@ -697,5 +738,6 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
         return blocks;
     };
 
-    return await parseRecursive(lines);
+    const parsed = await parseRecursive(lines);
+    return promoteCustomFences(parsed);
 };
