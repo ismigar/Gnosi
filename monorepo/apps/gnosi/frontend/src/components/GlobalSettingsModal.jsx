@@ -1125,6 +1125,33 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         };
     }, [draft, integrations]);
 
+    // Fix scroll: a Mac+Chrome, <select>/<input>/<textarea> natius poden absorbir
+    // el wheel i evitar que .settings-main faci scroll. Redirigim el wheel quan
+    // el target és un control que no necessita scroll propi.
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e) => {
+            // No interferir amb gestos de zoom (pinch-to-zoom a Mac arriba com
+            // wheel + ctrlKey; també respectem cmd+wheel per si l'usuari té
+            // mapping personalitzat).
+            if (e.ctrlKey || e.metaKey) return;
+            const t = e.target;
+            if (!t || !t.closest) return;
+            const main = t.closest('.settings-main');
+            if (!main) return;
+            const tag = t.tagName;
+            if (tag !== 'SELECT' && tag !== 'INPUT' && tag !== 'TEXTAREA') return;
+            // Si textarea té contingut scrollable propi, deixa que el gestioni
+            if (tag === 'TEXTAREA' && t.scrollHeight > t.clientHeight + 1) return;
+            if (main.scrollHeight > main.clientHeight) {
+                main.scrollTop += e.deltaY;
+                e.preventDefault();
+            }
+        };
+        document.addEventListener('wheel', handler, { passive: false, capture: true });
+        return () => document.removeEventListener('wheel', handler, { capture: true });
+    }, [isOpen]);
+
     const handleDeleteAccount = (category, accountId) => {
         setConfirmConfig({
             isOpen: true,
