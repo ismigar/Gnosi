@@ -6357,6 +6357,22 @@ async def reorder_views(body: dict = Body(...)):
     return {"ok": True, "table_id": table_id, "count": len(ordered_table_views)}
 
 
+@router.get("/views/{view_id}")
+async def get_view(view_id: str):
+    registry = load_registry()
+    views = registry.get("views", [])
+    view = next((v for v in views if v.get("id") == view_id), None)
+    if not view:
+        raise HTTPException(status_code=404, detail="View not found")
+
+    response_view = dict(view)
+    if response_view.get("cardSize") is None:
+        response_view["cardSize"] = "medium"
+    if response_view.get("galleryPreview") is None:
+        response_view["galleryPreview"] = "cover"
+    return response_view
+
+
 @router.delete("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_view(view_id: str):
     registry = load_registry()
