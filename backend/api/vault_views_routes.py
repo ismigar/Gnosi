@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from backend.config.app_config import load_params
 from backend.utils.safe_io import safe_write_json
@@ -34,6 +34,12 @@ class ViewFilter(BaseModel):
 
 
 class ViewSection(BaseModel):
+    # Permet camps addicionals (view_id, sorts, visible_properties, view_type,
+    # group_by, etc.) que el frontend afegeix a partir de la versió canònica
+    # mínima. Així les seccions guardades al registry preserven tots els camps
+    # quan són re-desades — abans, els no declarats es perdien al model_dump.
+    model_config = ConfigDict(extra='allow')
+
     heading: str
     heading_level: int = 1
     type: str = "db_view"

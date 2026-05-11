@@ -2920,12 +2920,37 @@ async def resolve_by_title(title: str):
     return {"id": None, "title": None, "folder": None}
 
 
-@router.get("/pages/{page_id}/preview")
-async def get_page_preview(page_id: str):
-    """Preview lleuger d'una pàgina (títol + extracte + icon/cover) per a tooltips de wikilinks.
+def _extract_images_from_body(body: str, max_images: int = 6) -> list[str]:
+    """Extreu les URLs d'imatges referenciades al markdown (sintaxi ![alt](url))."""
+    if not body:
+        return []
+    seen = set()
+    out: list[str] = []
+    for m in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", body):
+        raw = m.group(1).strip()
+        # CommonMark accepta `<url>` per envoltar URLs amb espais.
+        if raw.startswith("<") and raw.endswith(">"):
+            raw = raw[1:-1]
+        # Algun parser pot deixar `"alt text"` al final: `url "alt"`.
+        if " " in raw:
+            raw = raw.split(" ", 1)[0]
+        if not raw or raw in seen:
+            continue
+        seen.add(raw)
+        out.append(raw)
+        if len(out) >= max_images:
+            break
+    return out
 
-    Optimitzat per a hover: només llegeix el fitxer i extreu el primer paràgraf
-    sanititzat. No injecta virtual fields ni fa resolució complexa de metadata.
+
+@router.get("/pages/{page_id}/preview")
+async def get_page_preview(page_id: str, full: bool = False):
+    """Preview d'una pàgina (títol + extracte/cos + icon/cover + imatges).
+
+    Per defecte retorna només `excerpt` (per a tooltips de wikilinks).
+    Amb `?full=true`, retorna també `body_md` (markdown sencer per render
+    al feed) i `images` (llista d'URLs d'imatges del cos).
+
     Errno 35 d'OneDrive es degrada a buit (preview no és crític).
     """
     file_path = await asyncio.to_thread(find_page_path, page_id)
@@ -2957,22 +2982,30 @@ async def get_page_preview(page_id: str):
     try:
         metadata, body = await asyncio.to_thread(_read_and_parse)
         excerpt = _build_preview_excerpt(body)
-        return {
+        out = {
             "id": str(metadata.get("id") or page_id),
             "title": metadata.get("title", "") or "",
             "excerpt": excerpt,
             "icon": metadata.get("icon"),
             "cover": metadata.get("cover"),
         }
+        if full:
+            out["body_md"] = body or ""
+            out["images"] = _extract_images_from_body(body or "")
+        return out
     except OSError as e:
         if e.errno == 35:
-            return {
+            base = {
                 "id": page_id,
                 "title": "",
                 "excerpt": "",
                 "icon": None,
                 "cover": None,
             }
+            if full:
+                base["body_md"] = ""
+                base["images"] = []
+            return base
         log.error(f"Error reading preview for page {page_id}: {e}")
         raise HTTPException(status_code=500, detail="Error reading preview")
     except Exception as e:

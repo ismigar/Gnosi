@@ -26,8 +26,7 @@ import {
     Settings,
     Link2,
     AtSign,
-    Smile,
-    Code2
+    Smile
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -56,6 +55,7 @@ import { CoverPicker } from './CoverPicker';
 import { IconRenderer } from './IconRenderer';
 
 import { VaultEditorContext } from './VaultEditorContext';
+import { DbViewEmbed } from './DbViewEmbed';
 import { WikilinkInline } from './WikilinkInline';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
@@ -710,290 +710,6 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     );
 };
 
-const DashboardJsonEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes, effectiveTheme }) => {
-    const { t } = useTranslation();
-    const [jsonText, setJsonText] = useState(String(initialContent || '{\n  \n}'));
-    const [jsonError, setJsonError] = useState('');
-    const saveTimerRef = useRef(null);
-    // Same dirty-flag guard as MarkdownCodeEditor — see comment there.
-    const hasUserEditedRef = useRef(false);
-    const textareaRef = useRef(null);
-    const highlightRef = useRef(null);
-    const gutterRef = useRef(null);
-    const isDarkTheme = effectiveTheme === 'dark';
-    const isValidJson = !jsonError;
-    const isStrict = true;
-
-    const escapeHtml = useCallback((value) => String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;'), []);
-
-    const renderJsonHighlight = useCallback((source) => {
-        const text = String(source || '');
-        let i = 0;
-        let html = '';
-
-        const isSpace = (ch) => ch === ' ' || ch === '\n' || ch === '\t' || ch === '\r';
-
-        while (i < text.length) {
-            const ch = text[i];
-
-            if (ch === '"') {
-                let j = i + 1;
-                let escaped = false;
-                while (j < text.length) {
-                    const c = text[j];
-                    if (!escaped && c === '"') break;
-                    escaped = !escaped && c === '\\';
-                    if (c !== '\\') escaped = false;
-                    j += 1;
-                }
-                const token = text.slice(i, Math.min(j + 1, text.length));
-                let k = j + 1;
-                while (k < text.length && isSpace(text[k])) k += 1;
-                const isKey = text[k] === ':';
-                html += `<span class="${isKey ? 'json-key' : 'json-string'}">${escapeHtml(token)}</span>`;
-                i = Math.min(j + 1, text.length);
-                continue;
-            }
-
-            if (ch === '-' || (ch >= '0' && ch <= '9')) {
-                const numberMatch = text.slice(i).match(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/);
-                if (numberMatch) {
-                    const token = numberMatch[0];
-                    html += `<span class="json-number">${escapeHtml(token)}</span>`;
-                    i += token.length;
-                    continue;
-                }
-            }
-
-            const keywordMatch = text.slice(i).match(/^(true|false|null)\b/);
-            if (keywordMatch) {
-                const token = keywordMatch[0];
-                const cls = token === 'null' ? 'json-null' : 'json-boolean';
-                html += `<span class="${cls}">${token}</span>`;
-                i += token.length;
-                continue;
-            }
-
-            if ('{}[],:'.includes(ch)) {
-                html += `<span class="json-punct">${escapeHtml(ch)}</span>`;
-                i += 1;
-                continue;
-            }
-
-            html += escapeHtml(ch);
-            i += 1;
-        }
-
-        return html;
-    }, [escapeHtml]);
-
-    useEffect(() => {
-        setJsonText(String(initialContent || '{\n  \n}'));
-        setJsonError('');
-        hasUserEditedRef.current = false;
-    }, [initialContent, noteFilename]);
-
-    const validateJson = useCallback((value) => {
-        try {
-            JSON.parse(value);
-            setJsonError('');
-            return true;
-        } catch (err) {
-            setJsonError(err?.message || t('editor.invalid_json'));
-            return false;
-        }
-    }, [t]);
-
-    const saveJson = useCallback(async (nextText, { silent = true } = {}) => {
-        if (!noteFilename) return;
-        if (!validateJson(nextText)) {
-            if (!silent) toast.error(t('editor.invalid_json_toast'));
-            return false;
-        }
-
-        try {
-            const data = {
-                title: metadata?.title || t('editor.untitled'),
-                content: nextText,
-                metadata: {
-                    ...(metadata || {}),
-                    is_dashboard: true,
-                    content_format: 'json',
-                },
-            };
-            await axios.patch(`/api/vault/pages/${noteFilename}`, data);
-            if (onUpdate) onUpdate(noteFilename, data.content, { metadata: data.metadata, title: data.title });
-            if (onRefreshNotes) onRefreshNotes();
-            if (!silent) toast.success(t('editor.json_saved'));
-            return true;
-        } catch (err) {
-            notifyError('save-json', err, t('editor.json_save_error'));
-            return false;
-        }
-    }, [noteFilename, metadata, onUpdate, onRefreshNotes, validateJson, t]);
-
-    useEffect(() => {
-        if (!hasUserEditedRef.current) return;  // skip the open-note pseudo-edit
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = setTimeout(() => {
-            void saveJson(jsonText);
-        }, 900);
-
-        return () => {
-            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-        };
-    }, [jsonText, saveJson]);
-
-    const formatJson = () => {
-        try {
-            const parsed = JSON.parse(jsonText);
-            const pretty = JSON.stringify(parsed, null, 2);
-            setJsonText(pretty);
-            setJsonError('');
-            toast.success(t('editor.json_formatted'));
-        } catch (err) {
-            setJsonError(err?.message || t('editor.invalid_json'));
-            toast.error(t('editor.invalid_json_format_error'));
-        }
-    };
-
-    const handleForceSave = useCallback(async () => {
-        await saveJson(jsonText, { silent: false });
-    }, [jsonText, saveJson]);
-
-    const handleFormatAndSave = useCallback(async () => {
-        try {
-            const parsed = JSON.parse(jsonText);
-            const pretty = JSON.stringify(parsed, null, 2);
-            setJsonText(pretty);
-            setJsonError('');
-            await saveJson(pretty, { silent: false });
-        } catch (err) {
-            setJsonError(err?.message || t('editor.invalid_json'));
-            toast.error(t('editor.invalid_json_format_error'));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- t() is stable
-    }, [jsonText, saveJson]);
-
-    const highlightedJson = useMemo(() => renderJsonHighlight(jsonText), [jsonText, renderJsonHighlight]);
-    const lineNumbers = useMemo(() => {
-        const count = Math.max(1, String(jsonText || '').split('\n').length);
-        return Array.from({ length: count }, (_, i) => i + 1).join('\n');
-    }, [jsonText]);
-
-    const syncScroll = useCallback(() => {
-        if (!textareaRef.current || !highlightRef.current) return;
-        highlightRef.current.scrollTop = textareaRef.current.scrollTop;
-        highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
-        if (gutterRef.current) {
-            gutterRef.current.scrollTop = textareaRef.current.scrollTop;
-        }
-    }, []);
-
-    return (
-        <div className="px-10 py-6">
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <Code size={14} className="text-[var(--text-secondary)]" />
-                    <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('editor.strict_json_mode')}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={formatJson}
-                        className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 rounded-md transition-all active:scale-95"
-                    >
-                        <Layout size={12} />
-                        {t('editor.format_json')}
-                    </button>
-                    <button
-                        onClick={handleForceSave}
-                        className="btn btn-gnosi-primary px-3 py-1.5 text-[10px] font-bold"
-                        title="Cmd/Ctrl+S"
-                    >
-                        {t('common.save')}
-                    </button>
-                </div>
-            </div>
-
-            <div className="relative w-full min-h-[520px] rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/20 focus-within:border-[var(--gnosi-primary)]/40 overflow-hidden">
-                <pre
-                    ref={gutterRef}
-                    aria-hidden="true"
-                    className="absolute left-0 top-0 bottom-0 m-0 w-14 p-4 pr-2 text-right font-mono text-xs leading-6 overflow-hidden pointer-events-none select-none border-r border-[var(--border-primary)] text-[var(--text-tertiary)]/70"
-                >
-                    {lineNumbers}
-                </pre>
-                <pre
-                    ref={highlightRef}
-                    aria-hidden="true"
-                    className="absolute inset-0 m-0 p-4 pl-16 font-mono text-sm leading-6 overflow-auto pointer-events-none select-none text-[var(--text-primary)]"
-                    dangerouslySetInnerHTML={{ __html: highlightedJson + '\n' }}
-                />
-                <textarea
-                    ref={textareaRef}
-                    value={jsonText}
-                    onChange={(e) => {
-                        hasUserEditedRef.current = true;
-                        const next = e.target.value;
-                        setJsonText(next);
-                        validateJson(next);
-                    }}
-                    onScroll={syncScroll}
-                    onKeyDown={(e) => {
-                        if ((e.metaKey || e.ctrlKey) && String(e.key || '').toLowerCase() === 's') {
-                            e.preventDefault();
-                            if (e.shiftKey) {
-                                void handleFormatAndSave();
-                            } else {
-                                void handleForceSave();
-                            }
-                        }
-                    }}
-                    spellCheck={false}
-                    className="relative z-10 w-full min-h-[520px] bg-transparent font-mono text-sm leading-6 p-4 pl-16 outline-none resize-y"
-                    style={{ color: 'transparent', caretColor: 'var(--text-primary)' }}
-                />
-            </div>
-
-            <style>{`
-                .json-key { color: ${isDarkTheme ? '#7dd3fc' : '#0369a1'}; }
-                .json-string { color: ${isDarkTheme ? '#86efac' : '#166534'}; }
-                .json-number { color: ${isDarkTheme ? '#fca5a5' : '#b91c1c'}; }
-                .json-boolean { color: ${isDarkTheme ? '#c4b5fd' : '#6d28d9'}; }
-                .json-null { color: ${isDarkTheme ? '#fcd34d' : '#b45309'}; }
-                .json-punct { color: var(--text-secondary); }
-            `}</style>
-
-            {isStrict && !isValidJson && (
-                <div className="p-3 bg-[var(--status-error)]/5 border border-[var(--status-error)]/20 rounded-lg animate-in slide-in-from-top-1 mt-2">
-                    <div className="flex items-start gap-2.5">
-                        <AlertCircle size={16} className="text-[var(--status-error)] mt-0.5 shrink-0" />
-                        <div className="flex-1">
-                            <div className="text-xs font-bold text-[var(--status-error)] uppercase tracking-wider mb-1">
-                                {t('editor.invalid_json_warning')}
-                            </div>
-                            <div className="text-[11px] font-mono text-[var(--status-error)]/80 break-all leading-relaxed whitespace-pre-wrap">
-                                {jsonError}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {isStrict && isValidJson && (
-                <div className="p-3 bg-[var(--status-success)]/5 border border-[var(--status-success)]/10 rounded-lg animate-in fade-in duration-500 mt-2">
-                    <div className="flex items-center gap-2 text-[11px] font-medium text-[var(--status-success)]/70">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)] animate-pulse" />
-                        {t('editor.valid_json_autosave_hint')}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 
 export function EditorInner({
     noteFilename,
@@ -1017,6 +733,11 @@ export function EditorInner({
                 propSchema: { database_table_id: { default: "" }, viewId: { default: "" }, filters: { default: "" }, sort: { default: "" }, search: { default: "" }, visibleProperties: { default: "" }, viewType: { default: "table" } },
                 content: "none",
             }, { render: (props) => <InlineDatabase block={props.block} editor={props.editor} /> }),
+            gnosi_view: createReactBlockSpec({
+                type: "gnosi_view",
+                propSchema: { view_id: { default: "" }, heading: { default: "" }, heading_level: { default: "1" } },
+                content: "none",
+            }, { render: (props) => <DbViewEmbed block={props.block} /> }),
             transclusion: createReactBlockSpec({
                 type: "transclusion",
                 propSchema: { target: { default: "" }, alias: { default: "" }, section: { default: "" } },
@@ -1074,6 +795,7 @@ export function EditorInner({
             blockSpecs: {
                 ...defaultBlockSpecs,
                 database: { ...specs.database(), group: "bnBlock" },
+                gnosi_view: { ...specs.gnosi_view(), group: "bnBlock" },
                 transclusion: { ...specs.transclusion(), group: "bnBlock" },
                 toggle: { ...specs.toggle(), group: "bnBlock" },
                 alert: { ...specs.alert(), group: "bnBlock" },
@@ -1113,7 +835,7 @@ export function EditorInner({
                 sanitizedBlock.type = 'numberedListItem';
             }
 
-            if (['columnList', 'column', 'database', 'transclusion'].includes(sanitizedBlock.type)) {
+            if (['columnList', 'column', 'database', 'transclusion', 'gnosi_view'].includes(sanitizedBlock.type)) {
                 delete sanitizedBlock.content;
             }
             
@@ -2393,7 +2115,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const titleInputRef = useRef(null);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
-    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] } }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry]);
+    const openPageViewModalFromContext = useCallback((tableId = '') => {
+        setPageViewPreselectedTable(tableId);
+        setIsPageViewModalOpen(true);
+    }, []);
+
+    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] }, pageId: noteFilename, onOpenPageViewModal: openPageViewModalFromContext }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry, noteFilename, openPageViewModalFromContext]);
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
     const _doSaveMetadata = useCallback(async (currentMetadata) => {
@@ -2479,7 +2206,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta, { immediate: true }); };
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
-    const isDashboardJson = metadata?.is_dashboard === true || String(metadata?.content_format || '').toLowerCase() === 'json';
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
     // `properties` is the filtered schema list shown above the body. Memoized
     // because the title input rerenders on every keystroke and recomputing
@@ -3126,16 +2852,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 </div>
                 <div className="relative min-h-[500px] px-12 pb-8">
                     <ErrorBoundary>
-                        {isDashboardJson ? (
-                            <DashboardJsonEditor
-                                noteFilename={noteFilename}
-                                initialContent={initialContent}
-                                metadata={metadata}
-                                onUpdate={onUpdate}
-                                onRefreshNotes={onRefreshNotes}
-                                effectiveTheme={effectiveTheme}
-                            />
-                        ) : isCodeView ? (
+                        {isCodeView ? (
                             <MarkdownCodeEditor
                                 noteFilename={noteFilename}
                                 initialContent={initialContent}
