@@ -3594,33 +3594,17 @@ async def upload_asset(file: UploadFile = File(...), table_id: Optional[str] = Q
 
 @router.get("/assets/{asset_path:path}")
 async def get_asset(asset_path: str):
-    """Serves files from the Vault Assets directory."""
+    """Serves files from the Vault Assets directory.
+
+    Delega a `_serve_file_with_containment` per heretar el patró de warmup
+    OneDrive — sense això, els fitxers online-only sota `Assets/` (p.ex. les
+    icones personalitzades a `Assets/Icons/`) es servien amb HTTP 200 i body
+    de 0 bytes la primera vegada que es demanaven, i les `<img>` quedaven
+    trencades al frontend.
+    """
     if not get_p("ASSETS"):
         raise HTTPException(status_code=500, detail="Assets path is not configured")
-
-    try:
-        assets_root = get_p("ASSETS").resolve()
-        requested = (get_p("ASSETS") / asset_path).resolve()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid asset path")
-
-    # Path containment using `is_relative_to` (not `startswith`).
-    # `startswith` would let `Assets-anything/` (a sibling whose name starts
-    # with "Assets") slip through; `is_relative_to` checks the actual path
-    # hierarchy. Same pattern as `serve_vault_image` elsewhere in the file.
-    try:
-        if not requested.is_relative_to(assets_root):
-            raise HTTPException(status_code=403, detail="Access denied")
-    except AttributeError:
-        # Python < 3.9 fallback (project requires 3.11 but be defensive)
-        if not str(requested).startswith(str(assets_root) + os.sep) and requested != assets_root:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-    if not requested.exists() or not requested.is_file():
-        raise HTTPException(status_code=404, detail="Asset not found")
-
-    media_type, _ = mimetypes.guess_type(str(requested))
-    return FileResponse(path=str(requested), media_type=media_type)
+    return await _serve_file_with_containment(get_p("ASSETS"), asset_path)
 
 
 # --- Media Manager (ARXIU AVANÇAT) ---
