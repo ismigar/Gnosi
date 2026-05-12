@@ -68,7 +68,7 @@ export const ImageHoverPreview = ({
                 onMouseLeave={handleLeave}
                 {...linkProps}
             >
-                <img src={src} alt={alt} className={thumbClassName} loading="lazy" />
+                <img src={src} alt={alt} className={thumbClassName} />
             </Tag>
             {show && createPortal(
                 <div

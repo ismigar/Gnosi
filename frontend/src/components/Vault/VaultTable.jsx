@@ -4,6 +4,7 @@ import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Ty
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
+import { MediaInsertDialog } from './MediaInsertDialog';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave }) => {
     const [localValues, setLocalValues] = useState(value);
@@ -98,6 +99,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // { rowId, field, activeMetaKey }
+    const [mediaPickerCell, setMediaPickerCell] = useState(null); // { rowId, field, originalMetaKey, tableId }
     const [aggregations, setAggregations] = useState({}); // { field: 'sum' | 'avg' | 'count' | 'none' }
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = searchTermProp !== undefined ? searchTermProp : internalSearchTerm;
@@ -838,6 +840,18 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return '';
     }, []);
 
+    const isImageField = useCallback((field, fieldType) => {
+        if (fieldType === 'files') return true;
+        return /(image|imatge|cover|thumbnail|thumb|foto|imagen)/i.test(String(field || ''));
+    }, []);
+
+    const urlToVaultPath = useCallback((url) => {
+        if (!url) return '';
+        const prefix = '/api/vault/assets/';
+        if (url.startsWith(prefix)) return url.slice(prefix.length);
+        return url;
+    }, []);
+
     const getImagePreviewUrlFromValue = useCallback((rawValue) => {
         if (Array.isArray(rawValue)) {
             for (const item of rawValue) {
@@ -1027,7 +1041,12 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             );
         }
 
-        if (value === undefined || value === null || value === '') return <span className="text-[var(--text-tertiary)]">-</span>;
+        if (value === undefined || value === null || value === '') {
+            if (isImageLikeField || type === 'files') {
+                return <span className="text-[var(--text-tertiary)] italic">+ imatge</span>;
+            }
+            return <span className="text-[var(--text-tertiary)]">-</span>;
+        }
 
         switch (type) {
             case 'checkbox':
@@ -1111,7 +1130,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             case 'files': {
                 const imageUrl = getImagePreviewUrlFromValue(value);
                 if (imageUrl) {
-                    return <ImageHoverPreview src={imageUrl} alt={field} href={imageUrl} />;
+                    return <ImageHoverPreview src={imageUrl} alt={field} />;
                 }
 
                 return <span className="truncate max-w-[200px] block" title={String(value)}>{String(value)}</span>;
@@ -1129,8 +1148,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 if (isImageLikeField) {
                     const imageUrl = getImagePreviewUrlFromValue(value);
                     if (imageUrl) {
-                        return <ImageHoverPreview src={imageUrl} alt={field} href={imageUrl} />;
+                        return <ImageHoverPreview src={imageUrl} alt={field} />;
                     }
+                    return <span className="text-[var(--text-tertiary)] italic">+ imatge</span>;
                 }
                 return <span className="truncate max-w-[200px] block" title={value}>{value}</span>;
         }
@@ -1328,9 +1348,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     const fieldType = getFieldType(schema, key);
                                     const isComputed = fieldType === 'formula' || fieldType === 'rollup';
                                     const isAction = fieldType === 'button';
-                                    if (!isComputed && !isAction) {
-                                        setEditingCell({ rowId: note.id, field: key, originalMetaKey });
+                                    if (isComputed || isAction) return;
+                                    if (isImageField(key, fieldType)) {
+                                        const noteTableId = activeView?.table_id || resolveNoteTableId(note);
+                                        setMediaPickerCell({ rowId: note.id, field: key, originalMetaKey, tableId: noteTableId });
+                                        return;
                                     }
+                                    setEditingCell({ rowId: note.id, field: key, originalMetaKey });
                                 }}
                             >
                                 {renderCellContent(
@@ -1638,6 +1662,18 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     fieldConfig={pendingAction.fieldConfig}
                 />
             )}
+
+            <MediaInsertDialog
+                open={Boolean(mediaPickerCell)}
+                tableId={mediaPickerCell?.tableId || ''}
+                onClose={() => setMediaPickerCell(null)}
+                onResolve={(url) => {
+                    if (!mediaPickerCell) return;
+                    const value = urlToVaultPath(url);
+                    handleCellSave(mediaPickerCell.rowId, mediaPickerCell.field, value, mediaPickerCell.originalMetaKey);
+                    setMediaPickerCell(null);
+                }}
+            />
         </div>
     );
 };
