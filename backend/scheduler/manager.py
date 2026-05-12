@@ -84,6 +84,10 @@ class SchedulerManager:
             "description": "Sincronització bidireccional Zotero ↔ Vault",
             "default_interval": 60,  # 1 hour
         },
+        "purge_trash": {
+            "description": "Buida la paperera del Vault (entrades > 90 dies)",
+            "default_interval": 1440,  # 24 hours
+        },
     }
 
     def __init__(self):
@@ -428,8 +432,20 @@ class SchedulerManager:
             return self._task_update_memories()
         elif name == "zotero_sync":
             return self._task_zotero_sync()
+        elif name == "purge_trash":
+            return self._task_purge_trash()
 
         return {"error": f"Unknown task: {name}"}
+
+    def _task_purge_trash(self) -> Dict[str, Any]:
+        """Purga entrades de la paperera del Vault amb antiguitat > 90 dies.
+
+        La lògica viu a `backend/api/vault_routes.py::purge_expired_trash`
+        perquè comparteix helpers amb els endpoints HTTP.
+        """
+        from backend.api.vault_routes import purge_expired_trash
+
+        return purge_expired_trash()
 
     def _task_fetch_mail(self) -> Dict[str, Any]:
         """Sync mail from all configured accounts (Gmail + IMAP)."""

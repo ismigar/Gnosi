@@ -25,6 +25,7 @@ import { VaultDocumentTabs } from '../components/Vault/VaultDocumentTabs';
 import { VaultViewsHeader } from '../components/Vault/VaultViewsHeader';
 import VaultDrawings from '../components/Vault/VaultDrawings';
 import { VaultGraph } from '../components/Vault/VaultGraph';
+import { VaultTrashView } from '../components/Vault/VaultTrashView';
 import { MAIN_VIEW_NAME, isMainView } from '../components/Vault/viewConstants';
 import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
@@ -63,8 +64,6 @@ export default function VaultDashboard() {
     const [splitTableIds, setSplitTableIds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isRegistryLoading, setIsRegistryLoading] = useState(true);
-    const [pageToDelete, setPageToDelete] = useState(null);
-    const [recordsToDelete, setRecordsToDelete] = useState(null); // State for confirming multiple deletion
     const [viewToDelete, setViewToDelete] = useState(null);
     const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
@@ -1105,7 +1104,6 @@ export default function VaultDashboard() {
                 setIsGlobalSearchOpen(open => !open);
             }
             if (e.key === 'Escape') {
-                setPageToDelete(null);
                 setIsGlobalSearchOpen(false);
                 setIsRecentOpen(false);
                 closePromptModalRef.current?.();
@@ -1769,131 +1767,266 @@ export default function VaultDashboard() {
         }
     };
 
-    const handleDeletePage = useCallback((pageId, pageTitle) => {
-        setPageToDelete({ id: pageId, title: pageTitle });
-    }, []);
+    // ---- ELIMINACIÓ INDIVIDUAL (soft-delete + toast amb "Desfer") ----
+    // Soft-delete: el backend mou la pàgina a `.trash/{id}/`. Es pot restaurar
+    // des del toast (durant uns segons) o des de la vista de paperera.
+    // Vegeu docs/dev_memory/directives/vault_trash.md.
+    const handleDeletePage = useCallback(async (pageId, pageTitle) => {
+        if (!pageId) return;
+        const id = pageId;
+        const title = pageTitle || t('common.untitled') || 'Sense títol';
 
-    const executeDeletePage = useCallback(async () => {
-        if (!pageToDelete) return;
-        const { id } = pageToDelete;
-        // Helper: neteja l'estat local com si la pàgina ja no existís.
         const removeFromState = () => {
             setPages(prev => prev.filter(page => page.id !== id));
             setTableNotes(prev => prev.filter(note => note.id !== id));
+            setVisibleTableRecordsById(prev => {
+                const next = {};
+                for (const [tableId, notes] of Object.entries(prev)) {
+                    next[tableId] = (notes || []).filter(n => n.id !== id);
+                }
+                return next;
+            });
             handleTabClose(id);
             if (nestedPath && nestedPath.includes(id)) {
                 navigate('/vault');
             }
         };
+        const refreshAfterDelete = () => {
+            if (activeTableId) void fetchPagesByTable(activeTableId);
+            else void fetchPages();
+        };
+        const restorePage = async () => {
+            try {
+                await axios.post(`/api/vault/pages/${id}/restore`);
+                refreshAfterDelete();
+                toast.success(t('success.page_restored') || 'Pàgina restaurada');
+            } catch (err) {
+                console.error('Error restaurant la pàgina:', err);
+                toast.error(t('errors.restore_page') || 'No s\'ha pogut restaurar');
+            }
+        };
+
         try {
             await axios.delete(`/api/vault/pages/${id}`);
             removeFromState();
-            toast.success(t('success.page_deleted') || "Pàgina eliminada");
-            void fetchPages();
+            refreshAfterDelete();
+            toast((tObj) => (
+                <span className="flex items-center gap-3">
+                    <span className="truncate max-w-[16rem]">
+                        "{title}" {t('vault.moved_to_trash') || 'mogut a la paperera'}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            toast.dismiss(tObj.id);
+                            await restorePage();
+                        }}
+                        className="px-2 py-0.5 rounded text-xs font-semibold bg-[var(--gnosi-primary)] text-white hover:opacity-90"
+                    >
+                        {t('common.undo') || 'Desfer'}
+                    </button>
+                </span>
+            ), { duration: 8000 });
         } catch (err) {
-            // Si el backend diu 404, la pàgina és un "fantasma" cachejat al
-            // frontend però el fitxer ja no existeix al disc. Tractem-ho com
-            // a èxit: netejem l'estat local i informem l'usuari.
+            // 404: ja no hi és al disc; neteja local i avís de fantasma.
             if (err?.response?.status === 404) {
                 removeFromState();
-                toast.success(t('success.page_deleted_ghost') || "Pàgina eliminada (era un fantasma del cache)");
-                void fetchPages();
+                refreshAfterDelete();
+                toast.success(t('success.page_deleted_ghost') || 'Pàgina eliminada (era un fantasma del cache)');
             } else {
-                console.error("Error eliminant la pàgina:", err);
-                toast.error(t('errors.delete_page') || "Error eliminant la pàgina");
+                console.error('Error movent la pàgina a la paperera:', err);
+                toast.error(t('errors.delete_page') || 'Error movent la pàgina a la paperera');
             }
-        } finally {
-            setPageToDelete(null);
         }
-    }, [pageToDelete, nestedPath, navigate, handleTabClose, fetchPages, t]);
+    }, [nestedPath, navigate, handleTabClose, fetchPages, fetchPagesByTable, activeTableId, t]);
 
-    // ---- ELIMINAR MÚLTIPLES REGISTRES (amb suport Undo) ----
-    // Funció que mostra el modal de confirmació
-    const handleDeleteSelected = useCallback((selectedIds) => {
+    // ---- ELIMINAR MÚLTIPLES REGISTRES (soft-delete + toast amb "Desfer") ----
+    // Sense modal: el delete és reversible des del toast (8 s), des de Cmd+Z,
+    // o des de la vista de paperera. Els errors parcials (alguns 4xx/5xx) es
+    // mostren a banda, perquè no enganyem l'usuari amb un "fet" quan no és.
+    const handleDeleteSelected = useCallback(async (selectedIds) => {
         const idArray = [...selectedIds];
         if (idArray.length === 0) return;
-        setRecordsToDelete({ ids: idArray, count: idArray.length });
-    }, []);
 
-    const executeDeleteSelected = useCallback(async () => {
-        const idArray = recordsToDelete?.ids;
-        if (!idArray || idArray.length === 0) return;
+        const refreshAfter = () => {
+            if (activeTableId) void fetchPagesByTable(activeTableId);
+            else void fetchPages();
+        };
+        // Restore amb informe d'errors parcials. Retorna {succeeded, failed}.
+        const restoreMany = async (ids) => {
+            const results = await Promise.allSettled(
+                ids.map(id => axios.post(`/api/vault/pages/${id}/restore`))
+            );
+            const succeeded = [];
+            const failed = [];
+            results.forEach((r, i) => {
+                if (r.status === 'fulfilled') succeeded.push(ids[i]);
+                else failed.push({ id: ids[i], status: r.reason?.response?.status });
+            });
+            refreshAfter();
+            if (succeeded.length > 0) {
+                toast.success(`Restaurats ${succeeded.length} registre${succeeded.length !== 1 ? 's' : ''}`);
+            }
+            if (failed.length > 0) {
+                const reasons = failed.map(f => f.status || '?').join(', ');
+                toast.error(`No s'han pogut restaurar ${failed.length} registre${failed.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+            }
+            return { succeeded, failed };
+        };
 
-        const fetchedItems = await Promise.allSettled(
-            idArray.map(id => axios.get(`/api/vault/pages/${id}`).then(r => r.data))
-        );
-        const deletedItems = fetchedItems
-            .filter(r => r.status === 'fulfilled')
-            .map(r => r.value);
-
-        await Promise.allSettled(
+        // DELETE: 404 → tractat com a èxit (ja no és al disc; cal treure'l de
+        // l'estat local igualment); 200/2xx → èxit; resta → fallat.
+        const deleteResults = await Promise.allSettled(
             idArray.map(id => axios.delete(`/api/vault/pages/${id}`))
         );
+        const deletedIds = [];
+        const failedDeletes = [];
+        deleteResults.forEach((r, i) => {
+            const id = idArray[i];
+            if (r.status === 'fulfilled') {
+                deletedIds.push(id);
+            } else if (r.reason?.response?.status === 404) {
+                deletedIds.push(id);
+            } else {
+                failedDeletes.push({ id, status: r.reason?.response?.status });
+            }
+        });
 
-        setPages(prev => prev.filter(p => !idArray.includes(p.id)));
-        setTableNotes(prev => prev.filter(p => !idArray.includes(p.id)));
-        idArray.forEach(id => handleTabClose(id));
+        // Optimistic update només per als ids confirmats.
+        setPages(prev => prev.filter(p => !deletedIds.includes(p.id)));
+        setTableNotes(prev => prev.filter(p => !deletedIds.includes(p.id)));
+        setVisibleTableRecordsById(prev => {
+            const next = {};
+            for (const [tableId, notes] of Object.entries(prev)) {
+                next[tableId] = (notes || []).filter(n => !deletedIds.includes(n.id));
+            }
+            return next;
+        });
+        deletedIds.forEach(id => handleTabClose(id));
 
-        setUndoStack(prev => [...prev, { type: 'delete', items: deletedItems }]);
-        setRedoStack([]);
-
-        toast.success(`${idArray.length} registre${idArray.length !== 1 ? 's' : ''} eliminat${idArray.length !== 1 ? 's' : ''} · Cmd+Z per desfer`);
-
-        if (activeTableId) {
-            void fetchPagesByTable(activeTableId);
-        } else {
-            void fetchPages();
+        if (deletedIds.length > 0) {
+            setUndoStack(prev => [...prev, { type: 'delete', ids: deletedIds }]);
+            setRedoStack([]);
         }
-        setRecordsToDelete(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [recordsToDelete, fetchPages, fetchPagesByTable, activeTableId]);
+        refreshAfter();
 
-    // ---- DESFER (Undo) ----
+        if (failedDeletes.length > 0) {
+            const reasons = failedDeletes.map(f => f.status || '?').join(', ');
+            toast.error(`No s'han pogut eliminar ${failedDeletes.length} registre${failedDeletes.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+        }
+
+        if (deletedIds.length === 0) return;
+
+        const count = deletedIds.length;
+        toast((tObj) => (
+            <span className="flex items-center gap-3">
+                <span>
+                    {count} registre{count !== 1 ? 's' : ''} mogut{count !== 1 ? 's' : ''} a la paperera
+                </span>
+                <button
+                    type="button"
+                    onClick={async () => {
+                        toast.dismiss(tObj.id);
+                        await restoreMany(deletedIds);
+                    }}
+                    className="px-2 py-0.5 rounded text-xs font-semibold bg-[var(--gnosi-primary)] text-white hover:opacity-90"
+                >
+                    Desfer
+                </button>
+            </span>
+        ), { duration: 8000 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fetchPages, fetchPagesByTable, activeTableId, handleTabClose]);
+
+    // ---- DESFER (Undo) — restaurar la darrera tongada eliminada ----
+    // Si totes les restauracions fallen, no movem l'operació a redoStack: la
+    // mantenim a undoStack per permetre reintents. Si la fallida és parcial,
+    // sí que netegem (els que sí han tornat ja no es poden tornar a desfer).
     const undoLastOperation = useCallback(async () => {
         if (undoStack.length === 0) return;
         const operation = undoStack[undoStack.length - 1];
 
-        if (operation.type === 'delete') {
-            await Promise.allSettled(
-                operation.items.map(item =>
-                    axios.put(`/api/vault/pages/${item.id}`, {
-                        title: item.title || 'Sense títol',
-                        content: item.content || '',
-                        parent_id: item.parent_id || null,
-                        is_database: item.is_database || false,
-                        metadata: item.metadata || {}
-                    })
-                )
+        if (operation.type === 'delete' && Array.isArray(operation.ids)) {
+            const results = await Promise.allSettled(
+                operation.ids.map(id => axios.post(`/api/vault/pages/${id}/restore`))
             );
-            toast.success(`Restaurats ${operation.items.length} registre${operation.items.length !== 1 ? 's' : ''}`);
-            void fetchPages();
+            const succeeded = [];
+            const failed = [];
+            results.forEach((r, i) => {
+                if (r.status === 'fulfilled') succeeded.push(operation.ids[i]);
+                else failed.push({ id: operation.ids[i], status: r.reason?.response?.status });
+            });
+
+            if (activeTableId) void fetchPagesByTable(activeTableId);
+            else void fetchPages();
+
+            if (succeeded.length > 0) {
+                toast.success(`Restaurats ${succeeded.length} registre${succeeded.length !== 1 ? 's' : ''}`);
+            }
+            if (failed.length > 0) {
+                const reasons = failed.map(f => f.status || '?').join(', ');
+                toast.error(`No s'han pogut restaurar ${failed.length} registre${failed.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+            }
+
+            if (succeeded.length === 0) {
+                // Cap restauració: mantenim l'operació a undoStack per reintent.
+                return;
+            }
+            // Si parcial, només els succeeded són candidats a "redo" — la
+            // resta ja no es pot eliminar perquè potser ja ho està.
+            setRedoStack(prev => [...prev, { type: 'delete', ids: succeeded }]);
+        } else {
+            setRedoStack(prev => [...prev, operation]);
         }
 
-        setRedoStack(prev => [...prev, operation]);
         setUndoStack(prev => prev.slice(0, -1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [undoStack]);
+    }, [undoStack, fetchPages, fetchPagesByTable, activeTableId]);
 
-    // ---- REFER (Redo) ----
+    // ---- REFER (Redo) — tornar a moure a la paperera ----
     const redoLastOperation = useCallback(async () => {
         if (redoStack.length === 0) return;
         const operation = redoStack[redoStack.length - 1];
 
-        if (operation.type === 'delete') {
-            await Promise.allSettled(
-                operation.items.map(item => axios.delete(`/api/vault/pages/${item.id}`))
+        if (operation.type === 'delete' && Array.isArray(operation.ids)) {
+            const results = await Promise.allSettled(
+                operation.ids.map(id => axios.delete(`/api/vault/pages/${id}`))
             );
-            const nextPages = pages.filter(p => !operation.items.some(i => i.id === p.id));
-            syncPagesState(nextPages);
-            operation.items.forEach(item => handleTabClose(item.id));
-            toast.success(`Tornat a eliminar ${operation.items.length} registre${operation.items.length !== 1 ? 's' : ''}`);
-            void fetchPages();
+            const succeeded = [];
+            const failed = [];
+            results.forEach((r, i) => {
+                const id = operation.ids[i];
+                if (r.status === 'fulfilled' || r.reason?.response?.status === 404) {
+                    succeeded.push(id);
+                } else {
+                    failed.push({ id, status: r.reason?.response?.status });
+                }
+            });
+
+            if (succeeded.length > 0) {
+                const nextPages = pages.filter(p => !succeeded.includes(p.id));
+                syncPagesState(nextPages);
+                succeeded.forEach(id => handleTabClose(id));
+                toast.success(`Tornat a eliminar ${succeeded.length} registre${succeeded.length !== 1 ? 's' : ''}`);
+            }
+            if (failed.length > 0) {
+                const reasons = failed.map(f => f.status || '?').join(', ');
+                toast.error(`No s'han pogut tornar a eliminar ${failed.length} registre${failed.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+            }
+
+            if (activeTableId) void fetchPagesByTable(activeTableId);
+            else void fetchPages();
+
+            if (succeeded.length === 0) return;
+
+            setUndoStack(prev => [...prev, { type: 'delete', ids: succeeded }]);
+        } else {
+            setUndoStack(prev => [...prev, operation]);
         }
 
-        setUndoStack(prev => [...prev, operation]);
         setRedoStack(prev => prev.slice(0, -1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [redoStack, pages, syncPagesState]);
+    }, [redoStack, pages, syncPagesState, fetchPages, fetchPagesByTable, activeTableId, handleTabClose]);
 
     // Mantenir refs actualitzades (evita closures obsoletes al listener de Cmd+Z)
     useEffect(() => { undoRef.current = undoLastOperation; }, [undoLastOperation]);
@@ -2794,6 +2927,15 @@ export default function VaultDashboard() {
                                 />
                             )}
                         </div>
+                    ) : viewMode === 'trash' ? (
+                        <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
+                            <VaultTrashView
+                                onAfterChange={() => {
+                                    if (activeTableId) void fetchPagesByTable(activeTableId);
+                                    else void fetchPages();
+                                }}
+                            />
+                        </div>
                     ) : viewMode === 'table' && activeTableId ? (
                         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
                             {(() => {
@@ -3044,34 +3186,6 @@ export default function VaultDashboard() {
                 allNotes={pages}
                 onNoteSelect={loadPage}
             />
-
-            {
-                pageToDelete && (
-                    <ConfirmModal
-                        isOpen={!!pageToDelete}
-                        onClose={() => setPageToDelete(null)}
-                        onConfirm={executeDeletePage}
-                        title={t('common.confirm_delete_page')}
-                        message={t('common.confirm_delete_page_msg', { title: pageToDelete.title })}
-                        confirmText={t('common.delete')}
-                        isDestructive={true}
-                    />
-                )
-            }
-
-            {
-                recordsToDelete && (
-                    <ConfirmModal
-                        isOpen={!!recordsToDelete}
-                        onClose={() => setRecordsToDelete(null)}
-                        onConfirm={executeDeleteSelected}
-                        title={t('common.confirm_delete_records')}
-                        message={t('common.confirm_delete_records_msg', { count: recordsToDelete.count, plural: recordsToDelete.count !== 1 ? 's' : '' })}
-                        confirmText={t('common.delete')}
-                        isDestructive={true}
-                    />
-                )
-            }
 
             {
                 viewToDelete && (
