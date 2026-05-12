@@ -17,7 +17,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import logging
 import urllib.parse
 import mimetypes
@@ -3402,65 +3402,352 @@ async def patch_page(
         )
 
 
+# ---------------------------------------------------------------------------
+# Paperera (soft-delete) — vegeu docs/dev_memory/directives/vault_trash.md
+# ---------------------------------------------------------------------------
+
+TRASH_RETENTION_DAYS = 90
+
+
+def _trash_root() -> Path:
+    """Arrel de la paperera del Vault. Crida-la només des de threads workers
+    (toca el filesystem). Crea el directori si no existeix."""
+    root = get_p("VAULT") / ".trash"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _trash_entry_dir(page_id: str) -> Path:
+    return _trash_root() / page_id
+
+
+def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
+    """Mou un fitxer .md a `.trash/{page_id}/page.md` i escriu el sidecar.
+
+    Retorna les metadades de la paperera (id, deleted_at, original_path, ...).
+    No invoca cap helper async: està pensat per executar-se dins
+    `asyncio.to_thread` des del handler HTTP.
+    """
+    vault_root = get_p("VAULT")
+    entry_dir = _trash_entry_dir(page_id)
+
+    # Idempotent: si la carpeta ja existeix amb un sidecar vàlid, retornem-lo.
+    existing_sidecar = entry_dir / "_trash.json"
+    if existing_sidecar.exists():
+        try:
+            return json.loads(existing_sidecar.read_text(encoding="utf-8"))
+        except Exception:
+            # Sidecar corromput: el sobreescriurem.
+            pass
+
+    entry_dir.mkdir(parents=True, exist_ok=True)
+
+    # Llegir frontmatter abans de moure (per al title i el table_id).
+    title = ""
+    table_id: Optional[str] = None
+    original_parent_id: Optional[str] = None
+    try:
+        raw_content = file_path.read_text(encoding="utf-8")
+        page_meta, _ = parse_frontmatter(raw_content, file_path)
+        title = str(page_meta.get("title") or "")
+        table_id = page_meta.get("table_id") or page_meta.get("database_table_id")
+        original_parent_id = page_meta.get("parent_id")
+    except Exception as meta_exc:
+        log.warning(f"No s'ha pogut llegir frontmatter per {page_id}: {meta_exc}")
+
+    # `original_path` és relatiu a l'arrel del Vault perquè el path absolut
+    # canvia entre màquines (OneDrive a /Users/x vs /Users/y).
+    try:
+        relative_original_path = str(file_path.relative_to(vault_root))
+    except ValueError:
+        # El fitxer no és dins del Vault; tractem-ho com a 500 al handler.
+        raise RuntimeError(
+            f"Page file {file_path} is outside the Vault root {vault_root}"
+        )
+
+    size_bytes = 0
+    try:
+        size_bytes = file_path.stat().st_size
+    except Exception:
+        pass
+
+    target_md = entry_dir / "page.md"
+    shutil.move(str(file_path), str(target_md))
+
+    sidecar = {
+        "id": page_id,
+        "title": title,
+        "deleted_at": datetime.now(tz=timezone.utc).isoformat(),
+        "original_path": relative_original_path,
+        "original_parent_id": original_parent_id,
+        "table_id": table_id,
+        "size_bytes": size_bytes,
+        "extension": file_path.suffix or ".md",
+    }
+    safe_write_json(existing_sidecar, sidecar, indent=2)
+    return sidecar
+
+
+def _restore_page_from_trash(page_id: str) -> Dict[str, Any]:
+    """Inversa de `_move_page_to_trash`. Restaura el fitxer al `original_path`.
+
+    Llança `FileNotFoundError` si la paperera no conté l'entrada,
+    `FileExistsError` si ja hi ha un fitxer al destí, i `PermissionError`
+    si el path del sidecar s'escapa del Vault (defensa anti-path-traversal).
+    """
+    vault_root = get_p("VAULT")
+    # Resoldre el vault_root abans de comparar evita falsos positius en
+    # filesystems amb symlinks (p.ex. macOS /var → /private/var) on
+    # `target.resolve()` torna el path canònic però `vault_root` no.
+    vault_root_resolved = vault_root.resolve()
+    entry_dir = _trash_entry_dir(page_id)
+    sidecar_path = entry_dir / "_trash.json"
+    if not sidecar_path.exists():
+        raise FileNotFoundError(f"No trash entry for {page_id}")
+
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    original_rel = sidecar.get("original_path") or f"{page_id}.md"
+    target = (vault_root / original_rel).resolve()
+    # `Path.is_relative_to` (Python 3.9+) evita el bug clàssic del
+    # `startswith` amb prefixos compartits (p.ex. `/vault` és prefix de
+    # `/vault2` però no n'és pare).
+    if not target.is_relative_to(vault_root_resolved):
+        raise PermissionError(f"original_path escapes Vault: {original_rel}")
+    if target.exists():
+        raise FileExistsError(str(target))
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source_md = entry_dir / "page.md"
+    if not source_md.exists():
+        # Algunes restauracions antigues podrien haver guardat el fitxer amb
+        # el nom original; busquem qualsevol .md/.json dins l'entry_dir.
+        candidates = [
+            p for p in entry_dir.iterdir()
+            if p.is_file() and p.suffix in {".md", ".json"} and p.name != "_trash.json"
+        ]
+        if not candidates:
+            raise FileNotFoundError(f"page.md missing in {entry_dir}")
+        source_md = candidates[0]
+
+    shutil.move(str(source_md), str(target))
+    shutil.rmtree(entry_dir, ignore_errors=True)
+    return {**sidecar, "restored_path": str(target.relative_to(vault_root_resolved))}
+
+
+def _read_trash_entries() -> List[Dict[str, Any]]:
+    """Llegeix tots els sidecars `.trash/*/_trash.json`. Tolera entrades sense
+    sidecar (es retornen amb `deleted_at=None` i title de fallback)."""
+    root = _trash_root()
+    entries: List[Dict[str, Any]] = []
+    now_utc = datetime.now(tz=timezone.utc)
+    for entry_dir in root.iterdir():
+        if not entry_dir.is_dir():
+            continue
+        sidecar_path = entry_dir / "_trash.json"
+        if sidecar_path.exists():
+            try:
+                data = json.loads(sidecar_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                log.warning(f"Sidecar corrupt a {entry_dir}: {exc}")
+                data = {"id": entry_dir.name, "title": "(corrupt)", "deleted_at": None}
+        else:
+            data = {"id": entry_dir.name, "title": "(sense metadades)", "deleted_at": None}
+        # Càlcul de `days_remaining`. Si no hi ha `deleted_at`, queda None.
+        days_remaining = None
+        if data.get("deleted_at"):
+            try:
+                deleted_dt = datetime.fromisoformat(str(data["deleted_at"]))
+                days_elapsed = (now_utc - deleted_dt).days
+                days_remaining = max(0, TRASH_RETENTION_DAYS - days_elapsed)
+            except Exception:
+                pass
+        data["days_remaining"] = days_remaining
+        entries.append(data)
+    # Ordre: més recent primer; les corruptes (deleted_at=None) al final.
+    entries.sort(
+        key=lambda e: (e.get("deleted_at") or ""),
+        reverse=True,
+    )
+    return entries
+
+
+def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
+    """Elimina permanentment una entrada de la paperera."""
+    entry_dir = _trash_entry_dir(page_id)
+    if not entry_dir.exists():
+        raise FileNotFoundError(f"No trash entry for {page_id}")
+    # Mida abans de purgar (telemetria).
+    freed_bytes = 0
+    for f in entry_dir.rglob("*"):
+        try:
+            if f.is_file():
+                freed_bytes += f.stat().st_size
+        except Exception:
+            pass
+    shutil.rmtree(entry_dir)
+    return {"id": page_id, "freed_bytes": freed_bytes}
+
+
+def _force_index_rescan() -> None:
+    """Invalida el cache d'índex per forçar un rescan a la pròxima llista."""
+    global _last_vault_sync_time
+    _last_vault_sync_time = 0.0
+    _clear_page_index_cache()
+
+
 @router.delete("/pages/{page_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_page(page_id: str):
-    """Permanently deletes the .md page (use with care).
+    """Soft-delete: mou la pàgina a `.trash/{page_id}/`.
 
-    All filesystem work goes through `asyncio.to_thread` so a slow OneDrive
-    stat()/unlink() doesn't paralyze the event loop while the delete runs.
+    Substitueix l'eliminació destructiva anterior. La purga real només ocorre
+    via `DELETE /trash/{id}` o via el cron `purge_trash` als 90 dies.
+    Vegeu `docs/dev_memory/directives/vault_trash.md`.
     """
     file_path = await asyncio.to_thread(find_page_path, page_id)
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="Page not found")
 
     try:
-        registry = load_registry()
-
-        # Esborrar fitxers d'assets associats al registre
-        def _read_meta():
-            raw_content = file_path.read_text(encoding="utf-8")
-            return parse_frontmatter(raw_content, file_path)
-        try:
-            page_metadata, _ = await asyncio.to_thread(_read_meta)
-            table_id = page_metadata.get("table_id") or page_metadata.get(
-                "database_table_id"
-            )
-            if table_id:
-                table = next(
-                    (
-                        t
-                        for t in registry.get("tables", [])
-                        if str(t.get("id")) == str(table_id)
-                    ),
-                    None,
-                )
-                if table:
-                    await asyncio.to_thread(
-                        _delete_asset_files_for_page, page_metadata, table, registry
-                    )
-        except Exception as asset_exc:
-            log.warning(
-                f"Could not delete assets for record {page_id}: {asset_exc}"
-            )
-
-        # IMPORTANT: Never delete the table from the registry when deleting a page!
-        # The registry contains the table schema, not its rows.
-        # The following lines were removed because they caused errors when
-        # deleting the last record of a table.
-        # Original buggy code (removed):
-        # registry["databases"] = [db for db in registry["databases"] if db.get("id") != page_id]
-        # tables_to_remove = [t["id"] for t in registry["tables"] if t.get("database_id") == page_id]
-        # registry["tables"] = [t for t in registry["tables"] if t.get("database_id") != page_id]
-        # registry["views"] = [v for v in registry["views"] if v.get("table_id") not in tables_to_remove]
-
-        await asyncio.to_thread(file_path.unlink)
+        sidecar = await asyncio.to_thread(_move_page_to_trash, page_id, file_path)
         await asyncio.to_thread(remove_from_link_index, page_id)
-        return {"status": "success", "message": "Page deleted and registry cleaned"}
+        _force_index_rescan()
+        deleted_at_iso = sidecar.get("deleted_at")
+        restorable_until = None
+        if deleted_at_iso:
+            try:
+                restorable_until = (
+                    datetime.fromisoformat(deleted_at_iso)
+                    + timedelta(days=TRASH_RETENTION_DAYS)
+                ).isoformat()
+            except Exception:
+                pass
+        return {
+            "status": "soft_deleted",
+            "id": page_id,
+            "deleted_at": deleted_at_iso,
+            "title": sidecar.get("title"),
+            "original_path": sidecar.get("original_path"),
+            "retention_days": TRASH_RETENTION_DAYS,
+            "restorable_until": restorable_until,
+        }
     except Exception as e:
+        log.error(f"Error soft-deleting page {page_id}: {e}")
         raise HTTPException(
             status_code=500,
             detail=safe_error_detail(e, "DELETE /pages/{page_id}"),
         )
+
+
+@router.post(
+    "/pages/{page_id}/restore",
+    dependencies=[Depends(require_role("admin"))],
+)
+async def restore_page(page_id: str):
+    """Restaura una pàgina de la paperera al seu `original_path`."""
+    try:
+        result = await asyncio.to_thread(_restore_page_from_trash, page_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Trash entry not found")
+    except FileExistsError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A file already exists at the target path: {exc}",
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as e:
+        log.error(f"Error restoring page {page_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "POST /pages/{page_id}/restore"),
+        )
+
+    _force_index_rescan()
+    return {
+        "status": "restored",
+        "id": page_id,
+        "restored_path": result.get("restored_path"),
+        "title": result.get("title"),
+    }
+
+
+@router.get("/trash", dependencies=[Depends(require_role("admin"))])
+async def list_trash(q: Optional[str] = Query(None)):
+    """Llista les entrades de la paperera, ordenades per `deleted_at` desc.
+
+    Suport opcional de filtre `?q=` sobre el títol (case-insensitive).
+    """
+    try:
+        entries = await asyncio.to_thread(_read_trash_entries)
+    except Exception as e:
+        log.error(f"Error reading trash: {e}")
+        raise HTTPException(
+            status_code=500, detail=safe_error_detail(e, "GET /trash")
+        )
+
+    if q:
+        needle = q.lower().strip()
+        entries = [
+            e for e in entries
+            if needle in str(e.get("title") or "").lower()
+        ]
+    return {"items": entries, "retention_days": TRASH_RETENTION_DAYS}
+
+
+@router.delete(
+    "/trash/{page_id}",
+    dependencies=[Depends(require_role("admin"))],
+)
+async def purge_trash_entry(page_id: str):
+    """Purga immediatament una entrada de la paperera (irreversible)."""
+    try:
+        result = await asyncio.to_thread(_purge_trash_entry, page_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Trash entry not found")
+    except Exception as e:
+        log.error(f"Error purging trash entry {page_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(e, "DELETE /trash/{page_id}"),
+        )
+    return {"status": "purged", **result}
+
+
+def purge_expired_trash(now: Optional[datetime] = None) -> Dict[str, Any]:
+    """Funció pública invocada pel cron `purge_trash` del SchedulerManager.
+
+    Itera totes les entrades de `.trash/` i purga les que tinguin
+    `deleted_at` més antic que `TRASH_RETENTION_DAYS`. Tolera sidecars
+    corruptes (els salta sense purgar — purga manual requerida).
+    """
+    now_utc = now or datetime.now(tz=timezone.utc)
+    root = _trash_root()
+    purged = 0
+    freed = 0
+    skipped = 0
+    for entry_dir in root.iterdir():
+        if not entry_dir.is_dir():
+            continue
+        sidecar_path = entry_dir / "_trash.json"
+        if not sidecar_path.exists():
+            skipped += 1
+            continue
+        try:
+            data = json.loads(sidecar_path.read_text(encoding="utf-8"))
+            deleted_dt = datetime.fromisoformat(str(data["deleted_at"]))
+        except Exception:
+            skipped += 1
+            continue
+        if (now_utc - deleted_dt).days < TRASH_RETENTION_DAYS:
+            continue
+        try:
+            res = _purge_trash_entry(entry_dir.name)
+            purged += 1
+            freed += int(res.get("freed_bytes") or 0)
+        except Exception as exc:
+            log.warning(f"Purga fallida per {entry_dir.name}: {exc}")
+            skipped += 1
+    return {"purged_count": purged, "freed_bytes": freed, "skipped": skipped}
 
 
 @router.post("/upload-cover", dependencies=[Depends(require_role("editor"))])

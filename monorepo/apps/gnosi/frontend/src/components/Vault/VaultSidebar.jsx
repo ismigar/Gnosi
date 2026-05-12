@@ -788,6 +788,15 @@ export const VaultSidebar = ({
                         </button>
                     )}
                 </div>
+                {isAdmin && (
+                    <NavItem
+                        icon={Trash2}
+                        label={t('sidebar.trash', 'Paperera')}
+                        onClick={() => onNavigate('trash')}
+                        isActive={currentView === 'trash'}
+                        colorClass="text-[var(--text-secondary)]"
+                    />
+                )}
             </div>
 
             {favoritePages.length > 0 && (
