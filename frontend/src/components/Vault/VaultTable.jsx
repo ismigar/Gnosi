@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty } from './VaultDateProperty';
+import { ImageHoverPreview } from './ImageHoverPreview';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave }) => {
     const [localValues, setLocalValues] = useState(value);
@@ -829,6 +830,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         const assetsIdx = value.indexOf('/Assets/');
         if (assetsIdx >= 0) return `/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`;
 
+        // Fallback: path relatiu dins del vault (ex: "Articles/foo.png") → servir des de /api/vault/assets/
+        if (!value.startsWith('/') && !value.includes('://')) {
+            return `/api/vault/assets/${value.replace(/^\.\//, '')}`;
+        }
+
         return '';
     }, []);
 
@@ -1080,11 +1086,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 {
                     const imageUrl = getImagePreviewUrlFromValue(value);
                     if (imageUrl) {
-                        return (
-                            <a href={imageUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center">
-                                <img src={imageUrl} alt={field} className="w-14 h-10 object-cover rounded border border-[var(--border-primary)]" loading="lazy" />
-                            </a>
-                        );
+                        return <ImageHoverPreview src={imageUrl} alt={field} href={imageUrl} />;
                     }
                 }
                 return (
@@ -1109,11 +1111,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             case 'files': {
                 const imageUrl = getImagePreviewUrlFromValue(value);
                 if (imageUrl) {
-                    return (
-                        <a href={imageUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center">
-                            <img src={imageUrl} alt={field} className="w-14 h-10 object-cover rounded border border-slate-200" loading="lazy" />
-                        </a>
-                    );
+                    return <ImageHoverPreview src={imageUrl} alt={field} href={imageUrl} />;
                 }
 
                 return <span className="truncate max-w-[200px] block" title={String(value)}>{String(value)}</span>;
@@ -1131,11 +1129,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 if (isImageLikeField) {
                     const imageUrl = getImagePreviewUrlFromValue(value);
                     if (imageUrl) {
-                        return (
-                            <a href={imageUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center">
-                                <img src={imageUrl} alt={field} className="w-14 h-10 object-cover rounded border border-[var(--border-primary)]" loading="lazy" />
-                            </a>
-                        );
+                        return <ImageHoverPreview src={imageUrl} alt={field} href={imageUrl} />;
                     }
                 }
                 return <span className="truncate max-w-[200px] block" title={value}>{value}</span>;
