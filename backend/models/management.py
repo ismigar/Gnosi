@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 import enum
 import uuid
 from backend.data.management_db import Base
-from pydantic import BaseModel, EmailStr, ConfigDict
+from backend.models._datetime_utils import normalize_utc
+from pydantic import BaseModel, EmailStr, ConfigDict, field_serializer
 from typing import Optional, List
 
 class UserRole(str, enum.Enum):
@@ -20,7 +21,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String)
     avatar_url = Column(String)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
 
@@ -30,7 +31,7 @@ class Workspace(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     members = relationship("Membership", back_populates="workspace", cascade="all, delete-orphan")
     vaults = relationship("Vault", back_populates="workspace", cascade="all, delete-orphan")
@@ -42,7 +43,7 @@ class Membership(Base):
     workspace_id = Column(String, ForeignKey("workspaces.id"), primary_key=True)
     role = Column(String, default=UserRole.VIEWER)
     permissions = Column(String, default='{"capabilities": ["read"]}') # JSON string per SQLite
-    joined_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="memberships")
     workspace = relationship("Workspace", back_populates="members")
@@ -54,7 +55,7 @@ class Vault(Base):
     workspace_id = Column(String, ForeignKey("workspaces.id"))
     name = Column(String, nullable=False)
     path_override = Column(String) # For custom storage paths
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     workspace = relationship("Workspace", back_populates="vaults")
     access = relationship("VaultAccess", back_populates="vault", cascade="all, delete-orphan")
@@ -68,7 +69,7 @@ class VaultAccess(Base):
     workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=False)
     # JSON string: {"capabilities": ["read", "write", "delete"]}
     permissions = Column(String, default='{"capabilities": ["read"]}') 
-    granted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    granted_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     vault = relationship("Vault", back_populates="access")
     user = relationship("User")
@@ -89,16 +90,24 @@ class WorkspaceResponse(WorkspaceBase):
     id: str
     created_at: datetime
     role: Optional[str] = None
-    
+
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at")
+    def _ser_created_at(self, v: datetime) -> str:
+        return normalize_utc(v)
 
 class UserResponse(UserBase):
     id: str
     created_at: datetime
-    
+
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at")
+    def _ser_created_at(self, v: datetime) -> str:
+        return normalize_utc(v)
 
 class MemberResponse(BaseModel):
     user_id: str
@@ -110,6 +119,10 @@ class MemberResponse(BaseModel):
 
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("joined_at")
+    def _ser_joined_at(self, v: datetime) -> str:
+        return normalize_utc(v)
 
 class RoleUpdateRequest(BaseModel):
     role: Optional[UserRole] = None

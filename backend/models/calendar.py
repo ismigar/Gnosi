@@ -11,7 +11,7 @@ class HiddenEvent(Base):
 
     event_id = Column(String, primary_key=True, index=True)
     user_id = Column(String, index=True, nullable=True) # Per si en el futur hi ha multi-usuari real
-    hidden_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    hidden_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return f"<HiddenEvent(event_id='{self.event_id}', hidden_at='{self.hidden_at}')>"

@@ -2,7 +2,8 @@ from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, T
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from backend.data.db import Base
-from pydantic import BaseModel, ConfigDict
+from backend.models._datetime_utils import normalize_utc
+from pydantic import BaseModel, ConfigDict, field_serializer
 from typing import Optional, List
 
 # --- SQLAlchemy Models ---
@@ -15,7 +16,7 @@ class FeedSource(Base):
     url = Column(String, unique=True, index=True)
     category = Column(String, index=True)
     type = Column(String, default="rss") # rss, newsletter
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     articles = relationship("Article", back_populates="source", cascade="all, delete-orphan")
 
@@ -32,9 +33,9 @@ class Article(Base):
     # frontend prefers `full_content` when present.
     content = Column(Text)
     full_content = Column(Text, nullable=True)
-    published_at = Column(DateTime)
+    published_at = Column(DateTime(timezone=True))
     is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     source = relationship("FeedSource", back_populates="articles")
 
@@ -51,7 +52,7 @@ class NewsletterAccount(Base):
     email = Column(String, default="")
     password = Column(String, default="")  # stored plaintext locally; same vault as the rest of secrets
     delete_after_ingest = Column(Boolean, default=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 # --- Pydantic Schemas for API ---
 
@@ -67,9 +68,13 @@ class FeedSourceCreate(FeedSourceBase):
 class FeedSourceResponse(FeedSourceBase):
     id: int
     created_at: datetime
-    
+
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at")
+    def _ser_dt(self, v: datetime) -> str:
+        return normalize_utc(v)
 
 class ArticleBase(BaseModel):
     title: str
@@ -91,6 +96,10 @@ class ArticleResponse(ArticleBase):
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
 
+    @field_serializer("created_at", "published_at")
+    def _ser_dt(self, v: Optional[datetime]) -> Optional[str]:
+        return normalize_utc(v)
+
 
 class NewsletterAccountResponse(BaseModel):
     """Sanitized view of NewsletterAccount: never returns the password value."""
@@ -103,6 +112,10 @@ class NewsletterAccountResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("updated_at")
+    def _ser_dt(self, v: Optional[datetime]) -> Optional[str]:
+        return normalize_utc(v)
 
 
 class NewsletterAccountUpdate(BaseModel):

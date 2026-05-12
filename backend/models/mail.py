@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 from typing import Optional, List, Any
 from datetime import datetime, timezone
 import uuid
 from backend.data.db import Base
+from backend.models._datetime_utils import normalize_utc
 
 
 class MailMessage(Base):
@@ -35,7 +36,7 @@ class MailTag(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
     color = Column(String, default="#3b82f6")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class MailMessageTag(Base):
@@ -61,8 +62,8 @@ class MailView(Base):
     sort_by = Column(String, default="date")
     sort_dir = Column(String, default="desc")
     actions = Column(Text, default='["archive","trash","mark_read"]')  # JSON array
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
 
 
@@ -142,6 +143,10 @@ class MailViewSchema(BaseModel):
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
 
+    @field_serializer("created_at", "updated_at")
+    def _ser_dt(self, v: datetime) -> str:
+        return normalize_utc(v)
+
 
 # ── Tag Schemas ─────────────────────────────────────────────────────────────────
 
@@ -163,6 +168,10 @@ class MailTagSchema(BaseModel):
 
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at")
+    def _ser_dt(self, v: datetime) -> str:
+        return normalize_utc(v)
 
 
 class MailMessageTagsSetSchema(BaseModel):
