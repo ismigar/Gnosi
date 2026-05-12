@@ -152,12 +152,44 @@ const NON_IMAGE_THUMB = {
   other: { Icon: HardDrive, label: 'Fitxer', accent: 'text-slate-400' },
 };
 
+// Per a kinds que QuickLook pot tractar bé (vídeo + PDF), provem el
+// thumbnail generat al host abans de caure al placeholder. Àudio i altres
+// segueixen amb placeholder perquè qlmanage no dóna res útil per a ells.
+const THUMB_KINDS_QUICKLOOK = new Set(['video', 'pdf']);
+
+// Roots suportats al backend (vegeu _THUMB_ROOTS_MAP a vault_routes.py).
+// `biblioteca` queda fora perquè el daemon de thumbs només té
+// VAULT_HOST_PATH a l'allowlist.
+const THUMB_SUPPORTED_ROOTS = new Set(['raw', 'images', 'assets']);
+
+// Construeix la URL del thumb a partir de la URL del fitxer original.
+// `/api/vault/raw/foo.mp4` → `/api/vault/thumb/raw/foo.mp4?v=<mtime>`.
+// El paràmetre `v` força al navegador a refetchar el thumb quan el
+// fitxer origen canvia (el cache del daemon ja invalida internament
+// per mtime, però l'HTTP cache del navegador necessita un canvi a la
+// URL per fer-ho).
+const thumbUrlFor = (src, version) => {
+  if (!src || typeof src !== 'string') return null;
+  if (!src.startsWith('/api/vault/')) return null;
+  const tail = src.slice('/api/vault/'.length);
+  const firstSegment = tail.split('/', 1)[0];
+  if (!THUMB_SUPPORTED_ROOTS.has(firstSegment)) return null;
+  const base = `/api/vault/thumb/${tail}`;
+  if (version === undefined || version === null || version === '') return base;
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}v=${encodeURIComponent(version)}`;
+};
+
 // Thumb gestiona el seu estat de càrrega/error per imatge. Si OneDrive està
 // materialitzant un fitxer en background, el primer GET pot retornar 503;
 // reintentem un parell de cops abans d'ensenyar el placeholder cloud-off.
-const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
+const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind, version }) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
+  // Per als kinds que provem amb QuickLook, en cas d'error caiem al
+  // placeholder amb icona en lloc del "No descarregat".
+  const [quicklookFailed, setQuicklookFailed] = useState(false);
+
   const MAX_RETRIES = 2;
   const RETRY_DELAY_MS = 4000;
 
@@ -165,9 +197,8 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
     ? 'aspect-square relative overflow-hidden bg-gray-900'
     : 'w-24 h-24 relative rounded-xl overflow-hidden flex-shrink-0 bg-gray-900';
 
-  // Vídeo / PDF / àudio / altres: mai van a `<img>` — placeholder amb icona
-  // del tipus i nom del fitxer.
-  if (kind && kind !== 'image') {
+  const isQuicklookKind = kind && THUMB_KINDS_QUICKLOOK.has(kind);
+  const placeholder = () => {
     const meta = NON_IMAGE_THUMB[kind] || NON_IMAGE_THUMB.other;
     const Icon = meta.Icon;
     return (
@@ -175,6 +206,36 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
         <Icon size={viewMode === 'grid' ? 36 : 24} className={`${meta.accent} opacity-90`} />
         <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">{meta.label}</span>
         <span className="text-[9px] text-slate-500 truncate w-full text-center" title={alt}>{alt}</span>
+      </div>
+    );
+  };
+
+  // Àudio / altres: directament placeholder.
+  if (kind && kind !== 'image' && !isQuicklookKind) {
+    return placeholder();
+  }
+
+  // Vídeo / PDF: prova el thumb QuickLook; si falla, cau al placeholder
+  // amb icona (no a "No descarregat"; aquest últim és per a imatges
+  // online-only de OneDrive que no es descarreguen).
+  if (isQuicklookKind) {
+    if (quicklookFailed) return placeholder();
+    const qlSrc = thumbUrlFor(src, version);
+    if (!qlSrc) return placeholder();
+    return (
+      <div className={`${wrapperClass} bg-gradient-to-br from-slate-800 to-slate-900 relative`}>
+        <img
+          src={qlSrc}
+          alt={alt}
+          title={alt}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          loading="lazy"
+          onError={() => setQuicklookFailed(true)}
+        />
+        {/* Badge del tipus (Vídeo/PDF) per indicar que NO és imatge */}
+        <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 text-[9px] text-white font-bold uppercase tracking-wider">
+          {(NON_IMAGE_THUMB[kind] || NON_IMAGE_THUMB.other).label}
+        </div>
       </div>
     );
   }
@@ -1173,6 +1234,7 @@ export default function MediaCenter() {
                       alt={item.filename}
                       viewMode={viewMode}
                       kind={item.kind}
+                      version={item.last_modified || item.mtime || item.size}
                     />
                   </motion.div>
                 ))}

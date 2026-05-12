@@ -4040,6 +4040,211 @@ async def serve_vault_raw_file(rel_path: str):
     return await _serve_file_with_containment(get_p("VAULT"), rel_path)
 
 
+# --- Thumbnails (QuickLook via host daemon) ---
+#
+# Per a fitxers que `<img>` no pot renderitzar (vídeos, PDFs, àudio...),
+# generem un thumbnail usant `qlmanage` a través del daemon host
+# (`sh/onedrive_warmup_daemon.py`, endpoint `/thumb`). El thumb es cacha al
+# host a `${HOME}/.cache/gnosi/thumbs/<sha>.png` i el contenidor pot
+# llegir-lo directament (la home està bind-mountada per OneDrive).
+#
+# El frontend transforma `item.url` (p. ex. `/api/vault/raw/foo/bar.mp4`)
+# a `/api/vault/thumb/raw/foo/bar.mp4`. Aquí parsegem el primer segment
+# per resoldre el root correcte i validem containment.
+
+_THUMB_DAEMON_URL = os.environ.get(
+    "THUMB_DAEMON_URL",
+    "http://host.docker.internal:5009/thumb",
+)
+_THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
+# Només els roots que viuen DINS de /vault tenen translation host↔container i
+# entren a l'allowlist del daemon (VAULT_HOST_PATH). `biblioteca` queda fora
+# perquè és germana del vault i el daemon la rebutjaria com out_of_scope.
+# Si en el futur es vol estendre, cal: (a) afegir BIBLIOTECA_HOST_PATH al
+# daemon i acceptar múltiples roots a la validació, (b) ampliar
+# `_container_to_host_path` per traduir paths de Biblioteca.
+_THUMB_ROOTS_MAP = {
+    "images": ("IMAGES", "Images"),
+    "raw": ("VAULT", None),
+    "assets": ("ASSETS", "Assets"),
+}
+
+
+def _resolve_thumb_source(rel_url: str) -> Path:
+    """Parseja rel_url tipus `raw/foo/bar.mp4` o `images/a/b.jpg`, valida
+    containment dins del root corresponent i retorna el Path absolut dins
+    del contenidor. Llença HTTPException en cas d'error."""
+    parts = rel_url.split("/", 1)
+    if len(parts) != 2 or not parts[1]:
+        raise HTTPException(status_code=400, detail="Invalid thumb URL")
+    root_key, rel = parts[0], parts[1]
+    cfg = _THUMB_ROOTS_MAP.get(root_key)
+    if not cfg:
+        raise HTTPException(status_code=400, detail=f"Unknown root '{root_key}'")
+    paths_key, vault_subdir = cfg
+
+    if paths_key == "IMAGES":
+        vault = get_p("VAULT")
+        if not vault:
+            raise HTTPException(status_code=500, detail="VAULT not configured")
+        root_dir = vault / vault_subdir
+    elif paths_key == "ASSETS":
+        vault = get_p("VAULT")
+        if not vault:
+            raise HTTPException(status_code=500, detail="VAULT not configured")
+        root_dir = vault / vault_subdir
+    else:
+        root_dir = get_p(paths_key)
+        if not root_dir:
+            raise HTTPException(status_code=500, detail=f"{paths_key} not configured")
+
+    try:
+        root_resolved = root_dir.resolve()
+        requested = (root_dir / rel).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    try:
+        if not requested.is_relative_to(root_resolved):
+            raise HTTPException(status_code=403, detail="Access denied")
+    except AttributeError:
+        if not str(requested).startswith(str(root_resolved) + os.sep) and requested != root_resolved:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    if not requested.exists() or not requested.is_file():
+        raise HTTPException(status_code=404, detail="Source file not found")
+    return requested
+
+
+def _container_to_host_path(container_path: Path) -> Optional[str]:
+    """Tradueix /vault/X → VAULT_HOST_PATH/X. Necessari perquè el daemon
+    treballa amb paths del host (qlmanage hi viu)."""
+    vault_host = os.environ.get("VAULT_HOST_PATH")
+    if not vault_host:
+        return None
+    try:
+        rel = container_path.relative_to("/vault")
+    except ValueError:
+        return None
+    return str(Path(vault_host) / rel)
+
+
+def _thumb_no_store(status_code: int, detail: str):
+    """503/error transitori amb `Cache-Control: no-store` perquè el
+    navegador NO cachi l'error (sino, el thumb quedaria trencat fins que
+    el cache del browser caduqui)."""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": detail},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/thumb/{rel_url:path}")
+async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
+    """Serveix un thumbnail PNG generat per QuickLook (macOS) per a
+    fitxers no-imatge (vídeo, PDF, àudio...).
+
+    L'URL `rel_url` segueix el mateix esquema que els endpoints de
+    fitxers per als roots que viuen dins de /vault: `raw/...`,
+    `images/...`, `assets/...`. Mida clampejada a [64, 1024] al daemon.
+
+    Query param `v` (versió, típicament mtime): si el frontend el passa,
+    cachem amb `immutable` perquè la URL canviarà quan canviï el fitxer
+    origen. Sense `v`, fem cache curt + must-revalidate perquè el
+    navegador no es quedi un thumb obsolet fins l'endemà.
+    """
+    _ = v  # consumit només per cache-busting a nivell de URL
+    requested = _resolve_thumb_source(rel_url)
+
+    # OneDrive warmup si el fitxer no està materialitzat: qlmanage no pot
+    # llegir cloud-only des del bind-mount Docker, però sí des del host.
+    # Mateix patró que `_serve_file_with_containment`: cridem materialize,
+    # comprovem el resultat, re-stat per confirmar i si encara és
+    # online-only retornem 503 amb `no-store` perquè el navegador no
+    # cachi l'error transitori.
+    try:
+        st = requested.stat()
+    except OSError as e:
+        log.warning(f"stat() ha fallat per {requested}: {e}")
+        return _thumb_no_store(503, "File temporarily unavailable")
+
+    provider = get_files_provider()
+    if provider.is_online_only(requested, st):
+        ok = await provider.materialize(requested)
+        try:
+            st = requested.stat()
+        except OSError as e:
+            log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
+            return _thumb_no_store(503, "File temporarily unavailable")
+        if not ok or provider.is_online_only(requested, st):
+            log.warning(
+                f"☁️ Thumb: fitxer online-only encara no descarregat: {requested}"
+            )
+            return _thumb_no_store(
+                503, "File temporarily unavailable; warmup pending"
+            )
+
+    host_path = _container_to_host_path(requested)
+    if not host_path:
+        # No hauria de passar amb _THUMB_ROOTS_MAP restringit a /vault, però
+        # ho cobrim defensivament.
+        raise HTTPException(
+            status_code=500,
+            detail="VAULT_HOST_PATH not configured or file outside /vault",
+        )
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=_THUMB_DAEMON_TIMEOUT) as cli:
+            r = await cli.get(
+                _THUMB_DAEMON_URL,
+                params={"path": host_path, "size": size},
+            )
+    except Exception as e:
+        log.warning(f"Thumb daemon no accessible per {requested}: {e!r}")
+        return _thumb_no_store(503, "Thumb daemon unavailable")
+
+    if r.status_code != 200:
+        try:
+            body = r.json()
+        except Exception:
+            body = {}
+        log.warning(
+            f"Thumb daemon HTTP {r.status_code} per {requested}: {body}"
+        )
+        raise HTTPException(status_code=r.status_code, detail=body)
+
+    body = r.json()
+    if body.get("status") != "ok":
+        raise HTTPException(status_code=500, detail=body)
+
+    host_thumb_path = body.get("thumb_path")
+    if not host_thumb_path or not Path(host_thumb_path).is_file():
+        raise HTTPException(status_code=500, detail="Thumb path missing or not readable")
+
+    # Cache:
+    #  - Amb `?v=<mtime>` el frontend canvia la URL quan canvia el fitxer,
+    #    així que podem cachejar agressivament.
+    #  - Sense `v`, fem cache curt + ETag perquè el browser revalidi i
+    #    rebi un 304 si no ha canviat (ETag = mtime).
+    has_version = v is not None and v != ""
+    cache_header = (
+        "public, max-age=86400, immutable"
+        if has_version
+        else "public, max-age=300, must-revalidate"
+    )
+    return FileResponse(
+        path=host_thumb_path,
+        media_type="image/png",
+        headers={
+            "Cache-Control": cache_header,
+            "ETag": f'W/"{int(st.st_mtime)}-{size}"',
+        },
+    )
+
+
 # --- Enllaços a fitxers locals (Variant C: cap còpia, cap upload) ---
 #
 # Quan l'usuari tria "Enllaçar fitxer local" al MediaInsertDialog, el path
