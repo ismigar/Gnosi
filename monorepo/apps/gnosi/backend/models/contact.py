@@ -12,7 +12,8 @@ from datetime import datetime, timezone
 import enum
 import uuid
 from backend.data.management_db import Base
-from pydantic import BaseModel, EmailStr, ConfigDict
+from backend.models._datetime_utils import normalize_utc
+from pydantic import BaseModel, EmailStr, ConfigDict, field_serializer
 from typing import Optional, List
 
 
@@ -52,15 +53,15 @@ class Contact(Base):
     google_resource_name = Column(String, nullable=True, index=True)
     apple_resource_id = Column(String, nullable=True)
 
-    last_synced_at = Column(DateTime, nullable=True)
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
     source = Column(String, default=ContactSource.LOCAL.value, nullable=False)
     photo_url = Column(String, nullable=True)
 
     tags = Column(String, default="[]")
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
@@ -121,6 +122,10 @@ class ContactResponse(ContactBase):
 
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at", "updated_at", "last_synced_at")
+    def _ser_dt(self, v: Optional[datetime]) -> Optional[str]:
+        return normalize_utc(v)
 
 
 class ContactSyncStatus(BaseModel):

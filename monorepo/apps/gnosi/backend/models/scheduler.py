@@ -2,7 +2,8 @@ from sqlalchemy import Column, String, DateTime, Text, Float
 from datetime import datetime, timezone
 import uuid
 from backend.data.management_db import Base
-from pydantic import BaseModel, ConfigDict
+from backend.models._datetime_utils import normalize_utc
+from pydantic import BaseModel, ConfigDict, field_serializer
 from typing import Optional
 
 class TaskExecutionHistory(Base):
@@ -13,9 +14,9 @@ class TaskExecutionHistory(Base):
     description = Column(String)
     status = Column(String, nullable=False) # running, success, error
     message = Column(Text)
-    
-    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    finished_at = Column(DateTime)
+
+    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    finished_at = Column(DateTime(timezone=True))
     duration_seconds = Column(Float)
 
 class TaskHistoryResponse(BaseModel):
@@ -30,3 +31,7 @@ class TaskHistoryResponse(BaseModel):
 
     # Pydantic v2: ConfigDict en lloc de class Config
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("started_at", "finished_at")
+    def _ser_dt(self, v: Optional[datetime]) -> Optional[str]:
+        return normalize_utc(v)
