@@ -1842,6 +1842,41 @@ export function EditorInner({
                     }
                 }}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
+                onKeyDown={(e) => {
+                    // Atall `/+`: BlockNote no accepta caràcters no-alfanumèrics
+                    // al query del slash menu, així que un àlies "+" no
+                    // s'arriba a consultar mai. Aquí l'intercepteim manualment:
+                    // si l'usuari tecleja `+` just després d'un `/` al final
+                    // del bloc actual, esborrem la barra i obrim el modal
+                    // unificat com a drecera ràpida.
+                    if (e.key !== '+' || !editor) return;
+                    try {
+                        const pos = editor.getTextCursorPosition?.();
+                        const block = pos?.block;
+                        if (!block) return;
+                        const blockText = (() => {
+                            const c = block.content;
+                            if (typeof c === 'string') return c;
+                            if (!Array.isArray(c)) return '';
+                            return c.map(n => (n?.type === 'text' && typeof n.text === 'string') ? n.text : '').join('');
+                        })();
+                        if (!blockText.endsWith('/')) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const trimmed = blockText.slice(0, -1);
+                        editor.updateBlock(block.id, { content: trimmed || [] });
+                        const anchor = editor.getTextCursorPosition?.()?.block || block;
+                        requestInsertContent({ initialTab: 'vault' })
+                            .then(result => { if (result?.url) applyInsertResult(result, anchor); })
+                            .catch(err => {
+                                if (!String(err?.message || '').match(/cancelled|superseded/)) {
+                                    console.warn('plus shortcut cancelled:', err?.message);
+                                }
+                            });
+                    } catch (err) {
+                        console.warn('plus shortcut error:', err?.message);
+                    }
+                }}
                 onPaste={(e) => {
                     // Quan l'usuari enganxa una URL "encastable" (YouTube,
                     // Vimeo, PDF online), deixem que BlockNote faci el seu
