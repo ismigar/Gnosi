@@ -201,20 +201,25 @@ async def browse_directory(body: BrowseRequest = Body(...)):
         # If the internal path matches the host's (like HOME)
         display_path = str(target)
 
-    directories = []
+    directories: list = []
+    files: list = []
     try:
         import os as native_os
         # os.scandir is much faster than Path.iterdir() because it already reads the node-type
         with native_os.scandir(target) as it:
             for entry in it:
                 try:
-                    if entry.is_dir() and not entry.name.startswith("."):
+                    if entry.name.startswith("."):
+                        continue
+                    if entry.is_dir():
                         directories.append(entry.name)
+                    elif entry.is_file():
+                        files.append(entry.name)
                 except (PermissionError, OSError):
                     continue
-                
+
                 # Preventive limit to avoid bloat in the frontend
-                if len(directories) > 200:
+                if len(directories) + len(files) >= 400:
                     break
     except PermissionError:
         # If the root directory lacks permission
@@ -227,9 +232,11 @@ async def browse_directory(body: BrowseRequest = Body(...)):
         }
 
     directories.sort(key=lambda s: s.lower())
+    files.sort(key=lambda s: s.lower())
 
     return {
         "current_path": str(target),
         "display_path": display_path,
-        "directories": directories
+        "directories": directories,
+        "files": files,
     }
