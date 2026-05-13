@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Frame, ExternalLink, X, Check } from 'lucide-react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { Frame, ExternalLink, Edit3, FolderOpen, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { VaultEditorContext } from './VaultEditorContext';
 
 const normalizeUrl = (value) => {
     if (typeof value !== 'string') return '';
@@ -68,68 +69,115 @@ const toVimeoEmbed = (url) => {
 
 export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
     const { t } = useTranslation();
+    const context = React.useContext(VaultEditorContext);
+    const requestInsertContent = context?.requestInsertContent;
     const rawUrl = String(block?.props?.url || '').trim();
     const caption = String(block?.props?.caption || '').trim();
     const url = useMemo(() => normalizeUrl(rawUrl), [rawUrl]);
     const kind = useMemo(() => detectKind(url), [url]);
-    const [editing, setEditing] = useState(!rawUrl);
-    const [draft, setDraft] = useState(rawUrl);
+    // Disponibilitat de la URL. Només la comprovem per a fitxers locals
+    // servits via /api/vault/local-file/{token}, on l'usuari pot haver mogut
+    // o esborrat el fitxer després d'incrustar-lo. Per a Vault assets o URLs
+    // externes saltem la verificació (cost innecessari).
+    const isLocalFileUrl = useMemo(() => /^\/api\/vault\/local-file\//.test(url), [url]);
+    const [availability, setAvailability] = useState(isLocalFileUrl ? 'checking' : 'ok');
 
-    const commit = useCallback(() => {
-        const value = draft.trim();
-        if (!editor || !block?.id) return;
-        try {
-            editor.updateBlock(block.id, { props: { url: value, caption } });
-            setEditing(false);
-        } catch (e) {
-            console.warn('EmbedRenderer commit failed:', e?.message);
+    useEffect(() => {
+        if (!isLocalFileUrl || !url) {
+            setAvailability('ok');
+            return undefined;
         }
-    }, [draft, caption, editor, block?.id]);
+        let cancelled = false;
+        setAvailability('checking');
+        // HEAD per detectar 404 (token inexistent) o 410 (fitxer esborrat al
+        // disc). El navegador no exposa el codi exacte a `fetch` no-cors per
+        // a tots els casos, però `response.ok` és prou indicador.
+        (async () => {
+            try {
+                const res = await fetch(url, { method: 'HEAD' });
+                if (cancelled) return;
+                setAvailability(res.ok ? 'ok' : 'missing');
+            } catch {
+                if (!cancelled) setAvailability('missing');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isLocalFileUrl, url]);
 
-    const cancel = useCallback(() => {
-        setDraft(rawUrl);
-        setEditing(false);
-    }, [rawUrl]);
+    const openPicker = useCallback(async (initialTab = 'vault') => {
+        if (!requestInsertContent || !editor || !block?.id) return;
+        try {
+            const result = await requestInsertContent({ initialTab });
+            if (result?.url) {
+                editor.updateBlock(block.id, { props: { url: result.url, caption } });
+            }
+        } catch (err) {
+            if (!String(err?.message || '').match(/cancelled|superseded/)) {
+                console.warn('embed picker error:', err?.message);
+            }
+        }
+    }, [requestInsertContent, editor, block?.id, caption]);
 
-    if (editing) {
+    if (availability === 'missing') {
         return (
             <div
                 ref={ref}
-                className="my-4 p-4 rounded-xl border border-dashed border-[var(--border-primary)] bg-[var(--bg-secondary)]/40"
+                className="my-4 p-6 rounded-xl border border-[var(--status-error)]/40 bg-[var(--status-error)]/5 flex flex-col items-center gap-3 text-center"
             >
-                <div className="flex items-center gap-2 text-[var(--gnosi-primary)] text-xs font-semibold uppercase tracking-wider mb-3">
-                    <Frame size={13} />
-                    {t('editor.embed_title', { defaultValue: 'Frame incrustat' })}
+                <div className="w-10 h-10 rounded-full bg-[var(--status-error)]/15 flex items-center justify-center">
+                    <AlertTriangle size={18} className="text-[var(--status-error)]" />
                 </div>
-                <div className="flex items-center gap-2">
-                    <input
-                        type="text"
-                        autoFocus
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') { e.preventDefault(); commit(); }
-                            else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-                        }}
-                        placeholder={t('editor.embed_url_placeholder', { defaultValue: 'URL del PDF, vídeo o pàgina web…' })}
-                        className="flex-1 px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/40"
-                    />
+                <div>
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">
+                        {t('editor.embed_missing_title', { defaultValue: 'Fitxer no trobat' })}
+                    </div>
+                    <div className="text-xs text-[var(--text-tertiary)] mt-1 max-w-md break-all">
+                        {t('editor.embed_missing_subtitle', { defaultValue: "El fitxer local s'ha mogut o esborrat" })}: <span className="font-mono">{rawUrl}</span>
+                    </div>
+                </div>
+                <button
+                    onClick={() => openPicker('local')}
+                    className="px-3 py-2 text-xs font-medium rounded-lg bg-[var(--gnosi-primary)] text-white hover:opacity-90 flex items-center gap-1.5"
+                >
+                    <RefreshCw size={14} />
+                    {t('editor.embed_relink', { defaultValue: 'Re-vincula' })}
+                </button>
+            </div>
+        );
+    }
+
+    if (!rawUrl) {
+        return (
+            <div
+                ref={ref}
+                className="my-4 p-8 rounded-xl border border-dashed border-[var(--border-primary)] bg-[var(--bg-secondary)]/30 flex flex-col items-center gap-4 text-center"
+            >
+                <div className="w-12 h-12 rounded-full bg-[var(--gnosi-primary)]/10 flex items-center justify-center">
+                    <Frame size={22} className="text-[var(--gnosi-primary)]" />
+                </div>
+                <div>
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">
+                        {t('editor.embed_empty_title', { defaultValue: 'Frame incrustat' })}
+                    </div>
+                    <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                        {t('editor.embed_empty_subtitle', { defaultValue: 'Tria un fitxer del Vault, navega pel disc, puja\'n un o enganxa una URL' })}
+                    </div>
+                </div>
+                <div className="flex gap-2 flex-wrap justify-center">
                     <button
-                        onClick={commit}
-                        className="p-2 rounded-lg bg-[var(--gnosi-primary)] text-white hover:opacity-90"
-                        title={t('common.confirm', { defaultValue: 'Confirma' })}
+                        onClick={() => openPicker('vault')}
+                        className="px-3 py-2 text-xs font-medium rounded-lg bg-[var(--gnosi-primary)] text-white hover:opacity-90 flex items-center gap-1.5"
                     >
-                        <Check size={16} />
+                        <FolderOpen size={14} />
+                        {t('editor.embed_pick_file', { defaultValue: 'Tria fitxer…' })}
                     </button>
-                    {rawUrl && (
-                        <button
-                            onClick={cancel}
-                            className="p-2 rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]"
-                            title={t('common.cancel', { defaultValue: 'Cancel·la' })}
-                        >
-                            <X size={16} />
-                        </button>
-                    )}
+                    <button
+                        onClick={() => openPicker('url')}
+                        className="px-3 py-2 text-xs font-medium rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-1.5"
+                    >
+                        <ExternalLink size={14} />
+                        {t('editor.embed_paste_url', { defaultValue: 'URL externa' })}
+                    </button>
                 </div>
             </div>
         );
@@ -168,17 +216,11 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
             />
         );
     } else if (kind === 'video') {
-        media = (
-            <video src={url} controls className="w-full rounded-lg border border-[var(--border-primary)] bg-black" />
-        );
+        media = <video src={url} controls className="w-full rounded-lg border border-[var(--border-primary)] bg-black" />;
     } else if (kind === 'audio') {
-        media = (
-            <audio src={url} controls className="w-full" />
-        );
+        media = <audio src={url} controls className="w-full" />;
     } else if (kind === 'image') {
-        media = (
-            <img src={url} alt={caption || ''} className="max-w-full rounded-lg border border-[var(--border-primary)]" />
-        );
+        media = <img src={url} alt={caption || ''} className="max-w-full rounded-lg border border-[var(--border-primary)]" />;
     }
 
     return (
@@ -187,17 +229,17 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
                 {media}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/embed:opacity-100 transition-opacity">
                     <button
-                        onClick={() => setEditing(true)}
-                        className="px-2 py-1 text-xs rounded-md bg-[var(--bg-primary)]/90 border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]"
-                        title={t('editor.embed_edit_url', { defaultValue: "Edita l'URL" })}
+                        onClick={() => openPicker('vault')}
+                        className="p-1.5 rounded-md bg-[var(--bg-primary)]/90 border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]"
+                        title={t('editor.embed_change', { defaultValue: 'Canvia el fitxer' })}
                     >
-                        {t('common.edit', { defaultValue: 'Edita' })}
+                        <Edit3 size={12} />
                     </button>
                     <a
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2 py-1 text-xs rounded-md bg-[var(--bg-primary)]/90 border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-1"
+                        className="p-1.5 rounded-md bg-[var(--bg-primary)]/90 border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] flex items-center"
                         title={t('editor.open_in_new_tab', { defaultValue: 'Obre en una nova pestanya' })}
                     >
                         <ExternalLink size={12} />

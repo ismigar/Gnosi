@@ -65,6 +65,7 @@ import { FileAttachmentField } from './FileAttachmentField';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 import { RichLinkInsertModal } from './RichLinkInsert';
 import { MediaInsertDialog } from './MediaInsertDialog';
+import { InsertContentModal } from './InsertContentModal';
 import { blocknoteCa } from '../../locales/blocknote/ca';
 
 const normalizeVaultAssetUrl = (value) => {
@@ -999,6 +1000,24 @@ export function EditorInner({
         });
     }, []);
 
+    // Estat per al modal d'inserció unificat (InsertContentModal). A diferència
+    // del MediaInsertDialog promise-based (que només retorna URL al BlockNote
+    // uploadFile), aquest retorna { url, mode, kind, name } perquè el caller
+    // decideixi com representar-ho al document (enllaç, bloc nadiu o frame).
+    const [pendingInsert, setPendingInsert] = useState(null);
+    const pendingInsertRef = useRef(null);
+    useEffect(() => { pendingInsertRef.current = pendingInsert; }, [pendingInsert]);
+
+    const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
+        const prev = pendingInsertRef.current;
+        if (prev?.reject) {
+            try { prev.reject(new Error('superseded')); } catch { /* noop */ }
+        }
+        return new Promise((resolve, reject) => {
+            setPendingInsert({ initialFile, initialTab, resolve, reject });
+        });
+    }, []);
+
     // Compat: alguns helpers (RichLinkInsertModal, drops manuals de PDF) ja
     // existents reben `uploadFile` amb la signatura antiga (puja directe a
     // Assets). Mantenim aquesta variant simple per a aquells casos: dins el
@@ -1552,8 +1571,55 @@ export function EditorInner({
 
     if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> {t('editor.loading_editor')}</div>;
 
+    // Detecta si una cadena és una URL "encastable": YouTube, Vimeo o PDF
+    // online. Retorna el "kind" detectat o null. Útil per al paste handler
+    // que suggereix convertir un enllaç inline en bloc embed.
+    const detectEmbeddableUrl = (text) => {
+        const trimmed = String(text || '').trim();
+        if (!trimmed) return null;
+        // Acceptem només si l'enganxat és JUST una URL (no text amb URL al mig)
+        if (/\s/.test(trimmed)) return null;
+        try {
+            const u = new URL(trimmed);
+            if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+            const host = u.hostname.replace(/^www\./, '');
+            if (host === 'youtube.com' || host === 'youtu.be' || host === 'm.youtube.com') return 'youtube';
+            if (host === 'vimeo.com' || host === 'player.vimeo.com') return 'vimeo';
+            const lowerPath = u.pathname.toLowerCase();
+            if (lowerPath.endsWith('.pdf')) return 'pdf';
+        } catch { /* not a URL */ }
+        return null;
+    };
+
+    // Aplica un resultat del modal d'inserció unificat al document.
+    // - mode='link'  → enllaç inline `[name](url)`
+    // - mode='frame' → bloc `embed` (iframe / viewer)
+    // - mode='block' → bloc nadiu BlockNote segons el kind (image/video/audio/file)
+    const applyInsertResult = ({ url, mode, kind, name }, anchor = null) => {
+        if (!url) return;
+        const safeName = name || url;
+        if (mode === 'frame') {
+            const block = { type: 'embed', props: { url, caption: '' } };
+            const target = anchor || editor.getTextCursorPosition().block;
+            editor.insertBlocks([block], target, 'after');
+            return;
+        }
+        if (mode === 'block') {
+            const nativeType = ['image', 'video', 'audio'].includes(kind) ? kind : 'file';
+            const block = { type: nativeType, props: { url, name: safeName } };
+            const target = anchor || editor.getTextCursorPosition().block;
+            editor.insertBlocks([block], target, 'after');
+            return;
+        }
+        // mode === 'link' (defecte)
+        editor.insertInlineContent([
+            { type: 'link', href: url, content: [{ type: 'text', text: safeName, styles: {} }] },
+        ]);
+    };
+
+    const providerValue = { ...contextValue, requestInsertContent };
     return (
-        <VaultEditorContext.Provider value={contextValue}>
+        <VaultEditorContext.Provider value={providerValue}>
             <style>{`
                 .bn-editor {
                     padding-left: 0 !important;
@@ -1762,24 +1828,63 @@ export function EditorInner({
                     e.stopPropagation();
                     for (const file of pdfs) {
                         try {
-                            // El drop de PDF passa pel dialog igual que la resta
-                            // de mitjans (img/video) perquè l'usuari pugui triar
-                            // entre pujar, enllaçar local o buscar al vault.
-                            const finalUrl = await requestMediaInsert(file);
-                            if (!finalUrl) continue;
-                            const pos = editor.getTextCursorPosition();
-                            editor.insertBlocks(
-                                [{ type: 'paragraph', content: `📎 [${file.name}](${finalUrl})` }],
-                                pos.block, 'after'
-                            );
+                            // El drop d'un PDF obre el modal d'inserció unificat
+                            // en tab "Puja" amb el fitxer pre-carregat. L'usuari
+                            // tria entre frame (default per PDF), enllaç o bloc
+                            // al confirmar. Substitueix la inserció antiga com a
+                            // paràgraf+link que no aprofitava el viewer.
+                            const anchor = editor.getTextCursorPosition().block;
+                            const result = await requestInsertContent({ initialFile: file, initialTab: 'upload' });
+                            if (result?.url) applyInsertResult(result, anchor);
                         } catch (err) {
-                            // Cancel·lació de l'usuari (reject) → silenciós.
                             if (String(err?.message || '').match(/cancelled|superseded/)) continue;
                             console.error('PDF drop insert failed', err);
                         }
                     }
                 }}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
+                onPaste={(e) => {
+                    // Quan l'usuari enganxa una URL "encastable" (YouTube,
+                    // Vimeo, PDF online), deixem que BlockNote faci el seu
+                    // paste normal (enllaç inline) i, en paral·lel, mostrem
+                    // un toast suggerint convertir-la en frame. NO bloquegem
+                    // el paste perquè el cas "enllaç" segueix sent vàlid;
+                    // només oferim un atall per al cas comú on l'usuari volia
+                    // veure el reproductor.
+                    const text = e.clipboardData?.getData?.('text/plain');
+                    const kind = detectEmbeddableUrl(text);
+                    if (!kind) return;
+                    const url = String(text).trim();
+                    const insertFrame = () => {
+                        try {
+                            const anchor = editor.getTextCursorPosition().block;
+                            editor.insertBlocks([{ type: 'embed', props: { url, caption: '' } }], anchor, 'after');
+                        } catch (err) {
+                            console.warn('paste→frame insert failed:', err?.message);
+                        }
+                    };
+                    toast.custom((tToast) => (
+                        <div className="px-4 py-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-lg flex items-center gap-3 max-w-md">
+                            <div className="text-xs text-[var(--text-secondary)]">
+                                {kind === 'pdf'
+                                    ? t('editor.paste_pdf_detected', { defaultValue: 'PDF detectat. Vols veure\'l incrustat com a frame?' })
+                                    : t('editor.paste_video_detected', { defaultValue: 'Vídeo detectat. Vols veure\'l incrustat com a frame?' })}
+                            </div>
+                            <button
+                                onClick={() => { insertFrame(); toast.dismiss(tToast.id); }}
+                                className="px-3 py-1.5 rounded-md bg-[var(--gnosi-primary)] text-white text-xs font-medium hover:opacity-90 shrink-0"
+                            >
+                                {t('editor.paste_convert_frame', { defaultValue: 'Inserir frame' })}
+                            </button>
+                            <button
+                                onClick={() => toast.dismiss(tToast.id)}
+                                className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] shrink-0"
+                            >
+                                {t('common.dismiss', { defaultValue: 'Descarta' })}
+                            </button>
+                        </div>
+                    ), { duration: 8000 });
+                }}
             >
             <BlockNoteView
                 editor={editor}
@@ -1805,12 +1910,22 @@ export function EditorInner({
                         }));
                         const quickLinkItems = [
                             {
-                                title: t('editor.rich_link', { defaultValue: 'Enllaç ric (URL/local/embed)' }),
-                                onItemClick: () => setIsRichLinkOpen(true),
-                                aliases: ["enllac", "link", "rich", "url", "file", "local", "embed", "fitxer"],
+                                title: t('editor.insert_content', { defaultValue: 'Insereix contingut…' }),
+                                onItemClick: async () => {
+                                    const anchor = editor.getTextCursorPosition().block;
+                                    try {
+                                        const result = await requestInsertContent({ initialTab: 'vault' });
+                                        if (result?.url) applyInsertResult(result, anchor);
+                                    } catch (err) {
+                                        if (!String(err?.message || '').match(/cancelled|superseded/)) {
+                                            console.warn('insert content cancelled:', err?.message);
+                                        }
+                                    }
+                                },
+                                aliases: ["insereix", "insert", "enllac", "link", "rich", "url", "file", "local", "embed", "fitxer", "media", "pdf", "video", "image"],
                                 group: t('editor.links_group'),
                                 icon: <Link2 size={18} />,
-                                subtext: t('editor.rich_link_subtext', { defaultValue: 'URL externa, fitxer/carpeta local o embed' }),
+                                subtext: t('editor.insert_content_subtext', { defaultValue: 'Modal unificat: Vault, disc local, pujada o URL' }),
                             },
                             {
                                 title: t('editor.external_link'),
@@ -1873,10 +1988,23 @@ export function EditorInner({
                             },
                             {
                                 title: t('editor.embed_block', { defaultValue: 'Frame incrustat (PDF/vídeo/web)' }),
-                                onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, {
-                                    type: 'embed',
-                                    props: { url: '', caption: '' },
-                                }),
+                                onItemClick: async () => {
+                                    const anchor = editor.getTextCursorPosition().block;
+                                    try {
+                                        // Per a "Frame" l'usuari sol portar una URL externa
+                                        // (YouTube, web, PDF online); pre-seleccionem el
+                                        // tab URL. Pot canviar a Vault/Local/Puja al modal.
+                                        const result = await requestInsertContent({ initialTab: 'url' });
+                                        if (!result?.url) return;
+                                        // Forcem el mode frame fins i tot si el modal va
+                                        // recomanar un altre default.
+                                        applyInsertResult({ ...result, mode: 'frame' }, anchor);
+                                    } catch (err) {
+                                        if (!String(err?.message || '').match(/cancelled|superseded/)) {
+                                            console.warn('embed insert cancelled:', err?.message);
+                                        }
+                                    }
+                                },
                                 aliases: ["embed", "frame", "iframe", "pdf", "video", "web", "youtube", "vimeo"],
                                 group: t('editor.media_group', { defaultValue: 'Media' }),
                                 icon: <Frame size={18} />,
@@ -2158,6 +2286,22 @@ export function EditorInner({
                 onClose={() => {
                     const p = pendingMediaRef.current;
                     setPendingMedia(null);
+                    try { p?.reject?.(new Error('cancelled')); } catch { /* noop */ }
+                }}
+            />
+            <InsertContentModal
+                open={Boolean(pendingInsert)}
+                initialFile={pendingInsert?.initialFile || null}
+                initialTab={pendingInsert?.initialTab || 'vault'}
+                tableId={tableIdRef.current}
+                onInsert={(result) => {
+                    const p = pendingInsertRef.current;
+                    setPendingInsert(null);
+                    try { p?.resolve?.(result); } catch { /* noop */ }
+                }}
+                onClose={() => {
+                    const p = pendingInsertRef.current;
+                    setPendingInsert(null);
                     try { p?.reject?.(new Error('cancelled')); } catch { /* noop */ }
                 }}
             />
