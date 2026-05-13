@@ -767,7 +767,7 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     }, [markdownText, saveMarkdown]);
 
     return (
-        <div className="px-10 py-6">
+        <div>
             <textarea
                 ref={textareaRef}
                 value={markdownText}
