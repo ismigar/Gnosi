@@ -1047,6 +1047,60 @@ export function EditorInner({
         },
     });
 
+    // Ref a `applyInsertResult` perquè el listener de l'atall `/+` (definit
+    // dins d'un useEffect aïllat) en pugui llegir la versió més recent sense
+    // re-registrar-se a cada render.
+    const applyInsertResultRef = useRef(null);
+    // Flag per evitar entrar en bucle: l'`onChange` es dispara també quan
+    // esborrem el `/+` per obrir el modal.
+    const plusShortcutBusyRef = useRef(false);
+
+    // Atall `/+` → modal d'inserció. BlockNote no permet caràcters
+    // no-alfanumèrics al query del slash menu, així que un àlies "+" no
+    // s'arriba a consultar. Tampoc serveix un `onKeyDown` al wrapper de
+    // React perquè ProseMirror ja ha processat el `+` quan l'esdeveniment
+    // arriba (l'insereix al doc abans de bombollejar). Per això ho fem
+    // reactivament: després de cada canvi del document, si el text del
+    // bloc actual acaba en `/+`, esborrem els dos caràcters i obrim el
+    // modal. Hi ha un flicker mínim del `+` però és imperceptible.
+    useEffect(() => {
+        if (!editor || typeof editor.onChange !== 'function') return undefined;
+        const textOfBlock = (block) => {
+            const c = block?.content;
+            if (typeof c === 'string') return c;
+            if (!Array.isArray(c)) return '';
+            return c.map(n => (n?.type === 'text' && typeof n.text === 'string') ? n.text : '').join('');
+        };
+        const handler = () => {
+            if (plusShortcutBusyRef.current) return;
+            try {
+                const pos = editor.getTextCursorPosition?.();
+                const block = pos?.block;
+                if (!block) return;
+                const text = textOfBlock(block);
+                if (!text.endsWith('/+')) return;
+                plusShortcutBusyRef.current = true;
+                const trimmed = text.slice(0, -2);
+                editor.updateBlock(block.id, { content: trimmed || [] });
+                setTimeout(() => { plusShortcutBusyRef.current = false; }, 0);
+                const anchor = editor.getTextCursorPosition?.()?.block || block;
+                requestInsertContent({ initialTab: 'vault' })
+                    .then(result => {
+                        if (result?.url) applyInsertResultRef.current?.(result, anchor);
+                    })
+                    .catch(err => {
+                        if (!String(err?.message || '').match(/cancelled|superseded/)) {
+                            console.warn('plus shortcut cancelled:', err?.message);
+                        }
+                    });
+            } catch (err) {
+                console.warn('plus shortcut error:', err?.message);
+                plusShortcutBusyRef.current = false;
+            }
+        };
+        return editor.onChange(handler);
+    }, [editor, requestInsertContent]);
+
     const initializedNoteRef = useRef('');
 
     useEffect(() => {
@@ -1615,6 +1669,9 @@ export function EditorInner({
             { type: 'link', href: url, content: [{ type: 'text', text: safeName, styles: {} }] },
         ]);
     };
+    // Mantenim la ref al closure més recent perquè l'`useEffect` de l'atall
+    // `/+` (registrat un sol cop quan es crea l'editor) pugui invocar-lo.
+    applyInsertResultRef.current = applyInsertResult;
 
     const providerValue = { ...contextValue, requestInsertContent };
     return (
@@ -1842,41 +1899,6 @@ export function EditorInner({
                     }
                 }}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
-                onKeyDown={(e) => {
-                    // Atall `/+`: BlockNote no accepta caràcters no-alfanumèrics
-                    // al query del slash menu, així que un àlies "+" no
-                    // s'arriba a consultar mai. Aquí l'intercepteim manualment:
-                    // si l'usuari tecleja `+` just després d'un `/` al final
-                    // del bloc actual, esborrem la barra i obrim el modal
-                    // unificat com a drecera ràpida.
-                    if (e.key !== '+' || !editor) return;
-                    try {
-                        const pos = editor.getTextCursorPosition?.();
-                        const block = pos?.block;
-                        if (!block) return;
-                        const blockText = (() => {
-                            const c = block.content;
-                            if (typeof c === 'string') return c;
-                            if (!Array.isArray(c)) return '';
-                            return c.map(n => (n?.type === 'text' && typeof n.text === 'string') ? n.text : '').join('');
-                        })();
-                        if (!blockText.endsWith('/')) return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const trimmed = blockText.slice(0, -1);
-                        editor.updateBlock(block.id, { content: trimmed || [] });
-                        const anchor = editor.getTextCursorPosition?.()?.block || block;
-                        requestInsertContent({ initialTab: 'vault' })
-                            .then(result => { if (result?.url) applyInsertResult(result, anchor); })
-                            .catch(err => {
-                                if (!String(err?.message || '').match(/cancelled|superseded/)) {
-                                    console.warn('plus shortcut cancelled:', err?.message);
-                                }
-                            });
-                    } catch (err) {
-                        console.warn('plus shortcut error:', err?.message);
-                    }
-                }}
                 onPaste={(e) => {
                     // Quan l'usuari enganxa una URL "encastable" (YouTube,
                     // Vimeo, PDF online), deixem que BlockNote faci el seu
