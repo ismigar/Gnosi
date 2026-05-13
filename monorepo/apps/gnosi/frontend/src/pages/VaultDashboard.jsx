@@ -1788,7 +1788,23 @@ export default function VaultDashboard() {
             });
             handleTabClose(id);
             if (nestedPath && nestedPath.includes(id)) {
-                navigate('/vault');
+                // Tornem al tab que `handleTabClose` ha promogut (típicament
+                // el dashboard o la taula pare des d'on s'havia obert
+                // l'entrada), enlloc de caure a `/vault` (pantalla "Hola"
+                // buida) i deixar l'usuari descontextualitzat.
+                const remaining = tabs.filter(tab => tab.id !== id);
+                const fallback = remaining[remaining.length - 1];
+                if (fallback?.isDrawing) {
+                    pushToHistory({ type: 'drawing', id: fallback.id });
+                } else if (fallback?.isTable) {
+                    const tableId = getTableIdFromTab(fallback);
+                    if (tableId) pushToHistory({ type: 'table', id: tableId });
+                    else navigate('/vault');
+                } else if (fallback) {
+                    pushToHistory({ type: 'editor', id: fallback.id });
+                } else {
+                    navigate('/vault');
+                }
             }
         };
         const refreshAfterDelete = () => {
@@ -1838,7 +1854,7 @@ export default function VaultDashboard() {
                 toast.error(t('errors.delete_page') || 'Error movent la pàgina a la paperera');
             }
         }
-    }, [nestedPath, navigate, handleTabClose, fetchPages, fetchPagesByTable, activeTableId, t]);
+    }, [nestedPath, navigate, handleTabClose, fetchPages, fetchPagesByTable, activeTableId, t, tabs, pushToHistory]);
 
     // ---- ELIMINAR MÚLTIPLES REGISTRES (soft-delete + toast amb "Desfer") ----
     // Sense modal: el delete és reversible des del toast (8 s), des de Cmd+Z,
