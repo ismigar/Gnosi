@@ -26,6 +26,9 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    // Resultats de la cerca global. `null` = no s'està buscant (mode browse).
+    const [searchResults, setSearchResults] = useState(null);
+    const [searchTruncated, setSearchTruncated] = useState(false);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -43,6 +46,40 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
+
+    // Cerca global a tot el disk amb debounce. Si el query és curt (<2 chars)
+    // tornem a mode browse i mostrem el directori actual.
+    useEffect(() => {
+        if (!isOpen) return;
+        const q = searchQuery.trim();
+        if (q.length < 2) {
+            setSearchResults(null);
+            setSearchTruncated(false);
+            return;
+        }
+        const handle = setTimeout(async () => {
+            setLoading(true);
+            try {
+                const res = await fetch('/api/system/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q, limit: 200 }),
+                });
+                const data = await res.json();
+                if (data.error) {
+                    setError(data.error);
+                }
+                setSearchResults(Array.isArray(data.results) ? data.results : []);
+                setSearchTruncated(!!data.truncated);
+            } catch (err) {
+                setError('Error de connexió');
+                setSearchResults([]);
+            } finally {
+                setLoading(false);
+            }
+        }, 300);
+        return () => clearTimeout(handle);
+    }, [isOpen, searchQuery]);
 
     const browse = async (path) => {
         setLoading(true);
@@ -73,16 +110,14 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
 
     if (!isOpen) return null;
 
-    const q = searchQuery.toLowerCase();
-    const filteredDirectories = q
-        ? directories.filter((d) => d.toLowerCase().includes(q))
-        : directories;
-    const filteredFiles = mode === 'file' && q
-        ? files.filter((f) => f.toLowerCase().includes(q))
-        : (mode === 'file' ? files : []);
+    const isSearching = searchResults !== null;
+    const visibleDirectories = isSearching ? [] : directories;
+    const visibleFiles = isSearching ? [] : (mode === 'file' ? files : []);
 
     const titleText = mode === 'file' ? 'Seleccionar fitxer' : 'Seleccionar carpeta';
-    const searchPlaceholder = mode === 'file' ? 'Filtrar fitxers i carpetes...' : 'Filtrar carpetes...';
+    const searchPlaceholder = mode === 'file'
+        ? 'Cerca a tot el Mac (≥2 caràcters)...'
+        : 'Cerca carpetes a tot el Mac (≥2 caràcters)...';
 
     const handleSelectFile = (filename) => {
         const hostPath = joinPath(displayPath || currentPath, filename);
@@ -91,6 +126,17 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
 
     const handleSelectCurrentFolder = () => {
         onSelect(displayPath || currentPath);
+    };
+
+    // Resultat de cerca: si és carpeta, navega-hi (en mode 'folder' també);
+    // si és fitxer i estem en mode 'file', seleccionar-lo.
+    const handleSearchResultClick = (item) => {
+        if (item.is_dir) {
+            setSearchQuery('');
+            void browse(item.path);
+        } else if (mode === 'file') {
+            onSelect(item.path);
+        }
     };
 
     const modalContent = (
@@ -196,17 +242,58 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     {/* List */}
                     <div className="bg-[var(--bg-primary)]" style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
                         {loading ? (
-                            <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '40px' }}>Carregant...</div>
+                            <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '40px' }}>
+                                {isSearching ? 'Cercant a tot el Mac...' : 'Carregant...'}
+                            </div>
                         ) : error ? (
                             <div style={{ color: '#ef4444', padding: '20px', textAlign: 'center' }}>{error}</div>
+                        ) : isSearching ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {searchResults.length === 0 ? (
+                                    <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '20px', fontSize: '0.9em' }}>
+                                        Cap resultat per a “{searchQuery}”
+                                    </div>
+                                ) : (
+                                    <>
+                                        {searchResults
+                                            .filter((item) => mode === 'file' || item.is_dir)
+                                            .map((item) => (
+                                                <button
+                                                    key={`${item.is_dir ? 'd' : 'f'}:${item.path}`}
+                                                    onClick={() => handleSearchResultClick(item)}
+                                                    className="text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] group"
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '6px', textAlign: 'left', width: '100%' }}
+                                                >
+                                                    {item.is_dir
+                                                        ? <Folder size={18} className="text-[var(--gnosi-primary)]" />
+                                                        : <FileIcon size={18} className="text-[var(--text-secondary)]" />}
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                                                        <div className="text-[var(--text-tertiary)]" style={{ fontSize: '0.72rem', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {item.path}
+                                                        </div>
+                                                    </div>
+                                                    {item.is_dir && (
+                                                        <ChevronRight size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]" />
+                                                    )}
+                                                </button>
+                                            ))}
+                                        {searchTruncated && (
+                                            <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '10px', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                                                Massa resultats — afina la cerca per veure'n més
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                {filteredDirectories.length === 0 && filteredFiles.length === 0 && (
+                                {visibleDirectories.length === 0 && visibleFiles.length === 0 && (
                                     <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '20px', fontSize: '0.9em' }}>
                                         {mode === 'file' ? "No s'han trobat fitxers ni carpetes" : "No s'han trobat carpetes"}
                                     </div>
                                 )}
-                                {filteredDirectories.map((dir) => (
+                                {visibleDirectories.map((dir) => (
                                     <button
                                         key={`d:${dir}`}
                                         onClick={() => browse(joinPath(currentPath, dir))}
@@ -218,7 +305,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                         <ChevronRight size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]" />
                                     </button>
                                 ))}
-                                {mode === 'file' && filteredFiles.map((file) => (
+                                {mode === 'file' && visibleFiles.map((file) => (
                                     <button
                                         key={`f:${file}`}
                                         onClick={() => handleSelectFile(file)}
