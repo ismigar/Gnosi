@@ -276,17 +276,37 @@ async def search_filesystem(body: SearchRequest = Body(...)):
     home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
     vault_host = os.getenv("VAULT_HOST_PATH") or ""
 
-    roots: list[Path] = []
-    for raw in (vault_internal, home_internal):
+    # Caminem en passades prioritàries: primer el Vault, després les
+    # carpetes d'usuari habituals (Documents, Desktop, Downloads, …) i
+    # finalment la resta de la HOME. Així garantim que els fitxers
+    # rellevants apareguin encara que la HOME contingui molts fitxers
+    # poc interessants (Library està a la skip-list però altres carpetes
+    # com Movies grans poden esgotar el límit).
+    priority_subdirs = ["Documents", "Desktop", "Downloads", "Pictures", "Movies", "Music"]
+    priority_roots: list[Path] = []
+    seen_resolved: set[str] = set()
+
+    def _add_root(raw: str) -> None:
         if not raw:
-            continue
+            return
         try:
             p = Path(raw).resolve()
+            key = str(p)
+            if key in seen_resolved:
+                return
             if p.exists() and p.is_dir():
-                roots.append(p)
+                priority_roots.append(p)
+                seen_resolved.add(key)
         except Exception:
-            continue
-    if not roots:
+            return
+
+    _add_root(vault_internal)
+    if home_internal:
+        for name in priority_subdirs:
+            _add_root(os.path.join(home_internal, name))
+    _add_root(home_internal)
+
+    if not priority_roots:
         return {"results": [], "truncated": False}
 
     def to_host(internal: str) -> str:
@@ -297,11 +317,33 @@ async def search_filesystem(body: SearchRequest = Body(...)):
     import os as native_os
     results: list = []
     visited = 0
-    max_visited = 50000
+    # Pujat de 50_000 a 250_000: amb la HOME muntada read-only, una sola
+    # carpeta gran (Photos, llibreries d'eines, etc.) podia consumir tot
+    # el pressupost abans d'arribar a Documents/Downloads. Amb roots
+    # prioritaris + límit més alt, la cerca cobreix els llocs habituals.
+    max_visited = 250000
     truncated = False
+    # Deduplicar resultats quan un fitxer es trobi des de més d'un root
+    # prioritari (p.ex. Vault + walk genèric de HOME que entra a Library).
+    seen_result_paths: set[str] = set()
+
+    def _record_hit(internal: str, name: str, is_dir: bool) -> bool:
+        """Afegeix un match si encara no s'havia trobat. Retorna True si
+        s'ha arribat al límit i cal aturar la cerca."""
+        if internal in seen_result_paths:
+            return False
+        seen_result_paths.add(internal)
+        results.append({
+            "name": name,
+            "path": to_host(internal),
+            "is_dir": is_dir,
+        })
+        return len(results) >= limit
 
     try:
-        for root in roots:
+        for root in priority_roots:
+            if truncated:
+                break
             for current_dir, dirs, files in native_os.walk(str(root), followlinks=False):
                 # Pruna in-place per a no descendir on no toca.
                 dirs[:] = [
@@ -320,12 +362,7 @@ async def search_filesystem(body: SearchRequest = Body(...)):
                         break
                     if q in name.lower():
                         internal = native_os.path.join(current_dir, name)
-                        results.append({
-                            "name": name,
-                            "path": to_host(internal),
-                            "is_dir": True,
-                        })
-                        if len(results) >= limit:
+                        if _record_hit(internal, name, True):
                             truncated = True
                             return {"results": results, "truncated": truncated}
 
@@ -341,19 +378,12 @@ async def search_filesystem(body: SearchRequest = Body(...)):
                         break
                     if q in name.lower():
                         internal = native_os.path.join(current_dir, name)
-                        results.append({
-                            "name": name,
-                            "path": to_host(internal),
-                            "is_dir": False,
-                        })
-                        if len(results) >= limit:
+                        if _record_hit(internal, name, False):
                             truncated = True
                             return {"results": results, "truncated": truncated}
 
                 if truncated:
                     break
-            if truncated:
-                break
     except Exception as e:
         return {
             "results": results,
