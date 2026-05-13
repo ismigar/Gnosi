@@ -692,11 +692,22 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     })();
     const [markdownText, setMarkdownText] = useState(safeInitial);
     const saveTimerRef = useRef(null);
+    const textareaRef = useRef(null);
     // Dirty flag — only autosave when the USER has edited the text. Without
     // this, opening any note triggers a PATCH 900ms later with the exact
     // content the server just sent us, which races against external edits
     // (sync from another device) and produces spurious 409 etag conflicts.
     const hasUserEditedRef = useRef(false);
+
+    // Auto-grow del textarea: la pàgina té un sol scroll vertical (el de la
+    // finestra), no un d'intern. Després de cada canvi de text, ajustem
+    // l'alçada al contingut real.
+    useEffect(() => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        ta.style.height = 'auto';
+        ta.style.height = `${ta.scrollHeight}px`;
+    }, [markdownText]);
 
     useEffect(() => {
         // Switching to a different note: reset content AND clear dirty flag.
@@ -758,6 +769,7 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     return (
         <div className="px-10 py-6">
             <textarea
+                ref={textareaRef}
                 value={markdownText}
                 onChange={(e) => { hasUserEditedRef.current = true; setMarkdownText(e.target.value); }}
                 onKeyDown={(e) => {
@@ -767,7 +779,8 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
                     }
                 }}
                 spellCheck={false}
-                className="w-full min-h-[520px] bg-transparent p-0 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none resize-y border-0 focus:ring-0"
+                rows={1}
+                className="w-full bg-transparent p-0 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none resize-none border-0 focus:ring-0 overflow-hidden"
             />
         </div>
     );
