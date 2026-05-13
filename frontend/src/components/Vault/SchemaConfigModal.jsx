@@ -458,8 +458,12 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation]);
 
     // Comprova si ja existeix un camp botó amb l'acció de traducció.
+    // Tot camp `button` rep `button_action` al crear-se (handleUpdateField i
+    // addTranslateButton el posen explícitament), així que la comparació
+    // directa és correcta: si arribés un botó amb button_action buit, voldria
+    // dir que la configuració és incompleta i el banner d'avís ha d'aparèixer.
     const hasTranslateButton = fields.some(
-        (f) => f.type === 'button' && (f.button_action || 'translate_row') === 'translate_row'
+        (f) => f.type === 'button' && f.button_action === 'translate_row'
     );
 
     // Afegeix un camp `button` amb acció `translate_row` si encara no n'hi ha.
