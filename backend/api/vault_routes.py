@@ -152,6 +152,12 @@ def _clear_page_index_cache():
     """Clears the internal page index cache to force a re-scan."""
     with _page_index_lock:
         _page_index_entries.clear()
+        # Sense això, `_page_index_initialized[v_str]` queda True i la propera
+        # crida a `_get_cached_page_entries` retornaria [] silenciosament
+        # (entrava al fast path amb el dict buit). Resetejant la flag, el
+        # següent get torna a carregar del disc cache — que continua sent
+        # vàlid perquè aquí no l'hem tocat.
+        _page_index_initialized.clear()
         log.info("♻️ Page index cache cleared.")
 
 
@@ -2380,6 +2386,25 @@ async def list_pages(
         only_calendar=only_calendar,
         background_tasks=background_tasks,
     )
+
+    # Safety net: si el snapshot és buit però el disc cache existeix amb
+    # entries, vol dir que estem en un moment intermedi (warmup, post-rescan)
+    # on `_page_index_entries` encara no està repoblat. Retornem 503 perquè
+    # el client reintenti amb backoff, en lloc de mostrar la sidebar buida.
+    if not pages and not folder and offset == 0:
+        try:
+            cache_path = get_page_index_cache_path()
+            if cache_path and cache_path.exists() and cache_path.stat().st_size > 2:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Page index is warming up; retry shortly.",
+                    headers={"Retry-After": "2"},
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     if folder:
         prefix = folder.strip("/")
         pages = [p for p in pages if (p.folder or "").startswith(prefix)]

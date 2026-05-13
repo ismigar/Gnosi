@@ -444,16 +444,18 @@ export default function VaultDashboard() {
         };
     }, []);
 
+    const FETCH_PAGES_MAX_ATTEMPTS = 8;
+
     const fetchPages = useCallback(async (attempt = 0) => {
         try {
             setLoading(true);
             const res = await axios.get('/api/vault/pages');
-            if (res.data.length === 0 && attempt < 3) {
+            if (res.data.length === 0 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
                 // Backend cache may still be warming up — retry with backoff
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
                 fetchPagesRetryTimerRef.current = setTimeout(
                     () => fetchPages(attempt + 1),
-                    2000 * (attempt + 1),
+                    Math.min(1000 * (attempt + 1), 5000),
                 );
                 return [];
             }
@@ -466,6 +468,17 @@ export default function VaultDashboard() {
                 fetchPagesRetryTimerRef.current = setTimeout(
                     () => fetchPages(attempt + 1),
                     400 * (attempt + 1),
+                );
+                return [];
+            }
+            // 503 amb Retry-After: el backend ens diu que l'índex encara s'està
+            // escalfant. Reintentem respectant la capçalera (fallback 2s).
+            if (err?.response?.status === 503 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
+                const retryAfter = Number(err.response.headers?.['retry-after']) || 2;
+                if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
+                fetchPagesRetryTimerRef.current = setTimeout(
+                    () => fetchPages(attempt + 1),
+                    Math.min(retryAfter * 1000, 5000),
                 );
                 return [];
             }
