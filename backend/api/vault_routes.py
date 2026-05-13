@@ -42,6 +42,13 @@ from backend.services.rule_engine import RuleEngine
 log = logging.getLogger(__name__)
 
 from backend.services.path_resolver import path_resolver
+from backend.services.page_sidecar import (
+    apply_sidecar_to,
+    persist_sidecar_from,
+    delete_sidecar as delete_sidecar_for_page,
+    vault_root_for,
+    split_metadata as split_sidecar_metadata,
+)
 from backend.utils.safe_io import (
     safe_write_text,
     safe_write_json,
@@ -780,8 +787,10 @@ def ensure_default_registry_structure():
 def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     """Parses a markdown file to extract the YAML frontmatter and body.
 
-    If the YAML is malformed we log an error and return empty metadata.
-    ``file_path`` is used only for logging context.
+    Si `file_path` permet derivar un vault root i la pàgina té `id`, també
+    fusiona el sidecar JSON corresponent (`.gnosi/page_meta/<id>.json`).
+    Així les flags internes (`*_manual`, `is_template`) viuen fora del `.md`
+    però apareixen al dict de metadata com sempre.
     """
     # Regex to capture frontmatter between --- and --- at the start of the file
     match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
@@ -790,6 +799,7 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
         body = content[match.end() :]
         try:
             metadata = yaml.safe_load(yaml_content) or {}
+            metadata = apply_sidecar_to(metadata, file_path)
             return metadata, body
         except yaml.YAMLError as e:
             fallback_metadata = _parse_frontmatter_fallback(yaml_content)
@@ -798,6 +808,7 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
                 log.warning(
                     f"Malformed YAML frontmatter{location}; applying rescue parsing"
                 )
+                fallback_metadata = apply_sidecar_to(fallback_metadata, file_path)
                 return fallback_metadata, body
             location = f" in {file_path}" if file_path else ""
             # malformed YAML is annoying but not fatal; debug instead of error
@@ -856,13 +867,44 @@ def _parse_frontmatter_fallback(yaml_content: str) -> dict:
 
 
 def generate_frontmatter(metadata: dict) -> str:
-    """Generates YAML frontmatter string from a dictionary."""
+    """Generates YAML frontmatter string from a dictionary.
+
+    Les claus internes (`*_manual`, `is_template`, …) es filtren d'aquí: no
+    han d'aparèixer mai al `.md`. Es persisteixen al sidecar JSON via
+    `save_page_md`. Si algú crida `generate_frontmatter` sense després escriure
+    el sidecar (no és el patró recomanat), aquestes flags es perdrien — per
+    això la regla és **usar sempre `save_page_md` per escriure pàgines**.
+    """
     if not metadata:
         return "---\n---\n"
+    fm_meta, _sidecar = split_sidecar_metadata(metadata)
+    if not fm_meta:
+        return "---\n---\n"
     yaml_str = yaml.dump(
-        metadata, default_flow_style=False, sort_keys=False, allow_unicode=True
+        fm_meta, default_flow_style=False, sort_keys=False, allow_unicode=True
     )
     return f"---\n{yaml_str}---\n"
+
+
+def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
+    """Escriu una pàgina .md amb separació frontmatter / sidecar.
+
+    1. Persisteix les claus internes (`*_manual`, `is_template`, …) al sidecar
+       JSON a `<vault>/.gnosi/page_meta/<id>.json`.
+    2. Escriu el `.md` amb només frontmatter "net" + body.
+
+    És el wrapper canònic per escriure pàgines. Substitueix el patró
+    `generate_frontmatter(metadata) + safe_write_text`.
+    """
+    fm_meta = persist_sidecar_from(metadata, file_path)
+    if not fm_meta:
+        frontmatter = "---\n---\n"
+    else:
+        yaml_str = yaml.dump(
+            fm_meta, default_flow_style=False, sort_keys=False, allow_unicode=True
+        )
+        frontmatter = f"---\n{yaml_str}---\n"
+    safe_write_text(file_path, f"{frontmatter}\n{(body or '').lstrip()}")
 
 
 def normalize_metadata_ids(metadata: dict) -> dict:
@@ -1713,8 +1755,7 @@ def _recompute_cross_record_formulas_for_table(
                     continue
 
                 try:
-                    frontmatter = generate_frontmatter(updated)
-                    safe_write_text(file_path, f"{frontmatter}\n{body.lstrip()}")
+                    save_page_md(file_path, updated, body)
                 except Exception as e:
                     log.warning(f"Error saving recomputation for {page_id}: {e}")
 
@@ -2514,11 +2555,8 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     log.info(f"Creating new page at: {file_path.absolute()}")
 
-    frontmatter = generate_frontmatter(metadata)
-    full_content = f"{frontmatter}\n{request.content}"
-
     try:
-        safe_write_text(file_path, full_content)
+        save_page_md(file_path, metadata, request.content)
         background_tasks.add_task(
             trigger_n8n_webhook, file_path.name, "Universal", request.content
         )
@@ -3153,10 +3191,6 @@ async def save_page(
 
     metadata = _persist_metadata_assets(metadata)
 
-    frontmatter = generate_frontmatter(metadata)
-    # Evitar dobletes de salts inútils respectant body
-    full_content = f"{frontmatter}\n{request.content.lstrip()}"
-
     def _write_now():
         # Both the version backup and the actual file write are real I/O on
         # OneDrive — pushed onto a worker thread together so the request
@@ -3164,7 +3198,7 @@ async def save_page(
         # s'escriuen com a markdown amb frontmatter.
         if file_path and file_path.exists():
             _create_page_version(page_id, file_path)
-        safe_write_text(file_path, full_content)
+        save_page_md(file_path, metadata, request.content)
 
     try:
         await asyncio.to_thread(_write_now)
@@ -3313,15 +3347,12 @@ async def patch_page(
 
         metadata = _persist_metadata_assets(metadata)
 
-        frontmatter = generate_frontmatter(metadata)
-        full_content = f"{frontmatter}\n{content.lstrip()}"
-
         # Backup + write off the loop so concurrent requests aren't stuck on
         # OneDrive while we save. Tots els tipus de pàgina (incloses
         # Dashboards) són markdown amb frontmatter.
         def _write_now():
             _create_page_version(page_id, file_path)
-            safe_write_text(file_path, full_content)
+            save_page_md(file_path, metadata, content)
         await asyncio.to_thread(_write_now)
 
         # Actualitza el cache `_page_index_entries` IMMEDIATAMENT amb el nou
@@ -3585,6 +3616,14 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
         except Exception:
             pass
     shutil.rmtree(entry_dir)
+    # Net el sidecar de metadata intern: si quedés orfe, no fa mal, però val
+    # més purgar-lo per consistència. La pàgina ja no és recuperable.
+    try:
+        vault_root = get_p("VAULT")
+        if vault_root:
+            delete_sidecar_for_page(vault_root, page_id)
+    except Exception as exc:
+        log.debug(f"No s'ha pogut purgar el page_meta sidecar de {page_id}: {exc}")
     return {"id": page_id, "freed_bytes": freed_bytes}
 
 
@@ -4910,10 +4949,8 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
                 is_database=bool(new_metadata.get("is_database")),
             )
         else:
-            frontmatter = generate_frontmatter(new_metadata)
-            full_content = f"{frontmatter}\n{body.lstrip()}"
             new_file_path = source_path.parent / f"{new_page_id}.md"
-            safe_write_text(new_file_path, full_content)
+            save_page_md(new_file_path, new_metadata, body)
 
         background_tasks.add_task(
             trigger_n8n_webhook, new_file_path.name, "Universal", body
@@ -6021,8 +6058,7 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
                     is_database=bool(metadata.get("is_database")),
                 )
             else:
-                full_content = f"{generate_frontmatter(metadata)}\n{updated_body.lstrip()}"
-                safe_write_text(file_path, full_content)
+                save_page_md(file_path, metadata, updated_body)
 
             changed_notes.append(
                 {

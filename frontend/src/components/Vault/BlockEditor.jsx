@@ -285,11 +285,13 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
     ];
 };
 
-const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate }) => {
+const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, single = false }) => {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
     const containerRef = useRef(null);
+    const listRef = useRef(null);
     const currentValues = useMemo(() => {
         if (!value) return [];
         if (Array.isArray(value)) return value;
@@ -311,21 +313,80 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filteredOptions = (options || []).filter(opt => 
+    // Mode single: mostrem totes les opcions al dropdown (incloent la
+    // seleccionada) perquè l'usuari pugui substituir-la sense haver de
+    // deseleccionar primer. Mode multi: amaguem les ja seleccionades
+    // perquè ja apareixen com a pills.
+    const filteredOptions = (options || []).filter(opt =>
         (idToTitle[opt] || opt).toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !currentValues.includes(opt)
+        (single || !currentValues.includes(opt))
     );
+    const canCreate = Boolean(
+        searchTerm && !(options || []).includes(searchTerm) && onCreate
+    );
+    const totalItems = filteredOptions.length + (canCreate ? 1 : 0);
+
+    // Reseteja l'índex marcat quan canvia la cerca o s'obre el dropdown:
+    // mantenir el highlight desactualitzat trauria la fletxa de lloc i,
+    // sobretot, Enter podria seleccionar una opció diferent de la primera
+    // visible.
+    useEffect(() => { setHighlightedIndex(0); }, [searchTerm, isOpen]);
+
+    // Scroll automàtic dins del dropdown perquè l'opció marcada sempre
+    // sigui visible quan es navega amb fletxes en una llista llarga.
+    useEffect(() => {
+        if (!listRef.current) return;
+        const el = listRef.current.querySelector(`[data-idx="${highlightedIndex}"]`);
+        if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'nearest' });
+        }
+    }, [highlightedIndex]);
 
     const toggleValue = (val) => {
+        if (single) {
+            // Substituir; si l'opció clicada era la seleccionada, deseleccionar.
+            const isCurrent = currentValues[0] === val;
+            onChange(isCurrent ? '' : val);
+            setIsOpen(false);
+            return;
+        }
         const next = currentValues.includes(val)
             ? currentValues.filter(v => v !== val)
             : [...currentValues, val];
         onChange(next);
     };
 
+    const handleCreate = () => {
+        if (!canCreate) return;
+        onCreate(searchTerm);
+        setSearchTerm('');
+        if (single) setIsOpen(false);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (totalItems === 0) return;
+            setHighlightedIndex(i => Math.min(i + 1, totalItems - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(i => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex < filteredOptions.length) {
+                toggleValue(filteredOptions[highlightedIndex]);
+            } else if (canCreate) {
+                handleCreate();
+            }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsOpen(false);
+        }
+    };
+
     return (
         <div className="relative w-full" ref={containerRef}>
-            <div 
+            <div
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex flex-wrap gap-1.5 p-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg cursor-pointer hover:border-[var(--gnosi-primary)]/50 transition-all min-h-[42px] items-center"
             >
@@ -347,23 +408,37 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                             placeholder="Buscar..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
+                            onKeyDown={handleKeyDown}
                         />
                     </div>
-                    <div className="overflow-y-auto flex-1 custom-scrollbar">
-                        {filteredOptions.map(opt => (
-                            <div
-                                key={opt}
-                                onClick={() => toggleValue(opt)}
-                                className="p-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)] rounded-lg cursor-pointer transition-colors flex items-center justify-between group"
-                            >
-                                <span>{idToTitle[opt] || opt}</span>
-                                <Plus size={14} className="opacity-0 group-hover:opacity-100" />
-                            </div>
-                        ))}
-                        {searchTerm && !(options || []).includes(searchTerm) && onCreate && (
+                    <div ref={listRef} className="overflow-y-auto flex-1 custom-scrollbar">
+                        {filteredOptions.map((opt, idx) => {
+                            const isHighlighted = idx === highlightedIndex;
+                            return (
+                                <div
+                                    key={opt}
+                                    data-idx={idx}
+                                    onClick={() => toggleValue(opt)}
+                                    onMouseEnter={() => setHighlightedIndex(idx)}
+                                    className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors flex items-center justify-between group ${
+                                        isHighlighted
+                                            ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                            : 'text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)]'
+                                    }`}
+                                >
+                                    <span>{idToTitle[opt] || opt}</span>
+                                    <Plus size={14} className={isHighlighted ? '' : 'opacity-0 group-hover:opacity-100'} />
+                                </div>
+                            );
+                        })}
+                        {canCreate && (
                             <button
-                                onClick={() => { onCreate(searchTerm); setSearchTerm(''); }}
-                                className="btn-gnosi btn-gnosi-primary !text-xs !py-2 w-full mt-2"
+                                data-idx={filteredOptions.length}
+                                onMouseEnter={() => setHighlightedIndex(filteredOptions.length)}
+                                onClick={handleCreate}
+                                className={`btn-gnosi btn-gnosi-primary !text-xs !py-2 w-full mt-2 ${
+                                    highlightedIndex === filteredOptions.length ? 'ring-2 ring-[var(--gnosi-primary)]/40' : ''
+                                }`}
                             >
                                 <Plus size={14} />
                                 {t('common.create')} "{searchTerm}"
@@ -466,7 +541,8 @@ const INTERNAL_METADATA_KEYS = Object.freeze([
     'title', 'table_id', 'database_id', 'database_table_id', 'id',
     'parent_id', 'source_id', 'resolved_table_id', 'last_modified',
     'created_time', 'last_edited_time', 'source_parent_id',
-    'is_default_template', 'path', 'filename', 'cover', 'cover_manual', 'icon',
+    'is_default_template', 'is_template', 'path', 'filename',
+    'cover', 'cover_manual', 'icon',
 ]);
 const INTERNAL_METADATA_KEY_SET = new Set(INTERNAL_METADATA_KEYS);
 
@@ -679,17 +755,6 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
 
     return (
         <div className="px-10 py-6">
-            <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/70">{t('editor.markdown_mode')}</div>
-                <button
-                    onClick={handleForceSave}
-                    className="btn btn-gnosi-primary px-3 py-1.5 text-[10px] font-bold"
-                    title="Cmd/Ctrl+S"
-                >
-                    {t('common.save')}
-                </button>
-            </div>
-
             <textarea
                 value={markdownText}
                 onChange={(e) => { hasUserEditedRef.current = true; setMarkdownText(e.target.value); }}
@@ -700,12 +765,8 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
                     }
                 }}
                 spellCheck={false}
-                className="w-full min-h-[520px] rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/20 p-4 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none resize-y focus:border-[var(--gnosi-primary)]/40"
+                className="w-full min-h-[520px] bg-transparent p-0 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none resize-y border-0 focus:ring-0"
             />
-
-            <div className="mt-2 text-xs text-[var(--text-secondary)]/70">
-                {t('editor.markdown_autosave_hint')}
-            </div>
         </div>
     );
 };
@@ -2072,7 +2133,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewerRole = role === 'viewer';
@@ -2135,6 +2196,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
             setSaveStatus('saved');
+            // Notifica el pare perquè el `tabs[i].title` i el breadcrumb
+            // segueixin el rename. Sense això, canvis al títol via panell de
+            // propietats o input del header només es propagaven via
+            // `onRefreshNotes` (lent, fetch sencer); la pestanya quedava
+            // mostrant el títol antic fins al pròxim recàrrec.
+            if (onUpdate) onUpdate(noteFilename, undefined, { title: data.title, metadata: data.metadata });
             if (onRefreshNotes) onRefreshNotes();
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
         } catch (err) {
@@ -2146,7 +2213,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             notifyError('save-metadata', err, t('editor.markdown_save_error'));
             setSaveStatus('error');
         }
-    }, [noteFilename, onRefreshNotes, t]);
+    }, [noteFilename, onUpdate, onRefreshNotes, t]);
 
     // Debounced metadata save. Without this, every keystroke on the title or
     // every option toggle on a multi-select fires its own PATCH; on slow
@@ -2209,6 +2276,16 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
+    // Les opcions de `select`/`multi_select` viuen al backend dins de
+    // `prop.config.options`; alguns paths legacy les escrivien al top-level
+    // `prop.options`. Aquest helper les unifica perquè el dropdown sempre
+    // mostri les ja definides al schema, independentment d'on vinguin.
+    const getPropOptions = (prop) => {
+        if (!prop) return [];
+        if (Array.isArray(prop.options) && prop.options.length > 0) return prop.options;
+        if (prop.config && Array.isArray(prop.config.options)) return prop.config.options;
+        return [];
+    };
     // `properties` is the filtered schema list shown above the body. Memoized
     // because the title input rerenders on every keystroke and recomputing
     // this 10-key filter for every table with 100+ properties was visible in
@@ -2239,6 +2316,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             const normalizedKey = String(key || '').toLowerCase();
             return (
                 !INTERNAL_METADATA_KEY_SET.has(key) &&
+                !normalizedKey.endsWith('_manual') &&
                 !normalizedKey.startsWith('favorite') &&
                 !normalizedKey.startsWith('icon_') &&
                 !normalizedKey.startsWith('cover_') &&
@@ -2618,12 +2696,41 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         />
                                                     );
                                                 })() : prop.type === 'multi_select' ? (
-                                                    <MultiSelectPills value={metadata[prop.name]} onChange={val => isEditor && handleMetaChange(prop.name, val)} options={prop.options || []} idToTitle={idToTitle || {}} placeholder={isEditor ? t('editor.add_options') : t('common.empty')} onCreate={val => { if (!isEditor) return; const nextOptions = [...(prop.options || []), val]; onEditSchema({ ...currentTable, properties: (properties || []).map(p => p.name === prop.name ? { ...p, options: nextOptions } : p) }); handleMetaChange(prop.name, [...(Array.isArray(metadata[prop.name]) ? metadata[prop.name] : []), val]); }} />
+                                                    <MultiSelectPills
+                                                        value={metadata[prop.name]}
+                                                        onChange={val => isEditor && handleMetaChange(prop.name, val)}
+                                                        options={getPropOptions(prop)}
+                                                        idToTitle={idToTitle || {}}
+                                                        placeholder={isEditor ? t('editor.add_options') : t('common.empty')}
+                                                        onCreate={val => {
+                                                            if (!isEditor) return;
+                                                            const nextOptions = [...getPropOptions(prop), val];
+                                                            // Persisteix l'opció al schema (PATCH a la taula)
+                                                            // i selecciona-la al registre actual. Si el handler
+                                                            // no existeix, el valor només queda al metadata.
+                                                            if (onAddSchemaOption && currentTableId && prop.id) {
+                                                                onAddSchemaOption(currentTableId, prop.id, nextOptions);
+                                                            }
+                                                            handleMetaChange(prop.name, [...(Array.isArray(metadata[prop.name]) ? metadata[prop.name] : []), val]);
+                                                        }}
+                                                    />
                                                 ) : prop.type === 'select' ? (
-                                                    <select disabled={!isEditor} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-transparent hover:border-[var(--border-primary)] rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:bg-[var(--bg-primary)] focus:border-[var(--gnosi-primary)]/40 transition-all font-medium h-7 disabled:opacity-50 disabled:cursor-not-allowed">
-                                                        <option value="">{t('common.empty')}</option>
-                                                        {(prop.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                    </select>
+                                                    <MultiSelectPills
+                                                        single
+                                                        value={metadata[prop.name]}
+                                                        onChange={val => isEditor && handleMetaChange(prop.name, val)}
+                                                        options={getPropOptions(prop)}
+                                                        idToTitle={idToTitle || {}}
+                                                        placeholder={isEditor ? t('editor.add_options') : t('common.empty')}
+                                                        onCreate={val => {
+                                                            if (!isEditor) return;
+                                                            const nextOptions = [...getPropOptions(prop), val];
+                                                            if (onAddSchemaOption && currentTableId && prop.id) {
+                                                                onAddSchemaOption(currentTableId, prop.id, nextOptions);
+                                                            }
+                                                            handleMetaChange(prop.name, val);
+                                                        }}
+                                                    />
                                                 ) : prop.type === 'files' ? (
                                                     <div className="w-full">
                                                         {isEditor ? (
