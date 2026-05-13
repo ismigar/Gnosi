@@ -3346,11 +3346,22 @@ async def patch_page(
         metadata = normalize_metadata_ids(metadata)
         metadata = normalize_table_context(metadata)
         if metadata.get("is_dashboard") is True:
-            metadata["content_format"] = "json"
+            # Els dashboards són markdown amb frontmatter, com qualsevol altra
+            # pàgina; `content_format=json` era una etiqueta legacy. Si el
+            # frontmatter actual encara la porta, la treiem perquè no s'escrigui
+            # al disc. La inversa que hi havia aquí (posar `content_format=json`
+            # i convertir el fitxer a `.json`) provocava corrupció: el PATCH
+            # renomenava `Bitàcora.md` → `Bitàcora.json`, hi escrivia un body
+            # buit per algun camí d'error, i la pàgina passava a fer 500.
+            metadata.pop("content_format", None)
 
         # Move if type changes (template / non-template)
         file_path = ensure_correct_page_location(file_path, metadata)
-        file_path = _ensure_page_extension(file_path, metadata.get("is_dashboard") is True)
+        # NOTA: NO cridem `_ensure_page_extension` per a dashboards. La regla
+        # del projecte és "pàgines (incloses dashboards) sempre són Markdown";
+        # canviar l'extensió a `.json` quan `is_dashboard=True` és el bug que
+        # va trencar Bitàcora. La funció es manté al codi per llegir encara
+        # `.json` legacy, però aquí no es força la renomenació.
         if request.title is not None:
             file_path = _rename_page_file_to_match_title(file_path, request.title)
 
