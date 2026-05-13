@@ -3634,6 +3634,55 @@ def _force_index_rescan() -> None:
     _clear_page_index_cache()
 
 
+def _remove_page_from_index_cache(page_id: str, old_path: Optional[Path] = None) -> None:
+    """Treu UNA entrada del cache d'índex sense buidar-lo sencer.
+
+    Alternativa surgical a `_force_index_rescan()` per a operacions que
+    només afecten una pàgina (delete/soft-delete). El wipe global feia
+    que `/pages/by-table/{id}` retornés [] fins el següent rescan i
+    deixava la taula parpellejant buida després d'eliminar un registre.
+    """
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        return
+    v_str = str(v_path)
+    with _page_index_lock:
+        id_map = _page_id_to_path.get(v_str, {})
+        entries = _page_index_entries.get(v_str, {})
+        path_str = id_map.pop(page_id, None)
+        if path_str:
+            entries.pop(path_str, None)
+        if old_path:
+            entries.pop(str(old_path), None)
+
+
+def _add_page_to_index_cache(file_path: Path) -> None:
+    """Insereix UNA entrada al cache d'índex sense rescanejar tot el vault.
+
+    Simètric a `_remove_page_from_index_cache`. Útil quan acabem de crear
+    o restaurar un fitxer i volem que aparegui ja al pròxim GET sense
+    haver de buidar i refer tot l'índex (el wipe + repoblat feia
+    parpellejar la taula buida després d'un restore des del toast Desfer).
+    """
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        return
+    v_str = str(v_path)
+    try:
+        stat_result = file_path.stat()
+        new_entry = _build_page_cache_entry(file_path, stat_result)
+    except Exception as e:
+        log.debug(f"_add_page_to_index_cache failed for {file_path}: {e}")
+        return
+    with _page_index_lock:
+        _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
+        new_id = new_entry.get("id")
+        if new_id:
+            _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
+
+
 @router.delete("/pages/{page_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_page(page_id: str):
     """Soft-delete: mou la pàgina a `.trash/{page_id}/`.
@@ -3649,7 +3698,7 @@ async def delete_page(page_id: str):
     try:
         sidecar = await asyncio.to_thread(_move_page_to_trash, page_id, file_path)
         await asyncio.to_thread(remove_from_link_index, page_id)
-        _force_index_rescan()
+        _remove_page_from_index_cache(page_id, file_path)
         deleted_at_iso = sidecar.get("deleted_at")
         restorable_until = None
         if deleted_at_iso:
@@ -3701,11 +3750,16 @@ async def restore_page(page_id: str):
             detail=safe_error_detail(e, "POST /pages/{page_id}/restore"),
         )
 
-    _force_index_rescan()
+    # Insereix l'entrada al cache d'índex enlloc de buidar-lo sencer (que
+    # deixava la taula parpellejant buida després del toast "Desfer").
+    vault_root = get_p("VAULT")
+    restored_rel = result.get("restored_path")
+    if vault_root and restored_rel:
+        _add_page_to_index_cache((vault_root.resolve() / restored_rel))
     return {
         "status": "restored",
         "id": page_id,
-        "restored_path": result.get("restored_path"),
+        "restored_path": restored_rel,
         "title": result.get("title"),
     }
 
