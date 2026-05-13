@@ -26,8 +26,7 @@ import {
     Settings,
     Link2,
     AtSign,
-    Smile,
-    Frame
+    Smile
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -1922,7 +1921,7 @@ export function EditorInner({
                                         }
                                     }
                                 },
-                                aliases: ["insereix", "insert", "enllac", "link", "rich", "url", "file", "local", "embed", "fitxer", "media", "pdf", "video", "image"],
+                                aliases: ["+", "insereix", "insert", "enllac", "link", "rich", "url", "file", "local", "embed", "fitxer", "media", "pdf", "video", "image", "frame", "iframe", "youtube", "vimeo", "audio"],
                                 group: t('editor.links_group'),
                                 icon: <Link2 size={18} />,
                                 subtext: t('editor.insert_content_subtext', { defaultValue: 'Modal unificat: Vault, disc local, pujada o URL' }),
@@ -1965,7 +1964,7 @@ export function EditorInner({
                                     type: 'transclusion',
                                     props: { target: '', alias: '', section: '' },
                                 }),
-                                aliases: ["transclusion", "embed", "![[", "obsidian"],
+                                aliases: ["transclusion", "![[", "obsidian"],
                                 group: t('editor.links_group'),
                                 icon: <Maximize2 size={18} />,
                                 subtext: t('editor.insert_transclusion_format'),
@@ -1973,7 +1972,7 @@ export function EditorInner({
                             {
                                 title: t('editor.section_transclusion'),
                                 onItemClick: () => editor.insertInlineContent(`![[${t('editor.note_section_transclusion_placeholder')}]]`),
-                                aliases: ["transclusion section", "embed section", "![[#"],
+                                aliases: ["transclusion section", "![[#"],
                                 group: t('editor.links_group'),
                                 icon: <Maximize2 size={18} />,
                                 subtext: t('editor.section_transclusion_format'),
@@ -1981,34 +1980,10 @@ export function EditorInner({
                             {
                                 title: t('editor.transclusion_with_alias'),
                                 onItemClick: () => editor.insertInlineContent(`![[${t('editor.transclusion_alias_placeholder')}]]`),
-                                aliases: ["transclusion alias", "embed alias"],
+                                aliases: ["transclusion alias"],
                                 group: t('editor.links_group'),
                                 icon: <Maximize2 size={18} />,
                                 subtext: t('editor.transclusion_alias_format'),
-                            },
-                            {
-                                title: t('editor.embed_block', { defaultValue: 'Frame incrustat (PDF/vídeo/web)' }),
-                                onItemClick: async () => {
-                                    const anchor = editor.getTextCursorPosition().block;
-                                    try {
-                                        // Per a "Frame" l'usuari sol portar una URL externa
-                                        // (YouTube, web, PDF online); pre-seleccionem el
-                                        // tab URL. Pot canviar a Vault/Local/Puja al modal.
-                                        const result = await requestInsertContent({ initialTab: 'url' });
-                                        if (!result?.url) return;
-                                        // Forcem el mode frame fins i tot si el modal va
-                                        // recomanar un altre default.
-                                        applyInsertResult({ ...result, mode: 'frame' }, anchor);
-                                    } catch (err) {
-                                        if (!String(err?.message || '').match(/cancelled|superseded/)) {
-                                            console.warn('embed insert cancelled:', err?.message);
-                                        }
-                                    }
-                                },
-                                aliases: ["embed", "frame", "iframe", "pdf", "video", "web", "youtube", "vimeo"],
-                                group: t('editor.media_group', { defaultValue: 'Media' }),
-                                icon: <Frame size={18} />,
-                                subtext: t('editor.embed_block_subtext', { defaultValue: 'Incrusta un PDF, vídeo o pàgina web com a frame' }),
                             },
                         ];
                         const allItems = [...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
