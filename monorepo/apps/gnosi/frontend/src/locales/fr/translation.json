@@ -251,6 +251,8 @@
     "type_virtual": "Dérivé",
     "translation_enabled": "Table traduisible",
     "translation_hint": "Permet de marquer des champs comme traduisibles et d'ajouter des boutons qui génèrent des sous-éléments avec la traduction vers d'autres langues.",
+    "translate_button_missing": "Ce tableau n'a pas encore de bouton pour déclencher la traduction.",
+    "add_translate_button": "Ajouter le bouton de traduction",
     "field_translatable": "Traduisible",
     "field_translatable_hint": "Marque ce champ comme traduisible — le bouton de traduction le traitera.",
     "button_action": "Action du bouton",

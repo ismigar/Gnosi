@@ -457,13 +457,57 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         }
     }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation]);
 
+    // Comprova si ja existeix un camp botó amb l'acció de traducció.
+    const hasTranslateButton = fields.some(
+        (f) => f.type === 'button' && (f.button_action || 'translate_row') === 'translate_row'
+    );
+
+    // Afegeix un camp `button` amb acció `translate_row` si encara no n'hi ha.
+    // Tria un nom únic basat en l'etiqueta "Traduir" per evitar col·lisions amb
+    // camps existents (validació silenciosa).
+    const addTranslateButton = () => {
+        if (hasTranslateButton) return;
+        const baseName = t('schema.button_label_translate', 'Traduir');
+        const usedNames = new Set(fields.map((f) => (f.name || '').trim()).filter(Boolean));
+        let candidate = baseName;
+        let i = 2;
+        while (usedNames.has(candidate)) {
+            candidate = `${baseName} ${i++}`;
+        }
+        setFields([...fields, {
+            id: generateFieldId(),
+            name: candidate,
+            type: 'button',
+            formula: '',
+            compute: '',
+            defaultFormula: '',
+            relationField: '',
+            targetProperty: '',
+            aggregation: 'count_values',
+            limit: '',
+            fallbackValue: '',
+            relation_database_id: '',
+            cardinality: 'one-to-many',
+            storage_folder: '',
+            translatable: false,
+            button_action: 'translate_row',
+            button_label: '',
+            visible: true,
+        }]);
+    };
+
     // En activar traducció per primera vegada, els subitems són necessaris
     // (les traduccions es desen com a fills). Si l'usuari el desactiva
-    // explícitament després, respectem la seva decisió.
+    // explícitament després, respectem la seva decisió. A més, si encara no
+    // hi ha cap camp `button` amb acció `translate_row`, n'afegim un perquè
+    // l'usuari tingui immediatament un disparador visible a la taula.
     const handleToggleTranslation = (next) => {
         setEnableTranslation(next);
         if (next && !enableSubitems) {
             setEnableSubitems(true);
+        }
+        if (next) {
+            addTranslateButton();
         }
     };
 
@@ -744,6 +788,21 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
                                 {t('schema.translation_hint', 'Permet marcar camps com a traduïbles i afegir botons que generen subitems amb la traducció a altres idiomes.')}
                             </p>
+                            {enableTranslation && !hasTranslateButton && (
+                                <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/5">
+                                    <p className="text-xs text-[var(--text-secondary)] flex-1">
+                                        {t('schema.translate_button_missing', "Aquesta taula encara no té cap botó per disparar la traducció.")}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={addTranslateButton}
+                                        className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 flex items-center gap-1.5 text-xs shrink-0"
+                                    >
+                                        <Plus size={12} />
+                                        {t('schema.add_translate_button', 'Afegir botó de traducció')}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
