@@ -558,14 +558,21 @@ const FEED_PAGE_SIZE = 20;
 function FeedRender({ rows, columns, onOpenPage }) {
     const dateCol = useMemo(() => pickDateCol(columns, rows), [columns, rows]);
     const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
-    const [trackedRows, setTrackedRows] = useState(rows);
+
+    // Signatura del contingut, no de la referència: si el DbViewEmbed pare
+    // es re-renderitza (p.ex. clic en un altre block del dashboard), `rows`
+    // arriba com a array nou amb el mateix contingut i abans això resetejava
+    // el visibleCount → l'usuari perdia l'scroll i tornava al principi del
+    // feed. Comparant length + primer i últim id, només resetejem quan el
+    // contingut realment canvia (filtre nou, registre afegit/eliminat, etc.).
+    const rowsSignature = rows.length === 0
+        ? '__empty__'
+        : `${rows.length}|${rows[0]?.id || ''}|${rows[rows.length - 1]?.id || ''}`;
+    const [trackedSignature, setTrackedSignature] = useState(rowsSignature);
     const sentinelRef = useRef(null);
 
-    // Patró canònic React: derivar estat durant el render quan canvia l'input
-    // de referència. Així s'evita el useEffect → setState que dispara
-    // cascading renders.
-    if (trackedRows !== rows) {
-        setTrackedRows(rows);
+    if (trackedSignature !== rowsSignature) {
+        setTrackedSignature(rowsSignature);
         setVisibleCount(FEED_PAGE_SIZE);
     }
 
