@@ -282,7 +282,18 @@ async def search_filesystem(body: SearchRequest = Body(...)):
     # rellevants apareguin encara que la HOME contingui molts fitxers
     # poc interessants (Library està a la skip-list però altres carpetes
     # com Movies grans poden esgotar el límit).
-    priority_subdirs = ["Documents", "Desktop", "Downloads", "Pictures", "Movies", "Music"]
+    #
+    # Library normalment es salta perquè conté caches, plists i app data
+    # que no aporten res al search. Però les carpetes de sync cloud
+    # (OneDrive, Dropbox, Google Drive, Box → Library/CloudStorage; iCloud
+    # Drive → Library/Mobile Documents) sí que contenen fitxers reals de
+    # l'usuari i s'han de cobrir. Les afegim com a roots prioritaris
+    # explícits: el skip de "Library" només es comprova durant els walks,
+    # no als roots inicials, així que entrar-hi directament està permès.
+    priority_subdirs = [
+        "Documents", "Desktop", "Downloads", "Pictures", "Movies", "Music",
+        "Library/CloudStorage", "Library/Mobile Documents",
+    ]
     priority_roots: list[Path] = []
     seen_resolved: set[str] = set()
 
