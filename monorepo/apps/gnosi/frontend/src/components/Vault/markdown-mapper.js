@@ -180,7 +180,8 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         case "image":
         case "video":
         case "audio":
-        case "file": {
+        case "file":
+        case "embed": {
             const url = block.props.url || block.props.src || "";
             const caption = block.props.caption ? `|${block.props.caption}` : "";
             content = block.type === "image" ? `![${caption}](${url})` : `[${block.type}: ${url}](${url})`;
@@ -234,10 +235,14 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
     }
 
     // Color/Background
-    if (block.props && (block.props.textColor !== "default" || block.props.backgroundColor !== "default")) {
+    const textColor = block.props?.textColor;
+    const bgColor = block.props?.backgroundColor;
+    const hasTextColor = textColor && textColor !== "default";
+    const hasBgColor = bgColor && bgColor !== "default";
+    if (hasTextColor || hasBgColor) {
         let style = "";
-        if (block.props.textColor !== "default") style += `color: ${block.props.textColor};`;
-        if (block.props.backgroundColor !== "default") style += `background-color: ${block.props.backgroundColor};`;
+        if (hasTextColor) style += `color: ${textColor};`;
+        if (hasBgColor) style += `background-color: ${bgColor};`;
         content = `<div style="${style}">${content}</div>`;
     }
 
@@ -335,6 +340,35 @@ const codeBlockText = (block) => {
     return block.content
         .map(it => (it && typeof it === 'object' && typeof it.text === 'string') ? it.text : '')
         .join('');
+};
+
+// Converteix paràgrafs que només contenen un link `[embed: URL](URL)` en
+// blocs nadius `embed`. La sintaxi és simètrica a la de `[file: URL](URL)`
+// però aquí volem un bloc dedicat perquè es renderitzi com a iframe/viewer
+// en lloc d'enllaç plain. BlockNote no reconeix la sintaxi per defecte; per
+// això fem aquest post-procés després del parser.
+const promoteEmbedBlocks = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteEmbedBlocks(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content || content.length !== 1) return newBlock;
+        const item = content[0];
+        if (!item || item.type !== 'link' || !Array.isArray(item.content)) return newBlock;
+        const text = item.content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('');
+        const match = text.match(/^embed:\s*(.+)$/i);
+        if (!match || !item.href) return newBlock;
+        return {
+            ...newBlock,
+            type: 'embed',
+            props: { url: String(item.href), caption: '' },
+            content: undefined,
+        };
+    });
 };
 
 const promoteCustomFences = (blocks) => {
@@ -739,5 +773,5 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
     };
 
     const parsed = await parseRecursive(lines);
-    return promoteCustomFences(parsed);
+    return promoteCustomFences(promoteEmbedBlocks(parsed));
 };

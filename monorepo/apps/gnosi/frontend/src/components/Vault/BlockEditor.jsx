@@ -26,7 +26,8 @@ import {
     Settings,
     Link2,
     AtSign,
-    Smile
+    Smile,
+    Frame
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -56,6 +57,7 @@ import { IconRenderer } from './IconRenderer';
 
 import { VaultEditorContext } from './VaultEditorContext';
 import { DbViewEmbed } from './DbViewEmbed';
+import { EmbedRenderer } from './EmbedRenderer';
 import { WikilinkInline } from './WikilinkInline';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
@@ -804,6 +806,11 @@ export function EditorInner({
                 propSchema: { target: { default: "" }, alias: { default: "" }, section: { default: "" } },
                 content: "none",
             }, { render: (props) => <TransclusionEmbed block={props.block} /> }),
+            embed: createReactBlockSpec({
+                type: "embed",
+                propSchema: { url: { default: "" }, caption: { default: "" } },
+                content: "none",
+            }, { render: (props) => <EmbedRenderer block={props.block} editor={props.editor} /> }),
             toggle: createReactBlockSpec({
                 type: "toggle",
                 propSchema: { backgroundColor: { default: "default" }, textColor: { default: "default" } },
@@ -858,6 +865,7 @@ export function EditorInner({
                 database: { ...specs.database(), group: "bnBlock" },
                 gnosi_view: { ...specs.gnosi_view(), group: "bnBlock" },
                 transclusion: { ...specs.transclusion(), group: "bnBlock" },
+                embed: { ...specs.embed(), group: "bnBlock" },
                 toggle: { ...specs.toggle(), group: "bnBlock" },
                 alert: { ...specs.alert(), group: "bnBlock" },
             },
@@ -896,7 +904,7 @@ export function EditorInner({
                 sanitizedBlock.type = 'numberedListItem';
             }
 
-            if (['columnList', 'column', 'database', 'transclusion', 'gnosi_view'].includes(sanitizedBlock.type)) {
+            if (['columnList', 'column', 'database', 'transclusion', 'gnosi_view', 'embed'].includes(sanitizedBlock.type)) {
                 delete sanitizedBlock.content;
             }
             
@@ -1849,6 +1857,17 @@ export function EditorInner({
                                 group: t('editor.links_group'),
                                 icon: <Maximize2 size={18} />,
                                 subtext: t('editor.transclusion_alias_format'),
+                            },
+                            {
+                                title: t('editor.embed_block', { defaultValue: 'Frame incrustat (PDF/vídeo/web)' }),
+                                onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, {
+                                    type: 'embed',
+                                    props: { url: '', caption: '' },
+                                }),
+                                aliases: ["embed", "frame", "iframe", "pdf", "video", "web", "youtube", "vimeo"],
+                                group: t('editor.media_group', { defaultValue: 'Media' }),
+                                icon: <Frame size={18} />,
+                                subtext: t('editor.embed_block_subtext', { defaultValue: 'Incrusta un PDF, vídeo o pàgina web com a frame' }),
                             },
                         ];
                         const allItems = [...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
