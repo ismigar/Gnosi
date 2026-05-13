@@ -97,6 +97,11 @@ class BrowseRequest(BaseModel):
     path: str = "/"
 
 
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 100
+
+
 @router.get("/stats")
 async def get_system_stats():
     """Returns real system statistics."""
@@ -240,3 +245,120 @@ async def browse_directory(body: BrowseRequest = Body(...)):
         "directories": directories,
         "files": files,
     }
+
+
+# Carpetes que mai s'haurien de recórrer durant la cerca global. Library i
+# CloudStorage tenen massa contingut i sovint contenen rèpliques sincronitzades
+# de tota mena que esclatarien la cerca; les caches/git/node_modules són soroll.
+_SEARCH_SKIP_DIR_NAMES = {
+    "node_modules", ".git", "__pycache__", "Library",
+    ".cache", ".local", ".npm", ".docker", ".android",
+    ".gradle", ".nuget", ".vscode", ".idea", ".Trash",
+    "Trash",
+}
+
+
+@router.post("/search", dependencies=[Depends(require_role("admin"))])
+async def search_filesystem(body: SearchRequest = Body(...)):
+    """Cerca substring case-insensitive a tot el sistema (vault + home host).
+
+    Salta carpetes molt grans/sorolloses (Library, .cache, node_modules, …) i
+    pàra com a màxim a 50000 entrades visitades o `limit` matches per evitar
+    bloquejos llargs sobre Spotlight-like.
+    """
+    q = (body.query or "").strip().lower()
+    if len(q) < 2:
+        return {"results": [], "truncated": False}
+
+    limit = max(1, min(500, body.limit or 100))
+
+    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
+    home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
+    vault_host = os.getenv("VAULT_HOST_PATH") or ""
+
+    roots: list[Path] = []
+    for raw in (vault_internal, home_internal):
+        if not raw:
+            continue
+        try:
+            p = Path(raw).resolve()
+            if p.exists() and p.is_dir():
+                roots.append(p)
+        except Exception:
+            continue
+    if not roots:
+        return {"results": [], "truncated": False}
+
+    def to_host(internal: str) -> str:
+        if vault_host and vault_internal and internal.startswith(vault_internal):
+            return internal.replace(vault_internal, vault_host, 1)
+        return internal
+
+    import os as native_os
+    results: list = []
+    visited = 0
+    max_visited = 50000
+    truncated = False
+
+    try:
+        for root in roots:
+            for current_dir, dirs, files in native_os.walk(str(root), followlinks=False):
+                # Pruna in-place per a no descendir on no toca.
+                dirs[:] = [
+                    d for d in dirs
+                    if not d.startswith(".")
+                    and d not in _SEARCH_SKIP_DIR_NAMES
+                    and not d.endswith(".app")
+                    and not d.endswith(".photoslibrary")
+                    and not d.endswith(".musiclibrary")
+                ]
+
+                for name in dirs:
+                    visited += 1
+                    if visited > max_visited:
+                        truncated = True
+                        break
+                    if q in name.lower():
+                        internal = native_os.path.join(current_dir, name)
+                        results.append({
+                            "name": name,
+                            "path": to_host(internal),
+                            "is_dir": True,
+                        })
+                        if len(results) >= limit:
+                            truncated = True
+                            return {"results": results, "truncated": truncated}
+
+                if truncated:
+                    break
+
+                for name in files:
+                    if name.startswith("."):
+                        continue
+                    visited += 1
+                    if visited > max_visited:
+                        truncated = True
+                        break
+                    if q in name.lower():
+                        internal = native_os.path.join(current_dir, name)
+                        results.append({
+                            "name": name,
+                            "path": to_host(internal),
+                            "is_dir": False,
+                        })
+                        if len(results) >= limit:
+                            truncated = True
+                            return {"results": results, "truncated": truncated}
+
+                if truncated:
+                    break
+            if truncated:
+                break
+    except Exception as e:
+        return {
+            "results": results,
+            "truncated": truncated,
+            "error": safe_error_detail(e, "POST /search filesystem"),
+        }
+
+    return {"results": results, "truncated": truncated}
