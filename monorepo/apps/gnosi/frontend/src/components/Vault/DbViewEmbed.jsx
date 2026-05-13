@@ -554,20 +554,42 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
 }
 
 const FEED_PAGE_SIZE = 20;
+// Per sota d'aquest llindar renderitzem tot el feed d'una tirada (sense
+// scroll infinit). Així el cas comú (dashboards amb desenes o un parell de
+// centenars d'items) no pateix mai els bugs de "tornar al principi" que la
+// paginació interna porta de regal: re-renders del pare, remounts del bloc
+// pel BlockNote, layout shifts dels previews late-loading. Per feeds molt
+// grans mantenim la paginació amb sentinel per no muntar centenars de
+// IntersectionObservers (un per FeedItem) al primer paint.
+const FEED_FULL_RENDER_THRESHOLD = 200;
 
-function FeedRender({ rows, columns, onOpenPage }) {
+// `visibleCount` per block.id viu fora del component: BlockNote pot desmuntar
+// i remuntar un bloc en certes interaccions de l'editor (focus, canvis de
+// document), i sense això l'usuari perdia tots els items carregats per scroll
+// infinit cada vegada. Persistim també la signatura del contingut perquè un
+// canvi real de dades sí faci reset.
+const _feedVisibleStateByBlockId = new Map();
+
+function FeedRender({ rows, columns, onOpenPage, blockId }) {
     const dateCol = useMemo(() => pickDateCol(columns, rows), [columns, rows]);
-    const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
+
+    const isPaginated = rows.length > FEED_FULL_RENDER_THRESHOLD;
 
     // Signatura del contingut, no de la referència: si el DbViewEmbed pare
     // es re-renderitza (p.ex. clic en un altre block del dashboard), `rows`
-    // arriba com a array nou amb el mateix contingut i abans això resetejava
-    // el visibleCount → l'usuari perdia l'scroll i tornava al principi del
-    // feed. Comparant length + primer i últim id, només resetejem quan el
-    // contingut realment canvia (filtre nou, registre afegit/eliminat, etc.).
+    // arriba com a array nou amb el mateix contingut. Comparant length +
+    // primer i últim id, només resetejem quan el contingut realment canvia
+    // (filtre nou, registre afegit/eliminat, etc.).
     const rowsSignature = rows.length === 0
         ? '__empty__'
         : `${rows.length}|${rows[0]?.id || ''}|${rows[rows.length - 1]?.id || ''}`;
+
+    const stateKey = blockId || '__default__';
+    const [visibleCount, setVisibleCount] = useState(() => {
+        const cached = _feedVisibleStateByBlockId.get(stateKey);
+        if (cached && cached.signature === rowsSignature) return cached.visibleCount;
+        return FEED_PAGE_SIZE;
+    });
     const [trackedSignature, setTrackedSignature] = useState(rowsSignature);
     const sentinelRef = useRef(null);
 
@@ -577,7 +599,12 @@ function FeedRender({ rows, columns, onOpenPage }) {
     }
 
     useEffect(() => {
-        if (visibleCount >= rows.length) return undefined;
+        if (!isPaginated) return;
+        _feedVisibleStateByBlockId.set(stateKey, { signature: rowsSignature, visibleCount });
+    }, [isPaginated, stateKey, rowsSignature, visibleCount]);
+
+    useEffect(() => {
+        if (!isPaginated || visibleCount >= rows.length) return undefined;
         const el = sentinelRef.current;
         if (!el || typeof IntersectionObserver === 'undefined') return undefined;
         const io = new IntersectionObserver(entries => {
@@ -587,7 +614,7 @@ function FeedRender({ rows, columns, onOpenPage }) {
         }, { rootMargin: '300px' });
         io.observe(el);
         return () => io.disconnect();
-    }, [visibleCount, rows.length]);
+    }, [isPaginated, visibleCount, rows.length]);
 
     if (rows.length === 0) {
         return (
@@ -597,11 +624,17 @@ function FeedRender({ rows, columns, onOpenPage }) {
         );
     }
 
-    const slice = rows.slice(0, visibleCount);
-    const remaining = rows.length - visibleCount;
+    const slice = isPaginated ? rows.slice(0, visibleCount) : rows;
+    const remaining = isPaginated ? rows.length - visibleCount : 0;
 
     return (
-        <div className="my-2">
+        // `overflow-anchor: none` evita que el navegador faci salts de scroll
+        // quan els FeedItems sota demanda canvien d'alçada (les imatges late-
+        // loading i el preview del cos del markdown, que es carreguen via
+        // IntersectionObserver al FeedItem). Amb anchor automàtic, baixar →
+        // pujar → tornar a baixar pot desancorar i tornar el scroll al
+        // principi visible.
+        <div className="my-2" style={{ overflowAnchor: 'none' }}>
             <div className="flex flex-col gap-2">
                 {slice.map(r => (
                     <FeedItem
@@ -1331,7 +1364,7 @@ export function DbViewEmbed({ block }) {
         );
     }
 
-    const commonProps = { rows, columns, view, onOpenPage, onCreate: tableId ? handleCreate : null };
+    const commonProps = { rows, columns, view, onOpenPage, onCreate: tableId ? handleCreate : null, blockId: block?.id };
 
     const renderBody = () => {
         switch (viewType) {
