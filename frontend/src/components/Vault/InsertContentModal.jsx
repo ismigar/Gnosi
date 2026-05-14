@@ -304,10 +304,25 @@ export const InsertContentModal = ({
                         {tab === 'local' && (
                             <div className="h-full flex flex-col items-center justify-center gap-4 text-center px-8">
                                 <FolderOpen size={48} className="text-[var(--text-tertiary)]" />
-                                <div>
-                                    <div className="text-sm font-semibold">{t('insert.local_intro', { defaultValue: 'Navega pel disc fins al fitxer' })}</div>
-                                    <div className="text-xs text-[var(--text-tertiary)] mt-1">{t('insert.local_subtitle', { defaultValue: "Pots cercar entre carpetes i tot el contingut del Mac" })}</div>
-                                </div>
+                                {uploadFile ? (
+                                    // Hi ha un fitxer arrossegat/triat: el navegador NO en
+                                    // dóna la ruta absoluta, així que per enllaçar-lo sense
+                                    // copiar cal localitzar-lo al disc. Ho expliquem perquè
+                                    // no sembli que es demana "tornar a buscar" sense motiu.
+                                    <div>
+                                        <div className="text-sm font-semibold">
+                                            {t('insert.local_relocate_title', { defaultValue: 'Localitza «{{name}}» al disc', name: uploadFile.name })}
+                                        </div>
+                                        <div className="text-xs text-[var(--text-tertiary)] mt-1 max-w-md">
+                                            {t('insert.local_relocate_hint', { defaultValue: "El navegador no comparteix la ruta dels fitxers arrossegats. Per enllaçar-lo sense copiar-lo, localitza'l. O torna a «Puja» per copiar-lo al Vault." })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="text-sm font-semibold">{t('insert.local_intro', { defaultValue: 'Navega pel disc fins al fitxer' })}</div>
+                                        <div className="text-xs text-[var(--text-tertiary)] mt-1">{t('insert.local_subtitle', { defaultValue: 'Pots cercar entre carpetes i tot el contingut del Mac' })}</div>
+                                    </div>
+                                )}
                                 {selected?.source === 'local' && (
                                     <div className="px-3 py-2 rounded-lg bg-[var(--bg-secondary)] text-xs font-mono break-all max-w-full">
                                         {selected.path}
@@ -475,6 +490,7 @@ export const InsertContentModal = ({
             <FilesystemPickerModal
                 isOpen={pickerOpen}
                 mode="file"
+                initialQuery={uploadFile?.name || ''}
                 onClose={() => setPickerOpen(false)}
                 onSelect={handleSelectLocal}
             />

@@ -17,8 +17,11 @@ const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '
  *   - onSelect(absoluteHostPath): la ruta retornada és sempre la del HOST
  *     (la que veu Finder); no la del path mapeat dins de Docker.
  *   - initialPath: ruta on començar (interna o host).
+ *   - initialQuery: text amb què pre-omplir la cerca en obrir-se. Útil quan
+ *     ja se sap el nom del fitxer (p.ex. l'usuari ha arrossegat un fitxer i
+ *     ara l'ha de localitzar al disc perquè el navegador no en dóna la ruta).
  */
-export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath = '', mode = 'folder' }) {
+export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath = '', mode = 'folder', initialQuery = '' }) {
     const [currentPath, setCurrentPath] = useState(initialPath || '');
     const [displayPath, setDisplayPath] = useState('');
     const [directories, setDirectories] = useState([]);
@@ -35,6 +38,12 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         void browse(initialPath || currentPath || '');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialPath]);
+
+    // En obrir-se, pre-omple la cerca amb `initialQuery` (si n'hi ha). El
+    // useEffect de cerca debounced ja s'encarrega de llançar la consulta.
+    useEffect(() => {
+        if (isOpen) setSearchQuery(initialQuery || '');
+    }, [isOpen, initialQuery]);
 
     useEffect(() => {
         if (!isOpen) return;
