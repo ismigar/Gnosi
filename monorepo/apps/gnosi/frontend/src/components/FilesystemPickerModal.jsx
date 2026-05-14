@@ -9,13 +9,18 @@ const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '
  *
  * Props:
  *   - isOpen, onClose: control de visibilitat.
- *   - mode: 'folder' (per defecte) o 'file'.
+ *   - mode: 'folder' (per defecte), 'file' o 'any'.
  *       * 'folder': només mostra carpetes; botó "Seleccionar" al peu retorna
  *         la carpeta actual.
  *       * 'file': mostra carpetes i fitxers; clic en un fitxer retorna la
  *         seva ruta.
- *   - onSelect(absoluteHostPath): la ruta retornada és sempre la del HOST
- *     (la que veu Finder); no la del path mapeat dins de Docker.
+ *       * 'any': mostra carpetes i fitxers; clic en un fitxer el retorna i el
+ *         botó del peu retorna la carpeta actual. Serveix per enllaçar tant
+ *         fitxers com carpetes.
+ *   - onSelect(absoluteHostPath, { isDir }): la ruta retornada és sempre la
+ *     del HOST (la que veu Finder); no la del path mapeat dins de Docker. El
+ *     segon argument indica si és una carpeta (sempre false en mode 'file',
+ *     sempre true en mode 'folder').
  *   - initialPath: ruta on començar (interna o host).
  *   - initialQuery: text amb què pre-omplir la cerca en obrir-se. Útil quan
  *     ja se sap el nom del fitxer (p.ex. l'usuari ha arrossegat un fitxer i
@@ -122,32 +127,40 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
 
     if (!isOpen) return null;
 
+    // 'file' i 'any' mostren fitxers; 'folder' i 'any' permeten retornar la
+    // carpeta actual amb el botó del peu.
+    const showFiles = mode === 'file' || mode === 'any';
+    const canPickFolder = mode === 'folder' || mode === 'any';
+
     const isSearching = searchResults !== null;
     const visibleDirectories = isSearching ? [] : directories;
-    const visibleFiles = isSearching ? [] : (mode === 'file' ? files : []);
+    const visibleFiles = isSearching ? [] : (showFiles ? files : []);
 
-    const titleText = mode === 'file' ? 'Seleccionar fitxer' : 'Seleccionar carpeta';
-    const searchPlaceholder = mode === 'file'
-        ? 'Cerca a tot el Mac (≥2 caràcters)...'
-        : 'Cerca carpetes a tot el Mac (≥2 caràcters)...';
+    const titleText = mode === 'any'
+        ? 'Seleccionar fitxer o carpeta'
+        : (mode === 'file' ? 'Seleccionar fitxer' : 'Seleccionar carpeta');
+    const searchPlaceholder = mode === 'folder'
+        ? 'Cerca carpetes a tot el Mac (≥2 caràcters)...'
+        : 'Cerca a tot el Mac (≥2 caràcters)...';
 
     const handleSelectFile = (filename) => {
         const hostPath = joinPath(displayPath || currentPath, filename);
-        onSelect(hostPath);
+        onSelect(hostPath, { isDir: false });
     };
 
     const handleSelectCurrentFolder = () => {
-        onSelect(displayPath || currentPath);
+        onSelect(displayPath || currentPath, { isDir: true });
     };
 
-    // Resultat de cerca: si és carpeta, navega-hi (en mode 'folder' també);
-    // si és fitxer i estem en mode 'file', seleccionar-lo.
+    // Resultat de cerca: si és carpeta, navega-hi (cal entrar-hi per
+    // seleccionar-la amb el botó del peu); si és fitxer i el mode mostra
+    // fitxers, seleccionar-lo.
     const handleSearchResultClick = (item) => {
         if (item.is_dir) {
             setSearchQuery('');
             void browse(item.path);
-        } else if (mode === 'file') {
-            onSelect(item.path);
+        } else if (showFiles) {
+            onSelect(item.path, { isDir: false });
         }
     };
 
@@ -172,7 +185,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px' }}
                 >
                     <h2 className="text-[var(--text-primary)]" style={{ margin: 0, fontSize: '1.05em', fontWeight: 700 }}>
-                        {mode === 'file' ? '📄' : '📁'} {titleText}
+                        {mode === 'any' ? '🗂️' : (mode === 'file' ? '📄' : '📁')} {titleText}
                     </h2>
                     <button
                         onClick={onClose}
@@ -268,7 +281,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                 ) : (
                                     <>
                                         {searchResults
-                                            .filter((item) => mode === 'file' || item.is_dir)
+                                            .filter((item) => showFiles || item.is_dir)
                                             .map((item) => (
                                                 <button
                                                     key={`${item.is_dir ? 'd' : 'f'}:${item.path}`}
@@ -302,7 +315,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                 {visibleDirectories.length === 0 && visibleFiles.length === 0 && (
                                     <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '20px', fontSize: '0.9em' }}>
-                                        {mode === 'file' ? "No s'han trobat fitxers ni carpetes" : "No s'han trobat carpetes"}
+                                        {showFiles ? "No s'han trobat fitxers ni carpetes" : "No s'han trobat carpetes"}
                                     </div>
                                 )}
                                 {visibleDirectories.map((dir) => (
@@ -317,7 +330,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                         <ChevronRight size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]" />
                                     </button>
                                 ))}
-                                {mode === 'file' && visibleFiles.map((file) => (
+                                {showFiles && visibleFiles.map((file) => (
                                     <button
                                         key={`f:${file}`}
                                         onClick={() => handleSelectFile(file)}
@@ -344,7 +357,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         >
                             Cancel·lar
                         </button>
-                        {mode === 'folder' && (
+                        {canPickFolder && (
                             <button
                                 onClick={handleSelectCurrentFolder}
                                 className="btn-gnosi btn-gnosi-primary"
