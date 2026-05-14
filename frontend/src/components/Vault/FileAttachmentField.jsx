@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Upload, Link2, FolderOpen, FileText, X, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { FilesystemPickerModal } from '../FilesystemPickerModal';
 
 const STORAGE_LABELS = {
     assets:    'Assets',
@@ -24,6 +25,16 @@ export function FileAttachmentField({ tableId, propertyName, storageFolder = 'as
     const fileInputRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    // Picker del sistema d'arxius (navega el disc via /api/system/browse, que
+    // funciona dins del contenidor Docker). Substitueix els antics
+    // /pick-folder i /pick-file, que cridaven `osascript` — no disponible al
+    // contenidor. `pickerState` porta el mode i el `resolve` de la promesa
+    // que espera el path triat.
+    const [pickerState, setPickerState] = useState(null);
+
+    const openPicker = (mode) => new Promise((resolve) => {
+        setPickerState({ mode, resolve });
+    });
 
     const isFree = storageFolder === 'free';
     const hasValue = Boolean(value);
@@ -33,16 +44,15 @@ export function FileAttachmentField({ tableId, propertyName, storageFolder = 'as
 
     const handleUpload = async (file) => {
         if (!file) return;
-        setLoading(true);
-        setError('');
 
         try {
             if (isFree) {
-                // Variant A (Free): primer tria carpeta de destinació via diàleg natiu
-                const folderRes = await apiFetch('/api/vault/pick-folder', { method: 'POST' });
-                if (folderRes.status === 204) { setLoading(false); return; } // cancel·lat
-                if (!folderRes.ok) throw new Error('No s\'ha pogut obrir el selector de carpeta');
-                const { path: folderPath } = await folderRes.json();
+                // Variant A (Free): primer tria carpeta de destinació amb el
+                // navegador del sistema d'arxius.
+                const folderPath = await openPicker('folder');
+                if (!folderPath) return; // cancel·lat
+                setLoading(true);
+                setError('');
 
                 const formData = new FormData();
                 formData.append('file', file);
@@ -57,6 +67,8 @@ export function FileAttachmentField({ tableId, propertyName, storageFolder = 'as
                 onChange(data.path);
             } else {
                 // Variant A (Assets / Biblioteca)
+                setLoading(true);
+                setError('');
                 const formData = new FormData();
                 formData.append('file', file);
                 const res = await apiFetch(
@@ -75,15 +87,13 @@ export function FileAttachmentField({ tableId, propertyName, storageFolder = 'as
     };
 
     const handleLinkExisting = async () => {
-        // Variant B: selecciona fitxer existent sense copiar-lo
+        // Variant B: selecciona fitxer existent sense copiar-lo. El picker
+        // navega el disc via /api/system/browse (funciona dins Docker).
+        const path = await openPicker('file');
+        if (!path) return; // cancel·lat
         setLoading(true);
         setError('');
         try {
-            const pickRes = await apiFetch('/api/vault/pick-file', { method: 'POST' });
-            if (pickRes.status === 204) { setLoading(false); return; } // cancel·lat
-            if (!pickRes.ok) throw new Error('No s\'ha pogut obrir el selector de fitxer');
-            const { path } = await pickRes.json();
-
             const res = await apiFetch('/api/vault/link-existing-file', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -170,6 +180,13 @@ export function FileAttachmentField({ tableId, propertyName, storageFolder = 'as
             {error && (
                 <p className="text-[11px] text-red-500 bg-red-50 dark:bg-red-900/20 rounded px-2 py-1">{error}</p>
             )}
+
+            <FilesystemPickerModal
+                isOpen={Boolean(pickerState)}
+                mode={pickerState?.mode || 'file'}
+                onClose={() => { pickerState?.resolve?.(null); setPickerState(null); }}
+                onSelect={(absolutePath) => { pickerState?.resolve?.(absolutePath); setPickerState(null); }}
+            />
         </div>
     );
 }

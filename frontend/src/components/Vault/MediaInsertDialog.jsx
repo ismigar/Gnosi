@@ -4,8 +4,11 @@
  * Dialog modal d'inserció de mitjans amb 3 estratègies:
  *   1) Buscar al vault       → obre MediaPicker, retorna URL d'un asset existent.
  *   2) Pujar a Assets        → puja el fitxer a Assets/Inline o Assets/Files.
- *   3) Enllaçar fitxer local → /pick-file natiu macOS + /local-file/register;
+ *   3) Enllaçar fitxer local → FilesystemPickerModal (navega el disc via
+ *                              /api/system/browse) + /local-file/register;
  *                              cap còpia, només una referència persistent.
+ *                              ABANS feia servir /pick-file (osascript), que
+ *                              no funciona dins del contenidor Docker.
  *
  * Ús (Promise-based, integració amb BlockNote `uploadFile`):
  *   <MediaInsertDialog
@@ -28,6 +31,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { MediaPicker } from './MediaPicker';
+import { FilesystemPickerModal } from '../FilesystemPickerModal';
 
 function normalizeUrl(url) {
     if (!url) return '';
@@ -75,12 +79,15 @@ export function MediaInsertDialog({
     // mode: null = panell d'opcions; 'browse' = MediaPicker; 'busy' = pujant.
     const [mode, setMode] = useState(null);
     const [busy, setBusy] = useState(false);
+    // pickerOpen: el FilesystemPickerModal per a "Enllaçar fitxer local".
+    const [pickerOpen, setPickerOpen] = useState(false);
 
     // Reset en obrir
     useEffect(() => {
         if (open) {
             setMode(null);
             setBusy(false);
+            setPickerOpen(false);
         }
     }, [open]);
 
@@ -143,17 +150,13 @@ export function MediaInsertDialog({
     }, [uploadToAssets]);
 
     // --- Acció: Enllaçar fitxer local ---
-    const linkLocalFile = useCallback(async () => {
+    // El picker (FilesystemPickerModal) navega el disc via /api/system/browse,
+    // que funciona dins del contenidor Docker. Quan l'usuari tria un fitxer,
+    // en registrem una referència persistent amb /local-file/register.
+    const registerLocalPath = useCallback(async (filePath) => {
+        if (!filePath) return;
         setBusy(true);
         try {
-            // 1) Picker natiu macOS
-            const pickRes = await axios.post('/api/vault/pick-file', {}, { timeout: 600000 });
-            const filePath = pickRes.data?.path;
-            if (!filePath) {
-                setBusy(false);
-                return; // usuari ha cancel·lat
-            }
-            // 2) Registrar token + URL servible
             const regRes = await axios.post('/api/vault/local-file/register',
                 { file_path: filePath },
                 { timeout: 30000 },
@@ -162,11 +165,6 @@ export function MediaInsertDialog({
             if (!finalUrl) throw new Error('Registre sense URL');
             finishWith(normalizeUrl(finalUrl));
         } catch (err) {
-            // Cancel·lació: 204/cap path → silenciós; la resta → toast
-            if (err?.response?.status === 204) {
-                setBusy(false);
-                return;
-            }
             console.error('Error enllaçant fitxer local:', err);
             toast.error('No s\'ha pogut enllaçar el fitxer local');
             setBusy(false);
@@ -237,7 +235,7 @@ export function MediaInsertDialog({
                                     if (initialFile) uploadToAssets(initialFile);
                                     else triggerUploadInput();
                                 }
-                                else if (key === 'local') linkLocalFile();
+                                else if (key === 'local') setPickerOpen(true);
                             };
                             return (
                                 <button
@@ -282,6 +280,16 @@ export function MediaInsertDialog({
                     </div>
                 )}
             </div>
+
+            <FilesystemPickerModal
+                isOpen={pickerOpen}
+                mode="file"
+                onClose={() => setPickerOpen(false)}
+                onSelect={(absolutePath) => {
+                    setPickerOpen(false);
+                    registerLocalPath(absolutePath);
+                }}
+            />
         </div>
     );
 }
