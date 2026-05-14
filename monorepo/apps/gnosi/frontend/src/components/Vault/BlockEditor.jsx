@@ -102,6 +102,38 @@ const normalizeVaultAssetUrl = (value) => {
     return value;
 };
 
+// Avantpassat desplaçable més proper d'un node (o l'element d'scroll del
+// document si no n'hi ha cap).
+const getScrollableAncestor = (node) => {
+    let el = node?.parentElement || null;
+    while (el) {
+        const overflowY = getComputedStyle(el).overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
+            return el;
+        }
+        el = el.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+};
+
+// Auto-grow d'un <textarea>: posar height:auto el col·lapsa un instant per
+// poder mesurar el scrollHeight real del contingut. Si el textarea és enmig
+// d'un document llarg, aquest col·lapse momentani fa que el navegador
+// "persegueixi" el cursor i desplaci el contenidor a cada tecla (la línia
+// editada va caient cap al capdavall de la pantalla). Desem i restaurem el
+// scrollTop de l'avantpassat dins del mateix tick, abans del paint → sense
+// parpelleig.
+const autoGrowTextarea = (el) => {
+    if (!el) return;
+    const scroller = getScrollableAncestor(el);
+    const prevTop = scroller ? scroller.scrollTop : 0;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+    if (scroller && scroller.scrollTop !== prevTop) {
+        scroller.scrollTop = prevTop;
+    }
+};
+
 const parseMarkdownHeading = (line) => {
     const match = String(line || '').match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
     if (!match?.[1] || !match?.[2]) return null;
@@ -715,14 +747,11 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     // (sync from another device) and produces spurious 409 etag conflicts.
     const hasUserEditedRef = useRef(false);
 
-    // Auto-grow del textarea: la pàgina té un sol scroll vertical (el de la
-    // finestra), no un d'intern. Després de cada canvi de text, ajustem
-    // l'alçada al contingut real.
+    // Auto-grow del textarea: la pàgina té un sol scroll vertical (el del
+    // contenidor), no un d'intern. Després de cada canvi de text, ajustem
+    // l'alçada al contingut real preservant la posició d'scroll.
     useEffect(() => {
-        const ta = textareaRef.current;
-        if (!ta) return;
-        ta.style.height = 'auto';
-        ta.style.height = `${ta.scrollHeight}px`;
+        autoGrowTextarea(textareaRef.current);
     }, [markdownText]);
 
     useEffect(() => {
@@ -2479,10 +2508,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const handleTitleChange = (e) => { const nextTitle = e.target.value; const nextMeta = { ...metadata, title: nextTitle }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
 
     useEffect(() => {
-        const el = titleInputRef.current;
-        if (!el) return;
-        el.style.height = 'auto';
-        el.style.height = `${el.scrollHeight}px`;
+        autoGrowTextarea(titleInputRef.current);
     }, [metadata.title]);
     const handleMetaChange = (key, value) => {
         const nextMeta = { ...metadata, [key]: value };
