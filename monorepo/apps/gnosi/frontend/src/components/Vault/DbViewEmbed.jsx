@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, X, LayoutTemplate } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VaultEditorContext } from './VaultEditorContext';
 import { WikilinkInline } from './WikilinkInline';
@@ -12,7 +12,14 @@ import { WikilinkInline } from './WikilinkInline';
 // `WikilinkInline` real (mateix component que fa servir l'editor), de
 // manera que la cel·la del feed té wikilinks clicables com a la pàgina.
 // Sense això el ReactMarkdown deixa els claudàtors com a text pla.
-const WIKILINK_HREF_SENTINEL = '__gnosi_wikilink__:';
+//
+// El sentinel NO pot dur `__` (markdown-it ho interpreta com a bold i
+// trenca la URL dins `](...)`) i ha de passar el `urlTransform` de
+// react-markdown: per defecte sanititza protocols desconeguts a `""`,
+// cosa que deixava `<a href="">` → clic obria una pestanya nova a
+// l'origin. Per això, a part del sentinel sense `__`, registrem un
+// `urlTransform` que el deixa passar intacte (vegeu `wikilinkUrlTransform`).
+const WIKILINK_HREF_SENTINEL = 'gnosi-wikilink:';
 const WIKILINK_RE = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
 const convertWikilinksToMd = (md) => {
     if (!md || typeof md !== 'string') return md;
@@ -26,6 +33,16 @@ const convertWikilinksToMd = (md) => {
         return `[${safeTitle}](${WIKILINK_HREF_SENTINEL}${safeHref})`;
     });
 };
+
+// react-markdown sanititza per defecte qualsevol href amb un protocol que
+// no reconeix (el nostre `gnosi-wikilink:` inclòs) substituint-lo per `""`.
+// Aquest transform deixa passar el sentinel intacte i delega la resta al
+// comportament per defecte.
+const wikilinkUrlTransform = (url) => (
+    typeof url === 'string' && url.startsWith(WIKILINK_HREF_SENTINEL)
+        ? url
+        : defaultUrlTransform(url)
+);
 
 /* -------------------------------------------------------------------------- */
 /*  Utilitats de filtre / ordenació / format                                  */
@@ -534,6 +551,7 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
                 <div className="text-sm text-[var(--text-secondary)] mt-2 leading-relaxed feed-md">
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
+                        urlTransform={wikilinkUrlTransform}
                         components={{
                             // Imatges inline: normalitzem la URL (Assets/...
                             // → /api/vault/assets/...) i fem servir
