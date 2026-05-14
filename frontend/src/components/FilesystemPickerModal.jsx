@@ -40,11 +40,14 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         if (!isOpen) return;
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
+                e.stopPropagation();
+                e.preventDefault();
                 onClose();
             }
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        // Capture phase: BlockNote (ProseMirror) atrapa Esc al bubble phase.
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, [isOpen, onClose]);
 
     // Cerca global a tot el disk amb debounce. Si el query és curt (<2 chars)

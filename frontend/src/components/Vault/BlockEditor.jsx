@@ -1952,7 +1952,8 @@ export function EditorInner({
                     triggerCharacter="/"
                     getItems={async (query) => {
                         if (!editor) return [];
-                        const defaultItems = getDefaultReactSlashMenuItems(editor);
+                        // El bloc "Fitxer" per defecte és redundant amb "/+" (Insereix contingut).
+                        const defaultItems = getDefaultReactSlashMenuItems(editor).filter((item) => item.key !== 'file');
                         const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { onOpenPageViewModal?.(tableId); } }).map(item => ({
                             title: item.title,
                             onItemClick: item.onItemClick,
@@ -1982,14 +1983,6 @@ export function EditorInner({
                                 group: t('editor.links_group'),
                                 icon: <Link2 size={18} />,
                                 subtext: t('editor.insert_content_subtext', { defaultValue: 'Modal unificat: Vault, disc local, pujada o URL' }),
-                            },
-                            {
-                                title: t('editor.external_link'),
-                                onItemClick: () => editor.insertInlineContent(`[${t('editor.link_text_placeholder')}](https://)`),
-                                aliases: ["link", "url", "web", "external"],
-                                group: t('editor.links_group'),
-                                icon: <ExternalLink size={18} />,
-                                subtext: t('editor.markdown_link_format'),
                             },
                             {
                                 title: t('editor.internal_link'),
