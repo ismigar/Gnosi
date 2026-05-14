@@ -1095,6 +1095,11 @@ export function EditorInner({
         return editor.onChange(handler);
     }, [editor, requestInsertContent]);
 
+    // Ref al `<div>` que envolta el BlockNoteView. S'hi registren listeners
+    // nadius de drop/paste en capture phase (vegeu el useEffect més avall,
+    // després de la declaració de `editorReady`).
+    const editorWrapperRef = useRef(null);
+
     const initializedNoteRef = useRef('');
 
     useEffect(() => {
@@ -1157,6 +1162,69 @@ export function EditorInner({
 
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
+
+    // Intercepció de fitxers arrossegats/enganxats al CAPTURE phase. Un
+    // `onDrop`/`onPaste` de React al wrapper s'executa massa tard: ProseMirror
+    // (dins el wrapper) processa l'event al bubble phase i ja ha creat el
+    // bloc `file` nadiu abans que el handler React pugui interceptar-lo. El
+    // capture phase va de fora cap a dins, així que un listener nadiu al
+    // wrapper s'executa ABANS que ProseMirror i pot aturar l'event amb
+    // stopPropagation. Depèn de `editorReady` perquè el <div> amb el ref
+    // només es munta quan l'editor està a punt.
+    useEffect(() => {
+        const wrapper = editorWrapperRef.current;
+        if (!wrapper || !editor || !editorReady) return undefined;
+
+        // Visuals (imatge/vídeo/àudio) → bloc nadiu directe; la resta (PDF,
+        // document, arxiu) → modal d'inserció unificat amb el fitxer
+        // pre-carregat al tab "Puja".
+        const processFiles = async (files) => {
+            for (const file of files) {
+                try {
+                    const anchor = editor.getTextCursorPosition?.()?.block;
+                    if (isVisualMediaFile(file)) {
+                        const url = await uploadFileToAssetsDirect(file);
+                        if (url) applyInsertResultRef.current?.({ url, mode: 'block', kind: nativeBlockTypeFor(file), name: file.name }, anchor);
+                        continue;
+                    }
+                    const result = await requestInsertContent({ initialFile: file, initialTab: 'upload' });
+                    if (result?.url) applyInsertResultRef.current?.(result, anchor);
+                } catch (err) {
+                    if (!String(err?.message || '').match(/cancelled|superseded/)) {
+                        console.error('file insert failed', err);
+                    }
+                }
+            }
+        };
+
+        const onDropCapture = (e) => {
+            const files = Array.from(e.dataTransfer?.files || []);
+            if (!files.length) return;
+            // Si TOT són visuals, no interceptem: BlockNote ho gestiona
+            // (bloc nadiu directe, cas dominant). Només capturem si hi ha
+            // almenys un fitxer no-visual.
+            if (files.every(isVisualMediaFile)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            processFiles(files);
+        };
+
+        const onPasteCapture = (e) => {
+            const files = Array.from(e.clipboardData?.files || []);
+            if (!files.length) return;
+            if (files.every(isVisualMediaFile)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            processFiles(files);
+        };
+
+        wrapper.addEventListener('drop', onDropCapture, true);
+        wrapper.addEventListener('paste', onPasteCapture, true);
+        return () => {
+            wrapper.removeEventListener('drop', onDropCapture, true);
+            wrapper.removeEventListener('paste', onPasteCapture, true);
+        };
+    }, [editor, editorReady, requestInsertContent, uploadFileToAssetsDirect]);
 
     // (interceptor de file:// mogut al wrapper BlockEditor perquè estigui
     // actiu sempre, independent del mode de visualització)
@@ -1870,67 +1938,15 @@ export function EditorInner({
                 .bn-toggle summary::-webkit-details-marker { display: none; }
             `}</style>
             <div
-                onDrop={async (e) => {
-                    if (!e.dataTransfer.types.includes('Files')) return;
-                    const files = Array.from(e.dataTransfer.files);
-                    if (!files.length) return;
-                    // Si TOT són imatges/vídeo/àudio, no interceptem: BlockNote
-                    // els puja (uploadFile silenciós) i en fa blocs nadius
-                    // directament — és el cas dominant i no s'ha d'interrompre.
-                    if (files.every(isVisualMediaFile)) return;
-                    // Hi ha almenys un fitxer no-visual (PDF, document, arxiu):
-                    // el drop event és atòmic, així que interceptem TOT el
-                    // batch i el processem nosaltres. Els no-visuals passen pel
-                    // modal d'inserció unificat; els visuals que vinguessin
-                    // barrejats es pugen igualment com a bloc nadiu.
-                    e.preventDefault();
-                    e.stopPropagation();
-                    for (const file of files) {
-                        try {
-                            const anchor = editor.getTextCursorPosition().block;
-                            if (isVisualMediaFile(file)) {
-                                const url = await uploadFileToAssetsDirect(file);
-                                if (url) applyInsertResult({ url, mode: 'block', kind: nativeBlockTypeFor(file), name: file.name }, anchor);
-                                continue;
-                            }
-                            const result = await requestInsertContent({ initialFile: file, initialTab: 'upload' });
-                            if (result?.url) applyInsertResult(result, anchor);
-                        } catch (err) {
-                            if (String(err?.message || '').match(/cancelled|superseded/)) continue;
-                            console.error('file drop insert failed', err);
-                        }
-                    }
-                }}
+                ref={editorWrapperRef}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
                 onPaste={(e) => {
-                    // Fitxers enganxats des del porta-retalls: mateixa regla
-                    // que el drop. Imatge/vídeo/àudio → BlockNote ho gestiona
-                    // (uploadFile silenciós + bloc nadiu). PDF/document/arxiu
-                    // → modal d'inserció unificat.
-                    const pastedFiles = Array.from(e.clipboardData?.files || []);
-                    if (pastedFiles.length) {
-                        if (pastedFiles.every(isVisualMediaFile)) return; // → BlockNote
-                        e.preventDefault();
-                        e.stopPropagation();
-                        (async () => {
-                            for (const file of pastedFiles) {
-                                try {
-                                    const anchor = editor.getTextCursorPosition().block;
-                                    if (isVisualMediaFile(file)) {
-                                        const url = await uploadFileToAssetsDirect(file);
-                                        if (url) applyInsertResult({ url, mode: 'block', kind: nativeBlockTypeFor(file), name: file.name }, anchor);
-                                        continue;
-                                    }
-                                    const result = await requestInsertContent({ initialFile: file, initialTab: 'upload' });
-                                    if (result?.url) applyInsertResult(result, anchor);
-                                } catch (err) {
-                                    if (String(err?.message || '').match(/cancelled|superseded/)) continue;
-                                    console.error('file paste insert failed', err);
-                                }
-                            }
-                        })();
-                        return;
-                    }
+                    // NOTA: la intercepció de FITXERS enganxats es fa amb un
+                    // listener nadiu en capture phase (vegeu el useEffect
+                    // `editorWrapperRef`), no aquí — ProseMirror processa el
+                    // paste abans que aquest handler React. Aquest `onPaste`
+                    // només cobreix el cas de TEXT: una URL "encastable".
+                    //
                     // Quan l'usuari enganxa una URL "encastable" (YouTube,
                     // Vimeo, PDF online), deixem que BlockNote faci el seu
                     // paste normal (enllaç inline) i, en paral·lel, mostrem
