@@ -4,6 +4,16 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     container_name: gnosi_backend
+    # Hot-reload en desenvolupament: el codi del backend es munta com a
+    # volum (`./backend:/app/backend`), però uvicorn sense `--reload`
+    # només llegeix el codi a l'arrencada. Després d'un `git pull` calia
+    # reiniciar el contenidor a mà o el procés seguia executant codi vell
+    # (això va provocar que el fix del PATCH de dashboards no tingués
+    # efecte fins a `docker restart`). Amb `--reload` + `--reload-dir`
+    # limitat a `/app/backend`, uvicorn detecta els canvis del codi font
+    # i es recarrega sol, sense vigilar `/vault` ni `/app/data` (que
+    # tenen milers de fitxers i saturarien el watcher).
+    command: uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload --reload-dir /app/backend
     ports:
       - "5002:5002"
     volumes:
