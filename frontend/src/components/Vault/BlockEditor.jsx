@@ -62,10 +62,26 @@ import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuU
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
-import { RichLinkInsertModal } from './RichLinkInsert';
-import { MediaInsertDialog } from './MediaInsertDialog';
 import { InsertContentModal } from './InsertContentModal';
 import { blocknoteCa } from '../../locales/blocknote/ca';
+
+// Tipus de bloc nadiu de BlockNote per a un fitxer. `image`/`video`/`audio`
+// tenen representació inline òbvia; qualsevol altra cosa és `file`.
+const nativeBlockTypeFor = (file) => {
+    const type = String(file?.type || '').toLowerCase();
+    const name = String(file?.name || '').toLowerCase();
+    if (type.startsWith('image/') || /\.(jpe?g|png|gif|webp|avif|svg|bmp|tiff)$/.test(name)) return 'image';
+    if (type.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v|mkv)$/.test(name)) return 'video';
+    if (type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/.test(name)) return 'audio';
+    return 'file';
+};
+
+// Mèdia "visual": BlockNote la puja i en fa un bloc nadiu directament, sense
+// interrompre amb cap modal (cas dominant: arrossegar captures). La resta de
+// fitxers (PDF, documents, arxius genèrics) passa pel modal d'inserció
+// unificat perquè hi ha una decisió real a prendre (enllaç / frame / bloc,
+// Vault / local / pujada).
+const isVisualMediaFile = (file) => nativeBlockTypeFor(file) !== 'file';
 
 const normalizeVaultAssetUrl = (value) => {
     if (typeof value !== 'string') return value;
@@ -934,7 +950,6 @@ export function EditorInner({
 
     const [blocks, setBlocks] = useState(null);
     const [isParsing, setIsParsing] = useState(true);
-    const [isRichLinkOpen, setIsRichLinkOpen] = useState(false);
     const linkableNotes = useMemo(() => {
         const titleMap = idToTitle || {};
         const registry = contextValue?.registry || {};
@@ -971,38 +986,16 @@ export function EditorInner({
 
     const tableId = metadata?.table_id || metadata?.database_table_id || '';
 
-    // Ref estable: el valor de tableId pot canviar entre renders però la
-    // funció requestMediaInsert ha de mantenir SEMPRE la mateixa referència
-    // perquè useCreateBlockNote no recreï l'editor (cosa que esborraria el
-    // contingut en curs d'edició).
+    // Ref estable: el valor de tableId pot canviar entre renders però les
+    // callbacks que el llegeixen (uploadFileToAssetsDirect, etc.) han de
+    // mantenir SEMPRE la mateixa referència perquè useCreateBlockNote no
+    // recreï l'editor (cosa que esborraria el contingut en curs d'edició).
     const tableIdRef = useRef(tableId);
     useEffect(() => { tableIdRef.current = tableId; }, [tableId]);
 
-    // Estat per al MediaInsertDialog. Quan BlockNote o el handler de drop
-    // demanen pujar un fitxer, en lloc de pujar-lo directament, mostrem el
-    // dialog amb 3 opcions (buscar al vault / pujar a Assets / enllaçar local)
-    // i resolem la promise amb la URL final que es passi al bloc.
-    const [pendingMedia, setPendingMedia] = useState(null);
-    const pendingMediaRef = useRef(null);
-    useEffect(() => { pendingMediaRef.current = pendingMedia; }, [pendingMedia]);
-
-    const requestMediaInsert = useCallback((file = null) => {
-        // Si hi ha una petició pendent, la rebutgem perquè BlockNote/handler
-        // no quedi penjat esperant la nova promise. (No hauria d'arribar però
-        // és un guard barat.)
-        const prev = pendingMediaRef.current;
-        if (prev?.reject) {
-            try { prev.reject(new Error('superseded')); } catch { /* noop */ }
-        }
-        return new Promise((resolve, reject) => {
-            setPendingMedia({ file, resolve, reject });
-        });
-    }, []);
-
-    // Estat per al modal d'inserció unificat (InsertContentModal). A diferència
-    // del MediaInsertDialog promise-based (que només retorna URL al BlockNote
-    // uploadFile), aquest retorna { url, mode, kind, name } perquè el caller
-    // decideixi com representar-ho al document (enllaç, bloc nadiu o frame).
+    // Estat per al modal d'inserció unificat (InsertContentModal). Retorna
+    // { url, mode, kind, name } perquè el caller decideixi com representar-ho
+    // al document (enllaç, bloc nadiu o frame).
     const [pendingInsert, setPendingInsert] = useState(null);
     const pendingInsertRef = useRef(null);
     useEffect(() => { pendingInsertRef.current = pendingInsert; }, [pendingInsert]);
@@ -1017,11 +1010,12 @@ export function EditorInner({
         });
     }, []);
 
-    // Compat: alguns helpers (RichLinkInsertModal, drops manuals de PDF) ja
-    // existents reben `uploadFile` amb la signatura antiga (puja directe a
-    // Assets). Mantenim aquesta variant simple per a aquells casos: dins el
-    // RichLink l'usuari ja tria explícitament el mode d'enllaç, no cal repetir
-    // la pregunta.
+    // Pujada silenciosa a Assets. La fa servir el `uploadFile` de BlockNote
+    // per al cas dominant (imatge/vídeo/àudio arrossegada o enganxada): es
+    // puja i es converteix en bloc nadiu directament, sense modal. Els
+    // fitxers no-visuals (PDF, documents, arxius) NO arriben aquí perquè els
+    // intercepten abans els handlers onDrop/onPaste del wrapper i els porten
+    // al modal d'inserció unificat.
     const uploadFileToAssetsDirect = useCallback(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -1037,7 +1031,7 @@ export function EditorInner({
         schema,
         initialContent: blocks || undefined,
         dropCursor: multiColumnDropCursor,
-        uploadFile: requestMediaInsert,
+        uploadFile: uploadFileToAssetsDirect,
         dictionary: blocknoteCa,
         tables: {
             splitCells: true,
@@ -1878,28 +1872,65 @@ export function EditorInner({
             <div
                 onDrop={async (e) => {
                     if (!e.dataTransfer.types.includes('Files')) return;
-                    const pdfs = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
-                    if (!pdfs.length) return;
+                    const files = Array.from(e.dataTransfer.files);
+                    if (!files.length) return;
+                    // Si TOT són imatges/vídeo/àudio, no interceptem: BlockNote
+                    // els puja (uploadFile silenciós) i en fa blocs nadius
+                    // directament — és el cas dominant i no s'ha d'interrompre.
+                    if (files.every(isVisualMediaFile)) return;
+                    // Hi ha almenys un fitxer no-visual (PDF, document, arxiu):
+                    // el drop event és atòmic, així que interceptem TOT el
+                    // batch i el processem nosaltres. Els no-visuals passen pel
+                    // modal d'inserció unificat; els visuals que vinguessin
+                    // barrejats es pugen igualment com a bloc nadiu.
                     e.preventDefault();
                     e.stopPropagation();
-                    for (const file of pdfs) {
+                    for (const file of files) {
                         try {
-                            // El drop d'un PDF obre el modal d'inserció unificat
-                            // en tab "Puja" amb el fitxer pre-carregat. L'usuari
-                            // tria entre frame (default per PDF), enllaç o bloc
-                            // al confirmar. Substitueix la inserció antiga com a
-                            // paràgraf+link que no aprofitava el viewer.
                             const anchor = editor.getTextCursorPosition().block;
+                            if (isVisualMediaFile(file)) {
+                                const url = await uploadFileToAssetsDirect(file);
+                                if (url) applyInsertResult({ url, mode: 'block', kind: nativeBlockTypeFor(file), name: file.name }, anchor);
+                                continue;
+                            }
                             const result = await requestInsertContent({ initialFile: file, initialTab: 'upload' });
                             if (result?.url) applyInsertResult(result, anchor);
                         } catch (err) {
                             if (String(err?.message || '').match(/cancelled|superseded/)) continue;
-                            console.error('PDF drop insert failed', err);
+                            console.error('file drop insert failed', err);
                         }
                     }
                 }}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
                 onPaste={(e) => {
+                    // Fitxers enganxats des del porta-retalls: mateixa regla
+                    // que el drop. Imatge/vídeo/àudio → BlockNote ho gestiona
+                    // (uploadFile silenciós + bloc nadiu). PDF/document/arxiu
+                    // → modal d'inserció unificat.
+                    const pastedFiles = Array.from(e.clipboardData?.files || []);
+                    if (pastedFiles.length) {
+                        if (pastedFiles.every(isVisualMediaFile)) return; // → BlockNote
+                        e.preventDefault();
+                        e.stopPropagation();
+                        (async () => {
+                            for (const file of pastedFiles) {
+                                try {
+                                    const anchor = editor.getTextCursorPosition().block;
+                                    if (isVisualMediaFile(file)) {
+                                        const url = await uploadFileToAssetsDirect(file);
+                                        if (url) applyInsertResult({ url, mode: 'block', kind: nativeBlockTypeFor(file), name: file.name }, anchor);
+                                        continue;
+                                    }
+                                    const result = await requestInsertContent({ initialFile: file, initialTab: 'upload' });
+                                    if (result?.url) applyInsertResult(result, anchor);
+                                } catch (err) {
+                                    if (String(err?.message || '').match(/cancelled|superseded/)) continue;
+                                    console.error('file paste insert failed', err);
+                                }
+                            }
+                        })();
+                        return;
+                    }
                     // Quan l'usuari enganxa una URL "encastable" (YouTube,
                     // Vimeo, PDF online), deixem que BlockNote faci el seu
                     // paste normal (enllaç inline) i, en paral·lel, mostrem
@@ -2293,27 +2324,6 @@ export function EditorInner({
                 />
             </BlockNoteView>
             </div>
-            <RichLinkInsertModal
-                open={isRichLinkOpen}
-                onClose={() => setIsRichLinkOpen(false)}
-                editor={editor}
-                uploadFile={uploadFileToAssetsDirect}
-            />
-            <MediaInsertDialog
-                open={Boolean(pendingMedia)}
-                initialFile={pendingMedia?.file || null}
-                tableId={tableIdRef.current}
-                onResolve={(url) => {
-                    const p = pendingMediaRef.current;
-                    setPendingMedia(null);
-                    try { p?.resolve?.(url); } catch { /* noop */ }
-                }}
-                onClose={() => {
-                    const p = pendingMediaRef.current;
-                    setPendingMedia(null);
-                    try { p?.reject?.(new Error('cancelled')); } catch { /* noop */ }
-                }}
-            />
             <InsertContentModal
                 open={Boolean(pendingInsert)}
                 initialFile={pendingInsert?.initialFile || null}
