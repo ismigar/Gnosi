@@ -2,6 +2,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
+import asyncio
+import json
 import os
 import psutil
 from pathlib import Path
@@ -258,13 +260,56 @@ _SEARCH_SKIP_DIR_NAMES = {
 }
 
 
+_HOST_SEARCH_HELPER_URL = os.getenv(
+    "GNOSI_HOST_SEARCH_HELPER_URL",
+    "http://host.docker.internal:5099/search",
+)
+
+
+def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float = 10.0):
+    """Delega la cerca a Spotlight (`mdfind`) via el helper del host.
+
+    El backend corre dins de Docker i no té `mdfind`; el `host_open_helper`
+    (pipeline/skills/host_open_helper/) escolta a 127.0.0.1:5099 al host i
+    exposa `/search`. Spotlight té un índex viu del disc i torna en
+    mil·lisegons, mentre que el `os.walk` del contenidor sobre OneDrive
+    triga segons.
+
+    Retorna el dict de resposta del helper (claus `results`/`truncated`), o
+    `None` si el helper no està disponible o falla — perquè el caller faci
+    fallback al walk local.
+    """
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(
+            _HOST_SEARCH_HELPER_URL,
+            data=json.dumps({"query": query, "limit": limit, "roots": roots}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if not (200 <= resp.status < 300):
+                return None
+            data = json.loads(resp.read() or b"{}")
+    except Exception:
+        # Helper apagat, timeout, o 5xx (Spotlight ha fallat) → fallback.
+        return None
+
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        return None
+    return data
+
+
 @router.post("/search", dependencies=[Depends(require_role("admin"))])
 async def search_filesystem(body: SearchRequest = Body(...)):
-    """Cerca substring case-insensitive a tot el sistema (vault + home host).
+    """Cerca per nom a tot el sistema (vault + home host).
 
-    Salta carpetes molt grans/sorolloses (Library, .cache, node_modules, …) i
-    pàra com a màxim a 50000 entrades visitades o `limit` matches per evitar
-    bloquejos llargs sobre Spotlight-like.
+    Estratègia en dues capes:
+      1. Spotlight via el host helper (`mdfind`) — ràpid, índex viu.
+      2. Fallback: `os.walk` recursiu dins del contenidor — lent però
+         sense dependències. Aplica caps PER root (nodes i resultats) i
+         corre en un thread per no bloquejar l'event loop.
     """
     q = (body.query or "").strip().lower()
     if len(q) < 2:
@@ -272,6 +317,25 @@ async def search_filesystem(body: SearchRequest = Body(...)):
 
     limit = max(1, min(500, body.limit or 100))
 
+    # ── Capa 1: Spotlight via host helper ──
+    # `mdfind` no existeix dins del contenidor; el helper del host el
+    # delega. Els roots van en rutes HOST (les que indexa Spotlight). Si el
+    # helper no respon, `helper_data` és None i caiem al walk de sota.
+    helper_roots = [
+        p for p in (os.getenv("VAULT_HOST_PATH"), os.getenv("HOME_HOST_PATH"))
+        if p
+    ]
+    helper_data = await asyncio.to_thread(
+        _search_via_host_helper, q, limit, helper_roots
+    )
+    if helper_data is not None:
+        return {
+            "results": helper_data.get("results", []),
+            "truncated": bool(helper_data.get("truncated")),
+            "engine": helper_data.get("engine", "spotlight"),
+        }
+
+    # ── Capa 2: fallback walk dins del contenidor ──
     vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
     home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
     vault_host = os.getenv("VAULT_HOST_PATH") or ""
@@ -326,21 +390,29 @@ async def search_filesystem(body: SearchRequest = Body(...)):
         return internal
 
     import os as native_os
+
+    # Pressupost de nodes PER root: cap carpeta pot acaparar tota la cerca.
+    # Abans hi havia un únic `max_visited` global de 250k; com que el Vault
+    # i, sobretot, Library/CloudStorage (OneDrive) són enormes, una sola
+    # passada s'hi encallava i la crida trigava molts segons sense arribar
+    # mai a Documents/Downloads. Amb un cap per root, cada carpeta rellevant
+    # es visita encara que les anteriors siguin immenses.
+    per_root_max_visited = 30000
+    # Cap de resultats PER root: sense això el Vault (tot .md) omplia els
+    # `limit` resultats abans que cap altre root hi aportés res, i la cerca
+    # semblava trobar "només .md". Repartint el límit, els resultats són
+    # una barreja de tots els orígens.
+    per_root_result_cap = max(15, limit // max(1, len(priority_roots)))
+
     results: list = []
-    visited = 0
-    # Pujat de 50_000 a 250_000: amb la HOME muntada read-only, una sola
-    # carpeta gran (Photos, llibreries d'eines, etc.) podia consumir tot
-    # el pressupost abans d'arribar a Documents/Downloads. Amb roots
-    # prioritaris + límit més alt, la cerca cobreix els llocs habituals.
-    max_visited = 250000
     truncated = False
     # Deduplicar resultats quan un fitxer es trobi des de més d'un root
-    # prioritari (p.ex. Vault + walk genèric de HOME que entra a Library).
+    # prioritari (p.ex. Vault + walk genèric de HOME).
     seen_result_paths: set[str] = set()
 
     def _record_hit(internal: str, name: str, is_dir: bool) -> bool:
         """Afegeix un match si encara no s'havia trobat. Retorna True si
-        s'ha arribat al límit i cal aturar la cerca."""
+        s'ha arribat al límit GLOBAL de resultats."""
         if internal in seen_result_paths:
             return False
         seen_result_paths.add(internal)
@@ -351,50 +423,58 @@ async def search_filesystem(body: SearchRequest = Body(...)):
         })
         return len(results) >= limit
 
-    try:
+    def _walk_all() -> None:
+        """Recorre els roots prioritaris omplint `results`.
+
+        És síncron i bloquejant — un `os.walk` sobre muntatges lents com
+        OneDrive pot trigar segons —, així que el handler el crida dins
+        d'un thread a part per no congelar l'event loop de FastAPI.
+        """
+        nonlocal truncated
         for root in priority_roots:
-            if truncated:
+            if len(results) >= limit:
                 break
+            root_visited = 0
+            root_hits = 0
+            stop_root = False
             for current_dir, dirs, files in native_os.walk(str(root), followlinks=False):
-                # Pruna in-place per a no descendir on no toca.
+                # Pruna in-place. A més del soroll habitual, saltem els
+                # roots prioritaris que ja caminem per separat: així el
+                # walk genèric de HOME no torna a recórrer Documents,
+                # Desktop, Downloads… (abans es visitaven dos cops).
                 dirs[:] = [
                     d for d in dirs
                     if not d.startswith(".")
                     and d not in _SEARCH_SKIP_DIR_NAMES
-                    and not d.endswith(".app")
-                    and not d.endswith(".photoslibrary")
-                    and not d.endswith(".musiclibrary")
+                    and not d.endswith((".app", ".photoslibrary", ".musiclibrary"))
+                    and native_os.path.join(current_dir, d) not in seen_resolved
                 ]
 
-                for name in dirs:
-                    visited += 1
-                    if visited > max_visited:
-                        truncated = True
-                        break
-                    if q in name.lower():
-                        internal = native_os.path.join(current_dir, name)
-                        if _record_hit(internal, name, True):
-                            truncated = True
-                            return {"results": results, "truncated": truncated}
-
-                if truncated:
-                    break
-
-                for name in files:
-                    if name.startswith("."):
+                entries = [(True, d) for d in dirs] + [(False, f) for f in files]
+                for is_dir, name in entries:
+                    if not is_dir and name.startswith("."):
                         continue
-                    visited += 1
-                    if visited > max_visited:
+                    root_visited += 1
+                    if root_visited > per_root_max_visited:
                         truncated = True
+                        stop_root = True
                         break
                     if q in name.lower():
                         internal = native_os.path.join(current_dir, name)
-                        if _record_hit(internal, name, False):
+                        if _record_hit(internal, name, is_dir):
                             truncated = True
-                            return {"results": results, "truncated": truncated}
+                            return
+                        root_hits += 1
+                        if root_hits >= per_root_result_cap:
+                            truncated = True
+                            stop_root = True
+                            break
 
-                if truncated:
+                if stop_root:
                     break
+
+    try:
+        await asyncio.to_thread(_walk_all)
     except Exception as e:
         return {
             "results": results,
