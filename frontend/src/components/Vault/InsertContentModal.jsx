@@ -141,6 +141,27 @@ export const InsertContentModal = ({
         }
     }, [open, initialFile]);
 
+    // Cada tab gestiona la seva pròpia selecció. En canviar de tab, la
+    // selecció del tab anterior deixa de ser vàlida: sense aquest reset, un
+    // fitxer arrossegat (selected='upload-pending') seguia actiu després de
+    // passar a "Disc local" i el botó Insereix acabava pujant a Assets
+    // igualment. El tab "Puja" recupera la selecció upload-pending mentre hi
+    // hagi un `uploadFile`; els altres tabs queden a null fins que l'usuari
+    // hi triï alguna cosa (handleSelectVault / handleSelectLocal /
+    // handleUrlChange), cosa que també desactiva el botó Insereix.
+    useEffect(() => {
+        if (tab === 'upload') {
+            if (uploadFile) {
+                const kind = detectUrlKind(uploadFile.name) || 'file';
+                setSelected({ source: 'upload-pending', name: uploadFile.name, kind });
+            } else {
+                setSelected(null);
+            }
+        } else {
+            setSelected(null);
+        }
+    }, [tab, uploadFile]);
+
     const handleSelectVault = useCallback((item) => {
         if (!item?.url) return;
         const kind = item.kind || detectUrlKind(item.url) || 'file';
