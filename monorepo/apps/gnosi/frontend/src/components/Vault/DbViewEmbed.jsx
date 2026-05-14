@@ -4,6 +4,28 @@ import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, X, 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VaultEditorContext } from './VaultEditorContext';
+import { WikilinkInline } from './WikilinkInline';
+
+// Substitueix `[[target]]`, `[[target|alias]]`, `[[target#section]]` i
+// `[[target#section|alias]]` per un link markdown amb un sentinel a l'href.
+// El renderer de l'element `a` reconeix el sentinel i renderitza un
+// `WikilinkInline` real (mateix component que fa servir l'editor), de
+// manera que la cel·la del feed té wikilinks clicables com a la pàgina.
+// Sense això el ReactMarkdown deixa els claudàtors com a text pla.
+const WIKILINK_HREF_SENTINEL = '__gnosi_wikilink__:';
+const WIKILINK_RE = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
+const convertWikilinksToMd = (md) => {
+    if (!md || typeof md !== 'string') return md;
+    return md.replace(WIKILINK_RE, (_, target, section, alias) => {
+        const fullTarget = (target || '').trim() + (section ? `#${section.trim()}` : '');
+        const displayTitle = (alias || (section ? `${target}#${section}` : target) || '').trim();
+        // Evitem `[`/`]` al text del link i `(` `)` a l'href perquè no
+        // trenquin la sintaxi markdown del link.
+        const safeTitle = displayTitle.replace(/[\][]/g, '');
+        const safeHref = encodeURIComponent(fullTarget);
+        return `[${safeTitle}](${WIKILINK_HREF_SENTINEL}${safeHref})`;
+    });
+};
 
 /* -------------------------------------------------------------------------- */
 /*  Utilitats de filtre / ordenació / format                                  */
@@ -528,13 +550,30 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
                             ul: (props) => <ul className="list-disc pl-5 my-2" {...props} />,
                             ol: (props) => <ol className="list-decimal pl-5 my-2" {...props} />,
                             blockquote: (props) => <blockquote className="pl-3 italic text-[var(--text-tertiary)] my-2" {...props} />,
-                            a: (props) => <a className="text-[var(--gnosi-primary)] hover:underline" {...props} />,
+                            // Si l'href porta el nostre sentinel de wikilink,
+                            // renderitzem el component real (clicable, amb
+                            // hover preview, context menu, etc.) en lloc d'un
+                            // anchor opac. La preconversió de `[[…]]` a
+                            // `[text](sentinel:target)` ja s'ha fet sobre
+                            // `bodyMd` abans del parse.
+                            a: ({ href = '', children, ...rest }) => {
+                                if (typeof href === 'string' && href.startsWith(WIKILINK_HREF_SENTINEL)) {
+                                    let target;
+                                    try { target = decodeURIComponent(href.slice(WIKILINK_HREF_SENTINEL.length)); }
+                                    catch { target = href.slice(WIKILINK_HREF_SENTINEL.length); }
+                                    const text = React.Children.toArray(children)
+                                        .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
+                                        .join('') || target;
+                                    return <WikilinkInline title={text} target={target} />;
+                                }
+                                return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
+                            },
                             code: ({ inline, ...props }) => inline
                                 ? <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props} />
                                 : <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props} />,
                         }}
                     >
-                        {bodyMd}
+                        {convertWikilinksToMd(bodyMd)}
                     </ReactMarkdown>
                 </div>
             )}
