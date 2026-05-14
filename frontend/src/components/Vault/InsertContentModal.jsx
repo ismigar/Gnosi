@@ -16,10 +16,12 @@ import {
     Frame,
     AlertCircle,
     FolderOpen,
+    Folder,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MediaPicker } from './MediaPicker';
 import { FilesystemPickerModal } from '../FilesystemPickerModal';
+import { fileUrlToSentinel } from './markdown-mapper';
 import { toast } from '../../lib/toast';
 
 const KIND_META = {
@@ -29,6 +31,7 @@ const KIND_META = {
     pdf: { Icon: FileText, label: 'PDF' },
     doc: { Icon: FileText, label: 'Document' },
     file: { Icon: FileIcon, label: 'Fitxer' },
+    folder: { Icon: Folder, label: 'Carpeta' },
     youtube: { Icon: Video, label: 'YouTube' },
     vimeo: { Icon: Video, label: 'Vimeo' },
     web: { Icon: Globe, label: 'Pàgina web' },
@@ -173,11 +176,18 @@ export const InsertContentModal = ({
         });
     }, []);
 
-    const handleSelectLocal = useCallback((absolutePath) => {
+    const handleSelectLocal = useCallback((absolutePath, { isDir = false } = {}) => {
         if (!absolutePath) return;
         const name = absolutePath.split('/').pop() || absolutePath;
-        const kind = detectPathKind(absolutePath);
-        setSelected({ source: 'local', path: absolutePath, name, kind });
+        if (isDir) {
+            // Una carpeta no es pot servir ni incrustar: només té sentit
+            // enllaçar-la. handleConfirm la converteix al sentinel file://
+            // perquè useFileLinkInterceptor l'obri al Finder en clicar-la.
+            setSelected({ source: 'local-folder', path: absolutePath, name, kind: 'folder' });
+        } else {
+            const kind = detectPathKind(absolutePath);
+            setSelected({ source: 'local', path: absolutePath, name, kind });
+        }
         setPickerOpen(false);
     }, []);
 
@@ -245,6 +255,12 @@ export const InsertContentModal = ({
                 finalUrl = await performUpload(uploadFile);
             } else if (selected.source === 'local' && selected.path) {
                 finalUrl = await registerLocalFile(selected.path);
+            } else if (selected.source === 'local-folder' && selected.path) {
+                // El sentinel passa la validació de Tiptap (és https://) i
+                // useFileLinkInterceptor el reconverteix a file:// per obrir
+                // la carpeta al Finder. blocksToRichMarkdown el desa com a
+                // file:// al disc.
+                finalUrl = fileUrlToSentinel(`file://${selected.path}`);
             }
             if (!finalUrl) {
                 throw new Error("No s'ha pogut obtenir la URL final");
@@ -319,11 +335,11 @@ export const InsertContentModal = ({
                                     </div>
                                 ) : (
                                     <div>
-                                        <div className="text-sm font-semibold">{t('insert.local_intro', { defaultValue: 'Navega pel disc fins al fitxer' })}</div>
+                                        <div className="text-sm font-semibold">{t('insert.local_intro', { defaultValue: 'Navega pel disc fins al fitxer o carpeta' })}</div>
                                         <div className="text-xs text-[var(--text-tertiary)] mt-1">{t('insert.local_subtitle', { defaultValue: 'Pots cercar entre carpetes i tot el contingut del Mac' })}</div>
                                     </div>
                                 )}
-                                {selected?.source === 'local' && (
+                                {(selected?.source === 'local' || selected?.source === 'local-folder') && (
                                     <div className="px-3 py-2 rounded-lg bg-[var(--bg-secondary)] text-xs font-mono break-all max-w-full">
                                         {selected.path}
                                     </div>
@@ -333,8 +349,8 @@ export const InsertContentModal = ({
                                     className="px-4 py-2 rounded-lg bg-[var(--gnosi-primary)] text-white text-sm hover:opacity-90 flex items-center gap-2"
                                 >
                                     <FolderOpen size={14} />
-                                    {selected?.source === 'local'
-                                        ? t('insert.local_change', { defaultValue: 'Canvia el fitxer' })
+                                    {(selected?.source === 'local' || selected?.source === 'local-folder')
+                                        ? t('insert.local_change', { defaultValue: 'Canvia la selecció' })
                                         : t('insert.local_open', { defaultValue: 'Obre el navegador de fitxers' })}
                                 </button>
                             </div>
@@ -424,6 +440,7 @@ export const InsertContentModal = ({
                                     <div className="text-[var(--text-tertiary)] text-xs ml-auto shrink-0">
                                         {selected.source === 'vault' && t('insert.from_vault', { defaultValue: 'Del Vault' })}
                                         {selected.source === 'local' && t('insert.from_local', { defaultValue: 'Disc local' })}
+                                        {selected.source === 'local-folder' && t('insert.from_local_folder', { defaultValue: 'Carpeta local' })}
                                         {selected.source === 'upload-pending' && t('insert.will_upload', { defaultValue: 'Es pujarà al confirmar' })}
                                         {selected.source === 'url' && t('insert.from_url', { defaultValue: 'URL externa' })}
                                     </div>
@@ -489,7 +506,7 @@ export const InsertContentModal = ({
 
             <FilesystemPickerModal
                 isOpen={pickerOpen}
-                mode="file"
+                mode="any"
                 initialQuery={uploadFile?.name || ''}
                 onClose={() => setPickerOpen(false)}
                 onSelect={handleSelectLocal}
