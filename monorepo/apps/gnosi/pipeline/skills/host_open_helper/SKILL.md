@@ -1,6 +1,6 @@
 ---
 name: host_open_helper
-description: Servei al host del Mac que obre fitxers/carpetes amb el Finder quan el backend de Gnosi corre dins de Docker (sense accés al sistema gràfic).
+description: Servei al host del Mac que obre fitxers/carpetes amb el Finder i cerca per nom amb Spotlight (mdfind) per al backend de Gnosi, que corre dins de Docker (sense accés al sistema gràfic ni a mdfind).
 ---
 
 # Host Open Helper
@@ -12,18 +12,31 @@ Petit servei HTTP que escolta a `127.0.0.1:5099` i obre rutes locals amb
 Gnosi (dins de Docker) el contacta via `host.docker.internal:5099` quan
 l'usuari clica un enllaç `file://` al editor.
 
+També exposa una cerca per nom (`/search`) que delega a Spotlight
+(`mdfind`): el contenidor no té `mdfind`, i el seu `os.walk` recursiu sobre
+OneDrive trigava segons. Spotlight, amb índex viu, torna en mil·lisegons.
+
 ## Endpoints
 
 - `GET /healthz` — comprova vida.
 - `POST /open` — body `{"path": "/Users/.../Cuina"}` o `{"path": "file:///..."}`.
   Retorna `200 OK` si s'ha pogut obrir, `403` si la ruta és fora de
   `GNOSI_OPEN_ROOTS`, `404` si no existeix.
+- `POST /search` — body `{"query": "...", "limit": 100, "roots": ["/Users/.../Vault", ...]}`.
+  Cerca per nom amb `mdfind -onlyin <root> -name <query>`. `roots` és
+  opcional (per defecte `$HOME`); els roots continguts dins d'un altre es
+  col·lapsen. Retorna `{"results": [{"name","path","is_dir"}], "truncated": bool}`.
+  `400` si la query té menys de 2 caràcters; `500` si Spotlight falla del
+  tot (llavors el backend fa fallback al seu `os.walk`).
 
 ## Seguretat
 
 - Bind a `127.0.0.1` (només localhost + contenidors via `host.docker.internal`).
 - Allowlist de roots: variable `GNOSI_OPEN_ROOTS` (separats per `:`). Si
   buida, accepta qualsevol ruta dins de `$HOME`.
+- `/search` respecta la mateixa allowlist per als `roots` i filtra
+  resultats dins de carpetes ocultes/sorolloses (`.git`, `node_modules`,
+  `.history`…). La `query` es passa com a argv separat — no és injectable.
 - `subprocess` sense shell.
 
 ## Instal·lació (LaunchAgent al Mac)
@@ -41,6 +54,16 @@ Per aturar-lo:
 launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.gnosi.host-open-helper.plist
 ```
 
+### Recarregar després d'un canvi de codi
+
+El LaunchAgent apunta a `host_open_helper.py` per ruta; si edites l'script
+(p.ex. afegint endpoints), cal reiniciar el servei perquè agafi el codi nou:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.gnosi.host-open-helper
+curl -sS http://127.0.0.1:5099/healthz
+```
+
 ## Restriccions / Edge cases
 
 - **Per què no fer-ho directament al backend Docker?** El contenidor és
@@ -53,3 +76,8 @@ launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.gnosi.host-open-helper
 - **Resource deadlock al Mac amb OneDrive:** alguns paths a OneDrive donen
   `Errno 35`. No afecta aquest helper directament; només afecta
   l'indexer de Gnosi.
+- **`/search` depèn de l'índex de Spotlight.** Si Spotlight està desactivat
+  en un volum, `mdfind` hi tornarà buit (no error). Si `mdfind` peta del
+  tot, el helper retorna `500` i el backend cau al seu `os.walk`. Els
+  missatges `[UserQueryParser] Loading keywords…` de `mdfind` van a stderr
+  i no contaminen els resultats (que es llegeixen només de stdout).
