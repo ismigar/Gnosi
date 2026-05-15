@@ -1690,7 +1690,7 @@ export function EditorInner({
                 };
 
                 const savePromise = axios.patch(`/api/vault/pages/${noteFilename}`, data);
-                
+
                 inFlightSaves.set(noteFilename, {
                     content: markdownContent,
                     metadata: currentMetadata,
@@ -1698,7 +1698,14 @@ export function EditorInner({
                     timestamp: Date.now()
                 });
 
-                savePromise.finally(() => {
+                // Propaga el canvi al pare quan el flush d'unmount té èxit:
+                // si l'usuari edita i tanca la pestanya abans del debounce
+                // (700ms), `handleSave` no s'ha cridat i `pages`/`tabs` del
+                // pare quedarien stale; la vista mostraria el contingut
+                // anterior fins a un refresh manual.
+                savePromise.then(() => {
+                    if (onUpdate) onUpdate(noteFilename, markdownContent, { title: data.title, metadata: currentMetadata });
+                }).finally(() => {
                     const currentRecord = inFlightSaves.get(noteFilename);
                     if (currentRecord && currentRecord.promise === savePromise) {
                         setTimeout(() => {

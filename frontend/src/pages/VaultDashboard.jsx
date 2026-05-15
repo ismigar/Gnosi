@@ -1249,6 +1249,57 @@ export default function VaultDashboard() {
                 metadata: payload?.metadata ?? tab.metadata,
             };
         }));
+
+        // Propaga el canvi al state global `pages` i al cache
+        // `visibleTableRecordsById` perquè, en tornar a una vista (Table,
+        // Gallery, Kanban, Feed) després de tancar la pestanya, hi vegis
+        // immediatament el nou títol/metadata/contingut sense haver de fer
+        // refresh manual. Sense això, la vista llegeix del cache anterior i
+        // mostra dades stale fins al pròxim `fetchPages`.
+        const nextTitle = payload?.title;
+        const nextMetadata = payload?.metadata;
+        const applyPatch = (page) => {
+            const updated = { ...page };
+            if (content !== undefined) updated.content = content;
+            if (nextTitle !== undefined) updated.title = nextTitle;
+            if (nextMetadata !== undefined) updated.metadata = nextMetadata;
+            return updated;
+        };
+        setPages(prev => {
+            let mutated = false;
+            const next = prev.map(p => {
+                if (p.id !== pageId) return p;
+                mutated = true;
+                return applyPatch(p);
+            });
+            if (!mutated) return prev;
+            pagesRef.current = next;
+            return next;
+        });
+        setVisibleTableRecordsById(prev => {
+            if (!prev) return prev;
+            let changed = false;
+            const next = {};
+            for (const [tableId, records] of Object.entries(prev)) {
+                if (!Array.isArray(records)) {
+                    next[tableId] = records;
+                    continue;
+                }
+                let tableChanged = false;
+                const mapped = records.map(p => {
+                    if (p.id !== pageId) return p;
+                    tableChanged = true;
+                    return applyPatch(p);
+                });
+                if (tableChanged) {
+                    changed = true;
+                    next[tableId] = mapped;
+                } else {
+                    next[tableId] = records;
+                }
+            }
+            return changed ? next : prev;
+        });
     }, []);
 
 
