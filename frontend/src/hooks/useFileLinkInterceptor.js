@@ -29,7 +29,17 @@ import { useTranslation } from 'react-i18next';
 import { FILE_PROTOCOL_SENTINEL, sentinelToFileUrl } from '../components/Vault/markdown-mapper';
 
 const NORMALIZED_ATTR = 'data-gnosi-file-link';
-const POINTER_EVENTS = ['mousedown', 'mouseup', 'click', 'auxclick'];
+// Interceptem TANT mouse* com pointer* events. Tiptap/ProseMirror pot
+// disparar el handler del link (que crida `window.open(href, target)`)
+// dins d'un `pointerdown`/`pointerup` en navegadors moderns: si només
+// escoltéssim els mouse*, el pointer arribaria abans i obriria una
+// pestanya nova al sentinel `gnosi-file-protocol.local` abans del nostre
+// `preventDefault`.
+const POINTER_EVENTS = [
+    'pointerdown', 'pointerup',
+    'mousedown', 'mouseup',
+    'click', 'auxclick',
+];
 const LEGACY_FILE_SENTINEL = 'https://__gnosi_file_protocol__';
 const CORRUPTED_FILE_SENTINEL = 'https://**gnosi_file_protocol**';
 
@@ -172,16 +182,29 @@ export function useFileLinkInterceptor() {
             ).forEach(normalizeAnchor);
         };
         scanRoot(document.body);
-        // Throttle: en pàgines amb molts <a href="file://...">, BlockNote
-        // dispara una allau de mutacions al render inicial. Sense rate-limit,
-        // cada una crida `scanRoot(node)` que fa `querySelectorAll(...)` a tot
-        // el subarbre — el cost és O(M*N) i bloqueja el thread principal.
-        // Acumulem les mutacions i les processem amb requestIdleCallback per
-        // no competir amb el render del editor.
+        // Batch + microtask: en pàgines amb molts <a href="file://...">,
+        // BlockNote dispara una allau de mutacions al render inicial. Sense
+        // rate-limit, cada una cridaria `scanRoot(node)` (O(M*N) sobre tot
+        // el subarbre) i bloquejaria el thread.
+        //
+        // Abans usàvem `requestIdleCallback` (timeout 200ms): salvava CPU
+        // però obria una race condition — si l'usuari clicava un enllaç tot
+        // just renderitzat ABANS del flush, el `<a>` encara no tenia
+        // `target="_self"` ni el listener directe normalitzat, i Tiptap
+        // podia disparar `window.open(href, '_blank')` programàticament
+        // dins d'un `pointerdown`/`mousedown`. El navegador obre la pestanya
+        // nova al sentinel `gnosi-file-protocol.local` (DNS_PROBE_FINISHED_
+        // NXDOMAIN) abans que els listeners de window/document puguin fer
+        // `preventDefault`.
+        //
+        // Usem `queueMicrotask`: agrupa totes les mutacions del mateix tick
+        // en un sol flush i s'executa abans del següent paint i del següent
+        // pointer event de l'usuari. Cost de CPU equivalent al idle, però
+        // sense la finestra de race.
         let pendingNodes = new Set();
-        let scheduledScan = null;
+        let scanScheduled = false;
         const flushScan = () => {
-            scheduledScan = null;
+            scanScheduled = false;
             const nodes = pendingNodes;
             pendingNodes = new Set();
             for (const node of nodes) {
@@ -191,9 +214,9 @@ export function useFileLinkInterceptor() {
             }
         };
         const scheduleScan = () => {
-            if (scheduledScan) return;
-            const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 32));
-            scheduledScan = idle(flushScan, { timeout: 200 });
+            if (scanScheduled) return;
+            scanScheduled = true;
+            queueMicrotask(flushScan);
         };
         const observer = new MutationObserver((mutations) => {
             for (const m of mutations) {
