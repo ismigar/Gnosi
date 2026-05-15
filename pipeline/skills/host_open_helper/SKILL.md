@@ -81,3 +81,31 @@ curl -sS http://127.0.0.1:5099/healthz
   tot, el helper retorna `500` i el backend cau al seu `os.walk`. Els
   missatges `[UserQueryParser] Loading keywords…` de `mdfind` van a stderr
   i no contaminen els resultats (que es llegeixen només de stdout).
+
+### `/search` torna buit sota el LaunchAgent (Full Disk Access)
+
+- **Símptoma:** `POST /search` retorna `200` amb `{"results": []}` de
+  forma instantània, però `mdfind -onlyin $HOME -name <query>` executat
+  manualment des de Terminal sí troba els fitxers. Típicament, queden
+  amagats resultats sota `~/Downloads` o `~/Library/CloudStorage/...`.
+- **Causa:** El LaunchAgent corre sota `launchd`, que no hereta el Full
+  Disk Access (FDA) del Terminal de l'usuari. macOS TCC concedeix FDA per
+  (binari, procés responsable), així que `mdfind` torna resultats sanejats
+  sense error. És el mateix patró que afecta el daemon de warmup d'OneDrive.
+- **Fix:** Afegir el binari de Python del LaunchAgent a *System Settings →
+  Privacy & Security → Full Disk Access*. Per localitzar-lo:
+
+  ```bash
+  ps -p $(pgrep -f host_open_helper.py | head -1) -o command=
+  # típicament: /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python
+  ```
+
+  Després, reinicia el servei perquè TCC reavaluï:
+
+  ```bash
+  launchctl kickstart -k gui/$(id -u)/com.gnosi.host-open-helper
+  ```
+
+- **Alternativa:** `launchctl bootout` del LaunchAgent i llançar
+  `host_open_helper.py` manualment des de Terminal (que sí té FDA),
+  igual que es fa amb el daemon de warmup d'OneDrive.
