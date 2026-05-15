@@ -1,6 +1,6 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, X, LayoutTemplate } from 'lucide-react';
+import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate } from 'lucide-react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VaultEditorContext } from './VaultEditorContext';
@@ -457,12 +457,20 @@ function GalleryRender({ rows, columns, onOpenPage }) {
 
 /* ----------------------------- Feed ---------------------------------------- */
 
+// Llindar de col·lapse del cos d'una entrada de feed: ~25 línies de text a
+// `text-sm` (14px) amb `leading-relaxed` (1,625) → 25 × 22,75 ≈ 570px. Per
+// damunt d'aquest llindar el cos es retalla i apareix el botó "Veure més".
+const FEED_BODY_COLLAPSED_MAX_PX = 570;
+
 function FeedItem({ row, columns, dateCol, onOpenPage }) {
     const cached = _cacheGet(row.id);
     const [bodyMd, setBodyMd] = useState(cached ? cached.bodyMd : '');
     const [images, setImages] = useState(cached ? cached.images : []);
     const [hydrated, setHydrated] = useState(!!cached);
     const articleRef = useRef(null);
+    const bodyRef = useRef(null);
+    const [bodyExpanded, setBodyExpanded] = useState(false);
+    const [bodyOverflows, setBodyOverflows] = useState(false);
 
     useEffect(() => {
         if (hydrated) return undefined;
@@ -511,6 +519,22 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
         return () => { cancelled = true; io.disconnect(); };
     }, [row.id, row.metadata, hydrated]);
 
+    // Mesura l'alçada real del cos (l'element de referència NO es retalla mai;
+    // el retall s'aplica al pare) per decidir si cal oferir "Veure més".
+    // useLayoutEffect: mesurem abans del paint per evitar el flaix de veure el
+    // cos sencer i, tot seguit, plegat. El ResizeObserver re-mesura quan les
+    // imatges del markdown carreguen tard i n'alteren l'alçada.
+    useLayoutEffect(() => {
+        const el = bodyRef.current;
+        if (!bodyMd || !el) return undefined;
+        const measure = () => setBodyOverflows(el.offsetHeight > FEED_BODY_COLLAPSED_MAX_PX);
+        measure();
+        if (typeof ResizeObserver === 'undefined') return undefined;
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [bodyMd]);
+
     const date = dateCol ? row.metadata?.[dateCol] : '';
     const dateStr = Array.isArray(date) ? date[0] : date;
     const skip = new Set([dateCol, 'title']);
@@ -548,51 +572,73 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
                 </div>
             )}
             {bodyMd && (
-                <div className="text-sm text-[var(--text-secondary)] mt-2 leading-relaxed feed-md">
-                    <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        urlTransform={wikilinkUrlTransform}
-                        components={{
-                            // Imatges inline: normalitzem la URL (Assets/...
-                            // → /api/vault/assets/...) i fem servir
-                            // RetryableImage perquè OneDrive a vegades
-                            // retorna 503 fins que té el fitxer descarregat.
-                            img: ({ src = '', alt = '' }) => {
-                                const norm = normalizeAssetUrl(String(src || ''));
-                                if (!norm) return null;
-                                return <RetryableImage src={norm} title={alt || row.title || ''} onClick={() => onOpenPage?.(row.id)} />;
-                            },
-                            h1: (props) => <h1 className="font-bold text-2xl text-[var(--text-primary)] my-2" {...props} />,
-                            h2: (props) => <h2 className="font-bold text-xl text-[var(--text-primary)] my-2" {...props} />,
-                            h3: (props) => <h3 className="font-semibold text-lg text-[var(--text-primary)] my-2" {...props} />,
-                            ul: (props) => <ul className="list-disc pl-5 my-2" {...props} />,
-                            ol: (props) => <ol className="list-decimal pl-5 my-2" {...props} />,
-                            blockquote: (props) => <blockquote className="pl-3 italic text-[var(--text-tertiary)] my-2" {...props} />,
-                            // Si l'href porta el nostre sentinel de wikilink,
-                            // renderitzem el component real (clicable, amb
-                            // hover preview, context menu, etc.) en lloc d'un
-                            // anchor opac. La preconversió de `[[…]]` a
-                            // `[text](sentinel:target)` ja s'ha fet sobre
-                            // `bodyMd` abans del parse.
-                            a: ({ href = '', children, ...rest }) => {
-                                if (typeof href === 'string' && href.startsWith(WIKILINK_HREF_SENTINEL)) {
-                                    let target;
-                                    try { target = decodeURIComponent(href.slice(WIKILINK_HREF_SENTINEL.length)); }
-                                    catch { target = href.slice(WIKILINK_HREF_SENTINEL.length); }
-                                    const text = React.Children.toArray(children)
-                                        .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
-                                        .join('') || target;
-                                    return <WikilinkInline title={text} target={target} />;
-                                }
-                                return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
-                            },
-                            code: ({ inline, ...props }) => inline
-                                ? <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props} />
-                                : <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props} />,
-                        }}
+                <div className="mt-2">
+                    <div
+                        className="relative"
+                        style={(bodyOverflows && !bodyExpanded)
+                            ? { maxHeight: FEED_BODY_COLLAPSED_MAX_PX, overflow: 'hidden' }
+                            : undefined}
                     >
-                        {convertWikilinksToMd(bodyMd)}
-                    </ReactMarkdown>
+                        <div ref={bodyRef} className="text-sm text-[var(--text-secondary)] leading-relaxed feed-md">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                urlTransform={wikilinkUrlTransform}
+                                components={{
+                                    // Imatges inline: normalitzem la URL (Assets/...
+                                    // → /api/vault/assets/...) i fem servir
+                                    // RetryableImage perquè OneDrive a vegades
+                                    // retorna 503 fins que té el fitxer descarregat.
+                                    img: ({ src = '', alt = '' }) => {
+                                        const norm = normalizeAssetUrl(String(src || ''));
+                                        if (!norm) return null;
+                                        return <RetryableImage src={norm} title={alt || row.title || ''} onClick={() => onOpenPage?.(row.id)} />;
+                                    },
+                                    h1: (props) => <h1 className="font-bold text-2xl text-[var(--text-primary)] my-2" {...props} />,
+                                    h2: (props) => <h2 className="font-bold text-xl text-[var(--text-primary)] my-2" {...props} />,
+                                    h3: (props) => <h3 className="font-semibold text-lg text-[var(--text-primary)] my-2" {...props} />,
+                                    ul: (props) => <ul className="list-disc pl-5 my-2" {...props} />,
+                                    ol: (props) => <ol className="list-decimal pl-5 my-2" {...props} />,
+                                    blockquote: (props) => <blockquote className="pl-3 italic text-[var(--text-tertiary)] my-2" {...props} />,
+                                    // Si l'href porta el nostre sentinel de wikilink,
+                                    // renderitzem el component real (clicable, amb
+                                    // hover preview, context menu, etc.) en lloc d'un
+                                    // anchor opac. La preconversió de `[[…]]` a
+                                    // `[text](sentinel:target)` ja s'ha fet sobre
+                                    // `bodyMd` abans del parse.
+                                    a: ({ href = '', children, ...rest }) => {
+                                        if (typeof href === 'string' && href.startsWith(WIKILINK_HREF_SENTINEL)) {
+                                            let target;
+                                            try { target = decodeURIComponent(href.slice(WIKILINK_HREF_SENTINEL.length)); }
+                                            catch { target = href.slice(WIKILINK_HREF_SENTINEL.length); }
+                                            const text = React.Children.toArray(children)
+                                                .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
+                                                .join('') || target;
+                                            return <WikilinkInline title={text} target={target} />;
+                                        }
+                                        return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
+                                    },
+                                    code: ({ inline, ...props }) => inline
+                                        ? <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props} />
+                                        : <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props} />,
+                                }}
+                            >
+                                {convertWikilinksToMd(bodyMd)}
+                            </ReactMarkdown>
+                        </div>
+                        {bodyOverflows && !bodyExpanded && (
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
+                        )}
+                    </div>
+                    {bodyOverflows && (
+                        <button
+                            type="button"
+                            onClick={() => setBodyExpanded(v => !v)}
+                            className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors"
+                        >
+                            {bodyExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            {bodyExpanded ? 'Veure menys' : 'Veure més'}
+                        </button>
+                    )}
                 </div>
             )}
             {images.length > 0 && (
