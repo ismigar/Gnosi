@@ -666,12 +666,28 @@ const FEED_PAGE_SIZE = 20;
 // IntersectionObservers (un per FeedItem) al primer paint.
 const FEED_FULL_RENDER_THRESHOLD = 200;
 
-// `visibleCount` per block.id viu fora del component: BlockNote pot desmuntar
-// i remuntar un bloc en certes interaccions de l'editor (focus, canvis de
-// document), i sense això l'usuari perdia tots els items carregats per scroll
-// infinit cada vegada. Persistim també la signatura del contingut perquè un
-// canvi real de dades sí faci reset.
+// `visibleCount` + `scrollTop` per block.id viu fora del component: BlockNote
+// pot desmuntar i remuntar un bloc en certes interaccions de l'editor (focus,
+// canvis de document, navegació amb fletxes a Chrome). Sense aquest cache
+// l'usuari perdria tots els items carregats per scroll infinit i, sobretot, el
+// `scrollTop` del contenidor desplaçable es retallaria a 0 perquè el contingut
+// desapareix del DOM durant el remount. Persistim també la signatura del
+// contingut perquè un canvi real de dades sí faci reset.
 const _feedVisibleStateByBlockId = new Map();
+
+// Avantpassat desplaçable més proper d'un node (o l'element d'scroll del
+// document si no n'hi ha cap).
+const getScrollableAncestor = (node) => {
+    let el = node?.parentElement || null;
+    while (el) {
+        const overflowY = getComputedStyle(el).overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
+            return el;
+        }
+        el = el.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+};
 
 function FeedRender({ rows, columns, onOpenPage, blockId }) {
     const dateCol = useMemo(() => pickDateCol(columns, rows), [columns, rows]);
@@ -695,6 +711,7 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
     });
     const [trackedSignature, setTrackedSignature] = useState(rowsSignature);
     const sentinelRef = useRef(null);
+    const containerRef = useRef(null);
 
     if (trackedSignature !== rowsSignature) {
         setTrackedSignature(rowsSignature);
@@ -703,8 +720,50 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
 
     useEffect(() => {
         if (!isPaginated) return;
-        _feedVisibleStateByBlockId.set(stateKey, { signature: rowsSignature, visibleCount });
+        const cur = _feedVisibleStateByBlockId.get(stateKey) || {};
+        _feedVisibleStateByBlockId.set(stateKey, { ...cur, signature: rowsSignature, visibleCount });
     }, [isPaginated, stateKey, rowsSignature, visibleCount]);
+
+    // Cache continu del `scrollTop` del contenidor desplaçable. Sense això,
+    // si BlockNote remunta el bloc (passa a Chrome amb la navegació per
+    // fletxes del teclat), el contingut desapareix del DOM durant el
+    // remount, scrollTop es retalla a 0, i en remuntar la vista torna al
+    // principi. Patró específicament reportat com: baixar → pujar → tornar
+    // a baixar (1 cop) = scroll al principi.
+    useEffect(() => {
+        const scroller = getScrollableAncestor(containerRef.current);
+        if (!scroller) return undefined;
+        const save = () => {
+            const cur = _feedVisibleStateByBlockId.get(stateKey) || {};
+            _feedVisibleStateByBlockId.set(stateKey, {
+                ...cur,
+                signature: rowsSignature,
+                scrollTop: scroller.scrollTop,
+            });
+        };
+        scroller.addEventListener('scroll', save, { passive: true });
+        return () => scroller.removeEventListener('scroll', save);
+    }, [stateKey, rowsSignature]);
+
+    // Restaura el `scrollTop` cachejat on mount. Tres intents (sync + 150ms
+    // + 500ms) perquè els FeedItems hidraten async (preview/bodyMd via
+    // IntersectionObserver i imatges del markdown que carreguen tard) i
+    // l'alçada total del contingut va creixent; un sol intent immediat es
+    // retallaria contra una alçada encara incompleta.
+    useLayoutEffect(() => {
+        const cached = _feedVisibleStateByBlockId.get(stateKey);
+        if (!cached || cached.signature !== rowsSignature) return undefined;
+        const savedTop = cached.scrollTop;
+        if (typeof savedTop !== 'number' || savedTop <= 0) return undefined;
+        const scroller = getScrollableAncestor(containerRef.current);
+        if (!scroller) return undefined;
+        let cancelled = false;
+        scroller.scrollTop = savedTop;
+        const t1 = setTimeout(() => { if (!cancelled) scroller.scrollTop = savedTop; }, 150);
+        const t2 = setTimeout(() => { if (!cancelled) scroller.scrollTop = savedTop; }, 500);
+        return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intent únic on mount
+    }, []);
 
     useEffect(() => {
         if (!isPaginated || visibleCount >= rows.length) return undefined;
@@ -736,8 +795,10 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
         // loading i el preview del cos del markdown, que es carreguen via
         // IntersectionObserver al FeedItem). Amb anchor automàtic, baixar →
         // pujar → tornar a baixar pot desancorar i tornar el scroll al
-        // principi visible.
-        <div className="my-2" style={{ overflowAnchor: 'none' }}>
+        // principi visible. Complementem amb un cache d'scrollTop per
+        // sobreviure als remounts del bloc per part de BlockNote (vegeu
+        // useLayoutEffect més amunt).
+        <div ref={containerRef} className="my-2" style={{ overflowAnchor: 'none' }}>
             <div className="flex flex-col gap-2">
                 {slice.map(r => (
                     <FeedItem
