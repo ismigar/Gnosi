@@ -462,7 +462,7 @@ function GalleryRender({ rows, columns, onOpenPage }) {
 // damunt d'aquest llindar el cos es retalla i apareix el botó "Veure més".
 const FEED_BODY_COLLAPSED_MAX_PX = 570;
 
-function FeedItem({ row, columns, dateCol, onOpenPage }) {
+function FeedItem({ row, columns, dateCol, onOpenPage, eager = false }) {
     const cached = _cacheGet(row.id);
     const [bodyMd, setBodyMd] = useState(cached ? cached.bodyMd : '');
     const [images, setImages] = useState(cached ? cached.images : []);
@@ -474,8 +474,6 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
 
     useEffect(() => {
         if (hydrated) return undefined;
-        const el = articleRef.current;
-        if (!el) return undefined;
         let cancelled = false;
         const fetchPreview = async () => {
             try {
@@ -502,6 +500,18 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
                 setHydrated(true);
             } catch { /* no crític */ }
         };
+        // Eager mode (feeds sota FEED_FULL_RENDER_THRESHOLD = 200 items): cridem
+        // fetchPreview immediatament al mount, sense IntersectionObserver. Amb
+        // desenes d'items concurrents l'IO de Chrome falla esporàdicament a
+        // disparar `isIntersecting:true` per molts elements alhora i molts cossos
+        // no es carregaven mai. Per a feeds enormes (>=200) mantenim el lazy
+        // load amb IO per evitar centenars de requests simultanis al primer paint.
+        if (eager) {
+            void fetchPreview();
+            return () => { cancelled = true; };
+        }
+        const el = articleRef.current;
+        if (!el) return undefined;
         if (typeof IntersectionObserver === 'undefined') {
             void fetchPreview();
             return () => { cancelled = true; };
@@ -517,7 +527,7 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
         }, { rootMargin: '200px' });
         io.observe(el);
         return () => { cancelled = true; io.disconnect(); };
-    }, [row.id, row.metadata, hydrated]);
+    }, [row.id, row.metadata, hydrated, eager]);
 
     // Mesura l'alçada real del cos (l'element de referència NO es retalla mai;
     // el retall s'aplica al pare) per decidir si cal oferir "Veure més".
@@ -807,6 +817,7 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
                         columns={columns}
                         dateCol={dateCol}
                         onOpenPage={onOpenPage}
+                        eager={!isPaginated}
                     />
                 ))}
                 {remaining > 0 && (
