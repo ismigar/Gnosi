@@ -343,78 +343,6 @@ function _cacheSet(id, value) {
     _previewCache.set(id, value);
 }
 
-// Fetch compartit + limitat. Quan el feed s'hidrata "eager" (sota el llindar
-// FEED_FULL_RENDER_THRESHOLD) totes les FeedItem disparen la seva preview alhora.
-// Tres problemes apareixen sense gestió compartida:
-//   1) React Strict Mode (dev) munta cada component dues vegades →
-//      cada id es demana 2 cops. Solució: dedup d'in-flight per id.
-//   2) Si la primera petició arriba després del cleanup de Strict Mode i la
-//      lògica fa `if (cancelled) return` abans de cachejar, la dada es perd
-//      i el segon mount la torna a demanar. Solució: cachejar dins del fetch
-//      mateix, abans que el component decideixi què fer amb el resultat.
-//   3) El backend retorna 503 quan rep desenes de peticions concurrents sobre
-//      fitxers online-only d'OneDrive (warmup serialitzat). Solució: limit
-//      de concurrència + retry exponencial en 503.
-const _previewInFlight = new Map();
-const _PREVIEW_MAX_CONCURRENT = 6;
-let _previewActive = 0;
-const _previewQueue = [];
-
-function _withPreviewLimit(fn) {
-    return new Promise((resolve, reject) => {
-        const exec = async () => {
-            _previewActive += 1;
-            try { resolve(await fn()); }
-            catch (err) { reject(err); }
-            finally {
-                _previewActive -= 1;
-                const next = _previewQueue.shift();
-                if (next) next();
-            }
-        };
-        if (_previewActive < _PREVIEW_MAX_CONCURRENT) exec();
-        else _previewQueue.push(exec);
-    });
-}
-
-async function _fetchPreviewOnce(id, metadata, attempt) {
-    try {
-        const res = await axios.get(`/api/vault/pages/${encodeURIComponent(id)}/preview?full=true`);
-        const d = res?.data || {};
-        const md = String(d.body_md || d.excerpt || '');
-        const list = Array.isArray(d.images) ? d.images : [];
-        const cover = d.cover || metadata?.cover || '';
-        const norm = list.map(normalizeAssetUrl).filter(Boolean);
-        if (cover) {
-            const c = normalizeAssetUrl(cover);
-            if (c && !norm.includes(c)) norm.unshift(c);
-        }
-        const result = { bodyMd: md, images: norm };
-        // No cachejar resultats buits: el backend pot haver retornat 200 amb
-        // body_md i images buits durant una degradació transitòria d'OneDrive.
-        if (md || norm.length > 0) _cacheSet(id, result);
-        return result;
-    } catch (err) {
-        // Retry en 503 (saturació backend / warmup serialitzat d'OneDrive)
-        if (err?.response?.status === 503 && attempt < 3) {
-            await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
-            return _fetchPreviewOnce(id, metadata, attempt + 1);
-        }
-        return null;
-    }
-}
-
-function _fetchPreviewShared(id, metadata) {
-    const cached = _cacheGet(id);
-    if (cached) return Promise.resolve(cached);
-    const existing = _previewInFlight.get(id);
-    if (existing) return existing;
-    const promise = _withPreviewLimit(() => _fetchPreviewOnce(id, metadata, 0));
-    _previewInFlight.set(id, promise);
-    promise.finally(() => _previewInFlight.delete(id));
-    return promise;
-}
-
 const _byTableCache = new Map();
 const BY_TABLE_TTL_MS = 30_000;
 function _byTableGet(tableId) {
@@ -534,7 +462,7 @@ function GalleryRender({ rows, columns, onOpenPage }) {
 // damunt d'aquest llindar el cos es retalla i apareix el botó "Veure més".
 const FEED_BODY_COLLAPSED_MAX_PX = 570;
 
-function FeedItem({ row, columns, dateCol, onOpenPage, eager = false }) {
+function FeedItem({ row, columns, dateCol, onOpenPage }) {
     const cached = _cacheGet(row.id);
     const [bodyMd, setBodyMd] = useState(cached ? cached.bodyMd : '');
     const [images, setImages] = useState(cached ? cached.images : []);
@@ -546,41 +474,50 @@ function FeedItem({ row, columns, dateCol, onOpenPage, eager = false }) {
 
     useEffect(() => {
         if (hydrated) return undefined;
-        let cancelled = false;
-        const applyResult = (result) => {
-            if (cancelled || !result) return;
-            setBodyMd(result.bodyMd);
-            setImages(result.images);
-            setHydrated(true);
-        };
-        const doFetch = () => { void _fetchPreviewShared(row.id, row.metadata).then(applyResult); };
-        // Eager mode (feeds sota FEED_FULL_RENDER_THRESHOLD = 200 items): cridem
-        // el fetch compartit immediatament al mount, sense IntersectionObserver.
-        // El fetch compartit gestiona dedup, concurrency limit i retries — vegeu
-        // _fetchPreviewShared a dalt. Per a feeds enormes (>=200) mantenim el
-        // lazy load amb IO per evitar muntar centenars d'observers al primer paint.
-        if (eager) {
-            doFetch();
-            return () => { cancelled = true; };
-        }
         const el = articleRef.current;
         if (!el) return undefined;
+        let cancelled = false;
+        const fetchPreview = async () => {
+            try {
+                const res = await axios.get(`/api/vault/pages/${encodeURIComponent(row.id)}/preview?full=true`);
+                if (cancelled) return;
+                const d = res?.data || {};
+                const md = String(d.body_md || d.excerpt || '');
+                const list = Array.isArray(d.images) ? d.images : [];
+                const cover = d.cover || row.metadata?.cover || '';
+                const norm = list.map(normalizeAssetUrl).filter(Boolean);
+                if (cover) {
+                    const c = normalizeAssetUrl(cover);
+                    if (c && !norm.includes(c)) norm.unshift(c);
+                }
+                // No cachejar resultats buits: el backend pot haver retornat 200
+                // amb body_md i images buits durant una degradació transitòria
+                // d'OneDrive (Errno 35). Sense aquest guard, el feed quedaria
+                // permanentment sense imatges fins a recarregar la pestanya.
+                if (md || norm.length > 0) {
+                    _cacheSet(row.id, { bodyMd: md, images: norm });
+                }
+                setBodyMd(md);
+                setImages(norm);
+                setHydrated(true);
+            } catch { /* no crític */ }
+        };
         if (typeof IntersectionObserver === 'undefined') {
-            doFetch();
+            void fetchPreview();
             return () => { cancelled = true; };
         }
         const io = new IntersectionObserver(entries => {
             for (const e of entries) {
                 if (e.isIntersecting) {
                     io.disconnect();
-                    doFetch();
+                    void fetchPreview();
                     break;
                 }
             }
         }, { rootMargin: '200px' });
         io.observe(el);
         return () => { cancelled = true; io.disconnect(); };
-    }, [row.id, row.metadata, hydrated, eager]);
+    }, [row.id, row.metadata, hydrated]);
 
     // Mesura l'alçada real del cos (l'element de referència NO es retalla mai;
     // el retall s'aplica al pare) per decidir si cal oferir "Veure més".
@@ -870,7 +807,6 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
                         columns={columns}
                         dateCol={dateCol}
                         onOpenPage={onOpenPage}
-                        eager={!isPaginated}
                     />
                 ))}
                 {remaining > 0 && (
