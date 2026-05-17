@@ -5030,6 +5030,13 @@ async def serve_local_file(token: str):
     Si el token no existeix → 404. Si el path ja no és accessible (l'usuari
     ha mogut/esborrat el fitxer) → 410 Gone perquè la UI ho pugui distingir
     d'un token mai registrat.
+
+    Si el fitxer és online-only a OneDrive (típic per a documents enllaçats
+    des de `~/Library/CloudStorage/...`), demanem al provider que el
+    materialitzi abans de fer el `FileResponse`. Sense això, FastAPI envia
+    els headers (200 OK) i quan intenta streamejar el contingut peta amb
+    Errno 35 (Resource deadlock avoided) mid-stream → la UI rep una resposta
+    truncada i el navegador no obre el fitxer.
     """
     with _LOCAL_LINKS_LOCK:
         mapping = _load_local_links()
@@ -5039,6 +5046,60 @@ async def serve_local_file(token: str):
     p = Path(abs_path)
     if not p.exists() or not p.is_file():
         raise HTTPException(status_code=410, detail=f"Local file no longer available: {p.name}")
+
+    # Warmup proactiu si el fitxer és online-only (mateix patró que
+    # _serve_file_with_containment per a Assets/Images).
+    try:
+        provider = get_files_provider()
+        st = p.stat()
+        if provider.is_online_only(p, st):
+            await provider.materialize(p)
+            try:
+                st = p.stat()
+            except OSError as e:
+                log.warning(f"stat() post-warmup ha fallat per {p}: {e}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Local file temporarily unavailable",
+                    headers={"Cache-Control": "no-store, must-revalidate"},
+                )
+            if provider.is_online_only(p, st):
+                log.warning(f"☁️ Local file encara online-only després del warmup: {p}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Local file warmup pending; try again",
+                    headers={"Cache-Control": "no-store, must-revalidate"},
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.debug(f"Warmup proactiu per {p} ha fallat: {e}")
+        # Continuem igualment: el següent step (1-byte probe) gestionarà
+        # qualsevol error de lectura amb backoff.
+
+    # 1-byte probe amb backoff per estabilitzar la lectura abans del stream.
+    # Mateix patró que _serve_file_with_containment línies ~4584.
+    last_error: Optional[OSError] = None
+    for attempt in range(5):
+        try:
+            with open(p, "rb") as f:
+                f.read(1)
+            last_error = None
+            break
+        except OSError as e:
+            last_error = e
+            if e.errno == 35 and attempt < 4:
+                await asyncio.sleep(0.2 * (2 ** attempt))
+                continue
+            break
+    if last_error is not None:
+        log.warning(f"☁️ Local file no llegible després del warmup: {p} ({last_error})")
+        raise HTTPException(
+            status_code=503,
+            detail="Local file temporarily unavailable; try again",
+            headers={"Cache-Control": "no-store, must-revalidate"},
+        )
+
     media_type, _ = mimetypes.guess_type(str(p))
     return FileResponse(path=str(p), media_type=media_type)
 
