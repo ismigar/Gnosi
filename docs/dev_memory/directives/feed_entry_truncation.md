@@ -36,6 +36,14 @@ A les vistes de tipus **feed**, el cos d'una entrada llarga s'ha de retallar a
   `max-height`, el seu border-box queda fixat i el `ResizeObserver` no dispara
   quan el contingut intern creix (imatges que carreguen tard). Observar sempre
   l'element de contingut sense retallar.
+- **La decisió `bodyOverflows` HA DE SER MONÒTONA** (només `false → true`):
+  el `ResizeObserver` dispara a cada càrrega d'imatge i si la condició
+  oscil·la al voltant del llindar (alçades 540→620→580→610...), el toggle
+  del `max-height`/`overflow` causa flicker subframe — visible a Safari,
+  dissimulat per scroll anchoring a Chrome. NO restablir a `false` quan el
+  contingut s'encongeix; una vegada ha demostrat que excedia el llindar,
+  queda decidit fins al remount. Fix #119; un `setBodyOverflows(false)`
+  bidireccional és una regressió coneguda.
 - L'estat de desplegament és efímer (per instància de `FeedItem`); no es
   persisteix — es reinicia si el bloc es remunta. És acceptable.
 
