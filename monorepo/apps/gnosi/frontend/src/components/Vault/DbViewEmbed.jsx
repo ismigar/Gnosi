@@ -765,6 +765,52 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intent únic on mount
     }, []);
 
+    // Bloca el caret-snap de ProseMirror al contenidor del dashboard.
+    //
+    // Quan la pàgina actual és un dashboard (gnosi_view dins d'un BlockNote),
+    // el caret de ProseMirror viu just abans/després del bloc atòmic i és
+    // invisible per a l'usuari. Mentre tu navegues amb fletxes per veure el
+    // feed, ProseMirror dispara `scrollToSelection`/`scrollRectIntoView` a
+    // cada tecla per "mantenir el caret a la vista" → si l'has scrollejat
+    // lluny, t'enganxa de cop al començament del document (on és el caret).
+    //
+    // Sintomatologia: baixar → pujar → tornar a baixar (1 cop) = scroll
+    // salta al principi de la vista. Stack capturat empíricament:
+    //   HTMLDivElement.set <- scrollRectIntoView <- EditorView.scrollToSelection
+    //
+    // Fix: override del setter d'`scrollTop` a l'instància del contenidor.
+    // Si el caller és scrollToSelection AMB un salt > 300 px (caret-snap
+    // típic), s'ignora. Els ajustos petits (caret a prop del límit, edició
+    // de text legítima en pàgines que també tenen gnosi_view) passen sense
+    // tocar.
+    useLayoutEffect(() => {
+        const scroller = getScrollableAncestor(containerRef.current);
+        if (!scroller || scroller === document.scrollingElement) return undefined;
+        const protoDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop');
+        if (!protoDesc?.set || !protoDesc?.get) return undefined;
+        const origSet = protoDesc.set;
+        const origGet = protoDesc.get;
+        Object.defineProperty(scroller, 'scrollTop', {
+            configurable: true,
+            get: origGet,
+            set(v) {
+                const cur = origGet.call(this);
+                if (Math.abs(v - cur) > 300) {
+                    const stack = new Error().stack || '';
+                    if (/scrollToSelection|scrollRectIntoView/.test(stack)) {
+                        return;  // caret-snap de ProseMirror — descartat
+                    }
+                }
+                origSet.call(this, v);
+            },
+        });
+        return () => {
+            try { delete scroller.scrollTop; }
+            catch (e) { /* no crític: la instància queda amb el wrapper */ }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intent únic on mount
+    }, []);
+
     // Bulk warmup: cridem el backend un sol cop quan el feed canvia per
     // forçar el warmup d'OneDrive + pre-population del preview cache de
     // tots els items. Sense això, cada FeedItem provoca una petició
