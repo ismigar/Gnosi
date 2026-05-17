@@ -373,37 +373,53 @@ def get_indexer_status(v_str: str) -> Dict[str, Any]:
 # de 5 minuts serial. Cache memoria per page_id, invalidat per mtime del
 # fitxer: la primera crida fa la feina i deixa la dada calenta; les següents
 # són instantànies fins que el .md es modifica. Mida limitada per no créixer
-# sense control en vaults grans.
+# sense control en vaults grans. LRU real (OrderedDict.move_to_end en cada
+# accés), no només FIFO d'inserció.
+from collections import OrderedDict as _OrderedDict
+
 _preview_cache_lock = threading.Lock()
-_preview_cache: Dict[str, Dict[str, Any]] = {}  # page_id -> {mtime, short, full}
+_preview_cache: "_OrderedDict[str, Dict[str, Any]]" = _OrderedDict()  # page_id -> {mtime, short, full}
 _PREVIEW_CACHE_MAX = 1000
 
 
 def _preview_cache_get(page_id: str, mtime: float, full: bool) -> Optional[Dict[str, Any]]:
     """Retorna la resposta cachejada si el mtime coincideix; None si miss o
-    si demanen `full` però només tenim la versió curta cachejada."""
+    si demanen `full` però només tenim la versió curta cachejada.
+
+    En cada hit, mou l'entrada al final de l'OrderedDict (LRU): així
+    `popitem(last=False)` treu sempre la menys recentment accedida, no la
+    més antiga d'inserció.
+    """
     with _preview_cache_lock:
         cached = _preview_cache.get(page_id)
         if not cached or cached.get("mtime") != mtime:
             return None
+        _preview_cache.move_to_end(page_id)
         return cached.get("full" if full else "short")
 
 
 def _preview_cache_set(page_id: str, mtime: float, short: Dict[str, Any], full: Dict[str, Any]) -> None:
+    """Guarda la resposta i mou al final (LRU). Si supera la mida màxima,
+    expulsa la menys recentment accedida."""
     with _preview_cache_lock:
-        if page_id not in _preview_cache and len(_preview_cache) >= _PREVIEW_CACHE_MAX:
-            # LRU naïf: drop l'entrada més antiga (la primera inserida).
-            try:
-                oldest = next(iter(_preview_cache))
-                _preview_cache.pop(oldest, None)
-            except StopIteration:
-                pass
+        if page_id in _preview_cache:
+            _preview_cache.move_to_end(page_id)
+        elif len(_preview_cache) >= _PREVIEW_CACHE_MAX:
+            _preview_cache.popitem(last=False)
         _preview_cache[page_id] = {"mtime": mtime, "short": short, "full": full}
 
 
 def _preview_cache_invalidate(page_id: str) -> None:
     with _preview_cache_lock:
         _preview_cache.pop(page_id, None)
+
+
+# In-flight dedup: si dues peticions concurrents demanen la mateixa preview i
+# totes dues cauen al miss, sense aquest mapping farien la feina alhora. Per
+# eficiència i per no estressar OneDrive amb requests duplicades, comparteixen
+# la mateixa Future.
+_preview_inflight: Dict[str, "asyncio.Future[Tuple[Dict[str, Any], Dict[str, Any], float]]"] = {}
+_preview_inflight_lock = threading.Lock()
 
 
 def kickoff_index_warmup(v_path: Path) -> None:
@@ -3115,6 +3131,62 @@ async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any
     return short, full_resp, mtime
 
 
+async def _fetch_preview_with_cache(
+    file_path: Path, page_id: str
+) -> Tuple[Dict[str, Any], Dict[str, Any], float]:
+    """Wrapper amb cache + dedup d'in-flight sobre `_compute_preview`.
+
+    Lògica robusta única per a `get_page_preview` i `bulk_warm_previews`:
+
+      1. Llegeix mtime del fitxer.
+      2. Cache hit (mtime coincideix) → retorna immediatament.
+      3. Cache miss però hi ha una future en marxa per aquest id → la
+         comparteix (await; ningú repeteix la feina).
+      4. Cache miss i no hi ha future → crea una nova future, computa,
+         guarda al cache, signala la future. Sempre buida el mapa
+         d'in-flight al final, tant si triomfa com si falla.
+    """
+    try:
+        mtime = await asyncio.to_thread(lambda: file_path.stat().st_mtime)
+    except OSError:
+        mtime = 0.0
+
+    cached_short = _preview_cache_get(page_id, mtime, full=False)
+    cached_full = _preview_cache_get(page_id, mtime, full=True)
+    if cached_short is not None and cached_full is not None:
+        return cached_short, cached_full, mtime
+
+    loop = asyncio.get_running_loop()
+    with _preview_inflight_lock:
+        existing = _preview_inflight.get(page_id)
+        if existing is None:
+            future: "asyncio.Future[Tuple[Dict[str, Any], Dict[str, Any], float]]" = loop.create_future()
+            _preview_inflight[page_id] = future
+            owner = True
+        else:
+            future = existing
+            owner = False
+
+    if not owner:
+        # Una altra coroutine ja està computant aquest id. Esperem el seu
+        # resultat per no duplicar feina ni estressar OneDrive.
+        return await future
+
+    try:
+        short, full_resp, real_mtime = await _compute_preview(file_path, page_id)
+        _preview_cache_set(page_id, real_mtime, short, full_resp)
+        result = (short, full_resp, real_mtime)
+        future.set_result(result)
+        return result
+    except Exception as e:
+        if not future.done():
+            future.set_exception(e)
+        raise
+    finally:
+        with _preview_inflight_lock:
+            _preview_inflight.pop(page_id, None)
+
+
 @router.get("/pages/{page_id}/preview")
 async def get_page_preview(page_id: str, full: bool = False):
     """Preview d'una pàgina (títol + extracte/cos + icon/cover + imatges).
@@ -3123,10 +3195,12 @@ async def get_page_preview(page_id: str, full: bool = False):
     Amb `?full=true`, retorna també `body_md` (markdown sencer per render
     al feed) i `images` (llista d'URLs d'imatges del cos).
 
-    Cache en memòria invalidat per mtime: la primera crida fa la feina
-    completa (warmup + read + parse, ~ms si el fitxer ja és local, ~segons
-    si encara és online-only); les següents són instantànies fins que el
-    .md canvia.
+    Cache en memòria invalidat per mtime + dedup d'in-flight per id:
+      - La primera crida paga el cost real (warmup + read + parse, ~ms si
+        ja és local, ~segons si encara és online-only).
+      - Les següents són instantànies fins que el .md es modifica.
+      - Si dues peticions concurrents demanen el mateix id, comparteixen
+        la mateixa feina (no es duplica).
 
     Errno 35 d'OneDrive es degrada a buit (preview no és crític).
     """
@@ -3137,18 +3211,8 @@ async def get_page_preview(page_id: str, full: bool = False):
             status_code=404, detail=f"Page not found (ID: {page_id})"
         )
 
-    # Comprova cache pel mtime actual. Si encerta, retornem directament.
     try:
-        current_mtime = await asyncio.to_thread(lambda: file_path.stat().st_mtime)
-    except OSError:
-        current_mtime = 0.0
-    cached = _preview_cache_get(page_id, current_mtime, full)
-    if cached is not None:
-        return cached
-
-    try:
-        short, full_resp, mtime = await _compute_preview(file_path, page_id)
-        _preview_cache_set(page_id, mtime, short, full_resp)
+        short, full_resp, _ = await _fetch_preview_with_cache(file_path, page_id)
         return full_resp if full else short
     except OSError as e:
         if e.errno == 35:
@@ -3174,56 +3238,114 @@ class _BulkWarmPayload(BaseModel):
     ids: List[str]
 
 
+# Per-item timeout dins del bulk warmup. Cobreix casos patològics on
+# `materialize` o `read_text` es queden penjats (OneDrive lock, FUSE hang,
+# etc.) sense aturar tot el batch. El daemon ja té el seu propi timeout
+# (ONEDRIVE_WARMUP_TIMEOUT, default 90s); aquest n'és el límit superior a
+# nivell de coordinació backend.
+_PREVIEW_WARM_PER_ITEM_TIMEOUT_S = 30.0
+# Concurrència del bulk: prou alt per paral·lelitzar, prou baix perquè no
+# saturi el File Provider d'OneDrive. Coincideix amb el límit que abans
+# imposava el frontend.
+_PREVIEW_WARM_CONCURRENCY = 8
+
+
+async def _bulk_warm_one(pid: str) -> str:
+    """Warmupeja un sol id i retorna l'estat: 'cached' | 'warmed' | 'failed'.
+
+    Mai propaga excepcions: una fallida individual NO ha de tombar el batch.
+
+    Robust contra:
+      - **Ids orfes** (pàgines stale a una vista de base de dades que ja
+        s'han eliminat del disc): `find_page_path(allow_full_scan=False)`
+        evita un `rglob` ple del vault quan l'id no és a l'índex de
+        pàgines.
+      - **Race de cache hit + miss**: tota la lògica de cache i dedup
+        d'in-flight viu a `_fetch_preview_with_cache` — compartida amb
+        `get_page_preview`.
+    """
+    try:
+        # allow_full_scan=False: ids stale → fail fast sense rglob ple.
+        file_path = await asyncio.to_thread(find_page_path, pid, allow_full_scan=False)
+        if not file_path or not file_path.exists():
+            return "failed"
+
+        try:
+            mtime = await asyncio.to_thread(lambda: file_path.stat().st_mtime)
+        except OSError:
+            mtime = 0.0
+
+        # Cache hit ràpid abans d'entrar a `_fetch_preview_with_cache`
+        # (estalvia el cost de configurar la future dedup quan no cal).
+        if _preview_cache_get(pid, mtime, full=True) is not None:
+            return "cached"
+
+        await _fetch_preview_with_cache(file_path, pid)
+        return "warmed"
+    except Exception as e:
+        log.debug(f"bulk warmup falla per {pid}: {e}")
+        return "failed"
+
+
 @router.post("/pages/preview/warm")
 async def bulk_warm_previews(payload: _BulkWarmPayload):
     """Pre-warmup paral·lel de previews per a una llista d'ids.
 
     Cas d'ús: el frontend, en muntar una vista (feed/taula/galeria) amb
     desenes d'items, crida aquest endpoint una vegada amb tots els ids. El
-    backend dispara warmup d'OneDrive + read + parse + cache de cada item en
-    paral·lel (limitat per concurrència del provider). Les peticions
-    individuals `/preview` que el frontend faci a continuació seran
-    instantànies (cache hit) en lloc d'esperar ~5s cadascuna.
+    backend dispara warmup d'OneDrive + read + parse + cache de cada item
+    en paral·lel (concurrència limitada). Les peticions individuals
+    `/preview` que el frontend faci a continuació seran instantànies (cache
+    hit) en lloc d'esperar ~5s cadascuna.
+
+    Robust contra:
+      - **Ids orfes/stale** (apunten a fitxers ja eliminats):
+        `allow_full_scan=False` evita un rglob de tot el vault per a cada un
+        — un sol id eliminat no bloca el batch sencer.
+      - **Materialitzacions lentes/penjades**: timeout per item
+        (`_PREVIEW_WARM_PER_ITEM_TIMEOUT_S`). El daemon té el seu propi
+        timeout però aquest n'és el límit superior al backend.
+      - **Errors individuals**: cada warmup falla en silenci (`failed += 1`);
+        mai propaga al batch ni canvia l'estat HTTP.
+      - **Crides concurrents**: dedup d'in-flight per id (vegeu
+        `_bulk_warm_one`).
 
     Retorna comptadors: total demanats, en cache (skip), warmupejats amb
-    èxit, fallits. Mai propaga errors individuals — un warmup que falla no
-    ha de tombar la càrrega de la vista.
+    èxit, fallits.
     """
     ids = list(dict.fromkeys(payload.ids or []))  # dedup mantenint ordre
     if not ids:
         return {"requested": 0, "cached": 0, "warmed": 0, "failed": 0}
 
-    sem = asyncio.Semaphore(8)
-    cached_n = 0
-    warmed_n = 0
-    failed_n = 0
+    sem = asyncio.Semaphore(_PREVIEW_WARM_CONCURRENCY)
 
-    async def _warm_one(pid: str):
-        nonlocal cached_n, warmed_n, failed_n
+    async def _bounded(pid: str) -> str:
         async with sem:
             try:
-                file_path = await asyncio.to_thread(find_page_path, pid)
-                if not file_path or not file_path.exists():
-                    failed_n += 1
-                    return
-                try:
-                    mtime = await asyncio.to_thread(lambda: file_path.stat().st_mtime)
-                except OSError:
-                    mtime = 0.0
-                # Skip si ja és a cache amb el mateix mtime (versió full
-                # cobreix també les peticions short).
-                if _preview_cache_get(pid, mtime, full=True) is not None:
-                    cached_n += 1
-                    return
-                short, full_resp, real_mtime = await _compute_preview(file_path, pid)
-                _preview_cache_set(pid, real_mtime, short, full_resp)
-                warmed_n += 1
+                return await asyncio.wait_for(
+                    _bulk_warm_one(pid),
+                    timeout=_PREVIEW_WARM_PER_ITEM_TIMEOUT_S,
+                )
+            except asyncio.TimeoutError:
+                log.warning(
+                    "bulk warmup timeout per %s (>%ss)",
+                    pid, _PREVIEW_WARM_PER_ITEM_TIMEOUT_S,
+                )
+                return "failed"
             except Exception as e:
-                failed_n += 1
-                log.debug(f"bulk warmup falla per {pid}: {e}")
+                log.debug(f"bulk warmup outer falla per {pid}: {e}")
+                return "failed"
 
-    await asyncio.gather(*[_warm_one(pid) for pid in ids])
-    return {"requested": len(ids), "cached": cached_n, "warmed": warmed_n, "failed": failed_n}
+    results = await asyncio.gather(*[_bounded(pid) for pid in ids])
+    cached_n = sum(1 for r in results if r == "cached")
+    warmed_n = sum(1 for r in results if r == "warmed")
+    failed_n = sum(1 for r in results if r == "failed")
+    return {
+        "requested": len(ids),
+        "cached": cached_n,
+        "warmed": warmed_n,
+        "failed": failed_n,
+    }
 
 
 @router.put("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
