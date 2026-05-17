@@ -16,7 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 import logging
 import urllib.parse
@@ -364,6 +364,46 @@ def get_indexer_status(v_str: str) -> Dict[str, Any]:
             {"state": "idle", "started_at": None, "finished_at": None,
              "files_indexed": 0, "error": None},
         ))
+
+
+# ── Preview cache (in-memory) ───────────────────────────────────────────────
+# `get_page_preview` és O(segons) sobre fitxers online-only d'OneDrive: cada
+# crida fa retries amb backoff (~4.55s en el pitjor cas) mentre el File
+# Provider materialitza el fitxer. Un feed de 77 entrades = 77 × ~4.5s = més
+# de 5 minuts serial. Cache memoria per page_id, invalidat per mtime del
+# fitxer: la primera crida fa la feina i deixa la dada calenta; les següents
+# són instantànies fins que el .md es modifica. Mida limitada per no créixer
+# sense control en vaults grans.
+_preview_cache_lock = threading.Lock()
+_preview_cache: Dict[str, Dict[str, Any]] = {}  # page_id -> {mtime, short, full}
+_PREVIEW_CACHE_MAX = 1000
+
+
+def _preview_cache_get(page_id: str, mtime: float, full: bool) -> Optional[Dict[str, Any]]:
+    """Retorna la resposta cachejada si el mtime coincideix; None si miss o
+    si demanen `full` però només tenim la versió curta cachejada."""
+    with _preview_cache_lock:
+        cached = _preview_cache.get(page_id)
+        if not cached or cached.get("mtime") != mtime:
+            return None
+        return cached.get("full" if full else "short")
+
+
+def _preview_cache_set(page_id: str, mtime: float, short: Dict[str, Any], full: Dict[str, Any]) -> None:
+    with _preview_cache_lock:
+        if page_id not in _preview_cache and len(_preview_cache) >= _PREVIEW_CACHE_MAX:
+            # LRU naïf: drop l'entrada més antiga (la primera inserida).
+            try:
+                oldest = next(iter(_preview_cache))
+                _preview_cache.pop(oldest, None)
+            except StopIteration:
+                pass
+        _preview_cache[page_id] = {"mtime": mtime, "short": short, "full": full}
+
+
+def _preview_cache_invalidate(page_id: str) -> None:
+    with _preview_cache_lock:
+        _preview_cache.pop(page_id, None)
 
 
 def kickoff_index_warmup(v_path: Path) -> None:
@@ -3006,29 +3046,42 @@ def _extract_images_from_body(body: str, max_images: int = 6) -> list[str]:
     return out
 
 
-@router.get("/pages/{page_id}/preview")
-async def get_page_preview(page_id: str, full: bool = False):
-    """Preview d'una pàgina (títol + extracte/cos + icon/cover + imatges).
+async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any], Dict[str, Any], float]:
+    """Llegeix el fitxer i construeix les dues respostes (short + full) per al
+    preview, juntament amb el mtime per a invalidació de cache.
 
-    Per defecte retorna només `excerpt` (per a tooltips de wikilinks).
-    Amb `?full=true`, retorna també `body_md` (markdown sencer per render
-    al feed) i `images` (llista d'URLs d'imatges del cos).
+    Aquesta funció és reutilitzable per:
+      - `get_page_preview` (un sol id, possible cache hit).
+      - `bulk_warm_previews` (warmup proactiu d'una llista d'ids).
 
-    Errno 35 d'OneDrive es degrada a buit (preview no és crític).
+    Materialitza el fitxer si està online-only ABANS d'intentar llegir-lo,
+    així evitem la cua de retries de 4.55s; només cauen al retry si el File
+    Provider tarda més del que pensem.
     """
-    file_path = await asyncio.to_thread(find_page_path, page_id)
+    # Mtime (cau silenciosament a 0 si st() falla — la cache ja gestiona el cas).
+    try:
+        mtime = file_path.stat().st_mtime
+    except OSError:
+        mtime = 0.0
 
-    if not file_path or not file_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Page not found (ID: {page_id})"
-        )
+    # Warmup proactiu: si el fitxer és online-only, el File Provider d'OneDrive
+    # ha de descarregar-lo abans que `read_text` no peti amb errno 35. Aquest
+    # mateix patró el segueix _serve_file_with_containment per a Assets/Images.
+    try:
+        provider = get_files_provider()
+        st = file_path.stat()
+        if provider.is_online_only(file_path, st):
+            await provider.materialize(file_path)
+    except OSError:
+        pass  # cap mal: el retry loop de _read_and_parse ja ho gestiona.
+    except Exception as e:
+        log.debug(f"Warmup proactiu falla per {page_id}: {e}")
 
     def _read_and_parse():
         if _is_dashboard_file_path(file_path):
             return _read_dashboard_file(file_path)
-        # Mateixos reintents que get_page (~4.55s total). Amb només
-        # 0.35s, OneDrive encara està desperta i el preview es degradava
-        # silenciosament a buit → el feed mai mostrava body/imatges.
+        # Mateixos reintents que get_page (~4.55s total) com a xarxa de seguretat
+        # per si el warmup proactiu d'amunt no ha estat suficient.
         last_error = None
         delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
         for attempt in range(len(delays) + 1):
@@ -3045,20 +3098,58 @@ async def get_page_preview(page_id: str, full: bool = False):
             raise last_error
         return {}, ""
 
+    metadata, body = await asyncio.to_thread(_read_and_parse)
+    excerpt = _build_preview_excerpt(body)
+    short = {
+        "id": str(metadata.get("id") or page_id),
+        "title": metadata.get("title", "") or "",
+        "excerpt": excerpt,
+        "icon": metadata.get("icon"),
+        "cover": metadata.get("cover"),
+    }
+    full_resp = {
+        **short,
+        "body_md": body or "",
+        "images": _extract_images_from_body(body or ""),
+    }
+    return short, full_resp, mtime
+
+
+@router.get("/pages/{page_id}/preview")
+async def get_page_preview(page_id: str, full: bool = False):
+    """Preview d'una pàgina (títol + extracte/cos + icon/cover + imatges).
+
+    Per defecte retorna només `excerpt` (per a tooltips de wikilinks).
+    Amb `?full=true`, retorna també `body_md` (markdown sencer per render
+    al feed) i `images` (llista d'URLs d'imatges del cos).
+
+    Cache en memòria invalidat per mtime: la primera crida fa la feina
+    completa (warmup + read + parse, ~ms si el fitxer ja és local, ~segons
+    si encara és online-only); les següents són instantànies fins que el
+    .md canvia.
+
+    Errno 35 d'OneDrive es degrada a buit (preview no és crític).
+    """
+    file_path = await asyncio.to_thread(find_page_path, page_id)
+
+    if not file_path or not file_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Page not found (ID: {page_id})"
+        )
+
+    # Comprova cache pel mtime actual. Si encerta, retornem directament.
     try:
-        metadata, body = await asyncio.to_thread(_read_and_parse)
-        excerpt = _build_preview_excerpt(body)
-        out = {
-            "id": str(metadata.get("id") or page_id),
-            "title": metadata.get("title", "") or "",
-            "excerpt": excerpt,
-            "icon": metadata.get("icon"),
-            "cover": metadata.get("cover"),
-        }
-        if full:
-            out["body_md"] = body or ""
-            out["images"] = _extract_images_from_body(body or "")
-        return out
+        current_mtime = await asyncio.to_thread(lambda: file_path.stat().st_mtime)
+    except OSError:
+        current_mtime = 0.0
+    cached = _preview_cache_get(page_id, current_mtime, full)
+    if cached is not None:
+        return cached
+
+    try:
+        short, full_resp, mtime = await _compute_preview(file_path, page_id)
+        _preview_cache_set(page_id, mtime, short, full_resp)
+        return full_resp if full else short
     except OSError as e:
         if e.errno == 35:
             base = {
@@ -3077,6 +3168,62 @@ async def get_page_preview(page_id: str, full: bool = False):
     except Exception as e:
         log.error(f"Error generating preview for {page_id}: {e}")
         raise HTTPException(status_code=500, detail="Error generating page preview")
+
+
+class _BulkWarmPayload(BaseModel):
+    ids: List[str]
+
+
+@router.post("/pages/preview/warm")
+async def bulk_warm_previews(payload: _BulkWarmPayload):
+    """Pre-warmup paral·lel de previews per a una llista d'ids.
+
+    Cas d'ús: el frontend, en muntar una vista (feed/taula/galeria) amb
+    desenes d'items, crida aquest endpoint una vegada amb tots els ids. El
+    backend dispara warmup d'OneDrive + read + parse + cache de cada item en
+    paral·lel (limitat per concurrència del provider). Les peticions
+    individuals `/preview` que el frontend faci a continuació seran
+    instantànies (cache hit) en lloc d'esperar ~5s cadascuna.
+
+    Retorna comptadors: total demanats, en cache (skip), warmupejats amb
+    èxit, fallits. Mai propaga errors individuals — un warmup que falla no
+    ha de tombar la càrrega de la vista.
+    """
+    ids = list(dict.fromkeys(payload.ids or []))  # dedup mantenint ordre
+    if not ids:
+        return {"requested": 0, "cached": 0, "warmed": 0, "failed": 0}
+
+    sem = asyncio.Semaphore(8)
+    cached_n = 0
+    warmed_n = 0
+    failed_n = 0
+
+    async def _warm_one(pid: str):
+        nonlocal cached_n, warmed_n, failed_n
+        async with sem:
+            try:
+                file_path = await asyncio.to_thread(find_page_path, pid)
+                if not file_path or not file_path.exists():
+                    failed_n += 1
+                    return
+                try:
+                    mtime = await asyncio.to_thread(lambda: file_path.stat().st_mtime)
+                except OSError:
+                    mtime = 0.0
+                # Skip si ja és a cache amb el mateix mtime (versió full
+                # cobreix també les peticions short).
+                if _preview_cache_get(pid, mtime, full=True) is not None:
+                    cached_n += 1
+                    return
+                short, full_resp, real_mtime = await _compute_preview(file_path, pid)
+                _preview_cache_set(pid, real_mtime, short, full_resp)
+                warmed_n += 1
+            except Exception as e:
+                failed_n += 1
+                log.debug(f"bulk warmup falla per {pid}: {e}")
+
+    await asyncio.gather(*[_warm_one(pid) for pid in ids])
+    return {"requested": len(ids), "cached": cached_n, "warmed": warmed_n, "failed": failed_n}
 
 
 @router.put("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])

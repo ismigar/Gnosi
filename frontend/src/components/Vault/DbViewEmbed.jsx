@@ -765,6 +765,24 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intent únic on mount
     }, []);
 
+    // Bulk warmup: cridem el backend un sol cop quan el feed canvia per
+    // forçar el warmup d'OneDrive + pre-population del preview cache de
+    // tots els items. Sense això, cada FeedItem provoca una petició
+    // /preview que pot tardar ~4.55s (retries en errno 35 mentre el File
+    // Provider descarrega el fitxer). Amb el bulk warmup el backend ho fa
+    // en paral·lel i les peticions individuals subsegüents són cache-hits
+    // instantanis. Fire-and-forget: si falla, el render encara funciona
+    // via els retries individuals; només perd l'optimització.
+    useEffect(() => {
+        const ids = (rows || []).map(r => r.id).filter(Boolean);
+        if (ids.length === 0) return undefined;
+        const controller = new AbortController();
+        axios.post('/api/vault/pages/preview/warm', { ids }, { signal: controller.signal })
+            .catch(() => { /* fire-and-forget; cap impacte si falla */ });
+        return () => controller.abort();
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- només quan canvia el conjunt de rows
+    }, [rowsSignature]);
+
     useEffect(() => {
         if (!isPaginated || visibleCount >= rows.length) return undefined;
         const el = sentinelRef.current;
