@@ -524,10 +524,25 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
     // useLayoutEffect: mesurem abans del paint per evitar el flaix de veure el
     // cos sencer i, tot seguit, plegat. El ResizeObserver re-mesura quan les
     // imatges del markdown carreguen tard i n'alteren l'alçada.
+    //
+    // Decisió MONÒTONA: només fem `setBodyOverflows(true)` quan l'alçada
+    // supera el llindar; mai tornem a `false`. Sense això, a Safari (que no
+    // implementa scroll anchoring), cada vegada que una imatge del markdown
+    // carrega s'observa un `offsetHeight` diferent — el toggle false↔true
+    // del `max-height: 570px; overflow: hidden` provoca un flicker subframe
+    // (no apareix a screenshots però es percep en viu). Una vegada el
+    // contingut ha demostrat que excedeix el llindar, queda decidit i no
+    // oscil·la. Si el contingut s'encongís (cas rar: una imatge falla), el
+    // botó "Veure més" pot quedar visible sobre un cos que ja cap — no és
+    // regressió funcional, només un botó d'expansió que no afegirà res.
     useLayoutEffect(() => {
         const el = bodyRef.current;
         if (!bodyMd || !el) return undefined;
-        const measure = () => setBodyOverflows(el.offsetHeight > FEED_BODY_COLLAPSED_MAX_PX);
+        const measure = () => {
+            if (el.offsetHeight > FEED_BODY_COLLAPSED_MAX_PX) {
+                setBodyOverflows(true);
+            }
+        };
         measure();
         if (typeof ResizeObserver === 'undefined') return undefined;
         const ro = new ResizeObserver(measure);
