@@ -189,6 +189,25 @@ If you find this project useful, you can buy me a coffee:
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ismaelgarciafernandez)
 
 
+## 🛠️ First-time setup (clone fresc)
+
+Després d'un `git clone` per primer cop, abans de córrer Docker o
+`npm run dev` cal generar el bundle del visor PDF/EPUB de Zotero (no
+es comiten artifacts):
+
+```bash
+git submodule update --init --recursive
+sh monorepo/apps/gnosi/sh/build-zotero-reader.sh
+```
+
+El script clona els sub-submodules (pdfjs, epubjs), instal·la deps,
+construeix `build/web/` i el copia a `frontend/public/zotero-reader/`.
+Triga ~2 minuts el primer cop. Si no l'executes, els PDFs i altres
+documents del Vault serveixen 404 al iframe.
+
+Si actualitzes el submodule (`git submodule update --remote`),
+torna'l a executar per regenerar el bundle.
+
 ## 📄 License
 
 Distributed under the **GNU Affero General Public License v3.0 or later**

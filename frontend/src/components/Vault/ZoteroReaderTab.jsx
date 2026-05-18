@@ -52,6 +52,7 @@ const KIND_BY_EXTENSION = {
     htm: 'snapshot',
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function detectKindFromSrc(src) {
     if (!src) return 'pdf';
     const clean = String(src).split('?')[0].split('#')[0].toLowerCase();
@@ -73,7 +74,6 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
 
     const [pdfUrl, setPdfUrl] = useState(null);
     const [error, setError] = useState(null);
-    const [annotations, setAnnotations] = useState([]);
     const [annotationsLoaded, setAnnotationsLoaded] = useState(false);
     const [readerReady, setReaderReady] = useState(false);
     // Tots aquests signals han de coincidir abans d'enviar UN únic
@@ -82,7 +82,18 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
     // garantir idempotència via initSentRef.
     const hostReadyRef = useRef(false);
     const initSentRef = useRef(false);
+    // Anotacions vives durant la sessió. Les guardem com a ref (no state)
+    // perquè ja no les renderitzem nosaltres — el reader Zotero ho fa
+    // tot, nosaltres només persistim. ESLint no es queixa de variables
+    // no llegides.
     const annotationsRef = useRef([]);
+    // Mapeig zoteroId → dbId (numèric). Necessari perquè:
+    //  - Quan rebem `delete-annotations` amb un id de Zotero (anotació
+    //    creada en aquesta sessió), poguem trobar el dbId del POST recent.
+    //  - Evitar duplicats: si el reader envia `save-annotations` amb la
+    //    mateixa anotació (id Zotero) dues vegades, la segona ha de ser
+    //    PATCH no POST.
+    const zoteroToDbIdRef = useRef(new Map());
 
     // --- Registrar el PDF al backend per obtenir la URL servible ---
     useEffect(() => {
@@ -119,7 +130,14 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
     }, [rawSrc, t]);
 
     // --- Carregar anotacions existents al mount ---
+    // Reset complet quan rawSrc canvia: si el mateix component es reutilitza
+    // a la ruta `/vault/pdf?src=...` per a un document diferent, no ens
+    // hem de quedar amb anotacions del document anterior. També tornem
+    // `initSentRef` a false perquè s'enviï un init nou al iframe.
     useEffect(() => {
+        annotationsRef.current = [];
+        zoteroToDbIdRef.current = new Map();
+        initSentRef.current = false;
         if (!rawSrc) return undefined;
         let cancelled = false;
         setAnnotationsLoaded(false);
@@ -131,8 +149,14 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
                     const data = await res.json();
                     if (!cancelled && Array.isArray(data)) {
                         const mapped = data.map(pdfAnnotationToZotero);
-                        setAnnotations(mapped);
                         annotationsRef.current = mapped;
+                        // Populem el mapeig: les anotacions persistides ja
+                        // tenen el seu dbId implícit a l'id Zotero (`gnosi:N`).
+                        for (const a of mapped) {
+                            if (typeof a.id === 'string' && a.id.startsWith('gnosi:')) {
+                                zoteroToDbIdRef.current.set(a.id, Number(a.id.slice(6)));
+                            }
+                        }
                     }
                 }
             } catch (err) {
@@ -175,8 +199,20 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
     }, [sendInitIfReady]);
 
     // --- Listener de postMessage del iframe ---
+    // Guarda d'origen: el handler només ha d'acceptar missatges que venen
+    // del NOSTRE iframe (mateixa origin que la finestra principal). Sense
+    // això, qualsevol altre window/iframe del navegador podria emetre un
+    // `save-annotations` i triggerar escriptures a la BD.
     useEffect(() => {
         const onMsg = (ev) => {
+            // Origin del missatge ha de ser el mateix domain. El bundle
+            // viu a /zotero-reader/host.html, mateixa origin que el
+            // frontend principal.
+            if (ev.origin !== window.location.origin) return;
+            // I el window emissor ha de ser el nostre iframe. Així cap
+            // altre frame del navegador (popup, devtools, extension) pot
+            // suplantar missatges.
+            if (!iframeRef.current || ev.source !== iframeRef.current.contentWindow) return;
             const data = ev.data || {};
             if (data.source !== 'zotero-reader') return;
             switch (data.type) {
@@ -209,21 +245,28 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
     }, [sendInitIfReady]);
 
     // --- Persistència bidireccional ---
-    // El reader Zotero envia LLISTES COMPLETES d'anotacions a save (no diffs).
-    // Per cada anotació del missatge, l'enviem al backend:
-    //   - Si té un `id` que comença per "gnosi:<n>", és nostra → PATCH
-    //   - Altrament és nova del reader → POST
-    // El backend emmagatzema l'anotació en format Zotero al `comment` field
-    // (com a JSON serialitzat) i extreu `page`, `text` per filtrar.
+    // Zotero envia LLISTES d'anotacions a cada save (no diffs). Per a cada
+    // anotació:
+    //   - Si el seu id és `gnosi:N` o existeix al `zoteroToDbIdRef`,
+    //     l'anotació ja viu a la BD → PATCH amb el dbId.
+    //   - Altrament, és nova → POST. Després enviem `update-annotations`
+    //     al iframe per substituir l'id de Zotero pel `gnosi:N`. Així
+    //     els saves següents (en la mateixa sessió) la reconeixeran com
+    //     a existent i no crearan duplicats; i un delete posterior amb
+    //     l'id Zotero original també hi pot trobar el dbId al mapeig.
     const persistSaveAnnotations = useCallback(async (zoteroAnnotations) => {
-        const updated = [];
+        const idUpdates = [];   // { oldId: zoteroId, newId: 'gnosi:N' }
         for (const ann of zoteroAnnotations) {
-            const isExisting = typeof ann.id === 'string' && ann.id.startsWith('gnosi:');
+            let dbId = null;
+            if (typeof ann.id === 'string' && ann.id.startsWith('gnosi:')) {
+                dbId = Number(ann.id.slice('gnosi:'.length));
+            } else if (typeof ann.id === 'string' && zoteroToDbIdRef.current.has(ann.id)) {
+                dbId = zoteroToDbIdRef.current.get(ann.id);
+            }
             const body = zoteroToPdfAnnotation(ann, rawSrc);
             try {
-                if (isExisting) {
-                    const id = ann.id.slice('gnosi:'.length);
-                    const res = await fetch(`/api/vault/pdf-annotations/${id}`, {
+                if (dbId != null) {
+                    await fetch(`/api/vault/pdf-annotations/${dbId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -233,40 +276,62 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
                             rects: body.rects,
                         }),
                     });
-                    if (res.ok) updated.push(await res.json());
                 } else {
                     const res = await fetch('/api/vault/pdf-annotations', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(body),
                     });
-                    if (res.ok) updated.push(await res.json());
+                    if (res.ok) {
+                        const created = await res.json();
+                        const newId = `gnosi:${created.id}`;
+                        zoteroToDbIdRef.current.set(ann.id, created.id);
+                        // També guardem el `newId` al mapeig per si arriba
+                        // un save posterior amb l'id ja convertit.
+                        zoteroToDbIdRef.current.set(newId, created.id);
+                        idUpdates.push({ oldId: ann.id, newId });
+                    }
                 }
             } catch (err) {
                 console.warn('zotero-reader: persist save failed', err);
             }
         }
-        // Sincronitzem el state local — important per a la propera obertura.
-        if (updated.length > 0) {
-            setAnnotations(prev => {
-                const byId = new Map(prev.map(a => [a.id, a]));
-                for (const u of updated) byId.set(`gnosi:${u.id}`, pdfAnnotationToZotero(u));
-                return [...byId.values()];
-            });
+        // Si hem creat noves anotacions, notifiquem el iframe perquè
+        // actualitzi els id en memòria. Així `delete-annotations` i futurs
+        // `save-annotations` portaran ja l'id `gnosi:N`.
+        if (idUpdates.length > 0) {
+            const iframeWin = iframeRef.current?.contentWindow;
+            iframeWin?.postMessage({
+                target: 'zotero-reader',
+                type: 'update-annotation-ids',
+                idMap: idUpdates,
+            }, '*');
         }
     }, [rawSrc]);
 
     const persistDeleteAnnotations = useCallback(async (ids) => {
         for (const id of ids) {
-            if (typeof id !== 'string' || !id.startsWith('gnosi:')) continue;
-            const dbId = id.slice('gnosi:'.length);
+            if (typeof id !== 'string') continue;
+            // Resolem el dbId: explícit (`gnosi:N`), del mapeig (anotació
+            // creada en aquesta sessió i encara amb id Zotero), o saltem.
+            let dbId = null;
+            if (id.startsWith('gnosi:')) {
+                dbId = Number(id.slice('gnosi:'.length));
+            } else if (zoteroToDbIdRef.current.has(id)) {
+                dbId = zoteroToDbIdRef.current.get(id);
+            }
+            if (dbId == null) continue;
             try {
                 await fetch(`/api/vault/pdf-annotations/${dbId}`, { method: 'DELETE' });
+                // Netejar el mapeig perquè no quedi `gnosi:N` apuntant a
+                // un row inexistent si l'usuari recrea amb el mateix id
+                // (improbable, però defensiu).
+                zoteroToDbIdRef.current.delete(id);
+                zoteroToDbIdRef.current.delete(`gnosi:${dbId}`);
             } catch (err) {
                 console.warn('zotero-reader: delete failed', err);
             }
         }
-        setAnnotations(prev => prev.filter(a => !ids.includes(a.id)));
     }, []);
 
     const openExternal = async () => {
