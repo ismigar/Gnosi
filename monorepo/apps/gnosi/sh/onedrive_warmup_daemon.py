@@ -35,7 +35,15 @@ Variables d'entorn:
   ONEDRIVE_WARMUP_PORT (default: 5009)
   ONEDRIVE_WARMUP_BIND (default: 0.0.0.0; el contenidor el veu via
     host.docker.internal, que en macOS resol al host)
-  VAULT_HOST_PATH (obligatori): root permès per a la materialització.
+  ONEDRIVE_WARMUP_ALLOWED_ROOTS (recomanat): llista de directoris
+    autoritzats per a la materialització, separats per ':'. Tot path
+    que `resolve()` cau sota qualsevol d'aquests roots és acceptat.
+    Útil quan el Vault té enllaços a PDFs/imatges d'altres carpetes
+    d'OneDrive (Documents, Desktop, etc.) — sense això, el daemon
+    respon `out_of_scope` i el frontend rep un 503.
+  VAULT_HOST_PATH (legacy, fallback): un únic root. Es manté per
+    compatibilitat: si ALLOWED_ROOTS no està definida, només
+    s'autoritza VAULT_HOST_PATH.
   ONEDRIVE_WARMUP_TIMEOUT (default: 90)
   THUMB_CACHE_DIR (default: ~/.cache/gnosi/thumbs)
   THUMB_QLMANAGE_TIMEOUT (default: 30)
@@ -63,8 +71,44 @@ PORT = int(os.environ.get("ONEDRIVE_WARMUP_PORT", "5009"))
 # accedeix via passa per gateway, però llavors `host.docker.internal` no
 # arriba. Per defecte 0.0.0.0 i confiem en la firewall del macOS.
 BIND = os.environ.get("ONEDRIVE_WARMUP_BIND", "0.0.0.0")
-ROOT = os.environ.get("VAULT_HOST_PATH")
 TIMEOUT_S = float(os.environ.get("ONEDRIVE_WARMUP_TIMEOUT", "90"))
+
+
+def _parse_allowed_roots() -> list[Path]:
+    """Construeix la llista d'arrels permeses des de les env vars.
+
+    Prioritat:
+      1. ONEDRIVE_WARMUP_ALLOWED_ROOTS (':'-separated, com $PATH)
+      2. VAULT_HOST_PATH (legacy, un sol root)
+
+    Cada root es resol a path absolut amb `.resolve()` (segueix
+    symlinks). Filtrem les entrades buides i les que no apunten a un
+    directori existent.
+    """
+    raw = os.environ.get("ONEDRIVE_WARMUP_ALLOWED_ROOTS", "").strip()
+    candidates: list[str] = []
+    if raw:
+        candidates = [p.strip() for p in raw.split(":") if p.strip()]
+    else:
+        legacy = os.environ.get("VAULT_HOST_PATH", "").strip()
+        if legacy:
+            candidates = [legacy]
+
+    resolved: list[Path] = []
+    for c in candidates:
+        try:
+            p = Path(c).expanduser().resolve()
+        except (OSError, ValueError):
+            log.warning("Allowed root invàlid (ignorat): %r", c)
+            continue
+        if not p.is_dir():
+            log.warning("Allowed root no és un directori (ignorat): %s", p)
+            continue
+        resolved.append(p)
+    return resolved
+
+
+ALLOWED_ROOTS: list[Path] = []  # poblat a main() — log ja inicialitzat
 
 # Thumbnails (QuickLook). Cache fora d'OneDrive — regla del projecte.
 THUMB_CACHE_DIR = Path(
@@ -260,8 +304,9 @@ class WarmupHandler(BaseHTTPRequestHandler):
         log.info("%s - %s", self.address_string(), fmt % args)
 
     def _parse_and_validate_path(self, parsed):
-        """Extrau ?path=, valida i comprova que està dins de VAULT_HOST_PATH.
-        Retorna (Path, None) en èxit, (None, error_response) en error."""
+        """Extrau ?path=, valida i comprova que està dins d'algun dels
+        ALLOWED_ROOTS. Retorna (Path, None) en èxit, (None, error_response)
+        en error."""
         qs = parse_qs(parsed.query)
         raw = (qs.get("path") or [""])[0]
         if not raw:
@@ -270,18 +315,36 @@ class WarmupHandler(BaseHTTPRequestHandler):
             target = Path(raw).resolve()
         except (OSError, ValueError) as e:
             return None, {"code": 400, "body": {"status": "bad_request", "reason": str(e)}}
-        if not ROOT:
-            return None, {"code": 500, "body": {"status": "config_error", "reason": "VAULT_HOST_PATH no configurat"}}
-        try:
-            target.relative_to(Path(ROOT).resolve())
-        except ValueError:
-            return None, {"code": 403, "body": {"status": "out_of_scope", "path": str(target)}}
-        return target, None
+        if not ALLOWED_ROOTS:
+            return None, {
+                "code": 500,
+                "body": {
+                    "status": "config_error",
+                    "reason": "Cap arrel permesa configurada (ONEDRIVE_WARMUP_ALLOWED_ROOTS o VAULT_HOST_PATH)",
+                },
+            }
+        for root in ALLOWED_ROOTS:
+            try:
+                target.relative_to(root)
+                return target, None
+            except ValueError:
+                continue
+        return None, {
+            "code": 403,
+            "body": {
+                "status": "out_of_scope",
+                "path": str(target),
+                "allowed_roots": [str(r) for r in ALLOWED_ROOTS],
+            },
+        }
 
     def do_GET(self):  # noqa: N802 (BaseHTTPRequestHandler API)
         parsed = urlparse(self.path)
         if parsed.path == "/healthz":
-            return self._send_json(200, {"status": "ok", "root": ROOT})
+            return self._send_json(
+                200,
+                {"status": "ok", "allowed_roots": [str(r) for r in ALLOWED_ROOTS]},
+            )
 
         if parsed.path == "/thumb":
             target, err = self._parse_and_validate_path(parsed)
@@ -320,15 +383,20 @@ class WarmupHandler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    if not ROOT:
-        log.error("VAULT_HOST_PATH no està definit. Surto.")
-        return 2
-    if not Path(ROOT).is_dir():
-        log.error("VAULT_HOST_PATH no apunta a un directori: %s", ROOT)
+    global ALLOWED_ROOTS
+    ALLOWED_ROOTS = _parse_allowed_roots()
+    if not ALLOWED_ROOTS:
+        log.error(
+            "Cap arrel permesa: defineix ONEDRIVE_WARMUP_ALLOWED_ROOTS "
+            "(':'-separat) o VAULT_HOST_PATH. Surto."
+        )
         return 2
 
     server = ThreadingHTTPServer((BIND, PORT), WarmupHandler)
-    log.info("OneDrive warmup daemon escoltant a http://%s:%d (root=%s)", BIND, PORT, ROOT)
+    log.info(
+        "OneDrive warmup daemon escoltant a http://%s:%d (allowed_roots=%s)",
+        BIND, PORT, [str(r) for r in ALLOWED_ROOTS],
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

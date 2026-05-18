@@ -191,4 +191,11 @@ If you find this project useful, you can buy me a coffee:
 
 ## 📄 License
 
-Distributed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License. See `LICENSE` for more information.
+Distributed under the **GNU Affero General Public License v3.0 or later**
+(AGPL-3.0-or-later). See [LICENSE](LICENSE) for the full text.
+
+In short: Gnosi is free software. You may use, modify, and redistribute it,
+including running it as a network service, provided that any modifications
+you publish — or expose to users over a network — are also released under
+the same license, with the corresponding source code available to those
+users. This is the same license Zotero, Mastodon and Nextcloud use.

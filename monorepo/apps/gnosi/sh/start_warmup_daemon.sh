@@ -37,6 +37,14 @@ done
 # Fallback al path típic d'aquest setup.
 : "${VAULT_HOST_PATH:=/Users/$USER/Library/CloudStorage/OneDrive-UNED/Gnosi}"
 export VAULT_HOST_PATH
+# Arrels permeses per al warmup. Per defecte tota la carpeta OneDrive de
+# l'usuari, així els enllaços a fitxers fora del Vault (Documents,
+# Desktop dins d'OneDrive, etc.) també es poden materialitzar. El
+# daemon valida amb `resolve()` + `relative_to()`, així que no hi ha
+# bypass via symlinks o "..".
+ONEDRIVE_ROOT_GUESS="/Users/$USER/Library/CloudStorage/OneDrive-UNED"
+: "${ONEDRIVE_WARMUP_ALLOWED_ROOTS:=${ONEDRIVE_ROOT_GUESS}:${VAULT_HOST_PATH}}"
+export ONEDRIVE_WARMUP_ALLOWED_ROOTS
 export ONEDRIVE_WARMUP_PORT="${ONEDRIVE_WARMUP_PORT:-5009}"
 export ONEDRIVE_WARMUP_BIND="${ONEDRIVE_WARMUP_BIND:-0.0.0.0}"
 

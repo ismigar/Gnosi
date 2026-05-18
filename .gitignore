@@ -38,3 +38,12 @@ coverage/
 monorepo/apps/gnosi/pipeline/sandbox/
 !monorepo/apps/gnosi/pipeline/sandbox/.gitkeep
 monorepo/apps/gnosi/config/params.yaml
+
+# Zotero reader: build artifacts del submodule (es generen amb
+# scripts/build-zotero-reader.sh, no es comiten).
+monorepo/apps/gnosi/frontend/vendor/zotero-reader/node_modules/
+monorepo/apps/gnosi/frontend/vendor/zotero-reader/build/
+monorepo/apps/gnosi/frontend/vendor/zotero-reader/locales/
+monorepo/apps/gnosi/frontend/vendor/zotero-reader/pdfjs/pdf.js/node_modules/
+monorepo/apps/gnosi/frontend/vendor/zotero-reader/pdfjs/pdf.js/build/
+monorepo/apps/gnosi/frontend/public/zotero-reader

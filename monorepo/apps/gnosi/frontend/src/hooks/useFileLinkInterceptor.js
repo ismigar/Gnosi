@@ -13,22 +13,47 @@
  * sentinel, incloent el sentinel legacy `__gnosi_file_protocol__`), aturem
  * la propagació, i cridem el backend amb la ruta convertida a file:// real.
  *
- * Estratègia (defensiva en profunditat):
- *   1) Listener delegat a window i document (capture phase) per agafar
- *      mousedown/mouseup/click/auxclick abans que cap altre handler.
- *      Cal interceptar `mouseup` perquè ProseMirror (BlockNote/Tiptap)
- *      dispara el handler del link Tiptap dins del `mouseup` (no del
- *      `click`) i fa `window.open(href, target)` allà — abans que arribi
- *      l'event `click`. Si només interceptem `click`, ja és tard.
- *   2) MutationObserver que normalitza cada <a> rellevant nou afegint
- *      listeners directes (resistent a stopPropagation tercer).
+ * Estratègia: Listener delegat a window i document (capture phase) per
+ * agafar mousedown/mouseup/click/auxclick abans que cap altre handler.
+ * Cal interceptar `mouseup` perquè ProseMirror (BlockNote/Tiptap) dispara
+ * el handler del link Tiptap dins del `mouseup` (no del `click`) i fa
+ * `window.open(href, target)` allà — abans que arribi l'event `click`. Si
+ * només interceptem `click`, ja és tard.
+ *
+ * Versió anterior tenia una segona capa amb MutationObserver subtree-wide
+ * sobre document.body per normalitzar cada <a> rellevant (target="_self",
+ * remove rel) i posar-li listeners directes. Aquesta capa era redundant
+ * (capture phase a window és sempre el PRIMER handler, immune a
+ * stopPropagation de tercers) i tenia un cost catastròfic: en obrir una
+ * pàgina amb molts blocs (60+) i enllaços file://, BlockNote/ProseMirror
+ * emetien una allau de mutacions DOM al render inicial que saturaven el
+ * thread principal — Chrome marcava la pestanya com a "no respon" abans
+ * que el contingut fos visible. Eliminada.
  */
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { FILE_PROTOCOL_SENTINEL, sentinelToFileUrl } from '../components/Vault/markdown-mapper';
 
-const NORMALIZED_ATTR = 'data-gnosi-file-link';
+// Tipus de document que el visor integrat de Gnosi (Zotero reader)
+// pot obrir. Retorna null si l'href no és un format suportat — en aquest
+// cas, l'interceptor delega al shell del SO.
+const DOCUMENT_KIND_BY_EXT = {
+    pdf: 'pdf',
+    epub: 'epub',
+    html: 'snapshot',
+    htm: 'snapshot',
+};
+
+const documentKindForHref = (href) => {
+    if (!href) return null;
+    const clean = href.split('?')[0].split('#')[0].toLowerCase();
+    const m = clean.match(/\.([a-z0-9]+)$/);
+    if (!m) return null;
+    return DOCUMENT_KIND_BY_EXT[m[1]] || null;
+};
+
 // Interceptem TANT mouse* com pointer* events. Tiptap/ProseMirror pot
 // disparar el handler del link (que crida `window.open(href, target)`)
 // dins d'un `pointerdown`/`pointerup` en navegadors moderns: si només
@@ -63,6 +88,7 @@ const toBackendPath = (href) => {
 
 export function useFileLinkInterceptor() {
     const { t } = useTranslation();
+    const navigate = useNavigate();
 
     useEffect(() => {
         // Si el backend no pot obrir la ruta (típicament perquè corre dins
@@ -138,7 +164,40 @@ export function useFileLinkInterceptor() {
             if (e.type === 'click' || e.type === 'auxclick') {
                 if (now - lastOpenedAt > 250) {
                     lastOpenedAt = now;
-                    openViaBackend(toBackendPath(found.href));
+                    const backendPath = toBackendPath(found.href);
+                    // PDFs, EPUBs i snapshots HTML s'obren al visor integrat
+                    // (Zotero reader) en lloc de delegar al shell del SO.
+                    // Estratègia:
+                    //   1) emetem `gnosi:open-pdf` (nom retingut per compat)
+                    //      amb `kind` al detail. VaultDashboard l'agafa i
+                    //      afegeix una pestanya. El capturador crida
+                    //      preventDefault per senyalitzar que l'ha gestionat.
+                    //   2) si ningú no l'ha gestionat (fora del Vault),
+                    //      fallback a `/vault/pdf?src=...&kind=...` (la ruta
+                    //      acaba al ZoteroReaderPage que serveix qualsevol
+                    //      tipus suportat).
+                    const docKind = documentKindForHref(backendPath);
+                    if (docKind) {
+                        const filename = (() => {
+                            try {
+                                const path = decodeURIComponent(backendPath.replace(/^file:\/\//i, ''));
+                                return path.split('/').pop() || 'document';
+                            } catch {
+                                return 'document';
+                            }
+                        })();
+                        const evt = new CustomEvent('gnosi:open-pdf', {
+                            detail: { src: backendPath, title: filename, kind: docKind },
+                            cancelable: true,
+                        });
+                        const handled = !window.dispatchEvent(evt);
+                        if (!handled) {
+                            const qs = new URLSearchParams({ src: backendPath, kind: docKind });
+                            navigate(`/vault/pdf?${qs.toString()}`);
+                        }
+                    } else {
+                        openViaBackend(backendPath);
+                    }
                 }
             }
         };
@@ -147,99 +206,13 @@ export function useFileLinkInterceptor() {
             document.addEventListener(evt, winHandler, true);
         }
 
-        // CAPA 2: MutationObserver normalitza cada <a> rellevant que apareix
-        const normalizeAnchor = (a) => {
-            if (!a || a.tagName !== 'A') return;
-            if (a.getAttribute(NORMALIZED_ATTR) === '1') return;
-            const href = a.getAttribute('href') || '';
-            if (!isLocalFileHref(href)) return;
-            a.setAttribute(NORMALIZED_ATTR, '1');
-            a.setAttribute('target', '_self');
-            a.removeAttribute('rel');
-            const localHandler = (e) => {
-                if (e.metaKey || e.ctrlKey) return;
-                e.preventDefault();
-                e.stopPropagation();
-                if (typeof e.stopImmediatePropagation === 'function') {
-                    e.stopImmediatePropagation();
-                }
-                if (e.type === 'click' || e.type === 'auxclick') {
-                    const now = Date.now();
-                    if (now - lastOpenedAt > 250) {
-                        lastOpenedAt = now;
-                        openViaBackend(toBackendPath(href));
-                    }
-                }
-            };
-            for (const evt of POINTER_EVENTS) {
-                a.addEventListener(evt, localHandler);
-            }
-        };
-        const scanRoot = (root) => {
-            if (!root || !root.querySelectorAll) return;
-            root.querySelectorAll(
-                'a[href^="file:"], a[href^="FILE:"], a[href^="https://gnosi-file-protocol.local/"], a[href^="https://__gnosi_file_protocol__/"]'
-            ).forEach(normalizeAnchor);
-        };
-        scanRoot(document.body);
-        // Batch + microtask: en pàgines amb molts <a href="file://...">,
-        // BlockNote dispara una allau de mutacions al render inicial. Sense
-        // rate-limit, cada una cridaria `scanRoot(node)` (O(M*N) sobre tot
-        // el subarbre) i bloquejaria el thread.
-        //
-        // Abans usàvem `requestIdleCallback` (timeout 200ms): salvava CPU
-        // però obria una race condition — si l'usuari clicava un enllaç tot
-        // just renderitzat ABANS del flush, el `<a>` encara no tenia
-        // `target="_self"` ni el listener directe normalitzat, i Tiptap
-        // podia disparar `window.open(href, '_blank')` programàticament
-        // dins d'un `pointerdown`/`mousedown`. El navegador obre la pestanya
-        // nova al sentinel `gnosi-file-protocol.local` (DNS_PROBE_FINISHED_
-        // NXDOMAIN) abans que els listeners de window/document puguin fer
-        // `preventDefault`.
-        //
-        // Usem `queueMicrotask`: agrupa totes les mutacions del mateix tick
-        // en un sol flush i s'executa abans del següent paint i del següent
-        // pointer event de l'usuari. Cost de CPU equivalent al idle, però
-        // sense la finestra de race.
-        let pendingNodes = new Set();
-        let scanScheduled = false;
-        const flushScan = () => {
-            scanScheduled = false;
-            const nodes = pendingNodes;
-            pendingNodes = new Set();
-            for (const node of nodes) {
-                if (!node || node.nodeType !== 1) continue;
-                if (node.tagName === 'A') normalizeAnchor(node);
-                else scanRoot(node);
-            }
-        };
-        const scheduleScan = () => {
-            if (scanScheduled) return;
-            scanScheduled = true;
-            queueMicrotask(flushScan);
-        };
-        const observer = new MutationObserver((mutations) => {
-            for (const m of mutations) {
-                m.addedNodes.forEach(node => pendingNodes.add(node));
-                if (m.type === 'attributes' && m.target?.tagName === 'A') {
-                    pendingNodes.add(m.target);
-                }
-            }
-            scheduleScan();
-        });
-        observer.observe(document.body, {
-            childList: true, subtree: true,
-            attributes: true, attributeFilter: ['href'],
-        });
-
         return () => {
             for (const evt of POINTER_EVENTS) {
                 window.removeEventListener(evt, winHandler, true);
                 document.removeEventListener(evt, winHandler, true);
             }
-            observer.disconnect();
         };
-    }, [t]);
+    }, [t, navigate]);
 }
 
 export default useFileLinkInterceptor;

@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "author": "Ismael García Fernández",
   "scripts": {
     "predev": "if docker ps | grep -q gnosi_frontend; then echo 'ERROR: Docker frontend is already running on port 5173. Stop it first or use Docker.'; exit 1; fi",
     "dev": "vite",

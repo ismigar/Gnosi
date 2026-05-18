@@ -7883,3 +7883,139 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
         "created": created,
         "skipped": skipped,
     }
+
+
+# -----------------------------------------------------------------------------
+# PDF annotations
+# -----------------------------------------------------------------------------
+# Anotacions persistents del visor PDF integrat. Vegeu
+# `backend/models/pdf_annotation.py` per al model i camps. La taula viu
+# a la BD del vault actiu (es crea via Base.metadata.create_all al primer
+# get_engine_for_path d'aquest vault).
+
+from sqlalchemy.orm import Session as _AnnSession
+from backend.data.db import get_db as _ann_get_db
+from backend.models.pdf_annotation import PdfAnnotation as _PdfAnnotation
+
+
+class _PdfAnnotationCreate(BaseModel):
+    source_uri: str
+    page: int
+    type: str
+    color: Optional[str] = "#ffeb3b"
+    rects: Optional[List[Dict[str, float]]] = None
+    text: Optional[str] = None
+    comment: Optional[str] = None
+    tags: Optional[str] = None
+
+
+class _PdfAnnotationUpdate(BaseModel):
+    color: Optional[str] = None
+    rects: Optional[List[Dict[str, float]]] = None
+    text: Optional[str] = None
+    comment: Optional[str] = None
+    tags: Optional[str] = None
+
+
+def _pdf_annotation_to_dict(ann: _PdfAnnotation) -> Dict[str, Any]:
+    return {
+        "id": ann.id,
+        "source_uri": ann.source_uri,
+        "page": ann.page,
+        "type": ann.type,
+        "color": ann.color,
+        "rects": json.loads(ann.rects_json) if ann.rects_json else [],
+        "text": ann.text,
+        "comment": ann.comment,
+        "tags": ann.tags,
+        "created_at": ann.created_at.isoformat() if ann.created_at else None,
+        "updated_at": ann.updated_at.isoformat() if ann.updated_at else None,
+    }
+
+
+@router.get("/pdf-annotations")
+def list_pdf_annotations(
+    source_uri: str = Query(..., min_length=1),
+    db: _AnnSession = Depends(_ann_get_db),
+):
+    """Llista totes les anotacions associades a un PDF (per `source_uri`).
+
+    Ordenades per pàgina ascendent + data de creació, perquè la sidebar
+    pugui mostrar-les en l'ordre de lectura natural.
+    """
+    items = (
+        db.query(_PdfAnnotation)
+        .filter(_PdfAnnotation.source_uri == source_uri)
+        .order_by(_PdfAnnotation.page.asc(), _PdfAnnotation.created_at.asc())
+        .all()
+    )
+    return [_pdf_annotation_to_dict(i) for i in items]
+
+
+@router.post(
+    "/pdf-annotations",
+    dependencies=[Depends(require_role("editor"))],
+)
+def create_pdf_annotation(
+    body: _PdfAnnotationCreate,
+    db: _AnnSession = Depends(_ann_get_db),
+):
+    if body.type not in {"highlight", "underline", "strikeout", "comment", "area"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported annotation type: {body.type}")
+    ann = _PdfAnnotation(
+        source_uri=body.source_uri,
+        page=body.page,
+        type=body.type,
+        color=body.color or "#ffeb3b",
+        rects_json=json.dumps(body.rects) if body.rects else None,
+        text=body.text,
+        comment=body.comment,
+        tags=body.tags,
+    )
+    db.add(ann)
+    db.commit()
+    db.refresh(ann)
+    return _pdf_annotation_to_dict(ann)
+
+
+@router.patch(
+    "/pdf-annotations/{ann_id}",
+    dependencies=[Depends(require_role("editor"))],
+)
+def update_pdf_annotation(
+    ann_id: int,
+    body: _PdfAnnotationUpdate,
+    db: _AnnSession = Depends(_ann_get_db),
+):
+    ann = db.query(_PdfAnnotation).filter(_PdfAnnotation.id == ann_id).first()
+    if not ann:
+        raise HTTPException(status_code=404, detail="Annotation not found")
+    if body.color is not None:
+        ann.color = body.color
+    if body.comment is not None:
+        ann.comment = body.comment
+    if body.tags is not None:
+        ann.tags = body.tags
+    if body.text is not None:
+        ann.text = body.text
+    if body.rects is not None:
+        ann.rects_json = json.dumps(body.rects)
+    db.commit()
+    db.refresh(ann)
+    return _pdf_annotation_to_dict(ann)
+
+
+@router.delete(
+    "/pdf-annotations/{ann_id}",
+    dependencies=[Depends(require_role("editor"))],
+)
+def delete_pdf_annotation(
+    ann_id: int,
+    db: _AnnSession = Depends(_ann_get_db),
+):
+    ann = db.query(_PdfAnnotation).filter(_PdfAnnotation.id == ann_id).first()
+    if not ann:
+        raise HTTPException(status_code=404, detail="Annotation not found")
+    db.delete(ann)
+    db.commit()
+    return {"status": "ok", "id": ann_id}
