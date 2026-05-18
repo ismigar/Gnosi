@@ -113,11 +113,9 @@ export default function VaultDashboard() {
     const undoRef = useRef(null);
     const redoRef = useRef(null);
     const TABLE_TAB_PREFIX = 'table:';
+    // Prefix estable per identificar una pestanya PDF/EPUB/snapshot. Reusa
+    // la pestanya quan l'usuari clica el mateix document dues vegades.
     const PDF_TAB_PREFIX = 'pdf:';
-
-    // Identifica una pestanya PDF de forma estable a partir del seu src.
-    // Així si l'usuari fa clic dos cops el mateix PDF, reusa la pestanya.
-    const buildPdfTabId = (src) => `${PDF_TAB_PREFIX}${src}`;
 
     const isAbortLikeError = useCallback((err) => {
         if (!err) return false;

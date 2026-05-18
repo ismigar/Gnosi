@@ -7960,7 +7960,14 @@ def create_pdf_annotation(
     body: _PdfAnnotationCreate,
     db: _AnnSession = Depends(_ann_get_db),
 ):
-    if body.type not in {"highlight", "underline", "strikeout", "comment", "area"}:
+    # Tipus suportats: els del visor pdf.js antic (highlight, underline,
+    # strikeout, comment, area) MÉS els que emet el reader Zotero (text,
+    # note, ink, image). Sense aquests últims, els saves provinents del
+    # reader integrat tornarien 400 i el frontend els perdria silenciosament.
+    if body.type not in {
+        "highlight", "underline", "strikeout", "comment", "area",
+        "text", "note", "ink", "image",
+    }:
         raise HTTPException(status_code=400, detail=f"Unsupported annotation type: {body.type}")
     ann = _PdfAnnotation(
         source_uri=body.source_uri,

@@ -37,13 +37,17 @@ done
 # Fallback al path típic d'aquest setup.
 : "${VAULT_HOST_PATH:=/Users/$USER/Library/CloudStorage/OneDrive-UNED/Gnosi}"
 export VAULT_HOST_PATH
-# Arrels permeses per al warmup. Per defecte tota la carpeta OneDrive de
-# l'usuari, així els enllaços a fitxers fora del Vault (Documents,
-# Desktop dins d'OneDrive, etc.) també es poden materialitzar. El
-# daemon valida amb `resolve()` + `relative_to()`, així que no hi ha
-# bypass via symlinks o "..".
-ONEDRIVE_ROOT_GUESS="/Users/$USER/Library/CloudStorage/OneDrive-UNED"
-: "${ONEDRIVE_WARMUP_ALLOWED_ROOTS:=${ONEDRIVE_ROOT_GUESS}:${VAULT_HOST_PATH}}"
+# Arrels permeses per al warmup. **Per defecte només el Vault** per
+# seguretat: el daemon bind a 0.0.0.0 (cal perquè Docker hi accedeixi
+# via host.docker.internal) i no té autenticació, així que qualsevol
+# client LAN amb la firewall macOS oberta podria triggerar warmups i
+# enumerar roots via /healthz. Si necessites obrir PDFs/imatges
+# enllaçats fora del Vault (a Documents/Desktop d'OneDrive), defineix
+# explícitament ONEDRIVE_WARMUP_ALLOWED_ROOTS al teu .env_shared,
+# separades per ':', i preferiblement combina-ho amb un bind acotat:
+#   ONEDRIVE_WARMUP_ALLOWED_ROOTS="$HOME/Library/CloudStorage/OneDrive-XXX"
+#   ONEDRIVE_WARMUP_BIND=127.0.0.1   # si el contenidor pot accedir-hi
+: "${ONEDRIVE_WARMUP_ALLOWED_ROOTS:=${VAULT_HOST_PATH}}"
 export ONEDRIVE_WARMUP_ALLOWED_ROOTS
 export ONEDRIVE_WARMUP_PORT="${ONEDRIVE_WARMUP_PORT:-5009}"
 export ONEDRIVE_WARMUP_BIND="${ONEDRIVE_WARMUP_BIND:-0.0.0.0}"

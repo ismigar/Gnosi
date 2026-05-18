@@ -30,6 +30,36 @@
             padding: 24px; text-align: center;
         }
         #gnosi-error.visible { display: flex; }
+
+        /* Menu contextual ('three dots' i secundaris del reader). Zotero
+           crida onOpenContextMenu amb { x, y, itemGroups } i espera que
+           el host el renderitzi. itemGroups és array d'arrays: cada array
+           intern és un grup separat per un divider. */
+        #gnosi-ctx-menu {
+            position: fixed; z-index: 100000;
+            background: #2b2d2e; border: 1px solid #555; border-radius: 6px;
+            padding: 4px 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            min-width: 200px; max-width: 320px;
+            color: #ddd;
+            font: 13px -apple-system, BlinkMacSystemFont, sans-serif;
+            user-select: none;
+        }
+        #gnosi-ctx-menu.hidden { display: none; }
+        .gctx-item {
+            padding: 6px 12px; cursor: pointer; display: flex;
+            align-items: center; gap: 8px;
+        }
+        .gctx-item:hover:not(.disabled) { background: #3a3d3e; }
+        .gctx-item.disabled { opacity: 0.4; cursor: default; }
+        .gctx-check { width: 12px; text-align: center; color: #66bb6a; }
+        .gctx-color {
+            width: 12px; height: 12px; border-radius: 2px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .gctx-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gctx-sep { height: 1px; background: #444; margin: 4px 0; }
+        .gctx-slider { padding: 8px 12px; }
+        .gctx-slider input { width: 100%; }
     </style>
 </head>
 <body class="sidebar-open">
@@ -40,6 +70,7 @@
     </div>
     <div id="printContainer"></div>
     <div id="gnosi-error"></div>
+    <div id="gnosi-ctx-menu" class="hidden"></div>
 
     <script src="reader.js"></script>
     <script>
@@ -102,13 +133,31 @@
                         post({ type: 'open-link', url });
                     },
 
-                    // --- Callbacks "menors" que el reader pot cridar ---
-                    // Per evitar TypeError si el reader els invoca; els
-                    // gestionarem en fases posteriors si fan falta.
+                    // --- Callbacks de popups inline ---
+                    // Quan l'usuari fa una selecció o selecciona una
+                    // anotació al PDF, Zotero vol mostrar popups inline
+                    // (selecció: color picker; anotació: color + comentari
+                    // + tags). Els deixem com a no-ops i delegem als
+                    // equivalents via menu contextual (clic dret / 3
+                    // puntets), que ja funciona. Limit conegut del MVP.
                     onChangeFindState: () => {},
-                    onOpenContextMenu: () => {},
+                    onOpenContextMenu: (params) => openContextMenu(params),
+                    // Tag popup mínim via prompt natiu. Zotero crida això
+                    // quan l'usuari clica un chip de tag d'una anotació.
+                    // Sense una UI pròpia, fallback al diàleg del navegador
+                    // per no perdre la funcionalitat.
+                    onOpenTagsPopup: (annotation /* , x, y */) => {
+                        if (!annotation || !reader) return;
+                        const current = (annotation.tags || []).map(t => t.name).join(', ');
+                        const next = window.prompt('Tags (separades per coma):', current);
+                        if (next === null) return;
+                        const tags = next.split(',')
+                            .map(s => s.trim()).filter(Boolean)
+                            .map(name => ({ name }));
+                        try { reader.setAnnotations && reader.setAnnotations([{ id: annotation.id, tags }]); }
+                        catch (e) { console.warn('setAnnotations failed', e); }
+                    },
                     onAddToNote: () => {},
-                    onOpenTagsPopup: () => {},
                     onClosePopup: () => {},
                     onToggleSidebar: () => {},
                     onChangeSidebarWidth: () => {},
@@ -133,11 +182,144 @@
         }
 
         window.addEventListener('message', (e) => {
+            // Origin guard: només acceptar missatges del parent (mateixa origin).
+            // Sense això, qualsevol iframe popup amb noopener podria injectar
+            // ordres `init` o `set-annotations`.
+            if (e.origin !== window.location.origin) return;
+            if (e.source !== window.parent) return;
             const data = e.data || {};
             if (data.target !== 'zotero-reader') return;
-            if (data.type === 'init') init(data.payload || {});
-            else if (data.type === 'set-annotations' && reader) {
-                try { reader.setAnnotations && reader.setAnnotations(data.annotations || []); } catch {}
+            if (data.type === 'init') {
+                init(data.payload || {});
+            } else if (data.type === 'set-annotations' && reader) {
+                try { reader.setAnnotations && reader.setAnnotations(data.annotations || []); }
+                catch (err) { console.warn('set-annotations failed', err); }
+            } else if (data.type === 'update-annotation-ids' && reader) {
+                // El parent ens notifica que algunes anotacions noves ja
+                // tenen dbId al backend. Substituïm l'id Zotero al state
+                // del reader perquè els saves següents siguin PATCH i els
+                // deletes encertin la fila correcta.
+                const mapPairs = Array.isArray(data.idMap) ? data.idMap : [];
+                if (!mapPairs.length) return;
+                try {
+                    const cur = reader._state?.annotations || [];
+                    const oldToNew = new Map(mapPairs.map(p => [p.oldId, p.newId]));
+                    const patches = cur
+                        .filter(a => oldToNew.has(a.id))
+                        .map(a => ({ id: a.id, _newId: oldToNew.get(a.id) }));
+                    // Zotero no exposa una API pública per renombrar id, així
+                    // que esborrem i recreem amb el nou id. Internalment és
+                    // un swap de referencia.
+                    if (patches.length) {
+                        const recreated = patches.map(p => {
+                            const a = cur.find(x => x.id === p.id);
+                            return { ...a, id: p._newId };
+                        });
+                        reader.unsetAnnotations && reader.unsetAnnotations(patches.map(p => p.id));
+                        reader.setAnnotations && reader.setAnnotations(recreated);
+                    }
+                } catch (err) { console.warn('update-annotation-ids failed', err); }
+            }
+        });
+
+        // -------------------------------------------------------------
+        // Menu contextual (per als 3 puntets d'una anotació, color picker
+        // d'una eina, etc.). Zotero ens passa { x, y, itemGroups } amb
+        // funcions `onCommand` directament invocables. Aquestes funcions
+        // viuen DINS aquest iframe (closures sobre el reader), per això
+        // el menu s'ha de renderitzar aquí, no al parent React.
+        // -------------------------------------------------------------
+        const menuEl = document.getElementById('gnosi-ctx-menu');
+
+        function closeContextMenu() {
+            menuEl.classList.add('hidden');
+            menuEl.innerHTML = '';
+        }
+
+        function openContextMenu(params) {
+            menuEl.innerHTML = '';
+            const groups = Array.isArray(params?.itemGroups) ? params.itemGroups : [];
+            groups.forEach((items, gi) => {
+                if (gi > 0) {
+                    const sep = document.createElement('div');
+                    sep.className = 'gctx-sep';
+                    menuEl.appendChild(sep);
+                }
+                items.forEach((item) => {
+                    if (!item) return;
+                    if (item.slider) {
+                        // Slider de tamany (ink width, text fontSize). UI mínima.
+                        const row = document.createElement('div');
+                        row.className = 'gctx-slider' + (item.disabled ? ' disabled' : '');
+                        const slider = document.createElement('input');
+                        slider.type = 'range';
+                        slider.disabled = !!item.disabled;
+                        const steps = item.steps || [];
+                        if (steps.length > 0) {
+                            slider.min = '0';
+                            slider.max = String(steps.length - 1);
+                            slider.step = '1';
+                            const idx = Math.max(0, steps.indexOf(item.size));
+                            slider.value = String(idx === -1 ? 0 : idx);
+                            if (!item.disabled) {
+                                slider.addEventListener('input', () => {
+                                    const v = steps[Number(slider.value)];
+                                    try { item.onCommand && item.onCommand(v); } catch (e) {}
+                                });
+                            }
+                        }
+                        row.appendChild(slider);
+                        menuEl.appendChild(row);
+                        return;
+                    }
+                    const el = document.createElement('div');
+                    el.className = 'gctx-item' + (item.disabled ? ' disabled' : '');
+                    const check = document.createElement('span');
+                    check.className = 'gctx-check';
+                    check.textContent = item.checked ? '✓' : '';
+                    el.appendChild(check);
+                    if (item.color) {
+                        const sw = document.createElement('span');
+                        sw.className = 'gctx-color';
+                        sw.style.background = item.color;
+                        el.appendChild(sw);
+                    }
+                    const lbl = document.createElement('span');
+                    lbl.className = 'gctx-label';
+                    lbl.textContent = item.label || '';
+                    el.appendChild(lbl);
+                    if (!item.disabled && typeof item.onCommand === 'function') {
+                        el.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            try { item.onCommand(); }
+                            catch (err) { console.warn('context menu onCommand failed', err); }
+                            if (!item.persistent) closeContextMenu();
+                        });
+                    }
+                    menuEl.appendChild(el);
+                });
+            });
+            // Posicionar dins el viewport.
+            menuEl.style.left = '0px';
+            menuEl.style.top = '0px';
+            menuEl.classList.remove('hidden');
+            const rect = menuEl.getBoundingClientRect();
+            const x = Math.min(params.x ?? 0, window.innerWidth - rect.width - 8);
+            const y = Math.min(params.y ?? 0, window.innerHeight - rect.height - 8);
+            menuEl.style.left = Math.max(8, x) + 'px';
+            menuEl.style.top = Math.max(8, y) + 'px';
+        }
+
+        // Tancar al click fora (capture per agafar el primer click) o Esc.
+        document.addEventListener('mousedown', (e) => {
+            if (!menuEl.classList.contains('hidden') && !menuEl.contains(e.target)) {
+                closeContextMenu();
+            }
+        }, true);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !menuEl.classList.contains('hidden')) {
+                e.stopPropagation();
+                closeContextMenu();
             }
         });
 
