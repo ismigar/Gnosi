@@ -1,0 +1,150 @@
+<!doctype html>
+<!--
+  Host HTML per a embedar el zotero-reader dins una pestanya del Vault de Gnosi.
+  No reaprofitem `reader.html` (el shell que ve amb el build) perquè aquest no
+  invoca createReader; només defineix els divs base. Aquí afegim el handshake
+  postMessage que parla amb el component React parent.
+
+  Protocol:
+    parent → iframe   { target: 'zotero-reader', type: 'init',
+                         payload: { pdfUrl, annotations, options } }
+    iframe → parent   { source: 'zotero-reader', type: 'host-ready' | 'ready'
+                                                 | 'error' | 'save-annotations'
+                                                 | 'delete-annotations'
+                                                 | 'view-state' | 'open-link' }
+-->
+<html lang="ca" dir="ltr"
+      style="--sidebar-width: 240px; --split-view-size: 50%;
+             --bottom-placeholder-height: 50px; --toolbar-placeholder-width: 0px">
+<head>
+    <meta charset="UTF-8">
+    <title>Zotero Reader · Gnosi</title>
+    <link href="reader.css" rel="stylesheet">
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #gnosi-error {
+            position: fixed; inset: 0; display: none;
+            align-items: center; justify-content: center;
+            background: #525659; color: #f88;
+            font: 14px -apple-system, sans-serif;
+            padding: 24px; text-align: center;
+        }
+        #gnosi-error.visible { display: flex; }
+    </style>
+</head>
+<body class="sidebar-open">
+    <div id="reader-ui"></div>
+    <div id="split-view">
+        <div id="primary-view" class="primary-view"></div>
+        <div id="secondary-view" class="secondary-view"></div>
+    </div>
+    <div id="printContainer"></div>
+    <div id="gnosi-error"></div>
+
+    <script src="reader.js"></script>
+    <script>
+    (function () {
+        const post = (msg) => {
+            try { window.parent.postMessage({ source: 'zotero-reader', ...msg }, '*'); }
+            catch (e) { /* parent gone */ }
+        };
+        const showError = (msg) => {
+            const el = document.getElementById('gnosi-error');
+            el.textContent = msg;
+            el.classList.add('visible');
+            post({ type: 'error', message: msg });
+        };
+
+        let reader = null;
+
+        async function waitForCreateReader(timeoutMs = 15000) {
+            const t0 = Date.now();
+            while (typeof window.createReader !== 'function') {
+                if (Date.now() - t0 > timeoutMs) {
+                    throw new Error('createReader not available after ' + timeoutMs + 'ms');
+                }
+                await new Promise(r => setTimeout(r, 50));
+            }
+        }
+
+        async function init({ pdfUrl, kind, annotations, options }) {
+            try {
+                await waitForCreateReader();
+                if (!pdfUrl) throw new Error('Missing pdfUrl');
+
+                const res = await fetch(pdfUrl, { credentials: 'same-origin' });
+                if (!res.ok) throw new Error('Document fetch failed: HTTP ' + res.status);
+                const buf = new Uint8Array(await res.arrayBuffer());
+
+                const opts = options || {};
+                const docType = kind || 'pdf';
+                reader = window.createReader({
+                    type: docType,
+                    data: { buf },
+                    annotations: annotations || [],
+                    primaryViewState: opts.primaryViewState || null,
+                    readOnly: !!opts.readOnly,
+                    authorName: opts.authorName || 'User',
+                    showAnnotations: true,
+                    rtl: false,
+
+                    // --- Callbacks que reemetem al parent ---
+                    onSaveAnnotations: async (anns) => {
+                        post({ type: 'save-annotations', annotations: anns });
+                    },
+                    onDeleteAnnotations: (ids) => {
+                        post({ type: 'delete-annotations', ids });
+                    },
+                    onChangeViewState: (state, primary) => {
+                        post({ type: 'view-state', state, primary });
+                    },
+                    onOpenLink: (url) => {
+                        post({ type: 'open-link', url });
+                    },
+
+                    // --- Callbacks "menors" que el reader pot cridar ---
+                    // Per evitar TypeError si el reader els invoca; els
+                    // gestionarem en fases posteriors si fan falta.
+                    onChangeFindState: () => {},
+                    onOpenContextMenu: () => {},
+                    onAddToNote: () => {},
+                    onOpenTagsPopup: () => {},
+                    onClosePopup: () => {},
+                    onToggleSidebar: () => {},
+                    onChangeSidebarWidth: () => {},
+                    onChangeSidebarView: () => {},
+                    onSetDataTransferAnnotations: () => {},
+                    onConfirm: () => true,
+                    onCopyImage: () => {},
+                    onSaveImageAs: () => {},
+                    onSetSelectionPopup: () => {},
+                    onSetAnnotationPopup: () => {},
+                    onSetOverlayPopup: () => {},
+                    onSetFindState: () => {},
+                });
+
+                if (reader && reader.initializedPromise) {
+                    await reader.initializedPromise;
+                }
+                post({ type: 'ready' });
+            } catch (err) {
+                showError('Init error: ' + (err && err.message ? err.message : String(err)));
+            }
+        }
+
+        window.addEventListener('message', (e) => {
+            const data = e.data || {};
+            if (data.target !== 'zotero-reader') return;
+            if (data.type === 'init') init(data.payload || {});
+            else if (data.type === 'set-annotations' && reader) {
+                try { reader.setAnnotations && reader.setAnnotations(data.annotations || []); } catch {}
+            }
+        });
+
+        // Senyalitzem que estem llest per rebre `init` (el parent pot estar
+        // esperant aquest event abans d'enviar les opcions).
+        post({ type: 'host-ready' });
+    })();
+    </script>
+</body>
+</html>

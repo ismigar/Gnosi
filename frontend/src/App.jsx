@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import SocialDashboard from './pages/SocialDashboard';
 import CalendarPage from './pages/CalendarPage';
 import VaultDashboard from './pages/VaultDashboard';
+import { ZoteroReaderPage } from './components/Vault/ZoteroReaderTab';
 import ReaderDashboard from './pages/ReaderDashboard';
 import HomePage from './pages/HomePage';
 import MailPage from './pages/MailPage';
@@ -46,6 +47,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/graph" element={<GraphPage />} />
+          <Route path="/vault/pdf" element={<ZoteroReaderPage />} />
           <Route path="/vault/*" element={<VaultDashboard />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/reader" element={<ReaderDashboard />} />

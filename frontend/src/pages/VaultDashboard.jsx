@@ -22,6 +22,7 @@ import { VaultGallery } from '../components/Vault/VaultGallery';
 import { VaultTimeline } from '../components/Vault/VaultTimeline';
 import { VaultFeed } from '../components/Vault/VaultFeed';
 import { VaultDocumentTabs } from '../components/Vault/VaultDocumentTabs';
+import { ZoteroReaderTab } from '../components/Vault/ZoteroReaderTab';
 import { VaultViewsHeader } from '../components/Vault/VaultViewsHeader';
 import VaultDrawings from '../components/Vault/VaultDrawings';
 import { VaultGraph } from '../components/Vault/VaultGraph';
@@ -112,6 +113,11 @@ export default function VaultDashboard() {
     const undoRef = useRef(null);
     const redoRef = useRef(null);
     const TABLE_TAB_PREFIX = 'table:';
+    const PDF_TAB_PREFIX = 'pdf:';
+
+    // Identifica una pestanya PDF de forma estable a partir del seu src.
+    // Així si l'usuari fa clic dos cops el mateix PDF, reusa la pestanya.
+    const buildPdfTabId = (src) => `${PDF_TAB_PREFIX}${src}`;
 
     const isAbortLikeError = useCallback((err) => {
         if (!err) return false;
@@ -1130,12 +1136,36 @@ export default function VaultDashboard() {
             }
         };
 
+        // PDFs enllaçats des d'una pàgina del Vault o de fora: useFileLinkInterceptor
+        // dispara aquest event amb { src, title }. Cancel·lem el default
+        // perquè l'interceptor sàpiga que l'hem gestionat (no cal navegar a
+        // /vault/pdf?src=... com a fallback).
+        const handleOpenPdf = (e) => {
+            const { src, title, kind } = e.detail || {};
+            if (!src) return;
+            e.preventDefault();
+            // PDF / EPUB / snapshot HTML comparteixen prefix de tab (vegeu
+            // PDF_TAB_PREFIX) perquè conceptualment són "documents" del
+            // reader Zotero. El camp `kind` controla quin viewer concret
+            // s'inicialitza dins l'iframe.
+            const id = `${PDF_TAB_PREFIX}${src}`;
+            setTabs(prev => {
+                if (prev.some(t => t.id === id)) return prev;
+                return [...prev, { id, title: title || 'document', isPdf: true, src, kind: kind || 'pdf' }];
+            });
+            setActiveTabId(id);
+            setViewMode('editor');
+            setActiveTableId(null);
+        };
+
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('vault-open-folder', handleFolderOpen);
+        window.addEventListener('gnosi:open-pdf', handleOpenPdf);
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('vault-open-folder', handleFolderOpen);
+            window.removeEventListener('gnosi:open-pdf', handleOpenPdf);
         };
     }, []);
 
@@ -1389,6 +1419,10 @@ export default function VaultDashboard() {
                     const tableId = getTableIdFromTab(tab);
                     return Boolean(tableId && existingTableIds.has(tableId));
                 }
+                // Pestanyes PDF i drawings no viuen al `pages` registry —
+                // són pestanyes "volàtils" que la sessió manté en memòria.
+                // No s'haurien de filtrar perquè no formen part del catàleg.
+                if (tab.isPdf || tab.isDrawing) return true;
                 return existingPageIds.has(tab.id);
             });
 
@@ -1667,7 +1701,10 @@ export default function VaultDashboard() {
             if (tableId) {
                 pushToHistory({ type: 'table', id: tableId });
             }
-        } else {
+        } else if (!tab.isPdf) {
+            // PDF tabs no van a l'history de navegació (no tenen ruta canonical
+            // dins el Vault) — només són d'una sessió. Reactiu a obrir-los
+            // de nou amb el mateix link.
             pushToHistory({ type: 'editor', id: tabId });
         }
 
@@ -2279,7 +2316,7 @@ export default function VaultDashboard() {
 
     const currentOpenPage = activeTabId ? pages.find(p => p.id === activeTabId) : null;
     const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
-    const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable);
+    const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
     const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
     const quickOpenItems = React.useMemo(() => {
         const pageItems = pages
@@ -2493,6 +2530,21 @@ export default function VaultDashboard() {
     const renderEditor = (tabId) => {
         const tab = tabs.find(t => t.id === tabId);
         if (!tab) return null;
+
+        // Pestanyes PDF: visor integrat. No té contingut Markdown ni
+        // metadades del Vault — només ruta del fitxer. Es comporta com
+        // qualsevol pestanya (es pot tancar, reordenar, split-view).
+        if (tab.isPdf) {
+            return (
+                <ZoteroReaderTab
+                    key={tab.id}
+                    src={tab.src}
+                    title={tab.title}
+                    kind={tab.kind || 'pdf'}
+                    embedded
+                />
+            );
+        }
 
         // If this is a table tab, render the table instead of the editor
         if (tab.isTable) {
@@ -2912,7 +2964,7 @@ export default function VaultDashboard() {
                     [currentActiveTab.id]: !prev[currentActiveTab.id],
                 }));
             }}
-            canToggleEditLock={Boolean(currentActiveTab?.id) && viewMode === 'editor'}
+            canToggleEditLock={Boolean(currentActiveTab?.id) && viewMode === 'editor' && !currentActiveTab.isPdf}
             isEditLocked={Boolean(currentActiveTab?.id && editLockedByPageId[currentActiveTab.id])}
             onToggleEditLock={() => {
                 if (!currentActiveTab?.id) return;
