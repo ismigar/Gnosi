@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zotero → Vault enrich-only sync.
+"""Zotero → Vault enrich-only sync + Citation Key fixer.
 
 Pensat per a la migració inicial (Fase 1 de la roadmap Zotero → Gnosi com
 a font única). Diferent de `zotero_to_vault.py`:
@@ -26,6 +26,11 @@ desactivar definitivament Zotero, aquest script és el camí d'una via.
     python3 zotero_enrich.py                     # dry-run (default)
     python3 zotero_enrich.py --apply             # escriu els PATCH
     python3 zotero_enrich.py --apply --create-missing  # + crea sense match
+    python3 zotero_enrich.py --fix-keys          # detecta i corregeix
+                                                  # Citation Keys malparsejats
+                                                  # per coma-com-a-separador
+                                                  # d'autors (cas Margulis)
+    python3 zotero_enrich.py --fix-keys --apply  # idem, escrivint els canvis
 
 Vegeu la directiva `docs/dev_memory/directives/zotero_one_way_migration.md`
 i la memòria personal `feedback_zotero_mapping`.
@@ -364,9 +369,92 @@ def compute_patch(page: dict, item: dict) -> dict:
     return patch
 
 
+def fix_citation_keys(apply_writes: bool) -> int:
+    """Re-deriva les Citation Keys per al cas concret en què Zotero usa
+    coma sense espai com a separador d'autors (`Lynn. Margulis,Lorraine.
+    Olendzenski`) i el meu algorisme original ho confonia amb format
+    `Cognom, Inicial`, generant `lynnmargulis` en lloc de `margulis`.
+
+    Detecció: el camp Authors conté `[A-Z]\\.\\s*,\\s*[A-Z]` (Inicial.
+    seguit de coma seguit d'Inicial, sense espai darrere del punt). En
+    aquest cas, agafem només el primer "autor" abans de la coma i
+    fem servir el seu últim mot com a cognom.
+
+    Per als cognoms compostos hispànics legítims (`García Fernández`,
+    `Del Pino Díaz`, etc.), NO toca res — són casos vàlids que cal
+    decidir manualment si es vol simplificar.
+    """
+    pages = fetch_recursos()
+    # Senyal inequívoc de coma-com-separador a Zotero: coma immediatament
+    # seguida de majúscula SENSE espai. Format estàndard d'autor només té
+    # `, ` (amb espai). Així distingim:
+    #   - `García Fernández, Ismael`           → coma + espai → normal
+    #   - `Lynn. Margulis,Lorraine. Olendzenski` → coma + MAJ → cas Margulis
+    pattern = re.compile(r',[A-ZÀ-Ÿ]')
+    changes: list[tuple[str, str, str, str]] = []  # (page_id, authors_short, old_key, new_key)
+    for p in pages:
+        m = p.get('metadata') or {}
+        authors = m.get('Authors') or ''
+        ck = m.get('Citation Key')
+        year = m.get('Any')
+        if not (authors and ck and year):
+            continue
+        if not pattern.search(authors):
+            continue
+        # Reparsejar amb la lògica correcta: la coma és separador d'autors
+        first_author = authors.split(',')[0].strip()
+        tokens = first_author.split()
+        if not tokens:
+            continue
+        # Últim mot és el cognom; netejar accents i símbols
+        cog = tokens[-1].lower()
+        cog = (cog.replace('á', 'a').replace('é', 'e').replace('í', 'i')
+                  .replace('ó', 'o').replace('ú', 'u').replace('à', 'a')
+                  .replace('è', 'e').replace('ò', 'o').replace('ç', 'c')
+                  .replace('ñ', 'n').replace('.', ''))
+        cog = re.sub(r'[^a-z]', '', cog)
+        if not cog:
+            continue
+        new_key = f'{cog}{year}'
+        if new_key != ck:
+            # Conservem el sufix a/b/c si existia (per a desambiguació)
+            suffix_match = re.search(r'([a-z])$', ck)
+            if suffix_match and ck[:-1].endswith(str(year)):
+                new_key += suffix_match.group(1)
+            changes.append((
+                p['id'],
+                authors[:60],
+                ck,
+                new_key,
+            ))
+
+    print(f'Casos detectats per re-parsing (coma-com-separador): {len(changes)}')
+    for pid, a, old, new in changes:
+        print(f'  {old:30s} → {new:20s}  {a}')
+
+    if not apply_writes or not changes:
+        if not apply_writes:
+            print('\n[DRY-RUN] --apply per escriure els canvis.')
+        return 0
+
+    ok = err = 0
+    for pid, _, _, new_key in changes:
+        res = patch_page(pid, {'Citation Key': new_key})
+        if res == 200:
+            ok += 1
+        else:
+            err += 1
+            print(f'  ! {pid[:8]}.. → {res}')
+    print(f'\nResultat: {ok} ok, {err} err')
+    return 0 if err == 0 else 1
+
+
 def main() -> int:
     apply_writes = '--apply' in sys.argv
     create_missing = '--create-missing' in sys.argv
+
+    if '--fix-keys' in sys.argv:
+        return fix_citation_keys(apply_writes)
 
     con = open_zotero_db()
     items = extract_items(con)

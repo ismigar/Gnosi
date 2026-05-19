@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Manifest del Gnosi Cite Add-in per a Word.
+
+  Estructura mínima (TaskpaneApp) que registra un add-in tipus
+  "Office Add-in" amb una sidebar (TaskPane) i un botó al ribbon.
+
+  Compatibilitat:
+    - Microsoft Word 2016+ a Windows i Mac
+    - Word per a iPad/iPhone (parcial)
+    - Word per a la Web (https://word.office.com)
+
+  Instal·lació local (sideload) per a desenvolupament:
+    Windows: \\<server>\share\manifest.xml a "Trusted Catalogs"
+    Mac: copiar a ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/
+    Web: Insertar > Add-ins > Carrega el meu add-in > tria fitxer
+
+  Per a producció (distribució a l'organització), publicar al
+  Microsoft 365 Admin Center > Integrated Apps > Upload custom apps.
+
+  El SourceLocation apunta al frontend local (5173) en dev i a la URL
+  públic en prod. Cal canviar `https://localhost:5173` per la URL
+  definitiva abans de distribuir.
+-->
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+
+  <!-- Identificador únic (GUID). Generar un de nou per a producció amb
+       uuidgen perquè cada add-in publicat tingui el seu. -->
+  <Id>5e2c8b9a-1f2d-4b3c-9f8e-7d6c5b4a3e2f</Id>
+  <Version>0.1.0</Version>
+  <ProviderName>Gnosi</ProviderName>
+  <DefaultLocale>ca-ES</DefaultLocale>
+  <DisplayName DefaultValue="Gnosi Cite" />
+  <Description DefaultValue="Cerca i insereix cites al document de Word a partir del Vault de Gnosi (Recursos). Estil Mendeley Cite." />
+  <IconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-64.png" />
+  <SupportUrl DefaultValue="https://localhost:5173" />
+
+  <!-- Els dominis dels quals el add-in pot carregar recursos. Cal
+       afegir-hi la URL final del Gnosi en producció. -->
+  <AppDomains>
+    <AppDomain>https://localhost:5173</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://localhost:5173/word-addin/index.html" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <!-- VersionOverrides v1.1 permet integrar el add-in al ribbon de Word
+       en comptes de només a la barra "Mostra els meus add-ins". -->
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="GnosiCite.Group">
+                <Label resid="GnosiCite.GroupLabel" />
+                <Icon>
+                  <bt:Image size="16" resid="GnosiCite.Icon16" />
+                  <bt:Image size="32" resid="GnosiCite.Icon32" />
+                  <bt:Image size="80" resid="GnosiCite.Icon80" />
+                </Icon>
+                <Control xsi:type="Button" id="GnosiCite.OpenTaskpane">
+                  <Label resid="GnosiCite.ButtonLabel" />
+                  <Supertip>
+                    <Title resid="GnosiCite.ButtonLabel" />
+                    <Description resid="GnosiCite.ButtonSupertip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="GnosiCite.Icon16" />
+                    <bt:Image size="32" resid="GnosiCite.Icon32" />
+                    <bt:Image size="80" resid="GnosiCite.Icon80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>ButtonId1</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="GnosiCite.Icon16" DefaultValue="https://localhost:5173/word-addin/assets/icon-16.png" />
+        <bt:Image id="GnosiCite.Icon32" DefaultValue="https://localhost:5173/word-addin/assets/icon-32.png" />
+        <bt:Image id="GnosiCite.Icon80" DefaultValue="https://localhost:5173/word-addin/assets/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://localhost:5173" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:5173/word-addin/index.html" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="Gnosi Cite" />
+        <bt:String id="GnosiCite.GroupLabel" DefaultValue="Gnosi" />
+        <bt:String id="GnosiCite.ButtonLabel" DefaultValue="Cites Gnosi" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Gnosi Cite — Insereix referències del teu Vault directament al document." />
+        <bt:String id="GnosiCite.ButtonSupertip" DefaultValue="Obre la barra lateral per cercar i inserir cites del Vault." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
