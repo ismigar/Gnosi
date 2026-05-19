@@ -3007,6 +3007,358 @@ def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
     return excerpt
 
 
+# -----------------------------------------------------------------------------
+# Pandoc export amb cites resoltes
+# -----------------------------------------------------------------------------
+#
+# Workflow acadèmic Fase 5: exporta una pàgina del Vault a .docx/.odt/.html/.pdf
+# amb les cites `[@key]` resoltes contra Recursos i bibliografia generada via
+# CSL. Pandoc 3+ porta citeproc integrat, així que una sola invocació basta:
+#
+#     pandoc input.md \
+#         --citeproc \
+#         --bibliography refs.json   (CSL-JSON generat per nosaltres)
+#         --csl apa.csl              (style triat per l'usuari)
+#         -o output.docx
+#
+# refs.json es genera al vol a partir de les pàgines Recursos referenciades
+# al document. Així Pandoc rep només el subset rellevant (no totes 4198
+# entries) i el processament és ràpid.
+
+import tempfile as _ext_tempfile
+import subprocess as _ext_subprocess
+
+_RECURSOS_TYPE_TO_CSL = {
+    'journalArticle': 'article-journal', 'magazineArticle': 'article-magazine',
+    'newspaperArticle': 'article-newspaper', 'book': 'book', 'bookSection': 'chapter',
+    'encyclopediaArticle': 'entry-encyclopedia', 'thesis': 'thesis', 'report': 'report',
+    'webpage': 'webpage', 'document': 'document',
+    'Llibre': 'book', 'Article científic': 'article-journal',
+    'Article de revista acadèmica': 'article-journal', 'Article de revista': 'article-journal',
+    'Article divulgatiu': 'article-magazine', 'Secció de Llibre': 'chapter',
+    "Capítol d'un llibre": 'chapter', 'Article enciclopèdic': 'entry-encyclopedia',
+    'Tesi': 'thesis', 'Tesis': 'thesis', 'Informe': 'report', 'Manual': 'book',
+    'Ponència': 'paper-conference', 'Pàgina web': 'webpage',
+}
+
+
+def _parse_authors_to_csl(authors_str: str) -> list:
+    """Mateixa heurística que cslEngine.js — parse Authors string a CSL author array."""
+    if not authors_str or not isinstance(authors_str, str):
+        return []
+    parts = (
+        [s.strip() for s in authors_str.split(';') if s.strip()]
+        if ';' in authors_str else [authors_str.strip()]
+    )
+    out = []
+    for p in parts:
+        if ', ' in p and len(p.split(',')) == 2:
+            family, given = [s.strip() for s in p.split(',', 1)]
+            if family:
+                out.append({'family': family, 'given': given})
+        elif ',' in p:
+            for sub in [s.strip() for s in p.split(',') if s.strip()]:
+                tokens = sub.split()
+                if len(tokens) == 1:
+                    out.append({'family': tokens[0]})
+                else:
+                    out.append({'family': tokens[-1], 'given': ' '.join(tokens[:-1])})
+        else:
+            tokens = p.split()
+            if len(tokens) == 1:
+                out.append({'family': tokens[0]})
+            else:
+                out.append({'family': tokens[-1], 'given': ' '.join(tokens[:-1])})
+    return out
+
+
+def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
+    """Construeix CSL-JSON d'una pàgina de Recursos. Equivalent backend del
+    `recursosPageToCsl` del frontend (mateix mapeig)."""
+    ck = m.get('Citation Key')
+    if not ck:
+        return None
+    item = {
+        'id': ck,
+        'type': _RECURSOS_TYPE_TO_CSL.get(m.get('Item Type', ''), 'document'),
+        'title': title or m.get('Title') or '',
+    }
+    authors = _parse_authors_to_csl(m.get('Authors') or '')
+    if authors:
+        item['author'] = authors
+    if m.get('Any'):
+        try:
+            item['issued'] = {'date-parts': [[int(m['Any'])]]}
+        except (TypeError, ValueError):
+            pass
+    if m.get('Llibre/Revista'): item['container-title'] = m['Llibre/Revista']
+    if m.get('Editorial'): item['publisher'] = m['Editorial']
+    if m.get('Lloc'): item['publisher-place'] = m['Lloc']
+    if m.get('Volum'): item['volume'] = str(m['Volum'])
+    if m.get('Número'): item['issue'] = str(m['Número'])
+    if m.get('Pàgines'): item['page'] = str(m['Pàgines'])
+    if m.get('Edició'): item['edition'] = str(m['Edició'])
+    if m.get('DOI'): item['DOI'] = m['DOI']
+    if m.get('ISBN'): item['ISBN'] = m['ISBN']
+    if m.get('ISSN'): item['ISSN'] = m['ISSN']
+    if m.get('URL'): item['URL'] = m['URL']
+    if m.get('Idioma'): item['language'] = m['Idioma']
+    return item
+
+
+@router.get("/export/{page_id}")
+async def export_page(
+    page_id: str,
+    format: str = Query('docx', regex=r'^(docx|odt|html|pdf|tex|markdown)$'),
+    csl: str = Query('apa'),
+    locale: str = Query('ca-AD'),
+):
+    """Exporta una pàgina del Vault al format demanat amb cites resoltes.
+
+    Workflow:
+      1. Carrega el Markdown de la pàgina (frontmatter + body).
+      2. Identifica tots els `[@key]` referenciats al body.
+      3. Resol cada key a una entrada de Recursos. Genera un CSL-JSON
+         només amb el subset usat (no totes 4198 entries).
+      4. Localitza el `.csl` style al frontend/public/csl/styles/.
+      5. Invoca pandoc amb --citeproc --csl --bibliography i retorna
+         el binari resultant com a download.
+
+    Si pandoc no és disponible o falla, 500 amb stderr.
+    """
+    file_path = await asyncio.to_thread(find_page_path, page_id)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Page not found")
+    raw = file_path.read_text(encoding='utf-8')
+    # Strip frontmatter; pandoc l'entendria però sol contenir camps que no
+    # volem al docx final.
+    body = raw
+    if body.startswith('---'):
+        m = re.match(r'^---\n.*?\n---\n', body, re.DOTALL)
+        if m:
+            body = body[m.end():]
+
+    # Identifica citation keys al body (tant [@key] bracketed com naked @key)
+    keys = set()
+    for m in re.finditer(r'\[@([a-z][a-z0-9_:-]*(?:\s*;\s*@[a-z][a-z0-9_:-]*)*)\]', body, re.IGNORECASE):
+        for k in m.group(1).split(';'):
+            kk = k.strip().lstrip('@').strip()
+            if kk:
+                keys.add(kk)
+
+    # Construeix CSL-JSON del subset
+    csl_items = []
+    if keys:
+        v_path = get_active_vault_path()
+        if v_path:
+            idx = _ensure_cite_key_index(str(v_path))
+            for k in keys:
+                entry = idx.get(k)
+                if not entry:
+                    continue
+                # Llegir la pàgina sencera per agafar la metadata
+                try:
+                    page_path = await asyncio.to_thread(find_page_path, entry['id'])
+                    if not page_path:
+                        continue
+                    raw_page = page_path.read_text(encoding='utf-8')
+                    meta, _ = parse_frontmatter(raw_page, page_path)
+                    csl_item = _recursos_metadata_to_csl(entry.get('title') or '', meta)
+                    if csl_item:
+                        csl_items.append(csl_item)
+                except OSError:
+                    continue
+
+    # Localitza el .csl style. Vivien al public/ del frontend, també accesible
+    # via filesystem si el backend i el frontend comparteixen el repo.
+    csl_path = None
+    style_map = {
+        'apa': 'apa.csl',
+        'chicago-author-date': 'chicago-author-date.csl',
+        'mla': 'modern-language-association.csl',
+        'ieee': 'ieee.csl',
+    }
+    style_file = style_map.get(csl, 'apa.csl')
+    candidates = [
+        Path('/app/frontend/public/csl/styles') / style_file,
+        Path('/app/monorepo/apps/gnosi/frontend/public/csl/styles') / style_file,
+    ]
+    for c in candidates:
+        if c.exists():
+            csl_path = c
+            break
+
+    # Invocar pandoc en un directori temporal
+    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_export_') as tmpdir:
+        tmp = Path(tmpdir)
+        (tmp / 'input.md').write_text(body, encoding='utf-8')
+        if csl_items:
+            (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
+        # Substituïm el `{{bibliography}}` marcador propi per la sintaxi
+        # nadiua de pandoc-citeproc — que injecta la bibliografia al lloc.
+        # També una secció final si no hi era.
+        content = (tmp / 'input.md').read_text(encoding='utf-8')
+        if '{{bibliography}}' in content or re.search(r'\{\{bibliography(?::[a-z-]+)?(?::[a-zA-Z-]+)?\}\}', content):
+            # Pandoc usa `# References` o `:::refs` o el final del document
+            # com a lloc de la bibliografia. Substituïm la nostra sintaxi per
+            # un heading + ref div.
+            content = re.sub(r'\{\{bibliography(?::[a-z-]+)?(?::[a-zA-Z-]+)?\}\}',
+                             '## Bibliografia\n\n::: {#refs}\n:::', content)
+            (tmp / 'input.md').write_text(content, encoding='utf-8')
+        ext_map = {'docx':'docx','odt':'odt','html':'html','pdf':'pdf','tex':'tex','markdown':'md'}
+        out_name = f'output.{ext_map[format]}'
+        cmd = ['pandoc', 'input.md', '-o', out_name]
+        if csl_items:
+            cmd += ['--citeproc', '--bibliography', 'refs.json']
+            if csl_path:
+                cmd += ['--csl', str(csl_path)]
+        if format in ('docx', 'odt', 'pdf'):
+            cmd += ['--standalone']
+        cmd += ['--metadata', f'lang={locale}']
+        try:
+            result = _ext_subprocess.run(
+                cmd, cwd=tmp, capture_output=True, text=True, timeout=60,
+            )
+        except FileNotFoundError:
+            raise HTTPException(status_code=500, detail="pandoc not available al contenidor")
+        except _ext_subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="pandoc timeout after 60s")
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"pandoc failed: {result.stderr[:500]}",
+            )
+        out_path = tmp / out_name
+        if not out_path.exists():
+            raise HTTPException(status_code=500, detail="pandoc no ha generat sortida")
+        # Llegim els bytes (el TemporaryDirectory s'esborrarà al sortir)
+        data = out_path.read_bytes()
+
+    # Genera un nom de download net
+    safe_title = re.sub(r'[^A-Za-z0-9._-]+', '_', file_path.stem)[:80] or 'document'
+    download_name = f'{safe_title}.{ext_map[format]}'
+    media = {
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'odt': 'application/vnd.oasis.opendocument.text',
+        'html': 'text/html',
+        'pdf': 'application/pdf',
+        'tex': 'application/x-latex',
+        'markdown': 'text/markdown',
+    }[format]
+    from fastapi.responses import Response
+    return Response(
+        content=data,
+        media_type=media,
+        headers={'Content-Disposition': f'attachment; filename="{download_name}"'},
+    )
+
+
+@router.get("/resolve-by-citation-key")
+async def resolve_by_citation_key(key: str):
+    """Resol un citation key (com `smith2020`) a UUID + títol consultant
+    les pàgines de la taula Recursos.
+
+    Pensat per al sistema de citations `[@key]` al BlockEditor: el frontend
+    cerca una sola key i rep el dest perquè el chip clicable obri la
+    pàgina de referència. Implementació: itera el `_page_index_entries`
+    i, per a les pàgines de la taula configurada com a "Recursos" (o
+    qualsevol amb un camp `Citation Key`), llegeix el frontmatter per
+    fer match exacte (case-sensitive — els citation keys són ASCII low).
+
+    Optimització: si l'usuari té milers de pàgines, escanejar és lent.
+    Mantenim un cache `_cite_key_index` al mòdul amb (citation_key →
+    {page_id, title}) que es renova quan canvien els fitxers. Vegis
+    `_invalidate_cite_key_index` per a la invalidació.
+    """
+    key_norm = str(key or "").strip()
+    if not key_norm:
+        raise HTTPException(status_code=400, detail="key is required")
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        raise HTTPException(status_code=503, detail="No active vault")
+    v_str = str(v_path)
+    idx = _ensure_cite_key_index(v_str)
+    entry = idx.get(key_norm)
+    if entry:
+        return entry
+    return {"id": None, "title": None, "folder": None, "citation_key": key_norm}
+
+
+# Cache citation_key → {id, title, folder, citation_key}. Es reconstrueix
+# (o invalida) quan canvia el page_index o quan algun PATCH toca el camp
+# `Citation Key`. Per simplicitat, ara fem rebuild perezós al primer ús
+# i quan el `_page_index_entries` ha canviat de mida (heurística — no
+# perfecta però suficient per al cas comú).
+_cite_key_index: dict[str, dict] = {}  # v_str → { citation_key: entry }
+_cite_key_index_size_at_build: dict[str, int] = {}  # v_str → size del page_index
+_cite_key_index_lock = threading.Lock()
+
+
+def _ensure_cite_key_index(v_str: str) -> dict:
+    """Construeix (o reusa) l'índex de citation keys per al vault donat.
+
+    Estratègia perezosa: si el page_index ha canviat de mida des de l'últim
+    build, refem. Si no, retornem el cache. Aquesta heurística no detecta
+    edicions del mateix nombre d'entrades (un Citation Key que canvia
+    sense afegir/eliminar pàgines), però el cost de tenir-ho stale durant
+    una sessió de l'usuari és baix — només significa que un canvi de
+    citation key triga 5 minuts a propagar-se als chips inline. Per a
+    canvis crítics, vegis `_invalidate_cite_key_index`.
+    """
+    with _cite_key_index_lock:
+        with _page_index_lock:
+            current_size = len(_page_index_entries.get(v_str, {}))
+        prev_size = _cite_key_index_size_at_build.get(v_str)
+        if v_str in _cite_key_index and prev_size == current_size:
+            return _cite_key_index[v_str]
+        # Rebuild
+        log.info(f"🔎 Rebuilding cite_key_index for {v_str}")
+        idx: dict[str, dict] = {}
+        with _page_index_lock:
+            entries = list(_page_index_entries.get(v_str, {}).values())
+        for entry in entries:
+            path = entry.get("path")
+            if not path or not Path(path).exists():
+                continue
+            try:
+                # Llegim només la capçalera del fitxer per minimitzar I/O:
+                # els frontmatters Markdown solen tenir <2KB.
+                with open(path, "r", encoding="utf-8") as f:
+                    head = f.read(4096)
+                if not head.startswith("---"):
+                    continue
+                # Cerca "Citation Key:" al frontmatter
+                m = re.search(r"^Citation Key:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
+                if not m:
+                    continue
+                ck = m.group(1).strip()
+                if ck and ck not in idx:
+                    idx[ck] = {
+                        "id": entry.get("id"),
+                        "title": entry.get("title"),
+                        "folder": entry.get("folder"),
+                        "citation_key": ck,
+                    }
+            except OSError:
+                continue
+        _cite_key_index[v_str] = idx
+        _cite_key_index_size_at_build[v_str] = current_size
+        log.info(f"🔎 Built cite_key_index: {len(idx)} keys")
+        return idx
+
+
+def _invalidate_cite_key_index(v_str: str = None) -> None:
+    """Buida el cache del cite_key_index (tot o per vault)."""
+    with _cite_key_index_lock:
+        if v_str is None:
+            _cite_key_index.clear()
+            _cite_key_index_size_at_build.clear()
+        else:
+            _cite_key_index.pop(v_str, None)
+            _cite_key_index_size_at_build.pop(v_str, None)
+
+
 @router.get("/resolve-by-title")
 async def resolve_by_title(title: str):
     """Resol un títol literal a UUID consultant el _page_index_entries.

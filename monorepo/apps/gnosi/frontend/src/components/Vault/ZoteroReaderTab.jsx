@@ -60,9 +60,25 @@ export function detectKindFromSrc(src) {
     return (m && KIND_BY_EXTENSION[m[1]]) || 'pdf';
 }
 
+// Mapeig de la language del react-i18next (ca / es / en / ...) al codi de
+// locale que Zotero fa servir (ca-AD / es-ES / en-US). Si no hi és al
+// mapeig, fallback a en-US.
+const GNOSI_TO_ZOTERO_LOCALE = {
+    ca: 'ca-AD',
+    es: 'es-ES',
+    en: 'en-US',
+};
+
 export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = false, kind: kindProp }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const iframeRef = useRef(null);
+    // Idioma per al visor Zotero. El recalculem quan l'usuari canvia la
+    // language a Gnosi (re-mount del component via key és típic, però
+    // detectem-ho aquí per si la app no fa un re-mount complet).
+    const zoteroLanguage = useMemo(() => {
+        const base = (i18n?.language || 'ca').split('-')[0];
+        return GNOSI_TO_ZOTERO_LOCALE[base] || 'en-US';
+    }, [i18n?.language]);
     const rawSrc = src || '';
     const kind = kindProp || detectKindFromSrc(rawSrc);
     const filename = useMemo(() => {
@@ -185,14 +201,15 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
             payload: {
                 pdfUrl,
                 kind,
+                language: zoteroLanguage,
                 annotations: annotationsRef.current,
                 options: {
                     authorName: 'User',
                     readOnly: false,
                 },
             },
-        }, '*');
-    }, [pdfUrl, annotationsLoaded, kind]);
+        }, window.location.origin);
+    }, [pdfUrl, annotationsLoaded, kind, zoteroLanguage]);
 
     useEffect(() => {
         sendInitIfReady();
@@ -266,7 +283,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
             const body = zoteroToPdfAnnotation(ann, rawSrc);
             try {
                 if (dbId != null) {
-                    await fetch(`/api/vault/pdf-annotations/${dbId}`, {
+                    const res = await fetch(`/api/vault/pdf-annotations/${dbId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -276,6 +293,13 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
                             rects: body.rects,
                         }),
                     });
+                    if (!res.ok) {
+                        // fetch no llença per a non-2xx. Sense això un 403/500
+                        // es passava per alt; ara veiem detall si el backend
+                        // l'inclou al cos.
+                        const detail = await res.text().catch(() => '');
+                        console.warn('zotero-reader: PATCH failed', res.status, detail.slice(0, 200));
+                    }
                 } else {
                     const res = await fetch('/api/vault/pdf-annotations', {
                         method: 'POST',
@@ -305,7 +329,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
                 target: 'zotero-reader',
                 type: 'update-annotation-ids',
                 idMap: idUpdates,
-            }, '*');
+            }, window.location.origin);
         }
     }, [rawSrc]);
 
@@ -322,12 +346,18 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
             }
             if (dbId == null) continue;
             try {
-                await fetch(`/api/vault/pdf-annotations/${dbId}`, { method: 'DELETE' });
-                // Netejar el mapeig perquè no quedi `gnosi:N` apuntant a
-                // un row inexistent si l'usuari recrea amb el mateix id
-                // (improbable, però defensiu).
-                zoteroToDbIdRef.current.delete(id);
-                zoteroToDbIdRef.current.delete(`gnosi:${dbId}`);
+                const res = await fetch(`/api/vault/pdf-annotations/${dbId}`, { method: 'DELETE' });
+                // 404 és acceptable (race amb un altre client que ja l'ha
+                // esborrat) — netegem igualment el mapeig perquè no quedi
+                // un id orfe. Altres status d'error: loguem i NO toquem el
+                // mapeig, així el proper save pot intentar re-sincronitzar.
+                if (res.ok || res.status === 404) {
+                    zoteroToDbIdRef.current.delete(id);
+                    zoteroToDbIdRef.current.delete(`gnosi:${dbId}`);
+                } else {
+                    const detail = await res.text().catch(() => '');
+                    console.warn('zotero-reader: DELETE failed', res.status, detail.slice(0, 200));
+                }
             } catch (err) {
                 console.warn('zotero-reader: delete failed', err);
             }

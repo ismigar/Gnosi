@@ -1,0 +1,79 @@
+# Dependabot config — actualitzacions setmanals automàtiques per a les
+# dependències del projecte. Vegis https://docs.github.com/en/code-security/dependabot.
+#
+# Es generen PRs un cop a la setmana (dilluns). Cada update queda agrupat
+# per ecosistema. Si un PR no és desitjable (ex.: una versió major que
+# trenca alguna cosa), només cal tancar-lo i Dependabot no el reobrirà
+# fins que canviï la versió disponible.
+#
+# Coses que NO cobreix Dependabot i fem en una GitHub Action a part:
+#   - Fitxers `.csl` descarregats manualment a `frontend/public/csl/`
+#   - Fitxers `.ftl` de Zotero descarregats a `frontend/public/zotero-reader/locales/`
+#   - Versió de pandoc del Dockerfile (apt agafa la més recent al build)
+#
+# Coses excloses deliberadament (les volem mantenir nosaltres):
+#   - `react-pdf` i `pdfjs-dist`: ara són secundaris perquè el visor és
+#     Zotero reader. No volem actualitzacions automàtiques.
+
+version: 2
+updates:
+  # NPM frontend
+  - package-ecosystem: "npm"
+    directory: "/monorepo/apps/gnosi/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+    # Agrupar updates similars per evitar inundació de PRs
+    groups:
+      blocknote:
+        patterns:
+          - "@blocknote/*"
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+      mantine:
+        patterns:
+          - "@mantine/*"
+      lucide:
+        patterns:
+          - "lucide-react"
+    ignore:
+      # `react-pdf` és secundari ara (visor Zotero és el principal). No
+      # volem PRs setmanals per a una dependència que ja no és crítica.
+      - dependency-name: "react-pdf"
+      - dependency-name: "pdfjs-dist"
+
+  # Python backend
+  - package-ecosystem: "pip"
+    directory: "/monorepo/apps/gnosi"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+
+  # Git submodules (especialment zotero/reader)
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "vendor"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "ci"

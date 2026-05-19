@@ -58,6 +58,8 @@ import { VaultEditorContext } from './VaultEditorContext';
 import { DbViewEmbed } from './DbViewEmbed';
 import { EmbedRenderer } from './EmbedRenderer';
 import { WikilinkInline } from './WikilinkInline';
+import { CiteInline } from './CiteInline';
+import { BibliographyBlock } from './BibliographyBlock';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
@@ -869,6 +871,16 @@ export function EditorInner({
                 propSchema: { url: { default: "" }, caption: { default: "" } },
                 content: "none",
             }, { render: (props) => <EmbedRenderer block={props.block} editor={props.editor} /> }),
+            // Block que renderitza la bibliografia del document segons les
+            // cites `[@key]` que conté. Vegeu BibliographyBlock.jsx.
+            bibliography: createReactBlockSpec({
+                type: "bibliography",
+                propSchema: {
+                    style: { default: "apa" },
+                    locale: { default: "ca-AD" },
+                },
+                content: "none",
+            }, { render: (props) => <BibliographyBlock block={props.block} editor={props.editor} /> }),
             toggle: createReactBlockSpec({
                 type: "toggle",
                 propSchema: { backgroundColor: { default: "default" }, textColor: { default: "default" } },
@@ -903,6 +915,20 @@ export function EditorInner({
                     />
                 )
             }),
+            // Citation `[@key]`: chip clicable que enllaça amb una entrada
+            // de Recursos pel seu camp `Citation Key`. Vegeu CiteInline.jsx
+            // per al render i resolució async via /api/vault/resolve-by-citation-key.
+            cite: createReactInlineContentSpec({
+                type: "cite",
+                propSchema: {
+                    citationKey: { default: "" },
+                },
+                content: "none",
+            }, {
+                render: (props) => (
+                    <CiteInline citationKey={props.inlineContent.props.citationKey} />
+                )
+            }),
             alert: createReactBlockSpec({
                 type: "alert",
                 propSchema: {
@@ -924,12 +950,14 @@ export function EditorInner({
                 gnosi_view: { ...specs.gnosi_view(), group: "bnBlock" },
                 transclusion: { ...specs.transclusion(), group: "bnBlock" },
                 embed: { ...specs.embed(), group: "bnBlock" },
+                bibliography: { ...specs.bibliography(), group: "bnBlock" },
                 toggle: { ...specs.toggle(), group: "bnBlock" },
                 alert: { ...specs.alert(), group: "bnBlock" },
             },
             inlineContentSpecs: {
                 ...defaultInlineContentSpecs,
                 wikilink: specs.wikilink,
+                cite: specs.cite,
             },
             styleSpecs: defaultStyleSpecs,
         });

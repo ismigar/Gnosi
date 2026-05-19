@@ -1,0 +1,119 @@
+name: Refresh vendor files
+
+# Refresca fitxers de tercers que NO són gestionats per Dependabot
+# (fitxers descarregats individualment, no via package managers).
+#
+# Concretament:
+#   - CSL Styles a `frontend/public/csl/styles/*.csl`
+#     (descarregats de citation-style-language/styles)
+#   - CSL Locales a `frontend/public/csl/locales/*.xml`
+#     (de citation-style-language/locales)
+#   - Zotero translations `.ftl` a `frontend/public/zotero-reader/locales/`
+#     (de zotero/zotero al commit pinned al submodule)
+#
+# Si detecta canvis, crea un PR setmanal amb el diff. Si no, no fa res.
+
+on:
+  schedule:
+    # Dilluns 4:00 UTC (just després de Dependabot per evitar concurrència)
+    - cron: '0 4 * * 1'
+  workflow_dispatch:  # permet executar manualment des de la UI
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false  # no necessitem el submodule pesant
+
+      - name: Re-download CSL Styles
+        run: |
+          set -e
+          cd monorepo/apps/gnosi/frontend/public/csl/styles
+          for s in apa chicago-author-date modern-language-association ieee; do
+            url="https://raw.githubusercontent.com/citation-style-language/styles/master/$s.csl"
+            curl -sS -f -L --retry 3 -o "$s.csl.new" "$url"
+            if ! cmp -s "$s.csl" "$s.csl.new"; then
+              mv "$s.csl.new" "$s.csl"
+              echo "Updated: $s.csl"
+            else
+              rm "$s.csl.new"
+            fi
+          done
+
+      - name: Re-download CSL Locales
+        run: |
+          set -e
+          cd monorepo/apps/gnosi/frontend/public/csl/locales
+          for lang in ca-AD es-ES en-US en-GB; do
+            url="https://raw.githubusercontent.com/citation-style-language/locales/master/locales-$lang.xml"
+            curl -sS -f -L --retry 3 -o "locales-$lang.xml.new" "$url"
+            if ! cmp -s "locales-$lang.xml" "locales-$lang.xml.new"; then
+              mv "locales-$lang.xml.new" "locales-$lang.xml"
+              echo "Updated: locales-$lang.xml"
+            else
+              rm "locales-$lang.xml.new"
+            fi
+          done
+
+      - name: Re-download Zotero translations
+        run: |
+          set -e
+          # El commit hash del submodule defineix la versió alineada;
+          # si no l'agafem aquí, descarreguem del HEAD que pot ser
+          # incoherent. Sense `submodules: true` no tenim
+          # .zotero-locale-commit del submodule, així que llegim de master.
+          COMMIT=$(curl -sS -f "https://api.github.com/repos/zotero/reader/contents/.zotero-locale-commit?ref=master" \
+            | python3 -c "import json,sys,base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode().strip())")
+          if [ -z "$COMMIT" ]; then
+            echo "No s'ha pogut llegir el commit hash del Zotero locale" >&2
+            exit 1
+          fi
+          echo "Zotero locale commit: $COMMIT"
+          cd monorepo/apps/gnosi/frontend/public/zotero-reader/locales
+          for lang in en-US ca-AD es-ES; do
+            for file in zotero.ftl reader.ftl; do
+              url="https://raw.githubusercontent.com/zotero/zotero/$COMMIT/chrome/locale/$lang/zotero/$file"
+              mkdir -p "$lang"
+              if curl -sS -f -L --retry 3 -o "$lang/$file.new" "$url"; then
+                if [ -f "$lang/$file" ] && cmp -s "$lang/$file" "$lang/$file.new"; then
+                  rm "$lang/$file.new"
+                else
+                  mv "$lang/$file.new" "$lang/$file"
+                  echo "Updated: $lang/$file"
+                fi
+              else
+                echo "WARN: $url failed, skipping" >&2
+                rm -f "$lang/$file.new"
+              fi
+            done
+          done
+
+      - name: Create Pull Request (si hi ha canvis)
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(vendor): refresh CSL styles, locales i Zotero translations"
+          title: "chore(vendor): refresh vendor files (weekly)"
+          body: |
+            Refresca automàtica dels fitxers de tercers descarregats fora
+            de package managers:
+
+            - `monorepo/apps/gnosi/frontend/public/csl/styles/*.csl`
+              (citation-style-language/styles@master)
+            - `monorepo/apps/gnosi/frontend/public/csl/locales/*.xml`
+              (citation-style-language/locales@master)
+            - `monorepo/apps/gnosi/frontend/public/zotero-reader/locales/<lang>/*.ftl`
+              (zotero/zotero al commit pinned per `zotero/reader`)
+
+            Generat per `.github/workflows/refresh-vendor-files.yml`.
+
+            Si no hi ha canvis al diff, simplement tanca aquest PR — no
+            es tornarà a crear fins que canvii alguna cosa upstream.
+          branch: chore/refresh-vendor-files
+          labels: dependencies,vendor
+          delete-branch: true
