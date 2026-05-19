@@ -204,6 +204,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const [addingSubitemFor, setAddingSubitemFor] = useState(null); // parent ID for adding a subitem
     const [openingResourceId, setOpeningResourceId] = useState(null);
     const [visibleRowsCount, setVisibleRowsCount] = useState(ROWS_BATCH_SIZE);
+    // `useCallback` per mantenir la referència estable: `React.memo` al
+    // `InfiniteLoadSentinel` només funciona si les props no canvien a
+    // cada render del pare. Sense això, una nova funció inline per
+    // render fa que el sentinel es remunti i `IntersectionObserver` es
+    // reconnecti, disparant `onLoadMore` immediatament i en bucle fins
+    // omplir la llista — efectivament treia el benefici del batching.
+    const handleLoadMoreRows = useCallback(() => {
+        setVisibleRowsCount(prev => prev + ROWS_BATCH_SIZE);
+    }, [ROWS_BATCH_SIZE]);
     const [newRowTitle, setNewRowTitle] = useState('');
     // Acció pendent disparada per un camp de tipus `button`. Si està set,
     // mostrem el modal corresponent a l'acció (ara mateix només `translate_row`).
@@ -269,22 +278,6 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
  
     const sortedNotes = rootNotes; // They come filtered and sorted from the hook
 
-    // `useCallback` per mantenir la referència estable: `React.memo` al
-    // `InfiniteLoadSentinel` només funciona si les props no canvien a
-    // cada render del pare. Sense això, una nova funció inline per
-    // render fa que el sentinel es remunti i `IntersectionObserver` es
-    // reconnecti, disparant `onLoadMore` immediatament i en bucle fins
-    // omplir la llista — efectivament treia el benefici del batching.
-    //
-    // Clamp explícit a `sortedNotes.length`: el sentinel pot disparar
-    // múltiples cops abans del següent paint (p.ex. quan el viewport
-    // l'engloba durant un re-layout). Sense aquest límit, el comptat
-    // intern (`visibleRowsCount`) podia superar el total real, deixant
-    // estats com "Mostrant 354 de 303 registres".
-    const handleLoadMoreRows = useCallback(() => {
-        setVisibleRowsCount(prev => Math.min(prev + ROWS_BATCH_SIZE, sortedNotes.length));
-    }, [ROWS_BATCH_SIZE, sortedNotes.length]);
-
     // ---- MULTIPLE SELECTION ----
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
     const lastSelectedId = [...selectedIds].at(-1) ?? null;
@@ -337,56 +330,49 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // scroll (`overscan`). El cost del primer paint cau a O(viewport),
     // independent de la mida total de la taula.
     //
-    // Patró: `<tbody>` natiu amb espaiadors `<tr>` (height = padding) per
-    // sobre i sota dels rows visibles, així `<table>`+`<thead>` mantenen
-    // l'alineació de columnes sense haver de canviar `display: block`.
+    // **Descriptors plans**: `tanstack/react-virtual` assumeix 1 element
+    // mesurable per índex. Per evitar trencar aquest contracte (root +
+    // children expandits + form subitem dins un `Fragment` confonia el
+    // virtualizer i feia padding/scroll imprecisos), aplanem la jerarquia
+    // a una llista única `rowDescriptors` on **cada entrada genera un
+    // sol `<tr>`**. El virtualizer indexa 1:1 contra aquesta llista i
+    // `measureElement` rep directament el `<tr>` del virtual item.
+    //
+    // Patró del DOM: `<tbody>` natiu amb espaiadors `<tr>` (height =
+    // padding) per sobre i sota dels rows visibles, així `<table>`+
+    // `<thead>` mantenen l'alineació de columnes sense haver de canviar
+    // `display: block`.
     const tableContainerRef = useRef(null);
-    // Altura aproximada per cas. Si la row és expandida amb N subitems,
-    // afegim un overhead de ~56 px per cada child. És només una primera
-    // estimació; `measureElement` (sota) corregeix amb la mida real un
-    // cop el row està al DOM.
-    const estimateSize = useCallback((index) => {
-        const note = visibleRootNotes[index];
-        if (!note) return 56;
-        const isExpanded = expandedRows.has(note.id);
-        if (!isExpanded) return 56;
-        const childCount = childrenMap[note.id]?.length || 0;
-        const subitemRow = addingSubitemFor === note.id ? 56 : 0;
-        return 56 * (1 + childCount) + subitemRow;
+
+    // Llista plana de descriptors. Cada entrada → 1 `<tr>` virtual.
+    const rowDescriptors = useMemo(() => {
+        const list = [];
+        for (const note of visibleRootNotes) {
+            list.push({ kind: 'row', note, isChild: false, depth: 0 });
+            if (expandedRows.has(note.id)) {
+                const children = childrenMap[note.id] || [];
+                for (const child of children) {
+                    list.push({ kind: 'row', note: child, isChild: true, depth: 1 });
+                }
+                if (addingSubitemFor === note.id) {
+                    list.push({ kind: 'new-subitem', parentNote: note, depth: 1 });
+                }
+            }
+        }
+        return list;
     }, [visibleRootNotes, expandedRows, childrenMap, addingSubitemFor]);
 
-    // `measureElement` rep el primer `<tr>` que té `data-index` —
-    // tanstack/react-virtual només propaga el ref al primer element del
-    // virtual item. Com `renderRow` retorna un `<React.Fragment>` amb
-    // varis `<tr>`s (pare + children expandits + form de subitem),
-    // recorrem els germans consecutius amb el mateix `data-row-id` i
-    // sumem les seves alçades reals. Així el virtualizer coneix l'espai
-    // ocupat per tota l'expansió, no només el pare, i el scroll deixa
-    // de saltar quan algú expandeix/contreu rows.
-    const measureRow = useCallback((el) => {
-        if (!el) return 56;
-        const rowId = el.getAttribute('data-row-id');
-        if (!rowId) return el.getBoundingClientRect().height || 56;
-        let total = 0;
-        let cur = el;
-        while (cur && cur.getAttribute && cur.getAttribute('data-row-id') === rowId) {
-            total += cur.getBoundingClientRect().height;
-            cur = cur.nextElementSibling;
-        }
-        return total || 56;
-    }, []);
-
     const rowVirtualizer = useVirtualizer({
-        count: visibleRootNotes.length,
+        count: rowDescriptors.length,
         getScrollElement: () => tableContainerRef.current,
-        estimateSize,
-        measureElement: measureRow,
-    const rowVirtualizer = useVirtualizer({
-        count: visibleRootNotes.length,
-        getScrollElement: () => tableContainerRef.current,
-        // Altura estimada per row "plana" (sense subitems expandits). Si
-        // és inexacta, el virtualizer corregeix amb el primer measure.
+        // Una row aproxima 56 px. Amb descriptors plans no cal pujar
+        // l'estimació per expansió: cada child és ja el seu propi virtual
+        // item amb el seu propi estimateSize/measureElement.
         estimateSize: () => 56,
+        // Mesura directa: cada virtual item és UN sol `<tr>`, no fa falta
+        // DOM walking. Aquesta és precisament la millora que el patró
+        // d'aplanament aporta sobre el de `Fragment` + walking.
+        measureElement: (el) => el?.getBoundingClientRect().height || 56,
         overscan: 8,
     });
     const virtualRows = rowVirtualizer.getVirtualItems();
@@ -1413,24 +1399,26 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // duen `data-row-id={rootRowId}`. Això permet al `measureElement`
     // del virtualizer sumar les seves alçades reals per saber l'espai
     // ocupat per l'expansió completa, no només el pare.
-    const renderRow = (note, isChild = false, depth = 0, rowPath = '0', rootRowId = null, virtualItem = null) => {
+    // Renderitza un sol `<tr>` (root o child). Per virtualizacio 1:1
+    // entre virtual items i `<tr>`, aquesta funcio NO renderitza ni la
+    // recursio a children ni el form de nou subitem: aquests es generen
+    // com a descriptors separats (vegeu `rowDescriptors` mes avall) i
+    // tenen els seus propis renderers.
+    const renderRow = (note, isChild = false, depth = 0, rowPath = '0', virtualItem = null) => {
         const hasChildren = (childrenMap[note.id]?.length > 0);
         const isExpanded = expandedRows.has(note.id);
-        const isAddingSubitem = addingSubitemFor === note.id;
-        const effectiveRootRowId = rootRowId ?? note.id;
 
         return (
-            <React.Fragment key={`${note.id || 'note'}-${rowPath}`}>
-                <tr
-                    data-row-id={effectiveRootRowId}
-                    data-index={virtualItem?.index}
-                    ref={virtualItem ? rowVirtualizer.measureElement : undefined}
-                    className={`border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] cursor-pointer transition-colors group/row
-                        ${isListView ? 'border-b-0 group' : ''}
-                        ${isSelected(note.id) ? 'bg-indigo-500/10' : ''}
-                        ${isChild ? 'bg-[var(--bg-secondary)]/30' : ''}
-                    `}
-                    onClick={() => { /* Row: selection via checkbox */ }}
+            <tr
+                key={`${note.id || 'note'}-${rowPath}`}
+                data-index={virtualItem?.index}
+                ref={virtualItem ? rowVirtualizer.measureElement : undefined}
+                className={`border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] cursor-pointer transition-colors group/row
+                    ${isListView ? 'border-b-0 group' : ''}
+                    ${isSelected(note.id) ? 'bg-indigo-500/10' : ''}
+                    ${isChild ? 'bg-[var(--bg-secondary)]/30' : ''}
+                `}
+                onClick={() => { /* Row: selection via checkbox */ }}
                     onDoubleClick={() => onNoteSelect(note.id)}
                 >
                     {/* Acció cel·la */}
@@ -1591,56 +1579,61 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         <Clock size={14} className="shrink-0" />
                         <span className="truncate">{new Date(note.last_modified).toLocaleDateString(i18n.language)}</span>
                     </td>
-                </tr>
-
-                {isExpanded && (childrenMap[note.id] || []).map((child, childIndex) => renderRow(child, true, depth + 1, `${rowPath}.${childIndex}`, effectiveRootRowId))}
-
-                {isAddingSubitem && (
-                    <tr data-row-id={effectiveRootRowId} className="border-b border-[var(--border-primary)] bg-indigo-500/5">
-                        <td className="w-10 sticky left-0 z-20 bg-[var(--bg-primary)]" />
-                        <td
-                            style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
-                            className="py-1.5 px-4 sticky left-10 z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)]"
-                        >
-                            <div className="flex items-center gap-2" style={{ marginLeft: (depth + 1) * 20 }}>
-                                <input
-                                    ref={subitemInputRef}
-                                    type="text"
-                                    placeholder={t('table.subitem_name_placeholder')}
-                                    value={newSubitemTitle}
-                                    onChange={(e) => setNewSubitemTitle(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleCreateSubitem(note.id);
-                                        if (e.key === 'Escape') {
-                                            setAddingSubitemFor(null);
-                                            setNewSubitemTitle('');
-                                        }
-                                    }}
-                                    className="flex-1 px-2 py-1 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm"
-                                />
-                                <button
-                                    onClick={() => handleCreateSubitem(note.id)}
-                                    className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors shrink-0 font-medium"
-                                >
-                                    {t('common.create')}
-                                </button>
-                                <button
-                                    onClick={() => { setAddingSubitemFor(null); setNewSubitemTitle(''); }}
-                                    className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        </td>
-                        {dynamicColumns.map(([key]) => (
-                            <td key={key} style={{ width: columnWidths[key] || 180 }} className="py-1.5 px-4" />
-                        ))}
-                        <td style={{ width: columnWidths['last_modified'] || 150 }} className="py-1.5 px-4 border-l border-[var(--border-primary)]" />
-                    </tr>
-                )}
-            </React.Fragment>
+            </tr>
         );
     };
+
+    // Renderitza el `<tr>` del formulari "nou subitem". Es un descriptor
+    // virtual independent del seu pare; aixi virtualizer es manté 1:1
+    // amb els `<tr>`s.
+    const renderNewSubitemRow = (parentNote, depth = 1, virtualItem = null) => (
+        <tr
+            key={`new-sub-${parentNote.id}`}
+            data-index={virtualItem?.index}
+            ref={virtualItem ? rowVirtualizer.measureElement : undefined}
+            className="border-b border-[var(--border-primary)] bg-indigo-500/5"
+        >
+            <td className="w-10 sticky left-0 z-20 bg-[var(--bg-primary)]" />
+            <td
+                style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
+                className="py-1.5 px-4 sticky left-10 z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)]"
+            >
+                <div className="flex items-center gap-2" style={{ marginLeft: depth * 20 }}>
+                    <input
+                        ref={subitemInputRef}
+                        type="text"
+                        placeholder={t('table.subitem_name_placeholder')}
+                        value={newSubitemTitle}
+                        onChange={(e) => setNewSubitemTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleCreateSubitem(parentNote.id);
+                            if (e.key === 'Escape') {
+                                setAddingSubitemFor(null);
+                                setNewSubitemTitle('');
+                            }
+                        }}
+                        className="flex-1 px-2 py-1 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm"
+                    />
+                    <button
+                        onClick={() => handleCreateSubitem(parentNote.id)}
+                        className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors shrink-0 font-medium"
+                    >
+                        {t('common.create')}
+                    </button>
+                    <button
+                        onClick={() => { setAddingSubitemFor(null); setNewSubitemTitle(''); }}
+                        className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+            </td>
+            {dynamicColumns.map(([key]) => (
+                <td key={key} style={{ width: columnWidths[key] || 180 }} className="py-1.5 px-4" />
+            ))}
+            <td style={{ width: columnWidths['last_modified'] || 150 }} className="py-1.5 px-4 border-l border-[var(--border-primary)]" />
+        </tr>
+    );
 
     return (
         <div className={`w-full h-full overflow-hidden ${isEmbedded ? '' : 'bg-[var(--bg-primary)]'}`}>
@@ -1744,9 +1737,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                 </tr>
                             )}
                             {virtualRows.map(vi => {
-                                const note = visibleRootNotes[vi.index];
-                                if (!note) return null;
-                                return renderRow(note, false, 0, `${vi.index}`, null, vi);
+                                const d = rowDescriptors[vi.index];
+                                if (!d) return null;
+                                if (d.kind === 'row') {
+                                    return renderRow(d.note, d.isChild, d.depth, `${vi.index}`, vi);
+                                }
+                                if (d.kind === 'new-subitem') {
+                                    return renderNewSubitemRow(d.parentNote, d.depth, vi);
+                                }
+                                return null;
                             })}
                             {virtPaddingBottom > 0 && (
                                 <tr aria-hidden="true">
