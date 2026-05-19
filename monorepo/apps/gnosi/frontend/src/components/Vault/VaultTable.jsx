@@ -83,7 +83,49 @@ import { notifyError, logError } from '../../lib/notifyError';
 
 export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
     const { t, i18n } = useTranslation();
-    const safeNotes = notes || [];
+    // Overrides optimistic per cel·la. Map<noteId, partialMetadata>. Quan
+    // l'usuari edita un camp, apliquem el canvi aquí *abans* del PATCH al
+    // backend; així la UI reflecteix la nova dada de seguida (0 ms percebut)
+    // i el backend (~200-450 ms) corre en background. Es netegen
+    // automàticament al `useEffect` de sota quan el prop `notes` arriba
+    // amb el valor desitjat ja reflectit (post-refetch); si el PATCH falla,
+    // el catch a `handleCellSave` els treu manualment (rollback) i mostra
+    // un toast d'error.
+    const [optimisticPatches, setOptimisticPatches] = useState(() => new Map());
+    // Estabilitzem la referència a `notes || []` per evitar que canviï a
+    // cada render i invalidi `useMemo`/`useEffect` sense raó.
+    const rawNotes = useMemo(() => notes || [], [notes]);
+    const safeNotes = useMemo(() => {
+        if (optimisticPatches.size === 0) return rawNotes;
+        return rawNotes.map(n => {
+            const patch = optimisticPatches.get(n.id);
+            if (!patch) return n;
+            return { ...n, metadata: { ...(n.metadata || {}), ...patch } };
+        });
+    }, [rawNotes, optimisticPatches]);
+
+    // Neteja els patches que ja queden reflectits a `notes` (després d'un
+    // refetch reeixit). Sense això, els overrides s'acumularien indefinidament.
+    useEffect(() => {
+        if (optimisticPatches.size === 0) return;
+        setOptimisticPatches(prev => {
+            let changed = false;
+            const next = new Map(prev);
+            for (const [noteId, patch] of next) {
+                const note = rawNotes.find(n => n.id === noteId);
+                if (!note) continue;
+                const allMatch = Object.entries(patch).every(
+                    ([k, v]) => (note.metadata || {})[k] === v
+                );
+                if (allMatch) {
+                    next.delete(noteId);
+                    changed = true;
+                }
+            }
+            return changed ? next : prev;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- només volem reaccionar a canvis de `notes`
+    }, [rawNotes]);
     const ROWS_BATCH_SIZE = 200;
 
     // State for column widths
@@ -541,17 +583,25 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         const currentValue = note.metadata?.[originalMetaKey];
         if (currentValue === newValue) return;
 
-        const updatedMetadata = { ...note.metadata, [originalMetaKey]: newValue };
+        // 1. OPTIMISTIC: aplica el canvi local immediatament — l'usuari
+        //    veu el valor nou abans que el backend respongui (~200-450 ms).
+        setOptimisticPatches(prev => {
+            const next = new Map(prev);
+            const existing = next.get(noteId) || {};
+            next.set(noteId, { ...existing, [originalMetaKey]: newValue });
+            return next;
+        });
 
         try {
+            // 2. PATCH partial — el backend fa `metadata.update(request.metadata)`
+            //    i conserva title / content / altres camps intactes. Abans
+            //    enviàvem PUT amb `title + content + metadata` complets per
+            //    cada cel·la editada (potser MBs de body, doble latència de
+            //    serialització).
             const response = await fetch(`/api/vault/pages/${noteId}`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: note.title,
-                    content: note.content || "",
-                    metadata: updatedMetadata
-                })
+                body: JSON.stringify({ metadata: { [originalMetaKey]: newValue } })
             });
             if (!response.ok) {
                 // fetch només llança a errors de xarxa, no a 4xx/5xx → si no ho
@@ -566,15 +616,37 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     await propagateToParent(parentId, field, noteId, newValue);
                 }
             }
-            // Refresh data to reflect changes in UI
-            if (onCellSaved) await onCellSaved();
+            // Refresh in background — el cache del backend ja ha estat
+            // invalidat al PATCH. NO esperem aquí: l'usuari ja veu el canvi
+            // gràcies a l'optimistic patch, i quan arribi el nou `notes`
+            // prop, el `useEffect` netejarà l'override automàticament.
+            if (onCellSaved) onCellSaved();
             else if (onUpdateView) onUpdateView(activeView);
         } catch (error) {
+            // 3. ROLLBACK: treu només el patch d'aquest camp (mantenim
+            //    altres patches pendents per a la mateixa nota intactes).
+            setOptimisticPatches(prev => {
+                const next = new Map(prev);
+                const existing = next.get(noteId);
+                if (existing) {
+                    const { [originalMetaKey]: _removed, ...rest } = existing;
+                    if (Object.keys(rest).length === 0) {
+                        next.delete(noteId);
+                    } else {
+                        next.set(noteId, rest);
+                    }
+                }
+                return next;
+            });
             // Cell save failures used to be silent. Surface them so the user
             // doesn't believe the change was persisted when it wasn't.
             notifyError('table-save-cell', error, t('table.save_cell_error', 'Error desant la cel·la'));
         }
-    }, [safeNotes, activeView, onUpdateView]);
+    // `propagateToParent` i `t` són capturats pel closure; afegir-los al
+    // dep array crearia un cicle de recreació amb `propagateToParent` (que
+    // a la vegada depèn de `handleCellSave`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [safeNotes, activeView, onUpdateView, onCellSaved]);
 
     // ---- PROPAGATION LOGIC TO PARENT ----
     const propagateToParent = useCallback(async (parentId, changedField, changedChildId, newValue) => {
