@@ -3,8 +3,13 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies if needed
-# Install system dependencies including Docker Client for MCP
-RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+# Install system dependencies including Docker Client for MCP, plus pandoc
+# per al servei d'export (Markdown del Vault → .docx/.odt/.html/.tex amb
+# cites resoltes via --citeproc + CSL). pandoc inclou citeproc al binari
+# des de v2.11. Tamany: ~150MB; opcional eliminar si no es vol l'export.
+RUN apt-get update \
+    && apt-get install -y docker.io pandoc \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

@@ -64,5 +64,72 @@ else
     echo "WARN: host.html no trobat — el reader no podrà inicialitzar-se" >&2
 fi
 
+# --- i18n extra ---
+# El bundle de Zotero per defecte només porta `en-US` (configurat al
+# webpack.config.js del submodule). Per al frontend de Gnosi (català per
+# defecte, espanyol opcional) baixem manualment `ca-AD` i `es-ES` des del
+# repo de Zotero. El zotero-host.html els carregarà segons la `language`
+# que el component React li passi al payload `init`.
+#
+# Reproductibilitat: el commit hash es llegeix de `.zotero-locale-commit`
+# del submodule, que els scripts del propi reader actualitzen al build de
+# pdfjs. Si no existeix (submodule no inicialitzat correctament), és un
+# error fatal — abans feiem fallback a `master` que era no-determinista.
+LOCALE_COMMIT_FILE="$READER_DIR/.zotero-locale-commit"
+if [ ! -f "$LOCALE_COMMIT_FILE" ]; then
+    echo "ERROR: no troba $LOCALE_COMMIT_FILE — submodule mal inicialitzat?" >&2
+    echo "  prova: git submodule update --init --recursive" >&2
+    exit 1
+fi
+LOCALE_COMMIT=$(cat "$LOCALE_COMMIT_FILE")
+if [ -z "$LOCALE_COMMIT" ]; then
+    echo "ERROR: $LOCALE_COMMIT_FILE és buit" >&2
+    exit 1
+fi
+echo "→ Baixant traduccions de Zotero (commit $LOCALE_COMMIT)"
+
+LOCALES_TARGET="$PUBLIC_TARGET/locales"
+mkdir -p "$LOCALES_TARGET"
+for lang in ca-AD es-ES; do
+    mkdir -p "$LOCALES_TARGET/$lang"
+    for file in zotero.ftl reader.ftl; do
+        url="https://raw.githubusercontent.com/zotero/zotero/$LOCALE_COMMIT/chrome/locale/$lang/zotero/$file"
+        out="$LOCALES_TARGET/$lang/$file"
+        # -L: segueix redirects (raw.githubusercontent.com a vegades en fa)
+        # --retry 3 --retry-connrefused: resilient a xarxa inestable
+        # --fail (-f): codi != 0 per a non-2xx
+        # -sS: silenciós però mostra errors a stderr
+        if curl -sS -f -L --retry 3 --retry-connrefused -o "$out" "$url"; then
+            echo "  · $lang/$file"
+        else
+            echo "WARN: No s'ha pogut baixar $url — fallback a en-US per a $lang/$file" >&2
+            rm -f "$out"
+        fi
+    done
+done
+# Copiar també el `en-US/zotero.ftl` i `en-US/reader.ftl` del build (per
+# si el host.html els demana amb `language: 'en-US'` explícit).
+if [ -d "$READER_DIR/locales/en-US" ]; then
+    mkdir -p "$LOCALES_TARGET/en-US"
+    cp "$READER_DIR/locales/en-US"/*.ftl "$LOCALES_TARGET/en-US/" 2>/dev/null || true
+fi
+
+# Overlays Gnosi: el `chrome/locale/ca-AD/zotero/reader.ftl` de Zotero té
+# ~15 claus sense traduir (literals en anglès, o plurals buits). El nostre
+# overlay les omple. Es carrega com a primer bundle del `ftl: [...]` del
+# createReader perquè Fluent dona prioritat al primer bundle que té la
+# clau, així aquestes traduccions guanyen sense patchejar res del repo
+# de Zotero.
+OVERLAYS_DIR="$FRONTEND_DIR/src/components/Vault/zotero-locale-overlays"
+if [ -d "$OVERLAYS_DIR" ]; then
+    for overlay in "$OVERLAYS_DIR"/*.ftl; do
+        [ -f "$overlay" ] || continue
+        lang=$(basename "$overlay" .ftl)
+        mkdir -p "$LOCALES_TARGET/$lang"
+        cp "$overlay" "$LOCALES_TARGET/$lang/gnosi-overlay.ftl"
+        echo "  · overlay $lang/gnosi-overlay.ftl"
+    done
+fi
+
 echo "✓ zotero-reader build completat a $PUBLIC_TARGET"
 echo "  Verifica amb: curl -I http://localhost:5173/zotero-reader/host.html"

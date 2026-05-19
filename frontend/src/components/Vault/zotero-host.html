@@ -75,8 +75,13 @@
     <script src="reader.js"></script>
     <script>
     (function () {
+        // El protocol és same-origin (l'iframe viu al mateix domain que el
+        // parent), així que restringim el targetOrigin a la nostra origin.
+        // Així evitem que el missatge sigui entregat a qualsevol altre
+        // window que algun dia embedi aquesta pàgina cross-origin.
+        const PARENT_ORIGIN = window.location.origin;
         const post = (msg) => {
-            try { window.parent.postMessage({ source: 'zotero-reader', ...msg }, '*'); }
+            try { window.parent.postMessage({ source: 'zotero-reader', ...msg }, PARENT_ORIGIN); }
             catch (e) { /* parent gone */ }
         };
         const showError = (msg) => {
@@ -98,7 +103,47 @@
             }
         }
 
-        async function init({ pdfUrl, kind, annotations, options }) {
+        // Carrega les traduccions Fluent (.ftl) per a un idioma concret.
+        // Si el fitxer no existeix per a la locale demanada (cap traducció
+        // disponible), fallback a en-US per a aquell strand. El brand.ftl
+        // és genèric i només viu a en-US.
+        async function loadFtls(locale) {
+            const base = './locales';
+            // Important: el reader fa `addResource(..., { allowOverrides: true })`
+            // per a cada bundle del array `ftl`, així que l'ÚLTIM bundle
+            // afegit guanya per a una clau donada. Posem `gnosi-overlay.ftl`
+            // al final perquè sobreescrigui els strings que Zotero encara
+            // no ha traduït. Si la locale no té overlay, no passa res.
+            const wanted = [
+                { path: locale + '/zotero.ftl', fallback: 'en-US/zotero.ftl' },
+                { path: locale + '/reader.ftl', fallback: 'en-US/reader.ftl' },
+                { path: 'en-US/brand.ftl', fallback: null },
+                { path: locale + '/gnosi-overlay.ftl', fallback: null, optional: true },
+            ];
+            const texts = [];
+            for (const { path, fallback, optional } of wanted) {
+                let txt = null;
+                try {
+                    const r = await fetch(base + '/' + path);
+                    if (r.ok) txt = await r.text();
+                } catch (e) { /* fall through */ }
+                if (txt == null && fallback) {
+                    try {
+                        const r = await fetch(base + '/' + fallback);
+                        if (r.ok) txt = await r.text();
+                    } catch (e) { /* fall through */ }
+                }
+                if (txt != null) texts.push(txt);
+                // Optional files (overlays) no aborten la càrrega si no
+                // existeixen — la locale potser no en té.
+                if (txt == null && !optional && !fallback) {
+                    console.warn('zotero-host: missing FTL', path);
+                }
+            }
+            return texts.length > 0 ? texts : undefined;
+        }
+
+        async function init({ pdfUrl, kind, annotations, options, language }) {
             try {
                 await waitForCreateReader();
                 if (!pdfUrl) throw new Error('Missing pdfUrl');
@@ -109,9 +154,15 @@
 
                 const opts = options || {};
                 const docType = kind || 'pdf';
+                // Tradueix els strings del reader. Si la locale demanada
+                // no existeix al disc, el bundle té el seu propi default
+                // (en-US) ja embedat — passem `undefined` perquè s'usi.
+                const ftl = language ? await loadFtls(language) : undefined;
+
                 reader = window.createReader({
                     type: docType,
                     data: { buf },
+                    ftl,
                     annotations: annotations || [],
                     primaryViewState: opts.primaryViewState || null,
                     readOnly: !!opts.readOnly,
@@ -293,7 +344,18 @@
                             e.stopPropagation();
                             try { item.onCommand(); }
                             catch (err) { console.warn('context menu onCommand failed', err); }
-                            if (!item.persistent) closeContextMenu();
+                            // `persistent: true` de Zotero significa que el item
+                            // s'ha de mantenir visible (no filtrat) quan està
+                            // disabled — NO necessàriament que el menu hagi de
+                            // restar obert després del click. Items com Delete
+                            // o "Convert to underline" tenen persistent:true
+                            // perquè el menu els pugui mostrar inactius
+                            // contextualment, però un cop els cliques han
+                            // d'amagar el menu. Només sliders i color pickers
+                            // tenen sentit mantenir-los oberts (l'usuari pot
+                            // voler fer canvis múltiples consecutius).
+                            const stayOpen = item.persistent && (item.color || item.slider);
+                            if (!stayOpen) closeContextMenu();
                         });
                     }
                     menuEl.appendChild(el);

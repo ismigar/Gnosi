@@ -143,6 +143,19 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return `\`\`\`gnosi-view\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
     }
 
+    if (block.type === "bibliography") {
+        // Serialitza el block bibliografia com a `{{bibliography}}` (style
+        // i locale per defecte) o `{{bibliography:apa}}` / `{{bibliography:
+        // apa:ca-AD}}` si l'usuari ha sobreescrit els defaults.
+        const style = String(block?.props?.style || '').trim();
+        const locale = String(block?.props?.locale || '').trim();
+        if (!style || (style === 'apa' && (!locale || locale === 'ca-AD'))) {
+            return '{{bibliography}}\n';
+        }
+        if (!locale || locale === 'ca-AD') return `{{bibliography:${style}}}\n`;
+        return `{{bibliography:${style}:${locale}}}\n`;
+    }
+
     if (block.type === "transclusion") {
         const target = String(block?.props?.target || "").trim();
         const alias = String(block?.props?.alias || "").trim();
@@ -333,6 +346,86 @@ const processBlocksForWikilinks = (blocks) => {
     });
 };
 
+// --- Citations Pandoc-style: `[@key]` o `[@key1; @key2]` ---
+// Detecta cada token `@<citationkey>` dins de `[ ]` i el converteix en
+// inline content de tipus `cite`. Sintaxi acceptada (subset Pandoc):
+//   [@smith2020]                      → 1 cite
+//   [@smith2020; @jones2019]          → 2 cites
+//   @smith2020                        → 1 cite "naked" (sense brackets)
+// La meva regex és intencionalment restrictiva per evitar falsos positius:
+// el key ha de començar per lletra ASCII low + permet [a-z0-9_:-]. Si vols
+// keys amb capitals o accents al teu Citation Key, amplia el charset.
+const CITATION_KEY_RE = /[a-z][a-z0-9_:-]*/i;
+const CITATION_BRACKET_RE = /\[@([a-z][a-z0-9_:-]*(?:\s*;\s*@[a-z][a-z0-9_:-]*)*)\]/gi;
+const CITATION_NAKED_RE = /(^|[\s(])@([a-z][a-z0-9_:-]*)\b/g;
+
+const convertToCitations = (content) => {
+    if (!Array.isArray(content)) return content;
+    const next = [];
+    content.forEach(item => {
+        // Sols els nodes de text es processen. Wikilinks ja convertits no
+        // s'han de tocar; els altres tipus es passen tal qual.
+        if (item.type !== "text") {
+            if (item.type === "link" && Array.isArray(item.content)) {
+                next.push({ ...item, content: convertToCitations(item.content) });
+            } else {
+                next.push(item);
+            }
+            return;
+        }
+        const text = item.text;
+        if (!text) { next.push(item); return; }
+        // Estratègia: dos passes. Primer trobem tots els tokens
+        // (bracketed o naked) amb la seva posició, després tallem el text
+        // i intercalem els nodes `cite`. Així evitem regex globals
+        // competint per la mateixa posició.
+        const tokens = [];
+        CITATION_BRACKET_RE.lastIndex = 0;
+        let m;
+        while ((m = CITATION_BRACKET_RE.exec(text)) !== null) {
+            const inner = m[1];
+            const keys = inner.split(';').map(s => s.replace(/^\s*@?/, '').trim()).filter(Boolean);
+            tokens.push({ start: m.index, end: m.index + m[0].length, keys });
+        }
+        CITATION_NAKED_RE.lastIndex = 0;
+        while ((m = CITATION_NAKED_RE.exec(text)) !== null) {
+            // L'offset és el del key, no del prefix (capture group 2)
+            const keyStart = m.index + (m[1]?.length || 0);
+            const key = m[2];
+            // Evitar superposició amb tokens bracketed ja agafats.
+            if (tokens.some(t => keyStart >= t.start && keyStart < t.end)) continue;
+            tokens.push({ start: keyStart, end: keyStart + 1 + key.length, keys: [key] });
+        }
+        if (tokens.length === 0) { next.push(item); return; }
+        tokens.sort((a, b) => a.start - b.start);
+        let last = 0;
+        for (const t of tokens) {
+            if (t.start > last) next.push({ ...item, text: text.slice(last, t.start) });
+            for (let i = 0; i < t.keys.length; i++) {
+                if (i > 0) next.push({ ...item, text: '; ' });
+                next.push({ type: 'cite', props: { citationKey: t.keys[i] } });
+            }
+            last = t.end;
+        }
+        if (last < text.length) next.push({ ...item, text: text.slice(last) });
+    });
+    return next;
+};
+
+const processBlocksForCitations = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        const newBlock = { ...block };
+        if (newBlock.content) {
+            newBlock.content = convertToCitations(newBlock.content);
+        }
+        if (newBlock.children) {
+            newBlock.children = processBlocksForCitations(newBlock.children);
+        }
+        return newBlock;
+    });
+};
+
 const codeBlockText = (block) => {
     if (!block?.content) return '';
     if (typeof block.content === 'string') return block.content;
@@ -366,6 +459,36 @@ const promoteEmbedBlocks = (blocks) => {
             ...newBlock,
             type: 'embed',
             props: { url: String(item.href), caption: '' },
+            content: undefined,
+        };
+    });
+};
+
+// Detecta paràgrafs que només contenen `{{bibliography}}` (opcionalment
+// `{{bibliography:apa}}` o `{{bibliography:chicago-author-date:ca-AD}}`)
+// i els converteix en un block `bibliography`. Patró simètric al
+// `promoteEmbedBlocks`. Sense aquest, el text literal apareixeria a la
+// pàgina i el block real no es renderitzaria.
+const promoteBibliographyBlocks = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteBibliographyBlocks(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content) return newBlock;
+        const text = content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('').trim();
+        const m = text.match(/^\{\{bibliography(?::([a-z][a-z0-9-]*))?(?::([a-zA-Z-]+))?\}\}$/);
+        if (!m) return newBlock;
+        return {
+            ...newBlock,
+            type: 'bibliography',
+            props: {
+                style: m[1] || 'apa',
+                locale: m[2] || 'ca-AD',
+            },
             content: undefined,
         };
     });
@@ -464,12 +587,18 @@ const inlineContentToMarkdown = (content) => {
             const section = item.props?.section || "";
             const title = item.props?.title || "";
             const link = section ? `${target}#${section}` : target;
-            
+
             // Si el títol és representatiu però diferent del link pur, usem alias [[Link|Title]]
             if (title && title !== link && title !== target) {
                 return `[[${link}|${title}]]`;
             }
             return `[[${link}]]`;
+        }
+        if (item.type === "cite") {
+            // Serialitzem com a Pandoc citation `[@key]`. Compatible amb
+            // pandoc-citeproc, Quarto, Obsidian Citations Plugin, etc.
+            const ck = item.props?.citationKey || "";
+            return ck ? `[@${ck}]` : "";
         }
         return "";
     }).join("");
@@ -588,7 +717,7 @@ const parsePlainMarkdownBlock = async (text, editor) => {
         blocks = [{ type: "paragraph", content: text }];
     }
 
-    return processBlocksForWikilinks(blocks);
+    return processBlocksForCitations(processBlocksForWikilinks(blocks));
 };
 
 /**
@@ -773,5 +902,5 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
     };
 
     const parsed = await parseRecursive(lines);
-    return promoteCustomFences(promoteEmbedBlocks(parsed));
+    return promoteCustomFences(promoteBibliographyBlocks(promoteEmbedBlocks(parsed)));
 };
