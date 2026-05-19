@@ -2261,6 +2261,26 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvePageTableId, setActiveTableId, setIsSchemaModalOpen]);
 
+    // Persisteix una nova opció de `select`/`multi_select` al schema d'una
+    // taula. Es crida quan l'usuari escriu un valor nou al picker del panell
+    // de propietats. Sense això, el valor només queda al metadata del
+    // registre (i acaba reapareixent com a "opció observada" via
+    // getAvailableOptions) — sí funciona en visualització, però es perd la
+    // intenció de tenir-la com a opció oficial del schema.
+    const handleAddSchemaOption = useCallback(async (tableId, fieldId, nextOptions) => {
+        if (!tableId || !fieldId || !Array.isArray(nextOptions)) return;
+        try {
+            await axios.patch(
+                `/api/vault/tables/${tableId}/properties/${fieldId}`,
+                { config: { options: nextOptions } }
+            );
+            await fetchRegistry();
+        } catch (err) {
+            notifyError('add-schema-option', err, t('errors.add_schema_option') || 'No s\'ha pogut desar l\'opció al schema');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fetchRegistry, t]);
+
     // Filter all notes from all folders to find favorites?
     // For optimization, for now only those in the current folder if they have the 'favorite' tag.
     const favoritePages = pages.filter(p => (p.metadata?.favorite === true || p.metadata?.favorite === 'true') && !p.metadata?.is_template);
@@ -2750,6 +2770,7 @@ export default function VaultDashboard() {
                 onOpenInCurrentTab={handleOpenInCurrentTab}
                 onOpenInNewTab={loadPage}
                 onEditSchema={(table) => handleEditSchema(table, tab.metadata)}
+                onAddSchemaOption={handleAddSchemaOption}
                 onDeletePage={handleDeletePage}
                 onCreateRecord={handleAddNewNote}
             />
