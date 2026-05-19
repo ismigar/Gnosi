@@ -1270,9 +1270,13 @@ export default function VaultDashboard() {
         setTabs(prevTabs => prevTabs.map(tab => {
             if (tab.id !== pageId) return tab;
 
+            // Si `content` és `undefined`, l'editor només ha actualitzat
+            // metadata (p.ex. rename del títol via panell o header). Mantenim
+            // el contingut existent — sense aquest fallback, perdíem el body
+            // de la pestanya cada cop que es renombrava la pàgina.
             return {
                 ...tab,
-                content,
+                content: content !== undefined ? content : tab.content,
                 title: payload?.title ?? tab.title,
                 metadata: payload?.metadata ?? tab.metadata,
             };
