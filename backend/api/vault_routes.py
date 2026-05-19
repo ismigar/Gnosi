@@ -159,7 +159,10 @@ def _clear_page_index_cache():
     repoblava el cache.
     """
     with _page_index_lock:
+        affected_vaults = list(_page_index_entries.keys())
         _page_index_entries.clear()
+        for v_str in affected_vaults:
+            _bump_page_index_version(v_str)
         _page_id_to_path.clear()
         _page_index_initialized.clear()
         global _last_vault_sync_time
@@ -344,6 +347,21 @@ _page_id_to_path: Dict[str, Dict[str, str]] = {} # Cache for fast ID -> Path loo
 _VAULT_SYNC_COOLDOWN_SECONDS = 600
 _last_vault_sync_time = 0.0
 
+# Version counter bumped at every mutation of `_page_index_entries[v_str]`
+# (load-from-disk, full replace, partial update, stale prune, page
+# create/delete/save). Derived caches like `_table_index_cache` snapshot
+# this number; when their snapshot diverges from the live version, they
+# rebuild lazily on the next read. Cheaper than tracking field-level diffs.
+_page_index_version: Dict[str, int] = {}
+
+# Secondary index: table_id → list of PageInfo entries, derived from
+# `_page_index_entries[v_str]`. Rebuilt lazily when `_page_index_version`
+# advances past the snapshot. Without this, `GET /pages/by-table/{id}` had
+# to scan all 4000+ entries every call to filter by resolved_table_id —
+# fine for a small vault but linear in total page count for the rest.
+# TTL is a safety net in case a mutation path forgot to bump version.
+_table_index_cache: Dict[str, Dict[str, Any]] = {}
+_TABLE_INDEX_TTL = 60.0
 # ── Micro-cache de PageInfo (TTL ~1.5s) ──────────────────────────────────
 # Els endpoints `/pages`, `/by-table`, `/sidebar/summary`, `/global-index`
 # es disparen alhora a cada navegació del frontend. Sense aquest cache,
@@ -398,13 +416,18 @@ def _pages_cache_invalidate_all() -> None:
 _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
 _last_google_calendar_sync_time = 0.0
 
-def get_page_index_cache_path():
+def get_page_index_cache_path(v_str: Optional[str] = None):
     # Local-only: this cache is per-instance and contains absolute paths that
     # only make sense on the machine that built it. Never on cloud storage.
     p = get_p("PAGE_INDEX_CACHE")
+    if not p:
+        # Fallback if LOCAL_DATA isn't configured for some reason
+        p = Path("/app/data/cache/vault_page_index.json")
+    if v_str:
+        digest = hashlib.sha256(v_str.encode("utf-8")).hexdigest()[:16]
+        return p.with_name(f"{p.stem}_{digest}{p.suffix}")
     if p:
         return p
-    # Fallback if LOCAL_DATA isn't configured for some reason
     return Path("/app/data/cache/vault_page_index.json")
 
 
@@ -582,7 +605,7 @@ def kickoff_index_warmup(v_path: Path) -> None:
 def _save_page_index_to_disk(v_str: str):
     """Persists the in-memory cache for a specific vault to disk."""
     try:
-        cache_path = get_page_index_cache_path()
+        cache_path = get_page_index_cache_path(v_str)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         # CRITICAL: snapshot under the lock. The indexer thread mutates
         # `_page_index_entries[v_str]` while it walks the vault; serializing
@@ -601,12 +624,13 @@ def _save_page_index_to_disk(v_str: str):
 def _load_page_index_from_disk(v_str: str):
     """Loads the persistent cache for a specific vault into memory."""
     try:
-        cache_path = get_page_index_cache_path()
+        cache_path = get_page_index_cache_path(v_str)
         if cache_path.exists():
             data = json.loads(cache_path.read_text(encoding="utf-8"))
             with _page_index_lock:
                 _page_index_entries[v_str] = data
                 _page_index_initialized[v_str] = True
+                _bump_page_index_version(v_str)
                 # Reconstruïm el `_page_id_to_path` i actualitzem el
                 # `path_resolver` també a partir del cache. Sense això, el
                 # primer cop que algú cridi `path_resolver.list_all_files()`
@@ -629,6 +653,13 @@ def _load_page_index_from_disk(v_str: str):
     except Exception as e:
         log.error(f"❌ Error loading page index cache for {v_str}: {e}")
     return False
+
+
+def preload_page_index_from_disk(v_path: Path) -> bool:
+    """Public startup-safe wrapper to preload one vault's page index cache."""
+    if not v_path:
+        return False
+    return _load_page_index_from_disk(str(v_path))
 
 _custom_icons_lock = threading.Lock()
 
@@ -2155,6 +2186,7 @@ def _refresh_table_pages_metadata(filtered: List[Any]) -> None:
             cached = _page_index_entries.setdefault(v_str, {}).get(str(file_path))
             if cached is not None:
                 cached.update(entry)
+                _bump_page_index_version(v_str)
 
 
 def _get_cached_page_entries(
@@ -2340,8 +2372,9 @@ def _get_cached_page_entries(
                      id_map[pid] = p_str
              # UPDATE GLOBAL RESOLVER INCREMENTALLY
              path_resolver.update_index(v_path, id_map, [Path(p) for p in _page_index_entries[v_str].keys()])
-        
+
         _page_index_initialized[v_str] = True
+        _bump_page_index_version(v_str)
 
     _save_page_index_to_disk(v_str)
 
@@ -2353,6 +2386,99 @@ def _get_cached_page_entries(
         ]
 
     return list(new_entries.values())
+
+
+def _bump_page_index_version(v_str: str) -> None:
+    """Marks `_page_index_entries[v_str]` as changed so derived caches
+    (currently `_table_index_cache`) know to rebuild on the next read.
+    Must be called with `_page_index_lock` held (every mutation site of
+    `_page_index_entries` is already under that lock).
+    """
+    _page_index_version[v_str] = _page_index_version.get(v_str, 0) + 1
+
+
+def _build_pages_by_table_index(v_str: str) -> Dict[str, List["PageInfo"]]:
+    """One-shot rebuild of the table_id → [PageInfo] map for a vault.
+    Iterates `_page_index_entries[v_str]` once, resolves each entry to a
+    table_id, and groups. Returns a dict ready to be served directly by
+    `list_pages_by_table` without filtering 4000+ entries on every call.
+    """
+    registry = load_registry()
+    folder_to_table = _build_table_folder_index(registry)
+    sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
+
+    from backend.api.calendar_routes import _get_hidden_event_ids
+    hidden_ids = _get_hidden_event_ids()
+
+    with _page_index_lock:
+        entries = list(_page_index_entries.get(v_str, {}).values())
+
+    out: Dict[str, List["PageInfo"]] = {}
+    seen_pages: Dict[str, "PageInfo"] = {}
+    for entry in entries:
+        if entry.get("id") in hidden_ids:
+            continue
+        metadata = entry.get("metadata", {}) or {}
+        resolved_table_id = _resolve_table_id_from_context(
+            metadata, entry.get("folder", ""), folder_to_table,
+            sorted_folders=sorted_folders,
+        )
+        if not resolved_table_id:
+            continue
+
+        page_info = PageInfo(
+            id=entry["id"],
+            title=entry["title"],
+            parent_id=entry.get("parent_id"),
+            is_database=entry.get("is_database", False),
+            metadata=metadata,
+            last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
+            size=entry.get("size", 0),
+            folder=entry.get("folder", ""),
+            path=entry.get("path"),
+            resolved_table_id=resolved_table_id,
+        )
+
+        # Deduplicate by id, keep the newest. Same logic as _get_pages_snapshot.
+        existing = seen_pages.get(page_info.id)
+        if existing is not None and existing.last_modified >= page_info.last_modified:
+            continue
+        seen_pages[page_info.id] = page_info
+
+    # Group only after dedup, otherwise the older copy would still leak in.
+    for page in seen_pages.values():
+        out.setdefault(page.resolved_table_id, []).append(page)
+    return out
+
+
+def _get_pages_by_table_id(v_str: str, table_id: str) -> List["PageInfo"]:
+    """O(1) lookup of pages by table_id after the first build per vault.
+    Rebuilds when `_page_index_version[v_str]` has advanced or the TTL has
+    elapsed since the last build. Fallback to a full scan via
+    `_get_pages_snapshot` only on registry errors during build.
+    """
+    cur_version = _page_index_version.get(v_str, 0)
+    cached = _table_index_cache.get(v_str)
+    now = time.monotonic()
+    if (
+        cached is not None
+        and cached.get("version") == cur_version
+        and now - cached.get("built_at", 0.0) <= _TABLE_INDEX_TTL
+    ):
+        return list(cached["by_table_id"].get(table_id, []))
+
+    try:
+        by_table = _build_pages_by_table_index(v_str)
+    except Exception as e:
+        log.warning(f"_build_pages_by_table_index failed for {v_str}: {e}")
+        return []
+
+    _table_index_cache[v_str] = {
+        "version": cur_version,
+        "built_at": now,
+        "by_table_id": by_table,
+    }
+    return list(by_table.get(table_id, []))
 
 
 def _get_pages_snapshot(
@@ -2440,10 +2566,14 @@ def _get_pages_snapshot(
         with _page_index_lock:
             idx = _page_index_entries.get(v_str, {})
             id_map = _page_id_to_path.get(v_str, {})
+            pruned_any = False
             for p_str in stale_paths:
                 entry = idx.pop(p_str, None)
                 if entry:
                     id_map.pop(entry.get("id", ""), None)
+                    pruned_any = True
+            if pruned_any:
+                _bump_page_index_version(v_str)
         _last_vault_sync_time = 0.0
         log.info(f"🗑️ Pruned {len(stale_paths)} stale page entries from cache.")
 
@@ -2738,6 +2868,18 @@ async def list_pages(
 
 @router.get("/pages/by-table/{table_id}", response_model=List[PageInfo])
 async def list_pages_by_table(table_id: str, include_templates: bool = Query(True)):
+    """Returns only pages from a specific table to avoid loading the entire Vault.
+
+    Uses the table-id index cache (`_get_pages_by_table_id`): after the
+    first build per vault, lookups are O(1) in the table's page count
+    instead of O(total vault pages). Critical for vaults with tens of
+    thousands of pages — without it, this endpoint scales linearly with
+    the whole vault size on every call.
+    """
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    v_str = str(v_path) if v_path else ""
+    filtered = await asyncio.to_thread(_get_pages_by_table_id, v_str, table_id) if v_str else []
     """Returns only pages from a specific table to avoid loading the entire Vault."""
     # Fast-path: només construïm `PageInfo` per a les entries de la taula
     # demanada, no per a les ~4200 del vault sencer. Estalvi ~1s/crida.
@@ -2927,6 +3069,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
                 with _page_index_lock:
                     _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
                     _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
+                    _bump_page_index_version(v_str)
         except Exception as e:
             # Si no podem inserir, anem al pla B (rebuild segur) per no servir
             # un cache parcialment incoherent.
@@ -3072,6 +3215,7 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
             # File deleted externally: prune stale entries
             id_map.pop(page_id, None)
             _page_index_entries.get(v_str, {}).pop(path_str, None)
+            _bump_page_index_version(v_str)
             stale_detected = True
 
     # 2. Fallback: Search using the full entries cache (canonical compare)
@@ -3086,6 +3230,7 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
                 # File deleted externally: prune stale entry
                 entries.pop(p_str, None)
                 _page_id_to_path.get(v_str, {}).pop(page_id, None)
+                _bump_page_index_version(v_str)
                 stale_detected = True
                 break
 
@@ -5129,6 +5274,7 @@ async def patch_page(
                         new_id = new_entry.get("id")
                         if new_id:
                             _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
+                        _bump_page_index_version(v_str)
                 except Exception as e:
                     log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
             with _body_cache_lock:
@@ -5577,6 +5723,31 @@ async def list_trash(q: Optional[str] = Query(None)):
         ]
     return {"items": entries, "retention_days": TRASH_RETENTION_DAYS}
 
+        # IMPORTANT: Never delete the table from the registry when deleting a page!
+        # The registry contains the table schema, not its rows.
+        # The following lines were removed because they caused errors when
+        # deleting the last record of a table.
+        # Original buggy code (removed):
+        # registry["databases"] = [db for db in registry["databases"] if db.get("id") != page_id]
+        # tables_to_remove = [t["id"] for t in registry["tables"] if t.get("database_id") == page_id]
+        # registry["tables"] = [t for t in registry["tables"] if t.get("database_id") != page_id]
+        # registry["views"] = [v for v in registry["views"] if v.get("table_id") not in tables_to_remove]
+
+        await asyncio.to_thread(file_path.unlink)
+        await asyncio.to_thread(remove_from_link_index, page_id)
+        # Drop the entry from the in-memory index so by-table caches see the
+        # delete immediately (without this, the stale-check TTL of 10 min
+        # could keep the deleted page visible in the sidebar/feed).
+        from backend.services.context_vars import get_active_vault_path
+        v_path = get_active_vault_path()
+        if v_path:
+            v_str = str(v_path)
+            with _page_index_lock:
+                removed = _page_index_entries.get(v_str, {}).pop(str(file_path), None)
+                _page_id_to_path.get(v_str, {}).pop(page_id, None)
+                if removed is not None:
+                    _bump_page_index_version(v_str)
+        return {"status": "success", "message": "Page deleted and registry cleaned"}
 
 @router.delete(
     "/trash/{page_id}",
@@ -7018,9 +7189,13 @@ def _load_body_cache_from_disk() -> bool:
 
 # TTL del check d'stale paths a `_get_pages_snapshot`. Cada `Path.exists()`
 # al OneDrive triga ~10ms — multiplicar per 3988 entries dóna 40s. Limitem a
-# fer aquest cleanup només cada 30s.
+# fer aquest cleanup només cada 10 min: amb 30s, les recàrregues consecutives
+# de feeds embebuts disparen 4000 stat() cada vegada que el feed re-renderitza
+# (cada navegació entre vistes). 10 min és més que suficient: els fitxers
+# desapareixen rarament fora del propi flux de l'app, i el codi de
+# `find_page_path` ja invalida entrades stale individualment quan les detecta.
 _last_stale_check: dict = {"ts": 0.0}
-_STALE_CHECK_TTL = 30.0
+_STALE_CHECK_TTL = 600.0
 
 
 def _get_body_for_path(file_path: Path) -> str:
