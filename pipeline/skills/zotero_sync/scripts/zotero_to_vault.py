@@ -359,35 +359,69 @@ def index_pages(pages: list):
     return by_key, by_title
 
 
-def get_property_names(table_id: str) -> dict:
-    """Resolves `property_id → property.name actual` via the inspect endpoint.
+def get_property_meta(table_id: str) -> dict:
+    """Resolves `property_id → {name, type}` actual via the inspect endpoint.
 
-    Mapping persisteix `property_id` (UUID immutable); el name és cosmètic i pot
-    canviar quan l'usuari renombra columnes. Aquesta resolució es fa cada sync.
+    El mapping persisteix `property_id` (UUID immutable); el name és cosmètic
+    i pot canviar quan l'usuari renombra columnes. El type ens cal per
+    transformar valors abans d'escriure (p.ex. DOI text → URL clicable
+    quan la propietat és tipus url).
     """
     res = requests.get(f"{VAULT_API}/api/zotero/inspect/{table_id}", timeout=30)
     res.raise_for_status()
     data = res.json()
-    return {p["id"]: p.get("name", "") for p in data.get("properties", []) if p.get("id")}
+    out = {}
+    for p in data.get("properties", []):
+        pid = p.get("id")
+        if pid:
+            out[pid] = {"name": p.get("name", ""), "type": (p.get("type") or "text")}
+    return out
 
 
-def build_page_payload(item: dict, mapping: dict, table_id: str, prop_names: dict) -> dict:
+def _looks_like_url(value: str) -> bool:
+    s = value.strip().lower()
+    return s.startswith("http://") or s.startswith("https://") or s.startswith("doi.org/")
+
+
+def transform_value_for_property(z_field: str, value, prop_type: str):
+    """Adapts a raw Zotero value to fit the destination property type.
+
+    Casos coberts:
+      - `doi` → propietat tipus `url`: si el valor és un bare DOI ("10.x/y"),
+        el prefixem amb `https://doi.org/` per què el Vault el reconegui com
+        a URL clicable. Si ja és URL, es passa tal qual.
+
+    Per defecte, retorna el valor original.
+    """
+    if value is None or value == "":
+        return value
+    if z_field == "doi" and prop_type == "url":
+        s = str(value).strip()
+        if _looks_like_url(s):
+            return s if s.startswith("http") else f"https://{s}"
+        return f"https://doi.org/{s}"
+    return value
+
+
+def build_page_payload(item: dict, mapping: dict, table_id: str, prop_meta: dict) -> dict:
     """Builds the `/api/vault/pages` payload using the property's CURRENT name.
 
     `mapping` is `{zotero_field_id: property_id}`. Resolving the id → name at
     runtime keeps the sync resilient to renames done elsewhere in the UI.
+    `prop_meta` is `{property_id: {name, type}}`; el type s'usa per
+    transformacions com DOI bare → URL clicable.
     """
     meta = {"database_table_id": table_id, "source": "Gnosi"}
     for z_field, prop_id in mapping.items():
         if not prop_id:
             continue
-        prop_name = prop_names.get(prop_id)
-        if not prop_name:
+        info = prop_meta.get(prop_id)
+        if not info or not info.get("name"):
             # Property removed or orphaned id; validate-config will surface this.
             continue
         value = item.get(z_field, "")
         if value:
-            meta[prop_name] = value
+            meta[info["name"]] = transform_value_for_property(z_field, value, info.get("type", "text"))
     return {
         "title": item.get("title") or item.get("key", ""),
         "content": "",
@@ -426,7 +460,7 @@ def sync() -> dict:
     if not table_id:
         return {"status": "no_target_table"}
 
-    prop_names = get_property_names(table_id)
+    prop_meta = get_property_meta(table_id)
 
     z_conn = get_zotero_conn(zotero_db)
     try:
@@ -466,7 +500,7 @@ def sync() -> dict:
                 existing_page = by_title[norm_title]
                 match_kind = "title"
 
-        payload = build_page_payload(item, mapping, table_id, prop_names)
+        payload = build_page_payload(item, mapping, table_id, prop_meta)
 
         try:
             if existing_page is not None:
