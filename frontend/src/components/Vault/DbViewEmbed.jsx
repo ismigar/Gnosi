@@ -156,17 +156,16 @@ async function createPageInTable({ tableId, title = 'Nou registre', extraMetadat
 }
 
 async function patchPageMetadata(pageId, partialMetadata) {
-    // GET actual per obtenir title+content+metadata complets, després PATCH
-    // amb les claus modificades. El backend espera tot el bloc per a un PATCH
-    // robust (no permet partials en algunes versions).
-    const cur = await axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}`);
-    const merged = {
-        title: cur.data?.title || '',
-        content: cur.data?.content || '',
-        metadata: { ...(cur.data?.metadata || {}), ...partialMetadata },
-    };
-    await axios.patch(`/api/vault/pages/${encodeURIComponent(pageId)}`, merged);
-    return merged.metadata;
+    // PATCH partial directe: el backend fa `metadata.update(request.metadata)`
+    // i conserva title/content/altres camps intactes. Abans fèiem GET +
+    // PATCH (2 round-trips serialitzats, 400-700 ms) per construir un
+    // payload complet "per seguretat"; el backend actual accepta partials
+    // així que estalviem el GET i la latència corresponent.
+    await axios.patch(
+        `/api/vault/pages/${encodeURIComponent(pageId)}`,
+        { metadata: partialMetadata }
+    );
+    return partialMetadata;
 }
 
 async function patchSectionConfig(pageId, section, patch) {
