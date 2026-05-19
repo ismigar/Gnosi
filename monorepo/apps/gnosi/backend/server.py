@@ -81,19 +81,30 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.error(f"❌ Error during startup: {e}")
 
-    # 4. Warm up the vault page index in a background thread so the first
-    #    user request doesn't have to wait for a full filesystem scan over
-    #    cloud-mounted storage. The endpoint /api/vault/indexer-status lets
-    #    the UI poll progress.
+    # 4. Warm up the vault page index. We do this in two phases:
+    #    a) SYNC: load the persisted disk cache so the very first request
+    #       already finds data in memory. Without this step, /pages returns
+    #       [] during the few seconds the background indexer takes to load
+    #       the 3.6 MB JSON, and the frontend then bursts ~4 retries with
+    #       backoff (~12s of dead time before the sidebar populates).
+    #    b) ASYNC: kickoff_index_warmup keeps doing its background refresh
+    #       against the actual filesystem so external changes get picked up.
+    #    Endpoint /api/vault/indexer-status lets the UI poll progress.
     try:
         from backend.api.vault_routes import (
             kickoff_index_warmup,
             kickoff_link_index_rebuild,
+            preload_page_index_from_disk,
         )
         from backend.config.app_config import load_params
         cfg = load_params(strict_env=False)
         v_path = cfg.paths.get("VAULT")
         if v_path:
+            loaded = preload_page_index_from_disk(Path(v_path))
+            if loaded:
+                log.info(f"⚡ Sync page-index preload completed for {v_path}")
+            else:
+                log.info(f"ℹ️ No disk page-index cache found for {v_path}")
             kickoff_index_warmup(v_path)
             log.info(f"🔥 Indexer warmup launched in background for {v_path}")
             # Trigger redundant del link-index rebuild: si l'indexer warmup

@@ -343,7 +343,12 @@ function _cacheSet(id, value) {
 }
 
 const _byTableCache = new Map();
-const BY_TABLE_TTL_MS = 30_000;
+// 5 min: el cache evita ràfegues de /pages/by-table durant navegacions
+// curtes (canviar de pestanya i tornar, scroll, obrir/tancar el modal de
+// config). El backend serveix la mateixa llista uns 10-15s a OneDrive fred,
+// així que reutilitzar el cache una mica més estona evita una espera
+// equivalent. La cache es buida si l'usuari prem el botó de reload.
+const BY_TABLE_TTL_MS = 300_000;
 function _byTableGet(tableId) {
     const e = _byTableCache.get(tableId);
     if (!e) return null;
