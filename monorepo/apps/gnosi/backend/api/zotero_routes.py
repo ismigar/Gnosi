@@ -83,6 +83,41 @@ ZOTERO_FIELDS: List[Dict[str, str]] = [
     {"id": "rights", "slug": "rights"},
 ]
 
+# Tipus de propietat acceptables per cada slug, més enllà del tipus per
+# defecte. Si un usuari ha decidit fer "DOI" tipus URL (per què sigui clicable)
+# o "Idioma" tipus select (per validar contra opcions), no hem d'avisar com
+# si fos un conflicte — el sync els tracta correctament.
+ZOTERO_FIELD_COMPATIBLE_TYPES: Dict[str, List[str]] = {
+    "doi": ["text", "url"],          # bare DOI (text) o `https://doi.org/<doi>` (url)
+    "language": ["text", "select"],  # text lliure o select amb opcions canòniques (CA/ES/EN-GB)
+    "url": ["url", "text"],           # algunes taules guarden URLs com a text
+    "isbn": ["text", "number"],       # ISBN com a text (default) o number
+    "issn": ["text", "number"],
+    "pages": ["text", "number"],      # rang "12-45" no encaixa a number però sí a text
+    "volume": ["text", "number"],
+    "issue": ["text", "number"],
+    "num_pages": ["text", "number"],
+    "num_volumes": ["text", "number"],
+    "tags": ["multi_select", "text"], # text simple acceptat (CSV)
+    "authors": ["text", "rich_text"],
+    "abstract": ["rich_text", "text"],
+}
+
+
+def _is_type_compatible(slug: str, actual_type: str, expected_type: str) -> bool:
+    """Returns True if `actual_type` is acceptable for the field `slug`.
+
+    A property type is compatible when it matches `expected_type` (the default)
+    or when it appears in `ZOTERO_FIELD_COMPATIBLE_TYPES[slug]`. Any other
+    combination is reported as a real conflict.
+    """
+    if not actual_type:
+        return False
+    if actual_type == expected_type:
+        return True
+    return actual_type in ZOTERO_FIELD_COMPATIBLE_TYPES.get(slug, [])
+
+
 ZOTERO_FIELD_TYPES: Dict[str, str] = {
     # Identitat i taxonomia
     "zotero_key": "text",
@@ -521,7 +556,7 @@ def suggest_mapping_for_table(props: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         expected_type = ZOTERO_FIELD_TYPES.get(slug)
         actual_type = (prop_by_id[pid].get("type") or "").strip()
-        if expected_type and actual_type and expected_type != actual_type:
+        if expected_type and actual_type and not _is_type_compatible(slug, actual_type, expected_type):
             conflicts.append(
                 {
                     "zotero_field": f["id"],
@@ -944,7 +979,7 @@ async def validate_config():
         slug = field_to_slug.get(z_field)
         expected_type = ZOTERO_FIELD_TYPES.get(slug or "")
         actual_type = props_by_id[pid].get("type")
-        if expected_type and actual_type and expected_type != actual_type:
+        if expected_type and actual_type and not _is_type_compatible(slug or "", actual_type, expected_type):
             warnings.append(
                 {
                     "code": "type_mismatch",

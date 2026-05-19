@@ -24,6 +24,8 @@ import pytest
 
 from backend.api.zotero_routes import (
     MAPPING_SYNONYMS,
+    ZOTERO_FIELD_COMPATIBLE_TYPES,
+    _is_type_compatible,
     _suggest_property_for_slug,
     suggest_mapping_for_table,
 )
@@ -156,3 +158,89 @@ def test_suggest_mapping_no_longer_matches_num_volumes_to_mes():
     # Either the slug is unmapped (preferred) or maps elsewhere — but never to fld_mes.
     nv_target = out["mapping"].get("numberOfVolumes")
     assert nv_target != "fld_mes"
+
+
+# --- Compatible types: DOI, Language, ISBN, Tags, etc. ---------------------
+
+
+def test_compatible_types_doi_text_or_url():
+    assert _is_type_compatible("doi", "text", "text") is True
+    assert _is_type_compatible("doi", "url", "text") is True
+    assert _is_type_compatible("doi", "number", "text") is False
+
+
+def test_compatible_types_language_text_or_select():
+    assert _is_type_compatible("language", "text", "text") is True
+    assert _is_type_compatible("language", "select", "text") is True
+    assert _is_type_compatible("language", "checkbox", "text") is False
+
+
+def test_compatible_types_isbn_text_or_number():
+    assert _is_type_compatible("isbn", "text", "text") is True
+    assert _is_type_compatible("isbn", "number", "text") is True
+
+
+def test_compatible_types_tags_multi_or_text():
+    assert _is_type_compatible("tags", "multi_select", "multi_select") is True
+    assert _is_type_compatible("tags", "text", "multi_select") is True
+
+
+def test_compatible_types_unknown_slug_falls_back_to_strict():
+    # No entry in ZOTERO_FIELD_COMPATIBLE_TYPES → only exact match accepted.
+    assert _is_type_compatible("title", "title", "title") is True
+    assert _is_type_compatible("title", "text", "title") is False
+
+
+def test_suggest_no_longer_reports_doi_url_as_conflict():
+    """E2E: a table with DOI(url) must not appear as conflict anymore."""
+    props = [
+        {"id": "fld_t", "name": "Title", "type": "title"},
+        {"id": "fld_doi", "name": "DOI", "type": "url"},
+    ]
+    out = suggest_mapping_for_table(props)
+    assert out["mapping"].get("doi") == "fld_doi"
+    assert all(c["zotero_field"] != "doi" for c in out["conflicts"])
+
+
+def test_suggest_no_longer_reports_language_select_as_conflict():
+    props = [
+        {"id": "fld_t", "name": "Title", "type": "title"},
+        {"id": "fld_lang", "name": "Idioma", "type": "select"},
+    ]
+    out = suggest_mapping_for_table(props)
+    assert out["mapping"].get("language") == "fld_lang"
+    assert all(c["zotero_field"] != "language" for c in out["conflicts"])
+
+
+# --- DOI value transformation at the script ---------------------------------
+
+
+def test_transform_doi_bare_to_url():
+    out = ztv.transform_value_for_property("doi", "10.1234/abc.def", "url")
+    assert out == "https://doi.org/10.1234/abc.def"
+
+
+def test_transform_doi_already_https_passes_through():
+    out = ztv.transform_value_for_property("doi", "https://doi.org/10.1/x", "url")
+    assert out == "https://doi.org/10.1/x"
+
+
+def test_transform_doi_doiorg_prefix_gets_https():
+    out = ztv.transform_value_for_property("doi", "doi.org/10.1/x", "url")
+    assert out == "https://doi.org/10.1/x"
+
+
+def test_transform_doi_text_property_keeps_bare_value():
+    """When property is plain text, no URL prefix is added."""
+    out = ztv.transform_value_for_property("doi", "10.1/x", "text")
+    assert out == "10.1/x"
+
+
+def test_transform_other_fields_passthrough():
+    assert ztv.transform_value_for_property("title", "Hello", "title") == "Hello"
+    assert ztv.transform_value_for_property("authors", "Garcia, I.", "text") == "Garcia, I."
+
+
+def test_transform_handles_empty_and_none():
+    assert ztv.transform_value_for_property("doi", "", "url") == ""
+    assert ztv.transform_value_for_property("doi", None, "url") is None
