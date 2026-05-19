@@ -625,6 +625,19 @@ def _load_page_index_from_disk(v_str: str):
     """Loads the persistent cache for a specific vault into memory."""
     try:
         cache_path = get_page_index_cache_path(v_str)
+        # Fallback al format llegacy (sense sufix per-vault): abans
+        # `get_page_index_cache_path` no acceptava `v_str` i tots els
+        # vaults compartien `vault_page_index.json`. Sense aquest fallback,
+        # un upgrade en calent que canvia la firma deixava el cache disc
+        # invisible i forçava un full rescan (~12k fitxers amb Errno 35
+        # massiu en OneDrive lent, ~hora de delay i app buida).
+        if not cache_path.exists():
+            legacy_path = get_page_index_cache_path()
+            if legacy_path.exists() and legacy_path != cache_path:
+                log.info(
+                    f"📂 Using legacy page index cache (no per-vault file yet): {legacy_path}"
+                )
+                cache_path = legacy_path
         if cache_path.exists():
             data = json.loads(cache_path.read_text(encoding="utf-8"))
             with _page_index_lock:
