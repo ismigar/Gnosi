@@ -80,6 +80,7 @@ import { TranslateLanguagesModal } from './TranslateLanguagesModal';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 /**
  * Sentinella que dispara `onLoadMore` quan entra al viewport.
@@ -203,15 +204,6 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const [addingSubitemFor, setAddingSubitemFor] = useState(null); // parent ID for adding a subitem
     const [openingResourceId, setOpeningResourceId] = useState(null);
     const [visibleRowsCount, setVisibleRowsCount] = useState(ROWS_BATCH_SIZE);
-    // `useCallback` per mantenir la referència estable: `React.memo` al
-    // `InfiniteLoadSentinel` només funciona si les props no canvien a
-    // cada render del pare. Sense això, una nova funció inline per
-    // render fa que el sentinel es remunti i `IntersectionObserver` es
-    // reconnecti, disparant `onLoadMore` immediatament i en bucle fins
-    // omplir la llista — efectivament treia el benefici del batching.
-    const handleLoadMoreRows = useCallback(() => {
-        setVisibleRowsCount(prev => prev + ROWS_BATCH_SIZE);
-    }, [ROWS_BATCH_SIZE]);
     const [newRowTitle, setNewRowTitle] = useState('');
     // Acció pendent disparada per un camp de tipus `button`. Si està set,
     // mostrem el modal corresponent a l'acció (ara mateix només `translate_row`).
@@ -277,6 +269,22 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
  
     const sortedNotes = rootNotes; // They come filtered and sorted from the hook
 
+    // `useCallback` per mantenir la referència estable: `React.memo` al
+    // `InfiniteLoadSentinel` només funciona si les props no canvien a
+    // cada render del pare. Sense això, una nova funció inline per
+    // render fa que el sentinel es remunti i `IntersectionObserver` es
+    // reconnecti, disparant `onLoadMore` immediatament i en bucle fins
+    // omplir la llista — efectivament treia el benefici del batching.
+    //
+    // Clamp explícit a `sortedNotes.length`: el sentinel pot disparar
+    // múltiples cops abans del següent paint (p.ex. quan el viewport
+    // l'engloba durant un re-layout). Sense aquest límit, el comptat
+    // intern (`visibleRowsCount`) podia superar el total real, deixant
+    // estats com "Mostrant 354 de 303 registres".
+    const handleLoadMoreRows = useCallback(() => {
+        setVisibleRowsCount(prev => Math.min(prev + ROWS_BATCH_SIZE, sortedNotes.length));
+    }, [ROWS_BATCH_SIZE, sortedNotes.length]);
+
     // ---- MULTIPLE SELECTION ----
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
     const lastSelectedId = [...selectedIds].at(-1) ?? null;
@@ -321,6 +329,32 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     useEffect(() => {
         setVisibleRowsCount(ROWS_BATCH_SIZE);
     }, [activeView?.id, searchTerm, sortedNotes.length]);
+
+    // ── Virtualization (TanStack Virtual) ───────────────────────────────
+    // El primer mount d'una taula de 303 registres trigava 1-4 s perquè
+    // muntava els N rows × ~12 cells alhora. Aquí només renderitzem els
+    // rows efectivament dins viewport + uns quants per anticipar-se al
+    // scroll (`overscan`). El cost del primer paint cau a O(viewport),
+    // independent de la mida total de la taula.
+    //
+    // Patró: `<tbody>` natiu amb espaiadors `<tr>` (height = padding) per
+    // sobre i sota dels rows visibles, així `<table>`+`<thead>` mantenen
+    // l'alineació de columnes sense haver de canviar `display: block`.
+    const tableContainerRef = useRef(null);
+    const rowVirtualizer = useVirtualizer({
+        count: visibleRootNotes.length,
+        getScrollElement: () => tableContainerRef.current,
+        // Altura estimada per row "plana" (sense subitems expandits). Si
+        // és inexacta, el virtualizer corregeix amb el primer measure.
+        estimateSize: () => 56,
+        overscan: 8,
+    });
+    const virtualRows = rowVirtualizer.getVirtualItems();
+    const virtTotalSize = rowVirtualizer.getTotalSize();
+    const virtPaddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
+    const virtPaddingBottom = virtualRows.length > 0
+        ? virtTotalSize - virtualRows[virtualRows.length - 1].end
+        : 0;
 
     const handleSort = (field) => {
         if (!activeView || !onUpdateView) return;
@@ -1572,7 +1606,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     />
                 )}
 
-                <div className={`bg-[var(--bg-primary)] overflow-auto flex-1 custom-scrollbar ${isEmbedded ? 'rounded border border-[var(--border-primary)] shadow-sm' : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
+                <div
+                    ref={tableContainerRef}
+                    className={`bg-[var(--bg-primary)] overflow-auto flex-1 custom-scrollbar ${isEmbedded ? 'rounded border border-[var(--border-primary)] shadow-sm' : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
+
                     <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                         {!isListView && (
                             <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-primary)] text-[var(--text-secondary)] font-semibold select-none group/table sticky top-0 z-30">
@@ -1651,8 +1688,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             </thead>
                         )}
                         <tbody>
-                            {visibleRootNotes.map((note, noteIndex) => renderRow(note, false, 0, `${noteIndex}`))}
-                            
+                            {/* Spacer superior pel padding del virtualizer. */}
+                            {virtPaddingTop > 0 && (
+                                <tr aria-hidden="true">
+                                    <td colSpan={dynamicColumns.length + 3} style={{ height: virtPaddingTop, padding: 0, border: 0 }} />
+                                </tr>
+                            )}
+                            {virtualRows.map(vi => {
+                                const note = visibleRootNotes[vi.index];
+                                if (!note) return null;
+                                return renderRow(note, false, 0, `${vi.index}`);
+                            })}
+                            {virtPaddingBottom > 0 && (
+                                <tr aria-hidden="true">
+                                    <td colSpan={dynamicColumns.length + 3} style={{ height: virtPaddingBottom, padding: 0, border: 0 }} />
+                                </tr>
+                            )}
+
                             {!isListView && (
                                 <tr className="border-b border-[var(--border-primary)]/50 hover:bg-[var(--bg-secondary)]/80 transition-colors group/new-row h-10">
                                     <td className="w-10 sticky left-0 z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] py-2">
