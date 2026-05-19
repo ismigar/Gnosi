@@ -3773,6 +3773,405 @@ async def export_page(
     )
 
 
+# ---------------------------------------------------------------------------
+# Metadata lookup per identificador (DOI / ISBN / arXiv / URL)
+# ---------------------------------------------------------------------------
+#
+# Endpoint per omplir camps de Recursos a partir d'identificadors externs.
+# Cobreix els tres serveis més habituals per a treball acadèmic:
+#
+#   - CrossRef (DOI)         — ~140M articles, JSON, no requereix API key
+#   - Open Library (ISBN)    — llibres, JSON, no API key
+#   - arXiv (arxiv id)       — preprints científics, XML (parsejat stdlib)
+#   - HTML meta tags (URL)   — fallback per a pàgines web genèriques
+#                              (Open Graph + Dublin Core + Schema.org)
+#
+# La resposta NO escriu res al Vault: només suggereix valors. El frontend
+# mostra un modal i l'usuari tria explícitament quins camps acceptar.
+# ---------------------------------------------------------------------------
+
+_DOI_RE = re.compile(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', re.IGNORECASE)
+_ARXIV_RE = re.compile(r'(?:arxiv:)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z\-]+/\d{7}(?:v\d+)?)', re.IGNORECASE)
+
+
+def _normalize_doi(raw: str) -> Optional[str]:
+    """Extreu un DOI vàlid d'una cadena (pot venir amb prefix `doi:` o `https://doi.org/`)."""
+    if not raw:
+        return None
+    m = _DOI_RE.search(raw)
+    return m.group(0) if m else None
+
+
+def _normalize_isbn(raw: str) -> Optional[str]:
+    """Extreu un ISBN-10 o ISBN-13 d'una cadena."""
+    if not raw:
+        return None
+    cleaned = re.sub(r'[-\s]', '', raw)
+    m = re.search(r'97[89]\d{10}|\d{9}[\dX]', cleaned)
+    return m.group(0) if m else None
+
+
+def _normalize_arxiv(raw: str) -> Optional[str]:
+    """Extreu un arXiv id (nou format YYMM.NNNNN o antic categoria/YYMMNNN)."""
+    if not raw:
+        return None
+    m = _ARXIV_RE.search(raw)
+    return m.group(1) if m else None
+
+
+def _crossref_to_recursos(work: dict) -> dict:
+    """Mapeig CrossRef → camps de Recursos."""
+    out: dict = {}
+    if work.get('title'):
+        out['Title'] = work['title'][0] if isinstance(work['title'], list) else work['title']
+    authors = work.get('author') or []
+    if authors:
+        parts = []
+        for a in authors:
+            family = (a.get('family') or '').strip()
+            given = (a.get('given') or '').strip()
+            if family and given:
+                parts.append(f'{family}, {given}')
+            elif family:
+                parts.append(family)
+            elif a.get('name'):
+                parts.append(a['name'])
+        if parts:
+            out['Authors'] = '; '.join(parts)
+    for key in ('published-print', 'published-online', 'issued'):
+        date_obj = work.get(key) or {}
+        parts = date_obj.get('date-parts') or []
+        if parts and parts[0]:
+            try:
+                out['Any'] = int(parts[0][0])
+                break
+            except (TypeError, ValueError):
+                pass
+    if work.get('container-title'):
+        ct = work['container-title']
+        out['Llibre/Revista'] = ct[0] if isinstance(ct, list) else ct
+    if work.get('publisher'):
+        out['Editorial'] = work['publisher']
+    if work.get('volume'):
+        out['Volum'] = str(work['volume'])
+    if work.get('issue'):
+        out['Número'] = str(work['issue'])
+    if work.get('page'):
+        out['Pàgines'] = str(work['page'])
+    if work.get('DOI'):
+        out['DOI'] = work['DOI']
+    if work.get('ISBN'):
+        isbns = work['ISBN']
+        out['ISBN'] = isbns[0] if isinstance(isbns, list) else isbns
+    if work.get('ISSN'):
+        issns = work['ISSN']
+        out['ISSN'] = issns[0] if isinstance(issns, list) else issns
+    if work.get('URL'):
+        out['URL'] = work['URL']
+    if work.get('language'):
+        out['Idioma'] = work['language']
+    if work.get('type'):
+        type_map = {
+            'journal-article': 'journalArticle',
+            'book': 'book',
+            'book-chapter': 'bookSection',
+            'proceedings-article': 'conferencePaper',
+            'thesis': 'thesis',
+            'report': 'report',
+        }
+        out['Item Type'] = type_map.get(work['type'], work['type'])
+    return out
+
+
+def _openlibrary_to_recursos(book: dict) -> dict:
+    """Mapeig Open Library `bibkeys` data → camps de Recursos."""
+    out: dict = {}
+    if book.get('title'):
+        out['Title'] = book['title']
+    if book.get('subtitle'):
+        out['Title'] = f"{out.get('Title', '')}: {book['subtitle']}".strip(': ')
+    authors = book.get('authors') or []
+    if authors:
+        names = []
+        for a in authors:
+            full = (a.get('name') or '').strip()
+            if not full:
+                continue
+            parts = full.split()
+            if len(parts) >= 2:
+                family = parts[-1]
+                given = ' '.join(parts[:-1])
+                names.append(f'{family}, {given}')
+            else:
+                names.append(full)
+        if names:
+            out['Authors'] = '; '.join(names)
+    if book.get('publish_date'):
+        m = re.search(r'\b(19|20)\d{2}\b', str(book['publish_date']))
+        if m:
+            try:
+                out['Any'] = int(m.group(0))
+            except ValueError:
+                pass
+    if book.get('publishers') and isinstance(book['publishers'], list) and book['publishers']:
+        out['Editorial'] = book['publishers'][0].get('name', '') if isinstance(book['publishers'][0], dict) else str(book['publishers'][0])
+    if book.get('publish_places') and isinstance(book['publish_places'], list) and book['publish_places']:
+        first = book['publish_places'][0]
+        out['Lloc'] = first.get('name', '') if isinstance(first, dict) else str(first)
+    if book.get('number_of_pages'):
+        out['Núm. pàgines'] = str(book['number_of_pages'])
+    ids = book.get('identifiers') or {}
+    if ids.get('isbn_13'):
+        out['ISBN'] = ids['isbn_13'][0]
+    elif ids.get('isbn_10'):
+        out['ISBN'] = ids['isbn_10'][0]
+    out['Item Type'] = 'book'
+    return out
+
+
+def _arxiv_to_recursos(entry_xml: str) -> dict:
+    """Parseig de la resposta Atom XML d'arXiv → camps de Recursos."""
+    import xml.etree.ElementTree as ET
+    out: dict = {}
+    ns = {'atom': 'http://www.w3.org/2005/Atom', 'arxiv': 'http://arxiv.org/schemas/atom'}
+    try:
+        root = ET.fromstring(entry_xml)
+    except ET.ParseError:
+        return out
+    entry = root.find('atom:entry', ns)
+    if entry is None:
+        return out
+    title = entry.find('atom:title', ns)
+    if title is not None and title.text:
+        out['Title'] = re.sub(r'\s+', ' ', title.text).strip()
+    authors_el = entry.findall('atom:author', ns)
+    if authors_el:
+        names = []
+        for a in authors_el:
+            name = a.find('atom:name', ns)
+            if name is not None and name.text:
+                parts = name.text.strip().split()
+                if len(parts) >= 2:
+                    names.append(f'{parts[-1]}, {" ".join(parts[:-1])}')
+                else:
+                    names.append(name.text.strip())
+        if names:
+            out['Authors'] = '; '.join(names)
+    published = entry.find('atom:published', ns)
+    if published is not None and published.text:
+        m = re.match(r'(\d{4})', published.text)
+        if m:
+            try:
+                out['Any'] = int(m.group(1))
+            except ValueError:
+                pass
+    doi = entry.find('arxiv:doi', ns)
+    if doi is not None and doi.text:
+        out['DOI'] = doi.text.strip()
+    journal_ref = entry.find('arxiv:journal_ref', ns)
+    if journal_ref is not None and journal_ref.text:
+        out['Llibre/Revista'] = journal_ref.text.strip()
+    link = entry.find('atom:id', ns)
+    if link is not None and link.text:
+        out['URL'] = link.text.strip()
+    out['Item Type'] = 'preprint'
+    return out
+
+
+def _html_meta_to_recursos(html: str, url: str) -> dict:
+    """Extreu meta tags d'HTML (Open Graph, Dublin Core, Schema.org, citation_*)."""
+    out: dict = {}
+    citations = re.findall(
+        r'<meta[^>]+name=["\']citation_([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
+        html, re.IGNORECASE,
+    )
+    og = re.findall(
+        r'<meta[^>]+property=["\']og:([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
+        html, re.IGNORECASE,
+    )
+    dc = re.findall(
+        r'<meta[^>]+name=["\']DC\.([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
+        html, re.IGNORECASE,
+    )
+    title_m = re.search(r'<title[^>]*>([^<]+)</title>', html, re.IGNORECASE)
+    fallback_title = title_m.group(1).strip() if title_m else None
+
+    sources = {}
+    for k, v in og: sources[k.lower()] = v
+    for k, v in dc: sources[k.lower()] = v
+    for k, v in citations: sources[k.lower()] = v  # citation_ té prioritat màxima
+
+    def get(*keys):
+        for k in keys:
+            v = sources.get(k.lower())
+            if v:
+                return v
+        return None
+
+    title = get('title')
+    if title:
+        out['Title'] = title.strip()
+    elif fallback_title:
+        out['Title'] = fallback_title
+
+    authors_list = [v for k, v in citations if k.lower() == 'author']
+    authors_list += [v for k, v in dc if k.lower() in ('creator', 'contributor')]
+    if not authors_list and get('author'):
+        authors_list = [get('author')]
+    if authors_list:
+        parts = []
+        seen = set()
+        for a in authors_list:
+            a = a.strip()
+            if ',' in a:
+                normalized = a
+            else:
+                toks = a.split()
+                if len(toks) >= 2:
+                    normalized = f'{toks[-1]}, {" ".join(toks[:-1])}'
+                else:
+                    normalized = a
+            key = normalized.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            parts.append(normalized)
+        out['Authors'] = '; '.join(parts)
+
+    year = get('date', 'publication_date')
+    if year:
+        m = re.search(r'\b(19|20)\d{2}\b', year)
+        if m:
+            try:
+                out['Any'] = int(m.group(0))
+            except ValueError:
+                pass
+    journal = get('journal_title', 'publisher')
+    if journal:
+        out['Llibre/Revista'] = journal
+    if get('doi'):
+        out['DOI'] = _normalize_doi(get('doi')) or get('doi')
+    if get('isbn'):
+        out['ISBN'] = _normalize_isbn(get('isbn')) or get('isbn')
+    if get('volume'):
+        out['Volum'] = get('volume')
+    if get('issue'):
+        out['Número'] = get('issue')
+    if get('firstpage') and get('lastpage'):
+        out['Pàgines'] = f"{get('firstpage')}-{get('lastpage')}"
+    elif get('firstpage'):
+        out['Pàgines'] = get('firstpage')
+    if get('language'):
+        out['Idioma'] = get('language')
+    out['URL'] = url
+    return out
+
+
+def _http_get(url: str, headers: Optional[dict] = None, timeout: float = 8.0) -> Optional[str]:
+    """GET HTTP simple amb timeout via urllib stdlib. Retorna text o None en error."""
+    import urllib.request
+    import urllib.error
+    req_headers = headers or {
+        'User-Agent': 'Gnosi/0.1 (https://github.com/ismigar/Gnosi; mailto:ismigar@gmail.com)',
+        'Accept': 'application/json, text/html, application/xml; q=0.9, */*; q=0.8',
+    }
+    req = urllib.request.Request(url, headers=req_headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read().decode('utf-8', errors='replace')
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+        log.warning(f'HTTP GET {url[:80]}... failed: {e}')
+        return None
+
+
+@router.post("/lookup-metadata")
+async def lookup_metadata(payload: dict = Body(...)):
+    """Resol metadades externes per a un identificador donat.
+
+    Body (un sol identificador per crida, però accepta tots i tria el
+    millor; prioritat DOI > arXiv > ISBN > URL):
+      { doi?: str, isbn?: str, arxiv?: str, url?: str }
+
+    Resposta:
+      {
+        "source": "crossref" | "openlibrary" | "arxiv" | "url" | null,
+        "identifier": str | null,
+        "suggested": { "Title": ..., "Authors": ..., "Any": ..., ... },
+        "error": null | str
+      }
+
+    Mai modifica el Vault: només suggereix. El frontend mostra un modal
+    on l'usuari accepta camps individualment.
+    """
+    doi = _normalize_doi(payload.get('doi') or '') or _normalize_doi(payload.get('url') or '')
+    arxiv_id = _normalize_arxiv(payload.get('arxiv') or '') or _normalize_arxiv(payload.get('url') or '')
+    isbn = _normalize_isbn(payload.get('isbn') or '')
+    url = (payload.get('url') or '').strip()
+
+    if doi:
+        body = await asyncio.to_thread(_http_get, f'https://api.crossref.org/works/{doi}')
+        if body:
+            try:
+                data = json.loads(body)
+                work = data.get('message') or {}
+                if work:
+                    return {
+                        'source': 'crossref',
+                        'identifier': doi,
+                        'suggested': _crossref_to_recursos(work),
+                        'error': None,
+                    }
+            except json.JSONDecodeError:
+                pass
+        return {'source': 'crossref', 'identifier': doi, 'suggested': {}, 'error': 'CrossRef no ha retornat dades vàlides'}
+
+    if arxiv_id:
+        body = await asyncio.to_thread(_http_get, f'http://export.arxiv.org/api/query?id_list={arxiv_id}')
+        if body:
+            sug = _arxiv_to_recursos(body)
+            if sug:
+                return {
+                    'source': 'arxiv',
+                    'identifier': arxiv_id,
+                    'suggested': sug,
+                    'error': None,
+                }
+        return {'source': 'arxiv', 'identifier': arxiv_id, 'suggested': {}, 'error': 'arXiv no ha retornat dades'}
+
+    if isbn:
+        body = await asyncio.to_thread(
+            _http_get,
+            f'https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data',
+        )
+        if body:
+            try:
+                data = json.loads(body)
+                book = data.get(f'ISBN:{isbn}') or {}
+                if book:
+                    return {
+                        'source': 'openlibrary',
+                        'identifier': isbn,
+                        'suggested': _openlibrary_to_recursos(book),
+                        'error': None,
+                    }
+            except json.JSONDecodeError:
+                pass
+        return {'source': 'openlibrary', 'identifier': isbn, 'suggested': {}, 'error': "Open Library no té dades per a aquest ISBN"}
+
+    if url and url.startswith(('http://', 'https://')):
+        body = await asyncio.to_thread(_http_get, url)
+        if body:
+            return {
+                'source': 'url',
+                'identifier': url,
+                'suggested': _html_meta_to_recursos(body, url),
+                'error': None,
+            }
+        return {'source': 'url', 'identifier': url, 'suggested': {}, 'error': "No s'ha pogut descarregar la pàgina"}
+
+    return {'source': None, 'identifier': None, 'suggested': {}, 'error': 'Cap identificador vàlid (DOI/ISBN/arXiv/URL)'}
+
+
 @router.get("/search-citations")
 async def search_citations(q: str = "", limit: int = 30):
     """Cerca pàgines de Recursos per al CitePicker (Cmd+Shift+I).

@@ -61,6 +61,7 @@ import { EmbedRenderer } from './EmbedRenderer';
 import { WikilinkInline } from './WikilinkInline';
 import { CiteInline } from './CiteInline';
 import { CitePicker } from './CitePicker';
+import { MetadataLookupModal } from './MetadataLookupModal';
 import { BibliographyBlock } from './BibliographyBlock';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
@@ -1062,6 +1063,10 @@ export function EditorInner({
     // Picker de citacions (Cmd+Shift+I). El render es fa al final del
     // component via <CitePicker /> i la inserció s'enruta a `insertCitation`.
     const [isCitePickerOpen, setIsCitePickerOpen] = useState(false);
+    // Modal per omplir metadades des de DOI/ISBN/arXiv/URL. Apareix com a
+    // botó al panell Propietats si l'editor és editable. Mai escriu sense
+    // confirmació explícita (modal mostra cada camp amb checkbox).
+    const [isMetadataLookupOpen, setIsMetadataLookupOpen] = useState(false);
 
     const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
         const prev = pendingInsertRef.current;
@@ -2520,6 +2525,18 @@ export function EditorInner({
                     }
                 }}
             />
+            <MetadataLookupModal
+                isOpen={isMetadataLookupOpen}
+                onClose={() => setIsMetadataLookupOpen(false)}
+                currentMetadata={metadata}
+                onApply={(patch) => {
+                    // Aplica camp per camp via handleMetaChange — així
+                    // disparem el debounce de save i actualitzem la UI alhora.
+                    Object.entries(patch).forEach(([k, v]) => {
+                        handleMetaChange(k, v);
+                    });
+                }}
+            />
         </VaultEditorContext.Provider>
     );
 };
@@ -3034,12 +3051,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>
                         <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center px-1 mb-1.5">
                             <div className="col-span-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsPropertiesOpen((prev) => !prev)}
-                                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-[var(--bg-secondary)]/60 transition-colors"
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-[var(--bg-secondary)]/60 transition-colors">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPropertiesOpen((prev) => !prev)}
+                                        className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                                    >
                                         <Settings size={14} className="text-[var(--text-secondary)]/80" />
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
                                             {t('common.properties')}
@@ -3047,13 +3064,32 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
                                             {t('common.schema')} {properties.length} · {t('common.local')} {adhocProperties.length}
                                         </div>
-                                    </div>
-                                    {isPropertiesOpen ? (
-                                        <ChevronDown size={14} className="text-[var(--text-tertiary)]/80 shrink-0" />
-                                    ) : (
-                                        <ChevronRight size={14} className="text-[var(--text-tertiary)]/80 shrink-0" />
+                                    </button>
+                                    {/* Botó d'enrichment per identificador (DOI/ISBN/arXiv/URL).
+                                        Sempre present si l'editor és editable. */}
+                                    {isEditable && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsMetadataLookupOpen(true)}
+                                            className="text-[11px] px-2 py-1 rounded-md text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--gnosi-primary)] transition-colors shrink-0 flex items-center gap-1"
+                                            title={t('metadata_lookup.button_title', { defaultValue: 'Omplir metadades des de DOI/ISBN/arXiv/URL' })}
+                                        >
+                                            <Search size={12} />
+                                            {t('metadata_lookup.button', { defaultValue: 'Omplir' })}
+                                        </button>
                                     )}
-                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPropertiesOpen((prev) => !prev)}
+                                        className="shrink-0"
+                                    >
+                                        {isPropertiesOpen ? (
+                                            <ChevronDown size={14} className="text-[var(--text-tertiary)]/80" />
+                                        ) : (
+                                            <ChevronRight size={14} className="text-[var(--text-tertiary)]/80" />
+                                        )}
+                                    </button>
+                                </div>
                                 {isPropertiesOpen && (
                                 <div className="p-3 border-t border-[var(--border-primary)] bg-[var(--bg-primary)]/35">
                                 <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center">
