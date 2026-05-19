@@ -149,9 +149,22 @@ def __getattr__(name: str):
 
 
 def _clear_page_index_cache():
-    """Clears the internal page index cache to force a re-scan."""
+    """Clears the internal page index cache and unmarks initialization so the
+    next access rebuilds it.
+
+    Sense reset del flag `_page_index_initialized`, els callers (`list_pages`,
+    `find_page_path`) creien que el cache estava poblat i no disparaven cap
+    rescan. Símptoma: una pàgina recent-creada apareixia al disc però donava
+    404 a `GET /api/vault/pages/{id}` fins que un altre `force_refresh`
+    repoblava el cache.
+    """
     with _page_index_lock:
         _page_index_entries.clear()
+        _page_id_to_path.clear()
+        _page_index_initialized.clear()
+        global _last_vault_sync_time
+        _last_vault_sync_time = 0.0
+        log.info("♻️ Page index cache cleared (forçant rebuild al següent accés).")
         # Sense això, `_page_index_initialized[v_str]` queda True i la propera
         # crida a `_get_cached_page_entries` retornaria [] silenciosament
         # (entrava al fast path amb el dict buit). Resetejant la flag, el
@@ -3125,12 +3138,16 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
     # id) — saves a multi-second OneDrive rglob.
     if not allow_full_scan:
         return None
-    # Si la cache ja està inicialitzada i no hem trobat la pàgina, és un
-    # "fantasma": està cachejat al frontend però el fitxer s'ha eliminat
-    # externament. Fer un rglob complet de 3981 fitxers a OneDrive triga
-    # 30s+ i bloqueja DELETE/GET indefinidament. Confiem al cache: si no
-    # hi és, retornem None ràpidament.
-    if _page_index_initialized.get(v_str):
+    # Si la cache ja està inicialitzada **i té entrades** i no hem trobat la
+    # pàgina, és un "fantasma": està cachejat al frontend però el fitxer s'ha
+    # eliminat externament. Fer un rglob complet de 3981 fitxers a OneDrive
+    # triga 30s+ i bloqueja DELETE/GET indefinidament. Confiem al cache.
+    # Però si el cache acaba d'estar netejat (entries buides), sí cal fer
+    # rglob — altrament una pàgina recent-creada que ha provocat un clear
+    # quedaria invisible fins que algú forcés un refresh complet.
+    with _page_index_lock:
+        cache_has_entries = bool(_page_index_entries.get(v_str))
+    if _page_index_initialized.get(v_str) and cache_has_entries:
         log.info(
             f"🔍 Page {page_id} not in cache (initialized) — skipping rglob fallback "
             f"(probably a deleted/renamed file).")
