@@ -432,6 +432,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [syncErrorAccounts, setSyncErrorAccounts] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem('gnosi_mail_sync_errors') || '[]')); } catch { return new Set(); }
     }); // Emails amb error de sync (persistit a localStorage)
+    const [mailDarkBody, setMailDarkBody] = useState(() => {
+        try { return localStorage.getItem('gnosi_mail_dark_body') === '1'; } catch { return false; }
+    });
     
     // Mail Snippets State
     const SNIPPETS_KEY = 'gnosi_mail_snippets';
@@ -1616,6 +1619,38 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>Redueix la càrrega visual eliminant transicions innecessàries i optimitzant el rendiment.</div>
                                         </div>
                                         <div className={`gnosi-toggle ${draft.settings.reduce_animations ? 'active' : ''}`} onClick={() => setDraft({...draft, settings: {...draft.settings, reduce_animations: !draft.settings.reduce_animations}})} style={{ transform: 'scale(1.2)' }}>
+                                            <div className="gnosi-toggle-handle" />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Llegir correus en mode fosc</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '480px' }}>Aplica una paleta fosca al cos del correu en lloc del fons blanc. Per defecte els correus es mostren amb fons clar (com Gmail/Apple Mail/Outlook) per assegurar la llegibilitat de newsletters i correus amb estils inline; activa-ho si prefereixes contrast amb el tema fosc, sabent que alguns correus poden quedar amb baix contrast.</div>
+                                        </div>
+                                        <div
+                                            role="switch"
+                                            tabIndex={0}
+                                            aria-checked={mailDarkBody}
+                                            aria-label="Llegir correus en mode fosc"
+                                            className={`gnosi-toggle ${mailDarkBody ? 'active' : ''}`}
+                                            onClick={() => {
+                                                const next = !mailDarkBody;
+                                                setMailDarkBody(next);
+                                                try { localStorage.setItem('gnosi_mail_dark_body', next ? '1' : '0'); } catch {}
+                                                try { window.dispatchEvent(new Event('gnosi-mail-dark-body-changed')); } catch {}
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === ' ' || e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    const next = !mailDarkBody;
+                                                    setMailDarkBody(next);
+                                                    try { localStorage.setItem('gnosi_mail_dark_body', next ? '1' : '0'); } catch {}
+                                                    try { window.dispatchEvent(new Event('gnosi-mail-dark-body-changed')); } catch {}
+                                                }
+                                            }}
+                                            style={{ transform: 'scale(1.2)' }}
+                                        >
                                             <div className="gnosi-toggle-handle" />
                                         </div>
                                     </div>

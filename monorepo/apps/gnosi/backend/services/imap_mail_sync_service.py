@@ -882,32 +882,58 @@ class ImapMailSyncService:
                 log.error(f"[IMAP] Error actualitzant \\Flagged: {e}")
         return True
 
-    def mark_read(self, email_account: str, message_id: str, is_read: bool) -> bool:
-        """Set/unset \\Seen on server and update vault."""
+    def mark_read(
+        self,
+        email_account: str,
+        message_id: str,
+        is_read: bool,
+        imap_uid: str | None = None,
+        imap_folder: str | None = None,
+    ) -> bool:
+        """Set/unset \\Seen on server and update vault.
+
+        Si no hi ha vault file però el caller ens dona `imap_uid` i `imap_folder`
+        (o el `message_id` és `imap_<UID>` i podem assumir INBOX), apliquem el
+        flag directament al servidor sense passar pel vault. Així els correus
+        que encara no s'han sincronitzat al vault també poden marcar-se com
+        a llegits — i el sidebar (que consulta `STATUS UNSEEN` al servidor)
+        veu el canvi a la pròxima petició de counts.
+        """
         vault_file = self._find_vault_file(message_id)
-        if not vault_file:
-            return False
+        uid: str | None = None
+        folder: str | None = None
 
-        meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
-        uid = meta.get("imap_uid")
-        folder = meta.get("imap_folder")
+        if vault_file:
+            meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+            uid = meta.get("imap_uid")
+            folder = meta.get("imap_folder")
+            self._update_vault_file(vault_file, {"is_read": is_read})
 
-        self._update_vault_file(vault_file, {"is_read": is_read})
+        # Fallback: si no tenim uid/folder via vault, fes-los servir dels args
+        # del caller o derivar-los del message_id (`imap_<UID>` en INBOX).
+        if not uid:
+            uid = imap_uid or (message_id[5:] if message_id.startswith("imap_") else None)
+        if not folder:
+            folder = imap_folder or "INBOX"
 
-        if not uid or not folder:
-            return True
+        if not uid:
+            # Sense uid no es pot tocar el servidor; només cas vault_file inexistent
+            # i message_id sense prefix imap_. Considerem-ho fallit perquè el
+            # caller pugui invalidar caches igualment a través d'altres camins.
+            return bool(vault_file)
 
         with self._connect(email_account) as imap:
             if imap is None:
-                return True
+                return bool(vault_file)
             try:
                 imap.select(_imap_name(folder))
                 uid_b = uid.encode() if isinstance(uid, str) else uid
                 flag_op = "+FLAGS" if is_read else "-FLAGS"
                 imap.uid("store", uid_b, flag_op, "\\Seen")
-                log.info(f"[IMAP] \\Seen {'afegit' if is_read else 'tret'} per UID {uid}")
+                log.info(f"[IMAP] \\Seen {'afegit' if is_read else 'tret'} per UID {uid} a {folder}")
             except Exception as e:
                 log.error(f"[IMAP] Error actualitzant \\Seen: {e}")
+                return bool(vault_file)
         return True
 
     def empty_folder(self, email_account: str, folder_name: str, permanent: bool = True) -> bool:

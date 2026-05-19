@@ -35,8 +35,18 @@ function sanitizeHtml(html) {
         .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
 }
 
-const EMAIL_CSS = `
-    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #111; background: transparent; }
+// Els emails s'embedeixen dins un iframe sandboxat. Per defecte forcem un
+// canvas blanc + text fosc (igual que Gmail/Apple Mail/Outlook): els correus
+// comercials esperen fons clar als seus dissenys, i així els correus de text
+// pla queden llegibles també en dark mode (sinó: text `#111` sobre el fons
+// fosc heretat del wrapper = invisible).
+//
+// L'usuari pot activar el toggle "Llegir correus en mode fosc" a Configuració
+// → Aparença, que es persisteix a `localStorage.gnosi_mail_dark_body`. Quan
+// està actiu apliquem una paleta fosca al cos del correu (alguns correus amb
+// estils inline poden patir de baix contrast — és el compromís sabut).
+const EMAIL_CSS_LIGHT = `
+    html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #111; background: #fff; }
     img { max-width: 100% !important; height: auto !important; display: inline-block; }
     table { max-width: 100% !important; border-collapse: collapse; }
     td, th { word-break: break-word; }
@@ -44,6 +54,22 @@ const EMAIL_CSS = `
     a { color: #3b82f6; }
     * { box-sizing: border-box; }
 `;
+const EMAIL_CSS_DARK = `
+    html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #e6e6e6; background: #1a1a1a; }
+    img { max-width: 100% !important; height: auto !important; display: inline-block; }
+    table { max-width: 100% !important; border-collapse: collapse; }
+    td, th { word-break: break-word; color: inherit; }
+    pre, code { white-space: pre-wrap; word-break: break-word; background: #2a2a2a; color: #e6e6e6; }
+    a { color: #6ea8fe; }
+    blockquote { border-left: 3px solid #444; color: #c0c0c0; }
+    hr { border-color: #444; }
+    * { box-sizing: border-box; }
+`;
+const MAIL_DARK_BODY_KEY = 'gnosi_mail_dark_body';
+const MAIL_DARK_BODY_EVENT = 'gnosi-mail-dark-body-changed';
+function readMailDarkBody() {
+    try { return localStorage.getItem(MAIL_DARK_BODY_KEY) === '1'; } catch { return false; }
+}
 
 const PDF_ZOOM_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
@@ -253,6 +279,17 @@ function AttachmentList({ attachments, messageId, email, folder }) {
 function MailBody({ bodyHtml, bodyText, messageId, email, folder }) {
     const iframeRef = useRef(null);
     const [height, setHeight] = useState(200);
+    const [darkBody, setDarkBody] = useState(readMailDarkBody);
+
+    useEffect(() => {
+        const onChange = () => setDarkBody(readMailDarkBody());
+        window.addEventListener(MAIL_DARK_BODY_EVENT, onChange);
+        window.addEventListener('storage', onChange);
+        return () => {
+            window.removeEventListener(MAIL_DARK_BODY_EVENT, onChange);
+            window.removeEventListener('storage', onChange);
+        };
+    }, []);
 
     useEffect(() => {
         if (!bodyHtml || !iframeRef.current) return;
@@ -267,7 +304,7 @@ function MailBody({ bodyHtml, bodyText, messageId, email, folder }) {
         };
         iframe.addEventListener('load', onLoad);
         return () => iframe.removeEventListener('load', onLoad);
-    }, [bodyHtml]);
+    }, [bodyHtml, darkBody]);
 
     if (bodyHtml) {
         const sanitized = sanitizeHtml(bodyHtml);
@@ -275,14 +312,22 @@ function MailBody({ bodyHtml, bodyText, messageId, email, folder }) {
             ? sanitized.replace(/cid:([^"'\s>)]+)/gi, (_, cid) =>
                 `/api/mail/messages/${messageId}/cid/${encodeURIComponent(cid)}?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder || 'INBOX')}`)
             : sanitized;
-        const src = `<style>${EMAIL_CSS}</style>${withCid}`;
+        const css = darkBody ? EMAIL_CSS_DARK : EMAIL_CSS_LIGHT;
+        const src = `<style>${css}</style>${withCid}`;
         return (
             <iframe
                 ref={iframeRef}
                 srcDoc={src}
                 sandbox="allow-same-origin allow-popups"
                 title="mail-body"
-                style={{ width: '100%', border: 'none', height: `${height}px`, display: 'block' }}
+                style={{
+                    width: '100%',
+                    border: 'none',
+                    height: `${height}px`,
+                    display: 'block',
+                    borderRadius: '12px',
+                    background: darkBody ? '#1a1a1a' : '#fff',
+                }}
             />
         );
     }
@@ -498,7 +543,13 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
     const markAsRead = (id, msgEmail) => {
         const email = msgEmail || account?.email;
         if (!email) return;
-        fetch(`/api/mail/messages/${id}/read?email=${encodeURIComponent(email)}`, {
+        // Passem `folder` perquè el backend pugui aplicar \Seen al servidor
+        // IMAP fins i tot quan el missatge encara no s'ha sincronitzat al
+        // vault (sense aquest fallback, mark_read retornava False, el cache
+        // de counts no s'invalidava i el sidebar mantenia el comptador antic).
+        const folder = mailData?.imap_folder || selectedMail?.imap_folder || '';
+        const folderQuery = folder ? `&folder=${encodeURIComponent(folder)}` : '';
+        fetch(`/api/mail/messages/${id}/read?email=${encodeURIComponent(email)}${folderQuery}`, {
             method: 'POST'
         })
         .then(() => {
@@ -657,7 +708,26 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
     };
 
     const handleDelete = () => {
-        if (!mailData?.id || !effectiveEmail) return;
+        if (!mailData?.id) return;
+        // Esborranys del vault no viuen al servidor IMAP — s'eliminen amb
+        // l'endpoint dedicat /drafts/{id} (DELETE). Si fem POST /trash sobre
+        // un draft del vault, el backend no troba el missatge i el fitxer
+        // markdown segueix al disk (reapareix en recarregar la llista).
+        const isVaultDraft = (mailData.source === 'vault') || (selectedMail?.source === 'vault');
+        if (isVaultDraft) {
+            fetch(`/api/mail/drafts/${mailData.id}`, { method: 'DELETE' })
+                .then(res => {
+                    if (!res.ok) throw new Error('delete_draft_failed');
+                    // Passem actionType='delete_draft' (no 'trash') perquè
+                    // handleActionDone NO dispari l'undo: un draft del vault
+                    // s'esborra del disc, no es mou a Paperera del servidor,
+                    // així que un POST /messages/{id}/move posterior fallaria.
+                    onActionDone?.(mailData.id, 'delete_draft', effectiveEmail);
+                })
+                .catch(() => toast.error(t('mail.delete_error')));
+            return;
+        }
+        if (!effectiveEmail) return;
         const folderParam = mailData.imap_folder ? `&folder=${encodeURIComponent(mailData.imap_folder)}` : '';
         fetch(`/api/mail/messages/${mailData.id}/trash?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
             .then(res => {

@@ -1234,8 +1234,19 @@ async def batch_action(email: str = Query(...), payload: dict = Body(...)):
 
 
 @router.post("/messages/{message_id}/read")
-async def mark_as_read(message_id: str, email: str = Query(...)):
-    """Marca un missatge com a llegit (treu l'etiqueta UNREAD a Gmail o posa \\Seen a IMAP)."""
+async def mark_as_read(
+    message_id: str,
+    email: str = Query(...),
+    folder: Optional[str] = Query(None),
+):
+    """Marca un missatge com a llegit (treu UNREAD a Gmail o posa \\Seen a IMAP).
+
+    `folder` és opcional. Si es proporciona, es passa a `mark_read` perquè
+    pugui aplicar `\\Seen` al servidor encara que no hi hagi vault file
+    (típic de correus encara no sincronitzats al vault). Sense això,
+    `mark_read` retornava False i el cache de counts no s'invalidava → el
+    sidebar continuava mostrant el comptador antic.
+    """
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_mark_read
         if microsoft_mark_read(email, message_id, True):
@@ -1244,7 +1255,10 @@ async def mark_as_read(message_id: str, email: str = Query(...)):
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
         uid = message_id[5:] if message_id.startswith("imap_") else message_id
-        if imap_sync_service.mark_read(email, uid, True):
+        if imap_sync_service.mark_read(
+            email, message_id, True,
+            imap_uid=uid, imap_folder=folder,
+        ):
             _invalidate_mail_cache()
             return {"status": "success"}
     gmail_id = _resolve_gmail_id(message_id)
