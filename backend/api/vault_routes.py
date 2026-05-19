@@ -3106,6 +3106,262 @@ def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
     return item
 
 
+def _resolve_csl_path(style: str) -> Optional[Path]:
+    """Localitza el fitxer `.csl` per a un estil donat. Compartit per
+    `/export/`, `/format-citation` i `/format-bibliography`."""
+    style_map = {
+        'apa': 'apa.csl',
+        'chicago-author-date': 'chicago-author-date.csl',
+        'mla': 'modern-language-association.csl',
+        'modern-language-association': 'modern-language-association.csl',
+        'ieee': 'ieee.csl',
+    }
+    style_file = style_map.get(style, 'apa.csl')
+    candidates = [
+        Path('/app/frontend/public/csl/styles') / style_file,
+        Path('/app/monorepo/apps/gnosi/frontend/public/csl/styles') / style_file,
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
+    """Construeix la llista de CSL-JSON items per als citation keys donats.
+    Ignora els que no resolen al Vault. Reutilitzable per
+    `/format-citation`, `/format-bibliography` i `/export/`."""
+    if not keys:
+        return []
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        return []
+    idx = _ensure_cite_key_index(str(v_path))
+    out = []
+    for k in keys:
+        entry = idx.get(k)
+        if not entry:
+            continue
+        try:
+            page_path = find_page_path(entry['id'])
+            if not page_path:
+                continue
+            raw_page = page_path.read_text(encoding='utf-8')
+            meta, _ = parse_frontmatter(raw_page, page_path)
+            csl_item = _recursos_metadata_to_csl(entry.get('title') or '', meta)
+            if csl_item:
+                out.append(csl_item)
+        except OSError:
+            continue
+    return out
+
+
+@router.get("/format-citation")
+async def format_citation(
+    key: str,
+    style: str = Query('apa'),
+    locale: str = Query('ca-AD'),
+):
+    """Renderitza una cita inline (un sol citation key) com a text plain.
+
+    Pensat per al Office Add-in (Gnosi Cite): el add-in vol inserir un
+    text formatat al document de Word. El backend invoca pandoc-citeproc
+    amb el subset mínim (un sol element) i retorna el text inline.
+
+    Resposta: `{ formatted: "(Smith, 2020)", key: "smith2020" }`. Si no
+    es resol, retorna el citation key entre parèntesis com a fallback
+    perquè l'usuari pugui veure el problema al document.
+    """
+    key_norm = str(key or '').strip()
+    if not key_norm:
+        raise HTTPException(status_code=400, detail="key is required")
+
+    csl_items = await asyncio.to_thread(_build_csl_items_for_keys, [key_norm])
+    if not csl_items:
+        return {"key": key_norm, "formatted": f"(@{key_norm})", "resolved": False}
+
+    csl_path = _resolve_csl_path(style)
+    # Marcador únic per extreure'n l'inline citation de l'output pandoc.
+    marker_a = "<<<GNOSI_CITE_START>>>"
+    marker_b = "<<<GNOSI_CITE_END>>>"
+    md = f"{marker_a}[@{key_norm}]{marker_b}\n"
+
+    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmt_') as tmpdir:
+        tmp = Path(tmpdir)
+        (tmp / 'input.md').write_text(md, encoding='utf-8')
+        (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
+        cmd = [
+            'pandoc', 'input.md', '-t', 'plain',
+            '--citeproc', '--bibliography', 'refs.json',
+            '--metadata', f'lang={locale}',
+        ]
+        if csl_path:
+            cmd += ['--csl', str(csl_path)]
+        try:
+            r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=20)
+        except FileNotFoundError:
+            raise HTTPException(status_code=500, detail="pandoc not available")
+        except _ext_subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="pandoc timeout")
+        if r.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
+        out = r.stdout
+
+    m = re.search(re.escape(marker_a) + r'(.*?)' + re.escape(marker_b), out, re.DOTALL)
+    formatted = m.group(1).strip() if m else out.strip()
+    # El pandoc-citeproc afegeix la bibliografia al final per defecte; la
+    # ignorem perquè aquí només volem la cita inline.
+    return {"key": key_norm, "formatted": formatted, "resolved": True}
+
+
+@router.post("/format-citations")
+async def format_citations(payload: dict = Body(...)):
+    """Renderitza un conjunt de cites inline EN CONJUNT — necessari per
+    complir APA i altres estils sensibles a context.
+
+    Per què cal aquesta variant batch (no `format-citation` singular):
+      - APA desambigua autors homònims dins un document (Smith, J. vs
+        Smith, A.) afegint inicials a la primera aparició
+      - Mateix autor + mateix any → sufixos `2020a`, `2020b` automàtics
+      - Primera aparició d'un grup amb molts autors → noms complets;
+        següents → `et al.`
+      - Citeproc només pot fer aquestes decisions si rep TOT el subset
+        que apareix al document en una sola crida
+
+    Cos: `{ keys: ["smith2020", "lee2021", "smith2020"], style, locale }`
+    (els duplicats es permeten — citeproc-js i pandoc-citeproc compten
+    ocurrències per decidir el format apropiat).
+
+    Resposta: `{ items: [{key, formatted, ordinal}, ...], style, locale }`
+    `ordinal` és l'ordre d'aparició (1, 2, 3…) — útil per saber a quina
+    Content Control del document correspon cada text formatat.
+    """
+    raw_keys = payload.get('keys') or []
+    if not isinstance(raw_keys, list):
+        raise HTTPException(status_code=400, detail="keys must be a list")
+    keys: List[str] = [str(k).strip().lstrip('@') for k in raw_keys if str(k).strip()]
+    if not keys:
+        return {"items": [], "style": str(payload.get('style') or 'apa'), "locale": str(payload.get('locale') or 'ca-AD')}
+    style = str(payload.get('style') or 'apa').strip()
+    locale = str(payload.get('locale') or 'ca-AD').strip()
+
+    # CSL items: deduplicats per key (citeproc rep cada item un cop, però
+    # les cites poden repetir-se al text — vegis més avall).
+    unique_keys = list(dict.fromkeys(keys))  # preserva ordre, elimina dups
+    csl_items = await asyncio.to_thread(_build_csl_items_for_keys, unique_keys)
+    resolved_keys = {it.get('id') for it in csl_items}
+
+    csl_path = _resolve_csl_path(style)
+    # Markdown: una línia per cada cita en l'ordre original (amb duplicats!),
+    # cada una embolcallada amb marcadors únics que identifiquen l'ordinal.
+    # Així el parser sap quin text correspon a quina ocurrència.
+    lines = []
+    for idx, k in enumerate(keys, start=1):
+        if k in resolved_keys:
+            lines.append(f"<<<GC_{idx}_S>>>[@{k}]<<<GC_{idx}_E>>>")
+        else:
+            # Key no resolt: deixem un placeholder amb el text cru perquè
+            # el client el detecti i pugui mostrar un error.
+            lines.append(f"<<<GC_{idx}_S>>>(@{k})<<<GC_{idx}_E>>>")
+    md = "\n\n".join(lines) + "\n"
+
+    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmts_') as tmpdir:
+        tmp = Path(tmpdir)
+        (tmp / 'input.md').write_text(md, encoding='utf-8')
+        if csl_items:
+            (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
+        cmd = ['pandoc', 'input.md', '-t', 'plain', '--wrap=none', '--metadata', f'lang={locale}']
+        if csl_items:
+            cmd += ['--citeproc', '--bibliography', 'refs.json']
+        if csl_path:
+            cmd += ['--csl', str(csl_path)]
+        try:
+            r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=30)
+        except FileNotFoundError:
+            raise HTTPException(status_code=500, detail="pandoc not available")
+        except _ext_subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="pandoc timeout")
+        if r.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
+        out = r.stdout
+
+    items: List[dict] = []
+    for idx, k in enumerate(keys, start=1):
+        pattern = re.compile(re.escape(f"<<<GC_{idx}_S>>>") + r'(.*?)' + re.escape(f"<<<GC_{idx}_E>>>"), re.DOTALL)
+        m = pattern.search(out)
+        formatted = m.group(1).strip() if m else f"(@{k})"
+        items.append({
+            "key": k,
+            "ordinal": idx,
+            "formatted": formatted,
+            "resolved": k in resolved_keys,
+        })
+    return {"items": items, "style": style, "locale": locale}
+
+
+@router.post("/format-bibliography")
+async def format_bibliography(payload: dict = Body(...)):
+    """Renderitza la bibliografia (llista d'entries) per als citation
+    keys donats. Pensat per al Office Add-in.
+
+    Cos: `{ keys: ["smith2020", "lee2021"], style: "apa", locale: "ca-AD" }`
+    Resposta: `{ entries: ["Smith, J. (2020). ...", "Lee, A. (2021). ..."], style, locale }`
+
+    Pandoc invocat amb `--nocite` perquè generi la bibliografia sense
+    necessitat de citar al cos. Cada entrada de la llista es separa per
+    una línia buida (output `plain`), que parsegem.
+    """
+    keys = payload.get('keys') or []
+    if not isinstance(keys, list):
+        raise HTTPException(status_code=400, detail="keys must be a list")
+    keys = [str(k).strip().lstrip('@') for k in keys if str(k).strip()]
+    style = str(payload.get('style') or 'apa').strip()
+    locale = str(payload.get('locale') or 'ca-AD').strip()
+
+    csl_items = await asyncio.to_thread(_build_csl_items_for_keys, keys)
+    if not csl_items:
+        return {"entries": [], "style": style, "locale": locale, "resolved": 0, "missing": keys}
+    resolved_keys = {it.get('id') for it in csl_items}
+    missing = [k for k in keys if k not in resolved_keys]
+
+    csl_path = _resolve_csl_path(style)
+    nocite = ' '.join(f'@{it["id"]}' for it in csl_items)
+    md = f"---\nnocite: |\n  {nocite}\n---\n\n::: {{#refs}}\n:::\n"
+
+    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_bib_') as tmpdir:
+        tmp = Path(tmpdir)
+        (tmp / 'input.md').write_text(md, encoding='utf-8')
+        (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
+        cmd = [
+            'pandoc', 'input.md', '-t', 'plain',
+            '--citeproc', '--bibliography', 'refs.json',
+            '--metadata', f'lang={locale}',
+            '--wrap=none',
+        ]
+        if csl_path:
+            cmd += ['--csl', str(csl_path)]
+        try:
+            r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=30)
+        except FileNotFoundError:
+            raise HTTPException(status_code=500, detail="pandoc not available")
+        except _ext_subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="pandoc timeout")
+        if r.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
+        out = r.stdout.strip()
+
+    # Cada entrada de la bibliografia és un paràgraf separat per línia buida.
+    entries = [e.strip() for e in re.split(r'\n\s*\n', out) if e.strip()]
+    return {
+        "entries": entries,
+        "style": style,
+        "locale": locale,
+        "resolved": len(csl_items),
+        "missing": missing,
+    }
+
+
 @router.get("/export/{page_id}")
 async def export_page(
     page_id: str,
@@ -3251,6 +3507,142 @@ async def export_page(
         media_type=media,
         headers={'Content-Disposition': f'attachment; filename="{download_name}"'},
     )
+
+
+@router.get("/search-citations")
+async def search_citations(q: str = "", limit: int = 30):
+    """Cerca pàgines de Recursos per al CitePicker (Cmd+Shift+I).
+
+    Filtre lliure que cerca a `Citation Key`, `Títol` (`title`), i `Autor`
+    del frontmatter. Retorna `limit` (per defecte 30) resultats ordenats
+    per millor coincidència (prefix > infix > altres camps).
+
+    Resposta: `[{ id, title, citation_key, author, year, folder }, ...]`
+    Pensat per a un picker amb autocompletar — no és un endpoint d'index
+    complet del catàleg.
+    """
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        raise HTTPException(status_code=503, detail="No active vault")
+    v_str = str(v_path)
+    idx = _ensure_cite_key_index(v_str)
+
+    query = str(q or "").strip().lower()
+    if not query:
+        # Sense filtre, retornem els primers `limit` per popularitat (per
+        # ara, ordre alfabètic per citation_key).
+        items = sorted(idx.values(), key=lambda x: str(x.get("citation_key") or "").lower())[:limit]
+        # Enriquim amb autor/any llegits del frontmatter (cau a I/O però són
+        # només `limit` arxius — acceptable).
+        return [_enrich_cite_entry(item) for item in items]
+
+    # Cerca per citation_key (prefix), després per títol (infix), després
+    # per autor (infix). Limitem a `limit*5` candidats per al ranking i
+    # tornem `limit`.
+    candidates = []
+    for entry in idx.values():
+        ck = str(entry.get("citation_key") or "").lower()
+        title = str(entry.get("title") or "").lower()
+        score = -1
+        if ck.startswith(query):
+            score = 100 - len(ck)  # prefer curtes
+        elif query in ck:
+            score = 50 - len(ck)
+        elif query in title:
+            score = 30 - len(title) // 10
+        if score >= 0:
+            candidates.append((score, entry))
+
+    candidates.sort(key=lambda x: -x[0])
+    top = [entry for _, entry in candidates[:limit]]
+    enriched = [_enrich_cite_entry(item) for item in top]
+
+    # Si encara hi ha lloc, cerquem també per autor llegint els
+    # frontmatters dels que no han fet match (cost més alt).
+    if len(enriched) < limit:
+        seen_ids = {e.get("id") for e in enriched}
+        with _page_index_lock:
+            entries = list(_page_index_entries.get(v_str, {}).values())
+        for entry in entries:
+            if entry.get("id") in seen_ids:
+                continue
+            path = entry.get("path")
+            if not path or not Path(path).exists():
+                continue
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    head = f.read(4096)
+                if not head.startswith("---"):
+                    continue
+                m_author = re.search(r"^Autor:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
+                if not m_author:
+                    continue
+                author_low = m_author.group(1).strip().lower()
+                if query not in author_low:
+                    continue
+                m_ck = re.search(r"^Citation Key:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
+                ck = m_ck.group(1).strip() if m_ck else None
+                if not ck:
+                    continue
+                m_year = re.search(r"^(?:Any|Year|Data):\s*['\"]?(\d{4})", head, re.MULTILINE)
+                year = m_year.group(1).strip() if m_year else None
+                enriched.append({
+                    "id": entry.get("id"),
+                    "title": entry.get("title"),
+                    "citation_key": ck,
+                    "author": m_author.group(1).strip(),
+                    "year": year,
+                    "folder": entry.get("folder"),
+                })
+                if len(enriched) >= limit:
+                    break
+            except OSError:
+                continue
+
+    return enriched
+
+
+def _enrich_cite_entry(entry: dict) -> dict:
+    """Llegeix Autor i Any del frontmatter per enriquir una entrada del
+    cite_key_index. Falla silenciosament si no hi ha frontmatter."""
+    out = {
+        "id": entry.get("id"),
+        "title": entry.get("title"),
+        "citation_key": entry.get("citation_key"),
+        "folder": entry.get("folder"),
+        "author": None,
+        "year": None,
+    }
+    page_id = entry.get("id")
+    if not page_id:
+        return out
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        return out
+    with _page_index_lock:
+        idx = _page_index_entries.get(str(v_path), {})
+    page_entry = idx.get(page_id)
+    if not page_entry:
+        return out
+    path = page_entry.get("path")
+    if not path or not Path(path).exists():
+        return out
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            head = f.read(4096)
+        if not head.startswith("---"):
+            return out
+        m_author = re.search(r"^Autor:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
+        if m_author:
+            out["author"] = m_author.group(1).strip()
+        m_year = re.search(r"^(?:Any|Year|Data):\s*['\"]?(\d{4})", head, re.MULTILINE)
+        if m_year:
+            out["year"] = m_year.group(1).strip()
+    except OSError:
+        pass
+    return out
 
 
 @router.get("/resolve-by-citation-key")

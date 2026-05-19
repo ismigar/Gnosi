@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Body
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Body, Query
 from pathlib import Path
 import json
 import logging
@@ -969,25 +969,79 @@ async def validate_config():
     return {"ok": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
+# -----------------------------------------------------------------------------
+# DEPRECATED: sync bidireccional Zotero ↔ Vault
+# -----------------------------------------------------------------------------
+#
+# Aquests dos endpoints implementaven la sincronització periòdica entre la
+# biblioteca Zotero i la taula Recursos del Vault. Des que el workflow
+# acadèmic complet viu dins Gnosi (Fases 0–5 + Office Add-in opcional),
+# Gnosi és la SOURCE OF TRUTH i no cal sincronitzar amb Zotero.
+#
+# Els endpoints es mantenen accessibles per:
+#   1. Tenir el codi com a referència històrica per a la migració.
+#   2. Permetre un sync puntual si l'usuari afegeix nous ítems a Zotero
+#      i vol portar-los a Gnosi (cas excepcional; el camí recomanat és
+#      escriure directament al Vault i fer servir
+#      `pipeline/skills/zotero_sync/scripts/zotero_enrich.py`).
+#
+# Comportament nou: requereixen una flag explícita
+# `?confirm_deprecated=true` per a no executar-se per accident. Sense
+# la flag, retornen 410 Gone amb un missatge explicatiu.
+
+DEPRECATED_SYNC_MSG = (
+    "La sincronització Zotero ↔ Vault està desactivada des de la "
+    "migració del workflow acadèmic dins Gnosi (Fases 0–5). Gnosi és "
+    "ara la font de la veritat. Si necessites portar canvis nous des "
+    "de Zotero, fes servir `pipeline/skills/zotero_sync/scripts/"
+    "zotero_enrich.py` o reenvia aquesta crida amb "
+    "`?confirm_deprecated=true`."
+)
+
+
 @router.post("/sync", dependencies=[Depends(require_role("editor"))])
-async def trigger_sync(background_tasks: BackgroundTasks):
-    """Triggers Zotero → Vault sync in background."""
+async def trigger_sync(
+    background_tasks: BackgroundTasks,
+    confirm_deprecated: bool = Query(False),
+):
+    """[DEPRECATED] Triggers Zotero → Vault sync in background.
+
+    Aquesta crida és un legacy de quan Zotero era el master. Avui Gnosi
+    és la font de la veritat; veure docstring del bloc de dalt.
+    """
+    if not confirm_deprecated:
+        raise HTTPException(status_code=410, detail=DEPRECATED_SYNC_MSG)
+
     config = load_config_with_migration()
     if not config.get("enabled"):
         raise HTTPException(status_code=400, detail="La integració Zotero no està activada.")
     if not config.get("target_table"):
         raise HTTPException(status_code=400, detail="No hi ha cap taula de destí configurada.")
 
+    log.warning("⚠️  Sync Zotero→Vault invocat amb --confirm-deprecated. Comprova que sigui intencional.")
+
     def run_sync():
         _run_sync_subprocess(SYNC_SCRIPT_PATH, "zotero→vault")
 
     background_tasks.add_task(run_sync)
-    return {"status": "started", "direction": "zotero→vault"}
+    return {"status": "started", "direction": "zotero→vault", "deprecated": True}
 
 
 @router.post("/sync-back", dependencies=[Depends(require_role("editor"))])
-async def trigger_sync_back(background_tasks: BackgroundTasks):
-    """Triggers Vault → Zotero sync in background. Checks Zotero is not running first."""
+async def trigger_sync_back(
+    background_tasks: BackgroundTasks,
+    confirm_deprecated: bool = Query(False),
+):
+    """[DEPRECATED] Triggers Vault → Zotero sync in background.
+
+    Especialment perillós: Vault és ara la font de la veritat amb cites,
+    bibliografies generades i metadades enriquides que Zotero no
+    representa. Sobreescriure Zotero amb el contingut de Gnosi tornaria
+    a generar discrepàncies. Conservat només per accidents recuperables.
+    """
+    if not confirm_deprecated:
+        raise HTTPException(status_code=410, detail=DEPRECATED_SYNC_MSG)
+
     config = load_config_with_migration()
     if not config.get("enabled"):
         raise HTTPException(status_code=400, detail="La integració Zotero no està activada.")
@@ -995,16 +1049,17 @@ async def trigger_sync_back(background_tasks: BackgroundTasks):
     try:
         check = subprocess.run(["pgrep", "-x", "Zotero"], capture_output=True, timeout=5)
     except subprocess.TimeoutExpired:
-        # pgrep penjat — assumim que Zotero no està obert i continuem
         check = None
     if check is not None and check.returncode == 0:
         return {"status": "zotero_open", "message": "Tanca Zotero abans de sincronitzar els canvis de Gnosi cap a Zotero."}
+
+    log.warning("⚠️  Sync Vault→Zotero invocat amb --confirm-deprecated. Comprova que sigui intencional.")
 
     def run_sync_back():
         _run_sync_subprocess(SYNC_BACK_SCRIPT_PATH, "vault→zotero")
 
     background_tasks.add_task(run_sync_back)
-    return {"status": "started", "direction": "vault→zotero"}
+    return {"status": "started", "direction": "vault→zotero", "deprecated": True}
 
 
 def _run_sync_subprocess(script_path: Path, direction: str) -> None:

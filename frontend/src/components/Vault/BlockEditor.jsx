@@ -26,7 +26,8 @@ import {
     Settings,
     Link2,
     AtSign,
-    Smile
+    Smile,
+    Quote,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -59,6 +60,7 @@ import { DbViewEmbed } from './DbViewEmbed';
 import { EmbedRenderer } from './EmbedRenderer';
 import { WikilinkInline } from './WikilinkInline';
 import { CiteInline } from './CiteInline';
+import { CitePicker } from './CitePicker';
 import { BibliographyBlock } from './BibliographyBlock';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
@@ -1057,6 +1059,10 @@ export function EditorInner({
     const pendingInsertRef = useRef(null);
     useEffect(() => { pendingInsertRef.current = pendingInsert; }, [pendingInsert]);
 
+    // Picker de citacions (Cmd+Shift+I). El render es fa al final del
+    // component via <CitePicker /> i la inserció s'enruta a `insertCitation`.
+    const [isCitePickerOpen, setIsCitePickerOpen] = useState(false);
+
     const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
         const prev = pendingInsertRef.current;
         if (prev?.reject) {
@@ -1219,6 +1225,38 @@ export function EditorInner({
 
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
+
+    // Shortcut global Cmd+Shift+I / Ctrl+Shift+I → obre el CitePicker.
+    // Nota: A Chromium en Windows/Linux aquesta combinació també obre el
+    // DevTools del navegador (el navegador la captura abans que la pàgina).
+    // A Mac (Cmd+Shift+I) sí està lliure perquè DevTools usa Cmd+Opt+I.
+    // Per als usuaris Win/Linux: serveix el slash command `/cite` com a alternativa.
+    useEffect(() => {
+        if (!editor) return undefined;
+        const onKeyDown = (e) => {
+            const isMod = e.metaKey || e.ctrlKey;
+            if (!isMod || !e.shiftKey) return;
+            const key = String(e.key || '').toLowerCase();
+            if (key !== 'i') return;
+            // No interceptar si l'usuari està a un input/textarea fora de
+            // l'editor (cerca global, modal de propietats…)
+            const tag = String(document.activeElement?.tagName || '').toLowerCase();
+            const isEditableField = tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
+            if (isEditableField) {
+                // Permetem només si l'element editable forma part del BlockEditor
+                const wrapper = editorWrapperRef.current;
+                const inEditor = wrapper && wrapper.contains(document.activeElement);
+                if (!inEditor) return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            setIsCitePickerOpen(true);
+        };
+        // Capture phase per arribar abans que ProseMirror o altres handlers
+        // bloquegin la propagació amb un keydown propi.
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [editor]);
 
     // Intercepció de fitxers arrossegats/enganxats al CAPTURE phase. Un
     // `onDrop`/`onPaste` de React al wrapper s'executa massa tard: ProseMirror
@@ -1570,6 +1608,36 @@ export function EditorInner({
 
         editor.insertInlineContent([wikilinkItem]);
         if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
+    }, [editor, handleSave]);
+
+
+    // Inserció programàtica d'una cita `[@key]` a la posició actual del
+    // cursor. Es fa servir des del CitePicker (Cmd+Shift+I) i des del slash
+    // menu (`/cite`). Tria entre l'inline-content nadiu `cite` (chip
+    // renderitzat) i el text Markdown `[@key]` (que el parser converteix
+    // al carregar la pàgina): preferim l'inline directe perquè dona
+    // resposta visual immediata.
+    const insertCitation = useCallback((citationKey) => {
+        if (!editor) return;
+        const safe = String(citationKey || '').trim();
+        if (!safe) return;
+        try {
+            editor.insertInlineContent([
+                { type: 'cite', props: { citationKey: safe } },
+                ' ',
+            ]);
+            if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
+        } catch (err) {
+            // Si l'editor no té l'spec `cite` registrat (cas defensiu),
+            // caiem al text Markdown que el parser detectarà al re-load.
+            console.warn('insertCitation fallback to markdown:', err?.message);
+            try {
+                editor.insertInlineContent(`[@${safe}] `);
+                if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
+            } catch (err2) {
+                console.error('insertCitation fallback failed:', err2?.message);
+            }
+        }
     }, [editor, handleSave]);
 
 
@@ -2120,6 +2188,29 @@ export function EditorInner({
                                 subtext: t('editor.wiki_alias_format'),
                             },
                             {
+                                title: t('editor.insert_citation', { defaultValue: 'Insereix cita…' }),
+                                onItemClick: () => setIsCitePickerOpen(true),
+                                aliases: ["cite", "citation", "cita", "@", "[@", "ref", "bib", "bibliography", "reference"],
+                                group: t('editor.links_group'),
+                                icon: <Quote size={18} />,
+                                subtext: t('editor.insert_citation_subtext', {
+                                    defaultValue: 'Picker (⌘⇧I) — cerca per autor, títol o citation key',
+                                }),
+                            },
+                            {
+                                title: t('editor.insert_bibliography', { defaultValue: 'Bibliografia automàtica' }),
+                                onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, {
+                                    type: 'bibliography',
+                                    props: { style: 'apa', locale: 'ca-AD' },
+                                }),
+                                aliases: ["bibliography", "bib", "refs", "references", "bibliografia"],
+                                group: t('editor.links_group'),
+                                icon: <Quote size={18} />,
+                                subtext: t('editor.insert_bibliography_subtext', {
+                                    defaultValue: 'Genera la llista de referències a partir de les cites del document',
+                                }),
+                            },
+                            {
                                 title: t('editor.obsidian_transclusion'),
                                 onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, {
                                     type: 'transclusion',
@@ -2418,6 +2509,15 @@ export function EditorInner({
                     const p = pendingInsertRef.current;
                     setPendingInsert(null);
                     try { p?.reject?.(new Error('cancelled')); } catch { /* noop */ }
+                }}
+            />
+            <CitePicker
+                isOpen={isCitePickerOpen}
+                onClose={() => setIsCitePickerOpen(false)}
+                onSelect={(item) => {
+                    if (item?.citation_key) {
+                        insertCitation(item.citation_key);
+                    }
                 }}
             />
         </VaultEditorContext.Provider>

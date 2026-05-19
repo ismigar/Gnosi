@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Gnosi Cite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <!--
+        Office.js — la API client-side per interactuar amb el Word.
+        Cal carregar-la des del CDN oficial perquè reben actualitzacions
+        de seguretat automàtiques i la versió de Word del client decideix
+        quina build agafa.
+    -->
+    <script src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+    <link rel="stylesheet" href="/word-addin/taskpane.css" />
+</head>
+<body>
+    <header class="header">
+        <div class="title">
+            <span class="logo">G</span>
+            <span>Gnosi Cite</span>
+        </div>
+        <div class="subtitle" id="connection-status">Connectant…</div>
+    </header>
+
+    <main class="main">
+        <section class="search-section">
+            <div class="search-bar">
+                <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Cerca per citation key, títol o autor…"
+                    autocomplete="off"
+                    autofocus
+                />
+            </div>
+            <div class="style-row">
+                <label for="style-select">Estil:</label>
+                <select id="style-select">
+                    <option value="apa">APA 7</option>
+                    <option value="chicago-author-date">Chicago (autor-data)</option>
+                    <option value="modern-language-association">MLA</option>
+                    <option value="ieee">IEEE</option>
+                </select>
+                <label for="locale-select">Idioma:</label>
+                <select id="locale-select">
+                    <option value="ca-AD">Català</option>
+                    <option value="es-ES">Castellà</option>
+                    <option value="en-US">Anglès (US)</option>
+                    <option value="en-GB">Anglès (UK)</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="results-section">
+            <ul id="results" class="results"></ul>
+            <div id="empty-state" class="empty-state">
+                Escriu un terme per cercar referències al Vault.
+            </div>
+        </section>
+
+        <section class="actions">
+            <button id="refresh-bibliography" class="btn btn-secondary" type="button"
+                title="Reformata totes les cites del document amb context complet (APA et al., desambiguacions, etc.)">
+                Actualitza tot (APA)
+            </button>
+            <button id="insert-bibliography" class="btn btn-primary" type="button">
+                Insereix bibliografia
+            </button>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <span id="status-line">Llest</span>
+    </footer>
+
+    <script src="/word-addin/taskpane.js"></script>
+</body>
+</html>
