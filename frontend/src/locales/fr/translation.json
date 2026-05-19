@@ -1,4 +1,7 @@
 {
+  "common": {
+    "undo": "Annuler"
+  },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
   "filter_by_kind": "Filtrer par Type",
