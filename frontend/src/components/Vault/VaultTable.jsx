@@ -81,6 +81,52 @@ import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
 
+/**
+ * Sentinella que dispara `onLoadMore` quan entra al viewport.
+ *
+ * Reemplaça el botó "Mostrar més" manual: la taula carrega els primers
+ * `ROWS_BATCH_SIZE` rows i, quan l'usuari arriba al final, els següents
+ * apareixen sols. Així no paguem el cost de muntar 300 rows al primer
+ * render (~4 s observat) i mantenim la sensació d'una llista sencera.
+ *
+ * Implementat amb `IntersectionObserver` (zero polling, alliberat al
+ * dismount) + un fallback síncron amb botó per si l'autoload no salta
+ * (DOM al què el sentinel no és visible, p.ex. dins un dialeg amb
+ * `display:none` mentre canvies de tab).
+ */
+const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleCount, total, batchSize, onLoadMore, label }) {
+    const ref = useRef(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return undefined;
+        const io = new IntersectionObserver((entries) => {
+            for (const e of entries) {
+                if (e.isIntersecting) {
+                    onLoadMore();
+                    break;
+                }
+            }
+        }, { rootMargin: '300px' });
+        io.observe(el);
+        return () => io.disconnect();
+    }, [onLoadMore]);
+
+    return (
+        <div
+            ref={ref}
+            className="px-4 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center justify-between"
+        >
+            <span className="text-xs text-[var(--text-tertiary)]">{label}</span>
+            <button
+                onClick={onLoadMore}
+                className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5"
+            >
+                +{Math.min(batchSize, total - visibleCount)}
+            </button>
+        </div>
+    );
+});
+
 export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
     const { t, i18n } = useTranslation();
     // Overrides optimistic per cel·la. Map<noteId, partialMetadata>. Quan
@@ -126,7 +172,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps -- només volem reaccionar a canvis de `notes`
     }, [rawNotes]);
-    const ROWS_BATCH_SIZE = 200;
+    // Mida del batch inicial. Renderitzar 200 rows × ~12 cells (~2400
+    // components React) al primer mount d'una taula de 303 registres
+    // trigava ~4 s amb el thread principal congelat. Carreguem-ne 50
+    // d'entrada (~600 components, ~700 ms) i la resta via autoload on
+    // scroll. La UX queda igual perquè els altres apareixen abans que
+    // l'usuari hi arribi.
+    const ROWS_BATCH_SIZE = 50;
 
     // State for column widths
     const [columnWidths, setColumnWidths] = useState({
@@ -151,6 +203,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const [addingSubitemFor, setAddingSubitemFor] = useState(null); // parent ID for adding a subitem
     const [openingResourceId, setOpeningResourceId] = useState(null);
     const [visibleRowsCount, setVisibleRowsCount] = useState(ROWS_BATCH_SIZE);
+    // `useCallback` per mantenir la referència estable: `React.memo` al
+    // `InfiniteLoadSentinel` només funciona si les props no canvien a
+    // cada render del pare. Sense això, una nova funció inline per
+    // render fa que el sentinel es remunti i `IntersectionObserver` es
+    // reconnecti, disparant `onLoadMore` immediatament i en bucle fins
+    // omplir la llista — efectivament treia el benefici del batching.
+    const handleLoadMoreRows = useCallback(() => {
+        setVisibleRowsCount(prev => prev + ROWS_BATCH_SIZE);
+    }, [ROWS_BATCH_SIZE]);
     const [newRowTitle, setNewRowTitle] = useState('');
     // Acció pendent disparada per un camp de tipus `button`. Si està set,
     // mostrem el modal corresponent a l'acció (ara mateix només `translate_row`).
@@ -1710,17 +1771,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     )}
 
                     {sortedNotes.length > visibleRowsCount && (
-                        <div className="px-4 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center justify-between">
-                            <span className="text-xs text-[var(--text-tertiary)]">
-                                {t('table.showing_records', { count: visibleRowsCount, total: sortedNotes.length })}
-                            </span>
-                            <button
-                                onClick={() => setVisibleRowsCount(prev => Math.min(prev + ROWS_BATCH_SIZE, sortedNotes.length))}
-                                className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5"
-                            >
-                                {t('table.show_more_count', { count: Math.min(ROWS_BATCH_SIZE, sortedNotes.length - visibleRowsCount) })}
-                            </button>
-                        </div>
+                        <InfiniteLoadSentinel
+                            visibleCount={visibleRowsCount}
+                            total={sortedNotes.length}
+                            batchSize={ROWS_BATCH_SIZE}
+                            onLoadMore={handleLoadMoreRows}
+                            label={t('table.showing_records', { count: visibleRowsCount, total: sortedNotes.length })}
+                        />
                     )}
                 </div>
             </div>
