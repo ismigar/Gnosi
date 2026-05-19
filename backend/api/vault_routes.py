@@ -5723,31 +5723,6 @@ async def list_trash(q: Optional[str] = Query(None)):
         ]
     return {"items": entries, "retention_days": TRASH_RETENTION_DAYS}
 
-        # IMPORTANT: Never delete the table from the registry when deleting a page!
-        # The registry contains the table schema, not its rows.
-        # The following lines were removed because they caused errors when
-        # deleting the last record of a table.
-        # Original buggy code (removed):
-        # registry["databases"] = [db for db in registry["databases"] if db.get("id") != page_id]
-        # tables_to_remove = [t["id"] for t in registry["tables"] if t.get("database_id") == page_id]
-        # registry["tables"] = [t for t in registry["tables"] if t.get("database_id") != page_id]
-        # registry["views"] = [v for v in registry["views"] if v.get("table_id") not in tables_to_remove]
-
-        await asyncio.to_thread(file_path.unlink)
-        await asyncio.to_thread(remove_from_link_index, page_id)
-        # Drop the entry from the in-memory index so by-table caches see the
-        # delete immediately (without this, the stale-check TTL of 10 min
-        # could keep the deleted page visible in the sidebar/feed).
-        from backend.services.context_vars import get_active_vault_path
-        v_path = get_active_vault_path()
-        if v_path:
-            v_str = str(v_path)
-            with _page_index_lock:
-                removed = _page_index_entries.get(v_str, {}).pop(str(file_path), None)
-                _page_id_to_path.get(v_str, {}).pop(page_id, None)
-                if removed is not None:
-                    _bump_page_index_version(v_str)
-        return {"status": "success", "message": "Page deleted and registry cleaned"}
 
 @router.delete(
     "/trash/{page_id}",
