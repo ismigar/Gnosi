@@ -35,6 +35,7 @@
     "duplicate": "Duplicar",
     "search": "Cerca",
     "settings": "Ajustos",
+    "undo": "Desfer",
     "undo_hint": "Cmd+Z per desfer",
     "restored_count": "Restaurat {{count}} registre{{plural}}",
     "redeleted_count": "Tornat a eliminar {{count}} registre{{plural}}",

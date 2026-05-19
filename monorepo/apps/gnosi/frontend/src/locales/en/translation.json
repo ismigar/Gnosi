@@ -72,6 +72,7 @@
     "duplicate": "Duplicate",
     "search": "Search",
     "settings": "Settings",
+    "undo": "Undo",
     "undo_hint": "Cmd+Z to undo",
     "restored_count": "Restored {{count}} record(s)",
     "vault_table": {
