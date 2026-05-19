@@ -475,12 +475,13 @@ function MediaToolbar({
 }) {
   const [tagDraft, setTagDraft] = useState('');
 
-  // Single-select: clicar el tipus actiu el deselecciona (= "Tot"); clicar
-  // un altre el reemplaça. Evita la confusió de toggles OR ("he clicat
-  // Vídeos i veig fotos" perquè "Imatges" seguia activa).
+  // Multi-select OR: clicar afegeix/treu un tipus de la selecció. Cap pill
+  // activa = mostrar tot. Les pills actives es veuen blaves, així que la
+  // selecció múltiple és visualment òbvia.
   const toggleKind = (key) => {
-    const isActive = filters.kinds.length === 1 && filters.kinds[0] === key;
-    onFiltersChange({ ...filters, kinds: isActive ? [] : [key] });
+    const set = new Set(filters.kinds);
+    if (set.has(key)) set.delete(key); else set.add(key);
+    onFiltersChange({ ...filters, kinds: Array.from(set) });
   };
 
   const setDatePreset = (key) => {
