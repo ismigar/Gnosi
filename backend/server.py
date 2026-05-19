@@ -21,6 +21,7 @@ if str(BACKEND_DIR) not in sys.path:
 from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.config.app_config import load_params
@@ -178,6 +179,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# GZip per a respostes grans (`/pages`, `/by-table`, `/global-index`).
+# `minimum_size=1024` evita comprimir crides petites on l'overhead de
+# compressió no compensa. Per a 300 PageInfo serialitzats (~100-300KB), la
+# compressió típica és 8-12x, reduint el temps de transferència al
+# frontend significativament en xarxes lentes.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # ──────────────── Global Error Handler ────────────────
 try:
