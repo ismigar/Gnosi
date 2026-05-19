@@ -341,6 +341,46 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // sobre i sota dels rows visibles, així `<table>`+`<thead>` mantenen
     // l'alineació de columnes sense haver de canviar `display: block`.
     const tableContainerRef = useRef(null);
+    // Altura aproximada per cas. Si la row és expandida amb N subitems,
+    // afegim un overhead de ~56 px per cada child. És només una primera
+    // estimació; `measureElement` (sota) corregeix amb la mida real un
+    // cop el row està al DOM.
+    const estimateSize = useCallback((index) => {
+        const note = visibleRootNotes[index];
+        if (!note) return 56;
+        const isExpanded = expandedRows.has(note.id);
+        if (!isExpanded) return 56;
+        const childCount = childrenMap[note.id]?.length || 0;
+        const subitemRow = addingSubitemFor === note.id ? 56 : 0;
+        return 56 * (1 + childCount) + subitemRow;
+    }, [visibleRootNotes, expandedRows, childrenMap, addingSubitemFor]);
+
+    // `measureElement` rep el primer `<tr>` que té `data-index` —
+    // tanstack/react-virtual només propaga el ref al primer element del
+    // virtual item. Com `renderRow` retorna un `<React.Fragment>` amb
+    // varis `<tr>`s (pare + children expandits + form de subitem),
+    // recorrem els germans consecutius amb el mateix `data-row-id` i
+    // sumem les seves alçades reals. Així el virtualizer coneix l'espai
+    // ocupat per tota l'expansió, no només el pare, i el scroll deixa
+    // de saltar quan algú expandeix/contreu rows.
+    const measureRow = useCallback((el) => {
+        if (!el) return 56;
+        const rowId = el.getAttribute('data-row-id');
+        if (!rowId) return el.getBoundingClientRect().height || 56;
+        let total = 0;
+        let cur = el;
+        while (cur && cur.getAttribute && cur.getAttribute('data-row-id') === rowId) {
+            total += cur.getBoundingClientRect().height;
+            cur = cur.nextElementSibling;
+        }
+        return total || 56;
+    }, []);
+
+    const rowVirtualizer = useVirtualizer({
+        count: visibleRootNotes.length,
+        getScrollElement: () => tableContainerRef.current,
+        estimateSize,
+        measureElement: measureRow,
     const rowVirtualizer = useVirtualizer({
         count: visibleRootNotes.length,
         getScrollElement: () => tableContainerRef.current,
@@ -1368,14 +1408,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     };
 
     // ---- RENDER A ROW (parent or child note) ----
-    const renderRow = (note, isChild = false, depth = 0, rowPath = '0') => {
+    // `rootRowId` propaga l'id del root note per recursió: tots els
+    // `<tr>`s d'un mateix root (pare + children expandits + nou-subitem)
+    // duen `data-row-id={rootRowId}`. Això permet al `measureElement`
+    // del virtualizer sumar les seves alçades reals per saber l'espai
+    // ocupat per l'expansió completa, no només el pare.
+    const renderRow = (note, isChild = false, depth = 0, rowPath = '0', rootRowId = null, virtualItem = null) => {
         const hasChildren = (childrenMap[note.id]?.length > 0);
         const isExpanded = expandedRows.has(note.id);
         const isAddingSubitem = addingSubitemFor === note.id;
+        const effectiveRootRowId = rootRowId ?? note.id;
 
         return (
             <React.Fragment key={`${note.id || 'note'}-${rowPath}`}>
                 <tr
+                    data-row-id={effectiveRootRowId}
+                    data-index={virtualItem?.index}
+                    ref={virtualItem ? rowVirtualizer.measureElement : undefined}
                     className={`border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] cursor-pointer transition-colors group/row
                         ${isListView ? 'border-b-0 group' : ''}
                         ${isSelected(note.id) ? 'bg-indigo-500/10' : ''}
@@ -1544,10 +1593,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     </td>
                 </tr>
 
-                {isExpanded && (childrenMap[note.id] || []).map((child, childIndex) => renderRow(child, true, depth + 1, `${rowPath}.${childIndex}`))}
+                {isExpanded && (childrenMap[note.id] || []).map((child, childIndex) => renderRow(child, true, depth + 1, `${rowPath}.${childIndex}`, effectiveRootRowId))}
 
                 {isAddingSubitem && (
-                    <tr className="border-b border-[var(--border-primary)] bg-indigo-500/5">
+                    <tr data-row-id={effectiveRootRowId} className="border-b border-[var(--border-primary)] bg-indigo-500/5">
                         <td className="w-10 sticky left-0 z-20 bg-[var(--bg-primary)]" />
                         <td
                             style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
@@ -1697,7 +1746,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             {virtualRows.map(vi => {
                                 const note = visibleRootNotes[vi.index];
                                 if (!note) return null;
-                                return renderRow(note, false, 0, `${vi.index}`);
+                                return renderRow(note, false, 0, `${vi.index}`, null, vi);
                             })}
                             {virtPaddingBottom > 0 && (
                                 <tr aria-hidden="true">
