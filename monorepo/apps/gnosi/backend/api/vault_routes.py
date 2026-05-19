@@ -320,8 +320,66 @@ _page_index_lock = threading.Lock()
 _page_index_entries: Dict[str, Dict[str, Dict[str, Any]]] = {}
 _page_index_initialized: Dict[str, bool] = {}
 _page_id_to_path: Dict[str, Dict[str, str]] = {} # Cache for fast ID -> Path lookups per vault
-_VAULT_SYNC_COOLDOWN_SECONDS = 60
+# Cooldown del rescan automàtic del cache d'índex del vault. Pujat de
+# 60 s a 600 s perquè cada rescan fa stat() de ~4200 fitxers d'OneDrive
+# (5-10 ms cada un = 20-40 s d'I/O total) que satura el File Provider i
+# bloqueja altres operacions del backend. Els canvis fets via PATCH/PUT
+# s'apliquen al cache in-memory directament; aquest rescan només
+# detectaria canvis externs (sync OneDrive d'un altre dispositiu, edicions
+# fora del backend). 10 min és prou per a aquest cas i deixa el backend
+# responsiu la resta del temps.
+_VAULT_SYNC_COOLDOWN_SECONDS = 600
 _last_vault_sync_time = 0.0
+
+# ── Micro-cache de PageInfo (TTL ~1.5s) ──────────────────────────────────
+# Els endpoints `/pages`, `/by-table`, `/sidebar/summary`, `/global-index`
+# es disparen alhora a cada navegació del frontend. Sense aquest cache,
+# cada un construeix els seus PageInfo Pydantic des de zero (~80-140ms el
+# fast-path o ~600ms+ per al snapshot complet). Cacheging els resultats
+# durant uns segons converteix un burst de 4-6 crides al mateix segon en
+# una de sola que paga el cost real; les altres són hits ~O(1).
+#
+# Invalidació: per write (PATCH/PUT/DELETE/move) que toca una entry. La
+# invalidació és total (no surgical) perquè una sola edit pot afectar
+# diverses taules (canvis de title, table_id, etc.) i el cost de
+# reconstruir és baixíssim un cop el bucle té cache_hit als bytes
+# subsegüents.
+_pages_resp_cache_lock = threading.Lock()
+_pages_resp_cache: Dict[str, tuple[float, List[Any]]] = {}
+_PAGES_RESP_CACHE_TTL = 1.5  # segons
+
+
+def _pages_cache_get(key: str) -> Optional[List[Any]]:
+    """Retorna la llista cachejada per `key` si l'entry encara és vàlida.
+
+    No copiem la llista per estalviar memòria/CPU: els consumidors han de
+    tractar la sortida com a immutable o fer-ne una còpia abans de mutar.
+    El bucle del cache mateix sí compta amb que ningú substitueixi els
+    PageInfo individuals — només la lectura del `.metadata` per a
+    `expand_metadata_for_response` ho fa al call site (vegeu endpoint).
+    """
+    now = time.monotonic()
+    with _pages_resp_cache_lock:
+        item = _pages_resp_cache.get(key)
+        if item is None:
+            return None
+        ts, val = item
+        if (now - ts) > _PAGES_RESP_CACHE_TTL:
+            # Stale — esborra i fes que el caller refagi
+            _pages_resp_cache.pop(key, None)
+            return None
+        return val
+
+
+def _pages_cache_set(key: str, value: List[Any]) -> None:
+    with _pages_resp_cache_lock:
+        _pages_resp_cache[key] = (time.monotonic(), value)
+
+
+def _pages_cache_invalidate_all() -> None:
+    """Crida quan qualsevol PATCH/PUT/DELETE modifica el vault."""
+    with _pages_resp_cache_lock:
+        _pages_resp_cache.clear()
 
 # Google Calendar sync cooldown (5 minutes)
 _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
@@ -435,6 +493,21 @@ def kickoff_index_warmup(v_path: Path) -> None:
     if not v_path or not v_path.exists():
         return
     v_str = str(v_path)
+    # Inicialitza el timestamp del background sync perquè la propera
+    # crida a `_get_pages_snapshot` no dispari un rescan complet
+    # immediatament (4243 stats OneDrive ≈ 20-40 s competint amb els PATCH
+    # de l'usuari). El warmup d'aquesta funció ja s'encarrega de poblar
+    # el cache; el sync periòdic només cal cada `_VAULT_SYNC_COOLDOWN_SECONDS`.
+    global _last_vault_sync_time
+    _last_vault_sync_time = time.monotonic()
+    # Carrega el body cache persistit a disc. Sense això, el primer
+    # `_rebuild_link_index` post-restart havia de llegir ~3500 fitxers
+    # d'OneDrive (~80-140 s observat). Amb el cache disc carregat, només
+    # llegim els fitxers amb mtime canviat des de l'últim flush.
+    try:
+        _load_body_cache_from_disk()
+    except Exception as e:
+        log.warning(f"body-cache load skipped: {e}")
     with _indexer_status_lock:
         cur = _indexer_status_by_vault.get(v_str, {})
         if cur.get("state") == "running":
@@ -1029,9 +1102,11 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
         else:
             target_dir = get_p("WIKI")
 
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    # We don't move notes that are already in user subfolders, except Templates/Calendar.
+    # We don't move notes that are already in user subfolders, except
+    # Templates/Calendar. Comprovem PRIMER si cal relocate; només llavors
+    # paguem el `mkdir(parents=True, exist_ok=True)` que stat'eja cada
+    # nivell del path a OneDrive (~30-100 ms × profunditat = 100-900 ms
+    # observat al PATCH idempotent on no es mou res).
     can_relocate = (
         file_path.parent == get_p("VAULT")
         or file_path.parent == get_p("PLANTILLES")
@@ -1041,6 +1116,7 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
     )
 
     if can_relocate and file_path.parent != target_dir:
+        target_dir.mkdir(parents=True, exist_ok=True)
         new_path = target_dir / file_path.name
         if file_path.exists() and file_path.is_file():
             file_path.rename(new_path)
@@ -1971,6 +2047,48 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     return entry
 
 
+def _build_cache_entry_from_memory(
+    file_path: Path, stat_result, metadata: Dict[str, Any], body: str
+) -> Dict[str, Any]:
+    """Variant ràpida de `_build_page_cache_entry` per quan el caller ja
+    té el `metadata` i `body` finals en memòria (típicament després d'un
+    PATCH/PUT). Evita la lectura del fitxer recent escrit a OneDrive, que
+    costa 100-300 ms i és el coll dominant del PATCH idempotent.
+
+    Forma de l'entry idèntica a la de `_build_page_cache_entry`.
+    """
+    # Aplica el mateix post-processament que la versió disc ho fa via
+    # `_read_frontmatter_partial` + `_process_metadata_paths`. Aquí ja
+    # tenim el metadata post `_persist_metadata_assets`; el `_process_*`
+    # només afecta cover/icon que ja estan tractats al pipeline del PATCH.
+    md = _process_metadata_paths(dict(metadata or {}))
+    if "data" in md and "date" not in md:
+        md["date"] = md["data"]
+
+    file_id = str(md.get("id") or file_path.stem)
+    rel_folder = str(file_path.parent.relative_to(get_p("VAULT"))).replace("\\", "/")
+    if rel_folder == ".":
+        rel_folder = ""
+
+    title = md.get("title") or file_path.stem
+
+    return {
+        "path": str(file_path),
+        "mtime_ns": stat_result.st_mtime_ns,
+        "mtime": stat_result.st_mtime,
+        "size": stat_result.st_size,
+        "id": file_id,
+        "title": title,
+        "parent_id": md.get("parent_id"),
+        "is_database": md.get("is_database", False),
+        "metadata": {
+            **md,
+            "description": md.get("description") or (body.strip()[:500] if body else None),
+        },
+        "folder": rel_folder,
+    }
+
+
 def _refresh_table_pages_metadata(filtered: List[Any]) -> None:
     """Per a cada PageInfo amb metadata stub, rellegeix el frontmatter del
     fitxer i actualitza el cache in-memory. Paralelitzat amb thread pool:
@@ -2228,6 +2346,14 @@ def _get_pages_snapshot(
     only_calendar: bool = False,
     background_tasks: Optional[BackgroundTasks] = None
 ) -> List[PageInfo]:
+    # TTL micro-cache. Les rutes `/pages`, `/sidebar/summary` i les seves
+    # invocacions paral·leles al primer load del frontend (4-6 alhora) van
+    # poder unir-se a un sol càlcul real.
+    cache_key = f"snapshot:{'cal' if only_calendar else 'all'}"
+    cached = _pages_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     global _last_vault_sync_time, _last_google_calendar_sync_time
     search_paths = None
     enabled_calendar_tables = []
@@ -2363,7 +2489,10 @@ def _get_pages_snapshot(
             if not is_relevant:
                 continue
 
-        page_info = PageInfo(
+        # `model_construct` salta la validació Pydantic; les dades del
+        # cache mtime-validated ja són ben tipades. Estalvi ~80µs × 4200
+        # entries = ~300 ms al snapshot global.
+        page_info = PageInfo.model_construct(
             id=entry["id"],
             title=entry["title"],
             parent_id=entry["parent_id"],
@@ -2385,7 +2514,11 @@ def _get_pages_snapshot(
                 pages_by_id[entry["id"]] = page_info
 
     if duplicate_ids:
-        log.warning(
+        # Soroll cosmètic: la deduplicació in-memory és O(n) i passa cada
+        # crida; els duplicats reals (events Sunrise i similars) són una
+        # constant del filesystem, no un error nou. Mantenim el senyal a
+        # nivell debug per quan calgui inspeccionar incidències.
+        log.debug(
             f"Deduplicated {len(duplicate_ids)} pages with repeated ID in the Vault"
         )
 
@@ -2411,6 +2544,125 @@ def _get_pages_snapshot(
         except Exception as e:
             log.debug(f"sidebar metadata refresh skipped: {e}")
 
+    _pages_cache_set(cache_key, pages)
+    return pages
+
+
+def _get_pages_for_table(table_id: str) -> List[PageInfo]:
+    """Fast-path per a `/pages/by-table/{table_id}`.
+
+    El bucle de `_get_pages_snapshot` construeix ~4200 `PageInfo` Pydantic
+    (~1.2s per crida en aquesta màquina) per després descartar-ne el 95%.
+    Aquesta funció itera el mateix cache però només construeix `PageInfo`
+    per les entries que pertanyen a `table_id`, en dues fases:
+
+    1. Filtre barat (sense Pydantic): pertanyença folder-based — si el
+       folder de l'entry comença per un prefix registrat com a "nostra
+       taula" l'acceptem; si comença per prefix d'una ALTRA taula la
+       descartem; si no toca cap registry folder, caiem al fallback
+       metadata-based (`table_id` / `database_table_id`).
+    2. Construcció Pydantic només per a les entries que han passat (1).
+
+    Resultat: per a una taula de ~300 pàgines en un vault de 4243,
+    estalviem el cost de crear ~3940 `PageInfo` que s'haurien descartat.
+    """
+    # TTL micro-cache: si una crida idèntica recent ja ha calculat la
+    # llista, retornem-la directament. Burst típic /by-table + /snapshot +
+    # global-index al mateix segon → un sol càlcul real.
+    cache_key = f"by-table:{table_id}"
+    cached = _pages_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    raw_entries = _get_cached_page_entries(force_refresh=False)
+    if not raw_entries:
+        return []
+
+    registry = load_registry()
+    folder_to_table = _build_table_folder_index(registry)
+    # Prefixos canònics que resolen a la taula demanada i a qualsevol
+    # altra taula. Ordenats per llargada decreixent perquè un prefix més
+    # específic guanya el match (mateix criteri que
+    # `_resolve_table_id_from_context`).
+    our_prefixes = sorted(
+        (f for f, t in folder_to_table.items() if t == table_id),
+        key=len, reverse=True,
+    )
+    all_prefixes = sorted(folder_to_table.keys(), key=len, reverse=True)
+
+    from backend.api.calendar_routes import _get_hidden_event_ids
+    hidden_ids = _get_hidden_event_ids()
+
+    # Fase 1: filtrar entries crues sense construir cap Pydantic.
+    matching: List[Dict[str, Any]] = []
+    for entry in raw_entries:
+        if entry["id"] in hidden_ids:
+            continue
+
+        folder_key = _normalize_rel_folder(entry.get("folder") or "").lower()
+        belongs = False
+        resolved_elsewhere = False
+
+        if folder_key:
+            for f in all_prefixes:
+                if folder_key == f or folder_key.startswith(f + "/"):
+                    if folder_to_table[f] == table_id:
+                        belongs = True
+                    else:
+                        resolved_elsewhere = True
+                    break
+
+        if not belongs and not resolved_elsewhere:
+            # Fallback metadata-based per a notes legacy fora de carpeta
+            # registrada (templates, antigues). Mateix criteri que
+            # `_resolve_table_id_from_context` (descarta "wiki").
+            metadata = entry.get("metadata") or {}
+            md_tid = metadata.get("table_id") or metadata.get("database_table_id")
+            if (
+                md_tid == table_id
+                and str(md_tid).strip().lower() != "wiki"
+            ):
+                belongs = True
+
+        if belongs:
+            matching.append(entry)
+
+    # Fase 2: construir Pydantic + dedup per ID només pels matchings.
+    # Usem `model_construct` per saltar la validació Pydantic: les dades
+    # vénen del cache mtime-validated, els tipus ja són correctes, i la
+    # validació costa ~80µs/instància × 300 entries = 25-50 ms gratuïts.
+    pages_by_id: Dict[str, PageInfo] = {}
+    duplicate_ids: set = set()
+    for entry in matching:
+        page_info = PageInfo.model_construct(
+            id=entry["id"],
+            title=entry["title"],
+            parent_id=entry["parent_id"],
+            is_database=entry["is_database"],
+            metadata=entry.get("metadata") or {},
+            last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
+            size=entry["size"],
+            folder=entry["folder"],
+            path=entry.get("path"),
+            resolved_table_id=table_id,
+        )
+
+        existing = pages_by_id.get(entry["id"])
+        if existing is None:
+            pages_by_id[entry["id"]] = page_info
+        else:
+            duplicate_ids.add(entry["id"])
+            if page_info.last_modified > existing.last_modified:
+                pages_by_id[entry["id"]] = page_info
+
+    if duplicate_ids:
+        log.debug(
+            f"Deduplicated {len(duplicate_ids)} pages with repeated ID in table {table_id}"
+        )
+
+    pages = list(pages_by_id.values())
+    pages.sort(key=lambda x: x.last_modified, reverse=True)
+    _pages_cache_set(cache_key, pages)
     return pages
 
 
@@ -2474,10 +2726,9 @@ async def list_pages(
 @router.get("/pages/by-table/{table_id}", response_model=List[PageInfo])
 async def list_pages_by_table(table_id: str, include_templates: bool = Query(True)):
     """Returns only pages from a specific table to avoid loading the entire Vault."""
-    # _get_pages_snapshot iterates the in-memory cache but may stat files —
-    # push to a thread so a cold OneDrive doesn't block other requests.
-    pages = await asyncio.to_thread(_get_pages_snapshot)
-    filtered = [p for p in pages if p.resolved_table_id == table_id]
+    # Fast-path: només construïm `PageInfo` per a les entries de la taula
+    # demanada, no per a les ~4200 del vault sencer. Estalvi ~1s/crida.
+    filtered = await asyncio.to_thread(_get_pages_for_table, table_id)
     if not include_templates:
         filtered = [p for p in filtered if not p.metadata.get("is_template")]
     # Re-fetch metadata lazy per a fitxers amb metadata stub (cache parcial).
@@ -2498,8 +2749,9 @@ async def list_pages_by_table_snapshot(table_id: str):
     This route avoids divergences between frontend sessions and establishes
      a single source of truth for the count of visible records.
     """
-    pages = await asyncio.to_thread(_get_pages_snapshot)
-    raw_pages = [p for p in pages if p.resolved_table_id == table_id]
+    # Fast-path: només pàgines de la taula demanada (veure
+    # `_get_pages_for_table`).
+    raw_pages = await asyncio.to_thread(_get_pages_for_table, table_id)
     visible_pages = _canonical_visible_table_pages(table_id, raw_pages)
 
     # Lazy re-fetch del frontmatter per fitxers amb metadata stub.
@@ -2779,6 +3031,11 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
 
     # 1. High Performance Cache Lookup (O(1) when ids match exactly).
     # Try the raw id first (covers the 99% case), then a canonical scan.
+    # OPTIM: si el cache d'entries té el path i el stale-check global s'ha
+    # fet recentment (TTL `_STALE_CHECK_TTL`), saltem el `p.exists()` aquí
+    # — fa un stat() a OneDrive de 5-50 ms que es repeteix a cada
+    # `find_page_path`, i el cache global ja s'encarrega de podar entries
+    # esborrades externament al següent stale-check periòdic.
     with _page_index_lock:
         id_map = _page_id_to_path.get(v_str, {})
         path_str = id_map.get(page_id)
@@ -2790,6 +3047,13 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
                     break
         if path_str:
             p = Path(path_str)
+            # Trust the cache si l'stale-check global és prou recent.
+            try:
+                stale_age = time.monotonic() - _last_stale_check["ts"]
+            except Exception:
+                stale_age = float("inf")
+            if stale_age < _STALE_CHECK_TTL:
+                return p
             if p.exists():
                 return p
             # File deleted externally: prune stale entries
@@ -4256,6 +4520,9 @@ async def save_page(
         except Exception:
             pass
 
+        # Invalida el TTL micro-cache de PageInfo (vegeu PATCH per la justificació).
+        _pages_cache_invalidate_all()
+
         background_tasks.add_task(update_link_index_for_page, file_path)
 
         # Si el títol ha canviat, reescriu els wikilinks per títol literal a
@@ -4302,40 +4569,65 @@ async def patch_page(
     page_id: str, request: PagePatchRequest, background_tasks: BackgroundTasks
 ):
     """Partial update of a page (e.g., metadata only)."""
-    # FS lookup off the asyncio loop — protects against slow OneDrive stat()
-    file_path = await asyncio.to_thread(find_page_path, page_id)
+    # Combinem find_page_path + (etag check) + read_file en un sol
+    # `asyncio.to_thread`. Abans en feien 2 (o 3 amb etag), cadascun amb
+    # ~10-30 ms d'overhead de dispatch al pool. Sense canviar la
+    # semàntica, agrupar-los estalvia ~30-60 ms per PATCH.
+    expected_etag = request.expected_etag
+    force = request.force
+
+    def _find_and_read():
+        fp = find_page_path(page_id)
+        if not fp:
+            return None, None, None, None, None
+        # Concurrency check abans del read (igual que abans).
+        current = None
+        if expected_etag and not force:
+            current = file_etag(fp)
+            if current and current != expected_etag:
+                # Retornem el current_etag al caller perquè generi el 409.
+                return fp, None, None, None, current
+        if _is_dashboard_file_path(fp):
+            md, bd = _read_dashboard_file(fp)
+            return fp, md, bd, None, current
+        raw_content = fp.read_text(encoding="utf-8")
+        md, bd = parse_frontmatter(raw_content, fp)
+        return fp, md, bd, raw_content, current
+
+    file_path, metadata, body, original_raw_content, current_etag = (
+        await asyncio.to_thread(_find_and_read)
+    )
     if not file_path:
         raise HTTPException(status_code=404, detail="Page not found")
-
-    # Optimistic concurrency: same as PUT (see save_page above for rationale)
-    if request.expected_etag and not request.force:
-        current = file_etag(file_path)
-        if current and current != request.expected_etag:
-            log.info(
-                f"⚠️ etag mismatch (PATCH) for {page_id}: "
-                f"expected={request.expected_etag} current={current}"
-            )
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "etag_mismatch",
-                    "message": (
-                        "El fitxer s'ha modificat des que el vas obrir. "
-                        "Recarrega o reenvia amb force=true per sobreescriure."
-                    ),
-                    "current_etag": current,
-                    "expected_etag": request.expected_etag,
-                },
-            )
-
-    def _read_file():
-        if _is_dashboard_file_path(file_path):
-            return _read_dashboard_file(file_path)
-        raw_content = file_path.read_text(encoding="utf-8")
-        return parse_frontmatter(raw_content, file_path)
+    if expected_etag and not force and current_etag and current_etag != expected_etag:
+        log.info(
+            f"⚠️ etag mismatch (PATCH) for {page_id}: "
+            f"expected={expected_etag} current={current_etag}"
+        )
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "etag_mismatch",
+                "message": (
+                    "El fitxer s'ha modificat des que el vas obrir. "
+                    "Recarrega o reenvia amb force=true per sobreescriure."
+                ),
+                "current_etag": current_etag,
+                "expected_etag": expected_etag,
+            },
+        )
 
     try:
-        metadata, body = await asyncio.to_thread(_read_file)
+
+        # Snapshot del frontmatter original ABANS de mutar res. El RuleEngine
+        # necessita comparar "què hi havia al fitxer" amb "què s'ha demanat
+        # canviar"; abans aquest snapshot s'aconseguia rellegint el fitxer
+        # per segona vegada (`_read_original`), cosa que pagava un read
+        # extra a OneDrive (~100-300 ms) per cada PATCH. El contingut del
+        # fitxer no canvia entre el primer read i el rule engine — només
+        # potencialment el seu path (rename/move) — així que un `dict()`
+        # és equivalent i molt més barat.
+        original_metadata_snapshot = dict(metadata)
 
         # Capturem el títol previ ABANS de mutar `metadata`. Si canvia, al
         # final del PATCH llançarem un background task que reescriu els
@@ -4378,29 +4670,21 @@ async def patch_page(
         if request.title is not None:
             file_path = _rename_page_file_to_match_title(file_path, request.title)
 
-        # Apply automations and formulas — read previous metadata off the
-        # event loop because rule_engine.process_updates can also be CPU/IO
-        # heavy (formula evaluation against other notes).
-        def _read_original():
-            try:
-                raw = file_path.read_text(encoding="utf-8")
-                md, _ = parse_frontmatter(raw, file_path)
-                return md
-            except Exception:
-                return {}
+        # Rule engine + persist assets + escriptura. `original_metadata_snapshot`
+        # capturat al principi ja estalvia un read del fitxer; el
+        # `process_updates` corre al thread pool perquè podria invocar
+        # fórmules CPU-pesades a taules amb regles.
         try:
-            original_metadata = await asyncio.to_thread(_read_original)
-            metadata = get_rule_engine().process_updates(page_id, original_metadata, metadata)
+            metadata = await asyncio.to_thread(
+                get_rule_engine().process_updates,
+                page_id, original_metadata_snapshot, metadata,
+            )
         except Exception as e:
             log.error(f"Error processing automations for {page_id}: {e}")
 
         metadata = _persist_metadata_assets(metadata)
 
-        # Backup + write off the loop so concurrent requests aren't stuck on
-        # OneDrive while we save. Tots els tipus de pàgina (incloses
-        # Dashboards) són markdown amb frontmatter.
         def _write_now():
-            _create_page_version(page_id, file_path)
             save_page_md(file_path, metadata, content)
         await asyncio.to_thread(_write_now)
 
@@ -4417,7 +4701,13 @@ async def patch_page(
                 v_str = str(v_path)
                 try:
                     stat_result = file_path.stat()
-                    new_entry = _build_page_cache_entry(file_path, stat_result)
+                    # Construïm l'entry des de les dades en memòria sense
+                    # tornar a llegir el fitxer (`_build_page_cache_entry`
+                    # llegia frontmatter del disc — ~100-300 ms a OneDrive
+                    # per cada PATCH).
+                    new_entry = _build_cache_entry_from_memory(
+                        file_path, stat_result, metadata, content or ""
+                    )
                     with _page_index_lock:
                         _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
                         new_id = new_entry.get("id")
@@ -4427,14 +4717,46 @@ async def patch_page(
                     log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
             with _body_cache_lock:
                 _body_cache.pop(str(file_path), None)
-            # Invalidate iter_docs cache amb el lock corresponent. Sense
-            # lock, hi ha una race molt petita on un read concurrent al
-            # cache podria veure None mid-reset i refer la feina O(N) sense
-            # necessitat. Adquirir-lo aquí no és costós (write esporàdic).
+            # Invalida el TTL micro-cache de PageInfo perquè el proper
+            # `/by-table` o `/pages` no torni la versió pre-PATCH (~1.5 s
+            # d'estat obsolet seria visible al frontend en autosave).
+            _pages_cache_invalidate_all()
+            # Actualització surgical de `_iter_docs_cache`: NO invalidem
+            # tota la llista. Invalidar-la (l'antic `docs = None`) feia que
+            # la propera crida a `/backlinks`, `/global-index` o
+            # `_rebuild_link_index` recorregués 3500+ fitxers d'OneDrive
+            # (~138 s observat). Aquí substituïm l'entry concreta in-place
+            # amb el contingut nou que ja tenim en memòria.
             with _iter_docs_lock:
-                _iter_docs_cache["docs"] = None
+                docs = _iter_docs_cache.get("docs")
+                if docs is not None:
+                    path_str = str(file_path)
+                    new_doc = (
+                        Path(path_str),
+                        dict(metadata),
+                        content if content is not None else "",
+                        _is_dashboard_file_path(file_path),
+                    )
+                    for i, doc in enumerate(docs):
+                        if str(doc[0]) == path_str:
+                            docs[i] = new_doc
+                            break
+                    else:
+                        docs.append(new_doc)
         except Exception as e:
             log.debug(f"Cache invalidation after PATCH failed: {e}")
+
+        # Backup en background: el versionat a `.history/` ja no bloqueja
+        # la resposta. Si tenim el `raw_content` original (cas markdown),
+        # l'escrivim directament amb el helper "from_content"; per
+        # dashboards usem la versió clàssica que fa `shutil.copy2` (ràpid
+        # perquè .json de dashboards són petits).
+        if original_raw_content is not None:
+            background_tasks.add_task(
+                _create_page_version_from_content, page_id, original_raw_content
+            )
+        else:
+            background_tasks.add_task(_create_page_version, page_id, file_path)
 
         background_tasks.add_task(update_link_index_for_page, file_path)
 
@@ -4704,6 +5026,9 @@ def _remove_page_from_index_cache(page_id: str, old_path: Optional[Path] = None)
             entries.pop(path_str, None)
         if old_path:
             entries.pop(str(old_path), None)
+    # Cualquier delete/restore canvia la composició de pàgines visibles;
+    # invalida el micro-cache de respostes per evitar `/by-table` stale.
+    _pages_cache_invalidate_all()
 
 
 def _add_page_to_index_cache(file_path: Path) -> None:
@@ -4730,6 +5055,7 @@ def _add_page_to_index_cache(file_path: Path) -> None:
         new_id = new_entry.get("id")
         if new_id:
             _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
+    _pages_cache_invalidate_all()
 
 
 @router.delete("/pages/{page_id}", dependencies=[Depends(require_role("admin"))])
@@ -6185,8 +6511,94 @@ _ITER_DOCS_TTL = 60.0
 # la primera invocació de /backlinks després del TTL no força rellegir 3988
 # fitxers; només els que han canviat. Els fitxers nous (no cachejats) es
 # llegeixen un cop i s'incorporen.
+#
+# **Persistència a disc**: aquest cache es desa periòdicament a
+# `/app/data/cache/vault_body_cache.json` perquè al reiniciar el backend
+# (i autoreloads en mode dev) no calgui rellegir ~3500 fitxers d'OneDrive
+# per reconstruir-lo (cost mesurat: 80-140 s la primera vegada). Al
+# startup, es carrega del disc i es validen els mtime per descartar
+# entries obsoletes ràpidament — sense haver de pagar el read.
 _body_cache: Dict[str, tuple[int, str]] = {}
 _body_cache_lock = threading.Lock()
+_BODY_CACHE_PERSIST_PENDING = False
+_BODY_CACHE_PERSIST_DEBOUNCE = 10.0  # segons
+_body_cache_persist_lock = threading.Lock()
+
+
+def _get_body_cache_path() -> Optional[Path]:
+    """Path local on persistir el body cache. Mateix patró que page-index."""
+    base = get_p("PAGE_INDEX_CACHE")
+    if base:
+        return base.parent / "vault_body_cache.json"
+    return Path("/app/data/cache/vault_body_cache.json")
+
+
+def _save_body_cache_to_disk() -> None:
+    """Persisteix el body cache a disc. Crida sota lock per snapshot
+    consistent. Mida típica: 3500 × ~3KB body = ~10MB JSON."""
+    try:
+        cache_path = _get_body_cache_path()
+        if not cache_path:
+            return
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with _body_cache_lock:
+            payload = {
+                path: {"mtime_ns": mt, "body": bd}
+                for path, (mt, bd) in _body_cache.items()
+            }
+        safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
+        log.info(f"💾 body-cache desat ({len(payload)} fitxers)")
+    except Exception as e:
+        log.warning(f"body-cache persist failed: {e}")
+
+
+def _schedule_body_cache_persist() -> None:
+    """Debounce persist: invalidacions puntuals disparen un save al disc
+    com a màxim cada `_BODY_CACHE_PERSIST_DEBOUNCE` segons."""
+    global _BODY_CACHE_PERSIST_PENDING
+    with _body_cache_persist_lock:
+        if _BODY_CACHE_PERSIST_PENDING:
+            return
+        _BODY_CACHE_PERSIST_PENDING = True
+
+    def _run():
+        global _BODY_CACHE_PERSIST_PENDING
+        time.sleep(_BODY_CACHE_PERSIST_DEBOUNCE)
+        try:
+            _save_body_cache_to_disk()
+        except Exception:
+            pass
+        finally:
+            with _body_cache_persist_lock:
+                _BODY_CACHE_PERSIST_PENDING = False
+
+    threading.Thread(target=_run, daemon=True, name="body-cache-persist").start()
+
+
+def _load_body_cache_from_disk() -> bool:
+    """Carrega el body cache desat. Retorna True si ha estat útil. No
+    valida els mtime aquí — això es fa al `_get_body_for_path` per cada
+    entry consultada (cost amortitzat)."""
+    try:
+        cache_path = _get_body_cache_path()
+        if not cache_path or not cache_path.exists():
+            return False
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return False
+        with _body_cache_lock:
+            _body_cache.clear()
+            for path, val in data.items():
+                if isinstance(val, dict):
+                    mt = val.get("mtime_ns") or 0
+                    bd = val.get("body") or ""
+                    if mt and bd:
+                        _body_cache[path] = (mt, bd)
+        log.info(f"📂 body-cache carregat del disc ({len(_body_cache)} fitxers)")
+        return True
+    except Exception as e:
+        log.warning(f"body-cache load failed: {e}")
+        return False
 
 # TTL del check d'stale paths a `_get_pages_snapshot`. Cada `Path.exists()`
 # al OneDrive triga ~10ms — multiplicar per 3988 entries dóna 40s. Limitem a
@@ -6233,6 +6645,7 @@ def _get_body_for_path(file_path: Path) -> str:
 
     with _body_cache_lock:
         _body_cache[path_str] = (mtime_ns, raw_content)
+    _schedule_body_cache_persist()
     return raw_content
 
 
@@ -6594,9 +7007,18 @@ def _schedule_link_index_persist() -> None:
     t.start()
 
 
+_link_index_rebuild_in_progress = False
+_link_index_rebuild_state_lock = threading.Lock()
+
+
 def kickoff_link_index_rebuild() -> None:
-    """Llança el rebuild en background. Safe to call multiple times; les
-    crides successives es serialitzen via el lock.
+    """Llança el rebuild en background. Safe to call multiple times: si
+    n'hi ha un en marxa, no en llança un altre. Sense aquest guard, dues
+    crides simultànies (p.ex. indexer warmup + endpoint que necessita
+    backlinks) feien dos `_rebuild_link_index` concurrents que iteraven
+    cada un 3500+ fitxers d'OneDrive en paral·lel, saturant el File
+    Provider i bloquejant altres operacions del backend (PATCH inclosos)
+    durant minuts.
 
     Si hi ha cache a disc vàlid, es carrega de seguida (síncron, milisegons)
     per servir resultats ràpids des del primer instant; després dispara un
@@ -6608,11 +7030,36 @@ def kickoff_link_index_rebuild() -> None:
         except Exception as e:
             log.warning(f"link-index disk load failed: {e}")
 
+    # Skip rebuild si el cache disc és recent (<30 min). Sense aquest
+    # check, cada reload del backend dispara un rebuild O(N reads OneDrive)
+    # que triga 80-140 s i satura el File Provider, encara que el cache que
+    # acabem de carregar de disc ja sigui correcte. Els canvis individuals
+    # de pàgines es propaguen via `update_link_index_for_page` (background
+    # task del PATCH/PUT); el rebuild complet només cal per assolir canvis
+    # externs (sync OneDrive d'un altre dispositiu, edicions fora del
+    # backend). Un cop cada 30 min és més que suficient per a aquest cas.
+    if _link_index_build_ts and (time.time() - _link_index_build_ts) < 1800:
+        log.info(
+            f"🔗 link-index rebuild skipped: cache de fa "
+            f"{int(time.time() - _link_index_build_ts)}s (<1800s)"
+        )
+        return
+
+    global _link_index_rebuild_in_progress
+    with _link_index_rebuild_state_lock:
+        if _link_index_rebuild_in_progress:
+            return
+        _link_index_rebuild_in_progress = True
+
     def _run():
+        global _link_index_rebuild_in_progress
         try:
             _rebuild_link_index(persist=True)
         except Exception as e:
             log.error(f"link-index rebuild failed: {e}")
+        finally:
+            with _link_index_rebuild_state_lock:
+                _link_index_rebuild_in_progress = False
 
     t = threading.Thread(target=_run, daemon=True, name="link-index-rebuild")
     t.start()
@@ -8307,7 +8754,7 @@ def _create_page_version(page_id: str, file_path: Path):
 
     # 10-minute cooldown (600 seconds) to avoid saturating with auto-saves
     COOLDOWN = 600
-    
+
     # Check the last saved version to respect cooldown
     versions = sorted(history_base.glob("*.md"))
     if versions:
@@ -8325,6 +8772,42 @@ def _create_page_version(page_id: str, file_path: Path):
         log.info(f"Page version created: {version_path}")
     except Exception as e:
         log.warning(f"Could not create version for {page_id}: {e}")
+
+
+def _create_page_version_from_content(page_id: str, original_content: str):
+    """Variant de `_create_page_version` que escriu directament el contingut
+    original passat com a paràmetre, sense haver de fer `shutil.copy2` del
+    fitxer. Pensat per executar-se com a `background_task` DESPRÉS que la
+    resposta al client ja s'hagi enviat: si esperéssim a copiar el fitxer
+    abans del `save_page_md`, l'usuari pagaria 50-300 ms d'I/O OneDrive
+    extra per cada PATCH; aquí ho fem en background amb el contingut que el
+    handler ja tenia en memòria.
+
+    Manté el cooldown de 10 min original.
+    """
+    if not original_content:
+        return
+    history_base = get_p("VAULT") / ".history" / page_id
+    try:
+        history_base.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return
+    COOLDOWN = 600
+    versions = sorted(history_base.glob("*.md"))
+    if versions:
+        last_version = versions[-1]
+        try:
+            if time.time() - last_version.stat().st_mtime < COOLDOWN:
+                return
+        except Exception:
+            pass
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    version_path = history_base / f"{timestamp}.md"
+    try:
+        version_path.write_text(original_content, encoding="utf-8")
+        log.info(f"Page version created (bg): {version_path}")
+    except Exception as e:
+        log.warning(f"Could not create version (bg) for {page_id}: {e}")
 
 
 @router.get("/pages/{page_id}/history")
