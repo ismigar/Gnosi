@@ -186,6 +186,42 @@ function parseAuthors(authorsStr) {
     return out;
 }
 
+/**
+ * Detecta un valor de camp "autoria" (array d'objectes {nom,cognom1,cognom2})
+ * dins la metadata. Independent del nom de la columna —que és cosmètic i
+ * renombrable—: el localitzem per **forma del valor**, no per clau. Retorna
+ * l'array d'autors estructurats o null si no n'hi ha cap.
+ */
+function findStructuredAuthors(metadata) {
+    if (!metadata || typeof metadata !== 'object') return null;
+    for (const v of Object.values(metadata)) {
+        if (Array.isArray(v) && v.some(a => a && typeof a === 'object' && ('cognom1' in a || 'cognom2' in a || 'nom' in a))) {
+            return v;
+        }
+    }
+    return null;
+}
+
+/**
+ * Mapeja autors estructurats a l'array `author` de CSL-JSON.
+ * CSL no té concepte de segon cognom: cognom1+cognom2 es fusionen a `family`.
+ * Un autor amb només `nom` (sense cognoms) es tracta com a nom literal.
+ */
+function structuredAuthorsToCsl(list) {
+    const out = [];
+    for (const a of list) {
+        if (!a || typeof a !== 'object') continue;
+        const family = [a.cognom1, a.cognom2].map(s => (s || '').trim()).filter(Boolean).join(' ');
+        const given = (a.nom || '').trim();
+        if (!family && !given) continue;
+        if (!family) { out.push({ literal: given }); continue; }
+        const entry = { family };
+        if (given) entry.given = given;
+        out.push(entry);
+    }
+    return out;
+}
+
 export function recursosPageToCsl(page) {
     if (!page) return null;
     const m = page.metadata || {};
@@ -201,7 +237,10 @@ export function recursosPageToCsl(page) {
         title: page.title || m['Title'] || '',
     };
 
-    const authors = parseAuthors(m['Authors']);
+    // Prioritat al camp "autoria" estructurat (citacions deterministes); si no
+    // n'hi ha, fallback a l'string lliure legacy via heurística.
+    const structured = findStructuredAuthors(m);
+    const authors = structured ? structuredAuthorsToCsl(structured) : parseAuthors(m['Authors']);
     if (authors.length) item.author = authors;
 
     const year = m['Any'];

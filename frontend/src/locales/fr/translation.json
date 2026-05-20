@@ -213,6 +213,7 @@
     "type_number": "Nombre",
     "type_select": "Sélection",
     "type_multi_select": "Sélection multiple",
+    "type_autoria": "Auteurs",
     "type_status": "Statut",
     "type_date": "Date",
     "type_datetime": "Date et heure",

@@ -109,6 +109,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <option value="number">{t('schema.type_number')}</option>
                         <option value="select">{t('schema.type_select')}</option>
                         <option value="multi_select">{t('schema.type_multi_select')}</option>
+                        <option value="autoria">{t('schema.type_autoria', 'Autoria')}</option>
                         <option value="status">{t('schema.type_status')}</option>
                         <option value="date">{t('schema.type_date')}</option>
                         <option value="datetime">{t('schema.type_datetime')}</option>
