@@ -4,6 +4,7 @@ import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Ty
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
+import { FileFieldValue } from './FileFieldValue';
 import { MediaInsertDialog } from './MediaInsertDialog';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave }) => {
@@ -1320,14 +1321,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         <LinkIcon size={12} /> {t('table.open_zotero')}
                     </button>
                 );
-            case 'files': {
-                const imageUrl = getImagePreviewUrlFromValue(value);
-                if (imageUrl) {
-                    return <ImageHoverPreview src={imageUrl} alt={field} />;
-                }
-
-                return <span className="truncate max-w-[200px] block" title={String(value)}>{String(value)}</span>;
-            }
+            case 'files':
+                return <FileFieldValue value={value} field={field} variant="table" />;
             case 'formula':
             case 'rollup': {
                 return (

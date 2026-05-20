@@ -3,6 +3,7 @@ import { FileText, Tag, Calendar, Link as LinkIcon, Type, CheckSquare } from 'lu
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
+import { FileFieldValue } from './FileFieldValue';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -147,6 +148,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         <LinkIcon size={12} /> URL
                     </a>
                 );
+            case 'files':
+                return <FileFieldValue value={value} field={field} variant="gallery" />;
             case 'zotero':
                 return (
                     <button
