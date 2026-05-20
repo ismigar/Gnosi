@@ -349,13 +349,28 @@ const _byTableCache = new Map();
 // així que reutilitzar el cache una mica més estona evita una espera
 // equivalent. La cache es buida si l'usuari prem el botó de reload.
 const BY_TABLE_TTL_MS = 300_000;
+// Cada entrada pot contenir milers de PageInfo (una taula gran), així que a
+// diferència del TTL per-entrada cal un límit dur d'entrades per evitar que
+// una sessió llarga visitant moltes taules acumuli memòria sense fre. 32
+// taules cobreix de sobres qualsevol vista activa; en superar-lo, evicció
+// FIFO de la més antiga (Map preserva l'ordre d'inserció).
+const BY_TABLE_MAX_ENTRIES = 32;
 function _byTableGet(tableId) {
     const e = _byTableCache.get(tableId);
     if (!e) return null;
     if (Date.now() - e.ts > BY_TABLE_TTL_MS) { _byTableCache.delete(tableId); return null; }
     return e.value;
 }
-function _byTableSet(tableId, value) { _byTableCache.set(tableId, { ts: Date.now(), value }); }
+function _byTableSet(tableId, value) {
+    // Refresca la posició d'inserció perquè el cap FIFO no expulsi una taula
+    // que s'acaba de rellegir.
+    if (_byTableCache.has(tableId)) _byTableCache.delete(tableId);
+    else if (_byTableCache.size >= BY_TABLE_MAX_ENTRIES) {
+        const oldest = _byTableCache.keys().next().value;
+        _byTableCache.delete(oldest);
+    }
+    _byTableCache.set(tableId, { ts: Date.now(), value });
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Renderers                                                                 */
