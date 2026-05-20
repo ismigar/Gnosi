@@ -91,6 +91,7 @@ L'usuari pot renombrar lliurement després de la creació; gràcies a §4 el syn
 | 4. UX/observabilitat | ✅ 2026-05-09 | `GET /last-sync` endpoint, panell "Darrera sincronització" amb timestamps i comptadors per direcció, polling post-sync amb toast estructurat, selector `existing_pages_strategy`, logs estructurats al backend que parsegen el JSON dels scripts. |
 | 5. Documentació | ✅ 2026-05-09 | Directiu i SKILL.md tancats; memòria persistent `feedback_zotero_mapping.md`. |
 | 6. Linked attachments (PDFs) | ✅ 2026-05-10 | Camp `attachmentPath` resolt des de `itemAttachments`; suport per `attachments:` (linked base = Biblioteca per defecte) i `storage:` (`~/Zotero/storage`). Cap còpia: tant Zotero com Gnosi apunten al mateix PDF. |
+| 7. Creators `autoria`-aware (Z→G) | ✅ 2026-05-20 | `zotero_to_vault.py` escriu autors **estructurats** `{nom,cognom1,cognom2}` quan el camp de creators és tipus `autoria` (firstName→nom, lastName→cognom1, cognom2 buit); fallback a string per a camps `text`. No trenca la migració del tipus `autoria`. G→Z intacte (`creators` és READ_ONLY). Vegeu `autoria_field_type.md`. |
 
 ## 7. Restriccions
 

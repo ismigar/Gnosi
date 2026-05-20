@@ -120,8 +120,12 @@ def test_page_id_for_handles_none():
 def test_build_page_payload_uses_property_names():
     item = {"key": "K1", "title": "Hello", "creators": "Garcia, I.", "url": "https://x"}
     mapping = {"title": "p_title", "creators": "p_authors", "url": "p_url"}
-    prop_names = {"p_title": "Títol", "p_authors": "Autors", "p_url": "URL"}
-    payload = ztv.build_page_payload(item, mapping, "tbl", prop_names)
+    prop_meta = {
+        "p_title": {"name": "Títol", "type": "title"},
+        "p_authors": {"name": "Autors", "type": "text"},
+        "p_url": {"name": "URL", "type": "url"},
+    }
+    payload = ztv.build_page_payload(item, mapping, "tbl", prop_meta)
     assert payload["title"] == "Hello"
     assert payload["metadata"]["Títol"] == "Hello"
     assert payload["metadata"]["Autors"] == "Garcia, I."
@@ -132,8 +136,8 @@ def test_build_page_payload_uses_property_names():
 def test_build_page_payload_skips_empty_and_orphan_props():
     item = {"key": "K1", "title": "T", "url": ""}  # url empty
     mapping = {"title": "p_title", "url": "p_url", "doi": "p_dead"}
-    prop_names = {"p_title": "Títol"}  # p_url and p_dead missing
-    payload = ztv.build_page_payload(item, mapping, "tbl", prop_names)
+    prop_meta = {"p_title": {"name": "Títol", "type": "title"}}  # p_url and p_dead missing
+    payload = ztv.build_page_payload(item, mapping, "tbl", prop_meta)
     assert payload["metadata"].get("Títol") == "T"
     # No URL key created (empty value); no doi key either (orphan property id)
     assert "URL" not in payload["metadata"]
@@ -144,6 +148,53 @@ def test_build_page_payload_falls_back_to_key_when_title_missing():
     item = {"key": "K42", "title": ""}
     payload = ztv.build_page_payload(item, {}, "tbl", {})
     assert payload["title"] == "K42"
+
+
+def test_build_page_payload_writes_structured_authors_for_autoria_type():
+    # Fase 4: amb el camp de creators de tipus `autoria`, s'escriu la forma
+    # estructurada (firstName→nom, lastName→cognom1, cognom2 buit), no l'string.
+    item = {
+        "key": "K1",
+        "title": "Simbiosi",
+        "creators": "Lynn Margulis, Dorion Sagan",  # string (per a camps text)
+        "creators_struct": [
+            {"nom": "Lynn", "cognom1": "Margulis", "cognom2": ""},
+            {"nom": "Dorion", "cognom1": "Sagan", "cognom2": ""},
+        ],
+    }
+    mapping = {"title": "p_title", "creators": "p_authors"}
+    prop_meta = {
+        "p_title": {"name": "Títol", "type": "title"},
+        "p_authors": {"name": "Autors", "type": "autoria"},
+    }
+    payload = ztv.build_page_payload(item, mapping, "tbl", prop_meta)
+    assert payload["metadata"]["Autors"] == [
+        {"nom": "Lynn", "cognom1": "Margulis", "cognom2": ""},
+        {"nom": "Dorion", "cognom1": "Sagan", "cognom2": ""},
+    ]
+
+
+def test_build_page_payload_keeps_string_authors_for_text_type():
+    # Compat enrere: si el camp segueix sent text, s'escriu l'string.
+    item = {
+        "key": "K2",
+        "title": "X",
+        "creators": "Garcia, I.",
+        "creators_struct": [{"nom": "I.", "cognom1": "Garcia", "cognom2": ""}],
+    }
+    mapping = {"creators": "p_authors"}
+    prop_meta = {"p_authors": {"name": "Autors", "type": "text"}}
+    payload = ztv.build_page_payload(item, mapping, "tbl", prop_meta)
+    assert payload["metadata"]["Autors"] == "Garcia, I."
+
+
+def test_build_page_payload_autoria_empty_creators_skips_field():
+    # Sense autors, no s'escriu el camp (ni string buit ni array buit).
+    item = {"key": "K3", "title": "Y", "creators": "", "creators_struct": []}
+    mapping = {"creators": "p_authors"}
+    prop_meta = {"p_authors": {"name": "Autors", "type": "autoria"}}
+    payload = ztv.build_page_payload(item, mapping, "tbl", prop_meta)
+    assert "Autors" not in payload["metadata"]
 
 
 # --- save_config_atomic -----------------------------------------------------

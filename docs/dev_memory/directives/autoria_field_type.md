@@ -91,6 +91,7 @@ i no necessita plumbing d'schema pels consumidors (`CiteInline`,
 | 1. Tipus + editor + render | ✅ | Enum + i18n (ca/en/es/fr); `AutoriaEditor` (pills {nom,cognom1,cognom2}, ordenar, autocompletar); `case 'autoria'`. |
 | 2. Integració CSL | ✅ | `findStructuredAuthors` + `structuredAuthorsToCsl` a `cslEngine.js`; detecció per forma del valor; fallback a `parseAuthors`. |
 | 3. Migració | ✅ | `pipeline/sandbox/migrate_autoria.py`: dry-run per defecte, no destructiva, idempotent. **Apply EXECUTAT (2026-05-20)** sobre Recursos: type→`autoria`, 150 convertits, 125 ambigus deixats com a string ("-"), 28 buits. Backup a `autoria_backup_*.json`. |
+| 4. Zotero Z→G autoria-aware | ✅ | `zotero_to_vault.py` escriu autors **estructurats** quan el camp de creators és tipus `autoria` (`firstName`→`nom`, `lastName`→`cognom1`, `cognom2` buit); fallback a string per a camps `text`/`rich_text`. G→Z no afectat (`creators` és READ_ONLY). Tests a `test_zotero_sync_scripts.py`. |
 
 **Aprenentatges de la migració (self-correction):**
 - **ORDRE DE DESPLEGAMENT (crític):** desplegar PRIMER el frontend (merge +
@@ -112,7 +113,6 @@ i no necessita plumbing d'schema pels consumidors (`CiteInline`,
 - **Cognoms compostos** ("García Fernández", "Ortega y Gasset") van sencers a
   `cognom1`, `cognom2=""` (mai partim el cognom: no es pot saber de forma fiable;
   la citació surt igual de correcta).
-| 4. Zotero round-trip (opcional) | ⬜ | Z→G: `creators.lastName` → `cognom1`, `firstName` → `nom`; `cognom2` queda buit (vegeu §8). |
 
 **QA:** `npm run build` ✅ (5432 mòduls, 0 errors); ESLint ✅ (sense incidències
 als trams nous; el deute de lint preexistent als fitxers no és d'aquesta feature).

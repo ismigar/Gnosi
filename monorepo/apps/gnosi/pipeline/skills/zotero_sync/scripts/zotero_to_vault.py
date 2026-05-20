@@ -286,7 +286,17 @@ def extract_items(z_conn: sqlite3.Connection, linked_base: str = "", zotero_stor
             WHERE ic.itemID = ?
             ORDER BY ic.orderIndex
         """, (item_id,))
-        authors = ", ".join(f"{r[0]} {r[1]}".strip() for r in cur.fetchall())
+        creator_rows = cur.fetchall()
+        authors = ", ".join(f"{r[0]} {r[1]}".strip() for r in creator_rows)
+        # Fase 4 — forma estructurada per a un camp de tipus `autoria`: Zotero
+        # només té firstName/lastName, així que nom=firstName, cognom1=lastName
+        # i cognom2 queda buit (no hi ha segon cognom a Zotero). Es preserva
+        # `authors` (string) per a camps de tipus text/rich_text (enrere).
+        creators_struct = [
+            {"nom": (r[0] or "").strip(), "cognom1": (r[1] or "").strip(), "cognom2": ""}
+            for r in creator_rows
+            if (r[0] or r[1])
+        ]
 
         cur.execute("""
             SELECT t.name FROM itemTags it JOIN tags t ON it.tagID = t.tagID WHERE it.itemID = ?
@@ -307,6 +317,7 @@ def extract_items(z_conn: sqlite3.Connection, linked_base: str = "", zotero_stor
             "dateAdded": date_added,
             "dateModified": date_modified,
             "creators": authors,
+            "creators_struct": creators_struct,
             "tags": tags,
             "attachmentPath": attachment_path,
             **fields,
@@ -419,9 +430,18 @@ def build_page_payload(item: dict, mapping: dict, table_id: str, prop_meta: dict
         if not info or not info.get("name"):
             # Property removed or orphaned id; validate-config will surface this.
             continue
+        prop_type = info.get("type", "text")
+        # Fase 4: si el camp de creators és de tipus `autoria`, escriu la forma
+        # estructurada (preserva firstName/lastName) en lloc de l'string, perquè
+        # no es perdi l'estructura ni se sobreescrigui la migració.
+        if z_field == "creators" and prop_type == "autoria":
+            struct = item.get("creators_struct") or []
+            if struct:
+                meta[info["name"]] = struct
+            continue
         value = item.get(z_field, "")
         if value:
-            meta[info["name"]] = transform_value_for_property(z_field, value, info.get("type", "text"))
+            meta[info["name"]] = transform_value_for_property(z_field, value, prop_type)
     return {
         "title": item.get("title") or item.get("key", ""),
         "content": "",
