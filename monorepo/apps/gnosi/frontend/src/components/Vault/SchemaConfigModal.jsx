@@ -225,6 +225,37 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 free:      t('schema.storage_free_desc', "L'usuari tria la carpeta de destinació o el fitxer existent en cada adjunt"),
                             }[field.storage_folder || 'assets']}
                         </p>
+
+                        <div className="pt-2 mt-1 space-y-1 border-t border-[var(--border-primary)]/50">
+                            <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
+                                {t('schema.name_pattern', 'Patró de nom')}
+                            </label>
+                            <input
+                                type="text"
+                                value={field.name_pattern || ''}
+                                onChange={(e) => handleUpdateField(idx, 'name_pattern', e.target.value)}
+                                placeholder={t('schema.name_pattern_ph', 'Ex: {Authors} - {Any} - {Títol}')}
+                                className="w-full text-xs rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1.5 text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                            />
+                            {fields.filter(f => f !== field && (f.name || '').trim()).length > 0 && (
+                                <div className="flex flex-wrap gap-1 px-1">
+                                    {fields.filter(f => f !== field && (f.name || '').trim()).slice(0, 10).map(f => (
+                                        <button
+                                            key={f.id || f.name}
+                                            type="button"
+                                            onClick={() => handleUpdateField(idx, 'name_pattern', `${field.name_pattern || ''}{${f.name}}`)}
+                                            className="text-[10px] rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                                            title={t('schema.name_pattern_insert', 'Insereix el camp al patró')}
+                                        >
+                                            {`{${f.name}}`}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
+                                {t('schema.name_pattern_hint', 'En pujar o enllaçar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Atenció: reanomenar un fitxer enllaçat trenca el seu enllaç a Zotero.')}
+                            </p>
+                        </div>
                     </div>
                 </div>
             )}
@@ -422,6 +453,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     relation_database_id: cfg.relation_database_id || '',
                     cardinality: cfg.cardinality || 'one-to-many',
                     storage_folder: cfg.storage_folder || '',
+                    name_pattern: cfg.name_pattern || '',
                     translatable: !!cfg.translatable,
                     button_action: cfg.button_action || '',
                     button_label: cfg.button_label || '',
@@ -493,6 +525,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             relation_database_id: '',
             cardinality: 'one-to-many',
             storage_folder: '',
+            name_pattern: '',
             translatable: false,
             button_action: 'translate_row',
             button_label: '',
@@ -538,6 +571,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             relation_database_id: '',
             cardinality: 'one-to-many',
             storage_folder: '',
+            name_pattern: '',
             translatable: false,
             button_action: '',
             button_label: '',
@@ -653,8 +687,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 }
                 config.cardinality = f.cardinality || 'one-to-many';
             }
-            if (f.type === 'files' && f.storage_folder) {
-                config.storage_folder = f.storage_folder;
+            if (f.type === 'files') {
+                if (f.storage_folder) config.storage_folder = f.storage_folder;
+                if (f.name_pattern?.trim()) config.name_pattern = f.name_pattern.trim();
             }
             if (f.type === 'button') {
                 config.button_action = (f.button_action || 'translate_row').trim();
