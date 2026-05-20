@@ -62,7 +62,11 @@ export function toServedAssetUrl(rawValue) {
     const assetsIdx = value.indexOf('/Assets/');
     if (assetsIdx >= 0) return `/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`;
     // Path relatiu dins del vault (ex: "Articles/foo.pdf") → servit des d'assets.
-    if (!value.startsWith('/') && !value.includes('://')) {
+    // Excloem rutes amb `..`: l'endpoint d'assets bloqueja el path-traversal i
+    // un `../Recursos/x.pdf` produiria una URL malformada. Aquestes (sovint
+    // referències legacy) cauen a '' i s'obren com a fitxer local (o fallen
+    // honestament si ja no existeixen) en comptes de navegar a una URL trencada.
+    if (!value.startsWith('/') && !value.includes('://') && !value.includes('..')) {
         return `/api/vault/assets/${value.replace(/^\.\//, '')}`;
     }
     return '';
