@@ -948,6 +948,7 @@
     "type_number": "Número",
     "type_select": "Selección",
     "type_multi_select": "Selección múltiple",
+    "type_autoria": "Autoría",
     "type_status": "Estado",
     "type_date": "Fecha",
     "type_datetime": "Fecha y hora",

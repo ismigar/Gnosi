@@ -1052,6 +1052,7 @@
     "type_number": "Number",
     "type_select": "Select",
     "type_multi_select": "Multi-select",
+    "type_autoria": "Authorship",
     "type_status": "Status",
     "type_date": "Date",
     "type_datetime": "Date & time",

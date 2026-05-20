@@ -1067,6 +1067,7 @@
     "type_number": "Número",
     "type_select": "Selecció",
     "type_multi_select": "Selecció múltiple",
+    "type_autoria": "Autoria",
     "type_status": "Estat",
     "type_date": "Data",
     "type_datetime": "Data i hora",
