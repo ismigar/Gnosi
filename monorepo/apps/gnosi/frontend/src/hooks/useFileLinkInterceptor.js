@@ -32,27 +32,9 @@
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { FILE_PROTOCOL_SENTINEL, sentinelToFileUrl } from '../components/Vault/markdown-mapper';
-
-// Tipus de document que el visor integrat de Gnosi (Zotero reader)
-// pot obrir. Retorna null si l'href no és un format suportat — en aquest
-// cas, l'interceptor delega al shell del SO.
-const DOCUMENT_KIND_BY_EXT = {
-    pdf: 'pdf',
-    epub: 'epub',
-    html: 'snapshot',
-    htm: 'snapshot',
-};
-
-const documentKindForHref = (href) => {
-    if (!href) return null;
-    const clean = href.split('?')[0].split('#')[0].toLowerCase();
-    const m = clean.match(/\.([a-z0-9]+)$/);
-    if (!m) return null;
-    return DOCUMENT_KIND_BY_EXT[m[1]] || null;
-};
+import { openFileResource } from '../lib/fileResource';
 
 // Interceptem TANT mouse* com pointer* events. Tiptap/ProseMirror pot
 // disparar el handler del link (que crida `window.open(href, target)`)
@@ -91,49 +73,6 @@ export function useFileLinkInterceptor() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Si el backend no pot obrir la ruta (típicament perquè corre dins
-        // un contenidor Docker Linux i no té accés al Finder/Explorer del
-        // host), copiem la ruta del fitxer al portapapers i avisem l'usuari
-        // amb un toast accionable. L'usuari pot llavors fer Cmd+Shift+G al
-        // Finder i enganxar.
-        const fallbackToClipboard = async (href) => {
-            // Converteix file:// → ruta de sistema neta per al portapapers
-            let plain = href;
-            if (/^file:\/\//i.test(href)) {
-                try { plain = decodeURIComponent(href.slice(7)); }
-                catch { plain = href.slice(7); }
-            }
-            try {
-                await navigator.clipboard.writeText(plain);
-                toast.success(
-                    t('editor.local_open_clipboard', {
-                        defaultValue: 'Ruta copiada: {{path}}\nObre Finder i fes Cmd+Maj+G per enganxar-la.',
-                        path: plain,
-                    }),
-                    { duration: 6000 }
-                );
-            } catch {
-                toast.error(`${plain}`, { duration: 8000 });
-            }
-        };
-
-        const openViaBackend = async (href) => {
-            try {
-                const res = await fetch('/api/vault/open-local-path', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: href }),
-                });
-                if (res.ok) return;
-                // Backend ha respost però no ha pogut obrir (404 si manca
-                // l'endpoint, 500 si manca xdg-open/open al contenidor, etc.)
-                await fallbackToClipboard(href);
-            } catch (err) {
-                console.error('[file-link] open-local-path error', err);
-                await fallbackToClipboard(href);
-            }
-        };
-
         // Evita disparar la trucada més d'un cop pel mateix gest
         // (mousedown + mouseup + click es dispararien en cadena).
         let lastOpenedAt = 0;
@@ -165,39 +104,10 @@ export function useFileLinkInterceptor() {
                 if (now - lastOpenedAt > 250) {
                     lastOpenedAt = now;
                     const backendPath = toBackendPath(found.href);
-                    // PDFs, EPUBs i snapshots HTML s'obren al visor integrat
-                    // (Zotero reader) en lloc de delegar al shell del SO.
-                    // Estratègia:
-                    //   1) emetem `gnosi:open-pdf` (nom retingut per compat)
-                    //      amb `kind` al detail. VaultDashboard l'agafa i
-                    //      afegeix una pestanya. El capturador crida
-                    //      preventDefault per senyalitzar que l'ha gestionat.
-                    //   2) si ningú no l'ha gestionat (fora del Vault),
-                    //      fallback a `/vault/pdf?src=...&kind=...` (la ruta
-                    //      acaba al ZoteroReaderPage que serveix qualsevol
-                    //      tipus suportat).
-                    const docKind = documentKindForHref(backendPath);
-                    if (docKind) {
-                        const filename = (() => {
-                            try {
-                                const path = decodeURIComponent(backendPath.replace(/^file:\/\//i, ''));
-                                return path.split('/').pop() || 'document';
-                            } catch {
-                                return 'document';
-                            }
-                        })();
-                        const evt = new CustomEvent('gnosi:open-pdf', {
-                            detail: { src: backendPath, title: filename, kind: docKind },
-                            cancelable: true,
-                        });
-                        const handled = !window.dispatchEvent(evt);
-                        if (!handled) {
-                            const qs = new URLSearchParams({ src: backendPath, kind: docKind });
-                            navigate(`/vault/pdf?${qs.toString()}`);
-                        }
-                    } else {
-                        openViaBackend(backendPath);
-                    }
+                    // PDF/EPUB/HTML → visor integrat (Zotero reader); altres →
+                    // app del SO. El routing viu a openFileResource perquè el
+                    // botó "Obrir" dels camps de fitxers es comporti igual.
+                    openFileResource(backendPath, { navigate, t });
                 }
             }
         };

@@ -66,6 +66,7 @@ import { BibliographyBlock } from './BibliographyBlock';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
+import { FileFieldValue } from './FileFieldValue';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 import { InsertContentModal } from './InsertContentModal';
 import { blocknoteCa } from '../../locales/blocknote/ca';
@@ -3167,7 +3168,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 apiFetch={apiFetch}
                                                             />
                                                         ) : (
-                                                            <span className="text-sm text-[var(--text-secondary)] truncate">{metadata[prop.name] || t('common.empty')}</span>
+                                                            <FileFieldValue value={metadata[prop.name]} field={prop.name} variant="detail" />
                                                         )}
                                                     </div>
                                                 ) : (

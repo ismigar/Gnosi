@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare } from 'lucide-react';
 import { getSchemaFieldEntries, getFieldConfig } from './schemaUtils';
+import { FileFieldValue } from './FileFieldValue';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
@@ -65,6 +66,8 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                         <LinkIcon size={14} /> URL
                     </a>
                 );
+            case 'files':
+                return <FileFieldValue value={value} field={field} variant="feed" />;
             case 'zotero':
                 return (
                     <button
