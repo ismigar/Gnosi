@@ -3163,6 +3163,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 tableId={rawTableId}
                                                                 propertyName={prop.name}
                                                                 storageFolder={prop.storage_folder || 'assets'}
+                                                                namePattern={prop.name_pattern || ''}
+                                                                rowMetadata={metadata}
                                                                 value={metadata[prop.name] || ''}
                                                                 onChange={val => handleMetaChange(prop.name, val)}
                                                                 apiFetch={apiFetch}

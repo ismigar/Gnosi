@@ -6799,10 +6799,15 @@ async def upload_property_file(
     table_id: str = Query(...),
     property_name: str = Query(...),
     storage_folder: str = Query(default="assets"),
+    target_name: str = Query(default=""),
     file: UploadFile = File(...),
 ):
     """Upload a file for a property. Routes to Assets/, Biblioteca/ or a free path
-    depending on the storage_folder parameter (assets | biblioteca | free)."""
+    depending on the storage_folder parameter (assets | biblioteca | free).
+
+    `target_name` (opcional): nom base ja interpolat des del patró del camp
+    (p. ex. "Autors - Any - Títol"). Si ve informat, el fitxer es desa amb
+    aquest nom (sanititzat) + l'extensió original."""
     registry = load_registry()
     table, database = _resolve_table_and_database_for_assets(table_id, registry)
     if not table:
@@ -6814,7 +6819,7 @@ async def upload_property_file(
 
     target_dir, url_type = _resolve_storage_dir(storage_folder, table, database, property_clean)
     try:
-        dest_path = Path(_save_uploaded_file_to_dir(file, target_dir))
+        dest_path = Path(_save_uploaded_file_to_dir(file, target_dir, target_name))
     except Exception as e:
         log.error(f"Error uploading property file: {e}")
         raise HTTPException(status_code=500, detail="Could not save file")
@@ -6822,12 +6827,19 @@ async def upload_property_file(
     return _file_response_payload(dest_path, url_type)
 
 
-def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path) -> Path:
-    """Save an UploadFile to target_dir and return the absolute destination path."""
+def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path, target_name: str = "") -> Path:
+    """Save an UploadFile to target_dir and return the absolute destination path.
+
+    Si `target_name` (patró de nom ja interpolat) ve informat, s'usa com a
+    base del nom (sanititzada) en comptes del nom original del fitxer.
+    """
     target_dir.mkdir(parents=True, exist_ok=True)
     original_name = upload.filename or "upload.bin"
     ext = Path(original_name).suffix
-    stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
+    if target_name and target_name.strip():
+        stem = _sanitize_filename_base(target_name.strip())
+    else:
+        stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
     destination = target_dir / f"{stem}{ext}"
     if destination.exists():
         destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
@@ -6840,8 +6852,13 @@ def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path) -> Path:
 async def link_existing_file(body: dict):
     """Variant B: register an existing local file path without copying it.
 
-    Body: { "file_path": "/absolute/path/to/file.pdf" }
+    Body: { "file_path": "/absolute/path/to/file.pdf", "target_name": "..." }
     Returns the path and a display name.
+
+    Si `target_name` (patró de nom ja interpolat) ve informat, el fitxer es
+    REANOMENA al disc dins la mateixa carpeta (estil Zotero), preservant
+    l'extensió i evitant col·lisions. Avís: si el fitxer és un linked
+    attachment de Zotero, reanomenar-lo en trencarà l'enllaç a Zotero.
     """
     file_path = str(body.get("file_path", "")).strip()
     if not file_path:
@@ -6852,6 +6869,27 @@ async def link_existing_file(body: dict):
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
     if not p.is_file():
         raise HTTPException(status_code=400, detail="Path is not a file")
+
+    target_name = str(body.get("target_name", "")).strip()
+    if target_name:
+        new_stem = _sanitize_filename_base(target_name)
+        ext = p.suffix
+        desired = p.parent / f"{new_stem}{ext}"
+        if desired != p:
+            if desired.exists():
+                i = 2
+                cand = p.parent / f"{new_stem}-{i}{ext}"
+                while cand.exists():
+                    i += 1
+                    cand = p.parent / f"{new_stem}-{i}{ext}"
+                desired = cand
+            try:
+                p.rename(desired)
+                p = desired
+            except OSError as e:
+                raise HTTPException(
+                    status_code=500, detail=f"Could not rename file: {e}"
+                )
 
     return {
         "path": str(p),
