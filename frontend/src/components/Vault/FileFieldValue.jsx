@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-    FileText, Film, Music, File as FileIcon, Link as LinkIcon, ExternalLink,
+    FileText, Film, Music, File as FileIcon, Link as LinkIcon, ExternalLink, Image as ImageIcon,
 } from 'lucide-react';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import {
@@ -23,6 +23,7 @@ import {
  */
 
 const KIND_ICON = {
+    image: ImageIcon,
     document: FileText,
     video: Film,
     audio: Music,
