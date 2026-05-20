@@ -5,7 +5,7 @@ import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
-import { MediaInsertDialog } from './MediaInsertDialog';
+import { InsertContentModal } from './InsertContentModal';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave }) => {
     const [localValues, setLocalValues] = useState(value);
@@ -2040,13 +2040,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 />
             )}
 
-            <MediaInsertDialog
+            <InsertContentModal
                 open={Boolean(mediaPickerCell)}
                 tableId={mediaPickerCell?.tableId || ''}
                 onClose={() => setMediaPickerCell(null)}
-                onResolve={(url) => {
+                onInsert={(result) => {
                     if (!mediaPickerCell) return;
-                    const value = urlToVaultPath(url);
+                    const value = urlToVaultPath(result?.url || '');
                     handleCellSave(mediaPickerCell.rowId, mediaPickerCell.field, value, mediaPickerCell.originalMetaKey);
                     setMediaPickerCell(null);
                 }}
