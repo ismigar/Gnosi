@@ -8,7 +8,7 @@
  * per inserir al BlockEditor.
  *
  * Disseny modal: muntat dins d'altres components (típicament
- * MediaInsertDialog) i mostrat amb `open=true`.
+ * InsertContentModal, pestanya "Vault").
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
