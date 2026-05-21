@@ -3098,13 +3098,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center">
                                     {properties.map(prop => (
                                         <React.Fragment key={prop.name}>
-                                            <div className="flex items-center gap-1.5 group py-1 h-8">
+                                            <div className={`flex items-center gap-1.5 group py-1 h-8 ${['files', 'autoria', 'relation', 'multi_select', 'select'].includes(prop.type) ? 'self-start' : ''}`}>
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors">
                                                     {prop.type === 'date' ? <Calendar size={14} /> : (prop.type === 'select' ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
                                                 </div>
                                                 <span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span>
                                             </div>
-                                            <div className={`flex items-center gap-1.5 group ${prop.type === 'files' ? 'h-auto py-1' : 'h-8'}`}>
+                                            <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
                                                 {prop.type === 'relation' ? (() => {
                                                     const relatedTableId = prop.relation_database_id;
                                                     const relatedNotes = allNotes.filter(n => {
