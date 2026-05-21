@@ -459,6 +459,12 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const skipNextAutosaveRef = useRef(false);
     // Ref a l'element arrel del modal: hi enganxem el listener d'Esc (vegeu avall).
     const modalRef = useRef(null);
+    // Ref al cos scrollable del modal: hi posem el focus en obrir perquè es
+    // pugui fer scroll amb el teclat (fletxes / Re Pàg) i l'Esc funcioni.
+    const scrollRef = useRef(null);
+    // Desat pendent (debounce encara no disparat). El fem flush en desmuntar
+    // perquè tancar (Esc/X) just després d'editar no perdi l'últim canvi.
+    const pendingSaveRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -766,7 +772,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             return;
         }
         if (validate()) return; // validació silenciosa
-        const handle = setTimeout(async () => {
+        // Desa l'estat actual. El desem en un ref perquè el puguem disparar
+        // també en desmuntar (flush) si el debounce encara no ha saltat.
+        const doSave = async () => {
+            pendingSaveRef.current = null;
             try {
                 const { newSchemaObj, visibleProperties } = buildPayload();
                 if (onSave) {
@@ -779,10 +788,20 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 console.error(err);
                 toast.error(t('schema.error_saving'));
             }
-        }, 600);
+        };
+        pendingSaveRef.current = doSave;
+        const handle = setTimeout(doSave, 600);
         return () => clearTimeout(handle);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, fields, enableSubitems, enableTranslation]);
+
+    // Flush del desat pendent en desmuntar el modal (p.ex. tancar amb Esc o la X
+    // just després d'editar, abans dels 600ms del debounce). Fire-and-forget:
+    // el POST es completa encara que el component ja no hi sigui. Sense això,
+    // el `clearTimeout` de l'efecte d'autosave cancel·lava l'últim canvi.
+    useEffect(() => {
+        return () => { pendingSaveRef.current?.(); };
+    }, []);
 
     // Tancament amb Esc — listener NATIU directament a l'element del modal (via
     // ref), no a `window`. Provat al navegador amb tecles REALS: el de `window`
@@ -802,9 +821,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             }
         };
         el.addEventListener('keydown', handleKeyDown);
-        // Donem focus a l'arrel en obrir perquè l'Esc funcioni encara que
-        // l'usuari no hagi clicat cap camp (el keydown ha d'arribar a `el`).
-        el.focus();
+        // Focus al COS scrollable (no a l'arrel): així l'Esc funciona (el keydown
+        // hi bombolla cap a `el`) i, a més, es pot fer scroll amb el teclat.
+        // Donar focus a l'arrel (no scrollable) trencava el scroll amb teclat.
+        scrollRef.current?.focus();
         return () => el.removeEventListener('keydown', handleKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
@@ -814,8 +834,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     return (
         <div
             ref={modalRef}
-            tabIndex={-1}
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm outline-none"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm"
         >
             <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-[var(--border-primary)]">
                 {/* Header */}
@@ -829,7 +848,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1 bg-[var(--bg-primary)]">
+                <div ref={scrollRef} tabIndex={-1} className="p-6 overflow-y-auto flex-1 bg-[var(--bg-primary)] outline-none">
                     <div className="bg-[var(--bg-secondary)] p-4 rounded-lg border border-[var(--border-primary)] shadow-sm mb-6 space-y-4">
                         <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                             <Layers size={16} className="text-[var(--gnosi-primary)]" />
