@@ -196,6 +196,36 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                         <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
+                            {t('schema.file_mode', 'Mode')}
+                        </label>
+                        <div className="flex gap-2">
+                            {[
+                                { value: 'link', label: t('schema.file_mode_link', 'Enllaç') },
+                                { value: 'upload', label: t('schema.file_mode_upload', 'Pujar') },
+                            ].map(opt => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => handleUpdateField(idx, 'file_mode', opt.value)}
+                                    className={`flex-1 text-xs rounded-lg border px-2 py-1.5 font-semibold transition-colors ${
+                                        (field.file_mode || 'upload') === opt.value
+                                            ? 'bg-[var(--gnosi-primary)] text-white border-[var(--gnosi-primary)]'
+                                            : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
+                            {(field.file_mode || 'upload') === 'link'
+                                ? t('schema.file_mode_link_desc', 'Enllaça un fitxer local sense copiar-lo (referència).')
+                                : t('schema.file_mode_upload_desc', 'Copia el fitxer a la carpeta de destinació.')}
+                        </p>
+
+                        {(field.file_mode || 'upload') === 'upload' && (
+                        <div className="pt-2 mt-1 space-y-2 border-t border-[var(--border-primary)]/50">
+                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
                             {t('schema.storage_folder', 'Carpeta de destinació')}
                         </label>
                         <div className="flex gap-2">
@@ -238,9 +268,9 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 placeholder={t('schema.name_pattern_ph', 'Ex: {Authors} - {Any} - {Títol}')}
                                 className="w-full text-xs rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1.5 text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                             />
-                            {fields.filter(f => f !== field && (f.name || '').trim()).length > 0 && (
+                            {allFields.filter(f => f !== field && (f.name || '').trim()).length > 0 && (
                                 <div className="flex flex-wrap gap-1 px-1">
-                                    {fields.filter(f => f !== field && (f.name || '').trim()).slice(0, 10).map(f => (
+                                    {allFields.filter(f => f !== field && (f.name || '').trim()).slice(0, 10).map(f => (
                                         <button
                                             key={f.id || f.name}
                                             type="button"
@@ -254,9 +284,11 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 </div>
                             )}
                             <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                                {t('schema.name_pattern_hint', 'En pujar o enllaçar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Atenció: reanomenar un fitxer enllaçat trenca el seu enllaç a Zotero.')}
+                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen).')}
                             </p>
                         </div>
+                        </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -453,6 +485,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     fallbackValue: cfg.fallbackValue ?? '',
                     relation_database_id: cfg.relation_database_id || '',
                     cardinality: cfg.cardinality || 'one-to-many',
+                    file_mode: cfg.file_mode || 'upload',
                     storage_folder: cfg.storage_folder || '',
                     name_pattern: cfg.name_pattern || '',
                     translatable: !!cfg.translatable,
@@ -525,6 +558,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             fallbackValue: '',
             relation_database_id: '',
             cardinality: 'one-to-many',
+            file_mode: 'upload',
             storage_folder: '',
             name_pattern: '',
             translatable: false,
@@ -571,6 +605,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             fallbackValue: '',
             relation_database_id: '',
             cardinality: 'one-to-many',
+            file_mode: 'upload',
             storage_folder: '',
             name_pattern: '',
             translatable: false,
@@ -689,6 +724,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 config.cardinality = f.cardinality || 'one-to-many';
             }
             if (f.type === 'files') {
+                if (f.file_mode) config.file_mode = f.file_mode;
                 if (f.storage_folder) config.storage_folder = f.storage_folder;
                 if (f.name_pattern?.trim()) config.name_pattern = f.name_pattern.trim();
             }

@@ -1,25 +1,126 @@
-import { useState } from 'react';
-import { FileText, X, Plus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { FileText, X, Plus, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { InsertContentModal } from './InsertContentModal';
+import { FilesystemPickerModal } from '../FilesystemPickerModal';
+
+const STORAGE_LABELS = {
+    assets:     'Assets',
+    biblioteca: 'Biblioteca',
+    free:       'Lliure',
+};
 
 /**
- * FileAttachmentField — camp de tipus `files`.
- *
- * Un sol botó "+" obre `InsertContentModal` (el mateix modal que el "/+" de
- * l'editor): pestanyes Vault / Disc local / Puja / URL. El resultat (`url`)
- * es desa com a valor del camp.
- *
- * Props: tableId, value (string), onChange(newValue: string).
+ * Interpola un patró de nom (ex: "{Authors} - {Any} - {Títol}") amb els valors
+ * de la fila. Els camps buits/inexistents s'ometen i es netegen els separadors
+ * penjats. La sanitització final del nom la fa el backend. (No exportat.)
  */
-export function FileAttachmentField({ tableId, value, onChange }) {
-    const { t } = useTranslation();
-    const [modalOpen, setModalOpen] = useState(false);
+function interpolateNamePattern(pattern, meta = {}) {
+    if (!pattern || typeof pattern !== 'string') return '';
+    let out = pattern.replace(/\{([^{}]+)\}/g, (_, name) => {
+        const v = meta?.[name.trim()];
+        if (v === undefined || v === null) return '';
+        const s = Array.isArray(v) ? v.join(', ') : String(v);
+        return s.trim();
+    });
+    out = out
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s*-\s*-\s*/g, ' - ')
+        .replace(/^[\s\-–—_]+|[\s\-–—_]+$/g, '')
+        .replace(/[<>:"/\\|?*]/g, '')
+        .trim();
+    return out;
+}
 
+/**
+ * FileAttachmentField — camp de tipus `files`. El comportament es declara a
+ * l'esquema (`file_mode`) i el formulari d'inserció és específic del mode (a
+ * diferència del modal genèric "/+"):
+ *   - 'link'   → un "+" obre el selector de fitxers local i enllaça (sense còpia).
+ *   - 'upload' → un "+" puja el fitxer a `storageFolder` (amb `namePattern`); si
+ *                la carpeta és 'free', primer tria la carpeta destí.
+ *
+ * Props: tableId, propertyName, fileMode ('link'|'upload'), storageFolder,
+ * namePattern, rowMetadata, value (string), onChange(newValue), apiFetch.
+ */
+export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload', storageFolder = 'assets', namePattern = '', rowMetadata = {}, value, onChange, apiFetch }) {
+    const { t } = useTranslation();
+    const fileInputRef = useRef(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    // Picker del sistema d'arxius (navega el disc via /api/system/browse, que
+    // funciona dins del contenidor Docker).
+    const [pickerState, setPickerState] = useState(null);
+    const openPicker = (mode) => new Promise((resolve) => setPickerState({ mode, resolve }));
+
+    const isLink = fileMode === 'link';
+    const isFree = storageFolder === 'free';
     const hasValue = Boolean(value);
     const fileName = value ? value.split('/').pop().split('\\').pop() : '';
     const isLocalPath = value && !value.startsWith('/api/') && !value.startsWith('http');
     const displayUrl = value && !isLocalPath ? value : null;
+
+    const resolvedName = namePattern ? interpolateNamePattern(namePattern, rowMetadata) : '';
+    const nameQuery = resolvedName ? `&target_name=${encodeURIComponent(resolvedName)}` : '';
+
+    const handleUpload = async (file) => {
+        if (!file) return;
+        try {
+            if (isFree) {
+                const folderPath = await openPicker('folder');
+                if (!folderPath) return; // cancel·lat
+                setLoading(true); setError('');
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('dest_folder', folderPath);
+                const res = await apiFetch(
+                    `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=free${nameQuery}`,
+                    { method: 'POST', body: formData },
+                );
+                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
+                onChange((await res.json()).path);
+            } else {
+                setLoading(true); setError('');
+                const formData = new FormData();
+                formData.append('file', file);
+                const res = await apiFetch(
+                    `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=${storageFolder}${nameQuery}`,
+                    { method: 'POST', body: formData },
+                );
+                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
+                const data = await res.json();
+                onChange(data.url || data.path);
+            }
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLinkExisting = async () => {
+        const path = await openPicker('file');
+        if (!path) return; // cancel·lat
+        setLoading(true); setError('');
+        try {
+            const res = await apiFetch('/api/vault/link-existing-file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_path: path, target_name: resolvedName }),
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error enllaçant fitxer');
+            onChange((await res.json()).path);
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const addTitle = isLink
+        ? t('files.link_existing', 'Enllaça un fitxer local (sense copiar)')
+        : (isFree
+            ? t('files.upload_choose_folder', 'Puja i tria la carpeta de destinació')
+            : t('files.upload_to', 'Puja a {{folder}}', { folder: STORAGE_LABELS[storageFolder] }));
 
     return (
         <div className="space-y-1.5">
@@ -45,21 +146,33 @@ export function FileAttachmentField({ tableId, value, onChange }) {
                 </div>
             )}
 
-            {/* Un sol "+" → InsertContentModal (mateix modal que el /+ de l'editor) */}
+            {/* Un sol "+" → acció específica del mode configurat a l'esquema */}
             <button
                 type="button"
-                onClick={() => setModalOpen(true)}
-                className="flex items-center justify-center w-7 h-7 rounded-lg border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:border-[var(--gnosi-primary)]/50 hover:text-[var(--gnosi-primary)] transition-colors"
-                title={t('files.add', 'Afegeix un adjunt')}
+                disabled={loading}
+                onClick={() => { if (isLink) handleLinkExisting(); else fileInputRef.current?.click(); }}
+                className="flex items-center justify-center w-7 h-7 rounded-lg border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:border-[var(--gnosi-primary)]/50 hover:text-[var(--gnosi-primary)] transition-colors disabled:opacity-50"
+                title={addTitle}
             >
-                <Plus size={15} />
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={15} />}
             </button>
 
-            <InsertContentModal
-                open={modalOpen}
-                tableId={tableId}
-                onClose={() => setModalOpen(false)}
-                onInsert={(result) => { onChange(result?.url || ''); setModalOpen(false); }}
+            <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }}
+            />
+
+            {error && (
+                <p className="text-[11px] text-red-500 bg-red-50 dark:bg-red-900/20 rounded px-2 py-1">{error}</p>
+            )}
+
+            <FilesystemPickerModal
+                isOpen={Boolean(pickerState)}
+                mode={pickerState?.mode || 'file'}
+                onClose={() => { pickerState?.resolve?.(null); setPickerState(null); }}
+                onSelect={(absolutePath) => { pickerState?.resolve?.(absolutePath); setPickerState(null); }}
             />
         </div>
     );
