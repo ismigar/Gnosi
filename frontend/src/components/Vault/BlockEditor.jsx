@@ -3176,6 +3176,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             <FileAttachmentField
                                                                 tableId={rawTableId}
                                                                 propertyName={prop.name}
+                                                                fileMode={prop.file_mode || 'upload'}
                                                                 storageFolder={prop.storage_folder || 'assets'}
                                                                 namePattern={prop.name_pattern || ''}
                                                                 rowMetadata={metadata}
