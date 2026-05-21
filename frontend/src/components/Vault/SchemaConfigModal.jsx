@@ -270,21 +270,23 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             />
                             {allFields.filter(f => f !== field && (f.name || '').trim()).length > 0 && (
                                 <div className="flex flex-wrap gap-1 px-1">
-                                    {allFields.filter(f => f !== field && (f.name || '').trim()).slice(0, 10).map(f => (
-                                        <button
-                                            key={f.id || f.name}
-                                            type="button"
-                                            onClick={() => handleUpdateField(idx, 'name_pattern', `${field.name_pattern || ''}{${f.name}}`)}
-                                            className="text-[10px] rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                                            title={t('schema.name_pattern_insert', 'Insereix el camp al patró')}
-                                        >
-                                            {`{${f.name}}`}
-                                        </button>
+                                    {allFields.filter(f => f !== field && (f.name || '').trim()).slice(0, 10).flatMap(f => (
+                                        (f.type === 'autoria' ? [f.name, `${f.name}.cognom`] : [f.name]).map(tok => (
+                                            <button
+                                                key={tok}
+                                                type="button"
+                                                onClick={() => handleUpdateField(idx, 'name_pattern', `${field.name_pattern || ''}{${tok}}`)}
+                                                className="text-[10px] rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                                                title={t('schema.name_pattern_insert', 'Insereix el camp al patró')}
+                                            >
+                                                {`{${tok}}`}
+                                            </button>
+                                        ))
                                     ))}
                                 </div>
                             )}
                             <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen).')}
+                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Per a autors: {Autor} dóna el nom complet i {Autor.cognom} només els cognoms.')}
                             </p>
                         </div>
                         </div>
