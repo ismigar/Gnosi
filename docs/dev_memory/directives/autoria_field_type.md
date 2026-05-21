@@ -114,10 +114,11 @@ i no necessita plumbing d'schema pels consumidors (`CiteInline`,
   `cognom1`, `cognom2=""` (mai partim el cognom: no es pot saber de forma fiable;
   la citació surt igual de correcta).
 
-**QA:** `npm run build` ✅ (5432 mòduls, 0 errors); ESLint ✅ (sense incidències
-als trams nous; el deute de lint preexistent als fitxers no és d'aquesta feature).
-Prova interactiva al navegador **no feta** des del worktree (Docker monta
-`~/Projectes/monorepo`, no el worktree; cal verificar-la a l'entorn HMR/Docker).
+**QA:** `npm run build` ✅ (0 errors). Prova interactiva al navegador **feta**
+(2026-05-21, entorn HMR `~/Projectes/monorepo` + sessió autenticada): es va
+detectar i corregir un **bug de layout** al panell de propietats (vegeu §7,
+"Alçada de fila"). Mesures DOM post-fix: 0 solapaments entre files; fila
+`autoria` creix a ~85px segons el nombre d'autors; etiqueta top-alineada.
 
 ## 7. Restriccions / edge cases
 
@@ -129,6 +130,14 @@ Prova interactiva al navegador **no feta** des del worktree (Docker monta
 - **CSL llegeix per clau, no per id:** `recursosPageToCsl` hardcoda noms
   (`'Authors'`, `'Citation Key'`, `'Any'`...). En afegir la detecció per tipus,
   no trencar la lectura de la resta de camps.
+- **Alçada de fila al panell de propietats (BlockEditor):** la cel·la de valor
+  del grid `grid-cols-[140px_1fr]` tenia alçada FIXA `h-8` (32px). Els editors
+  **multi-línia** (`autoria`, i també `files`/`relation`/`multi_select` —
+  `MultiSelectPills` fa `min-h-[42px]`) desbordaven i es **superposaven** amb les
+  files veïnes. Fix (2026-05-21, `BlockEditor.jsx:3107` + etiqueta `:3101`): la
+  cel·la de valor usa `min-h-[2rem] py-1` (creix amb el contingut) per a aquests
+  tipus, i l'etiqueta `self-start` (top-alineada). Regla: qualsevol tipus de camp
+  amb editor multi-línia NO pot anar en una cel·la d'alçada fixa.
 
 ## 8. Decisions obertes (a confirmar amb l'usuari)
 
