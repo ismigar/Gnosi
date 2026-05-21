@@ -26,6 +26,12 @@
   "vault_welcome_subtitle": "Selecciona una página o",
   "vault_welcome_create_page": "Crea una página",
   "vault_welcome_create_db": "Crea una DB",
+  "autoria": {
+    "first_name": "Nombre",
+    "surname1": "Apellido 1",
+    "surname2": "Apellido 2",
+    "add_author": "Añadir autor"
+  },
   "common": {
     "untitled": "Sin título",
     "new": "Nuevo",

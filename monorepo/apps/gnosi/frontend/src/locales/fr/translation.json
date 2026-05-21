@@ -1,6 +1,13 @@
 {
+  "autoria": {
+    "first_name": "Prénom",
+    "surname1": "Nom 1",
+    "surname2": "Nom 2",
+    "add_author": "Ajouter un auteur"
+  },
   "common": {
-    "undo": "Annuler"
+    "undo": "Annuler",
+    "delete": "Supprimer"
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",

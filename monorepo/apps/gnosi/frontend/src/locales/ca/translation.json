@@ -26,6 +26,12 @@
   "vault_welcome_subtitle": "Selecciona una pàgina o",
   "vault_welcome_create_page": "Crea una pàgina",
   "vault_welcome_create_db": "Crea una DB",
+  "autoria": {
+    "first_name": "Nom",
+    "surname1": "Cognom 1",
+    "surname2": "Cognom 2",
+    "add_author": "Afegir autor"
+  },
   "common": {
     "loading": "Carregant...",
     "untitled": "Sense títol",

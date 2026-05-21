@@ -452,7 +452,9 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                 {currentValues.map(val => (
                     <span key={val} className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-xs font-medium text-[var(--text-secondary)] shadow-sm">
                         {idToTitle[val] || val}
-                        <X size={10} className="hover:text-[var(--status-error)] transition-colors" onClick={(e) => { e.stopPropagation(); toggleValue(val); }} />
+                        <span title={t('common.delete', 'Elimina')} className="flex items-center cursor-pointer hover:text-[var(--status-error)] transition-colors" onClick={(e) => { e.stopPropagation(); toggleValue(val); }}>
+                            <X size={10} />
+                        </span>
                     </span>
                 ))}
             </div>
