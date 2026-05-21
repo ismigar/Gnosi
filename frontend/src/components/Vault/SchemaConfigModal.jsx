@@ -782,6 +782,16 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, fields, enableSubitems, enableTranslation]);
 
+    // Tancament amb Esc. El listener primari va a l'arrel del modal (`onKeyDown`
+    // del div): quan el focus és a dins (un input, un select…), el keydown hi
+    // bombolla i React el processa de forma fiable. El listener de `window` es
+    // manté NOMÉS com a reserva per al cas (poc habitual) que el focus quedi
+    // fora del modal — perquè aleshores l'event no arriba a l'arrel.
+    //
+    // Per què no n'hi havia prou amb el de `window`: amb tecles reals (no
+    // sintètiques) originades des d'un camp de dins del modal, aquell listener
+    // no tancava el modal de manera consistent (sí amb la X, que crida el mateix
+    // `onClose`). El handler a l'arrel sí que respon a la pulsació real.
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e) => {
@@ -795,8 +805,18 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
 
     if (!isOpen) return null;
 
+    const handleModalKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            e.stopPropagation();
+            onClose();
+        }
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm">
+        <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm"
+            onKeyDown={handleModalKeyDown}
+        >
             <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-[var(--border-primary)]">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
