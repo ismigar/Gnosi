@@ -47,6 +47,8 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
     );
     // Fila amb el focus actual (per mostrar-hi els suggeriments).
     const [focusedIdx, setFocusedIdx] = useState(null);
+    // Suggeriment ressaltat — compartit entre navegació amb teclat i hover.
+    const [highlightedIdx, setHighlightedIdx] = useState(0);
     const containerRef = useRef(null);
     // Hi havia autors estructurats reals a l'inici? (per no esborrar dades)
     const hadInitial = useRef(Array.isArray(value) && value.some(a => a && (a.nom || a.cognom1 || a.cognom2)));
@@ -101,13 +103,24 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
         setAuthors(prev => prev.map((a, i) => (i === idx ? { nom: s.nom || '', cognom1: s.cognom1 || '', cognom2: s.cognom2 || '' } : a)));
         setFocusedIdx(null);
     };
+    // Navegació amb teclat de la llista de suggeriments de la fila `idx`:
+    // ↓/↑ mou el ressaltat, Enter selecciona el ressaltat, Esc tanca.
+    const handleKeyNav = (idx, e) => {
+        const matches = matchesFor(idx);
+        if (!matches.length) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightedIdx(i => Math.min(i + 1, matches.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightedIdx(i => Math.max(i - 1, 0)); }
+        else if (e.key === 'Enter') { e.preventDefault(); pick(idx, matches[Math.min(highlightedIdx, matches.length - 1)]); }
+        else if (e.key === 'Escape') { e.preventDefault(); setFocusedIdx(null); }
+    };
 
     const inputCls = 'flex-1 min-w-[56px] px-1.5 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]';
     const fieldHandlers = (idx, key) => ({
         value: authors[idx]?.[key] || '',
-        onChange: (e) => { update(idx, key, e.target.value); setFocusedIdx(idx); },
-        onFocus: () => setFocusedIdx(idx),
+        onChange: (e) => { update(idx, key, e.target.value); setFocusedIdx(idx); setHighlightedIdx(0); },
+        onFocus: () => { setFocusedIdx(idx); setHighlightedIdx(0); },
         onBlur: () => setFocusedIdx(null),
+        onKeyDown: (e) => handleKeyNav(idx, e),
     });
 
     return (
@@ -134,7 +147,8 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
                                     {matches.map((s, i) => (
                                         <div
                                             key={i}
-                                            className="px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)] cursor-pointer"
+                                            className={`px-2 py-1 text-xs cursor-pointer ${i === highlightedIdx ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-secondary)]'}`}
+                                            onMouseEnter={() => setHighlightedIdx(i)}
                                             onMouseDown={e => { e.preventDefault(); pick(idx, s); }}
                                         >
                                             {authorSortLabel(s)}
