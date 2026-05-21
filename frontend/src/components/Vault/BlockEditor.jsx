@@ -67,6 +67,8 @@ import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuU
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { FileFieldValue } from './FileFieldValue';
+import { AutoriaEditor, AutoriaDisplay } from './AutoriaField';
+import { dedupeAuthors } from './autoriaUtils';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 import { InsertContentModal } from './InsertContentModal';
 import { blocknoteCa } from '../../locales/blocknote/ca';
@@ -3156,6 +3158,16 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             handleMetaChange(prop.name, val);
                                                         }}
                                                     />
+                                                ) : prop.type === 'autoria' ? (
+                                                    isEditor ? (
+                                                        <AutoriaEditor
+                                                            value={metadata[prop.name]}
+                                                            suggestions={dedupeAuthors((allNotes || []).map(n => n.metadata?.[prop.name]))}
+                                                            onSave={val => handleMetaChange(prop.name, val)}
+                                                        />
+                                                    ) : (
+                                                        <AutoriaDisplay value={metadata[prop.name]} emptyText={t('common.empty')} />
+                                                    )
                                                 ) : prop.type === 'files' ? (
                                                     <div className="w-full">
                                                         {isEditor ? (
