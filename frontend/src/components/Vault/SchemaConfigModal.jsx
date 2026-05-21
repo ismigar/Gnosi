@@ -270,8 +270,8 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             />
                             {allFields.filter(f => f !== field && (f.name || '').trim()).length > 0 && (
                                 <div className="flex flex-wrap gap-1 px-1">
-                                    {allFields.filter(f => f !== field && (f.name || '').trim()).slice(0, 10).flatMap(f => (
-                                        (f.type === 'autoria' ? [f.name, `${f.name}.cognom`] : [f.name]).map(tok => (
+                                    {allFields.filter(f => f !== field && (f.name || '').trim()).flatMap(f => (
+                                        (f.type === 'autoria' ? [f.name, `${f.name}.cognom1`, `${f.name}.cognom2`] : [f.name]).map(tok => (
                                             <button
                                                 key={tok}
                                                 type="button"
@@ -286,7 +286,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 </div>
                             )}
                             <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Per a autors: {Autor} dóna el nom complet i {Autor.cognom} només els cognoms.')}
+                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Per a autors: {Autor} dóna el nom complet; {Autor.cognom1} i {Autor.cognom2}, cada cognom.')}
                             </p>
                         </div>
                         </div>
@@ -590,8 +590,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    if (!isOpen) return null;
-
     const handleAddField = () => {
         setFields([...fields, {
             id: generateFieldId(),
@@ -794,6 +792,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm">

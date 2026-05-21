@@ -20,6 +20,8 @@ function formatAuthorToken(a, accessor) {
     if (!a || typeof a !== 'object') return '';
     const cognoms = [a.cognom1, a.cognom2].map(s => (s || '').trim()).filter(Boolean).join(' ');
     const nom = (a.nom || '').trim();
+    if (accessor === 'cognom1') return (a.cognom1 || '').trim();
+    if (accessor === 'cognom2') return (a.cognom2 || '').trim();
     if (accessor === 'cognom' || accessor === 'cognoms') return cognoms;
     if (accessor === 'nom') return nom;
     return [nom, cognoms].filter(Boolean).join(' ');
