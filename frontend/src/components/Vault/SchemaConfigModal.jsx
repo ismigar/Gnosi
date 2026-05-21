@@ -457,6 +457,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     // inicialització, els setters causen un re-render que faria saltar
     // l'autosave amb un payload idèntic al backend. No té sentit enviar-ho.
     const skipNextAutosaveRef = useRef(false);
+    // Ref a l'element arrel del modal: hi enganxem el listener d'Esc (vegeu avall).
+    const modalRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -782,40 +784,38 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, fields, enableSubitems, enableTranslation]);
 
-    // Tancament amb Esc. El listener primari va a l'arrel del modal (`onKeyDown`
-    // del div): quan el focus és a dins (un input, un select…), el keydown hi
-    // bombolla i React el processa de forma fiable. El listener de `window` es
-    // manté NOMÉS com a reserva per al cas (poc habitual) que el focus quedi
-    // fora del modal — perquè aleshores l'event no arriba a l'arrel.
-    //
-    // Per què no n'hi havia prou amb el de `window`: amb tecles reals (no
-    // sintètiques) originades des d'un camp de dins del modal, aquell listener
-    // no tancava el modal de manera consistent (sí amb la X, que crida el mateix
-    // `onClose`). El handler a l'arrel sí que respon a la pulsació real.
+    // Tancament amb Esc — listener NATIU directament a l'element del modal (via
+    // ref), no a `window`. Provat al navegador amb tecles REALS: el de `window`
+    // no responia de manera fiable a la pulsació real des d'un camp de dins del
+    // modal (sí amb la X), mentre que un listener a l'element sí. Deps només
+    // [isOpen] per no re-vincular a cada render (el churn deixava finestres on el
+    // listener no hi era). `onClose` és estable de comportament, així que el
+    // capturem directament.
     useEffect(() => {
         if (!isOpen) return;
+        const el = modalRef.current;
+        if (!el) return;
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
+                e.stopPropagation();
                 onClose();
             }
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+        el.addEventListener('keydown', handleKeyDown);
+        // Donem focus a l'arrel en obrir perquè l'Esc funcioni encara que
+        // l'usuari no hagi clicat cap camp (el keydown ha d'arribar a `el`).
+        el.focus();
+        return () => el.removeEventListener('keydown', handleKeyDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
-    const handleModalKeyDown = (e) => {
-        if (e.key === 'Escape') {
-            e.stopPropagation();
-            onClose();
-        }
-    };
-
     return (
         <div
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm"
-            onKeyDown={handleModalKeyDown}
+            ref={modalRef}
+            tabIndex={-1}
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm outline-none"
         >
             <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-[var(--border-primary)]">
                 {/* Header */}
