@@ -1914,8 +1914,20 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 onClose={() => setMediaPickerCell(null)}
                 onInsert={(result) => {
                     if (!mediaPickerCell) return;
-                    const value = urlToVaultPath(result?.url || '');
-                    handleCellSave(mediaPickerCell.rowId, mediaPickerCell.field, value, mediaPickerCell.originalMetaKey);
+                    const { rowId, field, originalMetaKey } = mediaPickerCell;
+                    const newPath = urlToVaultPath(result?.url || '');
+                    let value = newPath;
+                    // Els camps `files` són multi-fitxer: afegim a la llista existent.
+                    // (Els camps d'imatge detectats pel nom són d'un sol valor → reemplacen.)
+                    if (newPath && getFieldType(schema, field) === 'files') {
+                        const note = safeNotes.find(n => n.id === rowId);
+                        const existing = note?.metadata?.[originalMetaKey];
+                        const arr = (Array.isArray(existing) ? existing : (existing ? [existing] : []))
+                            .map(v => String(v ?? '')).filter(v => v.trim() !== '');
+                        const next = [...arr, newPath];
+                        value = next.length === 1 ? next[0] : next;
+                    }
+                    handleCellSave(rowId, field, value, originalMetaKey);
                     setMediaPickerCell(null);
                 }}
             />
