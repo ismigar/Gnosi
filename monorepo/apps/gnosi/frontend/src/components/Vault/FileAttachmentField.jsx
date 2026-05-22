@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { FileText, X, Plus, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FilesystemPickerModal } from '../FilesystemPickerModal';
+import { filenameFromTarget } from '../../lib/fileResource';
 
 const STORAGE_LABELS = {
     assets:     'Assets',
@@ -50,15 +51,20 @@ function interpolateNamePattern(pattern, meta = {}) {
 }
 
 /**
- * FileAttachmentField — camp de tipus `files`. El comportament es declara a
- * l'esquema (`file_mode`) i el formulari d'inserció és específic del mode (a
- * diferència del modal genèric "/+"):
+ * FileAttachmentField — camp de tipus `files` (multi-fitxer). El comportament
+ * es declara a l'esquema (`file_mode`) i el formulari d'inserció és específic
+ * del mode (a diferència del modal genèric "/+"):
  *   - 'link'   → un "+" obre el selector de fitxers local i enllaça (sense còpia).
  *   - 'upload' → un "+" puja el fitxer a `storageFolder` (amb `namePattern`); si
  *                la carpeta és 'free', primer tria la carpeta destí.
  *
+ * Cada acció AFEGEIX un fitxer a la llista (no reemplaça); cada fitxer té el seu
+ * propi botó per treure'l. `value` pot ser string (1 fitxer) o array (≥2);
+ * `onChange` emet '' (buit), el string sol (1) o l'array (≥2) per no canviar el
+ * format dels camps d'un sol fitxer.
+ *
  * Props: tableId, propertyName, fileMode ('link'|'upload'), storageFolder,
- * namePattern, rowMetadata, value (string), onChange(newValue), apiFetch.
+ * namePattern, rowMetadata, value (string|array), onChange(newValue), apiFetch.
  */
 export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload', storageFolder = 'assets', namePattern = '', rowMetadata = {}, value, onChange, apiFetch }) {
     const { t } = useTranslation();
@@ -72,10 +78,21 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
 
     const isLink = fileMode === 'link';
     const isFree = storageFolder === 'free';
-    const hasValue = Boolean(value);
-    const fileName = value ? value.split('/').pop().split('\\').pop() : '';
-    const isLocalPath = value && !value.startsWith('/api/') && !value.startsWith('http');
-    const displayUrl = value && !isLocalPath ? value : null;
+
+    // Normalitza el valor a una llista de strings crus (conserva el format
+    // original de cada entrada: path, URL servida o `[nom](target)`).
+    const entries = useMemo(() => {
+        const list = Array.isArray(value) ? value : (value == null ? [] : [value]);
+        return list.map(v => String(v ?? '')).filter(v => v.trim() !== '');
+    }, [value]);
+
+    // Emet mantenint compatibilitat: buit → '', un de sol → string, ≥2 → array.
+    const emit = (next) => {
+        const clean = next.map(v => String(v ?? '')).filter(v => v.trim() !== '');
+        onChange(clean.length === 0 ? '' : (clean.length === 1 ? clean[0] : clean));
+    };
+    const appendValue = (raw) => emit([...entries, raw]);
+    const removeAt = (idx) => emit(entries.filter((_, i) => i !== idx));
 
     const resolvedName = namePattern ? interpolateNamePattern(namePattern, rowMetadata) : '';
     const nameQuery = resolvedName ? `&target_name=${encodeURIComponent(resolvedName)}` : '';
@@ -95,7 +112,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                     { method: 'POST', body: formData },
                 );
                 if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
-                onChange((await res.json()).path);
+                appendValue((await res.json()).path);
             } else {
                 setLoading(true); setError('');
                 const formData = new FormData();
@@ -106,7 +123,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 );
                 if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
                 const data = await res.json();
-                onChange(data.url || data.path);
+                appendValue(data.url || data.path);
             }
         } catch (e) {
             setError(e.message);
@@ -126,7 +143,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 body: JSON.stringify({ file_path: path, target_name: resolvedName }),
             });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error enllaçant fitxer');
-            onChange((await res.json()).path);
+            appendValue((await res.json()).path);
         } catch (e) {
             setError(e.message);
         } finally {
@@ -142,27 +159,31 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
 
     return (
         <div className="space-y-1.5">
-            {/* Valor actual */}
-            {hasValue && (
-                <div className="flex items-center gap-2 text-xs bg-[var(--bg-secondary)] rounded-lg px-2.5 py-1.5 border border-[var(--border-primary)]">
-                    <FileText size={13} className="text-[var(--gnosi-primary)] shrink-0" />
-                    {displayUrl ? (
-                        <a href={displayUrl} target="_blank" rel="noreferrer" className="truncate text-[var(--gnosi-primary)] hover:underline flex-1">
-                            {fileName}
-                        </a>
-                    ) : (
-                        <span className="truncate text-[var(--text-secondary)] flex-1" title={value}>{fileName}</span>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => onChange('')}
-                        className="text-[var(--text-tertiary)] hover:text-red-500 transition-colors shrink-0"
-                        title={t('common.delete', 'Elimina')}
-                    >
-                        <X size={13} />
-                    </button>
-                </div>
-            )}
+            {/* Fitxers actuals — cada un amb el seu botó per treure'l */}
+            {entries.map((entry, idx) => {
+                const fileName = filenameFromTarget(entry);
+                const isServed = entry.startsWith('/api/') || /^https?:\/\//i.test(entry);
+                return (
+                    <div key={`${idx}-${entry}`} className="flex items-center gap-2 text-xs bg-[var(--bg-secondary)] rounded-lg px-2.5 py-1.5 border border-[var(--border-primary)]">
+                        <FileText size={13} className="text-[var(--gnosi-primary)] shrink-0" />
+                        {isServed ? (
+                            <a href={entry} target="_blank" rel="noreferrer" className="truncate text-[var(--gnosi-primary)] hover:underline flex-1">
+                                {fileName}
+                            </a>
+                        ) : (
+                            <span className="truncate text-[var(--text-secondary)] flex-1" title={entry}>{fileName}</span>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => removeAt(idx)}
+                            className="text-[var(--text-tertiary)] hover:text-red-500 transition-colors shrink-0"
+                            title={t('common.delete', 'Elimina')}
+                        >
+                            <X size={13} />
+                        </button>
+                    </div>
+                );
+            })}
 
             {/* Un sol "+" → acció específica del mode configurat a l'esquema */}
             <button
