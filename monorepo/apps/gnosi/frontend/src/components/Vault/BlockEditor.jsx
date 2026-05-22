@@ -1068,10 +1068,6 @@ export function EditorInner({
     // Picker de citacions (Cmd+Shift+I). El render es fa al final del
     // component via <CitePicker /> i la inserció s'enruta a `insertCitation`.
     const [isCitePickerOpen, setIsCitePickerOpen] = useState(false);
-    // Modal per omplir metadades des de DOI/ISBN/arXiv/URL. Apareix com a
-    // botó al panell Propietats si l'editor és editable. Mai escriu sense
-    // confirmació explícita (modal mostra cada camp amb checkbox).
-    const [isMetadataLookupOpen, setIsMetadataLookupOpen] = useState(false);
 
     const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
         const prev = pendingInsertRef.current;
@@ -2530,18 +2526,6 @@ export function EditorInner({
                     }
                 }}
             />
-            <MetadataLookupModal
-                isOpen={isMetadataLookupOpen}
-                onClose={() => setIsMetadataLookupOpen(false)}
-                currentMetadata={metadata}
-                onApply={(patch) => {
-                    // Aplica camp per camp via handleMetaChange — així
-                    // disparem el debounce de save i actualitzem la UI alhora.
-                    Object.entries(patch).forEach(([k, v]) => {
-                        handleMetaChange(k, v);
-                    });
-                }}
-            />
         </VaultEditorContext.Provider>
     );
 };
@@ -2580,6 +2564,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [unlinkedMentionsLoading, setUnlinkedMentionsLoading] = useState(false);
     const [linkMentionsBusy, setLinkMentionsBusy] = useState(false);
     const [isPropertiesOpen, setIsPropertiesOpen] = useState(false);
+    // Modal per omplir metadades (DOI/ISBN/arXiv/URL). Ha de viure aquí, al
+    // mateix component que el botó del panell Propietats i `handleMetaChange`.
+    const [isMetadataLookupOpen, setIsMetadataLookupOpen] = useState(false);
     const [isLinksInfoOpen, setIsLinksInfoOpen] = useState(false);
     
     const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
@@ -3462,6 +3449,18 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 onSelectCover={(cover) => handleMetaChange('cover', cover)}
                 currentCover={metadata.cover}
                 triggerRef={coverTriggerRef}
+            />
+            <MetadataLookupModal
+                isOpen={isMetadataLookupOpen}
+                onClose={() => setIsMetadataLookupOpen(false)}
+                currentMetadata={metadata}
+                onApply={(patch) => {
+                    // Aplica camp per camp via handleMetaChange — dispara el
+                    // debounce de save i actualitza la UI alhora.
+                    Object.entries(patch).forEach(([k, v]) => {
+                        handleMetaChange(k, v);
+                    });
+                }}
             />
         </div>
     );
