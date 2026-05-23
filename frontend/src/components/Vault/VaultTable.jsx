@@ -1343,7 +1343,20 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     </button>
                 );
             case 'files':
-                return <FileFieldValue value={value} field={field} variant="table" />;
+                return (
+                    <FileFieldValue
+                        value={value}
+                        field={field}
+                        variant="table"
+                        onRemove={(idx) => {
+                            const arr = (Array.isArray(value) ? value : (value ? [value] : []))
+                                .map(v => String(v ?? '')).filter(v => v.trim() !== '');
+                            const next = arr.filter((_, i) => i !== idx);
+                            const newVal = next.length === 0 ? '' : (next.length === 1 ? next[0] : next);
+                            handleCellSave(noteId, field, newVal, originalMetaKey);
+                        }}
+                    />
+                );
             case 'formula':
             case 'rollup': {
                 return (

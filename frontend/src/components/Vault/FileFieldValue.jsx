@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-    FileText, Film, Music, File as FileIcon, Link as LinkIcon, ExternalLink, Image as ImageIcon,
+    FileText, Film, Music, File as FileIcon, Link as LinkIcon, ExternalLink, Image as ImageIcon, X,
 } from 'lucide-react';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import {
@@ -20,6 +20,8 @@ import {
  *   value    — valor del camp (string de path/URL o array)
  *   field    — nom del camp (per a `alt` d'imatges)
  *   variant  — 'table' | 'gallery' | 'feed' | 'detail' (controla mides)
+ *   onRemove — opcional `(idx) => void`. Si es passa, cada chip mostra una "X"
+ *              per treure aquell fitxer (l'índex correspon a `parseFileEntries`).
  */
 
 const KIND_ICON = {
@@ -38,7 +40,7 @@ const VARIANT = {
     detail:  { icon: 14, text: 'text-sm',     max: 'max-w-[320px]', thumb: 'w-9 h-6' },
 };
 
-export function FileFieldValue({ value, field = '', variant = 'table' }) {
+export function FileFieldValue({ value, field = '', variant = 'table', onRemove }) {
     const { t } = useTranslation();
     const navigate = useNavigate();
 
@@ -95,6 +97,16 @@ export function FileFieldValue({ value, field = '', variant = 'table' }) {
                         >
                             <ExternalLink size={size.icon} />
                         </button>
+                        {onRemove && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onRemove(idx); }}
+                                className="shrink-0 text-[var(--text-tertiary)] hover:text-red-500 transition-colors"
+                                title={t('common.delete', { defaultValue: 'Elimina' })}
+                            >
+                                <X size={size.icon} />
+                            </button>
+                        )}
                     </span>
                 );
             })}
