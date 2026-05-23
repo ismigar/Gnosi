@@ -132,20 +132,22 @@ export function getMetaValue(page, schema, ref) {
 }
 
 /**
- * Escriu un valor de metadata utilitzant ID com a clau quan és possible
- * (i elimina la clau antiga per nom si encara hi és, per migrar lazy).
+ * Escriu un valor de metadata utilitzant el NOM actual com a clau
+ * (persistència per nom: el .md no guarda mai claus opaques 'fld_*').
+ * Elimina qualsevol clau 'fld_*' residual del mateix camp. El backend
+ * (to_storage_names) torna a canonicalitzar com a xarxa de seguretat.
  * Muta i retorna el metadata.
  */
 export function setMetaValue(metadata, schema, ref, value) {
     metadata = metadata || {};
     const { id, name } = resolveFieldRef(schema, ref);
-    if (id) {
-        metadata[id] = value;
-        if (name && name !== id && metadata[name] !== undefined) {
-            delete metadata[name];
-        }
-    } else if (name) {
+    if (name) {
         metadata[name] = value;
+        if (id && id !== name && metadata[id] !== undefined) {
+            delete metadata[id];
+        }
+    } else if (id) {
+        metadata[id] = value;
     }
     return metadata;
 }
