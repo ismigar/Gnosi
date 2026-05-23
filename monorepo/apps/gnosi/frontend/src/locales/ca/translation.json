@@ -245,7 +245,9 @@
     "latest": "Més recent",
     "no_notes": "Encara no hi ha notes al Coneixement.",
     "showing_records": "Mostrant {{count}} de {{total}} registres",
-    "show_more_count": "Mostrar {{count}} més"
+    "show_more_count": "Mostrar {{count}} més",
+    "add_files": "+ Arxius",
+    "add_image": "+ Imatge"
   },
   "dashboard": {
     "status_title": "Estat del Sistema",
@@ -1359,5 +1361,14 @@
   "reader_show_history": "Mostrar tots (històric)",
   "reader_podcast_starting": "Iniciant generació…",
   "reader_podcast_in_progress": "Ja en curs…",
-  "reader_podcast_error": "Error iniciant la generació del podcast."
+  "reader_podcast_error": "Error iniciant la generació del podcast.",
+  "files": {
+    "delete_title": "Eliminar fitxer",
+    "delete_question": "Què vols fer amb «{{name}}»?",
+    "delete_link_only": "Treure només l'enllaç (no esborra el fitxer)",
+    "delete_physical": "Eliminar també el fitxer (a la Paperera)",
+    "trashed": "Fitxer mogut a la Paperera",
+    "deleted": "Fitxer eliminat",
+    "delete_error": "No s'ha pogut eliminar el fitxer: {{msg}}"
+  }
 }

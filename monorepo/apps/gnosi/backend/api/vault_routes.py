@@ -6659,7 +6659,11 @@ async def register_local_file(body: dict):
     ext = p.suffix.lower()
     return {
         "token": token,
-        "url": f"/api/vault/local-file/{token}",
+        # URL auto-descriptiva: el segment final (nom real, codificat) no
+        # s'usa per buscar el fitxer (la cerca és pel token), només perquè la
+        # URL porti nom + extensió. Així el frontend mostra el nom real i
+        # detecta el tipus (PDF→lector integrat) sense haver de resoldre res.
+        "url": f"/api/vault/local-file/{token}/{urllib.parse.quote(p.name, safe='')}",
         "name": p.name,
         "size": p.stat().st_size,
         "kind": media_service.classify_kind(ext),
@@ -6669,8 +6673,14 @@ async def register_local_file(body: dict):
 
 
 @router.get("/local-file/{token}")
-async def serve_local_file(token: str):
+@router.get("/local-file/{token}/{filename:path}")
+async def serve_local_file(token: str, filename: str | None = None):
     """Serveix un fitxer registrat via /local-file/register.
+
+    El segment opcional `{filename}` és decoratiu (la cerca és pel `token`):
+    permet que la URL desada porti nom + extensió reals perquè el frontend
+    mostri el nom i detecti el tipus. S'accepten ambdues formes per
+    compatibilitat amb URLs antigues sense nom.
 
     Si el token no existeix → 404. Si el path ja no és accessible (l'usuari
     ha mogut/esborrat el fitxer) → 410 Gone perquè la UI ho pugui distingir
@@ -6898,6 +6908,88 @@ async def link_existing_file(body: dict):
         "name": p.name,
         "size": p.stat().st_size,
     }
+
+
+@router.post("/delete-physical-file", dependencies=[Depends(require_role("editor"))])
+async def delete_physical_file(body: dict):
+    """Elimina el fitxer físic referenciat per `target` (no toca cap pàgina).
+
+    `target` és el valor desat al camp `files`: `file://…`,
+    `/api/vault/local-file/<token>[/nom]`, `/api/vault/assets/<rel>` o `Assets/<rel>`.
+
+    - Fitxers sota HOME (OneDrive/Biblioteca, via file:// o token): es deleguen al
+      host_open_helper, que els mou a la PAPERERA del Mac (recuperable). El mount
+      de HOME al contenidor és read-only, així que el backend no els pot esborrar.
+    - Fitxers d'Assets (dins el vault, rw): s'esborren al contenidor (permanent).
+
+    Contenció: només sota HOME del host o sota Assets del vault. Mai fora.
+    """
+    target = str(body.get("target", "")).strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="target is mandatory")
+
+    home = Path(os.environ.get("HOME_HOST_PATH") or str(Path.home())).resolve()
+    token_to_clear: Optional[str] = None
+    host_path: Optional[Path] = None
+    vault_path: Optional[Path] = None
+
+    m = re.match(r"^/api/vault/local-file/([^/]+)", target)
+    if m:
+        token = m.group(1)
+        with _LOCAL_LINKS_LOCK:
+            abs_path = _load_local_links().get(token)
+        if not abs_path:
+            raise HTTPException(status_code=404, detail="Local file token not found")
+        host_path = Path(abs_path)
+        token_to_clear = token
+    elif target.lower().startswith("file://"):
+        host_path = Path(urllib.parse.unquote(target[7:]))
+    elif target.startswith("/api/vault/assets/"):
+        vault_path = (get_p("VAULT").resolve() / "Assets" / target[len("/api/vault/assets/"):])
+    elif target.startswith("Assets/"):
+        vault_path = get_p("VAULT").resolve() / target
+    elif target.startswith("/"):
+        host_path = Path(target)
+    else:
+        vault_path = get_p("VAULT").resolve() / target
+
+    # --- Fitxer sota HOME → Paperera del Mac via host helper (recuperable) ---
+    if host_path is not None:
+        try:
+            resolved = host_path.expanduser().resolve()
+        except OSError:
+            raise HTTPException(status_code=400, detail="Invalid path")
+        try:
+            resolved.relative_to(home)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Refusing to delete a path outside HOME")
+        if not resolved.exists():
+            raise HTTPException(status_code=404, detail=f"File not found: {resolved.name}")
+        ok, detail = _try_host_trash_helper(str(resolved))
+        if not ok:
+            raise HTTPException(status_code=502, detail=f"No s'ha pogut moure a la Paperera: {detail}")
+        if token_to_clear:
+            with _LOCAL_LINKS_LOCK:
+                mapping = _load_local_links()
+                if token_to_clear in mapping:
+                    del mapping[token_to_clear]
+                    _save_local_links(mapping)
+        return {"status": "trashed", "method": "macos_trash", "target": str(resolved)}
+
+    # --- Fitxer d'Assets (vault rw) → esborrat al contenidor (permanent) ---
+    assets_root = (get_p("VAULT").resolve() / "Assets").resolve()
+    try:
+        resolved = vault_path.resolve()
+        resolved.relative_to(assets_root)
+    except (ValueError, AttributeError, OSError):
+        raise HTTPException(status_code=400, detail="Path no és sota Assets ni sota HOME")
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        resolved.unlink()
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Could not delete: {e}")
+    return {"status": "deleted", "method": "vault_unlink", "target": str(resolved)}
 
 
 def _run_osascript_picker(script: str) -> str:
@@ -8490,6 +8582,40 @@ _HOST_OPEN_HELPER_URL = os.environ.get(
     "GNOSI_HOST_OPEN_HELPER_URL",
     "http://host.docker.internal:5099/open",
 )
+
+_HOST_TRASH_HELPER_URL = os.environ.get(
+    "GNOSI_HOST_TRASH_HELPER_URL",
+    _HOST_OPEN_HELPER_URL.rsplit("/", 1)[0] + "/trash",
+)
+
+
+def _try_host_trash_helper(target: str, timeout: float = 20.0) -> "tuple[bool, str]":
+    """Demana al host_open_helper que mogui `target` a la Paperera del Mac.
+
+    Cal perquè el contenidor monta HOME read-only i no pot esborrar fitxers de
+    OneDrive/Biblioteca. Retorna (ok, detall_error).
+    """
+    try:
+        import urllib.request
+        import urllib.error
+        req = urllib.request.Request(
+            _HOST_TRASH_HELPER_URL,
+            data=json.dumps({"path": target}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if 200 <= resp.status < 300:
+                return True, ""
+            return False, f"HTTP {resp.status}"
+    except urllib.error.HTTPError as e:
+        try:
+            detail = json.loads(e.read() or b"{}").get("detail", str(e))
+        except Exception:
+            detail = str(e)
+        return False, str(detail)
+    except Exception as e:
+        return False, str(e)
 
 
 def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:

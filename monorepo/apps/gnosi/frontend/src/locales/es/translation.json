@@ -233,7 +233,9 @@
     "latest": "Más reciente",
     "no_notes": "Aún no hay notas en el Conocimiento.",
     "showing_records": "Mostrando {{count}} de {{total}} registros",
-    "show_more_count": "Mostrar {{count}} más"
+    "show_more_count": "Mostrar {{count}} más",
+    "add_files": "+ Archivos",
+    "add_image": "+ Imagen"
   },
   "dashboard": {
     "status_title": "Estado del Sistema",
@@ -1239,5 +1241,14 @@
   "reader_show_history": "Mostrar todos (histórico)",
   "reader_podcast_starting": "Iniciando generación…",
   "reader_podcast_in_progress": "Ya en curso…",
-  "reader_podcast_error": "Error iniciando la generación del podcast."
+  "reader_podcast_error": "Error iniciando la generación del podcast.",
+  "files": {
+    "delete_title": "Eliminar archivo",
+    "delete_question": "¿Qué quieres hacer con «{{name}}»?",
+    "delete_link_only": "Quitar solo el enlace (no borra el archivo)",
+    "delete_physical": "Eliminar también el archivo (a la Papelera)",
+    "trashed": "Archivo movido a la Papelera",
+    "deleted": "Archivo eliminado",
+    "delete_error": "No se pudo eliminar el archivo: {{msg}}"
+  }
 }

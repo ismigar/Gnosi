@@ -5,6 +5,7 @@ import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
+import { filenameFromTarget } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave }) => {
@@ -199,6 +200,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // { rowId, field, activeMetaKey }
     const [mediaPickerCell, setMediaPickerCell] = useState(null); // { rowId, field, originalMetaKey, tableId }
+    // Confirmació en eliminar un fitxer d'un camp `files`:
+    // { rowId, field, originalMetaKey, idx, arr, target, fileName }
+    const [fileDeletePrompt, setFileDeletePrompt] = useState(null);
+    const [fileDeleteBusy, setFileDeleteBusy] = useState(false);
+    useEffect(() => {
+        if (!fileDeletePrompt) return undefined;
+        const onKey = (e) => { if (e.key === 'Escape' && !fileDeleteBusy) setFileDeletePrompt(null); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [fileDeletePrompt, fileDeleteBusy]);
     const [aggregations, setAggregations] = useState({}); // { field: 'sum' | 'avg' | 'count' | 'none' }
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = searchTermProp !== undefined ? searchTermProp : internalSearchTerm;
@@ -1255,8 +1266,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         }
 
         if (value === undefined || value === null || value === '') {
-            if (isImageLikeField || type === 'files') {
-                return <span className="text-[var(--text-tertiary)] italic">+ imatge</span>;
+            if (type === 'files') {
+                return <span className="text-[var(--text-tertiary)] italic">{t('table.add_files', { defaultValue: '+ Arxius' })}</span>;
+            }
+            if (isImageLikeField) {
+                return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: '+ Imatge' })}</span>;
             }
             return <span className="text-[var(--text-tertiary)]">-</span>;
         }
@@ -1351,9 +1365,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         onRemove={(idx) => {
                             const arr = (Array.isArray(value) ? value : (value ? [value] : []))
                                 .map(v => String(v ?? '')).filter(v => v.trim() !== '');
-                            const next = arr.filter((_, i) => i !== idx);
-                            const newVal = next.length === 0 ? '' : (next.length === 1 ? next[0] : next);
-                            handleCellSave(noteId, field, newVal, originalMetaKey);
+                            const tgt = arr[idx];
+                            setFileDeletePrompt({
+                                rowId: noteId, field, originalMetaKey, idx, arr,
+                                target: tgt, fileName: filenameFromTarget(tgt),
+                            });
                         }}
                     />
                 );
@@ -1372,7 +1388,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     if (imageUrl) {
                         return <ImageHoverPreview src={imageUrl} alt={field} />;
                     }
-                    return <span className="text-[var(--text-tertiary)] italic">+ imatge</span>;
+                    return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: '+ Imatge' })}</span>;
                 }
                 return <span className="truncate max-w-[200px] block" title={value}>{value}</span>;
         }
@@ -1944,6 +1960,81 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     setMediaPickerCell(null);
                 }}
             />
+
+            {fileDeletePrompt && (
+                <div
+                    className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                    onClick={() => { if (!fileDeleteBusy) setFileDeletePrompt(null); }}
+                >
+                    <div
+                        className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-md p-5"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 className="text-base font-semibold text-[var(--text-primary)] mb-1">
+                            {t('files.delete_title', { defaultValue: 'Eliminar fitxer' })}
+                        </h2>
+                        <p className="text-sm text-[var(--text-secondary)] mb-4 break-words">
+                            {t('files.delete_question', { defaultValue: 'Què vols fer amb «{{name}}»?', name: fileDeletePrompt.fileName })}
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                type="button"
+                                disabled={fileDeleteBusy}
+                                onClick={() => {
+                                    const p = fileDeletePrompt;
+                                    const next = p.arr.filter((_, i) => i !== p.idx);
+                                    handleCellSave(p.rowId, p.field, next.length === 0 ? '' : (next.length === 1 ? next[0] : next), p.originalMetaKey);
+                                    setFileDeletePrompt(null);
+                                }}
+                                className="w-full text-left px-3 py-2 rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] text-sm text-[var(--text-primary)] disabled:opacity-50"
+                            >
+                                {t('files.delete_link_only', { defaultValue: "Treure només l'enllaç (no esborra el fitxer)" })}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={fileDeleteBusy}
+                                onClick={async () => {
+                                    const p = fileDeletePrompt;
+                                    setFileDeleteBusy(true);
+                                    try {
+                                        const res = await fetch('/api/vault/delete-physical-file', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ target: p.target }),
+                                        });
+                                        if (!res.ok) {
+                                            const err = await res.json().catch(() => ({}));
+                                            throw new Error(err.detail || `HTTP ${res.status}`);
+                                        }
+                                        const data = await res.json();
+                                        const next = p.arr.filter((_, i) => i !== p.idx);
+                                        handleCellSave(p.rowId, p.field, next.length === 0 ? '' : (next.length === 1 ? next[0] : next), p.originalMetaKey);
+                                        toast.success(data.method === 'macos_trash'
+                                            ? t('files.trashed', { defaultValue: 'Fitxer mogut a la Paperera' })
+                                            : t('files.deleted', { defaultValue: 'Fitxer eliminat' }));
+                                        setFileDeletePrompt(null);
+                                    } catch (err) {
+                                        toast.error(t('files.delete_error', { defaultValue: "No s'ha pogut eliminar el fitxer: {{msg}}", msg: err.message }));
+                                    } finally {
+                                        setFileDeleteBusy(false);
+                                    }
+                                }}
+                                className="w-full text-left px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm text-red-600 disabled:opacity-50"
+                            >
+                                {t('files.delete_physical', { defaultValue: 'Eliminar també el fitxer (a la Paperera)' })}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={fileDeleteBusy}
+                                onClick={() => setFileDeletePrompt(null)}
+                                className="w-full px-3 py-2 rounded-lg hover:bg-[var(--bg-secondary)] text-sm text-[var(--text-secondary)] disabled:opacity-50"
+                            >
+                                {t('common.cancel', { defaultValue: 'Cancel·lar' })}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
