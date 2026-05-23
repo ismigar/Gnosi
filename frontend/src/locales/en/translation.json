@@ -305,7 +305,9 @@
     "latest": "Latest",
     "no_notes": "There are no notes in Knowledge yet.",
     "showing_records": "Showing {{count}} of {{total}} records",
-    "show_more_count": "Show {{count}} more"
+    "show_more_count": "Show {{count}} more",
+    "add_files": "+ Files",
+    "add_image": "+ Image"
   },
   "dashboard": {
     "status_title": "System Status",
@@ -1344,5 +1346,14 @@
   "reader_show_history": "Show all (history)",
   "reader_podcast_starting": "Starting generation…",
   "reader_podcast_in_progress": "Already running…",
-  "reader_podcast_error": "Error starting podcast generation."
+  "reader_podcast_error": "Error starting podcast generation.",
+  "files": {
+    "delete_title": "Delete file",
+    "delete_question": "What do you want to do with “{{name}}”?",
+    "delete_link_only": "Remove only the link (keep the file)",
+    "delete_physical": "Also delete the file (to Trash)",
+    "trashed": "File moved to Trash",
+    "deleted": "File deleted",
+    "delete_error": "Could not delete the file: {{msg}}"
+  }
 }

@@ -490,5 +490,18 @@
   "reader_show_history": "Tout afficher (historique)",
   "reader_podcast_starting": "Démarrage de la génération…",
   "reader_podcast_in_progress": "Déjà en cours…",
-  "reader_podcast_error": "Erreur lors du lancement du podcast."
+  "reader_podcast_error": "Erreur lors du lancement du podcast.",
+  "table": {
+    "add_files": "+ Fichiers",
+    "add_image": "+ Image"
+  },
+  "files": {
+    "delete_title": "Supprimer le fichier",
+    "delete_question": "Que veux-tu faire de «{{name}}» ?",
+    "delete_link_only": "Retirer seulement le lien (sans supprimer le fichier)",
+    "delete_physical": "Supprimer aussi le fichier (Corbeille)",
+    "trashed": "Fichier déplacé vers la Corbeille",
+    "deleted": "Fichier supprimé",
+    "delete_error": "Impossible de supprimer le fichier : {{msg}}"
+  }
 }

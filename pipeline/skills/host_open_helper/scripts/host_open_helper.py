@@ -15,6 +15,11 @@ Endpoints:
                               Cerca per nom amb Spotlight (`mdfind`), ràpida
                               gràcies a l'índex viu del sistema.
                               Resposta: {"results": [...], "truncated": bool}
+    POST /trash             → {"path": "/Users/..."} o {"path": "file:///..."}
+                              Mou el fitxer a la Paperera del Mac (RECUPERABLE).
+                              Cal perquè el backend en Docker monta HOME read-only
+                              i no pot esborrar fitxers de OneDrive/Biblioteca.
+                              Resposta: {"status": "ok", "target": "..."}
 
 Seguretat:
     - Bind a 127.0.0.1 + port host.docker.internal: només localhost+contenidors.
@@ -91,6 +96,30 @@ def _open_with_system(path: Path) -> None:
         os.startfile(str(path))  # type: ignore[attr-defined]
         return
     subprocess.Popen(["xdg-open", str(path)])
+
+
+def _move_to_trash(path: Path) -> None:
+    """Mou un fitxer a la Paperera del sistema (RECUPERABLE, no esborrat dur).
+
+    A macOS ho fa Finder via `osascript`. La ruta es passa com a argv
+    (`on run argv`), sense shell ni interpolació → no és injectable. Si
+    Finder no pot (ex: fitxer ja inexistent), osascript torna codi != 0 i
+    propaguem l'error.
+    """
+    if sys.platform == "darwin":
+        script = (
+            "on run argv\n"
+            '  tell application "Finder" to delete (POSIX file (item 1 of argv) as alias)\n'
+            "end run"
+        )
+        proc = subprocess.run(
+            ["osascript", "-e", script, str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or "osascript error").strip())
+        return
+    raise RuntimeError("trash no suportat en aquesta plataforma")
 
 
 # Components de ruta no-ocults que mai volem als resultats de cerca. Els
@@ -231,6 +260,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_open()
         elif self.path == "/search":
             self._handle_search()
+        elif self.path == "/trash":
+            self._handle_trash()
         else:
             self._send(404, {"detail": "not found"})
 
@@ -265,6 +296,33 @@ class Handler(BaseHTTPRequestHandler):
             "target": str(path),
             "kind": "dir" if path.is_dir() else "file",
         })
+
+    def _handle_trash(self) -> None:
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        raw = str((payload or {}).get("path") or "").strip()
+        if not raw:
+            self._send(400, {"detail": "missing 'path'"})
+            return
+        try:
+            path = _normalize_path(raw)
+        except Exception:
+            self._send(400, {"detail": "invalid path"})
+            return
+        if not path.exists():
+            self._send(404, {"detail": f"path not found: {path}"})
+            return
+        if not _is_path_allowed(path):
+            self._send(403, {"detail": f"path outside allowed roots: {path}"})
+            return
+        try:
+            _move_to_trash(path)
+        except Exception as exc:
+            LOG.exception("trash failed")
+            self._send(500, {"detail": f"could not trash: {exc}"})
+            return
+        self._send(200, {"status": "ok", "target": str(path)})
 
     def _handle_search(self) -> None:
         payload = self._read_json_body()

@@ -54,9 +54,11 @@ export function FileFieldValue({ value, field = '', variant = 'table', onRemove 
         return null;
     }
 
-    const wrapClass = variant === 'detail' || variant === 'feed'
-        ? 'flex flex-wrap items-center gap-1.5'
-        : 'flex items-center gap-1.5 overflow-hidden';
+    const wrapClass = variant === 'table'
+        ? 'flex flex-col items-start gap-1 overflow-hidden'
+        : (variant === 'detail' || variant === 'feed'
+            ? 'flex flex-wrap items-center gap-1.5'
+            : 'flex items-center gap-1.5 overflow-hidden');
 
     return (
         <div className={wrapClass}>
