@@ -72,8 +72,8 @@ from backend.api.virtual_fields import (
     list_virtual_field_specs as _vf_list_specs,
 )
 from backend.services.field_resolver import (
-    expand_metadata_for_response,
-    migrate_metadata_keys,
+    to_response_names,
+    to_storage_names,
 )
 
 
@@ -1087,7 +1087,20 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
 
     És el wrapper canònic per escriure pàgines. Substitueix el patró
     `generate_frontmatter(metadata) + safe_write_text`.
+
+    GARANTIA "sense brossa al .md": abans de serialitzar, canonicalitza les
+    claus al **nom actual** de la columna (resol `fld_*` i noms antics/àlies).
+    Així cap camí d'escriptura pot deixar `fld_*` al frontmatter. Vegeu la
+    directiva `vault_persist_by_name.md`.
     """
+    try:
+        _tid = get_table_id(metadata)
+        if _tid:
+            _table = _table_by_id(_tid)
+            if _table:
+                metadata, _ = to_storage_names(metadata, _table)
+    except Exception as e:  # defensiu: una fallada de resolució no ha de bloquejar l'escriptura
+        log.debug(f"to_storage_names ha fallat per {file_path}: {e}")
     fm_meta = persist_sidecar_from(metadata, file_path)
     if not fm_meta:
         frontmatter = "---\n---\n"
@@ -2906,7 +2919,7 @@ async def list_pages_by_table(table_id: str, include_templates: bool = Query(Tru
     _vf_inject_for_table(table_obj, filtered, get_p("DATABASES") / "vault_graph.json")
     if table_obj:
         for p in filtered:
-            p.metadata = expand_metadata_for_response(p.metadata or {}, table_obj)
+            p.metadata = to_response_names(p.metadata or {}, table_obj)
     return filtered
 
 
@@ -2929,7 +2942,7 @@ async def list_pages_by_table_snapshot(table_id: str):
     _vf_inject_for_table(table_obj, visible_pages, get_p("DATABASES") / "vault_graph.json")
     if table_obj:
         for p in visible_pages:
-            p.metadata = expand_metadata_for_response(p.metadata or {}, table_obj)
+            p.metadata = to_response_names(p.metadata or {}, table_obj)
 
     return TablePagesSnapshot(
         table_id=table_id,
@@ -3015,7 +3028,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     metadata = normalize_table_context(metadata)
     _table_for_meta = _table_by_id(get_table_id(metadata))
     if _table_for_meta:
-        metadata, _ = migrate_metadata_keys(metadata, _table_for_meta)
+        metadata, _ = to_storage_names(metadata, _table_for_meta)
     metadata["id"] = page_id
     metadata["title"] = request.title
     if request.parent_id:
@@ -3376,7 +3389,7 @@ async def get_page(page_id: str):
         # Compatibilitat enrere: el frontend antic llegeix metadata per nom de
         # camp; expandim id-keys amb el nom corresponent (sense esborrar id).
         if _table_obj:
-            metadata = expand_metadata_for_response(metadata, _table_obj)
+            metadata = to_response_names(metadata, _table_obj)
         return {
             "id": str(metadata.get("id") or page_id),
             "title": metadata.get("title", ""),
@@ -4974,7 +4987,7 @@ async def save_page(
     metadata = normalize_table_context(metadata)
     _table_for_meta = _table_by_id(get_table_id(metadata))
     if _table_for_meta:
-        metadata, _ = migrate_metadata_keys(metadata, _table_for_meta)
+        metadata, _ = to_storage_names(metadata, _table_for_meta)
     metadata["id"] = page_id
     metadata["title"] = request.title
     if request.parent_id is not None:
@@ -9108,9 +9121,13 @@ async def rename_table(table_id: str, data: dict = Body(...)):
 async def patch_table_property(table_id: str, field_id: str, data: dict = Body(...)):
     """
     Renomena o actualitza atributs no estructurals d'una property identificada
-    pel seu 'id' immutable. Mai canvia l'id; per això renomenar el 'name' és
-    una operació purament cosmètica i no trenca cap referència interna ni
-    metadata existent.
+    pel seu 'id' immutable. Mai canvia l'id.
+
+    PERSISTÈNCIA PER NOM: com que les pàgines guarden les claus pel nom actual,
+    renomenar registra el nom antic com a `alias` de la property. Les files amb
+    el nom antic segueixen resolent (via àlies) i es migren soles al nom nou en
+    el següent desament — sense reescriure cap fitxer aquí (instantani, robust
+    offline). Vegeu `vault_persist_by_name.md`.
 
     Body acceptat (tots opcionals):
       - name: nou nom mostrat
@@ -9147,6 +9164,21 @@ async def patch_table_property(table_id: str, field_id: str, data: dict = Body(.
                     status_code=409,
                     detail=f"Ja existeix una property amb el nom '{new_name}' a la taula",
                 )
+        old_name = (target_prop.get("name") or "").strip()
+        if old_name and old_name != new_name:
+            # Registra el nom antic com a àlies perquè les files existents (que el
+            # guarden com a clau) segueixin resolent fins que es migrin soles.
+            aliases = target_prop.get("aliases") or []
+            if old_name not in aliases:
+                aliases.append(old_name)
+            # El nom nou no pot ser alhora àlies (d'aquesta o d'una altra property).
+            aliases = [a for a in aliases if a != new_name]
+            target_prop["aliases"] = aliases
+            for p in target_table.get("properties", []) or []:
+                if p is target_prop:
+                    continue
+                if new_name in (p.get("aliases") or []):
+                    p["aliases"] = [a for a in p["aliases"] if a != new_name]
         target_prop["name"] = new_name
 
     if "type" in data and isinstance(data["type"], str):
