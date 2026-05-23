@@ -238,7 +238,12 @@ export default function VaultDashboard() {
             if (next.length > 0 && next[next.length - 1].id === entry.id && next[next.length - 1].type === entry.type && next[next.length - 1].subId === entry.subId) {
                 return next;
             }
-            return [...next, { ...entry }];
+            // Desa l'origen (la ubicació que deixem) perquè el breadcrumb pugui
+            // tornar al lloc real d'on s'ha obert l'entrada (p.ex. un dashboard),
+            // no només a la taula a què pertany estructuralment el registre.
+            const prevTop = next.length > 0 ? next[next.length - 1] : null;
+            const from = prevTop ? { type: prevTop.type, id: prevTop.id, subId: prevTop.subId } : null;
+            return [...next, { ...entry, from }];
         });
         setHistoryPointer(prev => prev + 1);
     }, [historyPointer, isInternalNavigating, navigate]);
@@ -2296,11 +2301,7 @@ export default function VaultDashboard() {
         return newTrail;
     };
 
-    const buildTableContextBreadcrumbs = (page) => {
-        if (!page) return [];
-        const tableId = resolvePageTableId(page);
-        if (!tableId) return [];
-
+    const buildTableCrumbsByTableId = (tableId, viewId = null) => {
         const table = registry.tables?.find(t => t.id === tableId);
         if (!table) return [];
 
@@ -2309,16 +2310,49 @@ export default function VaultDashboard() {
         if (database) {
             crumbs.push({
                 label: database.name,
-                onClick: () => handleTableSelect(table.id)
+                onClick: () => handleTableSelect(table.id, viewId)
             });
         }
 
         crumbs.push({
             label: table.name,
-            onClick: () => handleTableSelect(table.id)
+            onClick: () => handleTableSelect(table.id, viewId)
         });
 
         return crumbs;
+    };
+
+    const buildTableContextBreadcrumbs = (page) => {
+        if (!page) return [];
+        const tableId = resolvePageTableId(page);
+        if (!tableId) return [];
+        return buildTableCrumbsByTableId(tableId);
+    };
+
+    // Construeix el tram "contenidor" del breadcrumb d'una entrada segons
+    // l'ORIGEN real de navegació (d'on l'ha obert l'usuari), no només la
+    // jerarquia estructural de la taula. Arbre de casos:
+    //   - origen = dashboard   -> tram cap al dashboard (hi torna en clicar)
+    //   - origen = vista taula  -> tram BD / Taula (a la vista exacta)
+    //   - altres / desconegut   -> null (el cridador cau a la jerarquia estructural)
+    const buildOriginContainerCrumbs = (origin) => {
+        if (!origin) return null;
+        if (origin.type === 'table') {
+            const safeViewId = origin.subId && registry.views?.some(v => v.id === origin.subId)
+                ? origin.subId
+                : null;
+            return buildTableCrumbsByTableId(origin.id, safeViewId);
+        }
+        if (origin.type === 'editor') {
+            const originPage = pages.find(p => p.id === origin.id);
+            if (!originPage) return null;
+            const originIsDashboard = originPage.metadata?.is_dashboard === true
+                || originPage.metadata?.is_dashboard === 'true';
+            if (originIsDashboard) {
+                return buildPageParentBreadcrumbs(origin.id);
+            }
+        }
+        return null;
     };
 
     const breadcrumbs = [
@@ -2330,7 +2364,18 @@ export default function VaultDashboard() {
         const hasParentHierarchy = pageBreadcrumbs.length > 1;
 
         if (!hasParentHierarchy) {
-            breadcrumbs.push(...buildTableContextBreadcrumbs(activePage));
+            // Per a un registre de taula, prioritza l'origen real de navegació
+            // (dashboard o vista de taula) i, si no en tenim, cau a la
+            // jerarquia estructural de la taula a què pertany el registre.
+            let containerCrumbs = null;
+            if (resolvePageTableId(activePage)) {
+                const currentHistoryEntry = navigationHistory[historyPointer];
+                const origin = (currentHistoryEntry && currentHistoryEntry.id === activeTabId)
+                    ? currentHistoryEntry.from
+                    : null;
+                containerCrumbs = buildOriginContainerCrumbs(origin);
+            }
+            breadcrumbs.push(...(containerCrumbs ?? buildTableContextBreadcrumbs(activePage)));
         }
 
         breadcrumbs.push(...pageBreadcrumbs);
