@@ -69,6 +69,14 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.translatable === true) config.translatable = true;
         if (prop.button_action) config.button_action = prop.button_action;
         if (prop.button_label) config.button_label = prop.button_label;
+        // Opcions explícites de select/multi_select/status: el catàleg fix de
+        // valors triables. Sense això, l'esquema pla perdria les opcions
+        // desades i la taula tornaria a derivar-les dels valors. Les llegim de
+        // les dues formes possibles: nivell superior (POST de taula) i niat
+        // dins `config` (PATCH inline d'opcions).
+        const propOptions = Array.isArray(prop.options) ? prop.options
+            : (Array.isArray(prop.config?.options) ? prop.config.options : null);
+        if (propOptions && propOptions.length > 0) config.options = propOptions;
         if (prop.id) config.id = prop.id;
         if (Object.keys(config).length > 0) {
             schema[`${prop.name}${RESERVED_KEYS_SUFFIX}`] = config;

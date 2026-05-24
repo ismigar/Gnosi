@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -50,6 +50,148 @@ const TRANSLATABLE_FIELD_TYPES = new Set([
 const BUTTON_ACTIONS = [
     { id: 'translate_row', label_key: 'schema.button_action_translate_row', label_default: 'Traduir fila a subitems' },
 ];
+
+// Tipus de camp que tenen un catàleg fix d'opcions triables.
+const OPTION_FIELD_TYPES = new Set(['select', 'multi_select', 'status']);
+
+// Una fila d'opció dins de l'OptionsEditor. El rename es confirma onBlur/Enter
+// (no a cada tecla) perquè la cadena segueixi sent un id estable per al drag —
+// així no apareixen ids duplicats transitoris mentre s'escriu.
+function SortableOptionRow({ option, onRename, onRemove }) {
+    const { t } = useTranslation();
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: option });
+    const [draft, setDraft] = useState(option);
+    useEffect(() => { setDraft(option); }, [option]);
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.9 : 1,
+        zIndex: isDragging ? 50 : 1,
+    };
+
+    const commit = () => {
+        const next = draft.trim();
+        if (!next || next === option) { setDraft(option); return; }
+        onRename(option, next);
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`flex items-center gap-2 rounded-lg border bg-[var(--bg-primary)] px-2 py-1 transition-colors ${isDragging ? 'border-[var(--gnosi-primary)] shadow-md' : 'border-[var(--border-primary)]'}`}
+        >
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]">
+                <GripVertical size={14} />
+            </div>
+            <input
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commit(); e.currentTarget.blur(); }
+                    if (e.key === 'Escape') { e.stopPropagation(); setDraft(option); e.currentTarget.blur(); }
+                }}
+                className="flex-1 min-w-0 bg-transparent text-sm text-[var(--text-primary)] outline-none border-none focus:ring-0"
+            />
+            <button
+                type="button"
+                onClick={() => onRemove(option)}
+                className="btn-gnosi-danger !p-1"
+                title={t('common.delete', 'Elimina')}
+            >
+                <Trash2 size={14} />
+            </button>
+        </div>
+    );
+}
+
+// Editor del catàleg d'opcions d'un camp select/multi_select/status. Afegir,
+// reanomenar, eliminar i reordenar (drag). Viu en un DndContext propi, niat
+// dins del de camps; cada draggable té el seu grip, així no es solapen.
+function OptionsEditor({ options = [], onChange }) {
+    const { t } = useTranslation();
+    const [newOption, setNewOption] = useState('');
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const addOption = () => {
+        const v = newOption.trim();
+        if (!v || options.includes(v)) { setNewOption(''); return; }
+        onChange([...options, v]);
+        setNewOption('');
+    };
+
+    const renameOption = (oldVal, newVal) => {
+        if (options.includes(newVal)) return; // silenciós: no duplicar
+        onChange(options.map((o) => (o === oldVal ? newVal : o)));
+    };
+
+    const removeOption = (val) => onChange(options.filter((o) => o !== val));
+
+    const handleDragEnd = ({ active, over }) => {
+        if (active && over && active.id !== over.id) {
+            const oldIndex = options.indexOf(active.id);
+            const newIndex = options.indexOf(over.id);
+            if (oldIndex !== -1 && newIndex !== -1) onChange(arrayMove(options, oldIndex, newIndex));
+        }
+    };
+
+    return (
+        <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 flex items-center gap-1.5">
+                    <Tag size={12} /> {t('schema.options_label', 'Opcions')}
+                </label>
+                {options.length > 0 ? (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={options} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-1.5">
+                                {options.map((opt) => (
+                                    <SortableOptionRow
+                                        key={opt}
+                                        option={opt}
+                                        onRename={renameOption}
+                                        onRemove={removeOption}
+                                    />
+                                ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
+                ) : (
+                    <p className="text-[11px] text-[var(--text-secondary)]/60 px-1 italic">
+                        {t('schema.options_empty', 'Encara no hi ha opcions. També se\'n creen automàticament en omplir registres.')}
+                    </p>
+                )}
+                <div className="flex items-center gap-2 pt-1">
+                    <input
+                        type="text"
+                        value={newOption}
+                        onChange={(e) => setNewOption(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); addOption(); }
+                            if (e.key === 'Escape') { e.stopPropagation(); setNewOption(''); }
+                        }}
+                        placeholder={t('schema.options_add_placeholder', 'Nova opció…')}
+                        className="flex-1 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1.5 text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                    />
+                    <button
+                        type="button"
+                        onClick={addOption}
+                        disabled={!newOption.trim() || options.includes(newOption.trim())}
+                        className="btn-gnosi btn-gnosi-primary !text-xs !py-1.5 !px-3 flex items-center gap-1 disabled:opacity-40"
+                    >
+                        <Plus size={14} /> {t('common.add', 'Afegir')}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // Child component for each draggable property
 function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false }) {
@@ -419,6 +561,14 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 </div>
             )}
 
+            {/* Options Section (select / multi_select / status) */}
+            {OPTION_FIELD_TYPES.has(field.type) && (
+                <OptionsEditor
+                    options={field.options || []}
+                    onChange={(opts) => handleUpdateField(idx, 'options', opts)}
+                />
+            )}
+
             {/* Default Value Section */}
             {field.type !== 'title' && field.type !== 'button' && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)]">
@@ -501,6 +651,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     translatable: !!cfg.translatable,
                     button_action: cfg.button_action || '',
                     button_label: cfg.button_label || '',
+                    options: Array.isArray(cfg.options) ? cfg.options : [],
                     visible: initialVisibleProperties ? initialVisibleProperties.includes(name) : true
                 };
             });
@@ -574,6 +725,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             translatable: false,
             button_action: 'translate_row',
             button_label: '',
+            options: [],
             visible: true,
         }]);
     };
@@ -619,6 +771,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             translatable: false,
             button_action: '',
             button_label: '',
+            options: [],
             visible: true,
         }]);
     };
@@ -740,6 +893,18 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 config.button_action = (f.button_action || 'translate_row').trim();
                 if (f.button_label?.trim()) {
                     config.button_label = f.button_label.trim();
+                }
+            }
+            // Catàleg d'opcions per a select/multi_select/status. Només el
+            // persistim si en queda alguna (netejant buits i duplicats); si
+            // la llista queda buida, no escrivim la clau perquè el camp pugui
+            // continuar derivant opcions dels valors existents.
+            if (f.type === 'select' || f.type === 'multi_select' || f.type === 'status') {
+                const cleaned = (Array.isArray(f.options) ? f.options : [])
+                    .map((o) => String(o).trim())
+                    .filter((o, i, arr) => o && arr.indexOf(o) === i);
+                if (cleaned.length > 0) {
+                    config.options = cleaned;
                 }
             }
             // Només persistim `translatable: true` quan el camp està marcat

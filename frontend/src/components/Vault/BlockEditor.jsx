@@ -343,7 +343,7 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
     ];
 };
 
-const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, single = false }) => {
+const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, onDeleteOption, single = false }) => {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -480,14 +480,26 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                                     data-idx={idx}
                                     onClick={() => toggleValue(opt)}
                                     onMouseEnter={() => setHighlightedIndex(idx)}
-                                    className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors flex items-center justify-between group ${
+                                    className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors flex items-center justify-between gap-2 group ${
                                         isHighlighted
                                             ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
                                             : 'text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)]'
                                     }`}
                                 >
-                                    <span>{idToTitle[opt] || opt}</span>
-                                    <Plus size={14} className={isHighlighted ? '' : 'opacity-0 group-hover:opacity-100'} />
+                                    <span className="truncate">{idToTitle[opt] || opt}</span>
+                                    <span className="flex items-center gap-1 shrink-0">
+                                        {onDeleteOption && (
+                                            <span
+                                                role="button"
+                                                title={t('editor.delete_option', "Elimina l'opció del camp")}
+                                                onClick={(e) => { e.stopPropagation(); onDeleteOption(opt); }}
+                                                className="flex items-center p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
+                                            >
+                                                <Trash2 size={13} />
+                                            </span>
+                                        )}
+                                        <Plus size={14} className={isHighlighted ? '' : 'opacity-0 group-hover:opacity-100'} />
+                                    </span>
                                 </div>
                             );
                         })}
@@ -3157,6 +3169,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             }
                                                             handleMetaChange(prop.name, [...(Array.isArray(metadata[prop.name]) ? metadata[prop.name] : []), val]);
                                                         }}
+                                                        onDeleteOption={val => {
+                                                            if (!isEditor) return;
+                                                            // Treu l'opció del catàleg del camp i del valor
+                                                            // d'aquest registre. Altres registres conserven el
+                                                            // seu valor (no es reescriuen aquí).
+                                                            if (onAddSchemaOption && currentTableId && prop.id) {
+                                                                onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => o !== val));
+                                                            }
+                                                            const cur = Array.isArray(metadata[prop.name]) ? metadata[prop.name] : (metadata[prop.name] ? [metadata[prop.name]] : []);
+                                                            if (cur.includes(val)) handleMetaChange(prop.name, cur.filter(v => v !== val));
+                                                        }}
                                                     />
                                                 ) : prop.type === 'select' ? (
                                                     <MultiSelectPills
@@ -3173,6 +3196,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 onAddSchemaOption(currentTableId, prop.id, nextOptions);
                                                             }
                                                             handleMetaChange(prop.name, val);
+                                                        }}
+                                                        onDeleteOption={val => {
+                                                            if (!isEditor) return;
+                                                            if (onAddSchemaOption && currentTableId && prop.id) {
+                                                                onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => o !== val));
+                                                            }
+                                                            if (metadata[prop.name] === val) handleMetaChange(prop.name, '');
                                                         }}
                                                     />
                                                 ) : prop.type === 'autoria' ? (
