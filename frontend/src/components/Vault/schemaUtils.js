@@ -63,7 +63,9 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.cardinality) config.cardinality = prop.cardinality;
         if (prop.limit !== undefined && prop.limit !== '') config.limit = prop.limit;
         if (prop.fallbackValue !== undefined && prop.fallbackValue !== '') config.fallbackValue = prop.fallbackValue;
+        if (prop.file_mode) config.file_mode = prop.file_mode;
         if (prop.storage_folder) config.storage_folder = prop.storage_folder;
+        if (prop.name_pattern) config.name_pattern = prop.name_pattern;
         if (prop.translatable === true) config.translatable = true;
         if (prop.button_action) config.button_action = prop.button_action;
         if (prop.button_label) config.button_label = prop.button_label;

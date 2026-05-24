@@ -1047,6 +1047,15 @@ export default function VaultDashboard() {
         if (parts[0] === 'table' && parts[1]) {
             const tableId = parts[1];
             const viewId = parts[3]; // table/:id/view/:id
+            // En una recàrrega (Cmd+R) aquest efecte s'executa abans que
+            // /api/vault/registry resolgui: registry.tables encara és [] (truthy),
+            // i handleTableSelect fixaria activeTableId però NO l'esquema (el guard
+            // de registre de la línia ~1222 falla amb el registre buit). El re-run
+            // posterior, ja amb el registre carregat, s'ignora perquè activeTableId
+            // ja coincideix → l'esquema queda {} i no es renderitza cap columna.
+            // Esperem que el registre conegui la taula perquè la selecció sencera
+            // (esquema + vista inicial) es faci en una sola passada.
+            if (!registry.tables?.some(t => t.id === tableId)) return;
             if (activeTableId !== tableId) {
                 handleTableSelect(tableId, viewId, true);
             } else if (viewId && activeViewId !== viewId) {

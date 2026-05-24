@@ -270,8 +270,8 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             />
                             {allFields.filter(f => f !== field && (f.name || '').trim()).length > 0 && (
                                 <div className="flex flex-wrap gap-1 px-1">
-                                    {allFields.filter(f => f !== field && (f.name || '').trim()).flatMap(f => (
-                                        (f.type === 'autoria' ? [f.name, `${f.name}.cognom1`, `${f.name}.cognom2`] : [f.name]).map(tok => (
+                                    {allFields.filter(f => f !== field && (f.name || '').trim()).sort((a, b) => (a.name || '').localeCompare(b.name || '')).flatMap(f => (
+                                        (f.type === 'autoria' ? [`${f.name}.nom`, `${f.name}.cognom1`, `${f.name}.cognom2`] : [f.name]).map(tok => (
                                             <button
                                                 key={tok}
                                                 type="button"
@@ -286,7 +286,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 </div>
                             )}
                             <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Per a autors: {Autor} dóna el nom complet; {Autor.cognom1} i {Autor.cognom2}, cada cognom.')}
+                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Per a autors: {Autor.nom}, {Autor.cognom1} i {Autor.cognom2} (i {Autor} sol, el nom complet).')}
                             </p>
                         </div>
                         </div>
