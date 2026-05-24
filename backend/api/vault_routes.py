@@ -1686,11 +1686,16 @@ def _copy_local_file_to_assets(local_path: Path, target_dir: Path) -> str:
     return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
 
 
-def _save_uploaded_file_to_assets(upload: UploadFile, target_dir: Path) -> str:
+def _save_uploaded_file_to_assets(
+    upload: UploadFile, target_dir: Path, target_name: str = ""
+) -> str:
     target_dir.mkdir(parents=True, exist_ok=True)
     original_name = upload.filename or "upload.bin"
     ext = Path(original_name).suffix
-    stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
+    if target_name and target_name.strip():
+        stem = _sanitize_filename_base(target_name.strip())
+    else:
+        stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
     destination = target_dir / f"{stem}{ext}"
     if destination.exists():
         destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
@@ -5992,9 +5997,15 @@ async def import_icon_from_url(request: IconUrlImportRequest):
 
 
 @router.post("/assets/upload", dependencies=[Depends(require_role("editor"))])
-async def upload_asset(file: UploadFile = File(...), table_id: Optional[str] = Query(None)):
+async def upload_asset(
+    file: UploadFile = File(...),
+    table_id: Optional[str] = Query(None),
+    target_name: Optional[str] = Query(None),
+):
     """Puja una imatge o PDF a Assets/Inline o Assets/Files i retorna la URL.
     Si s'indica table_id, desa a Assets/<DB>/<Taula>/Inline/ o .../Files/.
+    `target_name` (opcional): nom base ja interpolat (p. ex. "{títol} {índex}")
+    amb què reanomenar el fitxer al disc; si falta, s'usa el nom original.
     """
     is_image = _is_image_upload(file)
     subdir = "Inline" if is_image else "Files"
@@ -6010,7 +6021,7 @@ async def upload_asset(file: UploadFile = File(...), table_id: Optional[str] = Q
         target_dir = get_p("ASSETS") / subdir
 
     try:
-        relative_path = _save_uploaded_file_to_assets(file, target_dir)
+        relative_path = _save_uploaded_file_to_assets(file, target_dir, target_name or "")
     except Exception as e:
         log.error(f"Error uploading asset: {e}")
         raise HTTPException(status_code=500, detail="Could not save file")

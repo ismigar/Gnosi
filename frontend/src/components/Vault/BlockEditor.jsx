@@ -842,6 +842,19 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
 };
 
 
+// Compta recursivament els blocs multimèdia del document BlockNote (també
+// els niats dins columnes), per numerar les imatges inline noves.
+const MEDIA_BLOCK_TYPES = new Set(['image', 'video', 'audio', 'file']);
+const countMediaBlocks = (blocks) => {
+    if (!Array.isArray(blocks)) return 0;
+    let n = 0;
+    for (const b of blocks) {
+        if (b && MEDIA_BLOCK_TYPES.has(b.type)) n += 1;
+        if (b && Array.isArray(b.children) && b.children.length) n += countMediaBlocks(b.children);
+    }
+    return n;
+};
+
 export function EditorInner({
     noteFilename,
     initialContent,
@@ -1058,6 +1071,10 @@ export function EditorInner({
     const tableIdRef = useRef(tableId);
     useEffect(() => { tableIdRef.current = tableId; }, [tableId]);
 
+    // Ref a l'editor perquè `uploadFileToAssetsDirect` (creat abans que
+    // l'editor) en pugui llegir el document i comptar imatges ja inserides.
+    const editorRef = useRef(null);
+
     // Estat per al modal d'inserció unificat (InsertContentModal). Retorna
     // { url, mode, kind, name } perquè el caller decideixi com representar-ho
     // al document (enllaç, bloc nadiu o frame).
@@ -1089,12 +1106,22 @@ export function EditorInner({
         const formData = new FormData();
         formData.append('file', file);
         const tid = tableIdRef.current;
-        const url = tid ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tid)}` : '/api/vault/assets/upload';
+        const params = new URLSearchParams();
+        if (tid) params.set('table_id', tid);
+        // Patró de nom per defecte de les imatges inline: "{títol} {índex}".
+        // L'índex és (#blocs multimèdia ja al cos) + 1; s'omet quan és la 1a.
+        const title = String(metadataRef.current?.title || '').trim();
+        if (title) {
+            const index = countMediaBlocks(editorRef.current?.document) + 1;
+            params.set('target_name', index > 1 ? `${title} ${index}` : title);
+        }
+        const qs = params.toString();
+        const url = qs ? `/api/vault/assets/upload?${qs}` : '/api/vault/assets/upload';
         const res = await fetch(url, { method: 'POST', body: formData });
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
         return data.url;
-    }, []);
+    }, [metadataRef]);
 
     const editor = useCreateBlockNote({
         schema,
@@ -1109,6 +1136,7 @@ export function EditorInner({
             headers: true,
         },
     });
+    editorRef.current = editor;
 
     // Ref a `applyInsertResult` perquè el listener de l'atall `/+` (definit
     // dins d'un useEffect aïllat) en pugui llegir la versió més recent sense
