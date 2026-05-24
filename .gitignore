@@ -47,3 +47,6 @@ monorepo/apps/gnosi/frontend/vendor/zotero-reader/locales/
 monorepo/apps/gnosi/frontend/vendor/zotero-reader/pdfjs/pdf.js/node_modules/
 monorepo/apps/gnosi/frontend/vendor/zotero-reader/pdfjs/pdf.js/build/
 monorepo/apps/gnosi/frontend/public/zotero-reader
+
+# Cache de descobriment d'eines dels MCP servers (drupal-proxy, etc.)
+.tools_cache.json
