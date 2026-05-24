@@ -1266,6 +1266,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         }
 
         if (value === undefined || value === null || value === '') {
+            if (type === 'checkbox') {
+                return <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
+            }
             if (type === 'files') {
                 return <span className="text-[var(--text-tertiary)] italic">{t('table.add_files', { defaultValue: '+ Arxius' })}</span>;
             }
@@ -1277,7 +1280,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
         switch (type) {
             case 'checkbox':
-                return value ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
+                return (value && value !== 'false') ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
             case 'date':
             case 'datetime':
                 return (
@@ -1587,13 +1590,29 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     {dynamicColumns.map(([key, type]) => {
                         const originalMetaKey = getMetaKey(note, key);
                         const val = note.metadata?.[originalMetaKey];
+                        const isCheckbox = type === 'checkbox';
+                        // Mateixa lògica de "marcat" que el render: truthy, però sense
+                        // confondre la cadena 'false' amb un valor vertader.
+                        const checkboxChecked = !!val && val !== 'false';
+                        const toggleCheckbox = () => handleCellSave(note.id, key, !checkboxChecked, originalMetaKey);
                         return (
                             <td
                                 key={key}
                                 style={{ width: columnWidths[key] || 180, maxWidth: columnWidths[key] || 180 }}
                                 className="py-2.5 px-4 overflow-hidden truncate hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-primary)] align-top"
+                                tabIndex={isCheckbox ? 0 : undefined}
+                                onKeyDown={isCheckbox ? (e) => {
+                                    if (e.key === ' ' || e.key === 'Enter') {
+                                        e.preventDefault();
+                                        toggleCheckbox();
+                                    }
+                                } : undefined}
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    if (isCheckbox) {
+                                        toggleCheckbox();
+                                        return;
+                                    }
                                     const fieldType = getFieldType(schema, key);
                                     const isComputed = fieldType === 'formula' || fieldType === 'rollup';
                                     const isAction = fieldType === 'button';
