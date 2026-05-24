@@ -121,6 +121,7 @@ export const InsertContentModal = ({
     const [uploadProgress, setUploadProgress] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
     const uploadInputRef = useRef(null);
+    const confirmBtnRef = useRef(null);
 
     useEffect(() => {
         if (!selected?.kind) return;
@@ -298,6 +299,17 @@ export const InsertContentModal = ({
         if (selected.source === 'url' && !urlInput.trim()) return false;
         return modeAvailableFor(selected.kind, mode);
     }, [selected, uploadFile, urlInput, mode]);
+
+    // En triar/arrossegar un fitxer (o triar-ne un del disc), mou el focus al
+    // botó "Insereix" perquè es pugui confirmar amb Enter directament. No ho fem
+    // per a URL (l'usuari encara hi escriu) ni per a la cerca del vault.
+    useEffect(() => {
+        if (!open || busy) return;
+        const fileSource = selected?.source === 'upload-pending'
+            || selected?.source === 'local'
+            || selected?.source === 'local-folder';
+        if (fileSource && canInsert) confirmBtnRef.current?.focus();
+    }, [open, busy, canInsert, selected?.source]);
 
     const handleConfirm = useCallback(async () => {
         if (!selected) return;
@@ -548,6 +560,7 @@ export const InsertContentModal = ({
                                     {t('common.cancel', { defaultValue: 'Cancel·la' })}
                                 </button>
                                 <button
+                                    ref={confirmBtnRef}
                                     onClick={handleConfirm}
                                     disabled={!canInsert || busy}
                                     className="px-4 py-2 rounded-lg text-sm bg-[var(--gnosi-primary)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"

@@ -19,6 +19,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi:/vault
+      # Biblioteca és germana del vault (fora de Gnosi) i conté els PDFs/adjunts
+      # dels Recursos. El backend hi escriu quan un camp `files` té
+      # storage_folder=biblioteca. El mount de $HOME és read-only, així que cal
+      # un mount rw específic. Es munta a la MATEIXA ruta del host perquè el path
+      # que es desa a la fitxa sigui directament la ruta del host (sense traducció
+      # contenidor↔host) i el visor/Finder el pugui obrir.
+      - /Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Biblioteca:/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Biblioteca:rw
       # $HOME is read-only: the backend reads project files (analytics scans
       # docs/dev_memory/directives, system /browse navigates user directories,
       # scratch_sync imports modules) but does not need to write outside the

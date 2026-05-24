@@ -100,9 +100,23 @@ function formatAuthorToken(a, accessor) {
  */
 export function interpolateNamePattern(pattern, meta = {}) {
     if (!pattern || typeof pattern !== 'string') return '';
+    // Resol un camp del patró contra la metadata. Primer coincidència exacta;
+    // si no, sense distingir majúscules (un camp `title` es persisteix amb la
+    // clau canònica `title` en minúscula tot i que la propietat es digui
+    // "Title", així `{Title}` ha de resoldre igualment).
+    const lookup = (field) => {
+        const key = (field || '').trim();
+        if (!key) return undefined;
+        if (meta && Object.prototype.hasOwnProperty.call(meta, key)) return meta[key];
+        const lower = key.toLowerCase();
+        for (const k of Object.keys(meta || {})) {
+            if (k.toLowerCase() === lower) return meta[k];
+        }
+        return undefined;
+    };
     let out = pattern.replace(/\{([^{}]+)\}/g, (_, token) => {
         const [rawField, accessor] = token.trim().split('.');
-        const v = meta?.[(rawField || '').trim()];
+        const v = lookup(rawField);
         if (v === undefined || v === null) return '';
         // Camp autoria: array d'objectes {nom, cognom1, cognom2} → format per accessor.
         if (Array.isArray(v) && v.some(a => a && typeof a === 'object' && ('cognom1' in a || 'cognom2' in a || 'nom' in a))) {
