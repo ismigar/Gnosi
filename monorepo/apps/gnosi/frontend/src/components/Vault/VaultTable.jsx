@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
-import { VaultDateProperty } from './VaultDateProperty';
+import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
 import { filenameFromTarget } from '../../lib/fileResource';
@@ -978,7 +978,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
         if (e.key === 'Tab') {
             e.preventDefault();
-            handleCellSave(noteId, field, e.target.value, originalMetaKey);
+            const tabRaw = e.target.value;
+            const tabVal = fieldType === 'number'
+                ? (String(tabRaw).trim() === '' ? '' : (Number.isFinite(Number(tabRaw)) ? Number(tabRaw) : tabRaw))
+                : tabRaw;
+            handleCellSave(noteId, field, tabVal, originalMetaKey);
             const columns = ['title', ...dynamicColumns.map(([k]) => k), 'last_modified'];
             const currentIndex = columns.indexOf(field);
             let nextIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
@@ -1192,8 +1196,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         autoFocus
                         className="w-full px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
                         defaultValue={value || ''}
-                        onBlur={(e) => handleCellSave(noteId, field, e.target.value, originalMetaKey)}
                         onChange={(e) => handleCellSave(noteId, field, e.target.value, originalMetaKey)}
+                        onBlur={() => setEditingCell(null)}
                         onKeyDown={(e) => {
                             if (e.key === 'Escape') setEditingCell(null);
                             handleKeyDown(e, noteId, field, originalMetaKey);
@@ -1250,6 +1254,31 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 );
             }
 
+            if (type === 'number') {
+                // Desa un número real (no una cadena) perquè agregacions i
+                // ordenacions siguin fiables; buit es desa com a ''.
+                const saveNumber = (raw) => {
+                    const s = String(raw).trim();
+                    const n = s === '' ? '' : (Number.isFinite(Number(s)) ? Number(s) : s);
+                    handleCellSave(noteId, field, n, originalMetaKey);
+                };
+                return (
+                    <input
+                        autoFocus
+                        type="number"
+                        inputMode="decimal"
+                        className="w-full px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                        defaultValue={value ?? ''}
+                        onBlur={(e) => saveNumber(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveNumber(e.target.value);
+                            if (e.key === 'Escape') setEditingCell(null);
+                            handleKeyDown(e, noteId, field, originalMetaKey);
+                        }}
+                    />
+                );
+            }
+
             return (
                 <input
                     autoFocus
@@ -1265,7 +1294,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             );
         }
 
-        if (value === undefined || value === null || value === '') {
+        // Formula/rollup mostren sempre el seu xip (amb "0" si cal), no el guió:
+        // així un resultat buit i un resultat 0 es rendereixen igual.
+        const isEmptyValue = value === undefined || value === null || value === '';
+        if (isEmptyValue && type !== 'formula' && type !== 'rollup') {
             if (type === 'checkbox') {
                 return <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
             }
@@ -1282,12 +1314,17 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             case 'checkbox':
                 return (value && value !== 'false') ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
             case 'date':
-            case 'datetime':
+            case 'datetime': {
+                const parsed = new Date(value);
+                if (isNaN(parsed.getTime())) {
+                    // Valor corrupte: mostrem el text cru en comptes de "Invalid Date".
+                    return <span className="truncate max-w-[200px] block text-[var(--text-tertiary)]" title={String(value)}>{String(value)}</span>;
+                }
                 return (
                     <div className="flex items-center gap-1.5 whitespace-nowrap text-[var(--text-primary)]">
                         {type === 'datetime' ? <Clock size={14} className="text-[var(--text-tertiary)]" /> : <Calendar size={14} className="text-[var(--text-tertiary)]" />}
                         <span>
-                            {new Date(value).toLocaleString(i18n.language, {
+                            {parsed.toLocaleString(i18n.language, {
                                 day: '2-digit',
                                 month: 'short',
                                 year: 'numeric',
@@ -1296,14 +1333,19 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         </span>
                     </div>
                 );
+            }
             case 'period': {
                 const [start, end] = String(value).split('/');
                 const formatDate = (d) => d ? new Date(d).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' }) : '?';
+                const days = periodDaysInclusive(start, end);
                 return (
-                    <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded border border-[var(--border-primary)]">
+                    <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded border border-[var(--border-primary)] w-fit">
                         <span>{formatDate(start)}</span>
                         <span className="text-[var(--text-tertiary)]">→</span>
                         <span>{formatDate(end)}</span>
+                        {days != null && (
+                            <span className="text-[var(--text-tertiary)] ml-0.5" title={t('table.period_days', { count: days, defaultValue: '{{count}} dies' })}>· {days} d</span>
+                        )}
                     </div>
                 );
             }
@@ -1319,7 +1361,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 );
             case 'multi_select':
             case 'relation': {
-                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
+                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim()).filter(Boolean);
                 const displayMap = type === 'relation' ? getRelationContext(field).displayMap : idToTitle;
                 return (
                     <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-1 py-0.5">

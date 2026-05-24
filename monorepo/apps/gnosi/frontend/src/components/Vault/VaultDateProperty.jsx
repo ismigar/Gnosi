@@ -1,6 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, X } from 'lucide-react';
 
+// --- Helpers de període (format "YYYY-MM-DD/YYYY-MM-DD") ---
+// Compartits amb VaultTable per mostrar/calcular el nombre de dies sense
+// duplicar lògica de dates.
+export const parsePeriod = (value) => {
+    const [start = '', end = ''] = String(value || '').split('/');
+    return { start, end };
+};
+
+// Nombre de dies inclusiu entre inici i fi (1 = mateix dia). null si no es pot calcular.
+export const periodDaysInclusive = (start, end) => {
+    if (!start || !end) return null;
+    const a = new Date(`${start}T00:00:00`);
+    const b = new Date(`${end}T00:00:00`);
+    if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+    const diff = Math.round((b - a) / 86400000) + 1;
+    return diff >= 1 ? diff : null;
+};
+
+// Suma `days` dies a una data ISO (YYYY-MM-DD) i torna ISO. '' si la base no és vàlida.
+export const addDaysISO = (isoDate, days) => {
+    const d = new Date(`${isoDate}T00:00:00`);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + days);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
     const inputRef = useRef(null);
     const hiddenInputRef = useRef(null);
@@ -98,9 +125,17 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         }
     };
 
-    // Gestió de Períodes
+    // Gestió de Períodes: dues dates (inici → fi) + nombre de dies.
+    // El nombre de dies es deriva de les dates; si l'usuari l'edita i hi ha
+    // data d'inici, recalculem la data de fi (inici + N-1 dies, inclusiu).
     if (type === 'period') {
-        const [start, end] = (value || '/').split('/');
+        const { start, end } = parsePeriod(value);
+        const days = periodDaysInclusive(start, end);
+        const handleDaysChange = (e) => {
+            const n = parseInt(e.target.value, 10);
+            if (!start || !Number.isFinite(n) || n < 1) return;
+            onChange(`${start}/${addDaysISO(start, n - 1)}`);
+        };
         return (
             <div className="flex items-center gap-1 w-full">
                 <div className="flex-1 relative group">
@@ -120,6 +155,17 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                         className="w-full bg-transparent hover:bg-[var(--bg-tertiary)] text-xs rounded px-1 transition-colors outline-none cursor-pointer"
                     />
                 </div>
+                <input
+                    type="number"
+                    min="1"
+                    value={days ?? ''}
+                    onChange={handleDaysChange}
+                    disabled={!start}
+                    placeholder="dies"
+                    title="Nombre de dies (recalcula la data de fi)"
+                    className="w-12 shrink-0 bg-transparent hover:bg-[var(--bg-tertiary)] text-xs text-right rounded px-1 transition-colors outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+                <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">d</span>
             </div>
         );
     }
