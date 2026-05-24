@@ -693,7 +693,9 @@
       "google_oauth_desc": "Evita les configuracions manuals i connecta amb Google OAuth2.",
       "google_note": "Evita les configuracions manuals i connecta amb Google OAuth2 de forma segura.",
       "oauth_managed_desc": "Gestionat via OAuth2. Els colors individuals es configuren a la barra lateral del calendari.",
-      "no_credentials": "No s'han trobat credencials de Google OAuth vàlides. Configura CLIENT_ID i CLIENT_SECRET."
+      "no_credentials": "No s'han trobat credencials de Google OAuth vàlides. Configura CLIENT_ID i CLIENT_SECRET.",
+      "google_token_expired": "El token de Google ha caducat o s'ha revocat. Reconnecta el compte per tornar a carregar els calendaris.",
+      "reconnect_google": "Reconnecta Google"
     },
     "graph": {
       "title": "Configuració del Graf",

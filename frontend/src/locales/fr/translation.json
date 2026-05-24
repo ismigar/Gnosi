@@ -100,6 +100,10 @@
       "approved": "APPROUVÉS",
       "pending": "EN ATTENTE",
       "last_7_days": "Dernière Semaine"
+    },
+    "calendar": {
+      "google_token_expired": "Le jeton Google a expiré ou a été révoqué. Reconnecte le compte pour recharger les calendriers.",
+      "reconnect_google": "Reconnecter Google"
     }
   },
   "schema": {

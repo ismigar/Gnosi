@@ -83,9 +83,15 @@ def _default_range() -> tuple[str, str]:
 # ── GET /calendars ─────────────────────────────────────────────────────────────
 
 @router.get("/calendars")
-async def get_calendars(email: Optional[str] = Query(None)):
-    """Retorna la llista de calendaris disponibles per a un compte o per a tots."""
-    from backend.services.hybrid_calendar_service import list_calendars
+async def get_calendars(response: Response, email: Optional[str] = Query(None)):
+    """Retorna la llista de calendaris disponibles per a un compte o per a tots.
+
+    Si algun compte té el token de Google caducat/revocat, NO es trenca la
+    resposta (es retornen els calendaris dels comptes vàlids) però s'afegeix la
+    capçalera `X-Calendar-Auth-Error` amb els emails afectats perquè la UI pugui
+    demanar reconnexió en lloc de mostrar una llista buida silenciosament.
+    """
+    from backend.services.hybrid_calendar_service import list_calendars, GoogleAuthExpired
     from backend.services.integration_manager import integration_manager
 
     integrations = integration_manager.get_all_safe()
@@ -101,15 +107,24 @@ async def get_calendars(email: Optional[str] = Query(None)):
         })
 
     results = []
+    auth_errors = []
     for em in email_list:
         cached = _CALS_CACHE.get(em)
         if cached and time.time() < cached["expiry"]:
             results.extend(cached["data"])
             continue
-        cals = list_calendars(em)
+        try:
+            cals = list_calendars(em)
+        except GoogleAuthExpired:
+            # Token caducat: no caixegem (perquè un retry post-reconnexió funcioni)
+            # i marquem el compte com a afectat.
+            auth_errors.append(em)
+            continue
         _CALS_CACHE[em] = {"data": cals, "expiry": time.time() + _CALS_CACHE_TTL}
         results.extend(cals)
 
+    if auth_errors:
+        response.headers["X-Calendar-Auth-Error"] = ",".join(auth_errors)
     return results
 
 
