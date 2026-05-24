@@ -97,11 +97,22 @@ export const InsertContentModal = ({
     // ni camps d'imatge detectats pel nom), la pujada i l'enllaç han de respectar
     // la config del camp: destí (`storageFolder`, p.ex. 'biblioteca') i
     // reanomenat segons `namePattern` interpolat amb les metadades de la fila.
-    fileField = null, // { propertyName, storageFolder, namePattern } | null
+    fileField = null, // { propertyName, storageFolder, namePattern, fileMode } | null
     rowMetadata = {},
 }) => {
     const { t } = useTranslation();
-    const [tab, setTab] = useState(initialTab);
+    // Pestanyes que tenen sentit segons el context: sense camp (contingut inline
+    // o camps d'imatge detectats pel nom) → totes; cridat des d'un camp `files`
+    // → només les coherents amb el seu `file_mode` (link = enllaçar del disc;
+    // upload = pujar, o enllaçar+reanomenar un fitxer existent).
+    const allowedTabs = useMemo(() => {
+        if (!fileField) return TABS.map(tb => tb.id);
+        return fileField.fileMode === 'link' ? ['local'] : ['upload', 'local'];
+    }, [fileField]);
+    const fieldInitialTab = fileField
+        ? (fileField.fileMode === 'link' ? 'local' : 'upload')
+        : initialTab;
+    const [tab, setTab] = useState(fieldInitialTab);
     const [selected, setSelected] = useState(null);
     const [mode, setMode] = useState('link');
     const [busy, setBusy] = useState(false);
@@ -138,9 +149,15 @@ export const InsertContentModal = ({
             setUploadProgress(0);
             setBusy(false);
             setPickerOpen(false);
-            setTab(initialTab);
+            setTab(fieldInitialTab);
         }
-    }, [open, initialTab]);
+    }, [open, fieldInitialTab]);
+
+    // Si la pestanya activa deixa de tenir sentit (p.ex. arribem amb 'upload'
+    // però el camp és de mode 'link'), saltem a la primera permesa.
+    useEffect(() => {
+        if (open && !allowedTabs.includes(tab)) setTab(allowedTabs[0]);
+    }, [open, allowedTabs, tab]);
 
     useEffect(() => {
         if (open && initialFile) {
@@ -329,8 +346,8 @@ export const InsertContentModal = ({
                         </button>
                     </div>
 
-                    <div className="flex border-b border-[var(--border-primary)]">
-                        {TABS.map(({ id, icon: Icon, labelKey, labelDefault }) => (
+                    <div className={`flex border-b border-[var(--border-primary)] ${allowedTabs.length <= 1 ? 'hidden' : ''}`}>
+                        {TABS.filter(({ id }) => allowedTabs.includes(id)).map(({ id, icon: Icon, labelKey, labelDefault }) => (
                             <button
                                 key={id}
                                 onClick={() => setTab(id)}

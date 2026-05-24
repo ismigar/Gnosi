@@ -1606,7 +1606,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                         setMediaPickerCell({
                                             rowId: note.id, field: key, originalMetaKey, tableId: noteTableId,
                                             fileField: cfg
-                                                ? { propertyName: key, storageFolder: cfg.storage_folder || 'assets', namePattern: cfg.name_pattern || '' }
+                                                ? { propertyName: key, storageFolder: cfg.storage_folder || 'assets', namePattern: cfg.name_pattern || '', fileMode: cfg.file_mode || 'upload' }
                                                 : null,
                                             rowMetadata: note.metadata || {},
                                         });
