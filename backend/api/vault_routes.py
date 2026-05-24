@@ -104,7 +104,17 @@ def get_p(key: str) -> Path:
     mapping = {
         "VAULT": base,
         "ASSETS": base / "Assets",
-        "BIBLIOTECA": base.parent / "Biblioteca",
+        # Biblioteca és germana del vault (fora de Gnosi). Dins Docker, `base` és
+        # `/vault` i `base.parent` seria `/` → `/Biblioteca` (un dir efímer del
+        # contenidor, no la Biblioteca real del host). Per això, quan corre en
+        # contenidor (VAULT_HOST_PATH definit), resolem a la ruta del HOST, que
+        # es munta en rw a la mateixa ruta (veure docker-compose). Fora de Docker
+        # mantenim el càlcul relatiu al vault actiu.
+        "BIBLIOTECA": (
+            Path(os.environ["VAULT_HOST_PATH"]).parent / "Biblioteca"
+            if os.environ.get("VAULT_HOST_PATH")
+            else base.parent / "Biblioteca"
+        ),
         "DATABASES": base / "BD",
         # The REGISTRY is now a file inside BD
         "REGISTRY": base / "BD" / "vault_db_registry.json",
@@ -1783,6 +1793,16 @@ def _persist_metadata_assets(metadata: dict) -> dict:
 
         prop_name = str(prop.get("name") or "").strip()
         if not prop_name:
+            continue
+
+        # Camps amb destí fora d'Assets (storage_folder 'biblioteca' o 'free') NO
+        # s'han d'ingerir a Assets: el fitxer ja viu al seu lloc (p.ex. la
+        # Biblioteca) i el valor és una ruta absoluta que cal preservar tal qual.
+        # Sense aquest guard, en desar la pàgina es copiava el fitxer a
+        # Assets/<BD>/<Taula>/<Prop>/ i es reescrivia el valor — anul·lant la
+        # config del camp (per això un camp 'biblioteca' acabava sempre a Assets).
+        configured_storage = str(_property_config_value(prop, "storage_folder") or "").strip()
+        if configured_storage and configured_storage != "assets":
             continue
 
         prop_key_norm = _normalize_schema_key(prop_name)
