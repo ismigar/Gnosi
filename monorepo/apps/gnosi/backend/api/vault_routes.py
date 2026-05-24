@@ -1083,7 +1083,8 @@ def generate_frontmatter(metadata: dict) -> str:
     if not fm_meta:
         return "---\n---\n"
     yaml_str = yaml.dump(
-        fm_meta, default_flow_style=False, sort_keys=False, allow_unicode=True
+        fm_meta, default_flow_style=False, sort_keys=False, allow_unicode=True,
+        width=4096,
     )
     return f"---\n{yaml_str}---\n"
 
@@ -1116,7 +1117,8 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
         frontmatter = "---\n---\n"
     else:
         yaml_str = yaml.dump(
-            fm_meta, default_flow_style=False, sort_keys=False, allow_unicode=True
+            fm_meta, default_flow_style=False, sort_keys=False, allow_unicode=True,
+            width=4096,
         )
         frontmatter = f"---\n{yaml_str}---\n"
     safe_write_text(file_path, f"{frontmatter}\n{(body or '').lstrip()}")
