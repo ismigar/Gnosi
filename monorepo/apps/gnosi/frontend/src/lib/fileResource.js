@@ -80,6 +80,46 @@ export function toAssetPreviewUrl(value) {
     return toServedAssetUrl(value);
 }
 
+// Formata un autor {nom, cognom1, cognom2} segons l'accessor del token del patró:
+//   .cognom → "Cognom1 Cognom2"; .nom → "Nom"; cap/altre → "Nom Cognom1 Cognom2".
+function formatAuthorToken(a, accessor) {
+    if (!a || typeof a !== 'object') return '';
+    const cognoms = [a.cognom1, a.cognom2].map(s => (s || '').trim()).filter(Boolean).join(' ');
+    const nom = (a.nom || '').trim();
+    if (accessor === 'cognom1') return (a.cognom1 || '').trim();
+    if (accessor === 'cognom2') return (a.cognom2 || '').trim();
+    if (accessor === 'cognom' || accessor === 'cognoms') return cognoms;
+    if (accessor === 'nom') return nom;
+    return [nom, cognoms].filter(Boolean).join(' ');
+}
+
+/**
+ * Interpola un patró de nom (ex: "{Authors} - {Any} - {Títol}") amb els valors
+ * de la fila. Els camps buits/inexistents s'ometen i es netegen els separadors
+ * penjats. La sanitització final del nom la fa el backend.
+ */
+export function interpolateNamePattern(pattern, meta = {}) {
+    if (!pattern || typeof pattern !== 'string') return '';
+    let out = pattern.replace(/\{([^{}]+)\}/g, (_, token) => {
+        const [rawField, accessor] = token.trim().split('.');
+        const v = meta?.[(rawField || '').trim()];
+        if (v === undefined || v === null) return '';
+        // Camp autoria: array d'objectes {nom, cognom1, cognom2} → format per accessor.
+        if (Array.isArray(v) && v.some(a => a && typeof a === 'object' && ('cognom1' in a || 'cognom2' in a || 'nom' in a))) {
+            return v.map(a => formatAuthorToken(a, (accessor || '').trim())).filter(Boolean).join(', ');
+        }
+        const s = Array.isArray(v) ? v.join(', ') : String(v);
+        return s.trim();
+    });
+    out = out
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s*-\s*-\s*/g, ' - ')
+        .replace(/^[\s\-–—_]+|[\s\-–—_]+$/g, '')
+        .replace(/[<>:"/\\|?*]/g, '')
+        .trim();
+    return out;
+}
+
 /** Nom de fitxer net a partir d'un target (path, file:// o URL). */
 export function filenameFromTarget(target) {
     if (!target) return '';

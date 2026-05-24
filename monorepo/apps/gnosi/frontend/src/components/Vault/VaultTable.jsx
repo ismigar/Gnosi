@@ -1600,7 +1600,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     if (isComputed || isAction) return;
                                     if (isImageField(key, fieldType)) {
                                         const noteTableId = activeView?.table_id || resolveNoteTableId(note);
-                                        setMediaPickerCell({ rowId: note.id, field: key, originalMetaKey, tableId: noteTableId });
+                                        // Només els camps `files` (no els d'imatge detectats pel nom)
+                                        // tenen config de destí/patró que la pujada ha de respectar.
+                                        const cfg = fieldType === 'files' ? (getFieldConfig(schema, key) || {}) : null;
+                                        setMediaPickerCell({
+                                            rowId: note.id, field: key, originalMetaKey, tableId: noteTableId,
+                                            fileField: cfg
+                                                ? { propertyName: key, storageFolder: cfg.storage_folder || 'assets', namePattern: cfg.name_pattern || '' }
+                                                : null,
+                                            rowMetadata: note.metadata || {},
+                                        });
                                         return;
                                     }
                                     setEditingCell({ rowId: note.id, field: key, originalMetaKey });
@@ -1940,6 +1949,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             <InsertContentModal
                 open={Boolean(mediaPickerCell)}
                 tableId={mediaPickerCell?.tableId || ''}
+                fileField={mediaPickerCell?.fileField || null}
+                rowMetadata={mediaPickerCell?.rowMetadata || {}}
                 onClose={() => setMediaPickerCell(null)}
                 onInsert={(result) => {
                     if (!mediaPickerCell) return;

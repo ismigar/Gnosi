@@ -23,6 +23,7 @@ import { MediaPicker } from './MediaPicker';
 import { FilesystemPickerModal } from '../FilesystemPickerModal';
 import { fileUrlToSentinel } from './markdown-mapper';
 import { toast } from '../../lib/toast';
+import { interpolateNamePattern } from '../../lib/fileResource';
 
 const KIND_META = {
     image: { Icon: ImageIcon, label: 'Imatge' },
@@ -92,6 +93,12 @@ export const InsertContentModal = ({
     initialFile = null,
     initialTab = 'vault',
     tableId = null,
+    // Quan s'obre per a un camp `files` configurat (no per a contingut inline
+    // ni camps d'imatge detectats pel nom), la pujada i l'enllaç han de respectar
+    // la config del camp: destí (`storageFolder`, p.ex. 'biblioteca') i
+    // reanomenat segons `namePattern` interpolat amb les metadades de la fila.
+    fileField = null, // { propertyName, storageFolder, namePattern } | null
+    rowMetadata = {},
 }) => {
     const { t } = useTranslation();
     const [tab, setTab] = useState(initialTab);
@@ -222,22 +229,51 @@ export const InsertContentModal = ({
         if (f) handlePickUploadFile(f);
     }, [handlePickUploadFile]);
 
+    // Camp `files` configurat: la pujada/enllaç ruten pels endpoints de propietat
+    // (destí + reanomenat segons l'esquema) en comptes del genèric assets/upload.
+    const isFieldUpload = Boolean(fileField?.propertyName && tableId);
+    const resolvedName = fileField?.namePattern
+        ? interpolateNamePattern(fileField.namePattern, rowMetadata)
+        : '';
+
     const performUpload = useCallback(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
-        const url = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
+        let url;
+        if (isFieldUpload) {
+            const params = new URLSearchParams({
+                table_id: tableId,
+                property_name: fileField.propertyName,
+                storage_folder: fileField.storageFolder || 'assets',
+            });
+            if (resolvedName) params.set('target_name', resolvedName);
+            url = `/api/vault/upload-property-file?${params.toString()}`;
+        } else {
+            url = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
+        }
         const { data } = await axios.post(url, formData, {
             onUploadProgress: (evt) => {
                 if (evt.total) setUploadProgress(Math.round((evt.loaded / evt.total) * 100));
             },
         });
-        return data?.url;
-    }, [tableId]);
+        // Biblioteca/free retornen un path absolut (url=null); assets retorna URL servida.
+        return data?.url || data?.path;
+    }, [tableId, isFieldUpload, fileField, resolvedName]);
 
     const registerLocalFile = useCallback(async (path) => {
+        // Camp `files` configurat: enllaça reanomenant al disc segons el patró
+        // (estil Zotero), preservant el destí original. Si no, només registra
+        // el fitxer per servir-lo (contingut inline / camps d'imatge).
+        if (isFieldUpload) {
+            const { data } = await axios.post('/api/vault/link-existing-file', {
+                file_path: path,
+                target_name: resolvedName,
+            });
+            return data?.url || data?.path;
+        }
         const { data } = await axios.post('/api/vault/local-file/register', { file_path: path });
         return data?.url;
-    }, []);
+    }, [isFieldUpload, resolvedName]);
 
     const canInsert = useMemo(() => {
         if (!selected) return false;
@@ -376,7 +412,11 @@ export const InsertContentModal = ({
                                         <>
                                             <div className="text-sm font-medium">{t('insert.drop_or_click', { defaultValue: 'Arrossega un fitxer aquí o clica per triar-lo' })}</div>
                                             <div className="text-xs text-[var(--text-tertiary)]">
-                                                {t('insert.upload_target', { defaultValue: 'El fitxer es copiarà dins el Vault (Assets/)' })}
+                                                {isFieldUpload && fileField?.storageFolder === 'biblioteca'
+                                                    ? (resolvedName
+                                                        ? t('insert.upload_target_biblioteca_named', { defaultValue: 'Es desarà a Biblioteca com a «{{name}}»', name: resolvedName })
+                                                        : t('insert.upload_target_biblioteca', { defaultValue: 'El fitxer es desarà a Biblioteca' }))
+                                                    : t('insert.upload_target', { defaultValue: 'El fitxer es copiarà dins el Vault (Assets/)' })}
                                             </div>
                                         </>
                                     )}
