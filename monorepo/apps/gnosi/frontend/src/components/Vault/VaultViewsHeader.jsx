@@ -183,8 +183,20 @@ export function VaultViewsHeader({
     const containerRef = useRef(null);
     const actionsRef = useRef(null);
     const searchRef = useRef(null);
+    const newMenuRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(views.length || 1);
     const [showOverflow, setShowOverflow] = useState(false);
+
+    useEffect(() => {
+        if (!showNewMenu) return undefined;
+        const handler = (e) => {
+            if (newMenuRef.current && !newMenuRef.current.contains(e.target)) {
+                setShowNewMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showNewMenu]);
     
     // Dynamic calculation of how many tabs fit
     useEffect(() => {
@@ -403,23 +415,24 @@ export function VaultViewsHeader({
                         <span className="hidden md:inline">{t('views_header.fields')}</span>
                     </button>
 
-                    {/* New button */}
-                    <div className="relative">
+                    {/* New button (split: acció principal + chevron per al menú) */}
+                    <div ref={newMenuRef} className="relative inline-flex shadow-md rounded-xl">
                         <button
                             onClick={() => onCreateRecord?.()}
-                            className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 !text-xs !gap-1.5 shadow-md active:scale-95"
+                            className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 !text-xs !gap-1.5 !shadow-none !rounded-r-none active:scale-95"
                         >
                             <Plus size={14} />
                             <span className="hidden sm:inline">{t('views_header.new_action')}</span>
-                            <div 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowNewMenu(!showNewMenu);
-                                }}
-                                className="pl-1 border-l border-white/20 hover:text-white/80"
-                            >
-                                <ChevronDown size={14} />
-                            </div>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowNewMenu(o => !o)}
+                            aria-label={t('views_header.new_options', 'Opcions de creació')}
+                            aria-haspopup="menu"
+                            aria-expanded={showNewMenu}
+                            className="btn-gnosi btn-gnosi-primary !px-2 !py-1.5 !shadow-none !rounded-l-none border-l border-white/20 hover:text-white/80 active:scale-95"
+                        >
+                            <ChevronDown size={14} />
                         </button>
 
                         {showNewMenu && (
