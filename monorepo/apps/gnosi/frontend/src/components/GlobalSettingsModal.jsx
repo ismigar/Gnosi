@@ -16,7 +16,6 @@ import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
 import IdentityProfile from './Vault/IdentityProfile';
-import ZoteroMappingModal from './Zotero/ZoteroMappingModal';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -265,7 +264,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             physics: { gravity: 0.1, repulsion: 1000, friction: 10 }
         },
         ai: { agents: [], providers: {}, active_agent_id: '' },
-        zotero: { enabled: false, zotero_db: '~/Zotero/zotero.sqlite', user: '', pwd: '', workspace: '', target_table: '', mapping: {}, linked_attachments_base: '' },
         identity: {
             full_name: '', first_name: '', last_name: '', email: '',
             phone: '', address: '', city: '', zip_code: '', dni_nie: '', notes: ''
@@ -281,11 +279,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [aiCatalog, setAiCatalog] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
-    const [zoteroSyncing, setZoteroSyncing] = useState(null);
-    const [zoteroSyncMsg, setZoteroSyncMsg] = useState('');
-    const [zoteroMappingOpen, setZoteroMappingOpen] = useState(false);
-    const [zoteroValidation, setZoteroValidation] = useState(null);  // { ok, errors[], warnings[] }
-    const [zoteroLastSync, setZoteroLastSync] = useState(null);     // { last_sync_at, last_sync_z_to_g, last_sync_g_to_z, last_sync_summary }
 
     // Translate-row skill: DeepL key viu al Keychain (`/api/credentials/`),
     // l'URL de Softcatalà a `.env_shared` (no és secret). El bind és per
@@ -390,7 +383,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     ], [integrations]);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerField, setPickerField] = useState(null);
-    const [zoteroBasePickerOpen, setZoteroBasePickerOpen] = useState(false);
     const [aiValidationStatus, setAiValidationStatus] = useState({});
     const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
 
@@ -612,7 +604,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             lastSavedData.current = null; // Reset baseline per evitar saves espuris
             loadConfig();
             loadAiCatalog();
-            loadZoteroData();
+            loadTablesAndDatabases();
             loadIntegrations();
             loadNewsletterSources();
             loadNewsletterAccount();
@@ -822,7 +814,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         providers: draft.ai.providers
                     },
                     integrations: data,
-                    zotero: draft.zotero
                 });
                 // Marcar com a carregat només DESPRÉS de setIntegrations
                 setTimeout(() => {
@@ -849,51 +840,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (err) { console.error("Error loading AI catalog:", err); }
     };
 
-    const loadZoteroData = async () => {
+    const loadTablesAndDatabases = async () => {
+        // Tables i Databases del Vault — usats per les pestanyes Calendari
+        // (selecció de taules) i Bases de dades. Abans es carregaven dins de
+        // loadZoteroData, retirat en treure la integració Zotero de Settings.
         try {
-            // Fetch Zotero configuració de manera independent
-            fetch('/api/zotero/config').then(async res => {
-                if (res.ok) {
-                    const cfg = await res.json();
-                    setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, ...cfg } }));
-                }
-            }).catch(e => console.error("Zotero fetch error:", e));
-
-            // Fetch Tables de manera independent
-            fetch('/api/vault/tables').then(async res => {
-                if (res.ok) setTables(await res.json());
-            }).catch(e => console.error("Tables fetch error:", e));
-
-            // Fetch Databases de manera independent
-            fetch('/api/vault/databases').then(async res => {
-                if (res.ok) setDatabases(await res.json());
-            }).catch(e => console.error("Databases fetch error:", e));
-
-            // Validació del mapping (badge "Mapping vàlid/incomplet/invàlid")
-            fetch('/api/zotero/validate-config').then(async res => {
-                if (res.ok) setZoteroValidation(await res.json());
-            }).catch(e => console.error("Zotero validate error:", e));
-
-            // Resultat de l'última sync (panell d'observabilitat)
-            fetch('/api/zotero/last-sync').then(async res => {
-                if (res.ok) setZoteroLastSync(await res.json());
-            }).catch(e => console.error("Zotero last-sync error:", e));
-
-        } catch (err) { console.error("General loading error:", err); }
+            const res = await fetch('/api/vault/tables');
+            if (res.ok) setTables(await res.json());
+        } catch (e) { console.error("Tables fetch error:", e); }
+        try {
+            const res = await fetch('/api/vault/databases');
+            if (res.ok) setDatabases(await res.json());
+        } catch (e) { console.error("Databases fetch error:", e); }
     };
 
-    // Refresca la validació quan canvia target_table o mapping
-    useEffect(() => {
-        if (!draft.zotero?.enabled || !draft.zotero?.target_table) {
-            setZoteroValidation(null);
-            return;
-        }
-        let cancelled = false;
-        fetch('/api/zotero/validate-config')
-            .then(async res => { if (res.ok && !cancelled) setZoteroValidation(await res.json()); })
-            .catch(() => {});
-        return () => { cancelled = true; };
-    }, [draft.zotero?.enabled, draft.zotero?.target_table, JSON.stringify(draft.zotero?.mapping || {})]);
 
     const loadNewsletterSources = async () => {
         setNewsletterSourcesLoading(true);
@@ -1037,7 +997,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 providers: draft.ai.providers
             },
             integrations,
-            zotero: draft.zotero,
             identity: draft.identity
         });
 
@@ -1072,7 +1031,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     }
                 }),
                 axios.post('/api/integrations/bulk', integrations),
-                axios.post('/api/zotero/config', draft.zotero),
                 axios.post('/api/identity', draft.identity)
             ]);
             
@@ -1488,7 +1446,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <SidebarItem id="social" icon={Share2} label="Social" active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
                             <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
                             <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
-                            <SidebarItem id="zotero" icon={BookOpen} label={t('settings.tabs.zotero') || 'Zotero'} active={activeTab === 'zotero'} onClick={() => { setActiveTab('zotero'); setAddAccountType(null); }} />
                             <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
                         </div>
 
@@ -3249,329 +3206,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </>
                             )}
 
-                            {/* ZOTERO */}
-                            {activeTab === 'zotero' && (() => {
-                                const formatSyncSummary = (summary) => {
-                                    if (!summary) return '';
-                                    const parts = [];
-                                    const fields = ['created', 'updated', 'linked', 'skipped_unchanged', 'skipped_no_match', 'skipped_no_key', 'skipped_unknown_item', 'errors'];
-                                    for (const k of fields) {
-                                        const v = summary[k];
-                                        if (typeof v === 'number' && v > 0) {
-                                            const label = t(`settings.zotero.summary.${k}`) || k;
-                                            parts.push(`${label}: ${v}`);
-                                        }
-                                    }
-                                    return parts.join(' · ');
-                                };
-
-                                const runZoteroSync = async (direction) => {
-                                    setZoteroSyncing(direction);
-                                    setZoteroSyncMsg('');
-
-                                    // Captura el last_sync_at actual com a baseline per detectar el completion.
-                                    let baseline = null;
-                                    try {
-                                        const r0 = await fetch('/api/zotero/last-sync');
-                                        if (r0.ok) {
-                                            const d0 = await r0.json();
-                                            baseline = d0.last_sync_at;
-                                        }
-                                    } catch (_) { /* no-op */ }
-
-                                    try {
-                                        if (direction === 'z-to-g' || direction === 'both') {
-                                            const r = await fetch('/api/zotero/sync', { method: 'POST' });
-                                            if (!r.ok) {
-                                                const err = await r.json().catch(() => ({}));
-                                                setZoteroSyncMsg(err.detail || (t('settings.zotero.sync_error_z_to_g') || 'Error en Z→G'));
-                                                setZoteroSyncing(null);
-                                                return;
-                                            }
-                                        }
-                                        if (direction === 'g-to-z' || direction === 'both') {
-                                            const r = await fetch('/api/zotero/sync-back', { method: 'POST' });
-                                            const data = await r.json().catch(() => ({}));
-                                            if (!r.ok) {
-                                                setZoteroSyncMsg(data.detail || (t('settings.zotero.sync_error_g_to_z') || 'Error en G→Z'));
-                                                setZoteroSyncing(null);
-                                                return;
-                                            }
-                                            if (data.status === 'zotero_open') {
-                                                setZoteroSyncMsg(data.message);
-                                                setZoteroSyncing(null);
-                                                return;
-                                            }
-                                        }
-
-                                        setZoteroSyncMsg(t('settings.zotero.sync_in_progress') || 'Sincronització en curs…');
-
-                                        // Polling: cada 2.5s, max ~30s, fins que last_sync_at canviï.
-                                        const MAX_TRIES = 12;
-                                        const POLL_MS = 2500;
-                                        let tries = 0;
-                                        const poll = async () => {
-                                            tries++;
-                                            try {
-                                                const rr = await fetch('/api/zotero/last-sync');
-                                                if (rr.ok) {
-                                                    const d = await rr.json();
-                                                    if (d.last_sync_at && d.last_sync_at !== baseline) {
-                                                        setZoteroLastSync(d);
-                                                        setZoteroSyncMsg('');
-                                                        setZoteroSyncing(null);
-                                                        return;
-                                                    }
-                                                }
-                                            } catch (_) { /* no-op */ }
-                                            if (tries < MAX_TRIES) {
-                                                setTimeout(poll, POLL_MS);
-                                            } else {
-                                                setZoteroSyncMsg(t('settings.zotero.sync_takes_long') || 'Sincronització en segon pla. Refresca el panell per veure resultats.');
-                                                setZoteroSyncing(null);
-                                            }
-                                        };
-                                        setTimeout(poll, POLL_MS);
-                                    } catch (e) {
-                                        setZoteroSyncMsg(`Error: ${e.message}`);
-                                        setZoteroSyncing(null);
-                                    }
-                                };
-                                const btnStyle = { padding: '8px 14px', fontSize: '0.85rem', borderRadius: '12px', opacity: zoteroSyncing ? 0.6 : 1 };
-                                return (
-                                <Section title="Integració Zotero" icon={BookOpen} extra={draft.zotero.enabled && (
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        {zoteroSyncMsg && <span style={{ fontSize: '0.8rem', color: zoteroSyncMsg.startsWith('Error') || zoteroSyncMsg.includes('Tanca') ? 'var(--color-error, #ef4444)' : 'var(--text-secondary)', maxWidth: '200px' }}>{zoteroSyncMsg}</span>}
-                                        <button title="Zotero → Gnosi" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('z-to-g')} className="btn-gnosi-secondary" style={btnStyle}>
-                                            {zoteroSyncing === 'z-to-g' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null} Z → G
-                                        </button>
-                                        <button title="Gnosi → Zotero" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('g-to-z')} className="btn-gnosi-secondary" style={btnStyle}>
-                                            {zoteroSyncing === 'g-to-z' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null} G → Z
-                                        </button>
-                                        <button title="Bidireccional G ↔ Z" disabled={!!zoteroSyncing} onClick={() => runZoteroSync('both')} className="btn-gnosi-secondary" style={btnStyle}>
-                                            {zoteroSyncing === 'both' ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={13} />} G ↔ Z
-                                        </button>
-                                    </div>
-                                )}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-
-                                        {/* Toggle activació */}
-                                        <div style={{ background: 'var(--settings-sidebar-bg)', padding: '28px 36px', borderRadius: '32px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '1rem' }}>Activar integració Zotero</div>
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Sincronitza la teva biblioteca local de Zotero amb el Vault de Gnosi.</div>
-                                            </div>
-                                            <div
-                                                className={`gnosi-toggle ${draft.zotero.enabled ? 'active' : ''}`}
-                                                style={{ transform: 'scale(1.2)', flexShrink: 0 }}
-                                                onClick={async () => {
-                                                    const newEnabled = !draft.zotero.enabled;
-                                                    const newZotero = { ...draft.zotero, enabled: newEnabled };
-                                                    setDraft(prev => ({ ...prev, zotero: newZotero }));
-                                                    // Desar immediatament sense esperar el debounce
-                                                    await fetch('/api/zotero/config', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify(newZotero),
-                                                    }).catch(() => {});
-                                                    if (newEnabled && !draft.zotero.target_table) {
-                                                        try {
-                                                            const res = await fetch('/api/zotero/setup', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ lang: i18n.language || 'en' }),
-                                                            });
-                                                            if (res.ok) {
-                                                                const data = await res.json();
-                                                                setDraft(prev => ({ ...prev, zotero: { ...prev.zotero, enabled: true, target_table: data.table_id, mapping: data.mapping || {} } }));
-                                                                fetch('/api/vault/tables').then(async r => { if (r.ok) setTables(await r.json()); });
-                                                                // Si el setup ha trobat camps no mapejats o tipus desalineats,
-                                                                // obrim la modal de mapping perquè l'usuari resolgui els forats.
-                                                                const needsReview = (data.unmapped && data.unmapped.length > 0) || (data.conflicts && data.conflicts.length > 0);
-                                                                if (needsReview) {
-                                                                    setZoteroMappingOpen(true);
-                                                                }
-                                                            }
-                                                        } catch (e) { console.error('Zotero setup error:', e); }
-                                                    }
-                                                }}
-                                            >
-                                                <div className="gnosi-toggle-handle" />
-                                            </div>
-                                        </div>
-
-                                        {/* Configuració (només si activat) */}
-                                        {draft.zotero.enabled && (
-                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '36px', borderRadius: '32px', border: '1px solid var(--settings-border)', boxShadow: '0 10px 40px rgba(0,0,0,0.03)' }}>
-                                                <FormGroup label={t('settings.zotero.zotero_db_label') || "Ruta de la BD Zotero"} description={t('settings.zotero.zotero_db_desc') || "Camí absolut a la base de dades local de Zotero (zotero.sqlite)."}>
-                                                    <input type="text" className="gnosi-input" value={draft.zotero.zotero_db || ''} onChange={e => setDraft({...draft, zotero: {...draft.zotero, zotero_db: e.target.value}})} placeholder="~/Zotero/zotero.sqlite" />
-                                                </FormGroup>
-                                                <div style={{ marginTop: '28px' }}>
-                                                    <FormGroup label={t('settings.zotero.linked_base_label') || "Carpeta de PDFs enllaçats"} description={t('settings.zotero.linked_base_desc') || "Directori on Zotero té els PDFs enllaçats. Per defecte, la carpeta Biblioteca del Vault."}>
-                                                        <div style={{ display: 'flex', gap: '14px' }}>
-                                                            <input
-                                                                type="text"
-                                                                className="gnosi-input"
-                                                                value={draft.zotero.linked_attachments_base || ''}
-                                                                readOnly
-                                                                placeholder={t('settings.zotero.linked_base_placeholder') || "(per defecte: Biblioteca)"}
-                                                                style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }}
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setZoteroBasePickerOpen(true);
-                                                                }}
-                                                                className="btn-gnosi-secondary"
-                                                                style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0, cursor: 'pointer' }}
-                                                                title={t('settings.zotero.linked_base_label') || "Carpeta de PDFs enllaçats"}
-                                                            >
-                                                                <FolderOpen size={18} />
-                                                            </button>
-                                                        </div>
-                                                    </FormGroup>
-                                                </div>
-                                                <div style={{ marginTop: '28px' }}>
-                                                    <FormGroup label={t('settings.zotero.target_table_label') || "Taula de Destí del Vault"} description={t('settings.zotero.target_table_desc') || "Taula on s'emmagatzemaran les referències. Es pot reanomenar lliurement."}>
-                                                        <select
-                                                            className="gnosi-select"
-                                                            value={draft.zotero.target_table}
-                                                            onChange={async e => {
-                                                                const newTableId = e.target.value;
-                                                                setDraft({ ...draft, zotero: { ...draft.zotero, target_table: newTableId, mapping: {} } });
-                                                                if (newTableId) {
-                                                                    // Quan canvies de taula, obrim la modal perquè l'usuari
-                                                                    // confirmi/ajusti el mapping contra les noves columnes.
-                                                                    setZoteroMappingOpen(true);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <option value="">Selecciona una taula del Vault...</option>
-                                                            {tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                        </select>
-                                                    </FormGroup>
-                                                </div>
-
-                                                {draft.zotero.target_table && (
-                                                    <div style={{
-                                                        marginTop: '24px', padding: '18px 22px', borderRadius: '20px',
-                                                        background: 'var(--settings-bg)',
-                                                        border: '1px solid var(--settings-border)',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px',
-                                                    }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                            {zoteroValidation && (
-                                                                <span style={{
-                                                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                                    padding: '4px 10px', borderRadius: '999px',
-                                                                    fontSize: '0.72rem', fontWeight: 800,
-                                                                    background: zoteroValidation.ok
-                                                                        ? 'rgba(34, 197, 94, 0.1)'
-                                                                        : 'rgba(245, 158, 11, 0.1)',
-                                                                    color: zoteroValidation.ok
-                                                                        ? 'rgb(34, 197, 94)'
-                                                                        : 'rgb(245, 158, 11)',
-                                                                }}>
-                                                                    {zoteroValidation.ok
-                                                                        ? (t('settings.zotero.mapping_status_ok') || 'Mapping vàlid')
-                                                                        : ((zoteroValidation.errors || []).length > 0
-                                                                            ? (t('settings.zotero.mapping_status_invalid') || 'Mapping invàlid')
-                                                                            : (t('settings.zotero.mapping_status_incomplete') || 'Mapping incomplet'))}
-                                                                </span>
-                                                            )}
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                                {Object.keys(draft.zotero.mapping || {}).length > 0
-                                                                    ? `${Object.keys(draft.zotero.mapping).length} ${t('settings.zotero.field_mapping') || 'camps mapejats'}`
-                                                                    : (t('settings.zotero.no_map') || 'Sense mapping')}
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            className="btn-gnosi-secondary"
-                                                            onClick={() => setZoteroMappingOpen(true)}
-                                                            style={{ padding: '8px 16px', fontSize: '0.85rem', borderRadius: '12px' }}
-                                                        >
-                                                            {t('settings.zotero.edit_mapping') || 'Editar mapping'}
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Estratègia per a pàgines pre-existents sense zotero_key */}
-                                        {draft.zotero.enabled && draft.zotero.target_table && (
-                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '24px 32px', borderRadius: '24px', border: '1px solid var(--settings-border)' }}>
-                                                <FormGroup
-                                                    label={t('settings.zotero.strategy_label') || 'Estratègia per a pàgines existents sense Clau Zotero'}
-                                                    description={t('settings.zotero.strategy_desc') || 'Què fer quan trobem una pàgina al Vault sense zotero_key però amb un títol que coincideix amb un ítem de Zotero.'}
-                                                >
-                                                    <select
-                                                        className="gnosi-select"
-                                                        value={draft.zotero.existing_pages_strategy || 'match_by_title'}
-                                                        onChange={async e => {
-                                                            const v = e.target.value;
-                                                            const next = { ...draft.zotero, existing_pages_strategy: v };
-                                                            setDraft(prev => ({ ...prev, zotero: next }));
-                                                            await fetch('/api/zotero/config', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify(next),
-                                                            }).catch(() => {});
-                                                        }}
-                                                    >
-                                                        <option value="match_by_title">{t('settings.zotero.strategy_match_by_title') || 'Enllaçar per títol (recomanat)'}</option>
-                                                        <option value="skip">{t('settings.zotero.strategy_skip') || 'Ignorar pàgines sense clau'}</option>
-                                                    </select>
-                                                </FormGroup>
-                                            </div>
-                                        )}
-
-                                        {/* Panell d'observabilitat: darrera sincronització */}
-                                        {draft.zotero.enabled && zoteroLastSync && zoteroLastSync.last_sync_at && (
-                                            <div style={{ background: 'var(--settings-sidebar-bg)', padding: '24px 32px', borderRadius: '24px', border: '1px solid var(--settings-border)' }}>
-                                                <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800, marginBottom: '14px' }}>
-                                                    {t('settings.zotero.last_sync_title') || 'Darrera sincronització'}
-                                                </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
-                                                    {[
-                                                        { key: 'last_sync_z_to_g', label: t('settings.zotero.last_sync_z_to_g') || 'Zotero → Gnosi' },
-                                                        { key: 'last_sync_g_to_z', label: t('settings.zotero.last_sync_g_to_z') || 'Gnosi → Zotero' },
-                                                    ].map(({ key, label }) => {
-                                                        const ts = zoteroLastSync[key];
-                                                        let humanTs = '—';
-                                                        if (ts) {
-                                                            try {
-                                                                humanTs = new Date(ts).toLocaleString(i18n.language || 'ca');
-                                                            } catch (_) { humanTs = ts; }
-                                                        }
-                                                        const isLatest = ts && ts === zoteroLastSync.last_sync_at;
-                                                        const summary = isLatest ? zoteroLastSync.last_sync_summary : null;
-                                                        const summaryStr = formatSyncSummary(summary);
-                                                        return (
-                                                            <div key={key} style={{ padding: '12px 14px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)' }}>
-                                                                <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '4px' }}>{label}</div>
-                                                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{humanTs}</div>
-                                                                {summaryStr && (
-                                                                    <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>{summaryStr}</div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {draft.zotero.enabled && (
-                                            <div style={{ padding: '20px', borderRadius: '20px', background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                <div style={{ width: '40px', height: '40px', background: 'var(--gnosi-blue)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}><Info size={20} /></div>
-                                                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>El sync és bidireccional: Zotero → Gnosi importa els ítems de Zotero, i Gnosi → Zotero exporta els canvis fets des de Gnosi. Zotero ha d'estar tancat per al sync de tornada.</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </Section>
-                                );
-                            })()}
 
                             {/* TRADUCCIÓ */}
                             {activeTab === 'translate' && (
@@ -3713,45 +3347,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 }}
             />
 
-            {/* ZOTERO LINKED ATTACHMENT BASE DIRECTORY PICKER */}
-            <FolderPickerModal
-                isOpen={zoteroBasePickerOpen}
-                onClose={() => setZoteroBasePickerOpen(false)}
-                initialPath={draft.zotero?.linked_attachments_base || draft.paths?.vault || ''}
-                onSelect={async (path) => {
-                    const newZotero = { ...draft.zotero, linked_attachments_base: path };
-                    setDraft(prev => ({ ...prev, zotero: newZotero }));
-                    setZoteroBasePickerOpen(false);
-                    // Persisteix immediatament — el sync llegeix el config via API,
-                    // així que cal que el canvi s'apliqui al fitxer abans del proper run.
-                    try {
-                        await fetch('/api/zotero/config', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(newZotero),
-                        });
-                    } catch (e) {
-                        console.error('Zotero linked_attachments_base save error:', e);
-                    }
-                }}
-            />
-
-            {/* ZOTERO MAPPING MODAL */}
-            <ZoteroMappingModal
-                isOpen={zoteroMappingOpen}
-                onClose={() => setZoteroMappingOpen(false)}
-                tableId={draft.zotero?.target_table}
-                onSaved={(newMapping) => {
-                    setDraft(prev => ({
-                        ...prev,
-                        zotero: { ...prev.zotero, mapping: newMapping },
-                    }));
-                    // Refresca validació immediatament després del desat
-                    fetch('/api/zotero/validate-config')
-                        .then(async r => { if (r.ok) setZoteroValidation(await r.json()); })
-                        .catch(() => {});
-                }}
-            />
 
             <ConfirmModal 
                 isOpen={confirmConfig.isOpen}
