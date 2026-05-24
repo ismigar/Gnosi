@@ -34,3 +34,20 @@ Before considering a view complete, verify:
 1. That the search works correctly in both table and gallery views.
 2. That adding a filter from the configuration modal applies it immediately and saves it.
 3. That multi-column sorting prioritizes fields according to the order defined in the `sorts` array.
+
+## Edge Cases / Regressions (carrera registre↔esquema)
+
+- **Recàrrega (Cmd+R) sobre `/vault/table/:id` → no es renderitza cap columna.**
+  L'efecte de `VaultDashboard` que sincronitza la URL amb l'estat NO ha de
+  seleccionar la taula fins que `registry.tables` la contingui.
+  - **No fer:** actuar quan `registry.tables` és truthy. Arrenca com a `[]`
+    (array buit = truthy), així que en una recàrrega l'efecte s'executa abans que
+    `/api/vault/registry` resolgui.
+  - **Causa:** `handleTableSelect` fixa `activeTableId` però el guard de registre
+    (`registry.tables.find(...)`) falla amb el registre buit i **no crida
+    `setSchema`**. Quan el registre carrega i l'efecte es re-executa, el guard
+    `activeTableId !== tableId` ja és fals → `handleTableSelect` no es torna a
+    cridar → `schema` queda `{}` → `dynamicColumns` buit.
+  - **Fer:** `if (!registry.tables?.some(t => t.id === tableId)) return;` abans de
+    seleccionar, perquè esquema + vista inicial es resolguin en una sola passada
+    amb dades completes.
