@@ -385,6 +385,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [pickerField, setPickerField] = useState(null);
     const [aiValidationStatus, setAiValidationStatus] = useState({});
     const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
+    // True si /api/calendar/calendars retorna la capçalera X-Calendar-Auth-Error
+    // (token de Google caducat/revocat) → mostrem avís de reconnexió.
+    const [googleCalAuthError, setGoogleCalAuthError] = useState(false);
 
     // AI Editing Modals
     const [editingAgent, setEditingAgent] = useState(null);
@@ -626,7 +629,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     useEffect(() => {
         if (activeTab === 'calendar' && isOpen) {
             fetch('/api/calendar/calendars')
-                .then(r => r.ok ? r.json() : [])
+                .then(r => {
+                    setGoogleCalAuthError(Boolean(r.headers.get('X-Calendar-Auth-Error')));
+                    return r.ok ? r.json() : [];
+                })
                 .then(setGoogleSubCalendars)
                 .catch(() => {});
         }
@@ -1612,6 +1618,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </div>
                                 </Section>
+                            )}
+
+                            {/* Avís: token de Google caducat (calendaris no carreguen) */}
+                            {activeTab === 'calendar' && googleCalAuthError && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', marginBottom: '16px', borderRadius: '14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', flex: 1 }}>
+                                        {t('settings.calendar.google_token_expired') || "El token de Google ha caducat o s'ha revocat. Reconnecta el compte per tornar a carregar els calendaris."}
+                                    </div>
+                                    <button
+                                        onClick={() => { window.location.href = '/api/auth/google/login?type=calendar'; }}
+                                        style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: '10px', border: 'none', background: '#4285f4', color: 'white', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+                                    >
+                                        {t('settings.calendar.reconnect_google') || 'Reconnecta Google'}
+                                    </button>
+                                </div>
                             )}
 
                             {/* CALENDAR, CONTACTS, MAIL */}

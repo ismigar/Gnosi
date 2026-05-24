@@ -696,7 +696,9 @@
       "apple_id_link": "Apple ID",
       "google_oauth_desc": "Avoid manual configurations and connect with Google OAuth2.",
       "google_note": "Avoid manual configurations and connect securely via Google OAuth2.",
-      "no_credentials": "No valid Google OAuth credentials found. Configure CLIENT_ID and CLIENT_SECRET."
+      "no_credentials": "No valid Google OAuth credentials found. Configure CLIENT_ID and CLIENT_SECRET.",
+      "google_token_expired": "Your Google token has expired or been revoked. Reconnect the account to load calendars again.",
+      "reconnect_google": "Reconnect Google"
     },
     "graph": {
       "title": "Graph Configuration",

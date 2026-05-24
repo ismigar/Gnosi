@@ -72,6 +72,17 @@ def _google_service(email: str):
     return get_google_calendar_service(email)
 
 
+class GoogleAuthExpired(Exception):
+    """El refresh token de Google ha caducat o s'ha revocat (invalid_grant).
+
+    Es propaga fins a la ruta perquè la UI pugui demanar reconnexió en lloc de
+    mostrar una llista buida silenciosament. `email` indica el compte afectat.
+    """
+    def __init__(self, email: str = ""):
+        self.email = email
+        super().__init__(email)
+
+
 def google_list_calendars(email: str) -> list[dict]:
     """Retorna la llista de calendaris disponibles per a un compte Google."""
     service = _google_service(email)
@@ -93,6 +104,8 @@ def google_list_calendars(email: str) -> list[dict]:
         ]
     except Exception as e:
         log.error(f"google_list_calendars {email}: {e}")
+        if 'invalid_grant' in str(e).lower() or 'expired or revoked' in str(e).lower():
+            raise GoogleAuthExpired(email)
         return []
 
 
