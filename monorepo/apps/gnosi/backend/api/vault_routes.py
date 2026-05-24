@@ -1427,6 +1427,33 @@ def _property_assets_dir(
     return get_p("ASSETS") / db_segment / table_segment / prop_segment
 
 
+def _find_table_property(
+    table: Optional[Dict[str, Any]], property_name: str
+) -> Optional[Dict[str, Any]]:
+    """Retorna la property d'una taula pel seu nom (o àlies), o None."""
+    name = str(property_name or "").strip()
+    if not table or not name:
+        return None
+    for prop in table.get("properties", []) or []:
+        if str(prop.get("name") or "").strip() == name:
+            return prop
+        if name in (prop.get("aliases") or []):
+            return prop
+    return None
+
+
+def _property_config_value(prop: Optional[Dict[str, Any]], key: str):
+    """Llegeix un valor de config d'una property, sigui pla o niat sota `config`."""
+    if not prop:
+        return None
+    if prop.get(key) is not None:
+        return prop.get(key)
+    cfg = prop.get("config")
+    if isinstance(cfg, dict):
+        return cfg.get(key)
+    return None
+
+
 def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
     """Crea totes les carpetes d'assets associades a una taula:
       • `Assets/<TableName>/` — destí pla per fitxers genèrics (drag&drop a
@@ -6840,7 +6867,16 @@ async def upload_property_file(
     if not property_clean:
         raise HTTPException(status_code=400, detail="property_name is mandatory")
 
-    target_dir, url_type = _resolve_storage_dir(storage_folder, table, database, property_clean)
+    # El destí (storage_folder) és autoritatiu des de la config de la property al
+    # registry, no del query param: el frontend pot enviar-lo desfasat (sessió amb
+    # esquema en memòria antic, camins d'upload divergents...) i això feia que un
+    # camp configurat a 'biblioteca' acabés desant a Assets. Si la property no en
+    # té cap de configurat, caiem al valor del query param.
+    target_prop = _find_table_property(table, property_clean)
+    configured_storage = str(_property_config_value(target_prop, "storage_folder") or "").strip()
+    effective_storage = configured_storage or storage_folder
+
+    target_dir, url_type = _resolve_storage_dir(effective_storage, table, database, property_clean)
     try:
         dest_path = Path(_save_uploaded_file_to_dir(file, target_dir, target_name))
     except Exception as e:
