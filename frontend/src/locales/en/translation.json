@@ -503,6 +503,7 @@
     "save_error": "Error",
     "add_options": "Add options...",
     "remove_property": "Remove property",
+    "open_url": "Open link",
     "empty_local": "Empty (local)",
     "remove_local_property": "Remove local property",
     "add_property": "Add property",
