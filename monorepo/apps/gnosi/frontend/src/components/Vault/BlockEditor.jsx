@@ -49,6 +49,7 @@ import { useApi } from '../../hooks/use-api';
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
+import { coerceValueForField, serializeCellForClipboard, parseClipboardMatrix } from './cellGridUtils';
 import { useTheme } from '../../hooks/useTheme';
 import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
@@ -2604,6 +2605,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [unlinkedMentionsLoading, setUnlinkedMentionsLoading] = useState(false);
     const [linkMentionsBusy, setLinkMentionsBusy] = useState(false);
     const [isPropertiesOpen, setIsPropertiesOpen] = useState(false);
+    // Cursor de propietat (estil graella): el nom de la propietat activa.
+    // Clicar el nom selecciona; ↑↓ naveguen; ⌘C/⌘V copien/enganxen el valor.
+    const [activeProp, setActiveProp] = useState(null);
+    const propClipboardRef = useRef(null); // { value, type } — porta-retalls intern
     // Modal per omplir metadades (DOI/ISBN/arXiv/URL). Ha de viure aquí, al
     // mateix component que el botó del panell Propietats i `handleMetaChange`.
     const [isMetadataLookupOpen, setIsMetadataLookupOpen] = useState(false);
@@ -2768,6 +2773,97 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             );
         });
     }, [metadata, properties]);
+
+    // ── Cursor de propietats + copiar/enganxar (estil graella) ───────────
+    // Llista ordenada de propietats navegables (schema + adhoc). Les adhoc
+    // són sempre text.
+    const navProps = useMemo(() => {
+        const out = properties.map(p => ({ name: p.name, type: p.type, prop: p }));
+        for (const k of adhocProperties) out.push({ name: k, type: 'text', prop: null });
+        return out;
+    }, [properties, adhocProperties]);
+    const propIndexByName = useMemo(() => {
+        const m = new Map();
+        navProps.forEach((p, i) => m.set(p.name, i));
+        return m;
+    }, [navProps]);
+
+    // Context de coerció (opcions) per a una propietat select/multi/relation.
+    const propCoercionCtx = useCallback((entry) => {
+        const { type, prop } = entry;
+        if (type === 'select' || type === 'multi_select') {
+            return { options: getPropOptions(prop), idToTitle: idToTitle || {} };
+        }
+        if (type === 'relation') {
+            const relatedTableId = prop?.relation_database_id;
+            const relatedNotes = (allNotes || []).filter(n => {
+                const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                return nTableId === relatedTableId;
+            });
+            return { relatedNotes, idToTitle: idToTitle || {} };
+        }
+        return {};
+    }, [idToTitle, allNotes]);
+
+    const copyPropValue = useCallback((name) => {
+        const entry = navProps.find(p => p.name === name);
+        if (!entry) return;
+        const value = metadata[name];
+        propClipboardRef.current = { value, type: entry.type };
+        const text = serializeCellForClipboard(value, entry.type, idToTitle || {});
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {});
+        toast.success(t('editor.property_copied', { name, defaultValue: `Copiat: ${name}` }));
+    }, [navProps, metadata, idToTitle, t]);
+
+    const pastePropValue = useCallback(async (name) => {
+        if (!isEditor) return;
+        const entry = navProps.find(p => p.name === name);
+        if (!entry) return;
+        let raw;
+        if (propClipboardRef.current != null) {
+            raw = propClipboardRef.current.value;
+        } else {
+            let text = '';
+            try { text = await navigator.clipboard.readText(); } catch { text = ''; }
+            const m = parseClipboardMatrix(text);
+            raw = m[0]?.[0];
+            if (raw === undefined) return;
+        }
+        const res = coerceValueForField(raw, entry.type, propCoercionCtx(entry));
+        if (res.skip) { toast(t('editor.paste_incompatible', { defaultValue: 'Valor incompatible amb el tipus de la propietat' })); return; }
+        handleMetaChange(name, res.value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isEditor, navProps, propCoercionCtx, t]);
+
+    const movePropCursor = useCallback((delta) => {
+        if (navProps.length === 0) return;
+        const cur = activeProp != null && propIndexByName.has(activeProp) ? propIndexByName.get(activeProp) : -1;
+        let next = cur + delta;
+        if (next < 0) next = 0;
+        if (next > navProps.length - 1) next = navProps.length - 1;
+        setActiveProp(navProps[next].name);
+    }, [navProps, activeProp, propIndexByName]);
+
+    // Listener de teclat del panell de propietats (a nivell de finestra).
+    useEffect(() => {
+        if (!activeProp || !isPropertiesOpen) return undefined;
+        const onKey = (e) => {
+            const el = document.activeElement;
+            const tag = el?.tagName;
+            const inputType = (el && el.getAttribute) ? (el.getAttribute('type') || '') : '';
+            const isTextInput = (tag === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(inputType)) || tag === 'TEXTAREA' || el?.isContentEditable;
+            if (isTextInput) return;
+            const meta = e.metaKey || e.ctrlKey;
+            if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyPropValue(activeProp); return; }
+            if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pastePropValue(activeProp); return; }
+            if (meta) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); movePropCursor(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); movePropCursor(-1); }
+            else if (e.key === 'Escape') { setActiveProp(null); }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [activeProp, isPropertiesOpen, copyPropValue, pastePropValue, movePropCursor]);
 
     const handleAddAdhocProperty = () => {
         if (!newPropName.trim()) { setIsAddingProp(false); return; }
@@ -3134,7 +3230,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center">
                                     {properties.map(prop => (
                                         <React.Fragment key={prop.name}>
-                                            <div className={`flex items-center gap-1.5 group py-1 h-8 ${['files', 'autoria', 'relation', 'multi_select', 'select'].includes(prop.type) ? 'self-start' : ''}`}>
+                                            <div
+                                                role="button"
+                                                tabIndex={0}
+                                                aria-pressed={activeProp === prop.name}
+                                                onClick={() => setActiveProp(prop.name)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
+                                                title={t('editor.property_select_hint', { defaultValue: 'Selecciona la propietat (↑↓ navegar · ⌘C/⌘V copiar/enganxar)' })}
+                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select'].includes(prop.type) ? 'self-start' : ''}`}
+                                            >
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors">
                                                     {prop.type === 'date' ? <Calendar size={14} /> : (prop.type === 'select' ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
                                                 </div>
@@ -3261,7 +3365,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
                                     {adhocProperties.map(key => (
                                         <React.Fragment key={key}>
-                                            <div className="flex items-center gap-1.5 group py-1 h-8">
+                                            <div
+                                                role="button"
+                                                tabIndex={0}
+                                                aria-pressed={activeProp === key}
+                                                onClick={() => setActiveProp(key)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(key); } }}
+                                                title={t('editor.property_select_hint', { defaultValue: 'Selecciona la propietat (↑↓ navegar · ⌘C/⌘V copiar/enganxar)' })}
+                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === key ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''}`}
+                                            >
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--gnosi-primary)]/40 group-hover:bg-[var(--gnosi-primary)]/10 transition-colors border border-[var(--gnosi-primary)]/10"><Settings size={14} /></div>
                                                 <span className="text-sm text-[var(--text-secondary)] font-medium truncate italic">{key}</span>
                                             </div>
