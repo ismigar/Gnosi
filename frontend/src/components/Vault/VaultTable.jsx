@@ -589,6 +589,12 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         // d'aplanament aporta sobre el de `Fragment` + walking.
         measureElement: (el) => el?.getBoundingClientRect().height || 56,
         overscan: 8,
+        // scrollPaddingStart: compensa la capçalera sticky (~44 px) perquè
+        // scrollToIndex no deixi files amagades rere el thead.
+        // scrollPaddingEnd: manté 1 fila de marge a sota perquè el cursor
+        // no arribi mai a la vora inferior abans que el scroll es dispari.
+        scrollPaddingStart: 44,
+        scrollPaddingEnd: 56,
     });
     const virtualRows = rowVirtualizer.getVirtualItems();
     const virtTotalSize = rowVirtualizer.getTotalSize();
