@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
   Image as ImageIcon,
+  Upload,
   Filter,
   ChevronRight,
   ChevronDown,
@@ -12,6 +13,7 @@ import {
   Search,
   Grid,
   List as ListIcon,
+  Plus,
   MapPin,
   Calendar,
   Tag,
@@ -34,11 +36,14 @@ import {
   Bookmark,
   BookmarkPlus,
   BookmarkCheck,
-  PanelLeft
+  ChevronLeft,
+  Maximize2,
+  Minimize2,
+  Play,
+  Pause
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AppHeader } from '../components/AppHeader';
 
 const PERSPECTIVES = [ // Mantenim per referència o inbox, però prioritzem àlbums
   { id: 'General', label: 'General', icon: FolderOpen, color: 'text-blue-500' },
@@ -152,44 +157,12 @@ const NON_IMAGE_THUMB = {
   other: { Icon: HardDrive, label: 'Fitxer', accent: 'text-slate-400' },
 };
 
-// Per a kinds que QuickLook pot tractar bé (vídeo + PDF), provem el
-// thumbnail generat al host abans de caure al placeholder. Àudio i altres
-// segueixen amb placeholder perquè qlmanage no dóna res útil per a ells.
-const THUMB_KINDS_QUICKLOOK = new Set(['video', 'pdf']);
-
-// Roots suportats al backend (vegeu _THUMB_ROOTS_MAP a vault_routes.py).
-// `biblioteca` queda fora perquè el daemon de thumbs només té
-// VAULT_HOST_PATH a l'allowlist.
-const THUMB_SUPPORTED_ROOTS = new Set(['raw', 'images', 'assets']);
-
-// Construeix la URL del thumb a partir de la URL del fitxer original.
-// `/api/vault/raw/foo.mp4` → `/api/vault/thumb/raw/foo.mp4?v=<mtime>`.
-// El paràmetre `v` força al navegador a refetchar el thumb quan el
-// fitxer origen canvia (el cache del daemon ja invalida internament
-// per mtime, però l'HTTP cache del navegador necessita un canvi a la
-// URL per fer-ho).
-const thumbUrlFor = (src, version) => {
-  if (!src || typeof src !== 'string') return null;
-  if (!src.startsWith('/api/vault/')) return null;
-  const tail = src.slice('/api/vault/'.length);
-  const firstSegment = tail.split('/', 1)[0];
-  if (!THUMB_SUPPORTED_ROOTS.has(firstSegment)) return null;
-  const base = `/api/vault/thumb/${tail}`;
-  if (version === undefined || version === null || version === '') return base;
-  const sep = base.includes('?') ? '&' : '?';
-  return `${base}${sep}v=${encodeURIComponent(version)}`;
-};
-
 // Thumb gestiona el seu estat de càrrega/error per imatge. Si OneDrive està
 // materialitzant un fitxer en background, el primer GET pot retornar 503;
 // reintentem un parell de cops abans d'ensenyar el placeholder cloud-off.
-const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind, version }) {
+const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
-  // Per als kinds que provem amb QuickLook, en cas d'error caiem al
-  // placeholder amb icona en lloc del "No descarregat".
-  const [quicklookFailed, setQuicklookFailed] = useState(false);
-
   const MAX_RETRIES = 2;
   const RETRY_DELAY_MS = 4000;
 
@@ -197,8 +170,9 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind, version }) {
     ? 'aspect-square relative overflow-hidden bg-gray-900'
     : 'w-24 h-24 relative rounded-xl overflow-hidden flex-shrink-0 bg-gray-900';
 
-  const isQuicklookKind = kind && THUMB_KINDS_QUICKLOOK.has(kind);
-  const placeholder = () => {
+  // Vídeo / PDF / àudio / altres: mai van a `<img>` — placeholder amb icona
+  // del tipus i nom del fitxer.
+  if (kind && kind !== 'image') {
     const meta = NON_IMAGE_THUMB[kind] || NON_IMAGE_THUMB.other;
     const Icon = meta.Icon;
     return (
@@ -206,36 +180,6 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind, version }) {
         <Icon size={viewMode === 'grid' ? 36 : 24} className={`${meta.accent} opacity-90`} />
         <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">{meta.label}</span>
         <span className="text-[9px] text-slate-500 truncate w-full text-center" title={alt}>{alt}</span>
-      </div>
-    );
-  };
-
-  // Àudio / altres: directament placeholder.
-  if (kind && kind !== 'image' && !isQuicklookKind) {
-    return placeholder();
-  }
-
-  // Vídeo / PDF: prova el thumb QuickLook; si falla, cau al placeholder
-  // amb icona (no a "No descarregat"; aquest últim és per a imatges
-  // online-only de OneDrive que no es descarreguen).
-  if (isQuicklookKind) {
-    if (quicklookFailed) return placeholder();
-    const qlSrc = thumbUrlFor(src, version);
-    if (!qlSrc) return placeholder();
-    return (
-      <div className={`${wrapperClass} bg-gradient-to-br from-slate-800 to-slate-900 relative`}>
-        <img
-          src={qlSrc}
-          alt={alt}
-          title={alt}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-          loading="lazy"
-          onError={() => setQuicklookFailed(true)}
-        />
-        {/* Badge del tipus (Vídeo/PDF) per indicar que NO és imatge */}
-        <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 text-[9px] text-white font-bold uppercase tracking-wider">
-          {(NON_IMAGE_THUMB[kind] || NON_IMAGE_THUMB.other).label}
-        </div>
       </div>
     );
   }
@@ -681,7 +625,7 @@ export default function MediaCenter() {
   const [activeAlbum, setActiveAlbum] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editingMetadata, setEditingMetadata] = useState({ tags: [], description: '' });
 
@@ -924,6 +868,36 @@ export default function MediaCenter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAlbum, activeRoot, filters, sort]);
 
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setIsUploading(true);
+      toast.loading('Pujant fitxer...', { id: 'upload' });
+      // Per al root "images" mantenim el flux antic (galeria amb àlbums).
+      // Per a la resta, derivar a /assets/upload (no hi ha noció d'àlbum).
+      let url;
+      if (activeRoot === 'images') {
+        const album = activeAlbum || 'General';
+        url = `/api/vault/media/upload?album=${encodeURIComponent(album)}`;
+      } else {
+        url = '/api/vault/assets/upload';
+      }
+      await axios.post(url, formData);
+      toast.success('Fitxer pujat correctament', { id: 'upload' });
+      fetchMedia(true);
+    } catch (err) {
+      console.error('Error pujant fitxer:', err);
+      toast.error('Error en la càrrega', { id: 'upload' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handlePhotoClick = (item) => {
     setSelectedPhoto(item);
     setEditingMetadata({ 
@@ -1007,43 +981,152 @@ export default function MediaCenter() {
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [editingMetadata, selectedPhoto, flushSave]);
 
-  const filteredMedia = media.filter(item => 
+  const filteredMedia = media.filter(item =>
     item.filename.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // ----- Visor (lightbox) -----
+  // Estat: el visor està obert quan `selectedPhoto != null`. La navegació
+  // prev/next es deriva de l'índex dins `filteredMedia`.
+  const [slideshowActive, setSlideshowActive] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const viewerRootRef = useRef(null);
+  const SLIDESHOW_INTERVAL_MS = 4000;
+
+  const currentIndex = selectedPhoto
+    ? filteredMedia.findIndex((m) => m.id === selectedPhoto.id)
+    : -1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < filteredMedia.length - 1;
+
+  const goPrev = useCallback(() => {
+    if (currentIndex <= 0) return;
+    handlePhotoClick(filteredMedia[currentIndex - 1]);
+  }, [currentIndex, filteredMedia]);
+
+  const goNext = useCallback(() => {
+    if (currentIndex < 0 || currentIndex >= filteredMedia.length - 1) return;
+    handlePhotoClick(filteredMedia[currentIndex + 1]);
+  }, [currentIndex, filteredMedia]);
+
+  const closeViewer = useCallback(() => {
+    setSelectedPhoto(null);
+    setSlideshowActive(false);
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = viewerRootRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  // Sincronitza `isFullscreen` amb l'estat real del browser (l'usuari pot
+  // sortir amb Esc nadiu, no només amb el botó).
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
+
+  // Atall de teclat global mentre el visor està obert. Ignorem si l'usuari
+  // està escrivint a un input/textarea (tags, descripció, etc).
+  useEffect(() => {
+    if (!selectedPhoto) return;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeViewer();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        setSlideshowActive((s) => !s);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selectedPhoto, goPrev, goNext, toggleFullscreen, closeViewer]);
+
+  // Slideshow: cada SLIDESHOW_INTERVAL_MS va a la següent. S'atura quan
+  // arriba al final o quan l'usuari el desactiva. Es reinicia quan canvia
+  // l'item actual perquè cada item té un timer fresc.
+  useEffect(() => {
+    if (!slideshowActive || !selectedPhoto) return;
+    const t = setTimeout(() => {
+      if (hasNext) goNext();
+      else setSlideshowActive(false);
+    }, SLIDESHOW_INTERVAL_MS);
+    return () => clearTimeout(t);
+  }, [slideshowActive, selectedPhoto, hasNext, goNext]);
+
   return (
-    <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
-      <AppHeader icon={ImageIcon} title="Gestor de Mitjans">
+    <div className="flex flex-col h-screen bg-[var(--bg-secondary)] overflow-hidden">
+      {/* Header */}
+      <header className="p-6 bg-[var(--bg-primary)] border-b border-[var(--border-primary)] flex justify-between items-center z-10 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none" size={14} />
-            <input
-              type="text"
-              placeholder="Cerca..."
+          <div className="p-2 bg-[var(--gnosi-primary)]/10 rounded-lg text-[var(--gnosi-primary)]">
+            <ImageIcon size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Gestor de Mitjans</h1>
+            <p className="text-xs text-[var(--text-tertiary)]">
+              Imatges, vídeos, àudio i PDFs · {ROOT_META[activeRoot]?.label || activeRoot}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] group-focus-within:text-[var(--gnosi-primary)] transition-colors" size={16} />
+            <input 
+              type="text" 
+              placeholder="Cerca en l'arxiu..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-7 pl-8 pr-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md text-[12px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/30 w-56"
+              className="pl-10 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 w-64 transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-0.5 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
-            <button
+          <div className="flex bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-primary)]">
+            <button 
               onClick={() => setViewMode('grid')}
-              title="Vista de quadrícula"
-              className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
+              className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-[var(--bg-primary)] shadow-sm text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
             >
-              <Grid size={14} strokeWidth={2.5} />
+              <Grid size={18} />
             </button>
-            <button
+            <button 
               onClick={() => setViewMode('list')}
-              title="Vista de llista"
-              className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
+              className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-[var(--bg-primary)] shadow-sm text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
             >
-              <ListIcon size={14} strokeWidth={2.5} />
+              <ListIcon size={18} />
             </button>
           </div>
+
+          {(activeRoot === 'images' || activeRoot === 'assets') && (
+            <label className="flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg hover:bg-[var(--gnosi-primary)]/90 cursor-pointer transition-all shadow-lg active:scale-95">
+              <Plus size={18} />
+              <span className="text-sm font-medium">Penjar fitxer</span>
+              <input type="file" className="hidden" onChange={handleUpload} />
+            </label>
+          )}
         </div>
-      </AppHeader>
+      </header>
 
       {/* Toolbar de filtres + ordenació (només quan hi ha àlbum actiu) */}
       {activeAlbum !== null && (
@@ -1061,12 +1144,8 @@ export default function MediaCenter() {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Albums (col·lapsable) */}
-        <div
-          className="transition-[width] duration-300 ease-in-out overflow-hidden border-r border-[var(--border-primary)] min-w-0"
-          style={{ width: showLeftSidebar ? '16rem' : '0', borderRightWidth: showLeftSidebar ? '1px' : '0' }}
-        >
-        <aside className="w-64 h-full bg-[var(--bg-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
+        {/* Sidebar Albums */}
+        <aside className="w-64 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
           {/* Tabs de root: Images, Assets, Biblioteca, Vault */}
           {roots.length > 1 && (
             <>
@@ -1164,23 +1243,9 @@ export default function MediaCenter() {
             />
           ))}
         </aside>
-        </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-3 py-2 border-b border-[var(--border-primary)] flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setShowLeftSidebar(!showLeftSidebar)}
-              title={showLeftSidebar ? "Amaga la barra lateral" : "Mostra la barra lateral"}
-              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-lg transition-colors shrink-0"
-            >
-              <PanelLeft size={16} />
-            </button>
-            <span className="text-xs text-[var(--text-tertiary)] truncate">
-              {ROOT_META[activeRoot]?.label || activeRoot}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
           {activeAlbum === null ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]/30 rounded-2xl border-2 border-dashed border-[var(--border-primary)]">
               <Folder size={64} className="mb-4 opacity-20" />
@@ -1235,7 +1300,6 @@ export default function MediaCenter() {
                       alt={item.filename}
                       viewMode={viewMode}
                       kind={item.kind}
-                      version={item.last_modified || item.mtime || item.size}
                     />
                   </motion.div>
                 ))}
@@ -1243,159 +1307,248 @@ export default function MediaCenter() {
             </>
           )}
         </div>
-        </div>
 
-        {/* Details Panel */}
-        <AnimatePresence>
-          {selectedPhoto && (
-            <motion.aside 
-              initial={{ x: 400 }}
-              animate={{ x: 0 }}
-              exit={{ x: 400 }}
-              className="w-96 bg-[var(--bg-primary)] border-l border-[var(--border-primary)] shadow-2xl z-20 flex flex-col h-full"
-            >
-              <div className="p-4 border-b border-[var(--border-primary)] flex justify-between items-center">
-                <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <ImageIcon size={18} className="text-[var(--gnosi-primary)]" />
-                  Detalls de la imatge
-                </h3>
-                <button onClick={() => setSelectedPhoto(null)} className="p-1 hover:bg-[var(--bg-secondary)] rounded-md text-[var(--text-tertiary)]">
+      </div>
+
+      {/* Visor (lightbox) — pantalla quasi-completa amb panell de metadades
+          a la dreta, navegació prev/next, slideshow i fullscreen. El panell
+          es plega quan estem en mode fullscreen o slideshow per maximitzar
+          l'espai del media. */}
+      <AnimatePresence>
+        {selectedPhoto && (
+          <motion.div
+            ref={viewerRootRef}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[9000] bg-black/95 backdrop-blur-md flex flex-col"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 text-white border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={closeViewer}
+                  className="p-2 rounded-lg hover:bg-white/10 transition-all"
+                  title="Tancar (Esc)"
+                >
                   <X size={20} />
                 </button>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate" title={selectedPhoto.filename}>{selectedPhoto.filename}</p>
+                  <p className="text-[11px] text-white/50">{selectedPhoto.album}</p>
+                </div>
               </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-white/60 mr-2 tabular-nums">
+                  {currentIndex + 1} / {filteredMedia.length}
+                </span>
+                <button
+                  onClick={() => setSlideshowActive(s => !s)}
+                  className={`p-2 rounded-lg transition-all ${slideshowActive ? 'bg-[var(--gnosi-primary)] text-white' : 'hover:bg-white/10 text-white'}`}
+                  title={slideshowActive ? 'Aturar presentació (Espai)' : 'Iniciar presentació (Espai)'}
+                >
+                  {slideshowActive ? <Pause size={18} /> : <Play size={18} />}
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-2 rounded-lg hover:bg-white/10 text-white transition-all"
+                  title={isFullscreen ? 'Sortir de pantalla completa (F)' : 'Pantalla completa (F)'}
+                >
+                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </button>
+              </div>
+            </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                {/* Preview */}
-                <div className="rounded-2xl overflow-hidden border border-[var(--border-primary)] shadow-sm bg-[var(--bg-secondary)]">
-                  <img 
-                    src={normalizeUrl(selectedPhoto.url)} 
-                    className="w-full h-auto object-contain max-h-64 mx-auto" 
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentElement.classList.add('flex', 'items-center', 'justify-center', 'bg-red-500/10', 'py-12');
-                      const icon = document.createElement('div');
-                      icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-red-500/20"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
-                      e.target.parentElement.appendChild(icon.firstChild);
-                    }}
-                  />
-                </div>
-
-                {/* Info EXIF */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)]">
-                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold mb-1">Data Presa</p>
-                    <p className="text-xs font-medium text-[var(--text-primary)] flex items-center gap-2">
-                      <Calendar size={14} className="text-blue-500" />
-                      {selectedPhoto.date_taken ? new Date(selectedPhoto.date_taken).toLocaleDateString() : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)]">
-                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold mb-1">Àlbum</p>
-                    <p className="text-xs font-medium text-[var(--text-primary)] flex items-center gap-2">
-                      <FolderOpen size={14} className="text-orange-500" />
-                      {selectedPhoto.album}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Maps & Location */}
-                {selectedPhoto.lat && (
-                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                    <p className="text-[10px] text-emerald-600 uppercase font-bold mb-2">Localització Detectada</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <MapPin size={20} className="text-emerald-500" />
-                        <span className="text-xs text-[var(--text-secondary)]">{selectedPhoto.lat.toFixed(4)}, {selectedPhoto.lng.toFixed(4)}</span>
-                      </div>
-                      <a 
-                        href={`https://www.google.com/maps?q=${selectedPhoto.lat},${selectedPhoto.lng}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-white border border-emerald-200 text-emerald-600 rounded-lg text-[10px] font-bold flex items-center gap-1 hover:bg-emerald-50 shadow-sm"
-                      >
-                        <ExternalLink size={12} /> Google Maps
-                      </a>
-                    </div>
-                  </div>
+            {/* Body */}
+            <div className="flex-1 flex min-h-0">
+              {/* Media + fletxes */}
+              <div className="relative flex-1 flex items-center justify-center p-4 min-w-0">
+                {hasPrev && (
+                  <button
+                    onClick={goPrev}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-sm"
+                    title="Anterior (←)"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                )}
+                {hasNext && (
+                  <button
+                    onClick={goNext}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-sm"
+                    title="Següent (→)"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
                 )}
 
-                {/* Editor metadades */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">Etiquetes (Tags)</label>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {editingMetadata.tags.map(tag => (
-                        <span key={tag} className="flex items-center gap-1 px-2 py-1 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] text-[10px] font-bold rounded-full group">
-                          {tag}
-                          <button onClick={() => setEditingMetadata({...editingMetadata, tags: editingMetadata.tags.filter(t => t !== tag)})}>
-                            <X size={10} className="hover:text-red-500" />
-                          </button>
+                {/* Render segons tipus */}
+                {selectedPhoto.kind === 'image' && (
+                  <img
+                    key={selectedPhoto.id}
+                    src={normalizeUrl(selectedPhoto.url)}
+                    alt={selectedPhoto.filename}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                  />
+                )}
+                {selectedPhoto.kind === 'video' && (
+                  <video
+                    key={selectedPhoto.id}
+                    src={normalizeUrl(selectedPhoto.url)}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-full rounded-lg shadow-2xl"
+                  />
+                )}
+                {selectedPhoto.kind === 'audio' && (
+                  <audio
+                    key={selectedPhoto.id}
+                    src={normalizeUrl(selectedPhoto.url)}
+                    controls
+                    autoPlay
+                    className="w-full max-w-md"
+                  />
+                )}
+                {selectedPhoto.kind === 'pdf' && (
+                  <iframe
+                    key={selectedPhoto.id}
+                    src={normalizeUrl(selectedPhoto.url)}
+                    title={selectedPhoto.filename}
+                    className="w-full h-full bg-white rounded-lg shadow-2xl"
+                  />
+                )}
+                {(!['image', 'video', 'audio', 'pdf'].includes(selectedPhoto.kind)) && (
+                  <a
+                    href={normalizeUrl(selectedPhoto.url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-300 hover:underline text-sm flex items-center gap-2"
+                  >
+                    <ExternalLink size={16} /> Obrir fitxer al navegador
+                  </a>
+                )}
+              </div>
+
+              {/* Panell de metadades — amagat en fullscreen i slideshow */}
+              {!isFullscreen && !slideshowActive && (
+                <aside className="w-80 bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col h-full border-l border-white/10 shrink-0">
+                  <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-2.5 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)]">
+                        <p className="text-[9px] text-[var(--text-tertiary)] uppercase font-bold mb-1">Data presa</p>
+                        <p className="text-xs font-medium text-[var(--text-primary)] flex items-center gap-1.5">
+                          <Calendar size={12} className="text-blue-500" />
+                          {selectedPhoto.date_taken ? new Date(selectedPhoto.date_taken).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="p-2.5 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)]">
+                        <p className="text-[9px] text-[var(--text-tertiary)] uppercase font-bold mb-1">Àlbum</p>
+                        <p className="text-xs font-medium text-[var(--text-primary)] flex items-center gap-1.5">
+                          <FolderOpen size={12} className="text-orange-500" />
+                          <span className="truncate">{selectedPhoto.album}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedPhoto.lat && (
+                      <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                        <p className="text-[9px] text-emerald-600 uppercase font-bold mb-1.5">Localització</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <MapPin size={14} className="text-emerald-500 shrink-0" />
+                            <span className="text-[11px] text-[var(--text-secondary)] truncate">{selectedPhoto.lat.toFixed(4)}, {selectedPhoto.lng.toFixed(4)}</span>
+                          </div>
+                          <a
+                            href={`https://www.google.com/maps?q=${selectedPhoto.lat},${selectedPhoto.lng}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-1 bg-white border border-emerald-200 text-emerald-600 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-emerald-50 shrink-0"
+                          >
+                            <ExternalLink size={10} /> Maps
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">Etiquetes</label>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {editingMetadata.tags.map(tag => (
+                            <span key={tag} className="flex items-center gap-1 px-2 py-0.5 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] text-[10px] font-bold rounded-full">
+                              {tag}
+                              <button onClick={() => setEditingMetadata({...editingMetadata, tags: editingMetadata.tags.filter(t => t !== tag)})}>
+                                <X size={10} className="hover:text-red-500" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="relative">
+                          <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={12} />
+                          <input
+                            type="text"
+                            placeholder="Afegir tag i prem Enter…"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && e.target.value) {
+                                if (!editingMetadata.tags.includes(e.target.value)) {
+                                  setEditingMetadata({...editingMetadata, tags: [...editingMetadata.tags, e.target.value]});
+                                }
+                                e.target.value = '';
+                              }
+                            }}
+                            className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg text-xs focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">Descripció</label>
+                        <textarea
+                          value={editingMetadata.description}
+                          onChange={(e) => setEditingMetadata({...editingMetadata, description: e.target.value})}
+                          placeholder="Context del coneixement o record…"
+                          className="w-full p-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-xs min-h-[100px] focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex items-center gap-3">
+                    <button
+                      className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[var(--border-primary)] text-[var(--text-primary)] rounded-lg text-[11px] font-bold hover:bg-[var(--bg-primary)] transition-all shadow-sm"
+                      onClick={() => toast.success('Properament: Creació de nota Markdown')}
+                    >
+                      <FileText size={14} className="text-purple-500" />
+                      Crear nota
+                    </button>
+                    <div className="flex-1 text-right text-[10px] font-medium" aria-live="polite">
+                      {saveStatus === 'saving' && (
+                        <span className="text-[var(--text-tertiary)] inline-flex items-center gap-1.5">
+                          <Loader2 size={12} className="animate-spin" /> Desant…
                         </span>
-                      ))}
-                    </div>
-                    <div className="relative">
-                      <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={14} />
-                      <input 
-                        type="text" 
-                        placeholder="Afegir tag i prem Enter..."
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && e.target.value) {
-                            if (!editingMetadata.tags.includes(e.target.value)) {
-                              setEditingMetadata({...editingMetadata, tags: [...editingMetadata.tags, e.target.value]});
-                            }
-                            e.target.value = '';
-                          }
-                        }}
-                        className="w-full pl-9 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-xs focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none"
-                      />
+                      )}
+                      {saveStatus === 'saved' && (
+                        <span className="text-emerald-600 inline-flex items-center gap-1.5">
+                          <Check size={12} /> Desat
+                        </span>
+                      )}
+                      {saveStatus === 'error' && (
+                        <span className="text-red-500 inline-flex items-center gap-1.5">
+                          <AlertCircle size={12} /> Error en desar
+                        </span>
+                      )}
+                      {saveStatus === 'idle' && (
+                        <span className="text-[var(--text-tertiary)]">Auto-desat</span>
+                      )}
                     </div>
                   </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">Descripció KPM</label>
-                    <textarea 
-                      value={editingMetadata.description}
-                      onChange={(e) => setEditingMetadata({...editingMetadata, description: e.target.value})}
-                      placeholder="Context del coneixement o record..."
-                      className="w-full p-4 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl text-xs min-h-[100px] focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none resize-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex items-center gap-3">
-                <button
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[var(--border-primary)] text-[var(--text-primary)] rounded-xl text-xs font-bold hover:bg-[var(--bg-primary)] transition-all shadow-sm"
-                  onClick={() => toast.success('Properament: Creació de nota Markdown')}
-                >
-                  <FileText size={16} className="text-purple-500" />
-                  Crear Nota
-                </button>
-                <div className="flex-1 text-right text-[10px] font-medium" aria-live="polite">
-                  {saveStatus === 'saving' && (
-                    <span className="text-[var(--text-tertiary)] inline-flex items-center gap-1.5">
-                      <Loader2 size={12} className="animate-spin" /> Desant…
-                    </span>
-                  )}
-                  {saveStatus === 'saved' && (
-                    <span className="text-emerald-600 inline-flex items-center gap-1.5">
-                      <Check size={12} /> Desat
-                    </span>
-                  )}
-                  {saveStatus === 'error' && (
-                    <span className="text-red-500 inline-flex items-center gap-1.5">
-                      <AlertCircle size={12} /> Error en desar
-                    </span>
-                  )}
-                  {saveStatus === 'idle' && (
-                    <span className="text-[var(--text-tertiary)]">Auto-desat actiu</span>
-                  )}
-                </div>
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-      </div>
+                </aside>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ViewNamePromptModal
         open={viewPromptOpen}
