@@ -50,6 +50,8 @@ import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
 import { coerceValueForField, serializeCellForClipboard, parseClipboardMatrix } from './cellGridUtils';
+import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
+import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useTheme } from '../../hooks/useTheme';
 import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
@@ -2585,6 +2587,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
     const isEditable = !isViewer;
     const [metadata, setMetadata] = useState(initialMetadata);
+    // Defaults globals de format (moneda/número/data) per a la visualització
+    // en mode lectura de les propietats (override per camp via config.format).
+    const localeSettings = useLocaleSettings();
     // (interceptor de file:// està al hook useFileLinkInterceptor invocat a App.jsx)
     
     const [saveStatus, setSaveStatus] = useState('idle');
@@ -3353,9 +3358,19 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             </a>
                                                         )}
                                                     </div>
-                                                ) : (
-                                                    <input disabled={!isEditor} type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={metadata[prop.name] || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />
-                                                )}
+                                                ) : (() => {
+                                                    const v = metadata[prop.name];
+                                                    const hasVal = v !== undefined && v !== null && v !== '';
+                                                    // Mode lectura: número/data formatats (global o override del camp).
+                                                    if (!isEditor && hasVal && (prop.type === 'number' || prop.type === 'date' || prop.type === 'datetime')) {
+                                                        const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
+                                                        const text = prop.type === 'number'
+                                                            ? formatNumber(v, { kind: pfmt.kind, decimals: pfmt.decimals, currencyCode: pfmt.currencyCode, locale: pfmt.numberLocale })
+                                                            : formatDate(v, { dateFormat: pfmt.dateFormat, type: prop.type === 'datetime' ? 'datetime' : 'date', locale: pfmt.dateLocale });
+                                                        return <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">{text}</span>;
+                                                    }
+                                                    return <input disabled={!isEditor} type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={v || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />;
+                                                })()}
                                                 {!currentTable && (
                                                     <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_property')}><X size={14} /></button>
                                                 )}

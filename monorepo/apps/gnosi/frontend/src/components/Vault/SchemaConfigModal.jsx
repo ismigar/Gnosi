@@ -298,6 +298,76 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 )}
             </div>
 
+            {/* Number: format (número / moneda / percentatge + decimals) */}
+            {field.type === 'number' && (
+                <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
+                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 block">
+                            {t('schema.number_format', 'Format del número')}
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <select
+                                value={field.format?.kind || 'number'}
+                                onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), kind: e.target.value })}
+                                className="text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                            >
+                                <option value="number">{t('schema.number_plain', 'Número')}</option>
+                                <option value="currency">{t('schema.number_currency', 'Moneda')}</option>
+                                <option value="percent">{t('schema.number_percent', 'Percentatge')}</option>
+                            </select>
+                            <input
+                                type="number"
+                                min="0"
+                                max="6"
+                                value={field.format?.decimals ?? ''}
+                                onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), decimals: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                placeholder={t('schema.number_decimals', 'Decimals')}
+                                className="text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                            />
+                            {field.format?.kind === 'currency' && (
+                                <select
+                                    value={field.format?.currency || ''}
+                                    onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), currency: e.target.value })}
+                                    className="text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                >
+                                    <option value="">{t('schema.currency_default', 'Per defecte')}</option>
+                                    <option value="EUR (€)">EUR (€)</option>
+                                    <option value="USD ($)">USD ($)</option>
+                                    <option value="GBP (£)">GBP (£)</option>
+                                    <option value="JPY (¥)">JPY (¥)</option>
+                                    <option value="CHF (₣)">CHF (₣)</option>
+                                </select>
+                            )}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
+                            {t('schema.number_format_hint', "Buit/«Número» = format global de Settings. El percentatge mostra el valor tal qual amb «%».")}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Date/datetime: format de presentació */}
+            {(field.type === 'date' || field.type === 'datetime') && (
+                <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
+                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 block">
+                            {t('schema.date_format', 'Format de data')}
+                        </label>
+                        <select
+                            value={field.format?.dateFormat || ''}
+                            onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), dateFormat: e.target.value || undefined })}
+                            className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                        >
+                            <option value="">{t('schema.date_format_global', 'Global (Settings)')}</option>
+                            <option value="locale">{t('schema.date_format_locale', "Segons l'idioma")}</option>
+                            <option value="DD/MM/YYYY">DD/MM/AAAA</option>
+                            <option value="MM/DD/YYYY">MM/DD/AAAA</option>
+                            <option value="YYYY-MM-DD">AAAA-MM-DD (ISO)</option>
+                        </select>
+                    </div>
+                </div>
+            )}
+
             {/* Button: action + label config */}
             {field.type === 'button' && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -651,6 +721,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     translatable: !!cfg.translatable,
                     button_action: cfg.button_action || '',
                     button_label: cfg.button_label || '',
+                    format: (cfg.format && typeof cfg.format === 'object') ? cfg.format : {},
                     options: Array.isArray(cfg.options) ? cfg.options : [],
                     visible: initialVisibleProperties ? initialVisibleProperties.includes(name) : true
                 };
@@ -894,6 +965,18 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 if (f.button_label?.trim()) {
                     config.button_label = f.button_label.trim();
                 }
+            }
+            // Format per camp (override del global): només es persisteix si té
+            // valors significatius, perquè un camp sense format derivi del global.
+            if (f.type === 'number' && f.format) {
+                const fmt = {};
+                if (f.format.kind && f.format.kind !== 'number') fmt.kind = f.format.kind;
+                if (f.format.decimals != null && f.format.decimals !== '') fmt.decimals = Number(f.format.decimals);
+                if (f.format.currency) fmt.currency = f.format.currency;
+                if (Object.keys(fmt).length > 0) config.format = fmt;
+            }
+            if ((f.type === 'date' || f.type === 'datetime') && f.format?.dateFormat) {
+                config.format = { ...(config.format || {}), dateFormat: f.format.dateFormat };
             }
             // Catàleg d'opcions per a select/multi_select/status. Només el
             // persistim si en queda alguna (netejant buits i duplicats); si

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, X } from 'lucide-react';
+import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 
 // --- Helpers de període (format "YYYY-MM-DD/YYYY-MM-DD") ---
 // Compartits amb VaultTable per mostrar/calcular el nombre de dies sense
@@ -32,6 +33,9 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
     const inputRef = useRef(null);
     const hiddenInputRef = useRef(null);
     const [inputValue, setInputValue] = useState('');
+    // L'idioma de la interfície per formatar la data mostrada a l'input
+    // (abans estava fixat a 'ca-ES', ignorant la preferència de l'usuari).
+    const { dateLocale } = useLocaleSettings();
 
     // Formateig inicial i sincronització
     useEffect(() => {
@@ -50,12 +54,12 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                     options.hour = '2-digit';
                     options.minute = '2-digit';
                 }
-                setInputValue(date.toLocaleString('ca-ES', options).replace(',', ''));
+                setInputValue(date.toLocaleString(dateLocale || 'ca-ES', options).replace(',', ''));
             }
         } catch (e) {
             setInputValue(value);
         }
-    }, [value, type]);
+    }, [value, type, dateLocale]);
 
     // Convertir de local a ISO per desar
     const handleInputChange = (e) => {

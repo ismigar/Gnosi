@@ -226,6 +226,8 @@ import {
     clampIndex,
     computePasteRect,
 } from './cellGridUtils';
+import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
+import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { applyDefaultFormulasToMetadata } from './defaultFormulaUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -285,6 +287,8 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
 
 export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
     const { t, i18n } = useTranslation();
+    // Defaults globals de format (moneda/número/data) — override per camp via config.format.
+    const localeSettings = useLocaleSettings();
     // Overrides optimistic per cel·la. Map<noteId, partialMetadata>. Quan
     // l'usuari edita un camp, apliquem el canvi aquí *abans* del PATCH al
     // backend; així la UI reflecteix la nova dada de seguida (0 ms percebut)
@@ -1957,6 +1961,14 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         switch (type) {
             case 'checkbox':
                 return (value && value !== 'false') ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
+            case 'number': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                return (
+                    <span className="tabular-nums" title={String(value)}>
+                        {formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}
+                    </span>
+                );
+            }
             case 'date':
             case 'datetime': {
                 const parsed = new Date(value);
@@ -1964,29 +1976,30 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     // Valor corrupte: mostrem el text cru en comptes de "Invalid Date".
                     return <span className="truncate max-w-[200px] block text-[var(--text-tertiary)]" title={String(value)}>{String(value)}</span>;
                 }
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return (
                     <div className="flex items-center gap-1.5 whitespace-nowrap text-[var(--text-primary)]">
                         {type === 'datetime' ? <Clock size={14} className="text-[var(--text-tertiary)]" /> : <Calendar size={14} className="text-[var(--text-tertiary)]" />}
-                        <span>
-                            {parsed.toLocaleString(i18n.language, {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                ...(type === 'datetime' ? { hour: '2-digit', minute: '2-digit' } : {})
-                            })}
-                        </span>
+                        <span>{formatDate(value, { dateFormat: fmt.dateFormat, type, locale: fmt.dateLocale })}</span>
                     </div>
                 );
             }
             case 'period': {
                 const [start, end] = String(value).split('/');
-                const formatDate = (d) => d ? new Date(d).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' }) : '?';
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                // Mode 'locale' → compacte (dia + mes curt, sense any) per no inflar
+                // el xip; un format explícit (DD/MM/YYYY…) es respecta tal qual.
+                const fmtPeriodDate = (d) => {
+                    if (!d) return '?';
+                    if (fmt.dateFormat && fmt.dateFormat !== 'locale') return formatDate(d, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale });
+                    return new Date(d).toLocaleDateString(fmt.dateLocale || i18n.language, { day: '2-digit', month: 'short' });
+                };
                 const days = periodDaysInclusive(start, end);
                 return (
                     <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded border border-[var(--border-primary)] w-fit">
-                        <span>{formatDate(start)}</span>
+                        <span>{fmtPeriodDate(start)}</span>
                         <span className="text-[var(--text-tertiary)]">→</span>
-                        <span>{formatDate(end)}</span>
+                        <span>{fmtPeriodDate(end)}</span>
                         {days != null && (
                             <span className="text-[var(--text-tertiary)] ml-0.5" title={t('table.period_days', { count: days, defaultValue: '{{count}} dies' })}>· {days} d</span>
                         )}
@@ -2100,13 +2113,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         if (type === 'number' || field === 'size' || type === 'formula' || type === 'rollup') {
             const nums = values.map(v => Number(v)).filter(v => !isNaN(v));
             if (nums.length === 0) return 0;
-            if (func === 'sum') return nums.reduce((a, b) => a + b, 0).toLocaleString();
-            if (func === 'avg') return (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2);
-            if (func === 'min') return Math.min(...nums).toLocaleString();
-            if (func === 'max') return Math.max(...nums).toLocaleString();
+            const aggFmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+            const fnum = (n) => formatNumber(n, { kind: aggFmt.kind, decimals: aggFmt.decimals, currencyCode: aggFmt.currencyCode, locale: aggFmt.numberLocale });
+            if (func === 'sum') return fnum(nums.reduce((a, b) => a + b, 0));
+            if (func === 'avg') return fnum(nums.reduce((a, b) => a + b, 0) / nums.length);
+            if (func === 'min') return fnum(Math.min(...nums));
+            if (func === 'max') return fnum(Math.max(...nums));
         }
         if (type === 'date' || type === 'datetime' || type === 'period' || field === 'last_modified') {
-            const formatAggDate = (d) => d.toLocaleDateString(i18n.language, { day: '2-digit', month: 'short', year: 'numeric' });
+            const aggDateFmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+            const formatAggDate = (d) => formatDate(d, { dateFormat: aggDateFmt.dateFormat, type: 'date', locale: aggDateFmt.dateLocale });
             if (type === 'period') {
                 // earliest = min start, latest = max end
                 if (func === 'earliest') {
