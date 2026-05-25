@@ -7,6 +7,7 @@ import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, 
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
 import { isCalendarPage, isAppContent } from './schemaUtils';
+import { sortKey } from '../../utils/vaultFilters';
 
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement, indented = false }) => (
     <button
@@ -480,10 +481,10 @@ export const VaultSidebar = ({
         const list = Array.isArray(favoritePages) ? [...favoritePages] : [];
         const { mode, manualOrder } = favoritesSort;
         if (mode === 'alpha-asc') {
-            return list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
+            return list.sort((a, b) => sortKey(a.title).localeCompare(sortKey(b.title), 'ca', { sensitivity: 'base' }));
         }
         if (mode === 'alpha-desc') {
-            return list.sort((a, b) => String(b.title || '').localeCompare(String(a.title || '')));
+            return list.sort((a, b) => sortKey(b.title).localeCompare(sortKey(a.title), 'ca', { sensitivity: 'base' }));
         }
         if (mode === 'recent') {
             return list.sort((a, b) => String(b.last_modified || '').localeCompare(String(a.last_modified || '')));

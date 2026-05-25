@@ -4,7 +4,7 @@
  * per a les vistes del Vault (Taula, Galeria, Kanban, Timeline, Feed).
  */
 import { useMemo } from 'react';
-import { matchesFilters, matchesSearch } from '../utils/vaultFilters';
+import { matchesFilters, matchesSearch, sortKey } from '../utils/vaultFilters';
 
 /**
  * @param {Object} params
@@ -54,7 +54,7 @@ export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, 
                 const bNum = parseFloat(bVal);
                 const isNumeric = !isNaN(aNum) && !isNaN(bNum);
 
-                let cmp = isNumeric ? aNum - bNum : aVal.localeCompare(bVal, 'ca', { sensitivity: 'base' });
+                let cmp = isNumeric ? aNum - bNum : sortKey(aVal).localeCompare(sortKey(bVal), 'ca', { sensitivity: 'base' });
                 if (sort.direction === 'desc') cmp = -cmp;
                 if (cmp !== 0) return cmp;
             }

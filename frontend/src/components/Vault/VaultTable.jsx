@@ -6,6 +6,7 @@ import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
 import { filenameFromTarget } from '../../lib/fileResource';
+import { sortKey } from '../../utils/vaultFilters';
 import { InsertContentModal } from './InsertContentModal';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave, onCreate, onDeleteOption }) => {
@@ -791,7 +792,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 .sort((a, b) => {
                     if (a.metadata?.is_default_template) return -1;
                     if (b.metadata?.is_default_template) return 1;
-                    return String(a?.title || '').localeCompare(String(b?.title || ''));
+                    return sortKey(a?.title).localeCompare(sortKey(b?.title), 'ca', { sensitivity: 'base' });
                 })
                 .forEach((template) => {
                     const isDefault = template.metadata?.is_default_template;
