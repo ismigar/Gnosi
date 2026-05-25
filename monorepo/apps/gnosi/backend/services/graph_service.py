@@ -45,6 +45,28 @@ IGNORED_DIRS = {
     "system", "custom_icons", "data",
 }
 
+# Status override: detecta "idea" com a paraula sencera al valor d'estat per
+# pintar el node en groc. Amb \b s'eviten falsos positius com "idealment" o
+# "ideari" que contenen "idea" com a substring.
+_STATUS_IDEA_RE = re.compile(r"\bidea\b", re.IGNORECASE)
+
+# Classificació de `note_type` → `kind`. Cada patró requereix que el token
+# aparegui al començament o precedit per un separador per evitar falsos
+# positius com "Impermanent" → permanent o "Eventualment" → event. S'accepta
+# un sufix opcional però limitat a `\w{0,4}` i, després, un separador o final
+# de text (`(?=[\s_\-]|$)`), per cobrir plurals i variacions lingüístiques ("permanente", "permanents",
+# "calendari", "diaris", etc.). L'ordre importa: es retorna el primer match.
+_KIND_PATTERNS = (
+    (re.compile(r"(^|[\s_\-])(reading|lectura)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "reading"),
+    (re.compile(r"(^|[\s_\-])permanent\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "permanent"),
+    (re.compile(r"(^|[\s_\-])(index|índex)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "index"),
+    (re.compile(r"(^|[\s_\-])(journal|diari|bitàcora)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "journal"),
+    (re.compile(r"(^|[\s_\-])(dialogue|diàleg|dialogo)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "dialogue"),
+    (re.compile(r"(^|[\s_\-])contact\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "contact"),
+    (re.compile(r"(^|[\s_\-])(calendar|event)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "calendar"),
+    (re.compile(r"(^|[\s_\-])(mail|email)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "mail"),
+)
+
 def get_markdown_files_efficient(root_path: Path) -> List[Path]:
     """Efficiently finds all .md files skipping IGNORED_DIRS."""
     md_files = []
@@ -468,16 +490,12 @@ class GraphService:
                     type_prop = app_cfg.get("type_property", "note_type")
                     raw_kind = metadata.get("note_type") or metadata.get(type_prop) or metadata.get("type") or "page"
                     
-                    norm_kind = str(raw_kind).lower()
-                    if "reading" in norm_kind or "lectura" in norm_kind: kind = "reading"
-                    elif "permanent" in norm_kind: kind = "permanent"
-                    elif "index" in norm_kind or "índex" in norm_kind: kind = "index"
-                    elif "journal" in norm_kind or "diari" in norm_kind or "bitàcora" in norm_kind: kind = "journal"
-                    elif "dialogue" in norm_kind or "diàleg" in norm_kind or "dialogo" in norm_kind: kind = "dialogue"
-                    elif "contact" in norm_kind: kind = "contact"
-                    elif "calendar" in norm_kind or "event" in norm_kind: kind = "calendar"
-                    elif "mail" in norm_kind or "email" in norm_kind: kind = "mail"
-                    else: kind = "page"
+                    norm_kind = str(raw_kind)
+                    kind = "page"
+                    for pattern, kind_value in _KIND_PATTERNS:
+                        if pattern.search(norm_kind):
+                            kind = kind_value
+                            break
 
                     # Fallback: detectar per ruta si el frontmatter no especifica el tipus
                     if kind == "page":
@@ -492,8 +510,8 @@ class GraphService:
                     color = color_cfg.get("bg", COLOR_PALETTE.get(kind, COLOR_PALETTE["page"]))
 
                     # Status override
-                    status = str(metadata.get("estat") or metadata.get("status") or "").lower()
-                    if "idea" in status: color = "#fcd34d"
+                    status = str(metadata.get("estat") or metadata.get("status") or "")
+                    if _STATUS_IDEA_RE.search(status): color = "#fcd34d"
 
                     # PRE-EXTRACT WIKILINKS per secció (evita re-lectura al pas d'edges)
                     section_links = parse_section_links(raw_content)
@@ -871,4 +889,3 @@ class GraphService:
             return GraphService._node_count_cache
 
 # graph_service = GraphService()
-
