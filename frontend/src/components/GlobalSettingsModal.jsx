@@ -26,6 +26,12 @@ const LANGUAGES = [
 
 const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
 const DECIMAL_SYMBOLS = [',', '.'];
+const DATE_FORMATS = [
+    { value: 'locale', label: "Segons l'idioma" },
+    { value: 'DD/MM/YYYY', label: 'DD/MM/AAAA' },
+    { value: 'MM/DD/YYYY', label: 'MM/DD/AAAA' },
+    { value: 'YYYY-MM-DD', label: 'AAAA-MM-DD (ISO)' },
+];
 
 const NOTION_COLORS = [
     { name: 'default', color: 'currentColor' },
@@ -254,7 +260,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         settings: {
             user_name: '', workspace_name: '', gnosi_mode: 'personal',
             org_user: '', org_password: '', org_workspace: '',
-            language: 'ca', week_start: 1, currency: 'EUR (€)', decimal_symbol: ',',
+            language: 'ca', week_start: 1, currency: 'EUR (€)', decimal_symbol: ',', date_format: 'locale',
             theme: 'system', reduce_animations: false
         },
         paths: { vault: '', databases: '', newsletters: '' },
@@ -1549,6 +1555,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <FormGroup label="Símbol decimal">
                                             <select className="gnosi-select" value={draft.settings.decimal_symbol} onChange={e => setDraft({...draft, settings: {...draft.settings, decimal_symbol: e.target.value}})}>
                                                 {DECIMAL_SYMBOLS.map(s => <option key={s} value={s}>{s === ',' ? 'Coma (,)' : 'Punt (.)'}</option>)}
+                                            </select>
+                                        </FormGroup>
+                                        <FormGroup label="Format de data" description="Com es mostren les dates als camps. Pots sobreescriure-ho a cada camp.">
+                                            <select className="gnosi-select" value={draft.settings.date_format || 'locale'} onChange={e => setDraft({...draft, settings: {...draft.settings, date_format: e.target.value}})}>
+                                                {DATE_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                                             </select>
                                         </FormGroup>
                                     </div>
