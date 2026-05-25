@@ -95,7 +95,7 @@ jobs:
           done
 
       - name: Create Pull Request (si hi ha canvis)
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "chore(vendor): refresh CSL styles, locales i Zotero translations"
           title: "chore(vendor): refresh vendor files (weekly)"
