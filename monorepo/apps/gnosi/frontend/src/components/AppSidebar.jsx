@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { GlobalSettingsModal } from './GlobalSettingsModal';
 import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 
@@ -22,14 +23,14 @@ const GIcon = ({ size = 14 }) => (
 );
 
 const navItems = [
-    { to: '/vault', icon: FileText, label: 'Knowledge' },
-    { to: '/graph', icon: Network, label: 'Graf' },
-    { to: '/contacts', icon: Users, label: 'Contacts' },
-    { to: '/mail', icon: Inbox, label: 'Mail' },
-    { to: '/calendar', icon: Calendar, label: 'Calendari' },
-    { to: '/reader', icon: BookOpen, label: 'Lector' },
-    { to: '/social-dashboard', icon: Share2, label: 'Social' },
-    { to: '/media', icon: ImageIcon, label: 'Fotos' },
+    { to: '/vault',             icon: FileText,   labelKey: 'sidebar.nav_vault',     shortcut: 'Ctrl 1' },
+    { to: '/graph',             icon: Network,    labelKey: 'sidebar.nav_graph',     shortcut: 'Ctrl 2' },
+    { to: '/contacts',          icon: Users,      labelKey: 'sidebar.nav_contacts',  shortcut: 'Ctrl 3' },
+    { to: '/mail',              icon: Inbox,      labelKey: 'sidebar.nav_mail',      shortcut: 'Ctrl 4' },
+    { to: '/calendar',          icon: Calendar,   labelKey: 'sidebar.nav_calendar',  shortcut: 'Ctrl 5' },
+    { to: '/reader',            icon: BookOpen,   labelKey: 'sidebar.nav_reader',    shortcut: 'Ctrl 6' },
+    { to: '/social-dashboard',  icon: Share2,     labelKey: 'sidebar.nav_social',    shortcut: 'Ctrl 7' },
+    { to: '/media',             icon: ImageIcon,  labelKey: 'sidebar.nav_media',     shortcut: 'Ctrl 8' },
 ];
 
 export function AppSidebar() {
@@ -37,6 +38,8 @@ export function AppSidebar() {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settingsTab, setSettingsTab] = useState('general');
     const [gnosiMode, setGnosiMode] = useState('personal');
+    const { t } = useTranslation();
+    const navigate = useNavigate();
 
     useEffect(() => {
         // Fetch health to get gnosi_mode
@@ -69,6 +72,23 @@ export function AppSidebar() {
         return () => window.removeEventListener('open-settings', handleOpenSettings);
     }, []);
 
+    useEffect(() => {
+        const handler = (e) => {
+            if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+            const tag = document.activeElement?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+            const idx = parseInt(e.key) - 1;
+            if (idx >= 0 && idx < navItems.length) {
+                e.preventDefault();
+                navigate(navItems[idx].to);
+            } else if (e.key === ',') {
+                e.preventDefault();
+                setSettingsOpen(true);
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [navigate]);
 
     return (
         <>
@@ -104,42 +124,53 @@ export function AppSidebar() {
 
                 {/* Nav Items */}
                 <div className="app-sidebar__nav">
-                    {navItems.map(({ to, icon: Icon, label }) => (
-                        <NavLink
-                            key={to}
-                            to={to}
-                            end={to === '/'}
-                            title={label}
-                            onClick={() => setMobileOpen(false)}
-                            className={({ isActive }) =>
-                                `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
-                            }
-                        >
-                            <Icon size={16} strokeWidth={1.5} />
-                            <span className="app-sidebar__tooltip">{label}</span>
-                        </NavLink>
-                    ))}
+                    {navItems.map(({ to, icon: Icon, labelKey, shortcut }) => {
+                        const label = t(labelKey);
+                        return (
+                            <NavLink
+                                key={to}
+                                to={to}
+                                end={to === '/'}
+                                title={label}
+                                onClick={() => setMobileOpen(false)}
+                                className={({ isActive }) =>
+                                    `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
+                                }
+                            >
+                                <Icon size={16} strokeWidth={1.5} />
+                                <span className="app-sidebar__tooltip">
+                                    <span>{label}</span>
+                                    {shortcut && <kbd className="app-sidebar__tooltip-kbd">{shortcut}</kbd>}
+                                </span>
+                            </NavLink>
+                        );
+                    })}
                 </div>
 
                 <div className="app-sidebar__footer">
                     <NavLink
                         to="/dashboard"
-                        title="Control Center"
+                        title={t('sidebar.nav_dashboard')}
                         onClick={() => setMobileOpen(false)}
                         className={({ isActive }) =>
                             `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                         }
                     >
                         <Gauge size={16} strokeWidth={1.5} />
-                        <span className="app-sidebar__tooltip">Control</span>
+                        <span className="app-sidebar__tooltip">
+                            <span>{t('sidebar.nav_dashboard')}</span>
+                        </span>
                     </NavLink>
                     <button
                         className="app-sidebar__item"
-                        title="Configuració"
+                        title={t('sidebar.nav_settings')}
                         onClick={() => setSettingsOpen(true)}
                     >
                         <Settings size={16} strokeWidth={1.5} />
-                        <span className="app-sidebar__tooltip">Config</span>
+                        <span className="app-sidebar__tooltip">
+                            <span>{t('sidebar.nav_settings')}</span>
+                            <kbd className="app-sidebar__tooltip-kbd">Ctrl ,</kbd>
+                        </span>
                     </button>
 
                 </div>

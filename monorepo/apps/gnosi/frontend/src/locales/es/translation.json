@@ -92,7 +92,8 @@
       "unsaved_changes": "Cambios pendientes de guardar...",
       "error_saving": "Error al guardar",
       "error_connection": "Error de conexión"
-    }
+    },
+    "open": "Abrir"
   },
   "calendar": {
     "title": "Calendario",
@@ -184,7 +185,17 @@
     "confirm_delete_db_title": "Eliminar Database",
     "confirm_delete_db_msg": "¿Estás seguro de que quieres eliminar la Database (y todas sus tablas)? Esta acción no se puede deshacer.",
     "confirm_delete_table_title": "Eliminar Tabla",
-    "confirm_delete_table_msg": "¿Estás seguro de que quieres eliminar la Tabla? Esta acción no se puede deshacer."
+    "confirm_delete_table_msg": "¿Estás seguro de que quieres eliminar la Tabla? Esta acción no se puede deshacer.",
+    "nav_vault": "Mi Conocimiento",
+    "nav_graph": "Grafo",
+    "nav_contacts": "Contactos",
+    "nav_mail": "Correo",
+    "nav_calendar": "Calendario",
+    "nav_reader": "Lector",
+    "nav_social": "Social",
+    "nav_media": "Fotos",
+    "nav_dashboard": "Panel",
+    "nav_settings": "Configuración"
   },
   "shell": {
     "go_back": "Atrás",

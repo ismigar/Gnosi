@@ -7,7 +7,8 @@
   },
   "common": {
     "undo": "Annuler",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "open": "Ouvrir"
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
@@ -405,5 +406,17 @@
     "trashed": "Fichier déplacé vers la Corbeille",
     "deleted": "Fichier supprimé",
     "delete_error": "Impossible de supprimer le fichier : {{msg}}"
+  },
+  "sidebar": {
+    "nav_vault": "Ma connaissance",
+    "nav_graph": "Graphe",
+    "nav_contacts": "Contacts",
+    "nav_mail": "Courrier",
+    "nav_calendar": "Calendrier",
+    "nav_reader": "Lecteur",
+    "nav_social": "Social",
+    "nav_media": "Photos",
+    "nav_dashboard": "Tableau de bord",
+    "nav_settings": "Paramètres"
   }
 }

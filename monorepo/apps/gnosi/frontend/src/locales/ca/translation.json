@@ -93,7 +93,8 @@
       "unsaved_changes": "Canvis pendents de guardar...",
       "error_saving": "Error al guardar",
       "error_connection": "Error de connexió"
-    }
+    },
+    "open": "Obrir"
   },
   "calendar": {
     "title": "Calendari",
@@ -194,7 +195,17 @@
     "confirm_delete_db_title": "Eliminar Database",
     "confirm_delete_db_msg": "Estàs segur que vols eliminar la Database (i totes les seves taules)? Aquesta acció no es pot desfer.",
     "confirm_delete_table_title": "Eliminar Taula",
-    "confirm_delete_table_msg": "Estàs segur que vols eliminar la Taula? Aquesta acció no es pot desfer."
+    "confirm_delete_table_msg": "Estàs segur que vols eliminar la Taula? Aquesta acció no es pot desfer.",
+    "nav_vault": "El meu Coneixement",
+    "nav_graph": "Graf",
+    "nav_contacts": "Contactes",
+    "nav_mail": "Correu",
+    "nav_calendar": "Calendari",
+    "nav_reader": "Lector",
+    "nav_social": "Social",
+    "nav_media": "Fotos",
+    "nav_dashboard": "Tauler",
+    "nav_settings": "Configuració"
   },
   "shell": {
     "go_back": "Enrere",
