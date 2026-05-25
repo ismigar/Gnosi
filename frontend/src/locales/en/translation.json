@@ -164,7 +164,8 @@
     "empty": "Empty",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "open": "Open"
   },
   "calendar": {
     "title": "Calendar",
@@ -256,7 +257,17 @@
     "confirm_delete_db_title": "Delete Database",
     "confirm_delete_db_msg": "Are you sure you want to delete the Database (and all its tables)? This action cannot be undone.",
     "confirm_delete_table_title": "Delete Table",
-    "confirm_delete_table_msg": "Are you sure you want to delete the Table? This action cannot be undone."
+    "confirm_delete_table_msg": "Are you sure you want to delete the Table? This action cannot be undone.",
+    "nav_vault": "My Knowledge",
+    "nav_graph": "Graph",
+    "nav_contacts": "Contacts",
+    "nav_mail": "Mail",
+    "nav_calendar": "Calendar",
+    "nav_reader": "Reader",
+    "nav_social": "Social",
+    "nav_media": "Photos",
+    "nav_dashboard": "Dashboard",
+    "nav_settings": "Settings"
   },
   "shell": {
     "go_back": "Go back",

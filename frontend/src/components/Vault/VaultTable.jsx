@@ -2369,7 +2369,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     onDoubleClick={() => onNoteSelect(note.id)}
                 >
                     {/* Acció cel·la */}
-                    <td className={`w-10 px-2 sticky left-0 z-20 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
+                    <td className={`w-10 px-2 sticky left-0 z-20 hover:z-50 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
                         <div className="flex items-center justify-center gap-0.5">
                             {/* Checkbox de selecció */}
                             <label
@@ -2385,10 +2385,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             </label>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onNoteSelect(note.id); }}
-                                className={`p-1 text-[var(--text-tertiary)] hover:text-indigo-600 transition-colors ${selectedIds.size > 0 ? 'hidden' : 'block'}`}
+                                className={`relative p-1 text-[var(--text-tertiary)] hover:text-indigo-600 transition-colors ${selectedIds.size > 0 ? 'hidden' : 'block'}`}
                                 title={t('common.open')}
                             >
                                 <ExternalLink size={14} />
+                                <span className="row-action-tooltip">{t('common.open')}</span>
                             </button>
                             {hasOpenableResource(note) && (
                                 <button
@@ -2397,19 +2398,21 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                         handleOpenExternalResource(note);
                                     }}
                                     disabled={openingResourceId === note.id}
-                                    className="p-1 text-[var(--text-tertiary)] hover:text-emerald-600 transition-colors"
+                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-emerald-600 transition-colors"
                                     title={t('table.open_resource_tooltip')}
                                 >
                                     <LinkIcon size={14} />
+                                    <span className="row-action-tooltip">{t('table.open_resource_tooltip')}</span>
                                 </button>
                             )}
                             {onOpenParallel && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onOpenParallel(note.id); }}
-                                    className="p-1 text-[var(--text-tertiary)] hover:text-purple-600 transition-colors opacity-60 hover:opacity-100"
+                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-purple-600 transition-colors opacity-60 hover:opacity-100"
                                     title={t('table.open_parallel')}
                                 >
                                     <Columns2 size={14} />
+                                    <span className="row-action-tooltip">{t('table.open_parallel')}</span>
                                 </button>
                             )}
                             {!isListView && onDeletePage && (
@@ -2418,10 +2421,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                         e.stopPropagation();
                                         onDeletePage(note.id, note.title);
                                     }}
-                                    className="p-1 text-[var(--text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100"
+                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100"
                                     title={t('table.delete')}
                                 >
                                     <Trash2 size={14} />
+                                    <span className="row-action-tooltip">{t('table.delete')}</span>
                                 </button>
                             )}
                         </div>

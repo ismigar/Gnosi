@@ -395,11 +395,51 @@ body {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
   border: 1px solid #2d2d30;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .app-sidebar__item:hover .app-sidebar__tooltip {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
+}
+
+.app-sidebar__tooltip-kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.68rem;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.02em;
+}
+
+/* Tooltip botons d'acció de fila (obrir, eliminar…) */
+.row-action-tooltip {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  background: #1a1a1c;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  border: 1px solid #2d2d30;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 200;
+}
+
+button:hover > .row-action-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .app-sidebar__footer {
