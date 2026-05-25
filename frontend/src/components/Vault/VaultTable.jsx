@@ -8,7 +8,7 @@ import { FileFieldValue } from './FileFieldValue';
 import { filenameFromTarget } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
 
-const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave }) => {
+const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave, onCreate, onDeleteOption }) => {
     const [localValues, setLocalValues] = useState(value);
     const [search, setSearch] = useState('');
     const containerRef = useRef(null);
@@ -33,6 +33,21 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave })
         String(idToTitle[opt] ?? opt ?? '').toLowerCase().includes(search.toLowerCase()) &&
         !localValues.includes(opt)
     );
+    const term = search.trim();
+    const canCreate = Boolean(term && onCreate && !options.includes(term));
+
+    const handleCreate = () => {
+        if (!canCreate) return;
+        onCreate(term);              // persisteix l'opció al schema
+        setLocalValues(prev => [...prev, term]); // i la selecciona en aquest registre
+        setSearch('');
+    };
+
+    const handleDelete = (val) => {
+        if (!onDeleteOption) return;
+        onDeleteOption(val);         // treu l'opció del catàleg del camp
+        setLocalValues(prev => prev.filter(v => v !== val)); // i d'aquest registre
+    };
 
     return (
         <div ref={containerRef} className="w-full">
@@ -47,24 +62,149 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave })
             <input
                 autoFocus
                 className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                placeholder="Cercar…"
+                placeholder={onCreate ? 'Cercar o crear…' : 'Cercar…'}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Escape') onSave(localValues); }}
+                onKeyDown={e => {
+                    if (e.key === 'Escape') onSave(localValues);
+                    if (e.key === 'Enter') { e.preventDefault(); handleCreate(); }
+                }}
             />
-            {filtered.length > 0 && (
+            {(filtered.length > 0 || canCreate) && (
                 <div className="mt-1 max-h-32 overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] shadow-md z-50 relative">
                     {filtered.map(opt => (
                         <div
                             key={opt}
-                            className="px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)] cursor-pointer"
+                            className="flex items-center justify-between gap-2 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)] cursor-pointer group"
                             onMouseDown={e => { e.preventDefault(); toggle(opt); }}
                         >
-                            {idToTitle[opt] || opt}
+                            <span className="truncate">{idToTitle[opt] || opt}</span>
+                            {onDeleteOption && (
+                                <span
+                                    role="button"
+                                    title="Elimina l'opció del camp"
+                                    onMouseDown={e => { e.preventDefault(); e.stopPropagation(); handleDelete(opt); }}
+                                    className="shrink-0 p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
+                                >
+                                    <Trash2 size={12} />
+                                </span>
+                            )}
                         </div>
                     ))}
+                    {canCreate && (
+                        <div
+                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 cursor-pointer"
+                            onMouseDown={e => { e.preventDefault(); handleCreate(); }}
+                        >
+                            <Plus size={12} /> Crear «{term}»
+                        </div>
+                    )}
                 </div>
             )}
+        </div>
+    );
+};
+
+// Picker inline d'un sol valor per a cel·les select/status de la taula.
+// Substitueix el <select> natiu per poder cercar, crear i eliminar opcions
+// (estil Notion). Navegable amb teclat (↑↓/Enter/Esc) compartint un sol
+// highlightedIndex amb el hover —vegeu el patró canònic a MultiSelectPills.
+const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, onSave, onCreate, onDeleteOption }) => {
+    const [search, setSearch] = useState('');
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const containerRef = useRef(null);
+    const listRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                onSave(value); // tanca sense canviar (handleCellSave fa early-return si és igual)
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [value, onSave]);
+
+    const filtered = options.filter(opt =>
+        String(idToTitle[opt] ?? opt ?? '').toLowerCase().includes(search.toLowerCase())
+    );
+    const term = search.trim();
+    const canCreate = Boolean(term && onCreate && !options.includes(term));
+    const totalItems = filtered.length + (canCreate ? 1 : 0);
+
+    // El reset del highlight en canviar la cerca es fa a l'onChange de l'input
+    // (no en un effect) per evitar un render en cascada.
+    useEffect(() => {
+        const el = listRef.current?.querySelector(`[data-idx="${highlightedIndex}"]`);
+        if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
+    }, [highlightedIndex]);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (totalItems > 0) setHighlightedIndex(i => Math.min(i + 1, totalItems - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(i => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex < filtered.length) onSave(filtered[highlightedIndex]);
+            else if (canCreate) onCreate(term);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            onSave(value);
+        }
+    };
+
+    return (
+        <div ref={containerRef} className="w-full">
+            <input
+                autoFocus
+                className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                placeholder={onCreate ? 'Cercar o crear…' : 'Cercar…'}
+                value={search}
+                onChange={e => { setSearch(e.target.value); setHighlightedIndex(0); }}
+                onKeyDown={handleKeyDown}
+            />
+            <div ref={listRef} className="mt-1 max-h-40 overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] shadow-md z-50 relative">
+                {filtered.map((opt, idx) => {
+                    const isHighlighted = idx === highlightedIndex;
+                    return (
+                        <div
+                            key={opt}
+                            data-idx={idx}
+                            onMouseEnter={() => setHighlightedIndex(idx)}
+                            onMouseDown={e => { e.preventDefault(); onSave(opt); }}
+                            className={`flex items-center justify-between gap-2 px-2 py-1 text-xs cursor-pointer group ${isHighlighted ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-secondary)]'} ${value === opt ? 'font-semibold' : ''}`}
+                        >
+                            <span className="truncate">{idToTitle[opt] || opt}</span>
+                            {onDeleteOption && (
+                                <span
+                                    role="button"
+                                    title="Elimina l'opció del camp"
+                                    onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onDeleteOption(opt); }}
+                                    className="shrink-0 p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
+                                >
+                                    <Trash2 size={12} />
+                                </span>
+                            )}
+                        </div>
+                    );
+                })}
+                {canCreate && (
+                    <div
+                        data-idx={filtered.length}
+                        onMouseEnter={() => setHighlightedIndex(filtered.length)}
+                        onMouseDown={e => { e.preventDefault(); onCreate(term); }}
+                        className={`flex items-center gap-1 px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] cursor-pointer ${highlightedIndex === filtered.length ? 'bg-[var(--gnosi-primary)]/10' : ''}`}
+                    >
+                        <Plus size={12} /> Crear «{term}»
+                    </div>
+                )}
+                {filtered.length === 0 && !canCreate && (
+                    <div className="px-2 py-1 text-xs text-[var(--text-tertiary)]/60 italic">Cap opció</div>
+                )}
+            </div>
         </div>
     );
 };
@@ -133,7 +273,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
+export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
     const { t, i18n } = useTranslation();
     // Overrides optimistic per cel·la. Map<noteId, partialMetadata>. Quan
     // l'usuari edita un camp, apliquem el canvi aquí *abans* del PATCH al
@@ -965,6 +1105,18 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return Array.from(new Set(values));
     };
 
+    // Persisteix el catàleg d'opcions d'un camp select/multi_select/status al
+    // schema (PATCH a la taula via el handler del dashboard). Resol el tableId
+    // de la vista i el fieldId immutable del schema. Si no hi ha handler o no
+    // es pot resoldre l'id, no fa res (el valor de la cel·la sí que es desa).
+    const updateFieldOptions = (field, nextOptions) => {
+        if (!onUpdateFieldOptions || !Array.isArray(nextOptions)) return;
+        const tableId = activeView?.table_id || (safeNotes.length > 0 ? resolveNoteTableId(safeNotes[0]) : null);
+        const fieldId = getFieldConfig(schema, field)?.id;
+        if (!tableId || !fieldId) return;
+        onUpdateFieldOptions(tableId, fieldId, nextOptions);
+    };
+
     // Autors únics ja presents a la taula per a aquest camp (autocompletar).
     // Dedup per nom|cognom1|cognom2; ignora autors completament buits.
     const getAutoriaSuggestions = (field) =>
@@ -1192,22 +1344,22 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             if (type === 'status' || type === 'select') {
                 const options = getAvailableOptions(field, type);
                 return (
-                    <select
-                        autoFocus
-                        className="w-full px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                        defaultValue={value || ''}
-                        onChange={(e) => handleCellSave(noteId, field, e.target.value, originalMetaKey)}
-                        onBlur={() => setEditingCell(null)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Escape') setEditingCell(null);
-                            handleKeyDown(e, noteId, field, originalMetaKey);
-                        }}
-                    >
-                        <option value="">({t('table.none')})</option>
-                        {options.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                    </select>
+                    <InlineSelectPicker
+                        value={value || ''}
+                        options={options}
+                        idToTitle={idToTitle}
+                        onSave={(val) => handleCellSave(noteId, field, val, originalMetaKey)}
+                        onCreate={onUpdateFieldOptions ? (val) => {
+                            updateFieldOptions(field, [...options, val]);
+                            handleCellSave(noteId, field, val, originalMetaKey);
+                        } : undefined}
+                        onDeleteOption={onUpdateFieldOptions ? (val) => {
+                            updateFieldOptions(field, options.filter(o => o !== val));
+                            // Si l'opció eliminada era el valor actual, neteja la cel·la
+                            // (i tanca l'editor); altres registres conserven el seu valor.
+                            if ((value || '') === val) handleCellSave(noteId, field, '', originalMetaKey);
+                        } : undefined}
+                    />
                 );
             }
 
@@ -1222,12 +1374,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     options = getAvailableOptions(field, type);
                 }
                 const currentValues = Array.isArray(value) ? value : (value ? String(value).split(',').map(s => s.trim()).filter(Boolean) : []);
+                const canManageOptions = type === 'multi_select' && Boolean(onUpdateFieldOptions);
                 return (
                     <InlinePillsPicker
                         value={currentValues}
                         options={options}
                         idToTitle={displayMap}
                         onSave={(vals) => handleCellSave(noteId, field, vals, originalMetaKey)}
+                        onCreate={canManageOptions ? (val) => updateFieldOptions(field, [...options, val]) : undefined}
+                        onDeleteOption={canManageOptions ? (val) => updateFieldOptions(field, options.filter(o => o !== val)) : undefined}
                     />
                 );
             }

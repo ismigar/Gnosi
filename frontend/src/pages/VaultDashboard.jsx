@@ -2768,6 +2768,7 @@ export default function VaultDashboard() {
                                     onDeletePage={handleDeletePage}
                                     onDeleteSelected={handleDeleteSelected}
                                     onOpenParallel={handleOpenParallel}
+                                    onUpdateFieldOptions={handleAddSchemaOption}
                                     onEditSchema={(type) => {
                                         setActiveTableId(tableId);
                                         if (type === 'filters' || type === 'sorts') {
@@ -2984,6 +2985,7 @@ export default function VaultDashboard() {
                                 onDeletePage={handleDeletePage}
                                 onDeleteSelected={handleDeleteSelected}
                                 onOpenParallel={handleOpenParallel}
+                                onUpdateFieldOptions={handleAddSchemaOption}
                                 onEditSchema={(type) => {
                                     setActiveTableId(tableId);
                                     if (type === 'filters' || type === 'sorts') {
@@ -3319,6 +3321,7 @@ export default function VaultDashboard() {
                                             onDeletePage={handleDeletePage}
                                             onDeleteSelected={handleDeleteSelected}
                                             onOpenParallel={handleOpenParallel}
+                                            onUpdateFieldOptions={handleAddSchemaOption}
                                             onEditSchema={(type) => {
                                                 if (type === 'filters' || type === 'sorts') {
                                                     setViewToConfigure(cv);
