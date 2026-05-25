@@ -299,17 +299,41 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // el catch a `handleCellSave` els treu manualment (rollback) i mostra
     // un toast d'error.
     const [optimisticPatches, setOptimisticPatches] = useState(() => new Map());
+    // Override optimistic del títol. Map<noteId, newTitle>. El títol viu a
+    // `note.title` (no a metadata), així que `optimisticPatches` no l'abasta;
+    // aquest map dóna feedback immediat en editar-lo inline. Es neteja sol quan
+    // el refetch reflecteix el nou títol (vegeu l'effect de sota).
+    const [optimisticTitles, setOptimisticTitles] = useState(() => new Map());
     // Estabilitzem la referència a `notes || []` per evitar que canviï a
     // cada render i invalidi `useMemo`/`useEffect` sense raó.
     const rawNotes = useMemo(() => notes || [], [notes]);
     const safeNotes = useMemo(() => {
-        if (optimisticPatches.size === 0) return rawNotes;
+        if (optimisticPatches.size === 0 && optimisticTitles.size === 0) return rawNotes;
         return rawNotes.map(n => {
             const patch = optimisticPatches.get(n.id);
-            if (!patch) return n;
-            return { ...n, metadata: { ...(n.metadata || {}), ...patch } };
+            const titleOverride = optimisticTitles.get(n.id);
+            if (!patch && titleOverride === undefined) return n;
+            return {
+                ...n,
+                ...(titleOverride !== undefined ? { title: titleOverride } : {}),
+                metadata: patch ? { ...(n.metadata || {}), ...patch } : n.metadata,
+            };
         });
-    }, [rawNotes, optimisticPatches]);
+    }, [rawNotes, optimisticPatches, optimisticTitles]);
+
+    // Neteja overrides de títol ja reflectits al prop `notes` (post-refetch).
+    useEffect(() => {
+        if (optimisticTitles.size === 0) return;
+        setOptimisticTitles(prev => {
+            let changed = false;
+            const next = new Map(prev);
+            for (const [id, title] of prev) {
+                const fresh = rawNotes.find(n => n.id === id);
+                if (fresh && fresh.title === title) { next.delete(id); changed = true; }
+            }
+            return changed ? next : prev;
+        });
+    }, [rawNotes, optimisticTitles]);
 
     // Neteja els patches que ja queden reflectits a `notes` (després d'un
     // refetch reeixit). Sense això, els overrides s'acumularien indefinidament.
@@ -613,10 +637,12 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     }, [schema]);
 
     // ── Graella: ordre de columnes i files navegables ───────────────────
-    // El cursor recorre NOMÉS les columnes de metadades (dynamicColumns):
-    // title/accions/last_modified queden fora (vegeu la directiva).
+    // El cursor recorre el `title` (col 0, sticky) + les columnes de metadades
+    // (dynamicColumns). El títol és navegable i editable cel·la a cel·la però
+    // queda fora de l'enganxat/buidat en bloc (viu a note.title, no a metadata;
+    // vegeu isPasteableType). Accions i last_modified segueixen fora.
     const gridColumns = useMemo(
-        () => dynamicColumns.map(([key, type]) => ({ key, type })),
+        () => [{ key: 'title', type: 'title' }, ...dynamicColumns.map(([key, type]) => ({ key, type }))],
         [dynamicColumns]
     );
     // Files navegables = descriptors `kind:'row'`, amb el seu índex de
@@ -1556,6 +1582,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             for (let c = c0; c <= c1; c++) {
                 const col = gridColumns[c];
                 if (!col) continue;
+                if (col.key === 'title') {
+                    cols.push({ rowId: note.id, field: 'title', type: 'text', value: note.title ?? '' });
+                    continue;
+                }
                 const metaKey = getMetaKey(note, col.key);
                 cols.push({ rowId: note.id, field: col.key, type: col.type, value: note.metadata?.[metaKey] });
             }
@@ -1771,12 +1801,14 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
         }
         // Scroll horitzontal: fa visible la columna destí quan surt del viewport.
+        // La col 0 és el `title`, sticky → sempre visible, no cal scroll-la. La
+        // suma d'offsets comença a i=1 perquè l'amplada del títol ja és dins stickyW.
         const container = tableContainerRef.current;
-        if (container) {
+        if (container && nc > 0) {
             const widths = columnWidthsRef.current;
             const stickyW = 40 + (widths['title'] || 250);
             let colLeft = stickyW;
-            for (let i = 0; i < nc; i++) colLeft += (widths[cols[i].key] || 180);
+            for (let i = 1; i < nc; i++) colLeft += (widths[cols[i].key] || 180);
             const colRight = colLeft + (widths[col.key] || 180);
             const visLeft = container.scrollLeft + stickyW;
             const visRight = container.scrollLeft + container.clientWidth;
@@ -1797,6 +1829,12 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         if (!cell) return;
         const note = safeNotes.find(n => n.id === cell.rowId);
         if (!note) return;
+        // El títol s'edita inline al seu propi <td> (no via renderCellContent).
+        if (cell.field === 'title') {
+            setEditInitial(initialChar);
+            setEditingCell({ rowId: note.id, field: 'title', originalMetaKey: 'title' });
+            return;
+        }
         const type = getFieldType(schema, cell.field);
         if (isComputedType(type)) return;
         const metaKey = getMetaKey(note, cell.field);
@@ -1810,6 +1848,36 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         setEditInitial(initialChar);
         setEditingCell({ rowId: note.id, field: cell.field, originalMetaKey: metaKey });
     }, [safeNotes, schema, isImageField, openMediaPicker, handleCellSave]);
+
+    // Desa el títol (camp `note.title`, no metadata) amb el mateix patró
+    // optimista que handleCellSave: override immediat + PATCH { title }.
+    const saveTitle = useCallback(async (noteId, newTitle) => {
+        setEditingCell(null);
+        setEditInitial(null);
+        const note = noteById.get(noteId);
+        if (!note) return;
+        const trimmed = String(newTitle ?? '').trim();
+        if (trimmed === '' || trimmed === note.title) return; // no-op (buit no esborra el títol)
+        setOptimisticTitles(prev => new Map(prev).set(noteId, trimmed));
+        try {
+            const response = await fetch(`/api/vault/pages/${noteId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: trimmed }),
+            });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload?.detail || `HTTP ${response.status}`);
+            }
+            if (onCellSaved) onCellSaved();
+        } catch (error) {
+            // Mateix patró que handleCellSave: rollback de l'override optimista i
+            // notifyError (registra context + missatge del backend) en lloc d'un
+            // toast genèric, per poder diagnosticar 4xx/5xx i payload.detail.
+            setOptimisticTitles(prev => { const n = new Map(prev); n.delete(noteId); return n; });
+            notifyError('table-save-title', error, t('table.title_save_error', { defaultValue: 'No s\'ha pogut desar el títol' }));
+        }
+    }, [noteById, onCellSaved, t]);
 
     // Després de desar amb Enter, baixa el cursor una fila (estil Excel).
     const advanceCursorAfterEdit = useCallback((rowId, field) => {
@@ -1842,6 +1910,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     clearActiveCellsRef.current = clearActiveCells;
     const schemaRef = useRef(schema);
     schemaRef.current = schema;
+    // Refs per a les dreceres d'acció de fila (handler muntat un sol cop).
+    const rowActionsRef = useRef({});
+    rowActionsRef.current = { noteById, onNoteSelect, onOpenParallel, onDeletePage, hasOpenableResource, handleOpenExternalResource };
 
     useEffect(() => {
         const onKey = (e) => {
@@ -1860,7 +1931,28 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             const meta = e.metaKey || e.ctrlKey;
             if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopyCellsRef.current(); return; }
             if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handlePasteCellsRef.current(); return; }
+            // ⌘/Ctrl+⌫ → elimina la fila del cursor (deliberat: ⌫ a soles buida
+            // la cel·la). Només si no hi ha selecció múltiple de files.
+            if (meta && (e.key === 'Backspace' || e.key === 'Delete')) {
+                const { onDeletePage, noteById } = rowActionsRef.current;
+                if (onDeletePage && selectedIdsRef.current.size === 0) {
+                    const n = noteById.get(cell.rowId);
+                    if (n) { e.preventDefault(); onDeletePage(n.id, n.title); }
+                }
+                return;
+            }
             if (meta) return; // deixa ⌘A/⌘O als seus listeners
+
+            // Dreceres d'acció sobre la fila del cursor (Alt+lletra; via e.code
+            // perquè a Mac Alt+lletra produeix caràcters especials). No xoquen
+            // amb el teclejar-per-editar (que ignora altKey).
+            if (e.altKey && !e.shiftKey) {
+                const { noteById, onNoteSelect, onOpenParallel, hasOpenableResource, handleOpenExternalResource } = rowActionsRef.current;
+                const n = noteById.get(cell.rowId);
+                if (e.code === 'KeyO') { e.preventDefault(); if (n && onNoteSelect) onNoteSelect(n.id); return; }
+                if (e.code === 'KeyR') { e.preventDefault(); if (n && hasOpenableResource(n)) handleOpenExternalResource(n); return; }
+                if (e.code === 'KeyP') { e.preventDefault(); if (n && onOpenParallel) onOpenParallel(n.id); return; }
+            }
 
             switch (e.key) {
                 case 'ArrowUp': e.preventDefault(); moveCursorRef.current(-1, 0, e.shiftKey); break;
@@ -2243,6 +2335,19 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const renderRow = (note, isChild = false, depth = 0, rowPath = '0', virtualItem = null) => {
         const hasChildren = (childrenMap[note.id]?.length > 0);
         const isExpanded = expandedRows.has(note.id);
+        // El títol és una cel·la navegable de la graella (col 0): estat del cursor
+        // i de l'editor inline.
+        const titleSel = getCellSelState(note.id, 'title');
+        const isEditingTitle = editingCell?.rowId === note.id && editingCell?.field === 'title';
+        const selectTitleCell = (e) => {
+            if (e.shiftKey && activeCell) {
+                if (!anchorCell) setAnchorCell(activeCell);
+                setActiveCell({ rowId: note.id, field: 'title' });
+                return;
+            }
+            setActiveCell({ rowId: note.id, field: 'title' });
+            setAnchorCell(null);
+        };
 
         return (
             <tr
@@ -2319,9 +2424,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     <td
                         style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
                         className={`py-2.5 px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top
-                            ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
-                            ${isListView ? 'group-hover:bg-[var(--bg-secondary)]' : 'border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]'}`}
-                        onClick={() => onNoteSelect(note.id)}
+                            ${titleSel.inRange && !titleSel.isActive ? 'bg-[var(--gnosi-primary)]/10' : isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
+                            ${isListView ? 'group-hover:bg-[var(--bg-secondary)]' : 'border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]'}
+                            ${titleSel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); selectTitleCell(e); }}
+                        onDoubleClick={(e) => { e.stopPropagation(); onNoteSelect(note.id); }}
                     >
                         <div className="flex items-center gap-1.5">
                             {isChild && (
@@ -2350,7 +2457,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             )}
 
                             <IconRenderer icon={note.metadata?.icon} size={16} />
-                            <span className="truncate flex-1">{note.title}</span>
+                            {isEditingTitle ? (
+                                <input
+                                    autoFocus
+                                    defaultValue={editInitial != null ? editInitial : (note.title ?? '')}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onDoubleClick={(e) => e.stopPropagation()}
+                                    onBlur={(e) => saveTitle(note.id, e.target.value)}
+                                    onKeyDown={(e) => {
+                                        e.stopPropagation();
+                                        if (e.key === 'Enter') { e.preventDefault(); saveTitle(note.id, e.target.value); advanceCursorAfterEdit(note.id, 'title'); return; }
+                                        if (e.key === 'Escape') { e.preventDefault(); setEditingCell(null); setEditInitial(null); return; }
+                                    }}
+                                    className="flex-1 min-w-0 px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] font-medium"
+                                />
+                            ) : (
+                                <span className="truncate flex-1">{note.title}</span>
+                            )}
 
                             {enableSubitems && hasChildren && !isExpanded && (
                                 <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-[var(--gnosi-primary)]/20 text-[var(--gnosi-primary)] rounded-full shrink-0">

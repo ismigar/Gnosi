@@ -16,7 +16,10 @@ export function isComputedType(type) {
 
 /** Cert si una cel·la d'aquest tipus pot rebre un enganxat. */
 export function isPasteableType(type) {
-    return !isComputedType(type) && type !== 'files';
+    // El `title` és navegable i editable cel·la a cel·la, però NO s'enganxa ni
+    // es buida en bloc: viu a `note.title` (no a `metadata`) i el camí d'escriptura
+    // massiva treballa sobre metadades. Excloure'l evita corrompre títols.
+    return !isComputedType(type) && type !== 'files' && type !== 'title';
 }
 
 /**
@@ -87,7 +90,7 @@ const SKIP = Object.freeze({ skip: true });
 export function coerceValueForField(raw, type, ctx = {}) {
     const { options = [], idToTitle = {}, relatedNotes = [] } = ctx;
 
-    if (isComputedType(type) || type === 'files') return SKIP;
+    if (isComputedType(type) || type === 'files' || type === 'title') return SKIP;
 
     switch (type) {
         case 'number': {
