@@ -2713,14 +2713,21 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
-    // Les opcions de `select`/`multi_select` viuen al backend dins de
-    // `prop.config.options`; alguns paths legacy les escrivien al top-level
-    // `prop.options`. Aquest helper les unifica perquè el dropdown sempre
-    // mostri les ja definides al schema, independentment d'on vinguin.
+    // Les opcions de `select`/`multi_select` poden viure a `prop.config.options`
+    // (les escriu el PATCH inline) o a `prop.options` de nivell superior (les
+    // escriu el desat del modal). El PATCH no toca el nivell superior, però el
+    // desat del modal substitueix tota la taula i esborra el `config` niat. Així
+    // doncs, si hi ha `config.options` és el valor fresc i té prioritat; si no,
+    // el nivell superior. (Abans es prioritzava el nivell superior i una opció
+    // creada inline no apareixia perquè el nivell superior quedava antic.)
     const getPropOptions = (prop) => {
         if (!prop) return [];
-        if (Array.isArray(prop.options) && prop.options.length > 0) return prop.options;
+        // `config.options` mana sempre que EXISTEIXI (sigui un array), encara que
+        // estigui buit: si s'esborra l'última opció inline, config.options queda []
+        // i NO hem de tornar a mostrar el `prop.options` antic del nivell superior.
+        // Només caiem al nivell superior si no hi ha cap config.options.
         if (prop.config && Array.isArray(prop.config.options)) return prop.config.options;
+        if (Array.isArray(prop.options)) return prop.options;
         return [];
     };
     // `properties` is the filtered schema list shown above the body. Memoized
