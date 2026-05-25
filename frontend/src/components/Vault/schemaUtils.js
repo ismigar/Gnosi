@@ -69,6 +69,7 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.translatable === true) config.translatable = true;
         if (prop.button_action) config.button_action = prop.button_action;
         if (prop.button_label) config.button_label = prop.button_label;
+        if (prop.format && typeof prop.format === 'object') config.format = prop.format;
         // Opcions explícites de select/multi_select/status: el catàleg fix de
         // valors triables. Hi ha dues fonts possibles i poden divergir:
         //   - `config.options` (niat): l'escriu el PATCH inline d'opcions.
