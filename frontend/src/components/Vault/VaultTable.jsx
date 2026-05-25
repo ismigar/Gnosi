@@ -346,6 +346,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         title: 250,
         last_modified: 150
     });
+    const columnWidthsRef = useRef({});
+    columnWidthsRef.current = columnWidths;
 
     // Refs for drag state
     const resizingCol = useRef(null);
@@ -363,6 +365,14 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const [anchorCell, setAnchorCell] = useState(null);   // { rowId, field } | null
     const [editInitial, setEditInitial] = useState(null); // char inicial en type-to-edit (text/number)
     const clipboardRef = useRef(null);                    // { matrix: rawValues[][] } — porta-retalls intern
+    // Refs per a tancaments d'event — permeten que el listener de teclat
+    // llegeixi valors actuals sense reconstruir-se a cada keypress.
+    const activeCellRef = useRef(null);
+    activeCellRef.current = activeCell;
+    const anchorCellRef = useRef(null);
+    anchorCellRef.current = anchorCell;
+    const editingCellRef = useRef(null);
+    editingCellRef.current = editingCell;
     const [mediaPickerCell, setMediaPickerCell] = useState(null); // { rowId, field, originalMetaKey, tableId }
     // Confirmació en eliminar un fitxer d'un camp `files`:
     // { rowId, field, originalMetaKey, idx, arr, target, fileName }
@@ -460,6 +470,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // ---- MULTIPLE SELECTION ----
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
     const lastSelectedId = [...selectedIds].at(-1) ?? null;
+    const selectedIdsRef = useRef(null);
+    selectedIdsRef.current = selectedIds;
 
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) return;
@@ -626,6 +638,14 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         gridColumns.forEach((c, i) => m.set(c.key, i));
         return m;
     }, [gridColumns]);
+    const navRowsRef = useRef([]);
+    navRowsRef.current = navRows;
+    const gridColumnsRef = useRef([]);
+    gridColumnsRef.current = gridColumns;
+    const navRowIndexByIdRef = useRef(new Map());
+    navRowIndexByIdRef.current = navRowIndexById;
+    const colIndexByKeyRef = useRef(new Map());
+    colIndexByKeyRef.current = colIndexByKey;
     // Índex id→nota per a lookups O(1) dins els bucles de copy/paste/clear
     // (abans `safeNotes.find` per cel·la → O(n·m) en seleccions grans).
     const noteById = useMemo(() => {
@@ -649,6 +669,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             r1: Math.max(aRow, bRow), c1: Math.max(aCol, bCol),
         };
     }, [activeCell, anchorCell, navRowIndexById, colIndexByKey]);
+    const selectionRectRef = useRef(null);
+    selectionRectRef.current = selectionRect;
 
     const getCellSelState = useCallback((rowId, field) => {
         if (!selectionRect) return { isActive: false, inRange: false };
@@ -660,11 +682,19 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return { isActive, inRange };
     }, [selectionRect, navRowIndexById, colIndexByKey, activeCell]);
 
-    // El cursor apunta a un id de fila concret; si canvia la vista o la cerca,
-    // aquell id pot desaparèixer del conjunt visible → netegem-lo.
+    // Quan la vista, la cerca o l'ordre canvien (o en el primer mount), posem
+    // el cursor a la primera cel·la com fa Excel. Usem refs per llegir
+    // navRows/gridColumns actuals sense afegir-los com a dependències
+    // (evita moure el cursor quan s'afegeix/esborra una fila).
     useEffect(() => {
-        setActiveCell(null);
         setAnchorCell(null);
+        const rows = navRowsRef.current;
+        const cols = gridColumnsRef.current;
+        if (rows.length > 0 && cols.length > 0) {
+            setActiveCell({ rowId: rows[0].id, field: cols[0].key });
+        } else {
+            setActiveCell(null);
+        }
     }, [activeView?.id, searchTerm, activeView?.sort?.field, activeView?.sort?.direction]);
 
     // Resizing Handlers
@@ -1688,15 +1718,18 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     }, [selectionRect, navRows, gridColumns, noteById, coercionCtxFor, applyBulkCellUpdates, t]);
 
     const clearActiveCells = useCallback(() => {
-        if (!selectionRect) return;
+        const rect = selectionRectRef.current;
+        if (!rect) return;
+        const rows = navRowsRef.current;
+        const cols = gridColumnsRef.current;
         const updates = [];
-        for (let r = selectionRect.r0; r <= selectionRect.r1; r++) {
-            const navRow = navRows[r];
+        for (let r = rect.r0; r <= rect.r1; r++) {
+            const navRow = rows[r];
             if (!navRow) continue;
             const note = noteById.get(navRow.id);
             if (!note) continue;
-            for (let c = selectionRect.c0; c <= selectionRect.c1; c++) {
-                const col = gridColumns[c];
+            for (let c = rect.c0; c <= rect.c1; c++) {
+                const col = cols[c];
                 if (!col || !isPasteableType(col.type)) continue;
                 const empty = (col.type === 'multi_select' || col.type === 'relation') ? [] : (col.type === 'checkbox' ? false : '');
                 const metaKey = getMetaKey(note, col.key);
@@ -1705,51 +1738,74 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             }
         }
         applyBulkCellUpdates(updates);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectionRect, navRows, gridColumns, noteById, applyBulkCellUpdates]);
+    }, [noteById, applyBulkCellUpdates]);
 
     // Mou el cursor (dRow/dCol) dins els límits; `extend` fixa l'àncora.
+    // Tots els valors canviants (activeCell, navRows, etc.) es llegeixen via
+    // refs per evitar reconstruir el callback —i re-registrar el listener
+    // de teclat— a cada tecla premuda.
     const moveCursor = useCallback((dRow, dCol, extend) => {
-        const prev = activeCell;
+        const prev = activeCellRef.current;
+        const currentAnchor = anchorCellRef.current;
+        const rows = navRowsRef.current;
+        const cols = gridColumnsRef.current;
+        const rowIndex = navRowIndexByIdRef.current;
+        const colIndex = colIndexByKeyRef.current;
         let rIdx = 0, cIdx = 0;
-        if (prev && navRowIndexById.has(prev.rowId) && colIndexByKey.has(prev.field)) {
-            rIdx = navRowIndexById.get(prev.rowId);
-            cIdx = colIndexByKey.get(prev.field);
+        if (prev && rowIndex.has(prev.rowId) && colIndex.has(prev.field)) {
+            rIdx = rowIndex.get(prev.rowId);
+            cIdx = colIndex.get(prev.field);
         }
         let nr = rIdx + dRow;
-        if (nr > navRows.length - 1 && sortedNotes.length > visibleRowsCount) handleLoadMoreRows();
-        nr = clampIndex(nr, navRows.length);
-        const nc = clampIndex(cIdx + dCol, gridColumns.length);
-        const target = navRows[nr];
-        const col = gridColumns[nc];
+        if (nr > rows.length - 1 && sortedNotes.length > visibleRowsCount) handleLoadMoreRows();
+        nr = clampIndex(nr, rows.length);
+        const nc = clampIndex(cIdx + dCol, cols.length);
+        const target = rows[nr];
+        const col = cols[nc];
         if (!target || !col) return;
         if (target.descriptorIndex != null && rowVirtualizer?.scrollToIndex) {
             rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
         }
-        if (extend) { if (!anchorCell && prev) setAnchorCell(prev); }
+        // Scroll horitzontal: fa visible la columna destí quan surt del viewport.
+        const container = tableContainerRef.current;
+        if (container) {
+            const widths = columnWidthsRef.current;
+            const stickyW = 40 + (widths['title'] || 250);
+            let colLeft = stickyW;
+            for (let i = 0; i < nc; i++) colLeft += (widths[cols[i].key] || 180);
+            const colRight = colLeft + (widths[col.key] || 180);
+            const visLeft = container.scrollLeft + stickyW;
+            const visRight = container.scrollLeft + container.clientWidth;
+            if (colLeft < visLeft) {
+                container.scrollLeft = colLeft - stickyW;
+            } else if (colRight > visRight) {
+                container.scrollLeft = colRight - container.clientWidth + 4;
+            }
+        }
+        if (extend) { if (!currentAnchor && prev) setAnchorCell(prev); }
         else setAnchorCell(null);
         setActiveCell({ rowId: target.id, field: col.key });
-    }, [activeCell, anchorCell, navRowIndexById, colIndexByKey, navRows, gridColumns, sortedNotes.length, visibleRowsCount, handleLoadMoreRows, rowVirtualizer]);
+    }, [sortedNotes.length, visibleRowsCount, handleLoadMoreRows, rowVirtualizer]);
 
     // Obre l'editor de la cel·la activa (Enter / teclejar / segon clic).
     const beginEditActive = useCallback((initialChar = null) => {
-        if (!activeCell) return;
-        const note = safeNotes.find(n => n.id === activeCell.rowId);
+        const cell = activeCellRef.current;
+        if (!cell) return;
+        const note = safeNotes.find(n => n.id === cell.rowId);
         if (!note) return;
-        const type = getFieldType(schema, activeCell.field);
+        const type = getFieldType(schema, cell.field);
         if (isComputedType(type)) return;
-        const metaKey = getMetaKey(note, activeCell.field);
-        if (isImageField(activeCell.field, type)) { openMediaPicker(note, activeCell.field, type); return; }
+        const metaKey = getMetaKey(note, cell.field);
+        if (isImageField(cell.field, type)) { openMediaPicker(note, cell.field, type); return; }
         if (type === 'checkbox') {
             const cur = note.metadata?.[metaKey];
             const checked = !!cur && cur !== 'false';
-            handleCellSave(note.id, activeCell.field, !checked, metaKey);
+            handleCellSave(note.id, cell.field, !checked, metaKey);
             return;
         }
         setEditInitial(initialChar);
-        setEditingCell({ rowId: note.id, field: activeCell.field, originalMetaKey: metaKey });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeCell, safeNotes, schema, isImageField, openMediaPicker, handleCellSave]);
+        setEditingCell({ rowId: note.id, field: cell.field, originalMetaKey: metaKey });
+    }, [safeNotes, schema, isImageField, openMediaPicker, handleCellSave]);
 
     // Després de desar amb Enter, baixa el cursor una fila (estil Excel).
     const advanceCursorAfterEdit = useCallback((rowId, field) => {
@@ -1768,9 +1824,25 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     // Navegació de teclat de la graella (a nivell de finestra: les files
     // virtualitzades es desmunten, no podem dependre del focus DOM per cel·la).
+    // Tots els valors canviants s'accedeixen via refs per evitar desregistrar
+    // i re-registrar el listener a cada tecla premuda (principal causa de lag).
+    const handleCopyCellsRef = useRef(handleCopyCells);
+    handleCopyCellsRef.current = handleCopyCells;
+    const handlePasteCellsRef = useRef(handlePasteCells);
+    handlePasteCellsRef.current = handlePasteCells;
+    const moveCursorRef = useRef(moveCursor);
+    moveCursorRef.current = moveCursor;
+    const beginEditActiveRef = useRef(beginEditActive);
+    beginEditActiveRef.current = beginEditActive;
+    const clearActiveCellsRef = useRef(clearActiveCells);
+    clearActiveCellsRef.current = clearActiveCells;
+    const schemaRef = useRef(schema);
+    schemaRef.current = schema;
+
     useEffect(() => {
-        if (!activeCell || editingCell) return undefined;
         const onKey = (e) => {
+            const cell = activeCellRef.current;
+            if (!cell || editingCellRef.current) return;
             const el = document.activeElement;
             const tag = el?.tagName;
             const inputType = (el && el.getAttribute) ? (el.getAttribute('type') || '') : '';
@@ -1782,32 +1854,32 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             if (tag === 'TD' && (e.key === ' ' || e.key === 'Enter')) return;
 
             const meta = e.metaKey || e.ctrlKey;
-            if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopyCells(); return; }
-            if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handlePasteCells(); return; }
+            if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopyCellsRef.current(); return; }
+            if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handlePasteCellsRef.current(); return; }
             if (meta) return; // deixa ⌘A/⌘O als seus listeners
 
             switch (e.key) {
-                case 'ArrowUp': e.preventDefault(); moveCursor(-1, 0, e.shiftKey); break;
-                case 'ArrowDown': e.preventDefault(); moveCursor(1, 0, e.shiftKey); break;
-                case 'ArrowLeft': e.preventDefault(); moveCursor(0, -1, e.shiftKey); break;
-                case 'ArrowRight': e.preventDefault(); moveCursor(0, 1, e.shiftKey); break;
-                case 'Tab': e.preventDefault(); moveCursor(0, e.shiftKey ? -1 : 1, false); break;
-                case 'Enter': e.preventDefault(); beginEditActive(null); break;
+                case 'ArrowUp': e.preventDefault(); moveCursorRef.current(-1, 0, e.shiftKey); break;
+                case 'ArrowDown': e.preventDefault(); moveCursorRef.current(1, 0, e.shiftKey); break;
+                case 'ArrowLeft': e.preventDefault(); moveCursorRef.current(0, -1, e.shiftKey); break;
+                case 'ArrowRight': e.preventDefault(); moveCursorRef.current(0, 1, e.shiftKey); break;
+                case 'Tab': e.preventDefault(); moveCursorRef.current(0, e.shiftKey ? -1 : 1, false); break;
+                case 'Enter': e.preventDefault(); beginEditActiveRef.current(null); break;
                 case ' ':
                     e.preventDefault(); // evita scroll de la pàgina mentre navegues per cel·les
-                    if (getFieldType(schema, activeCell.field) === 'checkbox') beginEditActive(null);
+                    if (getFieldType(schemaRef.current, cell.field) === 'checkbox') beginEditActiveRef.current(null);
                     break;
                 case 'Escape': setActiveCell(null); setAnchorCell(null); break;
                 case 'Backspace':
                 case 'Delete':
-                    if (selectedIds.size === 0) { e.preventDefault(); clearActiveCells(); }
+                    if (selectedIdsRef.current.size === 0) { e.preventDefault(); clearActiveCellsRef.current(); }
                     break;
                 default:
                     if (e.key.length === 1 && !e.altKey) {
-                        const type = getFieldType(schema, activeCell.field);
+                        const type = getFieldType(schemaRef.current, cell.field);
                         if (type === 'text' || type === 'number' || type === undefined || type === '') {
                             e.preventDefault();
-                            beginEditActive(e.key);
+                            beginEditActiveRef.current(e.key);
                         }
                     }
                     break;
@@ -1815,7 +1887,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [activeCell, editingCell, selectedIds, schema, handleCopyCells, handlePasteCells, moveCursor, beginEditActive, clearActiveCells]);
+    }, []); // muntat una sola vegada; tots els valors accedits via refs
 
     const renderCellContent = (value, type, noteId, field, originalMetaKey) => {
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
