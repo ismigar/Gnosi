@@ -58,6 +58,8 @@ services:
       # Variables calculades dinàmicament o especials
       - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
       - TZ=Europe/Madrid
+      # Captura web de referències (Zotero translation-server, sidecar).
+      - TRANSLATION_SERVER_URL=http://translation-server:1969
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request,sys; urllib.request.urlopen('http://localhost:5002/api/health', timeout=3); sys.exit(0)"]
       interval: 30s
@@ -82,6 +84,24 @@ services:
       - TZ=Europe/Madrid
     depends_on:
       - backend
+    restart: unless-stopped
+
+  # Zotero translation-server: motor de captura web de referències (~700
+  # traductors específics per web + resolució per identificador). El backend
+  # l'utilitza via `POST /api/vault/translate-url` (xarxa interna de compose,
+  # nom de servei `translation-server`). No s'exposa al host: només l'usa el
+  # backend. Imatge oficial mantinguda per Zotero.
+  translation-server:
+    image: zotero/translation-server:latest
+    container_name: gnosi_translation_server
+    environment:
+      - TZ=Europe/Madrid
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:1969/", "--post-data=https://example.com", "--header=Content-Type: text/plain"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
 volumes:

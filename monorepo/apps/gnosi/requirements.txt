@@ -39,6 +39,7 @@ sqlalchemy>=2.0.0
 pyzotero>=1.5.0
 feedparser>=6.0.0
 beautifulsoup4>=4.12.0
+pypdf>=4.0.0
 alembic>=1.13.0
 gTTS>=2.5.0
 httplib2>=0.22.0

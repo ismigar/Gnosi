@@ -26,6 +26,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { VIEW_TYPES, getViewIcon, isMainView } from './viewConstants';
+import { ReferenceImportExport } from './ReferenceImportExport';
 
 function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigure }) {
     const { t } = useTranslation();
@@ -168,7 +169,9 @@ export function VaultViewsHeader({
     searchTerm,
     setSearchTerm,
     templates = [],
-    onClose
+    onClose,
+    referenceTableId,
+    onReferencesImported,
 }) {
     const { t } = useTranslation();
     const [showSearch, setShowSearch] = useState(false);
@@ -278,15 +281,23 @@ export function VaultViewsHeader({
                     </span>
                 </div>
 
-                {onClose && (
-                    <button
-                        onClick={onClose}
-                        className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors p-1"
-                        title={t('views_header.close_panel')}
-                    >
-                        <X size={20} />
-                    </button>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                    {referenceTableId && (
+                        <ReferenceImportExport
+                            tableId={referenceTableId}
+                            onImported={onReferencesImported}
+                        />
+                    )}
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors p-1"
+                            title={t('views_header.close_panel')}
+                        >
+                            <X size={20} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Row 2: Views and Actions */}

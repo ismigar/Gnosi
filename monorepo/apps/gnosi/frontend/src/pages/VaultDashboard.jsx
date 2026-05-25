@@ -34,6 +34,13 @@ import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import TldrawEditor from '../components/Vault/TldrawEditor';
 
+// Detecta si una taula té columna "Citation Key" → mostra els controls de
+// gestió de referències (import/export BibTeX·RIS) a la capçalera.
+const tableHasCitationKey = (table) =>
+    !!(table?.properties || []).some(
+        (p) => String(p?.name || '').toLowerCase().replace(/\s+/g, '') === 'citationkey',
+    );
+
 export default function VaultDashboard() {
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -2641,6 +2648,8 @@ export default function VaultDashboard() {
                     <VaultViewsHeader
                         tableName={table?.title || table?.name || t('common.table')}
                         recordCount={paneNotes.length}
+                        referenceTableId={tableHasCitationKey(table) ? tableId : undefined}
+                        onReferencesImported={fetchPages}
                         views={displayViews}
                         activeViewId={currentViewId}
                         onViewSelect={(vid) => {
@@ -2852,6 +2861,8 @@ export default function VaultDashboard() {
                 <VaultViewsHeader
                     tableName={table?.title || table?.name || "Taula"}
                     recordCount={paneNotes.length}
+                    referenceTableId={tableHasCitationKey(table) ? tableId : undefined}
+                    onReferencesImported={fetchPages}
                     views={displayViews}
                     activeViewId={currentViewId}
                     onViewSelect={(vid) => {
@@ -3156,6 +3167,8 @@ export default function VaultDashboard() {
                                     <VaultViewsHeader
                                         tableName={activeTable ? (activeTable.title || activeTable.name) : t('common.table')}
                                         recordCount={(tableNotes || []).length}
+                                        referenceTableId={tableHasCitationKey(activeTable) ? activeTableId : undefined}
+                                        onReferencesImported={fetchPages}
                                         views={displayViews}
                                         activeViewId={activeViewId || 'default'}
                                         onViewSelect={setActiveViewId}

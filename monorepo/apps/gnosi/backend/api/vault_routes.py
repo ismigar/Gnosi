@@ -4326,27 +4326,199 @@ def _http_get(url: str, headers: Optional[dict] = None, timeout: float = 8.0) ->
         return None
 
 
+# ---------------------------------------------------------------------------
+# Citation Key generation (P0).
+#
+# Sense `Citation Key` una pàgina de Recursos no és citable
+# (`recursosPageToCsl`/`_recursos_metadata_to_csl` tornen None). Tota via d'alta
+# (lookup, import, PDF, web) ha de generar-ne una. Format estil Better BibTeX:
+# `<cognom><any>[<sufix>]`, p.ex. `murphy2017`, `murphy2017a` si col·lisiona.
+# ---------------------------------------------------------------------------
+
+def _ck_norm(s: str) -> str:
+    """Lowercase, sense diacrítics, només lletres/dígits ASCII."""
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFD", str(s))
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def _first_author_family(authors: Any) -> str:
+    """Cognom del primer autor. Accepta llista estructurada
+    (`[{nom,cognom1,cognom2}]`) o string lliure (`"Cognom, Nom; ..."`)."""
+    if isinstance(authors, list):
+        for a in authors:
+            if isinstance(a, dict):
+                fam = (a.get("cognom1") or a.get("family") or "").strip()
+                if fam:
+                    return fam
+                nom = (a.get("nom") or a.get("literal") or "").strip()
+                if nom:
+                    return nom.split()[-1]
+        return ""
+    if isinstance(authors, str) and authors.strip():
+        parsed = _parse_authors_to_csl(authors)
+        if parsed:
+            return (parsed[0].get("family") or parsed[0].get("given") or "").strip()
+    return ""
+
+
+def _title_token(title: str) -> str:
+    """Primera paraula significativa del títol (per a refs sense autor)."""
+    stop = {"the", "a", "an", "el", "la", "els", "les", "un", "una", "uns",
+            "unes", "le", "de", "del", "of", "on", "in", "to", "and", "i", "y"}
+    for tok in re.findall(r"[a-zA-ZÀ-ÿ0-9]+", title or ""):
+        if _ck_norm(tok) and _ck_norm(tok) not in stop:
+            return tok
+    return ""
+
+
+def _alpha_suffix(i: int) -> str:
+    """0→a, 1→b, …, 25→z, 26→aa, … (estil columnes Excel)."""
+    s = ""
+    i += 1
+    while i > 0:
+        i, rem = divmod(i - 1, 26)
+        s = chr(ord('a') + rem) + s
+    return s
+
+
+def generate_citation_key(authors: Any, year: Any, title: str = "",
+                          existing: Optional[set] = None) -> str:
+    """Genera una Citation Key única estil Better BibTeX.
+
+    base = <cognom | primera-paraula-títol | 'ref'> + <any | 'nd'>.
+    Col·lisió contra `existing` → sufix alfabètic incremental.
+    """
+    fam = _ck_norm(_first_author_family(authors))
+    if not fam:
+        fam = _ck_norm(_title_token(title)) or "ref"
+    yr = ""
+    try:
+        yr = str(int(str(year))) if year not in (None, "", "null") else ""
+    except (TypeError, ValueError):
+        yr = _ck_norm(str(year)) if year else ""
+    base = f"{fam}{yr or 'nd'}"
+    existing = existing or set()
+    if base not in existing:
+        return base
+    i = 0
+    while True:
+        cand = f"{base}{_alpha_suffix(i)}"
+        if cand not in existing:
+            return cand
+        i += 1
+
+
+def _existing_citation_keys() -> set:
+    """Claus ja usades al vault actiu (per a unicitat). Best-effort."""
+    try:
+        from backend.services.context_vars import get_active_vault_path
+        v_path = get_active_vault_path()
+        if not v_path:
+            return set()
+        return set(_ensure_cite_key_index(str(v_path)).keys())
+    except Exception:
+        return set()
+
+
+def _inject_citation_key(suggested: dict) -> dict:
+    """Afegeix `Citation Key` al dict suggerit si falta, garantint unicitat."""
+    if not suggested or suggested.get('Citation Key'):
+        return suggested
+    ck = generate_citation_key(
+        suggested.get('Authors'), suggested.get('Any'),
+        suggested.get('Title') or '', _existing_citation_keys(),
+    )
+    if ck:
+        suggested['Citation Key'] = ck
+    return suggested
+
+
+# ---------------------------------------------------------------------------
+# PubMed / PMID lookup (P3) — NCBI E-utilities (esummary JSON, sense API key).
+# ---------------------------------------------------------------------------
+
+def _normalize_pmid(raw: str) -> Optional[str]:
+    """Extreu un PMID (1-8 dígits) d'una cadena. Match estricte per no
+    confondre amb ISBN/altres números: el camp arriba ja etiquetat com a PMID."""
+    if not raw:
+        return None
+    m = re.match(r'^\s*(?:pmid:?\s*)?(\d{1,8})\s*$', str(raw), re.IGNORECASE)
+    return m.group(1) if m else None
+
+
+def _pubmed_author_to_canonical(name: str) -> str:
+    """`"Murphy SA"` (format PubMed: cognom + inicials) → `"Murphy, SA"` perquè
+    el parser tracti el cognom correctament."""
+    name = (name or '').strip()
+    if not name or ',' in name:
+        return name
+    toks = name.split()
+    if len(toks) >= 2 and re.fullmatch(r'[A-Za-z]{1,4}', toks[-1]):
+        return f"{' '.join(toks[:-1])}, {toks[-1]}"
+    return name
+
+
+def _pubmed_to_recursos(doc: dict) -> dict:
+    """Mapeig esummary (PubMed) → camps de Recursos."""
+    out: dict = {}
+    if doc.get('title'):
+        out['Title'] = str(doc['title']).rstrip('.')
+    names = [
+        _pubmed_author_to_canonical(a.get('name', ''))
+        for a in (doc.get('authors') or [])
+        if a.get('name') and a.get('authtype', 'Author') == 'Author'
+    ]
+    if names:
+        out['Authors'] = '; '.join(n for n in names if n)
+    m = re.search(r'\d{4}', doc.get('pubdate') or doc.get('epubdate') or '')
+    if m:
+        out['Any'] = int(m.group(0))
+    journal = doc.get('fulljournalname') or doc.get('source')
+    if journal:
+        out['Llibre/Revista'] = journal
+    if doc.get('volume'):
+        out['Volum'] = str(doc['volume'])
+    if doc.get('issue'):
+        out['Número'] = str(doc['issue'])
+    if doc.get('pages'):
+        out['Pàgines'] = str(doc['pages'])
+    for aid in (doc.get('articleids') or []):
+        if aid.get('idtype') == 'doi' and aid.get('value'):
+            out['DOI'] = aid['value']
+    langs = doc.get('lang') or []
+    if langs:
+        out['Idioma'] = langs[0]
+    if doc.get('uid'):
+        out['PMID'] = str(doc['uid'])
+    out['Item Type'] = 'journalArticle'
+    return out
+
+
 @router.post("/lookup-metadata")
 async def lookup_metadata(payload: dict = Body(...)):
     """Resol metadades externes per a un identificador donat.
 
-    Body (un sol identificador per crida, però accepta tots i tria el
-    millor; prioritat DOI > arXiv > ISBN > URL):
-      { doi?: str, isbn?: str, arxiv?: str, url?: str }
+    Body (accepta tots i tria el millor; prioritat DOI > arXiv > PMID > ISBN > URL):
+      { doi?: str, isbn?: str, arxiv?: str, pmid?: str, url?: str }
 
     Resposta:
       {
-        "source": "crossref" | "openlibrary" | "arxiv" | "url" | null,
+        "source": "crossref" | "arxiv" | "pubmed" | "openlibrary" | "url" | null,
         "identifier": str | null,
-        "suggested": { "Title": ..., "Authors": ..., "Any": ..., ... },
+        "suggested": { "Title": ..., "Authors": ..., "Any": ..., "Citation Key": ... },
         "error": null | str
       }
 
-    Mai modifica el Vault: només suggereix. El frontend mostra un modal
-    on l'usuari accepta camps individualment.
+    El `suggested` inclou una `Citation Key` generada automàticament (única al
+    vault) perquè la referència sigui citable des del primer moment. Mai
+    modifica el Vault: només suggereix; el frontend accepta camps individualment.
     """
     doi = _normalize_doi(payload.get('doi') or '') or _normalize_doi(payload.get('url') or '')
     arxiv_id = _normalize_arxiv(payload.get('arxiv') or '') or _normalize_arxiv(payload.get('url') or '')
+    pmid = _normalize_pmid(payload.get('pmid') or '')
     isbn = _normalize_isbn(payload.get('isbn') or '')
     url = (payload.get('url') or '').strip()
 
@@ -4360,7 +4532,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     return {
                         'source': 'crossref',
                         'identifier': doi,
-                        'suggested': _crossref_to_recursos(work),
+                        'suggested': _inject_citation_key(_crossref_to_recursos(work)),
                         'error': None,
                     }
             except json.JSONDecodeError:
@@ -4370,7 +4542,7 @@ async def lookup_metadata(payload: dict = Body(...)):
     if arxiv_id:
         body = await asyncio.to_thread(_http_get, f'http://export.arxiv.org/api/query?id_list={arxiv_id}')
         if body:
-            sug = _arxiv_to_recursos(body)
+            sug = _inject_citation_key(_arxiv_to_recursos(body))
             if sug:
                 return {
                     'source': 'arxiv',
@@ -4379,6 +4551,26 @@ async def lookup_metadata(payload: dict = Body(...)):
                     'error': None,
                 }
         return {'source': 'arxiv', 'identifier': arxiv_id, 'suggested': {}, 'error': 'arXiv no ha retornat dades'}
+
+    if pmid:
+        body = await asyncio.to_thread(
+            _http_get,
+            f'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={pmid}&retmode=json&version=2.0',
+        )
+        if body:
+            try:
+                data = json.loads(body)
+                doc = (data.get('result') or {}).get(pmid) or {}
+                if doc and not doc.get('error'):
+                    return {
+                        'source': 'pubmed',
+                        'identifier': pmid,
+                        'suggested': _inject_citation_key(_pubmed_to_recursos(doc)),
+                        'error': None,
+                    }
+            except json.JSONDecodeError:
+                pass
+        return {'source': 'pubmed', 'identifier': pmid, 'suggested': {}, 'error': 'PubMed no ha retornat dades'}
 
     if isbn:
         body = await asyncio.to_thread(
@@ -4393,7 +4585,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     return {
                         'source': 'openlibrary',
                         'identifier': isbn,
-                        'suggested': _openlibrary_to_recursos(book),
+                        'suggested': _inject_citation_key(_openlibrary_to_recursos(book)),
                         'error': None,
                     }
             except json.JSONDecodeError:
@@ -4406,12 +4598,338 @@ async def lookup_metadata(payload: dict = Body(...)):
             return {
                 'source': 'url',
                 'identifier': url,
-                'suggested': _html_meta_to_recursos(body, url),
+                'suggested': _inject_citation_key(_html_meta_to_recursos(body, url)),
                 'error': None,
             }
         return {'source': 'url', 'identifier': url, 'suggested': {}, 'error': "No s'ha pogut descarregar la pàgina"}
 
-    return {'source': None, 'identifier': None, 'suggested': {}, 'error': 'Cap identificador vàlid (DOI/ISBN/arXiv/URL)'}
+    return {'source': None, 'identifier': None, 'suggested': {}, 'error': 'Cap identificador vàlid (DOI/arXiv/PMID/ISBN/URL)'}
+
+
+@router.post("/generate-citation-key")
+async def generate_citation_key_endpoint(payload: dict = Body(...)):
+    """Genera una Citation Key única per a una alta manual a Recursos.
+
+    Body: { authors?: str | list, year?: int | str, title?: str }
+    Resposta: { "citation_key": str }
+    """
+    ck = generate_citation_key(
+        payload.get('authors'), payload.get('year'),
+        payload.get('title') or '', _existing_citation_keys(),
+    )
+    return {"citation_key": ck}
+
+
+# ---------------------------------------------------------------------------
+# Reconeixement de PDF (P4) — extreu DOI/arXiv del text i reaprofita el lookup.
+# ---------------------------------------------------------------------------
+
+def _extract_text_from_pdf(data: bytes, max_pages: int = 5) -> str:
+    """Text de les primeres `max_pages` pàgines d'un PDF. Buit si pypdf no està
+    disponible o el PDF és escanejat (sense capa de text)."""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        log.warning("pypdf no instal·lat: reconeixement de PDF desactivat")
+        return ""
+    import io
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        parts = []
+        for page in reader.pages[:max_pages]:
+            try:
+                parts.append(page.extract_text() or "")
+            except Exception:
+                continue
+        return "\n".join(parts)
+    except Exception as e:
+        log.warning(f"PDF il·legible: {e}")
+        return ""
+
+
+def _identifiers_from_text(text: str) -> dict:
+    """Primer DOI (i arXiv si hi ha prefix explícit) trobat al text d'un PDF."""
+    found: dict = {}
+    doi = _normalize_doi(text or "")
+    if doi:
+        found['doi'] = doi
+    # arXiv només si apareix el prefix explícit: el patró YYMM.NNNNN casaria amb
+    # qualsevol número similar del cos del document (falsos positius).
+    if re.search(r'arxiv\s*[:.]', text or "", re.IGNORECASE):
+        arx = _normalize_arxiv(text)
+        if arx:
+            found['arxiv'] = arx
+    return found
+
+
+@router.post("/recognize-pdf", dependencies=[Depends(require_role("editor"))])
+async def recognize_pdf(file: UploadFile = File(...)):
+    """Detecta la referència d'un PDF: extreu text → DOI/arXiv → lookup extern.
+
+    Resposta: { identifiers, source, suggested, error }. El `suggested` ja porta
+    `Citation Key` (via `lookup_metadata`). No escriu res al Vault.
+    """
+    data = await file.read()
+    text = await asyncio.to_thread(_extract_text_from_pdf, data)
+    if not text.strip():
+        return {"identifiers": {}, "source": None, "suggested": {},
+                "error": "No s'ha pogut extreure text del PDF (escanejat o pypdf absent)"}
+    ids = _identifiers_from_text(text)
+    if not ids:
+        return {"identifiers": {}, "source": None, "suggested": {},
+                "error": "No s'ha trobat cap DOI/arXiv al PDF"}
+    result = await lookup_metadata(ids)
+    return {
+        "identifiers": ids,
+        "source": result.get("source"),
+        "suggested": result.get("suggested", {}),
+        "error": result.get("error"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Captura web (P2) — Zotero translation-server (sidecar Docker).
+# ---------------------------------------------------------------------------
+
+def _zotero_creators_to_authors(creators) -> str:
+    """Creators (format Zotero) → string `"Cognom, Nom; …"` de Recursos."""
+    parts = []
+    for c in creators or []:
+        if not isinstance(c, dict) or (c.get('creatorType') or 'author') != 'author':
+            continue
+        last = (c.get('lastName') or '').strip()
+        first = (c.get('firstName') or '').strip()
+        name = (c.get('name') or '').strip()  # creators d'un sol camp
+        if last and first:
+            parts.append(f"{last}, {first}")
+        elif last:
+            parts.append(last)
+        elif name:
+            parts.append(name)
+    return '; '.join(parts)
+
+
+def _zotero_item_to_recursos(item: dict) -> dict:
+    """Ítem Zotero (sortida de translation-server) → camps de Recursos."""
+    out: dict = {}
+    if item.get('itemType'):
+        out['Item Type'] = item['itemType']
+    if item.get('title'):
+        out['Title'] = item['title']
+    authors = _zotero_creators_to_authors(item.get('creators'))
+    if authors:
+        out['Authors'] = authors
+    m = re.search(r'\d{4}', str(item.get('date') or ''))
+    if m:
+        out['Any'] = int(m.group(0))
+    container = (item.get('publicationTitle') or item.get('bookTitle')
+                 or item.get('proceedingsTitle') or item.get('encyclopediaTitle'))
+    if container:
+        out['Llibre/Revista'] = container
+    if item.get('publisher'):
+        out['Editorial'] = item['publisher']
+    if item.get('place'):
+        out['Lloc'] = item['place']
+    if item.get('volume'):
+        out['Volum'] = str(item['volume'])
+    if item.get('issue'):
+        out['Número'] = str(item['issue'])
+    if item.get('pages'):
+        out['Pàgines'] = str(item['pages'])
+    if item.get('edition'):
+        out['Edició'] = str(item['edition'])
+    if item.get('DOI'):
+        out['DOI'] = item['DOI']
+    if item.get('ISBN'):
+        out['ISBN'] = item['ISBN']
+    if item.get('ISSN'):
+        out['ISSN'] = item['ISSN']
+    if item.get('url'):
+        out['URL'] = item['url']
+    if item.get('language'):
+        out['Idioma'] = item['language']
+    return out
+
+
+@router.post("/translate-url", dependencies=[Depends(require_role("editor"))])
+async def translate_url(payload: dict = Body(...)):
+    """Captura una referència des d'una URL via Zotero translation-server.
+
+    Body: { url }. Resposta amb la mateixa forma que `/lookup-metadata`:
+    { source:'web', identifier, suggested (amb Citation Key), count, error }.
+    """
+    url = (payload.get('url') or '').strip()
+    if not url.startswith(('http://', 'https://')):
+        return {'source': 'web', 'identifier': url, 'suggested': {}, 'error': 'URL no vàlida'}
+    ts = os.environ.get('TRANSLATION_SERVER_URL', 'http://translation-server:1969').rstrip('/')
+
+    def _post_web(body: str, content_type: str):
+        import urllib.request
+        import urllib.error
+        req = urllib.request.Request(
+            f'{ts}/web', data=body.encode('utf-8'),
+            headers={'Content-Type': content_type}, method='POST',
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.status, resp.read().decode('utf-8', errors='replace')
+        except urllib.error.HTTPError as e:
+            return e.code, e.read().decode('utf-8', errors='replace')
+        except (urllib.error.URLError, TimeoutError) as e:
+            log.warning(f'translation-server inaccessible: {e}')
+            return None, None
+
+    status, body = await asyncio.to_thread(_post_web, url, 'text/plain')
+    if status is None:
+        return {'source': 'web', 'identifier': url, 'suggested': {},
+                'error': "El servei de captura web (translation-server) no està disponible"}
+
+    # 300 Multiple Choices: la pàgina conté diverses referències. Selecciona-les
+    # totes (cap a 50) i reenvia per resoldre-les.
+    if status == 300 and body:
+        try:
+            data = json.loads(body)
+            sel = dict(list((data.get('items') or {}).items())[:50])
+            if sel:
+                back = json.dumps({'items': sel, 'session': data.get('session')})
+                status, body = await asyncio.to_thread(_post_web, back, 'application/json')
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            pass
+
+    items = []
+    if status == 200 and body:
+        try:
+            arr = json.loads(body)
+            if isinstance(arr, list):
+                items = [_zotero_item_to_recursos(it) for it in arr if isinstance(it, dict)]
+        except json.JSONDecodeError:
+            pass
+    items = [it for it in items if it]
+    if not items:
+        return {'source': 'web', 'identifier': url, 'suggested': {},
+                'error': "No s'ha pogut extreure cap referència de la URL"}
+
+    suggested = _inject_citation_key(items[0])
+    if not suggested.get('URL'):
+        suggested['URL'] = url
+    return {'source': 'web', 'identifier': url, 'suggested': suggested,
+            'count': len(items), 'error': None}
+
+
+# ---------------------------------------------------------------------------
+# Import / Export BibTeX i RIS (P1).
+# ---------------------------------------------------------------------------
+
+@router.post("/import-references", dependencies=[Depends(require_role("editor"))])
+async def import_references(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    table_id: str = Query(...),
+    fmt: str = Query('auto'),
+):
+    """Importa un fitxer .bib/.ris creant pàgines a la taula `table_id`.
+
+    Genera `Citation Key` quan falta; salta entrades amb una clau que ja
+    existeix al vault (evita duplicats en reimportar). No toca pàgines existents.
+    """
+    from backend.services import references_io
+    raw = (await file.read()).decode('utf-8', errors='replace')
+    detected = references_io.detect_format(raw) if fmt == 'auto' else fmt
+    entries = references_io.parse_references(raw, fmt)
+    if not entries:
+        return {"created": 0, "skipped": 0, "items": [], "skipped_keys": [],
+                "errors": [], "format": detected,
+                "message": "No s'ha trobat cap referència al fitxer"}
+
+    registry = load_registry()
+    table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
+    if not table:
+        raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
+
+    vault_keys = _existing_citation_keys()  # snapshot abans d'importar
+    used = set(vault_keys)
+    created, skipped, errors = [], [], []
+    for e in entries:
+        try:
+            ck = (e.get('Citation Key') or '').strip()
+            if ck and ck in vault_keys:
+                skipped.append(ck)
+                continue
+            if not ck or ck in used:
+                ck = generate_citation_key(e.get('Authors'), e.get('Any'), e.get('Title') or '', used)
+            e['Citation Key'] = ck
+            used.add(ck)
+            title = e.get('Title') or ck
+            meta = dict(e)
+            meta['database_table_id'] = table_id
+            meta['table_id'] = table_id
+            req = PageSaveRequest(title=title, content='', metadata=meta)
+            res = await create_page(req, background_tasks)
+            created.append({"id": res.get('id'), "citation_key": ck, "title": title})
+        except Exception as ex:
+            log.warning(f"import-references: entrada fallida ({e.get('Title')}): {ex}")
+            errors.append({"title": e.get('Title'), "error": str(ex)})
+
+    _invalidate_cite_key_index()
+    return {
+        "created": len(created), "skipped": len(skipped),
+        "items": created, "skipped_keys": skipped, "errors": errors,
+        "format": detected,
+    }
+
+
+def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List[dict]:
+    """Metadata (frontmatter) de les pàgines d'una taula que tenen `Citation
+    Key`. Sync (snapshot + lectura de fitxers) — cridar via `asyncio.to_thread`."""
+    pages = _get_pages_snapshot()
+    out: List[dict] = []
+    for p in pages:
+        if getattr(p, 'resolved_table_id', None) != table_id:
+            continue
+        m = getattr(p, 'metadata', {}) or {}
+        if not m.get('Citation Key'):
+            pp = find_page_path(getattr(p, 'id', '') or '')
+            if not pp:
+                continue
+            try:
+                m, _ = parse_frontmatter(pp.read_text(encoding='utf-8'), pp)
+            except OSError:
+                continue
+        ck = m.get('Citation Key')
+        if not ck:
+            continue
+        if wanted is not None and ck not in wanted:
+            continue
+        out.append(m)
+    return out
+
+
+@router.get("/export-references", dependencies=[Depends(require_role("editor"))])
+async def export_references(
+    table_id: str = Query(...),
+    fmt: str = Query('bibtex'),
+    keys: str = Query(''),
+):
+    """Exporta les referències d'una taula a BibTeX o RIS (download).
+
+    `keys` opcional: CSV de citation keys per exportar només un subconjunt.
+    """
+    from backend.services import references_io
+    from backend.services.context_vars import get_active_vault_path
+    if fmt not in ('bibtex', 'ris'):
+        raise HTTPException(status_code=400, detail="format ha de ser 'bibtex' o 'ris'")
+    if not get_active_vault_path():
+        raise HTTPException(status_code=400, detail="Cap vault actiu")
+    wanted = {k.strip() for k in keys.split(',') if k.strip()} or None
+    metas = await asyncio.to_thread(_collect_table_reference_metas, table_id, wanted)
+    text = references_io.serialize_references(metas, fmt)
+    ext = 'bib' if fmt == 'bibtex' else 'ris'
+    from fastapi.responses import Response
+    return Response(
+        content=text,
+        media_type='application/x-bibtex' if fmt == 'bibtex' else 'application/x-research-info-systems',
+        headers={'Content-Disposition': f'attachment; filename="recursos.{ext}"'},
+    )
 
 
 @router.get("/search-citations")
