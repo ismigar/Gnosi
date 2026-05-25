@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate } from 'lucide-react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { sortKey } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { WikilinkInline } from './WikilinkInline';
 
@@ -77,7 +78,7 @@ function applyFilter(meta, pageId, f) {
 function multiKeySort(rows, sorts) {
     if (!sorts || sorts.length === 0) {
         return [...rows].sort((a, b) =>
-            String(a.title || '').toLowerCase().localeCompare(String(b.title || '').toLowerCase())
+            sortKey(a.title).toLowerCase().localeCompare(sortKey(b.title).toLowerCase())
         );
     }
     const result = [...rows];
@@ -86,8 +87,8 @@ function multiKeySort(rows, sorts) {
         if (!field) continue;
         const factor = direction === 'desc' ? -1 : 1;
         result.sort((a, b) => {
-            const av = String(a.metadata?.[field] ?? '').toLowerCase();
-            const bv = String(b.metadata?.[field] ?? '').toLowerCase();
+            const av = sortKey(a.metadata?.[field]).toLowerCase();
+            const bv = sortKey(b.metadata?.[field]).toLowerCase();
             return av.localeCompare(bv) * factor;
         });
     }

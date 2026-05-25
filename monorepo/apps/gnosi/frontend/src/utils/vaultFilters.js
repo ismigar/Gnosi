@@ -45,6 +45,18 @@ export function matchesFilters(item, filters = []) {
 }
 
 /**
+ * Normalitza un valor per a l'ordenació: descarta la puntuació i els
+ * símbols inicials (¿ ? ¡ ! « » " ' - etc.) perquè «¿Què és?» ordeni
+ * com «Què és» i no s'agrupi al principi per culpa del signe d'obertura.
+ *
+ * @param {*} value - El valor a normalitzar
+ * @returns {string} - El valor sense puntuació/símbols inicials
+ */
+export function sortKey(value) {
+    return String(value ?? '').replace(/^[\p{P}\p{S}\s]+/u, '');
+}
+
+/**
  * Aplica una cerca de text al títol i metadata.
  * 
  * @param {Object} item - L'objecte a cercar
