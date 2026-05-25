@@ -2,7 +2,7 @@ import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, ChevronLeft, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
-import { getSchemaFieldEntries, getSchemaFieldNames } from './schemaUtils';
+import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType } from './schemaUtils';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
@@ -55,7 +55,14 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
     const endPropertyFound = useMemo(() => {
         const endKeys = ['due_date', 'end_date', 'data de venciment', 'venciment'];
-        return getSchemaFieldNames(schema).find(k => endKeys.includes(k.toLowerCase()));
+        const dateLike = ['date', 'datetime', 'period'];
+        // Només considerar el camp com a data de fi si està declarat com a data al
+        // schema. Així evitem que un camp text amb nom "end_date" es parsegi com
+        // a data al Gantt.
+        return getSchemaFieldNames(schema).find(k => {
+            if (!endKeys.includes(k.toLowerCase())) return false;
+            return dateLike.includes(getFieldType(schema, k));
+        });
     }, [schema]);
 
     // Lògica de dades per al Gantt

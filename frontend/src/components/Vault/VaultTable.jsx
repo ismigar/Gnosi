@@ -1029,7 +1029,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
         // 1. Auto-complete/archive: if all children have status "Completed"/"Archived"/"Done"
         const statusLike = ['status', 'checkbox', 'estat'];
-        const isStatusField = statusLike.includes(getFieldType(schema, changedField)) || statusLike.includes(changedField?.toLowerCase());
+        const declaredFieldType = schema && schema[changedField];
+        const isDeclaredInSchema = declaredFieldType !== undefined && declaredFieldType !== null && declaredFieldType !== '';
+        const isStatusField = statusLike.includes(getFieldType(schema, changedField))
+            || (!isDeclaredInSchema && statusLike.includes(changedField?.toLowerCase()));
         const completedValues = new Set(['completat', 'arxivat', 'done', 'finished', 'completed', 'archivat', 'true', true]);
 
         if (isStatusField) {
@@ -1080,9 +1083,12 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         }
                     }
                 } else {
-                    // For simple date fields: min for "start" fields, max for "end" fields
+                    // For simple date fields: min for "start" fields, max for "end" fields.
+                    // Coincidència per paraula sencera (separadors: espai, guió, subratllat
+                    // o inici/final de string) per evitar falsos positius com "Definició",
+                    // "Fixació" o "infinit".
                     const fieldLower = changedField.toLowerCase();
-                    const isEndField = fieldLower.includes('fi') || fieldLower.includes('end') || fieldLower.includes('fin');
+                    const isEndField = /(^|[\s_-])(end|fi|fin|final)([\s_-]|$)/i.test(fieldLower);
                     const dates = allDates.map(d => new Date(d)).filter(d => !isNaN(d));
                     if (dates.length > 0) {
                         const targetDate = isEndField
@@ -1388,8 +1394,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     const isImageField = useCallback((field, fieldType) => {
         if (fieldType === 'files') return true;
+        // Si el camp està declarat al schema amb un tipus diferent de 'files',
+        // respectar-ho (no inferir per nom). Ex.: "Imatge Alt Text" de tipus text.
+        if (schema && schema[field] !== undefined && schema[field] !== null && schema[field] !== '') return false;
         return /(image|imatge|cover|thumbnail|thumb|foto|imagen)/i.test(String(field || ''));
-    }, []);
+    }, [schema]);
 
     const urlToVaultPath = useCallback((url) => {
         if (!url) return '';
@@ -1812,7 +1821,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
         const note = safeNotes.find(n => n.id === noteId);
         const isManual = note?.metadata?.[`${originalMetaKey}_manual`];
-        const isImageLikeField = /(image|imatge|cover|thumbnail|thumb|foto|imagen)/i.test(String(field || ''));
+        const isImageLikeField = isImageField(field, type);
 
         // Botó d'acció: el camp no té valor, sempre mostra el botó. En clicar
         // dispara l'acció configurada (ara mateix `translate_row`).

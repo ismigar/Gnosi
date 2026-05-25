@@ -102,7 +102,10 @@ function displayValue(v) {
 }
 
 function pickDateCol(columns, rows) {
-    const byName = (columns || []).find(c => /(data|date|fecha|created|day)/i.test(c));
+    // Coincidència per paraula sencera (separadors: espai, guió, subratllat o
+    // inici/final) per evitar falsos positius com "metadata" (conté "data"),
+    // "Today"/"Sunday"/"Holiday" (contenen "day"), etc.
+    const byName = (columns || []).find(c => /(^|[\s_-])(data|date|fecha|created|day)([\s_-]|$)/i.test(String(c || '')));
     if (byName) return byName;
     // Heurística: primera columna que tingui valors parsejables com a data en
     // almenys el 50% de les files.
@@ -928,7 +931,9 @@ function FeedRender({ rows, columns, onOpenPage, blockId }) {
 function pickGroupCol(view, columns, rows) {
     const explicit = view?.group_by || view?.groupBy;
     if (explicit) return explicit;
-    const guessSelect = (columns || []).find(c => c !== 'title' && /(estat|status|state|fase|stage)/i.test(c));
+    // Coincidència per paraula sencera (afegit "estado" en castellà) per evitar
+    // falsos positius com "Hostage" (conté "stage") o "Statement" (conté "state").
+    const guessSelect = (columns || []).find(c => c !== 'title' && /(^|[\s_-])(estat|estado|status|state|fase|stage)([\s_-]|$)/i.test(String(c || '')));
     if (guessSelect) return guessSelect;
     // Primera columna que tingui valors escalars repetits.
     for (const c of (columns || [])) {

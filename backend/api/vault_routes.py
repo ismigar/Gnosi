@@ -1376,6 +1376,12 @@ def _ensure_page_extension(file_path: Path, is_dashboard: bool) -> Path:
     return desired_path
 
 
+_ASSET_NAME_RE = re.compile(
+    r"(^|[\s_\-])(image|imatge|imagen|foto|cover|thumbnail|thumb)([\s_\-]|$)",
+    re.IGNORECASE,
+)
+
+
 def _is_asset_property(prop: Dict[str, Any]) -> bool:
     p_type = str((prop or {}).get("type") or "").strip().lower()
     if p_type in {
@@ -1389,19 +1395,12 @@ def _is_asset_property(prop: Dict[str, Any]) -> bool:
     }:
         return True
 
+    # Per camps de tipus `url`, promocionem a asset si el nom suggereix imatge.
+    # Coincidència per paraula sencera per evitar falsos positius com
+    # "Cobertura" (contenia "cover" com a substring) o noms genèrics que
+    # incloguessin els tokens dins d'altres paraules.
     p_name = str((prop or {}).get("name") or "").strip().lower()
-    return p_type == "url" and any(
-        token in p_name
-        for token in [
-            "image",
-            "imatge",
-            "imagen",
-            "foto",
-            "cover",
-            "thumbnail",
-            "thumb",
-        ]
-    )
+    return p_type == "url" and bool(_ASSET_NAME_RE.search(p_name))
 
 
 def _resolve_table_and_database_for_assets(
