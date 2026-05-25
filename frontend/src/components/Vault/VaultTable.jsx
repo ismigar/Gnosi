@@ -216,6 +216,16 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
 import { getFieldConfig, getFieldType, getSchemaFieldEntries } from './schemaUtils';
+import {
+    isComputedType,
+    isPasteableType,
+    serializeCellForClipboard,
+    parseClipboardMatrix,
+    coerceValueForField,
+    sameCellValue,
+    clampIndex,
+    computePasteRect,
+} from './cellGridUtils';
 import { applyDefaultFormulasToMetadata } from './defaultFormulaUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -339,6 +349,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // { rowId, field, activeMetaKey }
+    // ── Graella estil Notion/Excel ───────────────────────────────────────
+    // `activeCell` és el CURSOR (vora ressaltada) i és independent de
+    // `editingCell` (input obert). `anchorCell` és l'àncora d'una selecció
+    // rectangular (Shift+fletxes / Shift+clic); el rang és el rectangle
+    // entre àncora i cursor. Vegeu docs/dev_memory/directives/vault_table_cell_grid.md
+    const [activeCell, setActiveCell] = useState(null);   // { rowId, field }
+    const [anchorCell, setAnchorCell] = useState(null);   // { rowId, field } | null
+    const [editInitial, setEditInitial] = useState(null); // char inicial en type-to-edit (text/number)
+    const clipboardRef = useRef(null);                    // { matrix: rawValues[][] } — porta-retalls intern
     const [mediaPickerCell, setMediaPickerCell] = useState(null); // { rowId, field, originalMetaKey, tableId }
     // Confirmació en eliminar un fitxer d'un camp `files`:
     // { rowId, field, originalMetaKey, idx, arr, target, fileName }
@@ -575,6 +594,73 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             return changed ? newWidths : prev;
         });
     }, [schema]);
+
+    // ── Graella: ordre de columnes i files navegables ───────────────────
+    // El cursor recorre NOMÉS les columnes de metadades (dynamicColumns):
+    // title/accions/last_modified queden fora (vegeu la directiva).
+    const gridColumns = useMemo(
+        () => dynamicColumns.map(([key, type]) => ({ key, type })),
+        [dynamicColumns]
+    );
+    // Files navegables = descriptors `kind:'row'`, amb el seu índex de
+    // descriptor (= índex del virtualizer) per a scrollToIndex.
+    const navRows = useMemo(() => {
+        const out = [];
+        rowDescriptors.forEach((d, i) => {
+            if (d.kind === 'row' && d.note) out.push({ id: d.note.id, descriptorIndex: i });
+        });
+        return out;
+    }, [rowDescriptors]);
+    const navRowIndexById = useMemo(() => {
+        const m = new Map();
+        navRows.forEach((r, i) => m.set(r.id, i));
+        return m;
+    }, [navRows]);
+    const colIndexByKey = useMemo(() => {
+        const m = new Map();
+        gridColumns.forEach((c, i) => m.set(c.key, i));
+        return m;
+    }, [gridColumns]);
+    // Índex id→nota per a lookups O(1) dins els bucles de copy/paste/clear
+    // (abans `safeNotes.find` per cel·la → O(n·m) en seleccions grans).
+    const noteById = useMemo(() => {
+        const m = new Map();
+        for (const n of safeNotes) m.set(n.id, n);
+        return m;
+    }, [safeNotes]);
+
+    // Rectangle de selecció actual (índexs inclusius dins navRows/gridColumns).
+    const selectionRect = useMemo(() => {
+        if (!activeCell) return null;
+        const aRow = navRowIndexById.get(activeCell.rowId);
+        const aCol = colIndexByKey.get(activeCell.field);
+        if (aRow == null || aCol == null) return null;
+        if (!anchorCell) return { r0: aRow, c0: aCol, r1: aRow, c1: aCol };
+        const bRow = navRowIndexById.get(anchorCell.rowId);
+        const bCol = colIndexByKey.get(anchorCell.field);
+        if (bRow == null || bCol == null) return { r0: aRow, c0: aCol, r1: aRow, c1: aCol };
+        return {
+            r0: Math.min(aRow, bRow), c0: Math.min(aCol, bCol),
+            r1: Math.max(aRow, bRow), c1: Math.max(aCol, bCol),
+        };
+    }, [activeCell, anchorCell, navRowIndexById, colIndexByKey]);
+
+    const getCellSelState = useCallback((rowId, field) => {
+        if (!selectionRect) return { isActive: false, inRange: false };
+        const r = navRowIndexById.get(rowId);
+        const c = colIndexByKey.get(field);
+        if (r == null || c == null) return { isActive: false, inRange: false };
+        const inRange = r >= selectionRect.r0 && r <= selectionRect.r1 && c >= selectionRect.c0 && c <= selectionRect.c1;
+        const isActive = !!activeCell && activeCell.rowId === rowId && activeCell.field === field;
+        return { isActive, inRange };
+    }, [selectionRect, navRowIndexById, colIndexByKey, activeCell]);
+
+    // El cursor apunta a un id de fila concret; si canvia la vista o la cerca,
+    // aquell id pot desaparèixer del conjunt visible → netegem-lo.
+    useEffect(() => {
+        setActiveCell(null);
+        setAnchorCell(null);
+    }, [activeView?.id, searchTerm, activeView?.sort?.field, activeView?.sort?.direction]);
 
     // Resizing Handlers
     const handleMouseDown = useCallback((e, colKey) => {
@@ -853,6 +939,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // ---- SAVE CELL + PROPAGATION TO PARENT ----
     const handleCellSave = useCallback(async (noteId, field, newValue, originalMetaKey, skipPropagation = false) => {
         setEditingCell(null);
+        setEditInitial(null);
         const note = safeNotes.find(n => n.id === noteId);
         if (!note) return;
 
@@ -925,7 +1012,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     }, [safeNotes, activeView, onUpdateView, onCellSaved]);
 
     // ---- PROPAGATION LOGIC TO PARENT ----
-    const propagateToParent = useCallback(async (parentId, changedField, changedChildId, newValue) => {
+    // `overrides` (Map<childId, value>) permet a l'enganxat en bloc passar els
+    // valors acabats d'escriure perquè el càlcul "tots els fills fets" no usi
+    // els valors antics dels germans (edicions individuals el deixen `null`).
+    const propagateToParent = useCallback(async (parentId, changedField, changedChildId, newValue, overrides = null) => {
         const parent = safeNotes.find(n => n.id === parentId);
         if (!parent) return;
 
@@ -940,8 +1030,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         if (isStatusField) {
             const allChildrenDone = children.every(child => {
                 const childId = child.id;
-                // Simulate the new value for the child that just changed
-                const val = childId === changedChildId ? newValue : child.metadata?.[getMetaKey(child, changedField)];
+                // Simulate the new value for the child(ren) that just changed
+                const val = overrides?.has(childId)
+                    ? overrides.get(childId)
+                    : (childId === changedChildId ? newValue : child.metadata?.[getMetaKey(child, changedField)]);
                 return completedValues.has(String(val || '').toLowerCase());
             });
 
@@ -962,7 +1054,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         if (isDateField) {
             // Collect all date values from children (including the new one)
             const allDates = children.map(child => {
-                const val = child.id === changedChildId ? newValue : child.metadata?.[getMetaKey(child, changedField)];
+                const val = overrides?.has(child.id)
+                    ? overrides.get(child.id)
+                    : (child.id === changedChildId ? newValue : child.metadata?.[getMetaKey(child, changedField)]);
                 return val ? String(val) : null;
             }).filter(Boolean);
 
@@ -1387,6 +1481,328 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return { relatedTableId, relatedNotes, displayMap };
     };
 
+    // ── Graella: copiar / enganxar / navegació ───────────────────────────
+    const openMediaPicker = useCallback((note, key, fieldType) => {
+        const noteTableId = activeView?.table_id || resolveNoteTableId(note);
+        const metaKey = getMetaKey(note, key);
+        const cfg = fieldType === 'files' ? (getFieldConfig(schema, key) || {}) : null;
+        setMediaPickerCell({
+            rowId: note.id, field: key, originalMetaKey: metaKey, tableId: noteTableId,
+            fileField: cfg
+                ? { propertyName: key, storageFolder: cfg.storage_folder || 'assets', namePattern: cfg.name_pattern || '', fileMode: cfg.file_mode || 'upload' }
+                : null,
+            rowMetadata: note.metadata || {},
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeView, resolveNoteTableId, schema]);
+
+    // Recull els valors crus del rang seleccionat → matriu 2D de cel·les.
+    const getRangeCells = useCallback(() => {
+        if (!selectionRect) return [];
+        const { r0, c0, r1, c1 } = selectionRect;
+        const rows = [];
+        for (let r = r0; r <= r1; r++) {
+            const navRow = navRows[r];
+            if (!navRow) continue;
+            const note = noteById.get(navRow.id);
+            if (!note) continue;
+            const cols = [];
+            for (let c = c0; c <= c1; c++) {
+                const col = gridColumns[c];
+                if (!col) continue;
+                const metaKey = getMetaKey(note, col.key);
+                cols.push({ rowId: note.id, field: col.key, type: col.type, value: note.metadata?.[metaKey] });
+            }
+            rows.push(cols);
+        }
+        return rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectionRect, navRows, gridColumns, noteById]);
+
+    const handleCopyCells = useCallback(() => {
+        const cells = getRangeCells();
+        if (cells.length === 0 || cells[0].length === 0) return;
+        clipboardRef.current = { matrix: cells.map(row => row.map(c => c.value)) };
+        const tsv = cells.map(row => row.map(c => serializeCellForClipboard(c.value, c.type, idToTitle)).join('\t')).join('\n');
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(tsv).catch(() => {});
+        const n = cells.length * cells[0].length;
+        toast.success(t('table.cells_copied', { count: n, defaultValue: `${n} cel·la(es) copiada(es)` }));
+    }, [getRangeCells, idToTitle, t]);
+
+    // Propaga als pares (auto-completar/dates) després d'un enganxat en bloc:
+    // replica el que `handleCellSave` fa per a edicions individuals, agregat
+    // per (pare, camp) i amb `overrides` perquè el càlcul "tots els fills fets"
+    // usi els valors acabats d'enganxar, no els antics.
+    const propagateBulkToParents = useCallback(async (succeeded) => {
+        const groups = new Map(); // `${parentId}::${field}` → { parentId, field, overrides, sampleChild, sampleValue }
+        for (const u of succeeded) {
+            const note = noteById.get(u.id);
+            const parentId = note?.metadata?.parent_id || note?.parent_id;
+            if (!parentId) continue;
+            const ftype = getFieldType(schema, u.field);
+            const isStatusish = ['status', 'checkbox'].includes(ftype) || ['status', 'estat'].includes(String(u.field).toLowerCase());
+            const isDateish = ['date', 'period', 'datetime'].includes(ftype);
+            if (!isStatusish && !isDateish) continue;
+            const gkey = `${parentId}::${u.field}`;
+            let g = groups.get(gkey);
+            if (!g) { g = { parentId, field: u.field, overrides: new Map(), sampleChild: u.id, sampleValue: u.newValue }; groups.set(gkey, g); }
+            g.overrides.set(u.id, u.newValue);
+        }
+        for (const g of groups.values()) {
+            await propagateToParent(g.parentId, g.field, g.sampleChild, g.sampleValue, g.overrides);
+        }
+    }, [noteById, schema, propagateToParent]);
+
+    // Escriptura en bloc: 1 patch optimista + 1 PATCH per PÀGINA (agrupant les
+    // claus de metadata), amb concurrència limitada per no inundar el backend
+    // en seleccions grans, + propagació als pares + 1 sol refetch.
+    const applyBulkCellUpdates = useCallback(async (updates) => {
+        if (!updates || updates.length === 0) return;
+        // Dedupe per id+key (l'última guanya).
+        const map = new Map();
+        for (const u of updates) map.set(`${u.id}::${u.key}`, u);
+        const finalUpdates = [...map.values()];
+
+        // Patch optimista: totes les claus de cada pàgina alhora.
+        setOptimisticPatches(prev => {
+            const next = new Map(prev);
+            for (const u of finalUpdates) {
+                const existing = next.get(u.id) || {};
+                next.set(u.id, { ...existing, [u.key]: u.newValue });
+            }
+            return next;
+        });
+
+        // Agrupa per pàgina → 1 PATCH per pàgina amb múltiples claus.
+        const byPage = new Map();
+        for (const u of finalUpdates) {
+            const m = byPage.get(u.id) || {};
+            m[u.key] = u.newValue;
+            byPage.set(u.id, m);
+        }
+        const pageEntries = [...byPage.entries()];
+
+        // Concurrència limitada (chunks) per evitar una allau de requests.
+        const CHUNK = 20;
+        const failedPageIds = new Set();
+        for (let i = 0; i < pageEntries.length; i += CHUNK) {
+            const slice = pageEntries.slice(i, i + CHUNK);
+            const results = await Promise.allSettled(slice.map(([id, metadata]) =>
+                fetch(`/api/vault/pages/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ metadata }),
+                }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+            ));
+            results.forEach((res, j) => { if (res.status === 'rejected') failedPageIds.add(slice[j][0]); });
+        }
+
+        // Rollback de les pàgines que han fallat.
+        if (failedPageIds.size > 0) {
+            setOptimisticPatches(prev => {
+                const next = new Map(prev);
+                for (const u of finalUpdates) {
+                    if (!failedPageIds.has(u.id)) continue;
+                    const existing = next.get(u.id);
+                    if (!existing) continue;
+                    const { [u.key]: _removed, ...rest } = existing;
+                    if (Object.keys(rest).length === 0) next.delete(u.id);
+                    else next.set(u.id, rest);
+                }
+                return next;
+            });
+            notifyError('table-bulk-paste', new Error(`${failedPageIds.size} pages failed`), t('table.paste_error', { count: failedPageIds.size, defaultValue: `Error desant ${failedPageIds.size} pàgina(es)` }));
+        }
+
+        // Propaga als pares per als fills desats correctament (status/dates).
+        const succeeded = finalUpdates.filter(u => !failedPageIds.has(u.id));
+        await propagateBulkToParents(succeeded);
+
+        if (onCellSaved) onCellSaved();
+        else if (onUpdateView) onUpdateView(activeView);
+    }, [onCellSaved, onUpdateView, activeView, t, propagateBulkToParents]);
+
+    // Context de coerció per a una columna (opcions select/relation).
+    const coercionCtxFor = useCallback((col) => {
+        if (col.type === 'select' || col.type === 'status' || col.type === 'multi_select') {
+            return { options: getAvailableOptions(col.key, col.type), idToTitle };
+        }
+        if (col.type === 'relation') {
+            return { relatedNotes: getRelationContext(col.key).relatedNotes, idToTitle };
+        }
+        return {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [idToTitle, schema, safeNotes, allNotes]);
+
+    const handlePasteCells = useCallback(async () => {
+        if (!selectionRect) return;
+        let srcMatrix = clipboardRef.current?.matrix || null;
+        if (!srcMatrix) {
+            let text = '';
+            try { text = await navigator.clipboard.readText(); } catch { text = ''; }
+            const parsed = parseClipboardMatrix(text);
+            if (parsed.length === 0) return;
+            srcMatrix = parsed;
+        }
+        const srcRows = srcMatrix.length;
+        const srcCols = srcMatrix[0]?.length || 0;
+        if (srcRows === 0 || srcCols === 0) return;
+
+        const rect = computePasteRect(srcRows, srcCols, selectionRect, navRows.length, gridColumns.length);
+        const updates = [];
+        let skipped = 0;
+        for (let r = rect.r0; r <= rect.r1; r++) {
+            const navRow = navRows[r];
+            if (!navRow) continue;
+            const note = noteById.get(navRow.id);
+            if (!note) continue;
+            for (let c = rect.c0; c <= rect.c1; c++) {
+                const col = gridColumns[c];
+                if (!col) continue;
+                if (!isPasteableType(col.type)) continue;
+                const raw = srcMatrix[(r - rect.r0) % srcRows]?.[(c - rect.c0) % srcCols];
+                const res = coerceValueForField(raw, col.type, coercionCtxFor(col));
+                if (res.skip) { skipped++; continue; }
+                const metaKey = getMetaKey(note, col.key);
+                if (sameCellValue(note.metadata?.[metaKey], res.value)) continue;
+                updates.push({ id: note.id, key: metaKey, field: col.key, newValue: res.value });
+            }
+        }
+        await applyBulkCellUpdates(updates);
+        if (skipped > 0) toast(t('table.paste_skipped', { count: skipped, defaultValue: `${skipped} cel·la(es) ometa(es) (tipus incompatible)` }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectionRect, navRows, gridColumns, noteById, coercionCtxFor, applyBulkCellUpdates, t]);
+
+    const clearActiveCells = useCallback(() => {
+        if (!selectionRect) return;
+        const updates = [];
+        for (let r = selectionRect.r0; r <= selectionRect.r1; r++) {
+            const navRow = navRows[r];
+            if (!navRow) continue;
+            const note = noteById.get(navRow.id);
+            if (!note) continue;
+            for (let c = selectionRect.c0; c <= selectionRect.c1; c++) {
+                const col = gridColumns[c];
+                if (!col || !isPasteableType(col.type)) continue;
+                const empty = (col.type === 'multi_select' || col.type === 'relation') ? [] : (col.type === 'checkbox' ? false : '');
+                const metaKey = getMetaKey(note, col.key);
+                if (sameCellValue(note.metadata?.[metaKey], empty)) continue;
+                updates.push({ id: note.id, key: metaKey, field: col.key, newValue: empty });
+            }
+        }
+        applyBulkCellUpdates(updates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectionRect, navRows, gridColumns, noteById, applyBulkCellUpdates]);
+
+    // Mou el cursor (dRow/dCol) dins els límits; `extend` fixa l'àncora.
+    const moveCursor = useCallback((dRow, dCol, extend) => {
+        const prev = activeCell;
+        let rIdx = 0, cIdx = 0;
+        if (prev && navRowIndexById.has(prev.rowId) && colIndexByKey.has(prev.field)) {
+            rIdx = navRowIndexById.get(prev.rowId);
+            cIdx = colIndexByKey.get(prev.field);
+        }
+        let nr = rIdx + dRow;
+        if (nr > navRows.length - 1 && sortedNotes.length > visibleRowsCount) handleLoadMoreRows();
+        nr = clampIndex(nr, navRows.length);
+        const nc = clampIndex(cIdx + dCol, gridColumns.length);
+        const target = navRows[nr];
+        const col = gridColumns[nc];
+        if (!target || !col) return;
+        if (target.descriptorIndex != null && rowVirtualizer?.scrollToIndex) {
+            rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
+        }
+        if (extend) { if (!anchorCell && prev) setAnchorCell(prev); }
+        else setAnchorCell(null);
+        setActiveCell({ rowId: target.id, field: col.key });
+    }, [activeCell, anchorCell, navRowIndexById, colIndexByKey, navRows, gridColumns, sortedNotes.length, visibleRowsCount, handleLoadMoreRows, rowVirtualizer]);
+
+    // Obre l'editor de la cel·la activa (Enter / teclejar / segon clic).
+    const beginEditActive = useCallback((initialChar = null) => {
+        if (!activeCell) return;
+        const note = safeNotes.find(n => n.id === activeCell.rowId);
+        if (!note) return;
+        const type = getFieldType(schema, activeCell.field);
+        if (isComputedType(type)) return;
+        const metaKey = getMetaKey(note, activeCell.field);
+        if (isImageField(activeCell.field, type)) { openMediaPicker(note, activeCell.field, type); return; }
+        if (type === 'checkbox') {
+            const cur = note.metadata?.[metaKey];
+            const checked = !!cur && cur !== 'false';
+            handleCellSave(note.id, activeCell.field, !checked, metaKey);
+            return;
+        }
+        setEditInitial(initialChar);
+        setEditingCell({ rowId: note.id, field: activeCell.field, originalMetaKey: metaKey });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeCell, safeNotes, schema, isImageField, openMediaPicker, handleCellSave]);
+
+    // Després de desar amb Enter, baixa el cursor una fila (estil Excel).
+    const advanceCursorAfterEdit = useCallback((rowId, field) => {
+        const r = navRowIndexById.get(rowId);
+        const c = colIndexByKey.get(field);
+        if (r == null || c == null) return;
+        const nr = clampIndex(r + 1, navRows.length);
+        const target = navRows[nr];
+        if (!target) return;
+        setAnchorCell(null);
+        setActiveCell({ rowId: target.id, field });
+        if (target.descriptorIndex != null && rowVirtualizer?.scrollToIndex) {
+            rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
+        }
+    }, [navRowIndexById, colIndexByKey, navRows, rowVirtualizer]);
+
+    // Navegació de teclat de la graella (a nivell de finestra: les files
+    // virtualitzades es desmunten, no podem dependre del focus DOM per cel·la).
+    useEffect(() => {
+        if (!activeCell || editingCell) return undefined;
+        const onKey = (e) => {
+            const el = document.activeElement;
+            const tag = el?.tagName;
+            const inputType = (el && el.getAttribute) ? (el.getAttribute('type') || '') : '';
+            const isTextInput = (tag === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(inputType)) || tag === 'TEXTAREA' || el?.isContentEditable;
+            if (isTextInput) return;
+            // Les cel·les-checkbox són `<td tabIndex=0>` amb el seu propi
+            // onKeyDown (Espai/Enter alternen). Si una té el focus, deixem-li
+            // gestionar aquestes tecles per no alternar dues vegades.
+            if (tag === 'TD' && (e.key === ' ' || e.key === 'Enter')) return;
+
+            const meta = e.metaKey || e.ctrlKey;
+            if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopyCells(); return; }
+            if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handlePasteCells(); return; }
+            if (meta) return; // deixa ⌘A/⌘O als seus listeners
+
+            switch (e.key) {
+                case 'ArrowUp': e.preventDefault(); moveCursor(-1, 0, e.shiftKey); break;
+                case 'ArrowDown': e.preventDefault(); moveCursor(1, 0, e.shiftKey); break;
+                case 'ArrowLeft': e.preventDefault(); moveCursor(0, -1, e.shiftKey); break;
+                case 'ArrowRight': e.preventDefault(); moveCursor(0, 1, e.shiftKey); break;
+                case 'Tab': e.preventDefault(); moveCursor(0, e.shiftKey ? -1 : 1, false); break;
+                case 'Enter': e.preventDefault(); beginEditActive(null); break;
+                case ' ':
+                    e.preventDefault(); // evita scroll de la pàgina mentre navegues per cel·les
+                    if (getFieldType(schema, activeCell.field) === 'checkbox') beginEditActive(null);
+                    break;
+                case 'Escape': setActiveCell(null); setAnchorCell(null); break;
+                case 'Backspace':
+                case 'Delete':
+                    if (selectedIds.size === 0) { e.preventDefault(); clearActiveCells(); }
+                    break;
+                default:
+                    if (e.key.length === 1 && !e.altKey) {
+                        const type = getFieldType(schema, activeCell.field);
+                        if (type === 'text' || type === 'number' || type === undefined || type === '') {
+                            e.preventDefault();
+                            beginEditActive(e.key);
+                        }
+                    }
+                    break;
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [activeCell, editingCell, selectedIds, schema, handleCopyCells, handlePasteCells, moveCursor, beginEditActive, clearActiveCells]);
+
     const renderCellContent = (value, type, noteId, field, originalMetaKey) => {
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
         const note = safeNotes.find(n => n.id === noteId);
@@ -1496,11 +1912,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         type="number"
                         inputMode="decimal"
                         className="w-full px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                        defaultValue={value ?? ''}
+                        defaultValue={editInitial != null ? editInitial : (value ?? '')}
                         onBlur={(e) => saveNumber(e.target.value)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveNumber(e.target.value);
-                            if (e.key === 'Escape') setEditingCell(null);
+                            if (e.key === 'Enter') { e.preventDefault(); saveNumber(e.target.value); advanceCursorAfterEdit(noteId, field); return; }
+                            if (e.key === 'Escape') { setEditingCell(null); setEditInitial(null); return; }
                             handleKeyDown(e, noteId, field, originalMetaKey);
                         }}
                     />
@@ -1511,11 +1927,11 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 <input
                     autoFocus
                     className="w-full px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                    defaultValue={value || ''}
+                    defaultValue={editInitial != null ? editInitial : (value || '')}
                     onBlur={(e) => handleCellSave(noteId, field, e.target.value, originalMetaKey)}
                     onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleCellSave(noteId, field, e.target.value, originalMetaKey);
-                        if (e.key === 'Escape') setEditingCell(null);
+                        if (e.key === 'Enter') { e.preventDefault(); handleCellSave(noteId, field, e.target.value, originalMetaKey); advanceCursorAfterEdit(noteId, field); return; }
+                        if (e.key === 'Escape') { setEditingCell(null); setEditInitial(null); return; }
                         handleKeyDown(e, noteId, field, originalMetaKey);
                     }}
                 />
@@ -1865,11 +2281,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         // confondre la cadena 'false' amb un valor vertader.
                         const checkboxChecked = !!val && val !== 'false';
                         const toggleCheckbox = () => handleCellSave(note.id, key, !checkboxChecked, originalMetaKey);
+                        const sel = getCellSelState(note.id, key);
+                        // Clic = posa el cursor (selecciona); segon clic / doble-clic /
+                        // Enter / teclejar = edita. Així ⌘C copia la cel·la, no el text d'un input.
+                        const selectCell = () => { setActiveCell({ rowId: note.id, field: key }); setAnchorCell(null); };
+                        const openEditor = () => { setEditInitial(null); setActiveCell({ rowId: note.id, field: key }); setAnchorCell(null); setEditingCell({ rowId: note.id, field: key, originalMetaKey }); };
                         return (
                             <td
                                 key={key}
                                 style={{ width: columnWidths[key] || 180, maxWidth: columnWidths[key] || 180 }}
-                                className="py-2.5 px-4 overflow-hidden truncate hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-primary)] align-top"
+                                className={`py-2.5 px-4 overflow-hidden truncate text-[var(--text-primary)] align-top ${sel.inRange ? 'bg-[var(--gnosi-primary)]/10' : 'hover:bg-[var(--bg-tertiary)]/50'} ${sel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
                                 tabIndex={isCheckbox ? 0 : undefined}
                                 onKeyDown={isCheckbox ? (e) => {
                                     if (e.key === ' ' || e.key === 'Enter') {
@@ -1879,29 +2300,27 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                 } : undefined}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (isCheckbox) {
-                                        toggleCheckbox();
+                                    // Shift+clic estén la selecció rectangular des de la cel·la activa.
+                                    if (e.shiftKey && activeCell) {
+                                        if (!anchorCell) setAnchorCell(activeCell);
+                                        setActiveCell({ rowId: note.id, field: key });
                                         return;
                                     }
+                                    if (isCheckbox) { selectCell(); toggleCheckbox(); return; }
                                     const fieldType = getFieldType(schema, key);
-                                    const isComputed = fieldType === 'formula' || fieldType === 'rollup';
-                                    const isAction = fieldType === 'button';
-                                    if (isComputed || isAction) return;
-                                    if (isImageField(key, fieldType)) {
-                                        const noteTableId = activeView?.table_id || resolveNoteTableId(note);
-                                        // Només els camps `files` (no els d'imatge detectats pel nom)
-                                        // tenen config de destí/patró que la pujada ha de respectar.
-                                        const cfg = fieldType === 'files' ? (getFieldConfig(schema, key) || {}) : null;
-                                        setMediaPickerCell({
-                                            rowId: note.id, field: key, originalMetaKey, tableId: noteTableId,
-                                            fileField: cfg
-                                                ? { propertyName: key, storageFolder: cfg.storage_folder || 'assets', namePattern: cfg.name_pattern || '', fileMode: cfg.file_mode || 'upload' }
-                                                : null,
-                                            rowMetadata: note.metadata || {},
-                                        });
-                                        return;
-                                    }
-                                    setEditingCell({ rowId: note.id, field: key, originalMetaKey });
+                                    if (isComputedType(fieldType)) { selectCell(); return; }
+                                    if (isImageField(key, fieldType)) { selectCell(); openMediaPicker(note, key, fieldType); return; }
+                                    const alreadyActive = activeCell && activeCell.rowId === note.id && activeCell.field === key;
+                                    if (alreadyActive) openEditor();
+                                    else selectCell();
+                                }}
+                                onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isCheckbox) { toggleCheckbox(); return; }
+                                    const fieldType = getFieldType(schema, key);
+                                    if (isComputedType(fieldType)) return;
+                                    if (isImageField(key, fieldType)) { selectCell(); openMediaPicker(note, key, fieldType); return; }
+                                    openEditor();
                                 }}
                             >
                                 {renderCellContent(
