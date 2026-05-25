@@ -1119,10 +1119,10 @@ export default function MediaCenter() {
           </div>
 
           {(activeRoot === 'images' || activeRoot === 'assets') && (
-            <label className="flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg hover:bg-[var(--gnosi-primary)]/90 cursor-pointer transition-all shadow-lg active:scale-95">
-              <Plus size={18} />
-              <span className="text-sm font-medium">Penjar fitxer</span>
-              <input type="file" className="hidden" onChange={handleUpload} />
+            <label className={`flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg transition-all shadow-lg ${isUploading ? 'opacity-70 cursor-wait pointer-events-none' : 'hover:bg-[var(--gnosi-primary)]/90 cursor-pointer active:scale-95'}`}>
+              {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+              <span className="text-sm font-medium">{isUploading ? 'Pujant…' : 'Penjar fitxer'}</span>
+              <input type="file" className="hidden" onChange={handleUpload} disabled={isUploading} />
             </label>
           )}
         </div>
@@ -1304,6 +1304,27 @@ export default function MediaCenter() {
                   </motion.div>
                 ))}
               </div>
+
+              {hasMore && (
+                <div className="flex justify-center mt-8">
+                  <button
+                    type="button"
+                    onClick={() => fetchMedia(false)}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition-all disabled:opacity-50 disabled:cursor-wait"
+                  >
+                    {loading
+                      ? <Loader2 size={16} className="animate-spin" />
+                      : <ChevronDown size={16} />}
+                    {loading ? 'Carregant…' : 'Carregar-ne més'}
+                  </button>
+                </div>
+              )}
+              {total > 0 && (
+                <p className="text-center text-xs text-[var(--text-tertiary)] mt-4">
+                  {media.length} de {total}
+                </p>
+              )}
             </>
           )}
         </div>
