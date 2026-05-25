@@ -1102,6 +1102,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 return n.metadata?.[originalMetaKey];
             })
             .filter(v => v !== undefined && v !== null && v !== '');
+        // multi_select desa un array per fila: cal APLANAR a valors individuals,
+        // no deduplicar arrays sencers (això mostrava "tag1tag2tag3" com una sola
+        // opció). Accepta també cadenes CSV per compatibilitat.
+        if (type === 'multi_select') {
+            const flat = [];
+            for (const v of values) {
+                if (Array.isArray(v)) {
+                    flat.push(
+                        ...v
+                            .filter(x => typeof x === 'string' || typeof x === 'number' || typeof x === 'boolean')
+                            .map(x => String(x).trim())
+                            .filter(Boolean)
+                    );
+                } else if (typeof v === 'string') flat.push(...v.split(',').map(x => x.trim()).filter(Boolean));
+            }
+            return Array.from(new Set(flat));
+        }
         return Array.from(new Set(values));
     };
 
