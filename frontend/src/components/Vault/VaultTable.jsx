@@ -682,20 +682,22 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return { isActive, inRange };
     }, [selectionRect, navRowIndexById, colIndexByKey, activeCell]);
 
-    // Quan la vista, la cerca o l'ordre canvien (o en el primer mount), posem
-    // el cursor a la primera cel·la com fa Excel. Usem refs per llegir
-    // navRows/gridColumns actuals sense afegir-los com a dependències
-    // (evita moure el cursor quan s'afegeix/esborra una fila).
+    // Quan la vista, la cerca o l'ordre canvien (o en carregar la pàgina), posem
+    // el cursor a la primera cel·la com fa Excel, sense haver de fer clic.
+    // Les notes arriben de forma asíncrona: en el primer mount `navRows` sol
+    // ser buit, així que esperem a tenir dades. `initializedViewRef` garanteix
+    // que només inicialitzem una vegada per vista (no re-situa el cursor quan
+    // s'afegeix una fila o es pagina), i deixa intacta la navegació/Escape de
+    // l'usuari (activeCell NO és dependència).
+    const initializedViewRef = useRef(null);
     useEffect(() => {
+        const viewKey = `${activeView?.id}|${searchTerm}|${activeView?.sort?.field}|${activeView?.sort?.direction}`;
+        if (initializedViewRef.current === viewKey) return;
+        if (navRows.length === 0 || gridColumns.length === 0) return; // espera les dades
+        initializedViewRef.current = viewKey;
         setAnchorCell(null);
-        const rows = navRowsRef.current;
-        const cols = gridColumnsRef.current;
-        if (rows.length > 0 && cols.length > 0) {
-            setActiveCell({ rowId: rows[0].id, field: cols[0].key });
-        } else {
-            setActiveCell(null);
-        }
-    }, [activeView?.id, searchTerm, activeView?.sort?.field, activeView?.sort?.direction]);
+        setActiveCell({ rowId: navRows[0].id, field: gridColumns[0].key });
+    }, [activeView?.id, searchTerm, activeView?.sort?.field, activeView?.sort?.direction, navRows, gridColumns]);
 
     // Resizing Handlers
     const handleMouseDown = useCallback((e, colKey) => {
@@ -1763,7 +1765,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         const target = rows[nr];
         const col = cols[nc];
         if (!target || !col) return;
-        if (target.descriptorIndex != null && rowVirtualizer?.scrollToIndex) {
+        // Scroll vertical només si canviem de fila (evita recalcular en moviments
+        // purament horitzontals).
+        if (nr !== rIdx && target.descriptorIndex != null && rowVirtualizer?.scrollToIndex) {
             rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
         }
         // Scroll horitzontal: fa visible la columna destí quan surt del viewport.
@@ -1891,7 +1895,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     const renderCellContent = (value, type, noteId, field, originalMetaKey) => {
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
-        const note = safeNotes.find(n => n.id === noteId);
+        const note = noteById.get(noteId);
         const isManual = note?.metadata?.[`${originalMetaKey}_manual`];
         const isImageLikeField = isImageField(field, type);
 
