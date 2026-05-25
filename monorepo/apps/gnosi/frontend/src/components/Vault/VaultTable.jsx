@@ -1117,6 +1117,67 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         onUpdateFieldOptions(tableId, fieldId, nextOptions);
     };
 
+    // Eliminació d'una opció estil Notion: la treu del valor de TOTES les files
+    // que la tenen i, si el camp té catàleg explícit, també d'allà. Per a camps
+    // derivats (sense config.options) n'hi ha prou de buidar-la de les files:
+    // l'opció desapareix sola del desplegable en recalcular-se els valors.
+    // Aplica un patch optimista perquè el canvi es vegi a l'instant a la taula.
+    const removeOptionEverywhere = async (field, type, optionValue) => {
+        // 1. Catàleg explícit (si n'hi ha): treu-la de config.options.
+        const cfg = getFieldConfig(schema, field) || {};
+        const hasExplicit = Array.isArray(cfg.options) && cfg.options.length > 0;
+        if (hasExplicit) {
+            updateFieldOptions(field, cfg.options.filter(o => o !== optionValue));
+        }
+
+        // 2. Files: treu el valor de totes les que el tenen.
+        const updates = [];
+        for (const n of safeNotes) {
+            const key = getMetaKey(n, field);
+            const v = n.metadata?.[key];
+            if (type === 'multi_select') {
+                const arr = Array.isArray(v)
+                    ? v
+                    : (typeof v === 'string' && v ? v.split(',').map(s => s.trim()).filter(Boolean) : []);
+                if (arr.includes(optionValue)) {
+                    updates.push({ id: n.id, key, newValue: arr.filter(x => x !== optionValue) });
+                }
+            } else if (v === optionValue) {
+                updates.push({ id: n.id, key, newValue: '' });
+            }
+        }
+
+        // Si cap fila la usa i el camp és derivat, no cal fer res més: en tancar
+        // l'editor i refrescar, el valor ja no hi serà.
+        if (updates.length === 0) {
+            if (!hasExplicit && onCellSaved) onCellSaved();
+            return;
+        }
+
+        // Patch optimista: la taula reflecteix la baixa abans que respongui el backend.
+        setOptimisticPatches(prev => {
+            const next = new Map(prev);
+            for (const u of updates) {
+                const existing = next.get(u.id) || {};
+                next.set(u.id, { ...existing, [u.key]: u.newValue });
+            }
+            return next;
+        });
+
+        try {
+            await Promise.all(updates.map(u =>
+                fetch(`/api/vault/pages/${u.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ metadata: { [u.key]: u.newValue } }),
+                }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+            ));
+            if (onCellSaved) onCellSaved();
+        } catch (err) {
+            notifyError('remove-option-everywhere', err, t('table.remove_option_error', "Error eliminant l'opció dels registres"));
+        }
+    };
+
     // Autors únics ja presents a la taula per a aquest camp (autocompletar).
     // Dedup per nom|cognom1|cognom2; ignora autors completament buits.
     const getAutoriaSuggestions = (field) =>
@@ -1353,12 +1414,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             updateFieldOptions(field, [...options, val]);
                             handleCellSave(noteId, field, val, originalMetaKey);
                         } : undefined}
-                        onDeleteOption={onUpdateFieldOptions ? (val) => {
-                            updateFieldOptions(field, options.filter(o => o !== val));
-                            // Si l'opció eliminada era el valor actual, neteja la cel·la
-                            // (i tanca l'editor); altres registres conserven el seu valor.
-                            if ((value || '') === val) handleCellSave(noteId, field, '', originalMetaKey);
-                        } : undefined}
+                        onDeleteOption={onUpdateFieldOptions ? (val) => removeOptionEverywhere(field, type, val) : undefined}
                     />
                 );
             }
@@ -1382,7 +1438,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         idToTitle={displayMap}
                         onSave={(vals) => handleCellSave(noteId, field, vals, originalMetaKey)}
                         onCreate={canManageOptions ? (val) => updateFieldOptions(field, [...options, val]) : undefined}
-                        onDeleteOption={canManageOptions ? (val) => updateFieldOptions(field, options.filter(o => o !== val)) : undefined}
+                        onDeleteOption={canManageOptions ? (val) => removeOptionEverywhere(field, 'multi_select', val) : undefined}
                     />
                 );
             }
