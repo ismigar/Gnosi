@@ -1676,6 +1676,97 @@ def _delete_asset_table_dir(table: Dict[str, Any], database: Optional[Dict[str, 
             log.warning(f"Could not delete flat assets folder for {table_name}: {exc}")
 
 
+def _asset_segments_collide(a: str, b: str) -> bool:
+    """True si dos segments d'Assets resolen al mateix directori físic.
+
+    En macOS/APFS el filesystem és case-insensitive: "Cervell Digital" i
+    "Cervell digital" són la MATEIXA carpeta. Comparem amb casefold per
+    detectar-ho de manera portable (vegeu
+    `docs/dev_memory/directives/table_rename_flat_folder_collision.md`).
+    """
+    return str(a or "").strip().casefold() == str(b or "").strip().casefold()
+
+
+def _move_loose_files(src_dir: Path, dst_dir: Path) -> int:
+    """Mou només els FITXERS solts (no subdirectoris) de src_dir a dst_dir.
+
+    S'usa quan la carpeta plana `Assets/<Taula>/` coincideix físicament amb
+    l'arrel de nesting `Assets/<DB>/`: els subdirectoris són arbres
+    estructurats `<Taula>/<Propietat>/` d'altres taules i NO s'han de moure.
+    """
+    moved = 0
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for entry in src_dir.iterdir():
+        if not entry.is_file():
+            continue
+        dest = dst_dir / entry.name
+        if dest.exists():
+            log.warning(f"Loose asset move skipped, destination exists: {dest}")
+            continue
+        try:
+            entry.rename(dest)
+            moved += 1
+        except Exception as e:
+            log.warning(f"Could not move loose asset {entry} → {dest}: {e}")
+    return moved
+
+
+def _table_vault_dir(table: Dict[str, Any], registry: dict) -> Optional[Path]:
+    """Retorna el directori físic de la taula dins el Vault (BD/<DB>/<Taula>/)."""
+    folder_rel = _normalize_rel_folder(table.get("folder"))
+    if not folder_rel:
+        return None
+    db_id = table.get("database_id")
+    db_folder = "BD"
+    for db in registry.get("databases", []) or []:
+        if db.get("id") == db_id:
+            db_folder = _normalize_rel_folder(db.get("folder")) or f"BD/{db.get('name', 'General')}"
+            break
+    return get_p("VAULT") / db_folder / folder_rel
+
+
+def _rewrite_inline_asset_refs(pages_dir: Path, old_seg: str, new_seg: str) -> int:
+    """Reescriu les referències inline a la carpeta plana renombrada.
+
+    Els cossos de pàgina referencien els fitxers solts via
+    `/api/vault/assets/<seg>/fitxer.png` (el segment sol anar URL-encoded,
+    p.ex. `Cervell%20digital`). En renombrar la carpeta plana aquestes URLs
+    queden trencades; les reescrivim de <old_seg> a <new_seg>.
+
+    Case-SENSITIVE expressament: en una col·lisió (vegeu
+    `docs/dev_memory/directives/table_rename_flat_folder_collision.md`) les refs estructurades
+    porten el segment de la DB amb una altra capitalització i NO s'han de
+    tocar. La URL nova sempre s'escriu URL-encoded.
+    """
+    if not pages_dir or not pages_dir.is_dir() or old_seg == new_seg:
+        return 0
+    new_url = f"/api/vault/assets/{urllib.parse.quote(new_seg)}/"
+    old_urls = {
+        f"/api/vault/assets/{old_seg}/",
+        f"/api/vault/assets/{urllib.parse.quote(old_seg)}/",
+    }
+    old_urls = {u for u in old_urls if u != new_url}
+    if not old_urls:
+        return 0
+    changed = 0
+    for md in pages_dir.rglob("*.md"):
+        try:
+            text = md.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        new_text = text
+        for old_url in old_urls:
+            if old_url in new_text:
+                new_text = new_text.replace(old_url, new_url)
+        if new_text != text:
+            try:
+                safe_write_text(md, new_text)
+                changed += 1
+            except Exception as e:
+                log.warning(f"Could not rewrite asset refs in {md}: {e}")
+    return changed
+
+
 def _copy_local_file_to_assets(local_path: Path, target_dir: Path) -> str:
     target_dir.mkdir(parents=True, exist_ok=True)
     filename = _sanitize_asset_segment(local_path.name, f"file-{uuid.uuid4().hex[:8]}")
@@ -9651,40 +9742,96 @@ async def rename_table(table_id: str, data: dict = Body(...)):
             # Si la destinació ja existeix (col·lisió raríssima), no fem res
             # i deixem un warning al log per inspeccionar manualment.
             if old_name and new_name and old_name != new_name:
-                # 1) Plana
+                # Resol la DB un sol cop: la necessitem per al nesting
+                # estructurat (pas 2) i per detectar col·lisions entre la
+                # carpeta plana i l'arrel de la DB (pas 1).
+                db_entry = next(
+                    (
+                        d
+                        for d in registry.get("databases", []) or []
+                        if str(d.get("id")) == str(t.get("database_id"))
+                    ),
+                    None,
+                )
+                db_seg = _sanitize_asset_segment(
+                    (db_entry or {}).get("name") or t.get("database_id") or "General",
+                    "General",
+                )
+                old_seg = _sanitize_asset_segment(old_name, "Table")
+                new_seg = _sanitize_asset_segment(new_name, "Table")
+
+                # 1) Plana Assets/<Taula>/
+                #
+                # COL·LISIÓ (vegeu docs/dev_memory/directives/table_rename_flat_folder_collision.md):
+                # quan el segment de la taula coincideix amb el de la DB
+                # (case-insensitive a APFS), `Assets/<Taula>/` és FÍSICAMENT
+                # el mateix directori que l'arrel de nesting `Assets/<DB>/`.
+                # Renombrar-lo en bloc arrossegaria els arbres estructurats
+                # d'altres taules (p.ex. Assets/Cervell Digital/Recursos/...)
+                # i trencaria les seves referències. En aquest cas movem
+                # només els fitxers solts de la taula.
+                should_rewrite_refs = False
                 try:
-                    old_seg = _sanitize_asset_segment(old_name, "Table")
-                    new_seg = _sanitize_asset_segment(new_name, "Table")
                     old_dir = get_p("ASSETS") / old_seg
                     new_dir = get_p("ASSETS") / new_seg
-                    if old_dir.is_dir() and not new_dir.exists():
-                        old_dir.rename(new_dir)
-                        log.info(f"Renamed flat assets folder: {old_dir} → {new_dir}")
-                    elif old_dir.is_dir() and new_dir.exists():
-                        log.warning(
-                            f"Both old and new flat assets dirs exist for table "
-                            f"rename ({old_name}→{new_name}); leaving as-is."
-                        )
+                    old_collides = _asset_segments_collide(old_seg, db_seg)
+                    new_collides = _asset_segments_collide(new_seg, db_seg)
+
+                    if old_dir.is_dir():
+                        if old_collides and new_collides:
+                            # Old i new resolen tots dos a l'arrel de la DB:
+                            # només canvia la capitalització, res a reubicar.
+                            log.info(
+                                f"Flat assets folder coincides with DB root for "
+                                f"both names ({old_name}→{new_name}); nothing to move."
+                            )
+                        elif old_collides or new_collides:
+                            # Un dels segments és l'arrel de la DB: mai
+                            # renombrem en bloc; movem només els fitxers solts.
+                            moved = _move_loose_files(old_dir, new_dir)
+                            should_rewrite_refs = True
+                            log.info(
+                                f"Collision-safe flat assets move "
+                                f"({old_name}→{new_name}): {moved} loose file(s) "
+                                f"{old_dir} → {new_dir}; left DB-nested "
+                                f"subfolders in place."
+                            )
+                        elif not new_dir.exists():
+                            old_dir.rename(new_dir)
+                            should_rewrite_refs = True
+                            log.info(f"Renamed flat assets folder: {old_dir} → {new_dir}")
+                        else:
+                            log.warning(
+                                f"Both old and new flat assets dirs exist for table "
+                                f"rename ({old_name}→{new_name}); leaving as-is."
+                            )
                 except Exception as e:
                     log.warning(f"Could not rename flat assets folder: {e}")
 
-                # 2) Estructurada — necessitem la database actual per resoldre
-                # `Assets/<DBName>/<OldTable>/` correctament.
+                # 1b) Si la carpeta plana ha canviat de segment, els fitxers
+                #     solts viuen ara a <new_seg>: reescriu les refs inline
+                #     dels cossos de pàgina (`/api/vault/assets/<seg>/...`).
+                if should_rewrite_refs:
+                    try:
+                        table_dir = _table_vault_dir(t, registry)
+                        if table_dir:
+                            # rglob + read/write per molts .md: ho descarreguem
+                            # a un thread per no bloquejar l'event loop en taules
+                            # grans o vaults sincronitzats al núvol (lents).
+                            n = await asyncio.to_thread(_rewrite_inline_asset_refs, table_dir, old_seg, new_seg)
+                            if n:
+                                log.info(
+                                    f"Rewrote inline asset refs in {n} page(s) for "
+                                    f"table rename ({old_seg}→{new_seg})."
+                                )
+                    except Exception as e:
+                        log.warning(f"Could not rewrite inline asset refs: {e}")
+
+                # 2) Estructurada Assets/<DB>/<Taula>/ — sempre segura: va
+                #    niada sota <DB>/, mai col·lisiona amb l'arrel.
                 try:
-                    db_entry = next(
-                        (
-                            d
-                            for d in registry.get("databases", []) or []
-                            if str(d.get("id")) == str(t.get("database_id"))
-                        ),
-                        None,
-                    )
-                    db_seg = _sanitize_asset_segment(
-                        (db_entry or {}).get("name") or t.get("database_id") or "General",
-                        "General",
-                    )
-                    old_struct = get_p("ASSETS") / db_seg / _sanitize_asset_segment(old_name, "Table")
-                    new_struct = get_p("ASSETS") / db_seg / _sanitize_asset_segment(new_name, "Table")
+                    old_struct = get_p("ASSETS") / db_seg / old_seg
+                    new_struct = get_p("ASSETS") / db_seg / new_seg
                     if old_struct.is_dir() and not new_struct.exists():
                         old_struct.rename(new_struct)
                         log.info(f"Renamed structured assets folder: {old_struct} → {new_struct}")
