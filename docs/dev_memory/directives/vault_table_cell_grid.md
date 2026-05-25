@@ -14,7 +14,14 @@ Avui `VaultTable` només té `editingCell = { rowId, field, originalMetaKey }` (
 `field` és sempre la clau del *schema* (la mateixa que a `dynamicColumns`), no la `originalMetaKey`. La `originalMetaKey` es resol per fila amb `getMetaKey(note, field)` en el moment de llegir/escriure (els àlies i la normalització ja existeixen).
 
 ### Abast de la graella
-El cursor recorre **només les columnes de metadades** (`dynamicColumns`). Queden fora: la columna d'accions, el `title` (clicar-lo obre la pàgina) i `last_modified`. Motiu: són columnes especials i no editables inline; "copiar el valor d'un camp a altres registres" = camps de metadades.
+El cursor recorre el **`title` (columna 0, sticky)** + les columnes de metadades (`dynamicColumns`). Queden fora: la columna d'accions i `last_modified`.
+
+**El `title` és un cas especial** (decisió 2026-05-25, a petició de l'usuari):
+- És **navegable** (primera cel·la en carregar) i **editable inline** (Enter/teclejar obre un `<input>` al seu propi `<td>`).
+- Viu a `note.title`, **no** a `metadata` → camí d'escriptura propi `saveTitle()` (`PATCH { title }`) + override optimista separat (`optimisticTitles`, perquè `optimisticPatches` només abasta metadata).
+- **Exclòs de l'enganxat/buidat en bloc**: `isPasteableType('title') === false` i `coerceValueForField(..., 'title')` retorna SKIP. Així una selecció rectangular el pot **copiar** (lectura de `note.title` a `getRangeCells`) però mai s'hi enganxa ni es buida (no es corrompen títols).
+- **Clic = selecciona** la cel·la (no obre); **doble-clic = obre** la fitxa; obrir també amb el botó d'obrir o `Alt+O`. (NO s'aplica "clic sobre cel·la activa = edita" al títol, per evitar el xoc amb el doble-clic-obre.)
+- Scroll horitzontal: com és sticky, el `moveCursor` **no** fa scroll quan el cursor hi és (nc===0) i la suma d'offsets de columnes comença a i=1.
 
 ## Model d'interacció (decisió)
 - **Clic simple** sobre una cel·la → fixa `activeCell` (cursor), **no** obre l'editor.
@@ -74,6 +81,13 @@ Un enganxat pot tocar N cel·les. **No** cridar `handleCellSave` N cops (faria N
 - Tots dos *listeners* estan condicionats a `!editingCell`.
 - El listener de teclat de la graella s'ha d'**ignorar** si el focus és en un INPUT/TEXTAREA/contentEditable aliè (ex.: cerca de la toolbar).
 
+### Dreceres d'acció de fila (decisió 2026-05-25)
+Amb el cursor a una fila (sense editar), tecles per disparar les accions de l'esquerra **sense** col·locar el cursor a la columna d'accions:
+- `Alt+O` → obre la fitxa · `Alt+R` → obre el recurs (si en té) · `Alt+P` → obre en paral·lel (si hi ha `onOpenParallel`).
+  - **Per `e.code`** (`KeyO/KeyR/KeyP`), no `e.key`: a Mac `Alt+lletra` produeix caràcters especials. No xoquen amb el teclejar-per-editar perquè aquest ignora `altKey`.
+- `⌘/Ctrl+⌫` → **elimina** la fila del cursor (deliberat; `⌫` a soles segueix buidant la cel·la). Només si no hi ha selecció múltiple de files.
+- Totes operen sobre `activeCell.rowId` i es llegeixen via `rowActionsRef` (el listener es munta un sol cop).
+
 ## QA segur (OBLIGATORI — vegeu memòria del Vault)
 - **L'autosave escriu a disc** en editar/enganxar. **No** teclejar ni instrumentar a notes reals.
   - Proves de DOM/teclat al navegador via `javascript_tool` (les API de screenshot/read_page peten per timeout a la SPA amb polling).
@@ -86,6 +100,6 @@ Un enganxat pot tocar N cel·les. **No** cridar `handleCellSave` N cops (faria N
 - No reordenar `dynamicColumns` ni assumir que `field === originalMetaKey`: sempre `getMetaKey(note, field)` per fila.
 - `multi_select`/`relation` es desen com a **array**, no CSV (encara que el llegim tolerant a CSV).
 - En enganxar a `select`/`relation` amb valors que no casen → ometre, no crear opcions/relacions noves.
-- No incloure `title`/`last_modified`/accions a la graella de cursor.
+- `title` SÍ que és a la graella (col 0) però amb camí d'escriptura propi i exclòs de paste/clear (vegeu "Abast de la graella"). `last_modified`/accions segueixen fora.
 - El cursor i el rang s'han de **netejar** quan canvia la vista (`activeView.id`), la cerca o l'ordre, per evitar apuntar a files que ja no hi són.
 - L'enganxat en bloc ha de respectar les files **realment presents** al destí (no crear files noves).
