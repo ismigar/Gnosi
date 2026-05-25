@@ -40,9 +40,10 @@ function toNumber(value) {
 
 /**
  * Formata un número per a la VISUALITZACIÓ.
- * opts = { kind: 'number'|'currency'|'percent', decimals?, currencyCode?, locale? }
+ * opts = { kind: 'number'|'currency'|'percent'|'year', decimals?, currencyCode?, locale? }
  * - Valor buit → ''. Valor no numèric → el valor cru (mai "NaN").
  * - 'percent' mostra el valor TAL QUAL amb sufix '%' (no multiplica ×100).
+ * - 'year' mostra l'enter sense separador de milers (2024, no 2.024).
  */
 export function formatNumber(value, opts = {}) {
     if (isEmpty(value)) return '';
@@ -61,6 +62,9 @@ export function formatNumber(value, opts = {}) {
         if (kind === 'percent') {
             const plain = new Intl.NumberFormat(locale, fractionOpts).format(num);
             return `${plain}%`;
+        }
+        if (kind === 'year') {
+            return new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 0 }).format(num);
         }
         return new Intl.NumberFormat(locale, fractionOpts).format(num);
     } catch {

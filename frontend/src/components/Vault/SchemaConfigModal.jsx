@@ -314,16 +314,19 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 <option value="number">{t('schema.number_plain', 'Número')}</option>
                                 <option value="currency">{t('schema.number_currency', 'Moneda')}</option>
                                 <option value="percent">{t('schema.number_percent', 'Percentatge')}</option>
+                                <option value="year">{t('schema.number_year', 'Any')}</option>
                             </select>
-                            <input
-                                type="number"
-                                min="0"
-                                max="6"
-                                value={field.format?.decimals ?? ''}
-                                onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), decimals: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                placeholder={t('schema.number_decimals', 'Decimals')}
-                                className="text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                            />
+                            {field.format?.kind !== 'year' && (
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="6"
+                                    value={field.format?.decimals ?? ''}
+                                    onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), decimals: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                    placeholder={t('schema.number_decimals', 'Decimals')}
+                                    className="text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                />
+                            )}
                             {field.format?.kind === 'currency' && (
                                 <select
                                     value={field.format?.currency || ''}
@@ -340,7 +343,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             )}
                         </div>
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                            {t('schema.number_format_hint', "Buit/«Número» = format global de Settings. El percentatge mostra el valor tal qual amb «%».")}
+                            {t('schema.number_format_hint', "Buit/«Número» = format global de Settings. El percentatge mostra el valor tal qual amb «%». «Any» suprimeix el punt de milers (2024, no 2.024).")}
                         </p>
                     </div>
                 </div>
