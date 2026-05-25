@@ -6,7 +6,7 @@ import { Search, X, Loader2, Check } from 'lucide-react';
 import { toast } from '../../lib/toast';
 
 /**
- * Modal d'enriquiment de metadades a partir de DOI / ISBN / arXiv / URL.
+ * Modal d'enriquiment de metadades a partir de DOI / ISBN / arXiv / PMID / URL.
  *
  * Flow:
  *   1. L'usuari clica "Omplir metadades" al panell Propietats d'una pàgina
@@ -30,6 +30,8 @@ const SOURCE_LABELS = {
     crossref: 'CrossRef (DOI)',
     openlibrary: 'Open Library (ISBN)',
     arxiv: 'arXiv (preprint)',
+    pubmed: 'PubMed (PMID)',
+    web: 'Zotero translation-server (web)',
     url: 'Open Graph / meta tags (URL)',
 };
 
@@ -44,11 +46,28 @@ export const MetadataLookupModal = ({
     const [doi, setDoi] = useState('');
     const [isbn, setIsbn] = useState('');
     const [arxivId, setArxivId] = useState('');
+    const [pmid, setPmid] = useState('');
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null); // { source, identifier, suggested, error }
     const [selectedFields, setSelectedFields] = useState({}); // { fieldName: bool }
     const firstInputRef = useRef(null);
+    const pdfInputRef = useRef(null);
+
+    // Post-processat comú d'una resposta (lookup per identificador o per PDF):
+    // desa el resultat i pre-marca els camps que ara estan buits.
+    const populateFromResult = useCallback((data) => {
+        setResult(data);
+        const sug = data?.suggested || {};
+        const newSel = {};
+        Object.keys(sug).forEach((k) => {
+            const current = currentMetadata?.[k];
+            const isEmpty = current === null || current === undefined || current === '' || (Array.isArray(current) && current.length === 0);
+            newSel[k] = isEmpty;
+        });
+        setSelectedFields(newSel);
+        if (data?.error) toast.error(data.error);
+    }, [currentMetadata]);
 
     // Detectar identificadors actuals al obrir
     useEffect(() => {
@@ -56,6 +75,7 @@ export const MetadataLookupModal = ({
         setDoi(String(currentMetadata?.DOI || '').trim());
         setIsbn(String(currentMetadata?.ISBN || '').trim());
         setArxivId('');
+        setPmid(String(currentMetadata?.PMID || '').trim());
         setUrl(String(currentMetadata?.URL || '').trim());
         setResult(null);
         setSelectedFields({});
@@ -70,31 +90,31 @@ export const MetadataLookupModal = ({
             doi: doi.trim() || undefined,
             isbn: isbn.trim() || undefined,
             arxiv: arxivId.trim() || undefined,
+            pmid: pmid.trim() || undefined,
             url: url.trim() || undefined,
         };
-        if (!payload.doi && !payload.isbn && !payload.arxiv && !payload.url) {
+        if (!payload.doi && !payload.isbn && !payload.arxiv && !payload.pmid && !payload.url) {
             toast.error(t('metadata_lookup.no_identifier', {
-                defaultValue: 'Cal un DOI, ISBN, arXiv id o URL',
+                defaultValue: 'Cal un DOI, ISBN, arXiv id, PMID o URL',
             }));
             return;
         }
         setLoading(true);
         try {
-            const r = await axios.post('/api/vault/lookup-metadata', payload);
-            setResult(r.data);
-            // Per defecte, marquem els camps que actualment estan buits
-            // (no sobreescrivim sense decisió explícita els que ja tenen valor).
-            const sug = r.data?.suggested || {};
-            const newSel = {};
-            Object.keys(sug).forEach((k) => {
-                const current = currentMetadata?.[k];
-                const isEmpty = current === null || current === undefined || current === '' || (Array.isArray(current) && current.length === 0);
-                newSel[k] = isEmpty;
-            });
-            setSelectedFields(newSel);
-            if (r.data?.error) {
-                toast.error(r.data.error);
+            const onlyUrl = payload.url && !payload.doi && !payload.isbn && !payload.arxiv && !payload.pmid;
+            let r;
+            if (onlyUrl) {
+                // Captura web rica via Zotero translation-server; si no respon,
+                // fallback als meta tags (Open Graph/Highwire) de /lookup-metadata.
+                r = await axios.post('/api/vault/translate-url', { url: payload.url });
+                const sug = r.data?.suggested;
+                if (r.data?.error && (!sug || Object.keys(sug).length === 0)) {
+                    r = await axios.post('/api/vault/lookup-metadata', payload);
+                }
+            } else {
+                r = await axios.post('/api/vault/lookup-metadata', payload);
             }
+            populateFromResult(r.data);
         } catch (err) {
             console.error('lookup failed:', err?.message);
             toast.error(t('metadata_lookup.fetch_failed', {
@@ -103,7 +123,30 @@ export const MetadataLookupModal = ({
         } finally {
             setLoading(false);
         }
-    }, [doi, isbn, arxivId, url, currentMetadata, t]);
+    }, [doi, isbn, arxivId, pmid, url, populateFromResult, t]);
+
+    // P4: reconeixement des d'un PDF (extreu DOI/arXiv → lookup).
+    const handlePdfUpload = useCallback(async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = ''; // permet re-seleccionar el mateix fitxer
+        if (!file) return;
+        setLoading(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const r = await axios.post('/api/vault/recognize-pdf', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            populateFromResult(r.data);
+        } catch (err) {
+            console.error('pdf recognize failed:', err?.message);
+            toast.error(t('metadata_lookup.pdf_failed', {
+                defaultValue: 'Error reconeixent el PDF',
+            }));
+        } finally {
+            setLoading(false);
+        }
+    }, [populateFromResult, t]);
 
     const handleApply = useCallback(() => {
         const sug = result?.suggested || {};
@@ -219,6 +262,16 @@ export const MetadataLookupModal = ({
                         />
                     </label>
                     <label className="flex flex-col gap-1">
+                        <span className="text-xs font-semibold text-[var(--text-secondary)]">PMID</span>
+                        <input
+                            type="text"
+                            value={pmid}
+                            onChange={(e) => setPmid(e.target.value)}
+                            placeholder="29083320"
+                            className="px-2 py-1.5 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-1">
                         <span className="text-xs font-semibold text-[var(--text-secondary)]">URL</span>
                         <input
                             type="text"
@@ -239,6 +292,21 @@ export const MetadataLookupModal = ({
                     >
                         {loading && <Loader2 size={14} className="animate-spin" />}
                         {t('metadata_lookup.search', { defaultValue: 'Cerca' })}
+                    </button>
+                    <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        className="hidden"
+                        onChange={handlePdfUpload}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => pdfInputRef.current?.click()}
+                        disabled={loading}
+                        className="px-3 py-1.5 rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] text-sm font-medium hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                    >
+                        {t('metadata_lookup.from_pdf', { defaultValue: 'Detectar des d\'un PDF' })}
                     </button>
                     {result?.source && (
                         <span className="text-xs text-[var(--text-tertiary)]">
