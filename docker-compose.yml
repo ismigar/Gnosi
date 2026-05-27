@@ -34,7 +34,7 @@ services:
       # Only the agent mailbox archive needs write access (system_maintenance
       # task purges old messages). Scoped explicitly so a process inside the
       # container can't tamper with the rest of $HOME.
-      - ${REPO_ROOT}/monorepo/.antigravity:${REPO_ROOT}/monorepo/.antigravity:rw
+      - ${REPO_ROOT:-$HOME/Projectes}/monorepo/.antigravity:${REPO_ROOT:-$HOME/Projectes}/monorepo/.antigravity:rw
       - ${HOME}/.gnosi:/root/.gnosi:ro
       - ./backend:/app/backend
       # Credencials d'integracions (tokens Google, contrasenyes IMAP/SMTP)
@@ -45,12 +45,13 @@ services:
       # Local-only data (SQLite, caches, indices). NEVER point at cloud-synced
       # storage — SQLite + cloud sync = corruption. See paths_config.py.
       - gnosi_local_data:/app/data
-    # Rutes del host parametritzades: ${HOME} resol per màquina; ${REPO_ROOT}
-    # s'ha de definir al `.env` local (gitignored) perquè la ubicació del repo
-    # difereix entre màquines (p. ex. ~/Projectes vs ~/Projectes/Projectes).
+    # Rutes del host parametritzades: ${HOME} resol per màquina. ${REPO_ROOT}
+    # (arrel del repo, per al mount de monorepo/.antigravity) per defecte és
+    # $HOME/Projectes; si el repo viu en una altra ubicació (p. ex.
+    # ~/Projectes/Projectes), defineix REPO_ROOT al `.env` local (gitignored).
     env_file:
       - ../../../.env_shared # 1. Variables compartides
-      - .env # 2. Variables locals (sobreescriuen) — defineix REPO_ROOT aquí
+      - .env # 2. Variables locals (sobreescriuen) — opcional: REPO_ROOT
     environment:
       - LOGGING_LEVEL=debug
       - DIGITAL_BRAIN_VAULT_PATH=/vault
