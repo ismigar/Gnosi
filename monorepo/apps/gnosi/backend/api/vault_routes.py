@@ -3191,6 +3191,10 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     metadata = _persist_metadata_assets(metadata)
 
+    # Tota alta d'un recurs (taula amb columna 'Citation Key') ha de quedar
+    # citable, no només la que ve del lookup de metadades.
+    metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
+
     is_template = metadata.get("is_template") is True
     is_dashboard = metadata.get("is_dashboard") is True
 
@@ -4526,6 +4530,228 @@ def _inject_citation_key(suggested: dict) -> dict:
     return suggested
 
 
+def _citation_key_prop_name(table: Optional[dict]) -> Optional[str]:
+    """Nom real de la columna 'Citation Key' d'una taula citable, o None.
+
+    Mirall backend del `tableHasCitationKey` del frontend (VaultDashboard.jsx):
+    una taula és «de Recursos» (citable) si té una columna el nom de la qual,
+    normalitzat (minúscules, sense espais), és `citationkey`. Tornem el nom
+    real (p.ex. 'Citation Key') per poder-hi escriure amb la clau exacta que
+    llegeixen `_recursos_metadata_to_csl` i l'índex de cites."""
+    for p in (table or {}).get("properties", []) or []:
+        if str(p.get("name") or "").lower().replace(" ", "") == "citationkey":
+            return p.get("name")
+    return None
+
+
+def get_reference_table_id() -> Optional[str]:
+    """Id de la taula de referències designada — l'ÚNICA font de veritat.
+
+    La funcionalitat de referències (Citation Key automàtica, import/export
+    BibTeX, «Crear des d'una font», resolució de cites) no pertany a una taula
+    pel seu nom, sinó a la que l'usuari designa a Settings. Si canvia la
+    designació, tota la funcionalitat es mou amb ella.
+
+    Prioritat:
+      1. `target_table` del config de referències (Settings; reusa
+         `zotero_db_config.json`).
+      2. Auto-migració (vaults anteriors a la designació, com els que ja tenien
+         «Recursos»): adopta la primera taula amb columna 'Citation Key' i la
+         persisteix com a `target_table`. A partir d'aleshores la funcionalitat
+         segueix la designació, no cap heurística.
+
+    Retorna None si no hi ha designació ni cap taula citable (Referències no
+    activades encara)."""
+    try:
+        from backend.api.zotero_routes import (
+            CONFIG_PATH, DEFAULT_CONFIG, load_json, save_json,
+        )
+    except Exception:
+        return None
+    cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
+    tid = str(cfg.get("target_table") or "").strip()
+    if tid:
+        return tid
+    # Si l'usuari ja ha tocat Referències a Settings (encara que sigui per
+    # DESACTIVAR-les, deixant target_table=''), respectem la decisió i NO
+    # auto-migrem. L'auto-adopció és només per a vaults que mai han passat per
+    # Settings (p.ex. els que ja tenien «Recursos» abans d'aquesta feature).
+    if cfg.get("references_configured"):
+        return None
+    # Auto-migració one-shot: adopta una taula citable existent i persisteix.
+    try:
+        reg = load_registry()
+        for t in reg.get("tables", []) or []:
+            if _citation_key_prop_name(t):
+                adopted = str(t.get("id") or "").strip()
+                if adopted:
+                    cfg["target_table"] = adopted
+                    try:
+                        save_json(CONFIG_PATH, cfg)
+                    except Exception:
+                        pass
+                    log.info(
+                        f"📚 Taula de referències auto-designada: {adopted} "
+                        f"({t.get('name')})"
+                    )
+                    return adopted
+    except Exception:
+        pass
+    return None
+
+
+# Columnes que fan una taula CITABLE — les que llegeixen
+# `_recursos_metadata_to_csl` (backend) i `recursosPageToCsl` (frontend).
+# 'Citation Key' és imprescindible; la resta enriqueixen la cita. (nom, tipus).
+_REFERENCE_SCHEMA: list = [
+    ("Citation Key", "text"), ("Title", "text"), ("Authors", "text"),
+    ("Any", "text"), ("Item Type", "select"), ("Llibre/Revista", "text"),
+    ("Editorial", "text"), ("Lloc", "text"), ("Volum", "text"),
+    ("Número", "text"), ("Pàgines", "text"), ("Edició", "text"),
+    ("DOI", "text"), ("ISBN", "text"), ("ISSN", "text"),
+    ("URL", "url"), ("Idioma", "text"),
+]
+
+
+def ensure_reference_table_schema(table_id: str) -> int:
+    """Afegeix a la taula les columnes citables que li faltin (idempotent).
+
+    Així l'usuari no ha de saber que «cal un camp Citation Key»: en
+    designar/crear la taula de referències, el sistema li garanteix l'esquema.
+    Retorna el nombre de columnes afegides."""
+    if not table_id:
+        return 0
+    reg = load_registry()
+    table = next(
+        (t for t in reg.get("tables", []) or [] if t.get("id") == table_id), None
+    )
+    if not table:
+        return 0
+    props = table.setdefault("properties", [])
+    existing = {str(p.get("name") or "").lower().replace(" ", "") for p in props}
+    added = 0
+    for name, ptype in _REFERENCE_SCHEMA:
+        norm = name.lower().replace(" ", "")
+        if norm not in existing:
+            props.append({"id": str(uuid.uuid4()), "name": name, "type": ptype})
+            existing.add(norm)
+            added += 1
+    if added:
+        save_registry(reg)
+        log.info(f"📚 Esquema de referències: +{added} columnes a {table_id}")
+    return added
+
+
+def _set_reference_table_id(table_id: Optional[str]) -> None:
+    """Persisteix la designació de taula de referències (Settings → `target_table`)."""
+    from backend.api.zotero_routes import (
+        CONFIG_PATH, DEFAULT_CONFIG, load_json, save_json,
+    )
+    cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
+    cfg["target_table"] = (table_id or "").strip()
+    # Marca que la designació és deliberada (Settings) → desactiva l'auto-migració.
+    cfg["references_configured"] = True
+    save_json(CONFIG_PATH, cfg)
+
+
+@router.get("/reference-table")
+async def get_reference_table():
+    """Estat de la taula de referències designada (per a Settings i el gating
+    del frontend)."""
+    tid = get_reference_table_id()
+    t = _table_by_id(tid) if tid else None
+    return {"table_id": tid, "configured": bool(tid),
+            "name": t.get("name") if t else None}
+
+
+@router.post("/reference-table", dependencies=[Depends(require_role("editor"))])
+async def set_reference_table(payload: dict = Body(...)):
+    """Designa una taula existent com a taula de referències i li garanteix
+    l'esquema citable. L'usuari no ha de saber res de 'Citation Key'."""
+    table_id = str((payload or {}).get("table_id") or "").strip()
+    if not table_id:
+        raise HTTPException(status_code=400, detail="table_id és obligatori")
+    if not _table_by_id(table_id):
+        raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
+    added = ensure_reference_table_schema(table_id)
+    _set_reference_table_id(table_id)
+    _invalidate_cite_key_index()
+    t = _table_by_id(table_id)
+    return {"table_id": table_id, "configured": True,
+            "name": t.get("name") if t else None, "columns_added": added}
+
+
+@router.post("/reference-table/create", dependencies=[Depends(require_role("editor"))])
+async def create_reference_table(payload: dict = Body(default=None)):
+    """Crea una taula nova ja citable i la designa com a taula de referències."""
+    name = str((payload or {}).get("name") or "").strip() or "Referències"
+    table = {
+        "name": name,
+        "database_id": "gnosi_vault_db",
+        "properties": [
+            {"id": str(uuid.uuid4()), "name": n, "type": tp}
+            for n, tp in _REFERENCE_SCHEMA
+        ],
+    }
+    created = await create_table(table)
+    _set_reference_table_id(created["id"])
+    _invalidate_cite_key_index()
+    return {"table_id": created["id"], "configured": True,
+            "name": created.get("name"), "created": True}
+
+
+@router.delete("/reference-table", dependencies=[Depends(require_role("editor"))])
+async def clear_reference_table():
+    """Desactiva les referències (treu la designació). No esborra cap taula."""
+    _set_reference_table_id("")
+    _invalidate_cite_key_index()
+    return {"table_id": None, "configured": False}
+
+
+def _ensure_recursos_citation_key(
+    metadata: dict, table: Optional[dict] = None, *, regenerate: bool = False
+) -> dict:
+    """Garanteix que una pàgina de la TAULA DE REFERÈNCIES porti `Citation Key`.
+
+    Abans la clau només es generava al lookup de metadades; una alta o un
+    desat normal des del navegador deixava el recurs sense clau i, per tant,
+    no citable (`recursosPageToCsl`/`_recursos_metadata_to_csl` tornen None).
+    Cridada des de create/save/patch/duplicate, aquesta funció tanca el forat:
+    qualsevol via de persistència deixa el recurs citable.
+
+    Gate EXCLUSIU per designació: només actua si la pàgina pertany a la taula
+    de referències designada a Settings (`get_reference_table_id`), no per cap
+    heurística de nom/columna. Si l'usuari canvia la tabla a Settings, la
+    generació segueix la nova.
+
+    Genera només quan (1) és la taula de referències, (2) la cel·la és buida
+    —o `regenerate=True`, p.ex. en duplicar perquè la còpia no col·lisioni— i
+    (3) hi ha alguna dada bibliogràfica (Authors/Any/Title), per no estampar
+    claus escombraria a files completament buides. La clau és única contra les
+    ja existents al vault. Muta i retorna `metadata`."""
+    ref_id = get_reference_table_id()
+    if not ref_id or get_table_id(metadata) != ref_id:
+        return metadata
+    if table is None:
+        table = _table_by_id(ref_id)
+    # La taula de referències hauria de tenir columna 'Citation Key' (Settings
+    # la garanteix); si encara no, escrivim igualment al camp literal que
+    # llegeixen els lectors de CSL i l'índex de cites.
+    ck_name = _citation_key_prop_name(table) or "Citation Key"
+    if not regenerate and str(metadata.get(ck_name) or "").strip():
+        return metadata
+    authors, year, title = (
+        metadata.get("Authors"), metadata.get("Any"), metadata.get("Title"),
+    )
+    if not (str(authors or "").strip() or str(year or "").strip()
+            or str(title or "").strip()):
+        return metadata
+    ck = generate_citation_key(authors, year, title or "", _existing_citation_keys())
+    if ck:
+        metadata[ck_name] = ck
+    return metadata
+
+
 # ---------------------------------------------------------------------------
 # PubMed / PMID lookup (P3) — NCBI E-utilities (esummary JSON, sense API key).
 # ---------------------------------------------------------------------------
@@ -5220,6 +5446,11 @@ def _ensure_cite_key_index(v_str: str) -> dict:
         # Rebuild
         log.info(f"🔎 Rebuilding cite_key_index for {v_str}")
         idx: dict[str, dict] = {}
+        # Acotem l'índex a la TAULA DE REFERÈNCIES designada (exclusiu): només
+        # les seves pàgines són cites. Si no hi ha designació (Referències no
+        # activades), indexem qualsevol pàgina amb 'Citation Key' (compat.).
+        ref_id = get_reference_table_id()
+        ref_canon = _canonicalize_id(ref_id) if ref_id else None
         with _page_index_lock:
             entries = list(_page_index_entries.get(v_str, {}).values())
         for entry in entries:
@@ -5237,6 +5468,15 @@ def _ensure_cite_key_index(v_str: str) -> dict:
                 m = re.search(r"^Citation Key:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
                 if not m:
                     continue
+                # Scope: només pàgines de la taula de referències designada.
+                if ref_canon:
+                    tm = re.search(
+                        r"^(?:database_table_id|table_id):\s*['\"]?([^'\"\n\r]+)",
+                        head, re.MULTILINE,
+                    )
+                    page_tid = _canonicalize_id(tm.group(1).strip()) if tm else ""
+                    if page_tid != ref_canon:
+                        continue
                 ck = m.group(1).strip()
                 if ck and ck not in idx:
                     idx[ck] = {
@@ -5742,6 +5982,9 @@ async def save_page(
 
     metadata = _persist_metadata_assets(metadata)
 
+    # Desar un recurs des del navegador també ha de garantir-ne la Citation Key.
+    metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
+
     def _write_now():
         # Both the version backup and the actual file write are real I/O on
         # OneDrive — pushed onto a worker thread together so the request
@@ -5932,6 +6175,10 @@ async def patch_page(
             log.error(f"Error processing automations for {page_id}: {e}")
 
         metadata = _persist_metadata_assets(metadata)
+
+        # Edicions parcials (p.ex. omplir cel·les a la graella) també han de
+        # deixar el recurs citable si encara no en tenia clau.
+        metadata = _ensure_recursos_citation_key(metadata)
 
         def _write_now():
             save_page_md(file_path, metadata, content)
@@ -7835,6 +8082,10 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
             )
         else:
             new_file_path = source_path.parent / f"{new_page_id}.md"
+            # Una còpia és un recurs nou: regenerem la clau perquè no
+            # col·lisioni amb la de l'original (que l'índex de cites
+            # ombrejaria, deixant un dels dos no resoluble).
+            new_metadata = _ensure_recursos_citation_key(new_metadata, regenerate=True)
             save_page_md(new_file_path, new_metadata, body)
 
         background_tasks.add_task(

@@ -549,6 +549,7 @@
     "new_action": "Nou",
     "new_empty_record": "Nou registre",
     "new_template": "Nova plantilla",
+    "new_from_source": "Crear des d'una font…",
     "templates_title": "Plantilles",
     "default_badge": "Pred."
   },
@@ -616,6 +617,7 @@
       "newsletters": "Subscripcions",
       "mail_accounts": "Comptes de Correu",
       "contacts": "Contactes",
+      "references": "Referències",
       "ai": "Intel·ligència Artificial",
       "translate": "Traducció",
       "profile": "Perfil"

@@ -39,6 +39,8 @@ export const MetadataLookupModal = ({
     isOpen,
     onClose,
     onApply,
+    onCreate,
+    mode = 'enrich',
     currentMetadata = {},
 }) => {
     const { t } = useTranslation();
@@ -57,8 +59,22 @@ export const MetadataLookupModal = ({
     // Post-processat comú d'una resposta (lookup per identificador o per PDF):
     // desa el resultat i pre-marca els camps que ara estan buits.
     const populateFromResult = useCallback((data) => {
-        setResult(data);
         const sug = data?.suggested || {};
+        // Mode 'create' (alta des del menú Nou de la taula): sense pas de
+        // confirmació — en tenir dades, crea la fitxa directament i tanca.
+        // El `suggested` ja porta `Citation Key` generada pel backend.
+        if (mode === 'create') {
+            if (data?.error || Object.keys(sug).length === 0) {
+                toast.error(data?.error || t('metadata_lookup.no_data', {
+                    defaultValue: 'No s\'ha trobat cap dada.',
+                }));
+                return;
+            }
+            onCreate?.(sug);
+            onClose?.();
+            return;
+        }
+        setResult(data);
         const newSel = {};
         Object.keys(sug).forEach((k) => {
             const current = currentMetadata?.[k];
@@ -67,7 +83,7 @@ export const MetadataLookupModal = ({
         });
         setSelectedFields(newSel);
         if (data?.error) toast.error(data.error);
-    }, [currentMetadata]);
+    }, [currentMetadata, mode, onCreate, onClose, t]);
 
     // Detectar identificadors actuals al obrir
     useEffect(() => {
@@ -217,7 +233,9 @@ export const MetadataLookupModal = ({
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-secondary)] shrink-0">
                     <Search size={18} className="text-[var(--text-tertiary)]" />
                     <div className="flex-1 text-sm font-medium text-[var(--text-primary)]">
-                        {t('metadata_lookup.title', { defaultValue: 'Omplir metadades' })}
+                        {mode === 'create'
+                            ? t('metadata_lookup.create_title', { defaultValue: 'Crear des d\'una font' })
+                            : t('metadata_lookup.title', { defaultValue: 'Omplir metadades' })}
                     </div>
                     <button
                         type="button"
