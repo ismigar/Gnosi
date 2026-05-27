@@ -2389,7 +2389,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                 title={t('common.open')}
                             >
                                 <ExternalLink size={14} />
-                                <span className="row-action-tooltip">{t('common.open')}</span>
+                                <span className="row-action-tooltip">{t('common.open')}<kbd>⌥O</kbd></span>
                             </button>
                             {hasOpenableResource(note) && (
                                 <button
@@ -2402,7 +2402,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     title={t('table.open_resource_tooltip')}
                                 >
                                     <LinkIcon size={14} />
-                                    <span className="row-action-tooltip">{t('table.open_resource_tooltip')}</span>
+                                    <span className="row-action-tooltip">{t('table.open_resource_tooltip')}<kbd>⌥R</kbd></span>
                                 </button>
                             )}
                             {onOpenParallel && (
@@ -2412,7 +2412,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     title={t('table.open_parallel')}
                                 >
                                     <Columns2 size={14} />
-                                    <span className="row-action-tooltip">{t('table.open_parallel')}</span>
+                                    <span className="row-action-tooltip">{t('table.open_parallel')}<kbd>⌥P</kbd></span>
                                 </button>
                             )}
                             {!isListView && onDeletePage && (
@@ -2425,7 +2425,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     title={t('table.delete')}
                                 >
                                     <Trash2 size={14} />
-                                    <span className="row-action-tooltip">{t('table.delete')}</span>
+                                    <span className="row-action-tooltip">{t('table.delete')}<kbd>⌘⌫</kbd></span>
                                 </button>
                             )}
                         </div>
