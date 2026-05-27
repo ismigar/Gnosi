@@ -166,6 +166,7 @@ export function VaultViewsHeader({
     onConfigureFields,
     onCreateRecord,
     onCreateTemplate,
+    onCreateFromSource,
     searchTerm,
     setSearchTerm,
     templates = [],
@@ -462,7 +463,17 @@ export function VaultViewsHeader({
                                     <LayoutTemplate size={14} className="text-[var(--text-tertiary)]" />
                                     <span>{t('views_header.new_template')}</span>
                                 </button>
-                                
+
+                                {referenceTableId && onCreateFromSource && (
+                                    <button
+                                        onClick={() => { setShowNewMenu(false); onCreateFromSource(); }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                    >
+                                        <Search size={14} className="text-[var(--text-tertiary)]" />
+                                        <span>{t('views_header.new_from_source', { defaultValue: 'Crear des d\'una font…' })}</span>
+                                    </button>
+                                )}
+
                                 {templates.length > 0 && (
                                     <>
                                         <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />

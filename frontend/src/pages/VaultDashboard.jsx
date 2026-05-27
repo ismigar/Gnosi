@@ -16,6 +16,7 @@ import { inFlightSaves } from '../components/Vault/editorState';
 import { SchemaConfigModal } from '../components/Vault/SchemaConfigModal';
 import { ViewConfigModal } from '../components/Vault/ViewConfigModal';
 import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
+import { MetadataLookupModal } from '../components/Vault/MetadataLookupModal';
 import { RecentModal } from '../components/Vault/RecentModal';
 import { DigitalBrainCalendar } from '../components/Vault/DigitalBrainCalendar';
 import { VaultGallery } from '../components/Vault/VaultGallery';
@@ -34,12 +35,10 @@ import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import TldrawEditor from '../components/Vault/TldrawEditor';
 
-// Detecta si una taula té columna "Citation Key" → mostra els controls de
-// gestió de referències (import/export BibTeX·RIS) a la capçalera.
-const tableHasCitationKey = (table) =>
-    !!(table?.properties || []).some(
-        (p) => String(p?.name || '').toLowerCase().replace(/\s+/g, '') === 'citationkey',
-    );
+// La taula de referències ja NO es detecta per heurística (nom o columna
+// "Citation Key") sinó per la designació de Settings — backend
+// `get_reference_table_id`. El frontend la rep via GET /api/vault/reference-table
+// (estat `refTableId`) i hi basa tots els controls de referències.
 
 export default function VaultDashboard() {
     const { t } = useTranslation();
@@ -401,6 +400,22 @@ export default function VaultDashboard() {
             return next;
         });
     }, []);
+
+    // Taula on s'ha de crear un recurs des d'una font externa (DOI/ISBN/arXiv/
+    // PMID/URL/PDF). Quan no és null, el MetadataLookupModal s'obre en mode 'create'.
+    const [createSourceTableId, setCreateSourceTableId] = useState(null);
+
+    // Id de la taula de referències designada a Settings — font de veritat per a
+    // tot el gating de referències (import/export, Citation Key, "Crear des d'una
+    // font"). Si l'usuari la canvia a Settings, tota la funcionalitat la segueix.
+    const [refTableId, setRefTableId] = useState(null);
+    const refreshReferenceTable = useCallback(async () => {
+        try {
+            const { data } = await axios.get('/api/vault/reference-table');
+            setRefTableId(data?.table_id || null);
+        } catch { /* sense designació o backend ocupat → gating desactivat */ }
+    }, []);
+    useEffect(() => { refreshReferenceTable(); }, [refreshReferenceTable]);
 
     const applySchemaDefaults = useCallback((tableId, metadata = {}, title = 'Nou') => {
         if (!tableId) return metadata;
@@ -973,6 +988,37 @@ export default function VaultDashboard() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tableTemplates, fetchPages, loadPage]);
+
+    // Crea un registre a partir de les metadades suggerides per un lookup
+    // (DOI/ISBN/arXiv/PMID/URL/PDF). El `suggested` ja inclou `Citation Key`;
+    // a més, el backend la garanteix a `create_page` si faltés. Obre la fitxa nova.
+    const handleCreateFromSource = useCallback(async (tableId, suggested) => {
+        if (!tableId) return;
+        try {
+            const sug = suggested || {};
+            const title = (sug.Title || sug.title || t('common.new')).toString();
+            let initialMeta = {
+                ...sug,
+                is_template: false,
+                table_id: tableId,
+                database_table_id: tableId,
+                id: undefined,
+            };
+            initialMeta = applySchemaDefaults(tableId, initialMeta, title);
+            const res = await axios.post(`/api/vault/pages`, {
+                title,
+                content: "",
+                is_database: false,
+                metadata: initialMeta,
+            });
+            await fetchPages();
+            toast.success(t('success.record_created'));
+            loadPage(res.data.id);
+        } catch (err) {
+            console.error("Error creant el registre des d'una font:", err);
+            toast.error(t('errors.record_create', { defaultValue: 'Error creant el registre' }));
+        }
+    }, [applySchemaDefaults, fetchPages, loadPage, t]);
 
 
     // callback invoked when user wants to configure an existing or new view
@@ -2648,8 +2694,9 @@ export default function VaultDashboard() {
                     <VaultViewsHeader
                         tableName={table?.title || table?.name || t('common.table')}
                         recordCount={paneNotes.length}
-                        referenceTableId={tableHasCitationKey(table) ? tableId : undefined}
+                        referenceTableId={refTableId && refTableId === tableId ? tableId : undefined}
                         onReferencesImported={fetchPages}
+                        onCreateFromSource={() => setCreateSourceTableId(tableId)}
                         views={displayViews}
                         activeViewId={currentViewId}
                         onViewSelect={(vid) => {
@@ -2861,8 +2908,9 @@ export default function VaultDashboard() {
                 <VaultViewsHeader
                     tableName={table?.title || table?.name || "Taula"}
                     recordCount={paneNotes.length}
-                    referenceTableId={tableHasCitationKey(table) ? tableId : undefined}
+                    referenceTableId={refTableId && refTableId === tableId ? tableId : undefined}
                     onReferencesImported={fetchPages}
+                    onCreateFromSource={() => setCreateSourceTableId(tableId)}
                     views={displayViews}
                     activeViewId={currentViewId}
                     onViewSelect={(vid) => {
@@ -3167,8 +3215,9 @@ export default function VaultDashboard() {
                                     <VaultViewsHeader
                                         tableName={activeTable ? (activeTable.title || activeTable.name) : t('common.table')}
                                         recordCount={(tableNotes || []).length}
-                                        referenceTableId={tableHasCitationKey(activeTable) ? activeTableId : undefined}
+                                        referenceTableId={refTableId && refTableId === activeTableId ? activeTableId : undefined}
                                         onReferencesImported={fetchPages}
+                                        onCreateFromSource={() => setCreateSourceTableId(activeTableId)}
                                         views={displayViews}
                                         activeViewId={activeViewId || 'default'}
                                         onViewSelect={setActiveViewId}
@@ -3403,6 +3452,17 @@ export default function VaultDashboard() {
                 onClose={() => setIsGlobalSearchOpen(false)}
                 allNotes={pages}
                 onNoteSelect={loadPage}
+            />
+
+            <MetadataLookupModal
+                isOpen={!!createSourceTableId}
+                mode="create"
+                onClose={() => setCreateSourceTableId(null)}
+                onCreate={(suggested) => {
+                    const tid = createSourceTableId;
+                    setCreateSourceTableId(null);
+                    handleCreateFromSource(tid, suggested);
+                }}
             />
 
             <RecentModal

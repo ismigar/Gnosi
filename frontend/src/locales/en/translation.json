@@ -602,6 +602,7 @@
     "new_action": "New",
     "new_empty_record": "New record",
     "new_template": "New template",
+    "new_from_source": "Create from a source…",
     "templates_title": "Templates",
     "default_badge": "Def."
   },
@@ -616,6 +617,7 @@
       "newsletters": "Subscriptions",
       "mail_accounts": "Mail Accounts",
       "contacts": "Contacts",
+      "references": "References",
       "ai": "Artificial Intelligence",
       "translate": "Translation",
       "profile": "Profile"

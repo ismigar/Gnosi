@@ -540,6 +540,7 @@
     "new_action": "Nuevo",
     "new_empty_record": "Nuevo registro",
     "new_template": "Nueva plantilla",
+    "new_from_source": "Crear desde una fuente…",
     "templates_title": "Plantillas",
     "default_badge": "Pred."
   },
@@ -554,6 +555,7 @@
       "newsletters": "Suscripciones",
       "mail_accounts": "Cuentas de Correo",
       "contacts": "Contactos",
+      "references": "Referencias",
       "ai": "Inteligencia Artificial",
       "translate": "Traducción",
       "profile": "Perfil"
