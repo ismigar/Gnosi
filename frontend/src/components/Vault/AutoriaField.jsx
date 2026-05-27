@@ -94,11 +94,23 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
 
     // Autors existents que coincideixen amb el text de la fila `idx` i que encara
     // no estan a la llista. Buit si la fila és buida → cap suggeriment.
+    // Filtra els suggeriments que buidarien un camp que l'usuari ja ha omplert
+    // (p. ex. dades antigues amb cognom1="García Fernández" quan l'usuari ja té
+    // cognom1="García" i cognom2="Fernández"): evita sobreescriptures silencioses.
     const matchesFor = (idx) => {
-        const q = authorFullName(authors[idx] || {}).trim().toLowerCase();
+        const current = authors[idx] || {};
+        const q = authorFullName(current).trim().toLowerCase();
         if (!q) return [];
         return suggestions
-            .filter(s => authorFullName(s).toLowerCase().includes(q) && !authors.some(a => sameAuthor(a, s)))
+            .filter(s => {
+                if (!authorFullName(s).toLowerCase().includes(q)) return false;
+                if (authors.some(a => sameAuthor(a, s))) return false;
+                // No mostrar suggeriments que esborrarien camps ja escrits.
+                if (current.nom && !s.nom) return false;
+                if (current.cognom1 && !s.cognom1) return false;
+                if (current.cognom2 && !s.cognom2) return false;
+                return true;
+            })
             .slice(0, 6);
     };
     const pick = (idx, s) => {
