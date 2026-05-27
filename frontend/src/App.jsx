@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AppSidebar } from './components/AppSidebar';
 import GraphPage from './pages/GraphPage';
@@ -18,6 +18,7 @@ import ComposerPage from './pages/ComposerPage';
 import { Toaster } from './lib/toast';
 
 import AgentChat from './components/AgentChat';
+import PageOutline from './components/PageOutline';
 import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 
@@ -42,7 +43,7 @@ function App() {
       <AppSidebar />
 
       {/* Contingut principal */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[var(--bg-secondary)] transition-colors duration-300">
+      <div id="page-content-scroll" className="flex-1 overflow-y-auto overflow-x-hidden bg-[var(--bg-secondary)] transition-colors duration-300">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -63,6 +64,7 @@ function App() {
           ZoteroMappingModal i AIAgentModal:100000). Sense això, els toasts
           quedaven amagats darrere de qualsevol modal oberta. */}
       <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
+      <PageOutline />
       <AgentChat />
     </div>
   );
