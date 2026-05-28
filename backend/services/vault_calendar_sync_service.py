@@ -11,6 +11,23 @@ from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
 
+# Calendaris subscrits que NO volem sincronitzar al vault. Google publica
+# subscripcions automàtiques (orto/ocàs per ciutat, fases de la lluna, etc.)
+# que generen milers d'events diaris d'event únic — soroll que satura
+# Calendar/External i, com a placeholders on-demand d'OneDrive, encalla
+# l'indexador des de Docker (`OSError: [Errno 35] Resource deadlock avoided`).
+# Coincidència per substring del `summary` del calendari (case-insensitive,
+# multilingüe perquè Google pot localitzar el nom segons l'idioma del compte).
+_EXCLUDED_CALENDAR_SUMMARY_PATTERNS = (
+    "sortida i posta de sol",   # CA
+    "fases de la lluna",        # CA
+    "salida y puesta del sol",  # ES
+    "fases de la luna",         # ES
+    "sunrise and sunset",       # EN
+    "moon phases",              # EN
+)
+
+
 class VaultCalendarSyncService:
     def __init__(self):
         self.config = load_params()
@@ -71,7 +88,15 @@ class VaultCalendarSyncService:
             for calendar_entry in calendar_entries:
                 calendar_id = calendar_entry.get('id')
                 summary = calendar_entry.get('summary', 'Unknown')
-                
+
+                # Salta subscripcions de soroll (orto/ocàs, fases de la lluna…)
+                # que com a placeholders OneDrive bloquegen l'indexador des de
+                # Docker amb `OSError: [Errno 35]`.
+                summary_lc = summary.lower()
+                if any(p in summary_lc for p in _EXCLUDED_CALENDAR_SUMMARY_PATTERNS):
+                    log.info(f"⏭️ Skipping noise calendar '{summary}' for {email}")
+                    continue
+
                 # Create subfolder for this specific calendar
                 if calendar_id == 'primary' or calendar_id == email:
                     calendar_slug = "primary_calendar"
