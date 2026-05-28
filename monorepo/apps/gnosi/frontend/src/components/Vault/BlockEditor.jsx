@@ -66,6 +66,7 @@ import { CiteInline } from './CiteInline';
 import { CitePicker } from './CitePicker';
 import { MetadataLookupModal } from './MetadataLookupModal';
 import { BibliographyBlock } from './BibliographyBlock';
+import { ZoteroExtrasSection } from './ZoteroExtrasSection';
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
@@ -2770,6 +2771,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             const normalizedKey = String(key || '').toLowerCase();
             return (
                 !INTERNAL_METADATA_KEY_SET.has(key) &&
+                // 'Zotero Extras' és un dict; el renderitza ZoteroExtrasSection
+                // com a panell propi fora del grid (vegis més avall). Si el
+                // deixéssim aquí, l'input text mostraria "[object Object]".
+                key !== 'Zotero Extras' &&
                 !normalizedKey.endsWith('_manual') &&
                 !normalizedKey.startsWith('favorite') &&
                 !normalizedKey.startsWith('icon_') &&
@@ -2778,6 +2783,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             );
         });
     }, [metadata, properties]);
+
+    // L3.4 / UI: dict amb camps Zotero rars (patentNumber, conferenceName, …)
+    // capturat pel mapper central quan un Zotero item porta info sense
+    // columna canònica. Memo per evitar re-renders inútils del ZoteroExtrasSection.
+    const zoteroExtras = useMemo(() => {
+        const v = metadata?.['Zotero Extras'];
+        if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+        return v;
+    }, [metadata]);
 
     // ── Cursor de propietats + copiar/enganxar (estil graella) ───────────
     // Llista ordenada de propietats navegables (schema + adhoc). Les adhoc
@@ -3407,6 +3421,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             </div>
                                         </React.Fragment>
                                     ))}
+
+                                    {zoteroExtras && <ZoteroExtrasSection extras={zoteroExtras} />}
 
                                     <div className="col-span-2 flex gap-2.5 mt-1.5">
                                         {!currentTable && (!isAddingProp ? (
