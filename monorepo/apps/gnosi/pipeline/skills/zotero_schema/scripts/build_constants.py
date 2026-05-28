@@ -19,6 +19,9 @@ Constants generades (mateixos noms a Py i JS):
   - ZOTERO_TYPE_LABELS       — {locale: {zoteroType: label_traduit}}
   - LABEL_TO_ZOTERO_TYPE     — {locale: {label_traduit: zoteroType}}
                                (per compat amb frontmatter que desa labels)
+  - ITEM_TYPE_FIELDS         — {zoteroType: [zoteroField, ...]} amb els
+                               camps oficials de cada tipus (per a L2: el
+                               modal d'alta agrupa "rellevant" vs "altres")
 
 L'invers `csl.types` del schema és CSL→[Zotero]; aquí l'invertim a
 Zotero→CSL agafant el PRIMER tipus CSL pare per a cada Zotero (ordre
@@ -74,6 +77,19 @@ def derive_zotero_to_csl(csl_types: Dict[str, List[str]]) -> Dict[str, str]:
     return inverse
 
 
+def derive_item_type_fields(schema: dict) -> Dict[str, List[str]]:
+    """{zoteroType: [zoteroField, ...]} amb els camps oficials de cada tipus.
+
+    Els camps es presenten en l'ordre del schema (que és l'ordre canònic
+    de Zotero — primer els més usats, segons les seves heurístiques d'UI).
+    """
+    out: Dict[str, List[str]] = {}
+    for it in schema["itemTypes"]:
+        fields = [f["field"] for f in it.get("fields", []) if "field" in f]
+        out[it["itemType"]] = fields
+    return out
+
+
 def derive_labels(schema: dict, all_types: List[str]) -> Dict[str, Dict[str, str]]:
     """{locale: {zoteroType: label}}. Cau a la clau original si manca."""
     out: Dict[str, Dict[str, str]] = {}
@@ -118,7 +134,8 @@ def _py_dict(d: dict, indent: int = 4) -> str:
 
 def emit_python(schema_ver: int, sha16: str, all_types: List[str],
                 z2csl: Dict[str, str], labels: Dict[str, Dict[str, str]],
-                inv_labels: Dict[str, Dict[str, str]]) -> str:
+                inv_labels: Dict[str, Dict[str, str]],
+                fields: Dict[str, List[str]]) -> str:
     body = [
         f'"""{WARN_HEADER}"""',
         "",
@@ -134,6 +151,8 @@ def emit_python(schema_ver: int, sha16: str, all_types: List[str],
         f"ZOTERO_TYPE_LABELS: dict[str, dict[str, str]] = {_py_dict(labels)}",
         "",
         f"LABEL_TO_ZOTERO_TYPE: dict[str, dict[str, str]] = {_py_dict(inv_labels)}",
+        "",
+        f"ITEM_TYPE_FIELDS: dict[str, list[str]] = {_py_dict(fields)}",
         "",
     ]
     return "\n".join(body)
@@ -154,7 +173,8 @@ def _js_export(name: str, value) -> str:
 
 def emit_javascript(schema_ver: int, sha16: str, all_types: List[str],
                     z2csl: Dict[str, str], labels: Dict[str, Dict[str, str]],
-                    inv_labels: Dict[str, Dict[str, str]]) -> str:
+                    inv_labels: Dict[str, Dict[str, str]],
+                    fields: Dict[str, List[str]]) -> str:
     body = [
         f"// {WARN_HEADER}",
         "",
@@ -168,6 +188,8 @@ def emit_javascript(schema_ver: int, sha16: str, all_types: List[str],
         _js_export("ZOTERO_TYPE_LABELS", labels),
         "",
         _js_export("LABEL_TO_ZOTERO_TYPE", inv_labels),
+        "",
+        _js_export("ITEM_TYPE_FIELDS", fields),
         "",
     ]
     return "\n".join(body)
@@ -186,17 +208,22 @@ def main() -> int:
     z2csl = derive_zotero_to_csl(schema["csl"]["types"])
     labels = derive_labels(schema, all_types)
     inv_labels = invert_labels(labels)
+    fields = derive_item_type_fields(schema)
 
     OUT_PY.parent.mkdir(parents=True, exist_ok=True)
     OUT_JS.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PY.write_text(emit_python(schema_ver, sha16, all_types, z2csl, labels, inv_labels),
-                      encoding="utf-8")
-    OUT_JS.write_text(emit_javascript(schema_ver, sha16, all_types, z2csl, labels, inv_labels),
-                      encoding="utf-8")
+    OUT_PY.write_text(
+        emit_python(schema_ver, sha16, all_types, z2csl, labels, inv_labels, fields),
+        encoding="utf-8")
+    OUT_JS.write_text(
+        emit_javascript(schema_ver, sha16, all_types, z2csl, labels, inv_labels, fields),
+        encoding="utf-8")
 
+    total_fields = sum(len(v) for v in fields.values())
     print(f"OK schema v{schema_ver} (sha:{sha16}) → {OUT_PY.relative_to(ROOT)}")
     print(f"OK schema v{schema_ver} (sha:{sha16}) → {OUT_JS.relative_to(ROOT)}")
-    print(f"   {len(all_types)} itemTypes · {len(z2csl)} Zotero→CSL · {len(LOCALES)} locales")
+    print(f"   {len(all_types)} itemTypes · {len(z2csl)} Zotero→CSL · "
+          f"{len(LOCALES)} locales · {total_fields} field-occurrences")
     return 0
 
 

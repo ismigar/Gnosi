@@ -54,6 +54,7 @@ def js_constants() -> dict:
     return {
         "ALL_ITEM_TYPES": capture("ALL_ITEM_TYPES"),
         "ZOTERO_TO_CSL_TYPE": capture("ZOTERO_TO_CSL_TYPE"),
+        "ITEM_TYPE_FIELDS": capture("ITEM_TYPE_FIELDS"),
         "SCHEMA_VERSION": int(re.search(r"SCHEMA_VERSION = (\d+);", js).group(1)),
         "SCHEMA_SOURCE_SHA": re.search(r'SCHEMA_SOURCE_SHA = "([^"]+)";', js).group(1),
     }
@@ -152,3 +153,70 @@ def test_all_csl_types_are_strings() -> None:
     for zot, csl in ZOTERO_TO_CSL_TYPE.items():
         assert isinstance(csl, str), f"{zot} → {csl!r} no és str"
         assert csl, f"{zot} té un CSL type buit"
+
+
+# ---------- 5. ITEM_TYPE_FIELDS (L2) ----------
+
+def test_item_type_fields_covers_all_types() -> None:
+    """Tots els itemTypes tenen una entrada a ITEM_TYPE_FIELDS (encara que buida)."""
+    from backend.services.zotero_schema import ALL_ITEM_TYPES, ITEM_TYPE_FIELDS
+    missing = [t for t in ALL_ITEM_TYPES if t not in ITEM_TYPE_FIELDS]
+    assert not missing, f"itemTypes sense entrada a ITEM_TYPE_FIELDS: {missing}"
+
+
+def test_item_type_fields_known_examples() -> None:
+    """Tipus comuns tenen camps esperats. Si Zotero canvia el schema i un
+    d'aquests camps desapareix, ens assabentem aquí."""
+    from backend.services.zotero_schema import ITEM_TYPE_FIELDS
+    cases = {
+        'journalArticle': {'title', 'publicationTitle', 'volume', 'issue', 'pages', 'DOI'},
+        'book':           {'title', 'publisher', 'ISBN', 'edition'},
+        'preprint':       {'title', 'repository', 'archiveID', 'DOI'},
+        'dataset':        {'title', 'versionNumber', 'identifier'},
+        'webpage':        {'title', 'websiteTitle', 'url'},
+        'annotation':     set(),  # explícitament buit segons schema
+    }
+    for itype, expected in cases.items():
+        actual = set(ITEM_TYPE_FIELDS[itype])
+        missing = expected - actual
+        assert not missing, f"{itype} ha perdut camps esperats: {missing}"
+
+
+def test_py_and_js_have_same_item_type_fields(js_constants: dict) -> None:
+    from backend.services.zotero_schema import ITEM_TYPE_FIELDS
+    assert ITEM_TYPE_FIELDS == js_constants["ITEM_TYPE_FIELDS"]
+
+
+# ---------- 6. Mapping Recursos↔Zotero (L2) ----------
+
+@pytest.mark.parametrize("recursos_field,item_type,expected", [
+    # Casos clarament rellevants
+    ('DOI',              'journalArticle', True),
+    ('Llibre/Revista',   'journalArticle', True),   # via publicationTitle
+    ('Llibre/Revista',   'bookSection',    True),   # via bookTitle
+    ('Llibre/Revista',   'conferencePaper', True),  # via proceedingsTitle
+    ('ISBN',             'book',           True),
+    ('Pàgines',          'journalArticle', True),
+    ('URL',              'webpage',        True),
+    # Casos clarament no-rellevants
+    ('ISBN',             'webpage',        False),
+    ('Volum',            'webpage',        False),
+    ('Llibre/Revista',   'webpage',        False),
+    # Tipus desconegut → mai rellevant
+    ('DOI',              'nonexistent',    False),
+    # Camp sense correspondència Zotero
+    ('CampPersonal',     'journalArticle', False),
+])
+def test_is_field_relevant_for_type(recursos_field, item_type, expected) -> None:
+    from backend.services.recursos_zotero_mapping import is_field_relevant_for_type
+    assert is_field_relevant_for_type(recursos_field, item_type) is expected
+
+
+def test_zotero_field_to_recursos_inverse_is_well_formed() -> None:
+    """Tot camp Zotero del mapping inverse apareix a algun valor de
+    RECURSOS_TO_ZOTERO_FIELDS, i tots els valors apareixen al inverse."""
+    from backend.services.recursos_zotero_mapping import (
+        RECURSOS_TO_ZOTERO_FIELDS, ZOTERO_FIELD_TO_RECURSOS,
+    )
+    all_zotero_fields = {f for fs in RECURSOS_TO_ZOTERO_FIELDS.values() for f in fs}
+    assert set(ZOTERO_FIELD_TO_RECURSOS) == all_zotero_fields
