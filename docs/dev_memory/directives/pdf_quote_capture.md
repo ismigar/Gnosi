@@ -117,14 +117,15 @@ const citationKey = metadata?.['Citation Key'];
 | Pas | Què | Cost |
 |---|---|---:|
 | ✅ | Component `PdfAnnotationsToCite.jsx` | fet (PR #249) |
-| ⏳ | Helper `getPdfSourceUri(metadata)` (frontend) | 30 min |
-| ⏳ | Integració al BlockEditor (opció 1) | 1 hora |
+| ✅ | Helper `getPdfSourceUri(metadata)` (frontend) | fet |
+| ✅ | Integració al BlockEditor (opció 1) | fet |
 | ⏳ | Smoke test E2E: PDF → subratllar → quote → render | 1 hora |
 | ⏸ | Drag & drop de quote al document | 1 dia |
 | ⏸ | Suport `[@key, p. 47]` amb pandoc-citeproc | 1 dia |
 
-Cost total per a v1 funcional: ~3 hores. Aturat a esquelet perquè la decisió
-d'ubicació UI val la pena discutir abans d'implementar.
+**v1 funcional desplegada.** L'usuari pot veure els subratllats al panell
+Propietats d'un Recurs amb PDF associat i copiar-los com a quote markdown
+amb cita formatada.
 
 ## 5. Cicle d'aprenentatge
 
