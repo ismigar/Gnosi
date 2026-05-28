@@ -3422,7 +3422,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         </React.Fragment>
                                     ))}
 
-                                    {zoteroExtras && <ZoteroExtrasSection extras={zoteroExtras} />}
+                                    {zoteroExtras && (
+                                        <ZoteroExtrasSection
+                                            extras={zoteroExtras}
+                                            readOnly={!isEditor}
+                                            onChange={(nextDict) => handleMetaChange('Zotero Extras', nextDict)}
+                                            onRemoveAll={() => handleRemoveProperty('Zotero Extras')}
+                                        />
+                                    )}
 
                                     <div className="col-span-2 flex gap-2.5 mt-1.5">
                                         {!currentTable && (!isAddingProp ? (

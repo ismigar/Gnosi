@@ -1,29 +1,62 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sparkles, ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronRight, X, Plus } from 'lucide-react';
 
 /**
- * Renderitza la clau `Zotero Extras` del frontmatter (un dict amb camps
- * Zotero rars com `patentNumber`, `conferenceName`, `meetingName`, ...).
+ * Renderitza i edita la clau `Zotero Extras` del frontmatter (un dict amb
+ * camps Zotero rars: patentNumber, conferenceName, meetingName, ...).
  *
- * El backend captura aquests camps al mapper central (L3.4) quan un
- * Zotero item porta info que no encaixa a cap columna canònica de
- * Recursos. Aquest component els mostra al panell Propietats com a
- * secció expandible separada del grid principal.
+ * Edició:
+ *   - Cada camp té un input editable. onChange propaga el dict sencer
+ *     amb el camp actualitzat al callback `onChange` del caller.
+ *   - Cada camp té un botó X per esborrar-lo individualment.
+ *   - Al final, un row "afegir camp" amb 2 inputs (clau + valor) i botó +.
  *
- * Lectura-només per a aquest PR: si l'usuari vol editar un valor,
- * pot fer-ho al .md directament. Edició interactiva ve en un PR posterior
- * si cal.
+ * Quan no queden camps:
+ *   - Si el caller passa `onRemoveAll`, l'invoquem perquè elimini la
+ *     clau `Zotero Extras` sencera del frontmatter (no deixar un dict buit).
+ *   - Si no, queda un dict buit i la secció es deixa de renderitzar
+ *     per la guarda d'`entries.length === 0`.
  *
- * No es renderitza si `extras` és null/undefined/buit. Tampoc si el
- * caller ja l'ha filtrat — aquí afegim defensivament el check `typeof`
- * per si ve un valor corrupte (string en lloc de dict).
+ * Lectura-només via `readOnly` (deshabilita inputs i botons). Útil per a
+ * usuaris no-editors o per a renderitzats en visualitzacions read-only.
  */
-export function ZoteroExtrasSection({ extras }) {
+export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = false }) {
     const { t } = useTranslation();
+    const [newKey, setNewKey] = useState('');
+    const [newValue, setNewValue] = useState('');
+
     if (!extras || typeof extras !== 'object' || Array.isArray(extras)) return null;
     const entries = Object.entries(extras).filter(([, v]) => v !== null && v !== undefined && v !== '');
     if (entries.length === 0) return null;
+
+    const updateField = useCallback((key, value) => {
+        if (!onChange) return;
+        const next = { ...extras, [key]: value };
+        onChange(next);
+    }, [extras, onChange]);
+
+    const removeField = useCallback((key) => {
+        if (!onChange) return;
+        const next = { ...extras };
+        delete next[key];
+        if (Object.keys(next).length === 0 && onRemoveAll) {
+            // Notifica al caller que pot eliminar la clau sencera del frontmatter.
+            onRemoveAll();
+            return;
+        }
+        onChange(next);
+    }, [extras, onChange, onRemoveAll]);
+
+    const addField = useCallback(() => {
+        const k = newKey.trim();
+        const v = newValue.trim();
+        if (!k || !onChange) return;
+        if (k in extras) return; // duplicat: no sobreescriure silenciosament
+        onChange({ ...extras, [k]: v });
+        setNewKey('');
+        setNewValue('');
+    }, [newKey, newValue, extras, onChange]);
 
     return (
         <details className="col-span-2 mt-3 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden group">
@@ -44,20 +77,74 @@ export function ZoteroExtrasSection({ extras }) {
             </summary>
             <div className="px-3 py-2.5 border-t border-[var(--border-primary)]/50">
                 <p className="text-[11px] text-[var(--text-tertiary)] italic mb-2">
-                    {t('zotero_extras.hint', {
-                        defaultValue: 'Camps importats des de Zotero que no tenen columna pròpia al Vault. Lectura-només.',
+                    {t('zotero_extras.hint_editable', {
+                        defaultValue: readOnly
+                            ? 'Camps importats des de Zotero que no tenen columna pròpia al Vault.'
+                            : 'Camps importats des de Zotero. Editables a la cel·la; X per esborrar; + per afegir.',
                     })}
                 </p>
-                <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-x-3 gap-y-1.5 text-xs">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] gap-x-2 gap-y-1.5 text-xs items-center">
                     {entries.map(([k, v]) => (
                         <React.Fragment key={k}>
-                            <dt className="font-mono text-[var(--text-secondary)] truncate" title={k}>{k}</dt>
-                            <dd className="text-[var(--text-primary)] break-words whitespace-pre-wrap">
-                                {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                            </dd>
+                            <span
+                                className="font-mono text-[var(--text-secondary)] truncate"
+                                title={k}
+                            >
+                                {k}
+                            </span>
+                            <input
+                                type="text"
+                                value={typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                                onChange={(e) => updateField(k, e.target.value)}
+                                disabled={readOnly || typeof v === 'object'}
+                                className="bg-transparent border border-transparent hover:border-[var(--border-primary)] focus:border-[var(--gnosi-primary)]/60 rounded px-1.5 py-0.5 text-[var(--text-primary)] outline-none transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                                title={typeof v === 'object' ? t('zotero_extras.object_uneditable', { defaultValue: 'Valor estructurat — edita el .md directament' }) : ''}
+                            />
+                            {!readOnly && (
+                                <button
+                                    type="button"
+                                    onClick={() => removeField(k)}
+                                    className="p-1 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-colors"
+                                    title={t('zotero_extras.remove_field', { defaultValue: 'Esborra aquest camp' })}
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                            {readOnly && <span />}
                         </React.Fragment>
                     ))}
-                </dl>
+                    {!readOnly && (
+                        <>
+                            <input
+                                type="text"
+                                value={newKey}
+                                onChange={(e) => setNewKey(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addField(); } }}
+                                placeholder={t('zotero_extras.new_key_placeholder', { defaultValue: 'nou camp' })}
+                                className="font-mono bg-transparent border border-dashed border-[var(--border-primary)]/50 hover:border-[var(--border-primary)] focus:border-[var(--gnosi-primary)]/60 rounded px-1.5 py-0.5 text-[var(--text-secondary)] outline-none transition-colors"
+                            />
+                            <input
+                                type="text"
+                                value={newValue}
+                                onChange={(e) => setNewValue(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addField(); } }}
+                                placeholder={t('zotero_extras.new_value_placeholder', { defaultValue: 'valor' })}
+                                className="bg-transparent border border-dashed border-[var(--border-primary)]/50 hover:border-[var(--border-primary)] focus:border-[var(--gnosi-primary)]/60 rounded px-1.5 py-0.5 text-[var(--text-primary)] outline-none transition-colors"
+                            />
+                            <button
+                                type="button"
+                                onClick={addField}
+                                disabled={!newKey.trim() || newKey.trim() in extras}
+                                className="p-1 text-[var(--gnosi-primary)]/60 hover:text-[var(--gnosi-primary)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                title={newKey.trim() in extras
+                                    ? t('zotero_extras.duplicate_key', { defaultValue: 'Aquest camp ja existeix' })
+                                    : t('zotero_extras.add_field', { defaultValue: 'Afegeix camp' })}
+                            >
+                                <Plus size={12} />
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
         </details>
     );
