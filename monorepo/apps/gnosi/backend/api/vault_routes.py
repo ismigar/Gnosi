@@ -4350,7 +4350,7 @@ def get_reference_table_id() -> Optional[str]:
     Retorna None si no hi ha designació ni cap taula citable (Referències no
     activades encara)."""
     try:
-        from backend.api.zotero_routes import (
+        from backend.services.reference_table_config import (
             CONFIG_PATH, DEFAULT_CONFIG, load_json, save_json,
         )
     except Exception:
@@ -4431,7 +4431,7 @@ def ensure_reference_table_schema(table_id: str) -> int:
 
 def _set_reference_table_id(table_id: Optional[str]) -> None:
     """Persisteix la designació de taula de referències (Settings → `target_table`)."""
-    from backend.api.zotero_routes import (
+    from backend.services.reference_table_config import (
         CONFIG_PATH, DEFAULT_CONFIG, load_json, save_json,
     )
     cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
