@@ -22,6 +22,21 @@ const isOutlineRoute = (path) =>
 const slugify = (text, i) =>
     `pout-${i}-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)}`;
 
+// Comprova si l'element té un ancestre amb scroll efectiu dins del container,
+// és a dir, on tindria sentit "saltar-hi". Si no, el heading viu en una zona
+// fixa (p. ex. capçaleres de columnes a Lector/Correu) i el navegador no aporta:
+// `scrollIntoView` no es mou perquè l'element ja és totalment visible.
+const hasScrollableAncestor = (el, container) => {
+    const stop = container ? container.parentElement : null;
+    let p = el.parentElement;
+    while (p && p !== stop) {
+        const s = getComputedStyle(p);
+        if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && p.scrollHeight > p.clientHeight + 1) return true;
+        p = p.parentElement;
+    }
+    return false;
+};
+
 // Text "net" del títol: agafa els nodes de text propis del heading, que exclouen
 // els chips d'acció renderitzats com a fills (p. ex. un "Detalls →" dins del h3).
 // Si el títol va embolcallat i no hi ha text directe, cau al text complet sense a/button.
@@ -60,6 +75,7 @@ export default function PageOutline() {
         container.querySelectorAll('h1, h2, h3').forEach((el, i) => {
             if (el.closest('a, button')) return;     // títols de targetes/botons no són seccions
             if (el.offsetParent === null) return;     // amagat (modals tancades, display:none)
+            if (!hasScrollableAncestor(el, container)) return; // viu en una zona fixa: saltar-hi no fa res
             const text = headingText(el);
             if (!text) return;
             if (!el.id) el.id = slugify(text, i);
@@ -145,8 +161,21 @@ export default function PageOutline() {
     }, [isOpen, setOpen]);
 
     const goTo = (id) => {
-        const el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // 1) Prova la referència viva del darrer scan (la més fiable).
+        let el = nodesRef.current.find((n) => n.id === id && n.isConnected);
+        // 2) Fallback per id (per si el node és el mateix però la ref s'ha perdut).
+        if (!el) el = document.getElementById(id);
+        // 3) Si el node original ha estat reemplaçat (p. ex. re-render de BlockNote/ProseMirror),
+        //    re-cerca per text al container actual i salta-hi.
+        if (!el || !el.isConnected) {
+            const item = headings.find((h) => h.id === id);
+            const container = document.querySelector(CONTENT_SELECTOR);
+            if (item && container) {
+                el = Array.from(container.querySelectorAll('h1, h2, h3'))
+                    .find((h) => h.isConnected && headingText(h) === item.text);
+            }
+        }
+        if (el && el.isConnected) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setActiveId(id);
     };
 
