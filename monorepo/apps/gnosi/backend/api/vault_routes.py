@@ -5027,45 +5027,15 @@ def _zotero_creators_to_authors(creators) -> str:
 
 
 def _zotero_item_to_recursos(item: dict) -> dict:
-    """Ítem Zotero (sortida de translation-server) → camps de Recursos."""
-    out: dict = {}
-    if item.get('itemType'):
-        out['Item Type'] = item['itemType']
-    if item.get('title'):
-        out['Title'] = item['title']
-    authors = _zotero_creators_to_authors(item.get('creators'))
-    if authors:
-        out['Authors'] = authors
-    m = re.search(r'\d{4}', str(item.get('date') or ''))
-    if m:
-        out['Any'] = int(m.group(0))
-    container = (item.get('publicationTitle') or item.get('bookTitle')
-                 or item.get('proceedingsTitle') or item.get('encyclopediaTitle'))
-    if container:
-        out['Llibre/Revista'] = container
-    if item.get('publisher'):
-        out['Editorial'] = item['publisher']
-    if item.get('place'):
-        out['Lloc'] = item['place']
-    if item.get('volume'):
-        out['Volum'] = str(item['volume'])
-    if item.get('issue'):
-        out['Número'] = str(item['issue'])
-    if item.get('pages'):
-        out['Pàgines'] = str(item['pages'])
-    if item.get('edition'):
-        out['Edició'] = str(item['edition'])
-    if item.get('DOI'):
-        out['DOI'] = item['DOI']
-    if item.get('ISBN'):
-        out['ISBN'] = item['ISBN']
-    if item.get('ISSN'):
-        out['ISSN'] = item['ISSN']
-    if item.get('url'):
-        out['URL'] = item['url']
-    if item.get('language'):
-        out['Idioma'] = item['language']
-    return out
+    """Ítem Zotero (sortida de translation-server) → camps de Recursos.
+
+    Wrapper prim al voltant del mapper declaratiu central
+    (`zotero_to_recursos_mapper.zotero_item_to_recursos`, L3.1). Es
+    manté com a alias per minimitzar el diff dels callers; en una neteja
+    posterior es pot substituir directament l'import.
+    """
+    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
+    return zotero_item_to_recursos(item)
 
 
 @router.post("/translate-url", dependencies=[Depends(require_role("editor"))])
