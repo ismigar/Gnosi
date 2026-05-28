@@ -6,6 +6,7 @@ import { Search, X, Loader2, Check } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { LABEL_TO_ZOTERO_TYPE, ZOTERO_TYPE_LABELS, ZOTERO_TO_CSL_TYPE } from './zoteroSchema';
 import { isFieldRelevantForType } from './recursosZoteroMapping';
+import { validateIdentifier } from './identifierValidators';
 
 /**
  * Normalitza un valor d'"Item Type" del lookup (pot venir com a clau Zotero
@@ -233,6 +234,26 @@ export const MetadataLookupModal = ({
 
     if (!isOpen || !portalEl) return null;
 
+    // PR #5: validació format dels identificadors. Si el valor és buit la
+    // validació no s'aplica (no tots els camps són obligatoris). Si té
+    // format invàlid, mostrem hint sota l'input + bloquem la cerca per
+    // estalviar el roundtrip.
+    const vDoi = validateIdentifier('doi', doi);
+    const vIsbn = validateIdentifier('isbn', isbn);
+    const vArxiv = validateIdentifier('arxiv', arxivId);
+    const vPmid = validateIdentifier('pmid', pmid);
+    const vUrl = validateIdentifier('url', url);
+    const allValid = vDoi.valid && vIsbn.valid && vArxiv.valid && vPmid.valid && vUrl.valid;
+    const hasIdentifier = !!(doi.trim() || isbn.trim() || arxivId.trim() || pmid.trim() || url.trim());
+    const canSearch = hasIdentifier && allValid;
+    const inputCls = (valid) =>
+        `px-2 py-1.5 text-sm rounded-md border bg-[var(--bg-primary)] outline-none transition-colors ${
+            valid
+                ? 'border-[var(--border-primary)] focus:border-[var(--gnosi-primary)]'
+                : 'border-red-500 focus:border-red-600'
+        }`;
+    const hintCls = "text-[10px] text-red-500 mt-0.5";
+
     const sug = result?.suggested || {};
     const fieldEntries = Object.entries(sug);
     const allSelected = fieldEntries.length > 0 && fieldEntries.every(([k]) => selectedFields[k]);
@@ -289,8 +310,10 @@ export const MetadataLookupModal = ({
                             value={doi}
                             onChange={(e) => setDoi(e.target.value)}
                             placeholder="10.xxxx/xxxxx"
-                            className="px-2 py-1.5 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                            className={inputCls(vDoi.valid)}
+                            aria-invalid={!vDoi.valid}
                         />
+                        {!vDoi.valid && <span className={hintCls}>{vDoi.hint}</span>}
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-xs font-semibold text-[var(--text-secondary)]">ISBN</span>
@@ -299,8 +322,10 @@ export const MetadataLookupModal = ({
                             value={isbn}
                             onChange={(e) => setIsbn(e.target.value)}
                             placeholder="978…"
-                            className="px-2 py-1.5 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                            className={inputCls(vIsbn.valid)}
+                            aria-invalid={!vIsbn.valid}
                         />
+                        {!vIsbn.valid && <span className={hintCls}>{vIsbn.hint}</span>}
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-xs font-semibold text-[var(--text-secondary)]">arXiv id</span>
@@ -309,8 +334,10 @@ export const MetadataLookupModal = ({
                             value={arxivId}
                             onChange={(e) => setArxivId(e.target.value)}
                             placeholder="2103.00020"
-                            className="px-2 py-1.5 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                            className={inputCls(vArxiv.valid)}
+                            aria-invalid={!vArxiv.valid}
                         />
+                        {!vArxiv.valid && <span className={hintCls}>{vArxiv.hint}</span>}
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-xs font-semibold text-[var(--text-secondary)]">PMID</span>
@@ -319,8 +346,10 @@ export const MetadataLookupModal = ({
                             value={pmid}
                             onChange={(e) => setPmid(e.target.value)}
                             placeholder="29083320"
-                            className="px-2 py-1.5 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                            className={inputCls(vPmid.valid)}
+                            aria-invalid={!vPmid.valid}
                         />
+                        {!vPmid.valid && <span className={hintCls}>{vPmid.hint}</span>}
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-xs font-semibold text-[var(--text-secondary)]">URL</span>
@@ -329,8 +358,10 @@ export const MetadataLookupModal = ({
                             value={url}
                             onChange={(e) => setUrl(e.target.value)}
                             placeholder="https://…"
-                            className="px-2 py-1.5 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
+                            className={inputCls(vUrl.valid)}
+                            aria-invalid={!vUrl.valid}
                         />
+                        {!vUrl.valid && <span className={hintCls}>{vUrl.hint}</span>}
                     </label>
                 </div>
 
@@ -338,8 +369,15 @@ export const MetadataLookupModal = ({
                     <button
                         type="button"
                         onClick={handleSearch}
-                        disabled={loading}
-                        className="px-3 py-1.5 rounded-md bg-[var(--gnosi-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                        disabled={loading || !canSearch}
+                        title={
+                            !hasIdentifier
+                                ? t('metadata_lookup.need_identifier', { defaultValue: 'Cal un DOI, ISBN, arXiv id, PMID o URL' })
+                                : !allValid
+                                    ? t('metadata_lookup.fix_invalid', { defaultValue: 'Corregeix els camps en vermell abans de cercar' })
+                                    : ''
+                        }
+                        className="px-3 py-1.5 rounded-md bg-[var(--gnosi-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {loading && <Loader2 size={14} className="animate-spin" />}
                         {t('metadata_lookup.search', { defaultValue: 'Cerca' })}
