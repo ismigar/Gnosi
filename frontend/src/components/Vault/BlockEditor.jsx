@@ -67,6 +67,35 @@ import { CitePicker } from './CitePicker';
 import { MetadataLookupModal } from './MetadataLookupModal';
 import { BibliographyBlock } from './BibliographyBlock';
 import { ZoteroExtrasSection } from './ZoteroExtrasSection';
+import { PdfAnnotationsToCite } from './PdfAnnotationsToCite';
+
+/**
+ * Resol l'URI del PDF associat a una pàgina de Recursos.
+ *
+ * Prioritzem el frontmatter rebut del backend (post-resolució de claus
+ * locales/àlies). Acceptem dues fonts:
+ *
+ *   1. `attachment_path` (Phase 6 — ruta canonical absoluta).
+ *   2. `URL` només si comença per `file://` i acaba en `.pdf` (PDFs locals
+ *      heretats de l'època pre-Phase-6 o creats per imports manuals).
+ *
+ * Retorna `null` si no hi ha PDF detectable; aleshores `PdfAnnotationsToCite`
+ * tampoc es renderitza i el panell Propietats queda sense soroll.
+ */
+function getPdfSourceUri(metadata) {
+    if (!metadata || typeof metadata !== 'object') return null;
+    const attachment = String(metadata['attachment_path'] || '').trim();
+    if (attachment) {
+        if (/^file:\/\//i.test(attachment)) return attachment;
+        // Camí absolut sense esquema → afegim `file://` codificant els espais.
+        if (attachment.startsWith('/')) {
+            return `file://${encodeURI(attachment)}`;
+        }
+    }
+    const url = String(metadata['URL'] || '').trim();
+    if (/^file:\/\//i.test(url) && /\.pdf$/i.test(url)) return url;
+    return null;
+}
 import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
@@ -2793,6 +2822,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         return v;
     }, [metadata]);
 
+    // PR #249 wired-up: URI del PDF si la pàgina en porta un (attachment_path
+    // o URL file://). Si null, PdfAnnotationsToCite no es renderitza.
+    const pdfSourceUri = useMemo(() => getPdfSourceUri(metadata), [metadata]);
+    const pdfCitationKey = useMemo(
+        () => String(metadata?.['Citation Key'] || '').trim() || null,
+        [metadata],
+    );
+
     // ── Cursor de propietats + copiar/enganxar (estil graella) ───────────
     // Llista ordenada de propietats navegables (schema + adhoc). Les adhoc
     // són sempre text.
@@ -3431,6 +3468,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             tableId={currentTableId}
                                             onPromoted={() => { try { onReloadPage?.(); } catch { /* ignore */ } }}
                                         />
+                                    )}
+
+                                    {/* PR #249 wired-up: subratllats del PDF → quotes amb cita. */}
+                                    {pdfSourceUri && (
+                                        <div className="col-span-2 mt-3">
+                                            <PdfAnnotationsToCite
+                                                sourceUri={pdfSourceUri}
+                                                citationKey={pdfCitationKey}
+                                                readOnly={!isEditor}
+                                            />
+                                        </div>
                                     )}
 
                                     <div className="col-span-2 flex gap-2.5 mt-1.5">
