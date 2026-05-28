@@ -5040,6 +5040,38 @@ def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List
     return out
 
 
+@router.get("/csl/styles")
+async def list_csl_styles():
+    """Llistat dels estils CSL disponibles al catàleg (frontend/public/csl/styles).
+
+    Cada entrada: `{id, file, title}`. `title` és el `<title>` extret del XML
+    (la denominació oficial CSL, p.ex. "American Psychological Association 7th edition").
+
+    El frontend usa aquest endpoint per omplir el `CslStylePicker`; cau a la
+    llista hardcoded de `cslEngine.AVAILABLE_STYLES` si la crida falla.
+    """
+    from backend.services.csl_styles import list_styles
+    return {"styles": list_styles()}
+
+
+@router.post("/csl/styles", dependencies=[Depends(require_role("editor"))])
+async def upload_csl_style(file: UploadFile = File(...)):
+    """Puja un fitxer CSL (`.csl`) al catàleg.
+
+    Valida que sigui XML CSL ben format (root `<style>`, mida raonable),
+    el desa amb el nom (sanititzat) i retorna la metadata extreta. L'usuari
+    pot fer servir l'estil immediatament després de la propera càrrega
+    del frontend (els estils es serveixen via HTTP estàtic de Vite).
+    """
+    from backend.services.csl_styles import save_uploaded_style
+    raw = await file.read()
+    try:
+        meta = save_uploaded_style(raw, file.filename or 'unnamed.csl')
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return meta
+
+
 @router.get("/export-references", dependencies=[Depends(require_role("editor"))])
 async def export_references(
     table_id: str = Query(...),
