@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
+import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { Sparkles, ChevronRight, X, Plus } from 'lucide-react';
+import { Sparkles, ChevronRight, X, Plus, ArrowUpRight } from 'lucide-react';
+import { toast } from '../../lib/toast';
 
 /**
  * Renderitza i edita la clau `Zotero Extras` del frontmatter (un dict amb
@@ -21,10 +23,11 @@ import { Sparkles, ChevronRight, X, Plus } from 'lucide-react';
  * Lectura-només via `readOnly` (deshabilita inputs i botons). Útil per a
  * usuaris no-editors o per a renderitzats en visualitzacions read-only.
  */
-export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = false }) {
+export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = false, tableId, onPromoted }) {
     const { t } = useTranslation();
     const [newKey, setNewKey] = useState('');
     const [newValue, setNewValue] = useState('');
+    const [promoting, setPromoting] = useState(null);  // {key, columnName} | null
 
     if (!extras || typeof extras !== 'object' || Array.isArray(extras)) return null;
     const entries = Object.entries(extras).filter(([, v]) => v !== null && v !== undefined && v !== '');
@@ -57,6 +60,39 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
         setNewKey('');
         setNewValue('');
     }, [newKey, newValue, extras, onChange]);
+
+    const handlePromote = useCallback(async () => {
+        if (!promoting || !tableId) return;
+        const { key, columnName } = promoting;
+        const finalName = (columnName || key).trim();
+        if (!finalName) {
+            toast.error(t('zotero_extras.promote_invalid', { defaultValue: 'Nom de columna invàlid' }));
+            return;
+        }
+        try {
+            const r = await axios.post('/api/vault/promote-zotero-extra', {
+                table_id: tableId,
+                zotero_field: key,
+                column_name: finalName,
+                column_type: 'text',
+            });
+            const d = r.data || {};
+            toast.success(t('zotero_extras.promote_done', {
+                defaultValue: `Camp "${key}" promogut a columna "${finalName}" (${d.migrated || 0} pàgines migrades)`,
+                key,
+                col: finalName,
+                migrated: d.migrated || 0,
+            }));
+            setPromoting(null);
+            onPromoted?.(d);
+        } catch (err) {
+            const msg = err?.response?.data?.detail || err?.message;
+            toast.error(t('zotero_extras.promote_failed', {
+                defaultValue: `Error promovent: ${msg}`,
+                err: msg,
+            }));
+        }
+    }, [promoting, tableId, onPromoted, t]);
 
     return (
         <details className="col-span-2 mt-3 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden group">
@@ -101,18 +137,67 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                 title={typeof v === 'object' ? t('zotero_extras.object_uneditable', { defaultValue: 'Valor estructurat — edita el .md directament' }) : ''}
                             />
                             {!readOnly && (
-                                <button
-                                    type="button"
-                                    onClick={() => removeField(k)}
-                                    className="p-1 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-colors"
-                                    title={t('zotero_extras.remove_field', { defaultValue: 'Esborra aquest camp' })}
-                                >
-                                    <X size={12} />
-                                </button>
+                                <div className="flex items-center gap-0.5">
+                                    {tableId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setPromoting({ key: k, columnName: k })}
+                                            className="p-1 text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)] transition-colors"
+                                            title={t('zotero_extras.promote_to_column', { defaultValue: 'Promou a columna del registry' })}
+                                        >
+                                            <ArrowUpRight size={12} />
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeField(k)}
+                                        className="p-1 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-colors"
+                                        title={t('zotero_extras.remove_field', { defaultValue: 'Esborra aquest camp' })}
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
                             )}
                             {readOnly && <span />}
                         </React.Fragment>
                     ))}
+                    {promoting && (
+                        <div className="col-span-3 mt-2 p-2 rounded-md border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/5 flex items-center gap-2 text-xs">
+                            <ArrowUpRight size={12} className="text-[var(--gnosi-primary)] shrink-0" />
+                            <span className="text-[var(--text-secondary)]">
+                                {t('zotero_extras.promote_dialog', {
+                                    defaultValue: `Promou "${promoting.key}" com a:`,
+                                    key: promoting.key,
+                                })}
+                            </span>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={promoting.columnName}
+                                onChange={(e) => setPromoting({ ...promoting, columnName: e.target.value })}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') { e.preventDefault(); handlePromote(); }
+                                    if (e.key === 'Escape') setPromoting(null);
+                                }}
+                                placeholder={t('zotero_extras.promote_column_placeholder', { defaultValue: 'Nom de la columna' })}
+                                className="flex-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded px-1.5 py-0.5 outline-none focus:border-[var(--gnosi-primary)]"
+                            />
+                            <button
+                                type="button"
+                                onClick={handlePromote}
+                                className="px-2 py-0.5 rounded bg-[var(--gnosi-primary)] text-white text-[11px] hover:opacity-90"
+                            >
+                                {t('zotero_extras.promote_apply', { defaultValue: 'Aplica' })}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPromoting(null)}
+                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-0.5"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+                    )}
                     {!readOnly && (
                         <>
                             <input

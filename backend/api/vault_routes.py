@@ -5040,6 +5040,103 @@ def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List
     return out
 
 
+@router.post("/promote-zotero-extra", dependencies=[Depends(require_role("editor"))])
+async def promote_zotero_extra(payload: dict = Body(...)):
+    """Promociona un camp `Zotero Extras` a columna pròpia del registry.
+
+    Body:
+        {
+          "table_id": "<uuid>",
+          "zotero_field": "patentNumber",     # nom dins Zotero Extras
+          "column_name": "Núm. patent",       # opcional; default = zotero_field
+          "column_type": "text",              # opcional; default = "text"
+          "page_ids": ["uuid1", ...]          # opcional; sense això, totes les
+                                              #   pàgines de la taula amb el camp
+        }
+
+    Passes:
+      1. Si `column_name` no existeix com a property de la taula, la crea
+         (id = uuid nou, type = column_type, name = column_name).
+      2. Per cada pàgina (de `page_ids` o de totes les de la taula que
+         portin `Zotero Extras[zotero_field]`):
+           - Llegir frontmatter.
+           - Moure `Extras[zotero_field]` a `metadata[column_name]`.
+           - Esborrar `Extras[zotero_field]`. Si Extras queda buit, esborrar
+             la clau sencera.
+           - Re-escriure amb `save_page_md`.
+
+    Resposta:
+        {
+          "column_created": bool,
+          "column_id": "<uuid de la property>",
+          "migrated": N, "migrated_ids": [...],
+          "skipped": [...],         # pàgines sense el camp
+          "errors": [...]
+        }
+
+    NOTA arquitectònica: això NO actualitza `RECURSOS_TO_ZOTERO_FIELDS`
+    al codi font — el mapping declaratiu segueix igual. Els nous camps
+    estan al registry com a columnes normals (l'usuari hi pot filtrar/ordenar)
+    però el modal L2 no els marcarà com a "rellevants per al tipus". Si es
+    decideix mantenir la promoció permanent, val la pena afegir-los manualment
+    al mapping per recuperar la rellevància visual al modal.
+    """
+    table_id = (payload.get('table_id') or '').strip()
+    zotero_field = (payload.get('zotero_field') or '').strip()
+    column_name = (payload.get('column_name') or zotero_field).strip()
+    column_type = (payload.get('column_type') or 'text').strip()
+    page_ids_arg = payload.get('page_ids')
+
+    if not table_id or not zotero_field:
+        raise HTTPException(status_code=400, detail="table_id i zotero_field són obligatoris")
+
+    registry = load_registry()
+    table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
+    if not table:
+        raise HTTPException(status_code=404, detail=f"Table {table_id} no trobada")
+
+    # 1. Crear o reutilitzar la property.
+    props = table.setdefault('properties', [])
+    existing = next(
+        (p for p in props if (p.get('name') or '').strip() == column_name),
+        None,
+    )
+    column_created = False
+    if existing is None:
+        new_prop = {
+            'id': str(uuid.uuid4()),
+            'name': column_name,
+            'type': column_type,
+        }
+        props.append(new_prop)
+        save_registry(registry)
+        existing = new_prop
+        column_created = True
+
+    # 2. Determinar el conjunt de pàgines a migrar.
+    if isinstance(page_ids_arg, list) and page_ids_arg:
+        candidate_ids = [str(p) for p in page_ids_arg]
+    else:
+        # Totes les de la taula amb Zotero Extras + camp present.
+        candidate_ids = []
+        pages = _get_pages_snapshot()
+        for p in pages:
+            if getattr(p, 'resolved_table_id', None) != table_id:
+                continue
+            try:
+                fp = find_page_path(getattr(p, 'id', '') or '')
+                if not fp:
+                    continue
+                meta, _ = parse_frontmatter(fp.read_text(encoding='utf-8'), fp)
+                extras = meta.get('Zotero Extras')
+                if isinstance(extras, dict) and zotero_field in extras:
+                    candidate_ids.append(getattr(p, 'id'))
+            except OSError:
+                continue
+
+    migrated, skipped, errors = [], [], []
+
+    def _migrate(pid: str):
 @router.post("/bulk-update-metadata", dependencies=[Depends(require_role("editor"))])
 async def bulk_update_metadata(payload: dict = Body(...)):
     """Aplica el mateix patch de metadata a una col·lecció de pàgines.
@@ -5086,6 +5183,15 @@ async def bulk_update_metadata(payload: dict = Body(...)):
         try:
             raw = fp.read_text(encoding='utf-8')
             md, body = parse_frontmatter(raw, fp)
+            extras = md.get('Zotero Extras')
+            if not isinstance(extras, dict) or zotero_field not in extras:
+                return ('skip', None)
+            value = extras.pop(zotero_field)
+            if not extras:
+                md.pop('Zotero Extras', None)
+            else:
+                md['Zotero Extras'] = extras
+            md[column_name] = value
             original_md = dict(md)
             for k, v in (updates or {}).items():
                 if v is None or v == '':
@@ -5101,6 +5207,10 @@ async def bulk_update_metadata(payload: dict = Body(...)):
         except (OSError, ValueError) as e:
             return ('error', str(e))
 
+    for pid in candidate_ids:
+        result, info = await asyncio.to_thread(_migrate, pid)
+        if result == 'ok':
+            migrated.append(pid)
     for pid in page_ids:
         result, info = await asyncio.to_thread(_apply, pid)
         if result == 'ok':
@@ -5110,6 +5220,18 @@ async def bulk_update_metadata(payload: dict = Body(...)):
         else:
             errors.append({"page_id": pid, "error": info})
 
+    if migrated:
+        _invalidate_cite_key_index()
+
+    return {
+        "column_created": column_created,
+        "column_id": existing.get('id'),
+        "column_name": column_name,
+        "migrated": len(migrated),
+        "migrated_ids": migrated,
+        "skipped": skipped,
+        "errors": errors,
+    }
     if updated:
         _invalidate_cite_key_index()
 
