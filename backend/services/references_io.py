@@ -7,8 +7,9 @@ canònics de Recursos (vegeu la directiva `gnosi_native_reference_manager.md`):
 `Lloc`, `Volum`, `Número`, `Pàgines`, `Edició`, `DOI`, `ISBN`, `ISSN`, `URL`,
 `Idioma`, `Title`, `Títol del llibre`.
 
-`Item Type` es desa amb els valors estil Zotero (anglès), que és el que
-`ITEM_TYPE_MAP`/`_RECURSOS_TYPE_TO_CSL` ja saben mapejar a CSL.
+`Item Type` es desa amb els valors estil Zotero (anglès), que la skill
+`zotero_schema` (vegeu `backend/services/zotero_schema.py`) mapeja
+automàticament a CSL via `_resolve_csl_type`.
 """
 from __future__ import annotations
 

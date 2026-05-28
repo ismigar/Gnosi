@@ -26,6 +26,27 @@
  * Vegeu https://docs.citationstyles.org/ per a la spec completa.
  */
 import CSL from 'citeproc';
+import { ZOTERO_TO_CSL_TYPE, LABEL_TO_ZOTERO_TYPE } from './zoteroSchema';
+
+/**
+ * Resol el camp "Item Type" del Vault (clau Zotero canònica o label
+ * traduït) a un tipus CSL. Ordre de resolució:
+ *   1. Clau Zotero canònica (`journalArticle`, `book`, `preprint`, …)
+ *   2. Label traduït a qualsevol locale (`"Article de revista acadèmica"` → ca-AD → journalArticle)
+ *   3. Fallback `'document'` (CSL genèric)
+ *
+ * Aquest helper substitueix l'antic `ITEM_TYPE_MAP` hardcoded. El
+ * coneixement viu ara a `zoteroSchema.js` (generat des de l'oficial).
+ */
+export function resolveCslType(raw) {
+    if (!raw || typeof raw !== 'string') return 'document';
+    if (ZOTERO_TO_CSL_TYPE[raw]) return ZOTERO_TO_CSL_TYPE[raw];
+    for (const loc of Object.keys(LABEL_TO_ZOTERO_TYPE)) {
+        const zot = LABEL_TO_ZOTERO_TYPE[loc][raw];
+        if (zot && ZOTERO_TO_CSL_TYPE[zot]) return ZOTERO_TO_CSL_TYPE[zot];
+    }
+    return 'document';
+}
 
 // Estils disponibles (afegir més a `public/csl/styles/` i registrar aquí)
 export const AVAILABLE_STYLES = [
@@ -112,34 +133,16 @@ export async function getEngine(styleId, locale, items) {
  *  - `Llibre/Revista` és `container-title` per articles; per llibres és
  *    irrelevant però l'omplim com a aïllament defensiu.
  */
-const ITEM_TYPE_MAP = {
-    // Tipus Zotero (anglès, com els porta el sync)
-    'journalArticle': 'article-journal',
-    'magazineArticle': 'article-magazine',
-    'newspaperArticle': 'article-newspaper',
-    'book': 'book',
-    'bookSection': 'chapter',
-    'encyclopediaArticle': 'entry-encyclopedia',
-    'thesis': 'thesis',
-    'report': 'report',
-    'webpage': 'webpage',
-    'document': 'document',
-    // Tipus en català que pot tenir l'usuari escrits manualment
-    'Llibre': 'book',
+// Sinònims i alies legacy que el schema oficial no cobreix però que poden
+// existir al frontmatter de pàgines antigues. Es resolen abans del schema.
+const LEGACY_TYPE_ALIASES = {
     'Article científic': 'article-journal',
-    'Article de revista acadèmica': 'article-journal',
     'Article de revista': 'article-journal',
     'Article divulgatiu': 'article-magazine',
-    'Secció de Llibre': 'chapter',
-    'Capítol d\'un llibre': 'chapter',
-    'Article enciclopèdic': 'entry-encyclopedia',
-    'Tesi': 'thesis',
     'Tesis': 'thesis',
-    'Informe': 'report',
     'Manual': 'book',
     'Ponència': 'paper-conference',
     'Curs': 'document',
-    'Pàgina web': 'webpage',
     'Relat': 'document',
     'Document': 'document',
     'Vídeo': 'motion_picture',
@@ -229,7 +232,9 @@ export function recursosPageToCsl(page) {
     if (!id) return null;
 
     const typeRaw = m['Item Type'] || '';
-    const type = ITEM_TYPE_MAP[typeRaw] || 'document';
+    // Legacy aliases primer (sinònims que el schema oficial no cobreix),
+    // després el resolver basat en el schema generat.
+    const type = LEGACY_TYPE_ALIASES[typeRaw] || resolveCslType(typeRaw);
 
     const item = {
         id,

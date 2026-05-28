@@ -3640,18 +3640,7 @@ def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
 import tempfile as _ext_tempfile
 import subprocess as _ext_subprocess
 
-_RECURSOS_TYPE_TO_CSL = {
-    'journalArticle': 'article-journal', 'magazineArticle': 'article-magazine',
-    'newspaperArticle': 'article-newspaper', 'book': 'book', 'bookSection': 'chapter',
-    'encyclopediaArticle': 'entry-encyclopedia', 'thesis': 'thesis', 'report': 'report',
-    'webpage': 'webpage', 'document': 'document',
-    'Llibre': 'book', 'Article científic': 'article-journal',
-    'Article de revista acadèmica': 'article-journal', 'Article de revista': 'article-journal',
-    'Article divulgatiu': 'article-magazine', 'Secció de Llibre': 'chapter',
-    "Capítol d'un llibre": 'chapter', 'Article enciclopèdic': 'entry-encyclopedia',
-    'Tesi': 'thesis', 'Tesis': 'thesis', 'Informe': 'report', 'Manual': 'book',
-    'Ponència': 'paper-conference', 'Pàgina web': 'webpage',
-}
+from backend.services.csl_type_resolver import resolve_csl_type as _resolve_csl_type
 
 
 def _parse_authors_to_csl(authors_str: str) -> list:
@@ -3692,7 +3681,7 @@ def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
         return None
     item = {
         'id': ck,
-        'type': _RECURSOS_TYPE_TO_CSL.get(m.get('Item Type', ''), 'document'),
+        'type': _resolve_csl_type(m.get('Item Type', '')),
         'title': title or m.get('Title') or '',
     }
     authors = _parse_authors_to_csl(m.get('Authors') or '')
