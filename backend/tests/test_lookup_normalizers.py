@@ -669,8 +669,10 @@ HTML_TITLE_FALLBACK = """
 @pytest.mark.parametrize("html,name", [
     (HTML_HIGHWIRE, 'highwire'),
     (HTML_OG_FALLBACK, 'og_fallback'),
-    (HTML_PUBLISHER_QUIRK, 'publisher_quirk'),
     (HTML_TITLE_FALLBACK, 'title_fallback'),
+    # NOTA: HTML_PUBLISHER_QUIRK NO és aquí; el quirk legacy (publisher →
+    # Llibre/Revista quan no hi havia journal_title) era incorrecte i s'ha
+    # corregit a html_meta_to_zotero_item. Vegis el test específic a sota.
 ])
 def test_html_pipeline_equivalent_to_legacy(html, name):
     url = "https://example.com/article"
@@ -679,11 +681,31 @@ def test_html_pipeline_equivalent_to_legacy(html, name):
     assert new == legacy, f"divergence on {name}: new={new} legacy={legacy}"
 
 
-def test_html_publisher_quirk_preserved():
-    """Quirk legacy: si no hi ha journal_title, el publisher va a Llibre/Revista."""
+def test_html_publisher_now_separated_from_journal():
+    """publisher va a Editorial; journal_title va a Llibre/Revista.
+
+    Abans (legacy): `publisher` queia a Llibre/Revista si no hi havia
+    journal_title. Era incorrecte — sobreescrivia el nom de la revista
+    amb el de l'editor.
+    """
     url = "https://example.com/x"
     out = zotero_item_to_recursos(html_meta_to_zotero_item(HTML_PUBLISHER_QUIRK, url))
-    assert out.get('Llibre/Revista') == 'Acme Press'
+    assert out.get('Editorial') == 'Acme Press'
+    assert 'Llibre/Revista' not in out
+
+
+def test_html_journal_and_publisher_coexist():
+    """Si hi ha tots dos, cadascun va al seu camp; no es barregen."""
+    html = """
+    <html><head>
+    <title>X</title>
+    <meta name="citation_journal_title" content="Nature">
+    <meta name="DC.publisher" content="Springer Nature">
+    </head></html>
+    """
+    out = zotero_item_to_recursos(html_meta_to_zotero_item(html, "https://x.com"))
+    assert out['Llibre/Revista'] == 'Nature'
+    assert out['Editorial'] == 'Springer Nature'
 
 
 def test_html_url_always_present():

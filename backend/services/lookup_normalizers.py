@@ -392,11 +392,15 @@ def html_meta_to_zotero_item(html: str, url: str) -> dict[str, Any]:
     `DC.*` (Dublin Core) > `og:*` (Open Graph). Fallback `<title>` si
     cap meta porta el títol.
 
-    Quirk legacy preservat (bit-idèntic): si NO hi ha `journal_title`
-    però sí `publisher`, el publisher va a `publicationTitle` (no a
-    `publisher`). És incorrecte semànticament — `publisher` no és el
-    nom de la revista — però mantenim el comportament fins que es
-    decideixi corregir-lo en un commit separat.
+    A partir d'aquest commit, els camps es separen correctament:
+      - `journal_title` (Highwire) / `DC.publisher` → `publicationTitle`
+        només si ve d'aquest meta (revista on s'ha publicat).
+      - `publisher` (sense prefix `citation_` o `DC.`) → `publisher`
+        (l'editor: Acme Press, Elsevier, ...).
+
+    Si veieu el quirk antic a algun lloc del codi pre-corregit
+    (publisher anant a `Llibre/Revista`), és bug i hauria
+    d'actualitzar-se a aquest nou comportament.
     """
     if not isinstance(html, str):
         return {'url': url} if url else {}
@@ -485,10 +489,14 @@ def html_meta_to_zotero_item(html: str, url: str) -> dict[str, Any]:
         if m:
             item['date'] = m.group(0)
 
-    # Quirk legacy: journal_title || publisher → publicationTitle.
-    journal = get('journal_title', 'publisher')
+    # Separació correcta: el nom de la revista (journal_title) i l'editor
+    # (publisher) són conceptes diferents i van a camps Zotero diferents.
+    journal = get('journal_title')
     if journal:
         item['publicationTitle'] = journal
+    publisher = get('publisher')
+    if publisher:
+        item['publisher'] = publisher
 
     doi_raw = get('doi')
     if doi_raw:
