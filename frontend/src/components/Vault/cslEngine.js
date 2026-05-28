@@ -48,13 +48,58 @@ export function resolveCslType(raw) {
     return 'document';
 }
 
-// Estils disponibles (afegir més a `public/csl/styles/` i registrar aquí)
+// Estils canònics — fallback estàtic si el backend no respon o si volem
+// arrencar abans que la llista dinàmica arribi. Es completen amb el que
+// detecti `GET /api/vault/csl/styles` (vegis `fetchAvailableStyles`).
 export const AVAILABLE_STYLES = [
     { id: 'apa', label: 'APA 7th edition', file: 'apa.csl', locale: 'en-US' },
     { id: 'chicago-author-date', label: 'Chicago Author-Date', file: 'chicago-author-date.csl', locale: 'en-US' },
-    { id: 'mla', label: 'MLA 9th edition', file: 'modern-language-association.csl', locale: 'en-US' },
+    { id: 'modern-language-association', label: 'MLA 9th edition', file: 'modern-language-association.csl', locale: 'en-US' },
     { id: 'ieee', label: 'IEEE', file: 'ieee.csl', locale: 'en-US' },
 ];
+
+// Cache per als estils descoberts via backend. Es popula al primer
+// `fetchAvailableStyles()` i s'invalida quan l'usuari puja un nou fitxer.
+let _dynamicStylesCache = null;
+
+/**
+ * Demana al backend la llista completa d'estils CSL al catàleg
+ * (`frontend/public/csl/styles/`). Si la crida falla, cau a la llista
+ * estàtica `AVAILABLE_STYLES` per no trencar la UX.
+ *
+ * Format retornat: `[{id, file, label, locale}]` per coherència amb el
+ * fallback estàtic. El backend envia `title` (denominació oficial CSL);
+ * el mappem a `label`. `locale` cau a 'en-US' si no es coneix (el CSL
+ * pot tenir `default-locale` però la majoria d'estils no el porten;
+ * en aquest cas citeproc-js usa el locale globalment configurat).
+ */
+export async function fetchAvailableStyles({ force = false } = {}) {
+    if (_dynamicStylesCache && !force) return _dynamicStylesCache;
+    try {
+        const r = await fetch('/api/vault/csl/styles');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        const styles = (data?.styles || []).map((s) => ({
+            id: s.id,
+            file: s.file,
+            label: s.title || s.id,
+            locale: 'en-US',
+        }));
+        if (styles.length > 0) {
+            _dynamicStylesCache = styles;
+            return styles;
+        }
+    } catch (err) {
+        console.warn('fetchAvailableStyles fallback to static list:', err?.message);
+    }
+    _dynamicStylesCache = AVAILABLE_STYLES;
+    return AVAILABLE_STYLES;
+}
+
+/** Invalida el cache (cridar després d'un upload reeixit). */
+export function invalidateAvailableStylesCache() {
+    _dynamicStylesCache = null;
+}
 
 // Locales disponibles
 export const AVAILABLE_LOCALES = ['ca-AD', 'es-ES', 'en-US', 'en-GB'];
