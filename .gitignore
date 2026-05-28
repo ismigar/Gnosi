@@ -21,6 +21,7 @@ monorepo/apps/gnosi/pipeline/private_skills/
 .ruff_cache/
 monorepo.bfg-report/
 .gemini/
+.claude/settings.local.json
 
 # --- ARXIUS GRANS I ESCOMBRARIES ---
 *.zip
