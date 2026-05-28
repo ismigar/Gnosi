@@ -5047,45 +5047,28 @@ async def promote_zotero_extra(payload: dict = Body(...)):
     Body:
         {
           "table_id": "<uuid>",
-          "zotero_field": "patentNumber",     # nom dins Zotero Extras
+          "zotero_field": "patentNumber",
           "column_name": "Núm. patent",       # opcional; default = zotero_field
           "column_type": "text",              # opcional; default = "text"
-          "page_ids": ["uuid1", ...]          # opcional; sense això, totes les
+          "page_ids": ["uuid1", ...],         # opcional; sense això, totes les
                                               #   pàgines de la taula amb el camp
+          "expected_etags": {"uuid1": "abc", ...}  # opcional (Via A col·laboració)
         }
 
-    Passes:
-      1. Si `column_name` no existeix com a property de la taula, la crea
-         (id = uuid nou, type = column_type, name = column_name).
-      2. Per cada pàgina (de `page_ids` o de totes les de la taula que
-         portin `Zotero Extras[zotero_field]`):
-           - Llegir frontmatter.
-           - Moure `Extras[zotero_field]` a `metadata[column_name]`.
-           - Esborrar `Extras[zotero_field]`. Si Extras queda buit, esborrar
-             la clau sencera.
-           - Re-escriure amb `save_page_md`.
-
-    Resposta:
-        {
-          "column_created": bool,
-          "column_id": "<uuid de la property>",
-          "migrated": N, "migrated_ids": [...],
-          "skipped": [...],         # pàgines sense el camp
-          "errors": [...]
-        }
-
-    NOTA arquitectònica: això NO actualitza `RECURSOS_TO_ZOTERO_FIELDS`
-    al codi font — el mapping declaratiu segueix igual. Els nous camps
-    estan al registry com a columnes normals (l'usuari hi pot filtrar/ordenar)
-    però el modal L2 no els marcarà com a "rellevants per al tipus". Si es
-    decideix mantenir la promoció permanent, val la pena afegir-los manualment
-    al mapping per recuperar la rellevància visual al modal.
+    Per a cada pàgina:
+      1. Si `expected_etags[pid]` és present, validar contra l'etag actual.
+         Mismatch → marcat com a `conflict`, NO escrit.
+      2. Mou `Extras[zotero_field]` a `metadata[column_name]`.
+      3. Esborra `Extras[zotero_field]`. Si Extras queda buit, esborra
+         la clau sencera.
+      4. Re-escriu via `save_page_md`.
     """
     table_id = (payload.get('table_id') or '').strip()
     zotero_field = (payload.get('zotero_field') or '').strip()
     column_name = (payload.get('column_name') or zotero_field).strip()
     column_type = (payload.get('column_type') or 'text').strip()
     page_ids_arg = payload.get('page_ids')
+    expected_etags = payload.get('expected_etags') or {}
 
     if not table_id or not zotero_field:
         raise HTTPException(status_code=400, detail="table_id i zotero_field són obligatoris")
@@ -5117,7 +5100,6 @@ async def promote_zotero_extra(payload: dict = Body(...)):
     if isinstance(page_ids_arg, list) and page_ids_arg:
         candidate_ids = [str(p) for p in page_ids_arg]
     else:
-        # Totes les de la taula amb Zotero Extras + camp present.
         candidate_ids = []
         pages = _get_pages_snapshot()
         for p in pages:
@@ -5134,52 +5116,19 @@ async def promote_zotero_extra(payload: dict = Body(...)):
             except OSError:
                 continue
 
-    migrated, skipped, errors = [], [], []
+    migrated, skipped, conflicts, errors = [], [], [], []
 
     def _migrate(pid: str):
-@router.post("/bulk-update-metadata", dependencies=[Depends(require_role("editor"))])
-async def bulk_update_metadata(payload: dict = Body(...)):
-    """Aplica el mateix patch de metadata a una col·lecció de pàgines.
-
-    Body:
-        {
-          "page_ids": ["uuid1", "uuid2", ...],
-          "updates": {"Item Type": "preprint", "Idioma": "en"},
-          "remove": ["CampObsolet"]      # opcional: claus a esborrar
-        }
-
-    Per a cada pàgina:
-      1. Llegeix el .md, parseja frontmatter.
-      2. Aplica `updates` (merge superficial). Valor None/'' = esborrat.
-      3. Esborra també les claus llistades a `remove`.
-      4. Re-escriu via `save_page_md` (canonicalitza noms i preserva sidecar).
-      5. Invalida `cite_key_index` si s'ha tocat alguna pàgina.
-
-    Resposta:
-        {
-          "updated": N, "updated_ids": [...],
-          "skipped": [...],         # patch idèntic al frontmatter actual
-          "errors": [{"page_id": "...", "error": "..."}, ...]
-        }
-
-    Pensat per a la barra d'accions massives del Vault (canviar tipus,
-    posar idioma, marcar com llegit, ...). Una error individual no
-    aborta la resta — les pàgines exitoses queden persistides.
-    """
-    page_ids = payload.get('page_ids') or []
-    updates = payload.get('updates') or {}
-    remove_keys = payload.get('remove') or []
-    if not isinstance(page_ids, list) or not page_ids:
-        raise HTTPException(status_code=400, detail="page_ids ha de ser una llista no buida")
-    if not isinstance(updates, dict) or (not updates and not remove_keys):
-        raise HTTPException(status_code=400, detail="updates o remove són obligatoris")
-
-    updated, errors, skipped = [], [], []
-
-    def _apply(pid: str):
         fp = find_page_path(pid)
         if not fp or not fp.exists():
             return ('error', "not_found")
+        # PR ETag (Via A): opcional, no és breaking — un client antic que no
+        # passi expected_etags continua funcionant exactament com abans.
+        exp = expected_etags.get(pid)
+        if exp:
+            current = file_etag(fp)
+            if current and current != exp:
+                return ('conflict', {"expected_etag": exp, "current_etag": current})
         try:
             raw = fp.read_text(encoding='utf-8')
             md, body = parse_frontmatter(raw, fp)
@@ -5192,31 +5141,19 @@ async def bulk_update_metadata(payload: dict = Body(...)):
             else:
                 md['Zotero Extras'] = extras
             md[column_name] = value
-            original_md = dict(md)
-            for k, v in (updates or {}).items():
-                if v is None or v == '':
-                    md.pop(k, None)
-                else:
-                    md[k] = v
-            for k in remove_keys:
-                md.pop(k, None)
-            if md == original_md:
-                return ('skip', None)
             save_page_md(fp, md, body or '')
-            return ('ok', None)
+            return ('ok', file_etag(fp))
         except (OSError, ValueError) as e:
             return ('error', str(e))
 
     for pid in candidate_ids:
         result, info = await asyncio.to_thread(_migrate, pid)
         if result == 'ok':
-            migrated.append(pid)
-    for pid in page_ids:
-        result, info = await asyncio.to_thread(_apply, pid)
-        if result == 'ok':
-            updated.append(pid)
+            migrated.append({"page_id": pid, "etag": info})
         elif result == 'skip':
             skipped.append(pid)
+        elif result == 'conflict':
+            conflicts.append({"page_id": pid, **info})
         else:
             errors.append({"page_id": pid, "error": info})
 
@@ -5228,19 +5165,109 @@ async def bulk_update_metadata(payload: dict = Body(...)):
         "column_id": existing.get('id'),
         "column_name": column_name,
         "migrated": len(migrated),
-        "migrated_ids": migrated,
+        "migrated_ids": [m["page_id"] for m in migrated],
+        "migrated_with_etags": migrated,
         "skipped": skipped,
+        "conflicts": conflicts,
         "errors": errors,
     }
+
+
+@router.post("/bulk-update-metadata", dependencies=[Depends(require_role("editor"))])
+async def bulk_update_metadata(payload: dict = Body(...)):
+    """Aplica el mateix patch de metadata a una col·lecció de pàgines.
+
+    Body:
+        {
+          "page_ids": ["uuid1", "uuid2", ...],
+          "updates": {"Item Type": "preprint", "Idioma": "en"},
+          "remove": ["CampObsolet"],
+          "expected_etags": {"uuid1": "abc", ...}   # opcional (Via A col·laboració)
+        }
+
+    Per a cada pàgina:
+      1. Si `expected_etags[pid]` és present, validar contra l'etag actual.
+         Mismatch → marcat com a `conflict`, NO escrit.
+      2. Llegeix .md, parseja frontmatter.
+      3. Aplica `updates` (None/'' → esborrat) i `remove`.
+      4. Si patch idèntic al state actual → `skip`.
+      5. `save_page_md` i retorna el nou etag al client.
+
+    Resposta:
+        {
+          "updated": N, "updated_ids": [...],
+          "updated_with_etags": [{"page_id": "...", "etag": "..."}],
+          "skipped": [...],
+          "conflicts": [{"page_id": "...", "expected_etag": "...", "current_etag": "..."}],
+          "errors": [{"page_id": "...", "error": "..."}]
+        }
+
+    Una error individual NO aborta la resta. Els conflictes són recoverable:
+    el client pot fer GET de la versió nova, repetir la lògica i tornar a
+    enviar amb el nou etag.
+    """
+    page_ids = payload.get('page_ids') or []
+    updates = payload.get('updates') or {}
+    remove_keys = payload.get('remove') or []
+    expected_etags = payload.get('expected_etags') or {}
+    if not isinstance(page_ids, list) or not page_ids:
+        raise HTTPException(status_code=400, detail="page_ids ha de ser una llista no buida")
+    if not isinstance(updates, dict) or (not updates and not remove_keys):
+        raise HTTPException(status_code=400, detail="updates o remove són obligatoris")
+
+    updated, errors, skipped, conflicts = [], [], [], []
+
+    def _apply(pid: str):
+        fp = find_page_path(pid)
+        if not fp or not fp.exists():
+            return ('error', "not_found")
+        exp = expected_etags.get(pid)
+        if exp:
+            current = file_etag(fp)
+            if current and current != exp:
+                return ('conflict', {"expected_etag": exp, "current_etag": current})
+        try:
+            raw = fp.read_text(encoding='utf-8')
+            md, body = parse_frontmatter(raw, fp)
+            original_md = dict(md)
+            for k, v in (updates or {}).items():
+                if v is None or v == '':
+                    md.pop(k, None)
+                else:
+                    md[k] = v
+            for k in remove_keys:
+                md.pop(k, None)
+            if md == original_md:
+                return ('skip', None)
+            save_page_md(fp, md, body or '')
+            return ('ok', file_etag(fp))
+        except (OSError, ValueError) as e:
+            return ('error', str(e))
+
+    for pid in page_ids:
+        result, info = await asyncio.to_thread(_apply, pid)
+        if result == 'ok':
+            updated.append({"page_id": pid, "etag": info})
+        elif result == 'skip':
+            skipped.append(pid)
+        elif result == 'conflict':
+            conflicts.append({"page_id": pid, **info})
+        else:
+            errors.append({"page_id": pid, "error": info})
+
     if updated:
         _invalidate_cite_key_index()
 
     return {
         "updated": len(updated),
-        "updated_ids": updated,
+        "updated_ids": [u["page_id"] for u in updated],
+        "updated_with_etags": updated,
         "skipped": skipped,
+        "conflicts": conflicts,
         "errors": errors,
     }
+
+
 @router.get("/csl/styles")
 async def list_csl_styles():
     """Llistat dels estils CSL disponibles al catàleg (frontend/public/csl/styles).
