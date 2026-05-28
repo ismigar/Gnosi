@@ -15,7 +15,13 @@ from __future__ import annotations
 
 import pytest
 
-from backend.services.lookup_normalizers import crossref_to_zotero_item
+from backend.services.lookup_normalizers import (
+    arxiv_to_zotero_item,
+    crossref_to_zotero_item,
+    html_meta_to_zotero_item,
+    openlibrary_to_zotero_item,
+    pubmed_to_zotero_item,
+)
 from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
 
 
@@ -230,3 +236,457 @@ def test_unknown_type_passes_through():
     """Un type no llistat queda tal qual (igual que el legacy)."""
     item = crossref_to_zotero_item({'type': 'monograph'})
     assert item['itemType'] == 'monograph'
+
+
+# =================================================================
+# Open Library
+# =================================================================
+
+def _legacy_openlibrary_to_recursos(book: dict) -> dict:
+    """Snapshot literal de _openlibrary_to_recursos (vault_routes.py, pre-L3.3)."""
+    import re as _re
+    out: dict = {}
+    if book.get('title'):
+        out['Title'] = book['title']
+    if book.get('subtitle'):
+        out['Title'] = f"{out.get('Title', '')}: {book['subtitle']}".strip(': ')
+    authors = book.get('authors') or []
+    if authors:
+        names = []
+        for a in authors:
+            full = (a.get('name') or '').strip()
+            if not full:
+                continue
+            parts = full.split()
+            if len(parts) >= 2:
+                family = parts[-1]
+                given = ' '.join(parts[:-1])
+                names.append(f'{family}, {given}')
+            else:
+                names.append(full)
+        if names:
+            out['Authors'] = '; '.join(names)
+    if book.get('publish_date'):
+        m = _re.search(r'\b(19|20)\d{2}\b', str(book['publish_date']))
+        if m:
+            try:
+                out['Any'] = int(m.group(0))
+            except ValueError:
+                pass
+    if book.get('publishers') and isinstance(book['publishers'], list) and book['publishers']:
+        out['Editorial'] = book['publishers'][0].get('name', '') if isinstance(book['publishers'][0], dict) else str(book['publishers'][0])
+    if book.get('publish_places') and isinstance(book['publish_places'], list) and book['publish_places']:
+        first = book['publish_places'][0]
+        out['Lloc'] = first.get('name', '') if isinstance(first, dict) else str(first)
+    if book.get('number_of_pages'):
+        out['Núm. pàgines'] = str(book['number_of_pages'])
+    ids = book.get('identifiers') or {}
+    if ids.get('isbn_13'):
+        out['ISBN'] = ids['isbn_13'][0]
+    elif ids.get('isbn_10'):
+        out['ISBN'] = ids['isbn_10'][0]
+    out['Item Type'] = 'book'
+    return out
+
+
+OPENLIB_FULL = {
+    'title': 'Thinking, Fast and Slow',
+    'subtitle': 'A Biography of the Brain',
+    'authors': [{'name': 'Daniel Kahneman'}],
+    'publish_date': '2011',
+    'publishers': [{'name': 'Farrar, Straus and Giroux'}],
+    'publish_places': [{'name': 'New York'}],
+    'number_of_pages': 499,
+    'identifiers': {'isbn_13': ['9780374275631'], 'isbn_10': ['0374275637']},
+}
+
+OPENLIB_MULTI_AUTHOR_DATE_FREEFORM = {
+    'title': 'Book of Many',
+    'authors': [{'name': 'Jane Doe'}, {'name': 'John Smith'}, {'name': 'Madonna'}],
+    'publish_date': 'June 15, 2003',
+    'publishers': ['Penguin'],          # string en lloc de dict
+    'publish_places': ['London'],
+}
+
+OPENLIB_MINIMAL = {'title': 'X', 'identifiers': {'isbn_10': ['0123456789']}}
+
+OPENLIB_EMPTY: dict = {}
+
+
+@pytest.mark.parametrize("fixture", [
+    OPENLIB_FULL, OPENLIB_MULTI_AUTHOR_DATE_FREEFORM, OPENLIB_MINIMAL, OPENLIB_EMPTY,
+], ids=['full', 'multi_author_freeform_date', 'minimal', 'empty'])
+def test_openlibrary_pipeline_equivalent_to_legacy(fixture):
+    new = zotero_item_to_recursos(openlibrary_to_zotero_item(fixture))
+    legacy = _legacy_openlibrary_to_recursos(fixture)
+    assert new == legacy
+
+
+def test_openlibrary_non_dict_returns_empty():
+    assert openlibrary_to_zotero_item(None) == {}
+    assert openlibrary_to_zotero_item("not a dict") == {}
+
+
+# =================================================================
+# arXiv
+# =================================================================
+
+def _legacy_arxiv_to_recursos(entry_xml: str) -> dict:
+    """Snapshot literal de _arxiv_to_recursos (vault_routes.py, pre-L3.3)."""
+    import re as _re
+    import xml.etree.ElementTree as ET
+    out: dict = {}
+    ns = {'atom': 'http://www.w3.org/2005/Atom', 'arxiv': 'http://arxiv.org/schemas/atom'}
+    try:
+        root = ET.fromstring(entry_xml)
+    except ET.ParseError:
+        return out
+    entry = root.find('atom:entry', ns)
+    if entry is None:
+        return out
+    title = entry.find('atom:title', ns)
+    if title is not None and title.text:
+        out['Title'] = _re.sub(r'\s+', ' ', title.text).strip()
+    authors_el = entry.findall('atom:author', ns)
+    if authors_el:
+        names = []
+        for a in authors_el:
+            name = a.find('atom:name', ns)
+            if name is not None and name.text:
+                parts = name.text.strip().split()
+                if len(parts) >= 2:
+                    names.append(f'{parts[-1]}, {" ".join(parts[:-1])}')
+                else:
+                    names.append(name.text.strip())
+        if names:
+            out['Authors'] = '; '.join(names)
+    published = entry.find('atom:published', ns)
+    if published is not None and published.text:
+        m = _re.match(r'(\d{4})', published.text)
+        if m:
+            try:
+                out['Any'] = int(m.group(1))
+            except ValueError:
+                pass
+    doi = entry.find('arxiv:doi', ns)
+    if doi is not None and doi.text:
+        out['DOI'] = doi.text.strip()
+    journal_ref = entry.find('arxiv:journal_ref', ns)
+    if journal_ref is not None and journal_ref.text:
+        out['Llibre/Revista'] = journal_ref.text.strip()
+    link = entry.find('atom:id', ns)
+    if link is not None and link.text:
+        out['URL'] = link.text.strip()
+    out['Item Type'] = 'preprint'
+    return out
+
+
+ARXIV_FULL = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>http://arxiv.org/abs/1706.03762v5</id>
+    <title>Attention Is
+       All You Need</title>
+    <published>2017-06-12T17:57:34Z</published>
+    <author><name>Ashish Vaswani</name></author>
+    <author><name>Noam Shazeer</name></author>
+    <arxiv:doi>10.48550/arXiv.1706.03762</arxiv:doi>
+    <arxiv:journal_ref>NIPS 2017</arxiv:journal_ref>
+  </entry>
+</feed>"""
+
+ARXIV_SINGLE_NAME_AUTHOR = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>http://arxiv.org/abs/test</id>
+    <title>Test</title>
+    <published>2020-01-01T00:00:00Z</published>
+    <author><name>Plato</name></author>
+  </entry>
+</feed>"""
+
+ARXIV_MALFORMED = "this is not xml"
+
+
+@pytest.mark.parametrize("xml,name", [
+    (ARXIV_FULL, 'full'),
+    (ARXIV_SINGLE_NAME_AUTHOR, 'single_name'),
+    (ARXIV_MALFORMED, 'malformed'),
+    ('', 'empty'),
+])
+def test_arxiv_pipeline_equivalent_to_legacy(xml, name):
+    new = zotero_item_to_recursos(arxiv_to_zotero_item(xml))
+    legacy = _legacy_arxiv_to_recursos(xml)
+    assert new == legacy, f"divergence on {name}: new={new} legacy={legacy}"
+
+
+# =================================================================
+# PubMed (esummary)
+# =================================================================
+
+def _legacy_pubmed_author_to_canonical(name: str) -> str:
+    import re as _re
+    name = (name or '').strip()
+    if not name or ',' in name:
+        return name
+    toks = name.split()
+    if len(toks) >= 2 and _re.fullmatch(r'[A-Za-z]{1,4}', toks[-1]):
+        return f"{' '.join(toks[:-1])}, {toks[-1]}"
+    return name
+
+
+def _legacy_pubmed_to_recursos(doc: dict) -> dict:
+    import re as _re
+    out: dict = {}
+    if doc.get('title'):
+        out['Title'] = str(doc['title']).rstrip('.')
+    names = [
+        _legacy_pubmed_author_to_canonical(a.get('name', ''))
+        for a in (doc.get('authors') or [])
+        if a.get('name') and a.get('authtype', 'Author') == 'Author'
+    ]
+    if names:
+        out['Authors'] = '; '.join(n for n in names if n)
+    m = _re.search(r'\d{4}', doc.get('pubdate') or doc.get('epubdate') or '')
+    if m:
+        out['Any'] = int(m.group(0))
+    journal = doc.get('fulljournalname') or doc.get('source')
+    if journal:
+        out['Llibre/Revista'] = journal
+    if doc.get('volume'):
+        out['Volum'] = str(doc['volume'])
+    if doc.get('issue'):
+        out['Número'] = str(doc['issue'])
+    if doc.get('pages'):
+        out['Pàgines'] = str(doc['pages'])
+    for aid in (doc.get('articleids') or []):
+        if aid.get('idtype') == 'doi' and aid.get('value'):
+            out['DOI'] = aid['value']
+    langs = doc.get('lang') or []
+    if langs:
+        out['Idioma'] = langs[0]
+    if doc.get('uid'):
+        out['PMID'] = str(doc['uid'])
+    out['Item Type'] = 'journalArticle'
+    return out
+
+
+PUBMED_FULL = {
+    'uid': '29083320',
+    'title': 'The neural basis of attention.',
+    'authors': [
+        {'name': 'Murphy SA', 'authtype': 'Author'},
+        {'name': 'Chen JL', 'authtype': 'Author'},
+        {'name': 'Reviewer Z', 'authtype': 'Reviewer'},  # has to be ignored
+    ],
+    'pubdate': '2017 Nov',
+    'fulljournalname': 'Nature Reviews Neuroscience',
+    'volume': '18',
+    'issue': '11',
+    'pages': '673-685',
+    'articleids': [
+        {'idtype': 'pubmed', 'value': '29083320'},
+        {'idtype': 'doi', 'value': '10.1038/nrn.2017.135'},
+    ],
+    'lang': ['eng'],
+}
+
+PUBMED_EPUBDATE_ONLY = {
+    'uid': '12345',
+    'title': 'X',
+    'epubdate': '2020 Feb',
+    'source': 'Short Source',  # fallback de fulljournalname
+}
+
+PUBMED_AUTHOR_WITH_COMMA = {
+    'uid': '99',
+    'title': 'Y',
+    'authors': [{'name': 'García, Maria', 'authtype': 'Author'}],
+}
+
+
+@pytest.mark.parametrize("fixture,name", [
+    (PUBMED_FULL, 'full'),
+    (PUBMED_EPUBDATE_ONLY, 'epub_only'),
+    (PUBMED_AUTHOR_WITH_COMMA, 'author_comma'),
+    ({}, 'empty'),
+])
+def test_pubmed_pipeline_equivalent_to_legacy(fixture, name):
+    new = zotero_item_to_recursos(pubmed_to_zotero_item(fixture))
+    legacy = _legacy_pubmed_to_recursos(fixture)
+    assert new == legacy, f"divergence on {name}: new={new} legacy={legacy}"
+
+
+# =================================================================
+# HTML meta tags
+# =================================================================
+
+def _legacy_normalize_doi(raw: str):
+    import re as _re
+    if not raw:
+        return None
+    m = _re.search(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', raw, _re.IGNORECASE)
+    return m.group(0) if m else None
+
+
+def _legacy_normalize_isbn(raw: str):
+    import re as _re
+    if not raw:
+        return None
+    cleaned = _re.sub(r'[-\s]', '', raw)
+    m = _re.search(r'97[89]\d{10}|\d{9}[\dX]', cleaned)
+    return m.group(0) if m else None
+
+
+def _legacy_html_meta_to_recursos(html: str, url: str) -> dict:
+    """Snapshot literal de _html_meta_to_recursos (vault_routes.py, pre-L3.3)."""
+    import re as _re
+    out: dict = {}
+    citations = _re.findall(
+        r'<meta[^>]+name=["\']citation_([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
+        html, _re.IGNORECASE,
+    )
+    og = _re.findall(
+        r'<meta[^>]+property=["\']og:([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
+        html, _re.IGNORECASE,
+    )
+    dc = _re.findall(
+        r'<meta[^>]+name=["\']DC\.([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
+        html, _re.IGNORECASE,
+    )
+    title_m = _re.search(r'<title[^>]*>([^<]+)</title>', html, _re.IGNORECASE)
+    fallback_title = title_m.group(1).strip() if title_m else None
+
+    sources = {}
+    for k, v in og: sources[k.lower()] = v
+    for k, v in dc: sources[k.lower()] = v
+    for k, v in citations: sources[k.lower()] = v
+
+    def get(*keys):
+        for k in keys:
+            v = sources.get(k.lower())
+            if v:
+                return v
+        return None
+
+    title = get('title')
+    if title:
+        out['Title'] = title.strip()
+    elif fallback_title:
+        out['Title'] = fallback_title
+
+    authors_list = [v for k, v in citations if k.lower() == 'author']
+    authors_list += [v for k, v in dc if k.lower() in ('creator', 'contributor')]
+    if not authors_list and get('author'):
+        authors_list = [get('author')]
+    if authors_list:
+        parts = []
+        seen = set()
+        for a in authors_list:
+            a = a.strip()
+            if ',' in a:
+                normalized = a
+            else:
+                toks = a.split()
+                if len(toks) >= 2:
+                    normalized = f'{toks[-1]}, {" ".join(toks[:-1])}'
+                else:
+                    normalized = a
+            key = normalized.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            parts.append(normalized)
+        out['Authors'] = '; '.join(parts)
+
+    year = get('date', 'publication_date')
+    if year:
+        m = _re.search(r'\b(19|20)\d{2}\b', year)
+        if m:
+            try:
+                out['Any'] = int(m.group(0))
+            except ValueError:
+                pass
+    journal = get('journal_title', 'publisher')
+    if journal:
+        out['Llibre/Revista'] = journal
+    if get('doi'):
+        out['DOI'] = _legacy_normalize_doi(get('doi')) or get('doi')
+    if get('isbn'):
+        out['ISBN'] = _legacy_normalize_isbn(get('isbn')) or get('isbn')
+    if get('volume'):
+        out['Volum'] = get('volume')
+    if get('issue'):
+        out['Número'] = get('issue')
+    if get('firstpage') and get('lastpage'):
+        out['Pàgines'] = f"{get('firstpage')}-{get('lastpage')}"
+    elif get('firstpage'):
+        out['Pàgines'] = get('firstpage')
+    if get('language'):
+        out['Idioma'] = get('language')
+    out['URL'] = url
+    return out
+
+
+HTML_HIGHWIRE = """
+<html><head>
+<title>Some page</title>
+<meta name="citation_title" content="Real Title">
+<meta name="citation_author" content="Smith, John A.">
+<meta name="citation_author" content="Doe, Jane">
+<meta name="citation_publication_date" content="2020/05/15">
+<meta name="citation_journal_title" content="Some Journal">
+<meta name="citation_volume" content="42">
+<meta name="citation_issue" content="7">
+<meta name="citation_firstpage" content="100">
+<meta name="citation_lastpage" content="120">
+<meta name="citation_doi" content="https://doi.org/10.1234/abc.def">
+<meta name="citation_language" content="en">
+</head></html>
+"""
+
+HTML_OG_FALLBACK = """
+<html><head>
+<title>Page Title Fallback</title>
+<meta property="og:title" content="OG Title">
+<meta property="og:author" content="Plato">
+</head></html>
+"""
+
+HTML_PUBLISHER_QUIRK = """
+<html><head>
+<title>Quirk</title>
+<meta name="citation_title" content="Some Article">
+<meta name="DC.publisher" content="Acme Press">
+</head></html>
+"""
+
+HTML_TITLE_FALLBACK = """
+<html><head><title>Just A Title</title></head></html>
+"""
+
+
+@pytest.mark.parametrize("html,name", [
+    (HTML_HIGHWIRE, 'highwire'),
+    (HTML_OG_FALLBACK, 'og_fallback'),
+    (HTML_PUBLISHER_QUIRK, 'publisher_quirk'),
+    (HTML_TITLE_FALLBACK, 'title_fallback'),
+])
+def test_html_pipeline_equivalent_to_legacy(html, name):
+    url = "https://example.com/article"
+    new = zotero_item_to_recursos(html_meta_to_zotero_item(html, url))
+    legacy = _legacy_html_meta_to_recursos(html, url)
+    assert new == legacy, f"divergence on {name}: new={new} legacy={legacy}"
+
+
+def test_html_publisher_quirk_preserved():
+    """Quirk legacy: si no hi ha journal_title, el publisher va a Llibre/Revista."""
+    url = "https://example.com/x"
+    out = zotero_item_to_recursos(html_meta_to_zotero_item(HTML_PUBLISHER_QUIRK, url))
+    assert out.get('Llibre/Revista') == 'Acme Press'
+
+
+def test_html_url_always_present():
+    """L'URL del paràmetre sempre s'inclou, fins i tot si el HTML és buit."""
+    out = zotero_item_to_recursos(html_meta_to_zotero_item("<html></html>", "https://x.com"))
+    assert out['URL'] == 'https://x.com'

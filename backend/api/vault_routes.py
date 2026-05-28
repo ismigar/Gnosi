@@ -4170,187 +4170,24 @@ def _crossref_to_recursos(work: dict) -> dict:
 
 
 def _openlibrary_to_recursos(book: dict) -> dict:
-    """Mapeig Open Library `bibkeys` data → camps de Recursos."""
-    out: dict = {}
-    if book.get('title'):
-        out['Title'] = book['title']
-    if book.get('subtitle'):
-        out['Title'] = f"{out.get('Title', '')}: {book['subtitle']}".strip(': ')
-    authors = book.get('authors') or []
-    if authors:
-        names = []
-        for a in authors:
-            full = (a.get('name') or '').strip()
-            if not full:
-                continue
-            parts = full.split()
-            if len(parts) >= 2:
-                family = parts[-1]
-                given = ' '.join(parts[:-1])
-                names.append(f'{family}, {given}')
-            else:
-                names.append(full)
-        if names:
-            out['Authors'] = '; '.join(names)
-    if book.get('publish_date'):
-        m = re.search(r'\b(19|20)\d{2}\b', str(book['publish_date']))
-        if m:
-            try:
-                out['Any'] = int(m.group(0))
-            except ValueError:
-                pass
-    if book.get('publishers') and isinstance(book['publishers'], list) and book['publishers']:
-        out['Editorial'] = book['publishers'][0].get('name', '') if isinstance(book['publishers'][0], dict) else str(book['publishers'][0])
-    if book.get('publish_places') and isinstance(book['publish_places'], list) and book['publish_places']:
-        first = book['publish_places'][0]
-        out['Lloc'] = first.get('name', '') if isinstance(first, dict) else str(first)
-    if book.get('number_of_pages'):
-        out['Núm. pàgines'] = str(book['number_of_pages'])
-    ids = book.get('identifiers') or {}
-    if ids.get('isbn_13'):
-        out['ISBN'] = ids['isbn_13'][0]
-    elif ids.get('isbn_10'):
-        out['ISBN'] = ids['isbn_10'][0]
-    out['Item Type'] = 'book'
-    return out
+    """Open Library → Recursos. Pipeline L3: normalitzador + mapper central."""
+    from backend.services.lookup_normalizers import openlibrary_to_zotero_item
+    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
+    return zotero_item_to_recursos(openlibrary_to_zotero_item(book))
 
 
 def _arxiv_to_recursos(entry_xml: str) -> dict:
-    """Parseig de la resposta Atom XML d'arXiv → camps de Recursos."""
-    import xml.etree.ElementTree as ET
-    out: dict = {}
-    ns = {'atom': 'http://www.w3.org/2005/Atom', 'arxiv': 'http://arxiv.org/schemas/atom'}
-    try:
-        root = ET.fromstring(entry_xml)
-    except ET.ParseError:
-        return out
-    entry = root.find('atom:entry', ns)
-    if entry is None:
-        return out
-    title = entry.find('atom:title', ns)
-    if title is not None and title.text:
-        out['Title'] = re.sub(r'\s+', ' ', title.text).strip()
-    authors_el = entry.findall('atom:author', ns)
-    if authors_el:
-        names = []
-        for a in authors_el:
-            name = a.find('atom:name', ns)
-            if name is not None and name.text:
-                parts = name.text.strip().split()
-                if len(parts) >= 2:
-                    names.append(f'{parts[-1]}, {" ".join(parts[:-1])}')
-                else:
-                    names.append(name.text.strip())
-        if names:
-            out['Authors'] = '; '.join(names)
-    published = entry.find('atom:published', ns)
-    if published is not None and published.text:
-        m = re.match(r'(\d{4})', published.text)
-        if m:
-            try:
-                out['Any'] = int(m.group(1))
-            except ValueError:
-                pass
-    doi = entry.find('arxiv:doi', ns)
-    if doi is not None and doi.text:
-        out['DOI'] = doi.text.strip()
-    journal_ref = entry.find('arxiv:journal_ref', ns)
-    if journal_ref is not None and journal_ref.text:
-        out['Llibre/Revista'] = journal_ref.text.strip()
-    link = entry.find('atom:id', ns)
-    if link is not None and link.text:
-        out['URL'] = link.text.strip()
-    out['Item Type'] = 'preprint'
-    return out
+    """arXiv Atom XML → Recursos. Pipeline L3: normalitzador + mapper central."""
+    from backend.services.lookup_normalizers import arxiv_to_zotero_item
+    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
+    return zotero_item_to_recursos(arxiv_to_zotero_item(entry_xml))
 
 
 def _html_meta_to_recursos(html: str, url: str) -> dict:
-    """Extreu meta tags d'HTML (Open Graph, Dublin Core, Schema.org, citation_*)."""
-    out: dict = {}
-    citations = re.findall(
-        r'<meta[^>]+name=["\']citation_([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    )
-    og = re.findall(
-        r'<meta[^>]+property=["\']og:([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    )
-    dc = re.findall(
-        r'<meta[^>]+name=["\']DC\.([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    )
-    title_m = re.search(r'<title[^>]*>([^<]+)</title>', html, re.IGNORECASE)
-    fallback_title = title_m.group(1).strip() if title_m else None
-
-    sources = {}
-    for k, v in og: sources[k.lower()] = v
-    for k, v in dc: sources[k.lower()] = v
-    for k, v in citations: sources[k.lower()] = v  # citation_ té prioritat màxima
-
-    def get(*keys):
-        for k in keys:
-            v = sources.get(k.lower())
-            if v:
-                return v
-        return None
-
-    title = get('title')
-    if title:
-        out['Title'] = title.strip()
-    elif fallback_title:
-        out['Title'] = fallback_title
-
-    authors_list = [v for k, v in citations if k.lower() == 'author']
-    authors_list += [v for k, v in dc if k.lower() in ('creator', 'contributor')]
-    if not authors_list and get('author'):
-        authors_list = [get('author')]
-    if authors_list:
-        parts = []
-        seen = set()
-        for a in authors_list:
-            a = a.strip()
-            if ',' in a:
-                normalized = a
-            else:
-                toks = a.split()
-                if len(toks) >= 2:
-                    normalized = f'{toks[-1]}, {" ".join(toks[:-1])}'
-                else:
-                    normalized = a
-            key = normalized.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            parts.append(normalized)
-        out['Authors'] = '; '.join(parts)
-
-    year = get('date', 'publication_date')
-    if year:
-        m = re.search(r'\b(19|20)\d{2}\b', year)
-        if m:
-            try:
-                out['Any'] = int(m.group(0))
-            except ValueError:
-                pass
-    journal = get('journal_title', 'publisher')
-    if journal:
-        out['Llibre/Revista'] = journal
-    if get('doi'):
-        out['DOI'] = _normalize_doi(get('doi')) or get('doi')
-    if get('isbn'):
-        out['ISBN'] = _normalize_isbn(get('isbn')) or get('isbn')
-    if get('volume'):
-        out['Volum'] = get('volume')
-    if get('issue'):
-        out['Número'] = get('issue')
-    if get('firstpage') and get('lastpage'):
-        out['Pàgines'] = f"{get('firstpage')}-{get('lastpage')}"
-    elif get('firstpage'):
-        out['Pàgines'] = get('firstpage')
-    if get('language'):
-        out['Idioma'] = get('language')
-    out['URL'] = url
-    return out
+    """HTML meta tags → Recursos. Pipeline L3: normalitzador + mapper central."""
+    from backend.services.lookup_normalizers import html_meta_to_zotero_item
+    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
+    return zotero_item_to_recursos(html_meta_to_zotero_item(html, url))
 
 
 def _http_get(url: str, headers: Optional[dict] = None, timeout: float = 8.0) -> Optional[str]:
@@ -4728,39 +4565,10 @@ def _pubmed_author_to_canonical(name: str) -> str:
 
 
 def _pubmed_to_recursos(doc: dict) -> dict:
-    """Mapeig esummary (PubMed) → camps de Recursos."""
-    out: dict = {}
-    if doc.get('title'):
-        out['Title'] = str(doc['title']).rstrip('.')
-    names = [
-        _pubmed_author_to_canonical(a.get('name', ''))
-        for a in (doc.get('authors') or [])
-        if a.get('name') and a.get('authtype', 'Author') == 'Author'
-    ]
-    if names:
-        out['Authors'] = '; '.join(n for n in names if n)
-    m = re.search(r'\d{4}', doc.get('pubdate') or doc.get('epubdate') or '')
-    if m:
-        out['Any'] = int(m.group(0))
-    journal = doc.get('fulljournalname') or doc.get('source')
-    if journal:
-        out['Llibre/Revista'] = journal
-    if doc.get('volume'):
-        out['Volum'] = str(doc['volume'])
-    if doc.get('issue'):
-        out['Número'] = str(doc['issue'])
-    if doc.get('pages'):
-        out['Pàgines'] = str(doc['pages'])
-    for aid in (doc.get('articleids') or []):
-        if aid.get('idtype') == 'doi' and aid.get('value'):
-            out['DOI'] = aid['value']
-    langs = doc.get('lang') or []
-    if langs:
-        out['Idioma'] = langs[0]
-    if doc.get('uid'):
-        out['PMID'] = str(doc['uid'])
-    out['Item Type'] = 'journalArticle'
-    return out
+    """PubMed esummary → Recursos. Pipeline L3: normalitzador + mapper central."""
+    from backend.services.lookup_normalizers import pubmed_to_zotero_item
+    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
+    return zotero_item_to_recursos(pubmed_to_zotero_item(doc))
 
 
 @router.post("/lookup-metadata")

@@ -25,10 +25,12 @@ export const RECURSOS_TO_ZOTERO_FIELDS = {
     'Volum':           ['volume'],
     'Número':          ['issue'],
     'Pàgines':         ['pages'],
+    'Núm. pàgines':    ['numPages'],
     'Edició':          ['edition'],
     'DOI':             ['DOI'],
     'ISBN':            ['ISBN'],
     'ISSN':            ['ISSN'],
+    'PMID':            ['PMID'],
     'URL':             ['url'],
     'Idioma':          ['language'],
 };
