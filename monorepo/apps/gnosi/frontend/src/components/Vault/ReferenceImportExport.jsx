@@ -35,11 +35,27 @@ export function ReferenceImportExport({ tableId, onImported }) {
                 { headers: { 'Content-Type': 'multipart/form-data' } },
             );
             const d = r.data || {};
+            // Toast principal — nombre net d'altes vs duplicats detectats.
             toast.success(t('references_io.imported', {
                 defaultValue: `${d.created || 0} referències importades · ${d.skipped || 0} ja existien`,
                 created: d.created || 0,
                 skipped: d.skipped || 0,
             }));
+            // Desglossament del motiu dels duplicats (nou a #42 / PR #3):
+            // citation_key / DOI / ISBN / títol normalitzat. Toast separat
+            // (success) perquè evitar duplicats és un resultat positiu.
+            const s = d.skip_summary || {};
+            const reasons = [];
+            if (s.citation_key) reasons.push(`${s.citation_key} per clau`);
+            if (s.doi) reasons.push(`${s.doi} per DOI`);
+            if (s.isbn) reasons.push(`${s.isbn} per ISBN`);
+            if (s.title) reasons.push(`${s.title} per títol`);
+            if (reasons.length > 0) {
+                toast.success(t('references_io.import_skip_breakdown', {
+                    defaultValue: `Duplicats detectats: ${reasons.join(' · ')}`,
+                    breakdown: reasons.join(' · '),
+                }));
+            }
             if ((d.errors || []).length) {
                 toast.error(t('references_io.import_partial', {
                     defaultValue: `${d.errors.length} entrades amb error`,
