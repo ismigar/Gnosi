@@ -4157,67 +4157,16 @@ def _normalize_arxiv(raw: str) -> Optional[str]:
 
 
 def _crossref_to_recursos(work: dict) -> dict:
-    """Mapeig CrossRef → camps de Recursos."""
-    out: dict = {}
-    if work.get('title'):
-        out['Title'] = work['title'][0] if isinstance(work['title'], list) else work['title']
-    authors = work.get('author') or []
-    if authors:
-        parts = []
-        for a in authors:
-            family = (a.get('family') or '').strip()
-            given = (a.get('given') or '').strip()
-            if family and given:
-                parts.append(f'{family}, {given}')
-            elif family:
-                parts.append(family)
-            elif a.get('name'):
-                parts.append(a['name'])
-        if parts:
-            out['Authors'] = '; '.join(parts)
-    for key in ('published-print', 'published-online', 'issued'):
-        date_obj = work.get(key) or {}
-        parts = date_obj.get('date-parts') or []
-        if parts and parts[0]:
-            try:
-                out['Any'] = int(parts[0][0])
-                break
-            except (TypeError, ValueError):
-                pass
-    if work.get('container-title'):
-        ct = work['container-title']
-        out['Llibre/Revista'] = ct[0] if isinstance(ct, list) else ct
-    if work.get('publisher'):
-        out['Editorial'] = work['publisher']
-    if work.get('volume'):
-        out['Volum'] = str(work['volume'])
-    if work.get('issue'):
-        out['Número'] = str(work['issue'])
-    if work.get('page'):
-        out['Pàgines'] = str(work['page'])
-    if work.get('DOI'):
-        out['DOI'] = work['DOI']
-    if work.get('ISBN'):
-        isbns = work['ISBN']
-        out['ISBN'] = isbns[0] if isinstance(isbns, list) else isbns
-    if work.get('ISSN'):
-        issns = work['ISSN']
-        out['ISSN'] = issns[0] if isinstance(issns, list) else issns
-    if work.get('URL'):
-        out['URL'] = work['URL']
-    if work.get('language'):
-        out['Idioma'] = work['language']
-    if work.get('type'):
-        type_map = {
-            'journal-article': 'journalArticle',
-            'book': 'book',
-            'book-chapter': 'bookSection',
-            'proceedings-article': 'conferencePaper',
-            'thesis': 'thesis',
-            'report': 'report',
-        }
-        out['Item Type'] = type_map.get(work['type'], work['type'])
-    return out
+    """Mapeig CrossRef → camps de Recursos.
+
+    Wrapper prim al voltant del pipeline L3:
+        crossref_to_zotero_item  →  zotero_item_to_recursos
+    (vegis `backend/services/lookup_normalizers.py` i
+    `backend/services/zotero_to_recursos_mapper.py`).
+    """
+    from backend.services.lookup_normalizers import crossref_to_zotero_item
+    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
+    return zotero_item_to_recursos(crossref_to_zotero_item(work))
 
 
 def _openlibrary_to_recursos(book: dict) -> dict:
