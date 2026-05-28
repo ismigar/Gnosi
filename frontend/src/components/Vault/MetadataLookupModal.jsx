@@ -4,6 +4,23 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Search, X, Loader2, Check } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { LABEL_TO_ZOTERO_TYPE, ZOTERO_TYPE_LABELS, ZOTERO_TO_CSL_TYPE } from './zoteroSchema';
+import { isFieldRelevantForType } from './recursosZoteroMapping';
+
+/**
+ * Normalitza un valor d'"Item Type" del lookup (pot venir com a clau Zotero
+ * canònica `journalArticle` o com a label traduït `Article de revista
+ * acadèmica`) a la clau canònica. Retorna null si no es reconeix.
+ */
+function resolveZoteroType(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    if (raw in ZOTERO_TO_CSL_TYPE) return raw;          // ja canònica
+    for (const loc of Object.keys(LABEL_TO_ZOTERO_TYPE)) {
+        const zot = LABEL_TO_ZOTERO_TYPE[loc][raw];
+        if (zot) return zot;
+    }
+    return null;
+}
 
 /**
  * Modal d'enriquiment de metadades a partir de DOI / ISBN / arXiv / PMID / URL.
@@ -220,6 +237,22 @@ export const MetadataLookupModal = ({
     const fieldEntries = Object.entries(sug);
     const allSelected = fieldEntries.length > 0 && fieldEntries.every(([k]) => selectedFields[k]);
 
+    // L2: agrupa entries per rellevància segons el tipus Zotero del resultat.
+    // `Item Type` no apareix a la taula (es mostra com a badge al header).
+    // Si no es reconeix el tipus, tot va a "altres" (la taula es renderitza
+    // com una sola secció, sense capçalera de grup).
+    const zoteroType = resolveZoteroType(sug['Item Type']);
+    const typeLabelCa = zoteroType ? (ZOTERO_TYPE_LABELS['ca-AD']?.[zoteroType] || zoteroType) : null;
+    const { relevantEntries, otherEntries } = useMemo(() => {
+        const rel = [], oth = [];
+        for (const [k, v] of fieldEntries) {
+            if (k === 'Item Type') continue;
+            if (zoteroType && isFieldRelevantForType(k, zoteroType)) rel.push([k, v]);
+            else oth.push([k, v]);
+        }
+        return { relevantEntries: rel, otherEntries: oth };
+    }, [fieldEntries, zoteroType]);
+
     return ReactDOM.createPortal(
         <div
             className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 bg-black/40"
@@ -332,6 +365,9 @@ export const MetadataLookupModal = ({
                             {result.identifier && (
                                 <> · <code className="text-[10px] bg-[var(--bg-secondary)] px-1 rounded">{result.identifier}</code></>
                             )}
+                            {typeLabelCa && (
+                                <> · {t('metadata_lookup.type_label', { defaultValue: 'Tipus' })}: <strong className="text-[var(--text-secondary)]">{typeLabelCa}</strong></>
+                            )}
                         </span>
                     )}
                 </div>
@@ -364,30 +400,58 @@ export const MetadataLookupModal = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {fieldEntries.map(([k, v]) => {
-                                    const current = currentMetadata?.[k];
-                                    const currentStr = current == null || current === '' ? '' : String(current);
-                                    const proposed = v == null ? '' : String(v);
-                                    const isDifferent = currentStr !== proposed;
+                                {(() => {
+                                    // Helper local: una fila amb checkbox + actual + proposat.
+                                    const renderRow = ([k, v]) => {
+                                        const current = currentMetadata?.[k];
+                                        const currentStr = current == null || current === '' ? '' : String(current);
+                                        const proposed = v == null ? '' : String(v);
+                                        const isDifferent = currentStr !== proposed;
+                                        return (
+                                            <tr key={k} className="border-t border-[var(--border-secondary)] hover:bg-[var(--bg-hover)]">
+                                                <td className="px-3 py-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!selectedFields[k]}
+                                                        onChange={(e) => setSelectedFields((prev) => ({ ...prev, [k]: e.target.checked }))}
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-2 font-medium text-[var(--text-primary)] align-top">{k}</td>
+                                                <td className="px-3 py-2 text-[var(--text-tertiary)] align-top break-words max-w-xs">
+                                                    {currentStr || <em className="opacity-60">{t('common.empty', { defaultValue: 'buit' })}</em>}
+                                                </td>
+                                                <td className={`px-3 py-2 align-top break-words max-w-md ${isDifferent ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-tertiary)]'}`}>
+                                                    {proposed}
+                                                </td>
+                                            </tr>
+                                        );
+                                    };
+                                    // Cas A: tipus reconegut → dues seccions amb separadors.
+                                    // Cas B: sense tipus o sense rellevants → llista plana (compat).
+                                    const grouped = zoteroType && relevantEntries.length > 0;
                                     return (
-                                        <tr key={k} className="border-t border-[var(--border-secondary)] hover:bg-[var(--bg-hover)]">
-                                            <td className="px-3 py-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!!selectedFields[k]}
-                                                    onChange={(e) => setSelectedFields((prev) => ({ ...prev, [k]: e.target.checked }))}
-                                                />
-                                            </td>
-                                            <td className="px-3 py-2 font-medium text-[var(--text-primary)] align-top">{k}</td>
-                                            <td className="px-3 py-2 text-[var(--text-tertiary)] align-top break-words max-w-xs">
-                                                {currentStr || <em className="opacity-60">{t('common.empty', { defaultValue: 'buit' })}</em>}
-                                            </td>
-                                            <td className={`px-3 py-2 align-top break-words max-w-md ${isDifferent ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-tertiary)]'}`}>
-                                                {proposed}
-                                            </td>
-                                        </tr>
+                                        <>
+                                            {grouped && (
+                                                <tr className="bg-[var(--bg-secondary)]/40">
+                                                    <td colSpan={4} className="px-3 py-1.5 text-[11px] font-semibold uppercase text-[var(--text-secondary)] tracking-wide">
+                                                        {t('metadata_lookup.relevant_for', { defaultValue: 'Camps del tipus' })}
+                                                        <span className="ml-1 text-[var(--text-tertiary)] font-normal normal-case">({relevantEntries.length})</span>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            {relevantEntries.map(renderRow)}
+                                            {grouped && otherEntries.length > 0 && (
+                                                <tr className="bg-[var(--bg-secondary)]/40">
+                                                    <td colSpan={4} className="px-3 py-1.5 text-[11px] font-semibold uppercase text-[var(--text-tertiary)] tracking-wide">
+                                                        {t('metadata_lookup.other_fields', { defaultValue: 'Altres camps' })}
+                                                        <span className="ml-1 font-normal normal-case">({otherEntries.length}) — el tipus no els porta nativament</span>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            {otherEntries.map(renderRow)}
+                                        </>
                                     );
-                                })}
+                                })()}
                             </tbody>
                         </table>
                     )}
