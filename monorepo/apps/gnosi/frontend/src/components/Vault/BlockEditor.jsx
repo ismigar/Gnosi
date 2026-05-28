@@ -3428,6 +3428,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             readOnly={!isEditor}
                                             onChange={(nextDict) => handleMetaChange('Zotero Extras', nextDict)}
                                             onRemoveAll={() => handleRemoveProperty('Zotero Extras')}
+                                            tableId={currentTableId}
+                                            onPromoted={() => { try { onReloadPage?.(); } catch { /* ignore */ } }}
                                         />
                                     )}
 
