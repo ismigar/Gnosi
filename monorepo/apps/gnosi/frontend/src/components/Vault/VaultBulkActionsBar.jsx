@@ -2,19 +2,50 @@
  * VaultBulkActionsBar.jsx
  * Barra d'accions en massa per als registres seleccionats del Vault.
  * S'amaga si no hi ha cap registre seleccionat.
+ *
+ * Accions sempre disponibles: eliminar, seleccionar tots, tancar.
+ * Accions opcionals (si el caller passa els callbacks): canviar tipus,
+ * exportar selecció a BibTeX/RIS.
  */
-import React from 'react';
-import { Trash2, X, CheckSquare } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Trash2, X, CheckSquare, Tag, Download, ChevronDown } from 'lucide-react';
 
 /**
  * @param {Object} props
- * @param {Set}      props.selectedIds      - IDs dels registres seleccionats
- * @param {Function} props.onClearSelection - Esborra la selecció
- * @param {Function} props.onDeleteSelected - Elimina els registres seleccionats
- * @param {Function} props.onSelectAll      - Selecciona tots els registres visibles
- * @param {number}   props.totalCount       - Total de registres visibles
+ * @param {Set}       props.selectedIds        - IDs dels registres seleccionats
+ * @param {Function}  props.onClearSelection   - Esborra la selecció
+ * @param {Function}  props.onDeleteSelected   - Elimina els registres seleccionats
+ * @param {Function}  props.onSelectAll        - Selecciona tots els registres visibles
+ * @param {number}    props.totalCount         - Total de registres visibles
+ * @param {Array<{value, label}>=} props.itemTypeOptions - Opcions per a "Canviar tipus"
+ * @param {Function=} props.onChangeItemType   - (value) → void; rep el tipus triat
+ * @param {Function=} props.onExportSelection  - (fmt: 'bibtex'|'ris') → void
  */
-export function VaultBulkActionsBar({ selectedIds, onClearSelection, onDeleteSelected, onSelectAll, totalCount = 0 }) {
+export function VaultBulkActionsBar({
+    selectedIds,
+    onClearSelection,
+    onDeleteSelected,
+    onSelectAll,
+    totalCount = 0,
+    itemTypeOptions,
+    onChangeItemType,
+    onExportSelection,
+}) {
+    const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const typeMenuRef = useRef(null);
+    const exportMenuRef = useRef(null);
+
+    // Tanca dropdowns al click fora.
+    useEffect(() => {
+        const handler = (e) => {
+            if (typeMenuRef.current && !typeMenuRef.current.contains(e.target)) setTypeMenuOpen(false);
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) setExportMenuOpen(false);
+        };
+        if (typeMenuOpen || exportMenuOpen) document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [typeMenuOpen, exportMenuOpen]);
+
     const count = selectedIds?.size ?? 0;
     if (count === 0) return null;
 
@@ -37,6 +68,65 @@ export function VaultBulkActionsBar({ selectedIds, onClearSelection, onDeleteSel
                     <CheckSquare size={14} />
                     Tots ({totalCount})
                 </button>
+            )}
+
+            {/* Canviar tipus (opcional) */}
+            {onChangeItemType && itemTypeOptions?.length > 0 && (
+                <div className="relative" ref={typeMenuRef}>
+                    <button
+                        onClick={() => setTypeMenuOpen((o) => !o)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                        title="Canviar Item Type"
+                    >
+                        <Tag size={13} />
+                        Canviar tipus
+                        <ChevronDown size={11} />
+                    </button>
+                    {typeMenuOpen && (
+                        <div className="absolute bottom-full mb-1 left-0 min-w-[200px] max-h-[280px] overflow-y-auto rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 z-50">
+                            {itemTypeOptions.map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => { onChangeItemType(opt.value); setTypeMenuOpen(false); }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Exportar selecció (opcional) */}
+            {onExportSelection && (
+                <div className="relative" ref={exportMenuRef}>
+                    <button
+                        onClick={() => setExportMenuOpen((o) => !o)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                        title="Exportar selecció"
+                    >
+                        <Download size={13} />
+                        Exportar
+                        <ChevronDown size={11} />
+                    </button>
+                    {exportMenuOpen && (
+                        <div className="absolute bottom-full mb-1 left-0 min-w-[130px] rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 z-50">
+                            <button
+                                onClick={() => { onExportSelection('bibtex'); setExportMenuOpen(false); }}
+                                className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                            >
+                                BibTeX (.bib)
+                            </button>
+                            <button
+                                onClick={() => { onExportSelection('ris'); setExportMenuOpen(false); }}
+                                className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                            >
+                                RIS (.ris)
+                            </button>
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Eliminar */}
