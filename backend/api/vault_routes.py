@@ -4864,6 +4864,48 @@ async def translate_url(payload: dict = Body(...)):
 # Import / Export BibTeX i RIS (P1).
 # ---------------------------------------------------------------------------
 
+def _build_dedup_indexes(v_str: str) -> dict:
+    """Índexs auxiliars per a deduplicació al moment de l'import.
+
+    Retorna `{'doi': {doi_normalitzat: citation_key}, 'isbn': {...}, 'title': {...}}`.
+    Recorre el cite_key_index ja existent i, per a cada pàgina amb Citation
+    Key, llegeix les seves metadades i extreu DOI/ISBN/Title. Best-effort:
+    una pàgina inllegible no aborta la construcció (només queda fora dels
+    índexs aux).
+
+    No es cacheja: es construeix per cada `/import-references` perquè
+    aquest endpoint és poc freqüent i la cota és O(n) sobre el vault.
+    """
+    from backend.services.import_dedup import normalize_title_for_dedup
+    idx = _ensure_cite_key_index(v_str)
+    doi_idx: dict = {}
+    isbn_idx: dict = {}
+    title_idx: dict = {}
+    for ck, entry in idx.items():
+        try:
+            page_path = find_page_path(entry.get('id') or '')
+            if not page_path:
+                continue
+            meta, _ = parse_frontmatter(page_path.read_text(encoding='utf-8'), page_path)
+            doi = (meta.get('DOI') or '').strip()
+            if doi:
+                norm = _normalize_doi(doi)
+                if norm:
+                    doi_idx.setdefault(norm.lower(), ck)
+            isbn = (meta.get('ISBN') or '').strip()
+            if isbn:
+                norm = _normalize_isbn(isbn)
+                if norm:
+                    isbn_idx.setdefault(norm, ck)
+            title = meta.get('Title') or entry.get('title') or ''
+            tnorm = normalize_title_for_dedup(title)
+            if tnorm:
+                title_idx.setdefault(tnorm, ck)
+        except (OSError, AttributeError):
+            continue
+    return {'doi': doi_idx, 'isbn': isbn_idx, 'title': title_idx}
+
+
 @router.post("/import-references", dependencies=[Depends(require_role("editor"))])
 async def import_references(
     background_tasks: BackgroundTasks,
@@ -4873,15 +4915,40 @@ async def import_references(
 ):
     """Importa un fitxer .bib/.ris creant pàgines a la taula `table_id`.
 
-    Genera `Citation Key` quan falta; salta entrades amb una clau que ja
-    existeix al vault (evita duplicats en reimportar). No toca pàgines existents.
+    Genera `Citation Key` quan falta. Salta entrades duplicades comparant
+    contra el vault per quatre criteris (per ordre de prioritat):
+      1. Citation Key idèntic
+      2. DOI normalitzat
+      3. ISBN normalitzat
+      4. Títol normalitzat (minúscules, sense accents/puntuació)
+
+    Resposta:
+        {
+          "created": N, "skipped": M,
+          "items": [{id, citation_key, title}, ...],
+          "skipped_details": [
+              {"key": "smith2020", "reason": "doi", "existing_key": "smith2020a"},
+              {"key": "...", "reason": "title", "existing_key": "..."},
+              ...
+          ],
+          "skipped_keys": [...],          # compat: només les keys (deprecated)
+          "skip_summary": {"citation_key": N1, "doi": N2, "isbn": N3, "title": N4},
+          "errors": [...],
+          "format": "bibtex" | "ris"
+        }
+
+    No toca pàgines existents en cap cas.
     """
     from backend.services import references_io
+    from backend.services.context_vars import get_active_vault_path
+    from backend.services.import_dedup import find_existing_match, add_to_indexes
+
     raw = (await file.read()).decode('utf-8', errors='replace')
     detected = references_io.detect_format(raw) if fmt == 'auto' else fmt
     entries = references_io.parse_references(raw, fmt)
     if not entries:
-        return {"created": 0, "skipped": 0, "items": [], "skipped_keys": [],
+        return {"created": 0, "skipped": 0, "items": [], "skipped_details": [],
+                "skipped_keys": [], "skip_summary": {},
                 "errors": [], "format": detected,
                 "message": "No s'ha trobat cap referència al fitxer"}
 
@@ -4890,15 +4957,29 @@ async def import_references(
     if not table:
         raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
 
-    vault_keys = _existing_citation_keys()  # snapshot abans d'importar
+    vault_keys = _existing_citation_keys()
+    v_path = get_active_vault_path()
+    dedup = _build_dedup_indexes(str(v_path)) if v_path else {'doi': {}, 'isbn': {}, 'title': {}}
+
     used = set(vault_keys)
-    created, skipped, errors = [], [], []
+    created, skipped_details, errors = [], [], []
+    skip_summary: dict = {'citation_key': 0, 'doi': 0, 'isbn': 0, 'title': 0}
+
     for e in entries:
         try:
-            ck = (e.get('Citation Key') or '').strip()
-            if ck and ck in vault_keys:
-                skipped.append(ck)
+            match = find_existing_match(e, dedup, vault_keys)
+            if match is not None:
+                reason, existing_key = match
+                ck_in_file = (e.get('Citation Key') or '').strip()
+                skipped_details.append({
+                    "key": ck_in_file or existing_key,
+                    "reason": reason,
+                    "existing_key": existing_key,
+                    "title": e.get('Title'),
+                })
+                skip_summary[reason] = skip_summary.get(reason, 0) + 1
                 continue
+            ck = (e.get('Citation Key') or '').strip()
             if not ck or ck in used:
                 ck = generate_citation_key(e.get('Authors'), e.get('Any'), e.get('Title') or '', used)
             e['Citation Key'] = ck
@@ -4910,14 +4991,25 @@ async def import_references(
             req = PageSaveRequest(title=title, content='', metadata=meta)
             res = await create_page(req, background_tasks)
             created.append({"id": res.get('id'), "citation_key": ck, "title": title})
+            # Actualitzar índexs en memòria perquè la mateixa importació no
+            # crei duplicats interns (dues entrades del fitxer amb el mateix DOI).
+            add_to_indexes(e, ck, dedup)
+            vault_keys.add(ck)
         except Exception as ex:
             log.warning(f"import-references: entrada fallida ({e.get('Title')}): {ex}")
             errors.append({"title": e.get('Title'), "error": str(ex)})
 
     _invalidate_cite_key_index()
     return {
-        "created": len(created), "skipped": len(skipped),
-        "items": created, "skipped_keys": skipped, "errors": errors,
+        "created": len(created),
+        "skipped": len(skipped_details),
+        "items": created,
+        "skipped_details": skipped_details,
+        # Compat amb clients antics (la propietat existeix però nomes té
+        # les claus, sense motiu):
+        "skipped_keys": [d["key"] for d in skipped_details],
+        "skip_summary": skip_summary,
+        "errors": errors,
         "format": detected,
     }
 
