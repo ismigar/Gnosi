@@ -2407,22 +2407,34 @@ def _get_cached_page_entries(
     # al cache → desapareixien al recarregar.
     HIDDEN_ALLOWED = {'.dashboards'}
 
+    # Subarbres exclosos de la indexació de pàgines, per ruta relativa (POSIX).
+    # `Calendar/External` són els calendaris Google SUBSCRITS (orto/ocàs per
+    # ciutat, fases de la lluna, primary, sunday…): ~2000 fitxers, molts dels
+    # quals queden com a placeholders on-demand d'OneDrive que Docker NO pot
+    # llegir (`OSError: [Errno 35] Resource deadlock avoided`) ni stat-ar sense
+    # bloquejar-se → encallaven l'indexador i deixaven la llista de pàgines
+    # buida. No són contingut propi (events subscrits); els podem del walk
+    # perquè no se'n toqui cap fitxer. Ruta ASCII → sense problema NFC/NFD.
+    EXCLUDED_DIRS_REL = {"Calendar/External"}
+
     root_paths = search_paths if search_paths else [v_path]
     dashboard_path = get_p("DASHBOARDS")
 
     for root in root_paths:
         if not root.exists(): continue
         for dirpath, dirnames, filenames in os.walk(root):
+            rel_to_vault = Path(dirpath).relative_to(v_path)
             # Skip hidden and excluded folders, excepte les explícitament
-            # permeses (p.ex. .Dashboards).
+            # permeses (p.ex. .Dashboards), i poda els subarbres d'EXCLUDED_DIRS_REL
+            # abans de descendir-hi (així no se'n llegeixen els fitxers).
             dirnames[:] = [
                 d for d in dirnames
                 if (not d.startswith('.') or d.lower() in HIDDEN_ALLOWED)
                 and d.lower() not in SKIP_DIRS
+                and (rel_to_vault / d).as_posix() not in EXCLUDED_DIRS_REL
             ]
-            
+
             # Additional nested redundancy check: skipping duplicates like folder/folder
-            rel_to_vault = Path(dirpath).relative_to(v_path)
             parts = rel_to_vault.parts
             if len(parts) >= 2:
                 p_parent = parts[-2].lower().replace('_', '').replace('.', '')
