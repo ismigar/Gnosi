@@ -222,13 +222,88 @@ def test_numeric_fields_forced_to_str():
     assert all(isinstance(out[k], str) for k in ('Volum', 'Número', 'Pàgines', 'Edició'))
 
 
-def test_unmapped_zotero_fields_ignored():
-    """Camps Zotero sense correspondència Recursos no apareixen.
-
-    L3.4 els recollirà al frontmatter; a L3.1 s'ometen silenciosament.
-    """
+def test_unmapped_zotero_fields_go_to_extras():
+    """L3.4: camps sense correspondència van a `Zotero Extras`."""
     item = {'itemType': 'patent', 'title': 'X', 'patentNumber': 'US123', 'country': 'US'}
     out = zotero_item_to_recursos(item)
-    assert 'patentNumber' not in out
-    assert 'country' not in out
-    assert out == {'Item Type': 'patent', 'Title': 'X'}
+    assert out['Item Type'] == 'patent'
+    assert out['Title'] == 'X'
+    assert out['Zotero Extras'] == {'patentNumber': 'US123', 'country': 'US'}
+
+
+# ---------- L3.4: Zotero Extras ----------
+
+def test_no_extras_when_all_fields_mapped():
+    """Un item amb només camps consumits NO genera 'Zotero Extras'."""
+    item = {
+        'itemType': 'journalArticle', 'title': 'X',
+        'creators': [{'creatorType': 'author', 'lastName': 'Smith'}],
+        'date': '2024', 'DOI': '10.x/y',
+    }
+    out = zotero_item_to_recursos(item)
+    assert 'Zotero Extras' not in out
+
+
+def test_extras_includes_patent_specific_fields():
+    item = {
+        'itemType': 'patent', 'title': 'Some Patent',
+        'patentNumber': 'US123', 'applicationNumber': 'APP456',
+        'country': 'US', 'issuingAuthority': 'USPTO',
+        'priorityNumbers': 'PR789', 'filingDate': '2023-01-15',
+    }
+    out = zotero_item_to_recursos(item)
+    assert out['Zotero Extras'] == {
+        'patentNumber': 'US123', 'applicationNumber': 'APP456',
+        'country': 'US', 'issuingAuthority': 'USPTO',
+        'priorityNumbers': 'PR789', 'filingDate': '2023-01-15',
+    }
+
+
+def test_extras_includes_conference_specific_fields():
+    item = {
+        'itemType': 'conferencePaper', 'title': 'Some Talk',
+        'conferenceName': 'NeurIPS 2024', 'presentationType': 'oral',
+    }
+    out = zotero_item_to_recursos(item)
+    assert out['Zotero Extras'] == {
+        'conferenceName': 'NeurIPS 2024', 'presentationType': 'oral',
+    }
+
+
+def test_extras_excludes_technical_fields():
+    """`key`, `version`, `tags`, `dateAdded`, etc. NO van a Extras."""
+    item = {
+        'itemType': 'book', 'title': 'X',
+        'key': 'ABC123', 'version': 5,
+        'tags': [{'tag': 'foo'}, {'tag': 'bar'}],
+        'dateAdded': '2020-01-01', 'dateModified': '2024-05-28',
+        'relations': {}, 'attachments': [], 'notes': [],
+        'collections': ['col1'], 'accessDate': '2024-06',
+        # I un camp realment Extra perquè el test no quedi sense res
+        'callNumber': 'QA76.5',
+    }
+    out = zotero_item_to_recursos(item)
+    assert out.get('Zotero Extras') == {'callNumber': 'QA76.5'}
+
+
+def test_extras_excludes_consumed_field_chain():
+    """Si una columna agafa `publicationTitle`, NO apareixerà `bookTitle`
+    a Extras encara que el item el porti (és part del mateix chain)."""
+    item = {
+        'itemType': 'journalArticle', 'title': 'X',
+        'publicationTitle': 'Journal Y',
+        'bookTitle': 'should not appear in extras',
+    }
+    out = zotero_item_to_recursos(item)
+    assert out['Llibre/Revista'] == 'Journal Y'
+    assert 'Zotero Extras' not in out  # bookTitle també és consumed
+
+
+def test_extras_dict_skips_falsy_values():
+    """Camps amb valor None/'' no van a Extras (consistents amb la resta del mapper)."""
+    item = {
+        'itemType': 'patent', 'title': 'X',
+        'patentNumber': 'US1', 'country': '', 'priorityNumbers': None,
+    }
+    out = zotero_item_to_recursos(item)
+    assert out['Zotero Extras'] == {'patentNumber': 'US1'}

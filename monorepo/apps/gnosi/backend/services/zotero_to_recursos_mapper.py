@@ -22,9 +22,15 @@ Tres maneig especials no derivables del mapping:
   - Forced-string: `Volum`, `Número`, `Pàgines`, `Edició` poden venir
     com a int al JSON però Recursos els guarda com a string.
 
-L3.1 NO captura camps Zotero sense correspondència Recursos (p.ex.
-`patentNumber`, `caseName`, `conferenceName`). L3.4 ho afegirà al
-frontmatter sota una clau dedicada.
+L3.4 (aquest mòdul, actualitzat): camps Zotero sense correspondència
+Recursos es capturen sota la clau `Zotero Extras` (dict) al frontmatter.
+Així `patentNumber`, `conferenceName`, `meetingName`, `caseName`,
+`versionNumber`... no es perden encara que no tinguin columna pròpia.
+
+Camps purament tècnics de Zotero (`key`, `version`, `tags`, `dateAdded`,
+`dateModified`, `relations`, `notes`, `attachments`, `collections`,
+`accessDate`) NO van a `Zotero Extras` — són metadades del sistema
+Zotero, no informació bibliogràfica.
 """
 from __future__ import annotations
 
@@ -76,6 +82,14 @@ _SPECIAL_HANDLERS: dict[str, Callable[[dict], Any]] = {
 # venir com a int al JSON Zotero però Recursos els desa com a text).
 _FORCE_STR: set[str] = {'Volum', 'Número', 'Pàgines', 'Edició'}
 
+# Camps Zotero purament tècnics — NO van a `Zotero Extras` encara que el
+# mapping declaratiu no els tradueixi. Són metadades del sistema Zotero,
+# no informació bibliogràfica que un autor humà mantindria al frontmatter.
+_TECHNICAL_FIELDS: set[str] = {
+    'key', 'version', 'tags', 'relations', 'notes', 'attachments',
+    'dateAdded', 'dateModified', 'accessDate', 'collections',
+}
+
 
 # ---------- Mapper públic ----------
 
@@ -91,12 +105,22 @@ def zotero_item_to_recursos(item: dict) -> dict[str, Any]:
     fallback chain (p.ex. `Llibre/Revista` prova `publicationTitle` →
     `bookTitle` → `proceedingsTitle` → `encyclopediaTitle`).
 
+    L3.4: camps Zotero no consumits per cap columna i no a `_TECHNICAL_FIELDS`
+    es recullen sota `Zotero Extras` (dict) per no perdre informació de
+    tipus rars (`patentNumber`, `conferenceName`, `meetingName`...).
+
     Retorna `{}` si `item` no és un dict.
     """
     if not isinstance(item, dict):
         return {}
     out: dict[str, Any] = {}
+    # Tots els camps Zotero que aquest mapper "reclama" — els seus chains
+    # de candidats al mapping declaratiu, fins i tot si el item només
+    # porta un dels candidats. Així `bookTitle` i `publicationTitle` no
+    # apareixen tots dos a Extras quan només un d'ells alimenta `Llibre/Revista`.
+    consumed_fields: set[str] = set()
     for col, candidates in RECURSOS_TO_ZOTERO_FIELDS.items():
+        consumed_fields.update(candidates)
         handler = _SPECIAL_HANDLERS.get(col)
         if handler is not None:
             v = handler(item)
@@ -108,4 +132,15 @@ def zotero_item_to_recursos(item: dict) -> dict[str, Any]:
             if v:
                 out[col] = str(v) if col in _FORCE_STR else v
                 break
+
+    # Extras: tot camp truthy del item que no s'ha consumit i no és tècnic.
+    extras: dict[str, Any] = {}
+    for k, v in item.items():
+        if not v:
+            continue
+        if k in consumed_fields or k in _TECHNICAL_FIELDS:
+            continue
+        extras[k] = v
+    if extras:
+        out['Zotero Extras'] = extras
     return out
