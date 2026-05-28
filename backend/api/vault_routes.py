@@ -5040,6 +5040,85 @@ def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List
     return out
 
 
+@router.post("/bulk-update-metadata", dependencies=[Depends(require_role("editor"))])
+async def bulk_update_metadata(payload: dict = Body(...)):
+    """Aplica el mateix patch de metadata a una col·lecció de pàgines.
+
+    Body:
+        {
+          "page_ids": ["uuid1", "uuid2", ...],
+          "updates": {"Item Type": "preprint", "Idioma": "en"},
+          "remove": ["CampObsolet"]      # opcional: claus a esborrar
+        }
+
+    Per a cada pàgina:
+      1. Llegeix el .md, parseja frontmatter.
+      2. Aplica `updates` (merge superficial). Valor None/'' = esborrat.
+      3. Esborra també les claus llistades a `remove`.
+      4. Re-escriu via `save_page_md` (canonicalitza noms i preserva sidecar).
+      5. Invalida `cite_key_index` si s'ha tocat alguna pàgina.
+
+    Resposta:
+        {
+          "updated": N, "updated_ids": [...],
+          "skipped": [...],         # patch idèntic al frontmatter actual
+          "errors": [{"page_id": "...", "error": "..."}, ...]
+        }
+
+    Pensat per a la barra d'accions massives del Vault (canviar tipus,
+    posar idioma, marcar com llegit, ...). Una error individual no
+    aborta la resta — les pàgines exitoses queden persistides.
+    """
+    page_ids = payload.get('page_ids') or []
+    updates = payload.get('updates') or {}
+    remove_keys = payload.get('remove') or []
+    if not isinstance(page_ids, list) or not page_ids:
+        raise HTTPException(status_code=400, detail="page_ids ha de ser una llista no buida")
+    if not isinstance(updates, dict) or (not updates and not remove_keys):
+        raise HTTPException(status_code=400, detail="updates o remove són obligatoris")
+
+    updated, errors, skipped = [], [], []
+
+    def _apply(pid: str):
+        fp = find_page_path(pid)
+        if not fp or not fp.exists():
+            return ('error', "not_found")
+        try:
+            raw = fp.read_text(encoding='utf-8')
+            md, body = parse_frontmatter(raw, fp)
+            original_md = dict(md)
+            for k, v in (updates or {}).items():
+                if v is None or v == '':
+                    md.pop(k, None)
+                else:
+                    md[k] = v
+            for k in remove_keys:
+                md.pop(k, None)
+            if md == original_md:
+                return ('skip', None)
+            save_page_md(fp, md, body or '')
+            return ('ok', None)
+        except (OSError, ValueError) as e:
+            return ('error', str(e))
+
+    for pid in page_ids:
+        result, info = await asyncio.to_thread(_apply, pid)
+        if result == 'ok':
+            updated.append(pid)
+        elif result == 'skip':
+            skipped.append(pid)
+        else:
+            errors.append({"page_id": pid, "error": info})
+
+    if updated:
+        _invalidate_cite_key_index()
+
+    return {
+        "updated": len(updated),
+        "updated_ids": updated,
+        "skipped": skipped,
+        "errors": errors,
+    }
 @router.get("/csl/styles")
 async def list_csl_styles():
     """Llistat dels estils CSL disponibles al catàleg (frontend/public/csl/styles).
