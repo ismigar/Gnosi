@@ -1,220 +1,125 @@
 # Gnosi
 
-![Gnsi Graph View](docs/images/preview.png)
+**Gnosi is a local-first, open-source workspace — a self-hostable alternative to Notion and Obsidian.**
 
-Gnosi is a powerful, **standalone** knowledge management and visualization tool. It transforms your local Markdown vault into an interactive knowledge graph using a hybrid approach of **tag-based analysis** and **AI semantic analysis**.
+It turns a plain folder of Markdown files into a connected workspace: a block editor, database-style table views, an interactive knowledge graph, an integrated reference manager, and email/calendar/contacts — all running on **your** machine, against **your** files.
 
 > [!IMPORTANT]
-> **Data Sovereignty Active**: This system is "Local-First" and operates directly on your local filesystem. Connector importació Notion is only supported as a historical data migration source.
+> **Data sovereignty by design.** Gnosi is local-first and operates directly on your filesystem. Your notes stay as portable Markdown you can read, back up, and version with any tool. No vendor lock-in.
+
+## Why Gnosi
+
+Most "second brain" tools are either closed SaaS (your data lives on someone else's servers) or single-user desktop apps (no real collaboration). Gnosi aims for a third path: **a workspace that teams and cooperatives can self-host and own**, released under the AGPL so that any hosted version stays free software for its users.
+
+It is being prepared for use by cooperatives that want a shared, auditable, vendor-neutral knowledge base.
 
 ## ✨ Features
 
--   **Hybrid Analysis**:
-    -   **Tag-based**: Instantly connects notes that share common tags in frontmatter.
-    -   **AI-based**: Uses a local AI model (e.g., Ollama with qwen2.5) to find deep semantic connections between note contents.
--   **Interactive Graph**: Visualizes your knowledge base using a high-performance graph renderer (Sigma.js).
--   **Local-First Architecture**: High performance, privacy-focused, and independent of 3rd party APIs.
--   **Markdown Vault Integration**: Directly reads and writes to your local Obsidian-style vault.
--   **Automated Pipeline**: A Python pipeline that processes your Markdown files and generates a graph structure.
--   **Modern UI**: A clean React + Vite frontend to explore your digital brain.
--   **Agentic Workflows**: A multi-agent system (Supervisor, Coder, Brain) that can autonomously execute tasks and manage files.
+- **Block editor** — a Notion-style WYSIWYG editor (BlockNote) over standard Markdown files. Slash commands, multi-column layouts, embeds.
+- **Database / table views** — turn folders of notes into filterable, sortable tables with typed columns and saved views.
+- **Knowledge graph** — an interactive graph (Sigma.js) of wikilinks and tags, with optional AI-assisted semantic connections.
+- **Integrated reference manager** — a Zotero-compatible citation engine (CSL/citeproc), import by DOI/ISBN/arXiv/PMID, web capture, an in-app **PDF/EPUB reader**, and PDF annotations that become citable quotes.
+- **Mail, Calendar & Contacts** — IMAP/SMTP mail with real-time push (IMAP IDLE), calendar, and contacts; Google and Microsoft OAuth supported.
+- **AI agent** — a multi-agent workflow (LangGraph) that can use tools via the Model Context Protocol (MCP) and local or cloud LLMs.
+- **Real-time collaboration** *(early)* — live presence on a page; the channel is designed to carry full CRDT editing next.
+- **Multi-user & workspaces** *(opt-in)* — JWT authentication, workspaces, and role-based access control (owner / admin / editor / viewer). Disabled by default in single-user "personal" mode.
 
-## 🤖 Agentic Architecture
+## 🏗️ Architecture at a glance
 
-The Gnosi now powers a multi-agent system built with **LangGraph**:
+- **Backend** — Python **FastAPI** (served by `uvicorn`), with a SQLite "management" database for users/workspaces and an on-disk Markdown vault as the source of truth.
+- **Frontend** — **React + Vite** (BlockNote editor, Sigma.js graph).
+- **Reference capture** — a Zotero `translation-server` sidecar (Docker) powers web import.
 
-1.  **Supervisor**: The orchestrator (powered by GPT-4o) that plans tasks and delegates them to specialized workers.
-2.  **Coder Agent**: An expert engineer capable of manipulating the local filesystem, running git commands, and executing code edits.
-3.  **Brain Agent**: The knowledge manager. It executes **n8n** workflows and manages long-term memory (RAG).
-4.  **MCP Integration**: Uses the Model Context Protocol to standardize tool usage across services.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture and [CONTRIBUTING.md](CONTRIBUTING.md) to start hacking.
 
 ## 🚀 Prerequisites
 
--   **Python 3.10+**
--   **Node.js** & **npm**
--   **Notion Integration (Optional)**: If you want to migrate data from Notion, you will need an Integration Token and the Database ID.
--   **(Optional) Local AI**: [Ollama](https://ollama.com/) or any OpenAI-compatible API for semantic analysis.
+- **Python 3.10+**
+- **Node.js** & **npm**
+- **Docker** (recommended — it bundles the backend, frontend, and the Zotero translation-server)
+- **(Optional) Local AI** — [Ollama](https://ollama.com/) or any OpenAI-compatible API for semantic features.
 
-## 🛠️ Installation
+## 🧱 First-time setup (fresh clone)
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd gnosi
-    ```
-
-2.  **Install Backend Dependencies:**
-    It is recommended to create a virtual environment first:
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-    ```
-    Then install the requirements:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Install Frontend Dependencies:**
-    ```bash
-    cd frontend
-    npm install
-    cd ..
-    ```
-
-## ⚙️ Configuration
-
-### Credentials Management
-
-Credentials (API keys, tokens, passwords) are stored securely using the system Keychain:
-
-- **macOS**: Uses macOS Keychain
-- **Docker/Linux**: Falls back to environment variables from `.env_shared`
-
-#### Migration from .env_shared
-
-If you have credentials in `.env_shared`, you can migrate them to Keychain:
-
-```bash
-cd monorepo/apps/gnosi
-python migrate_to_keychain.py --dry-run  # Preview what will be migrated
-python migrate_to_keychain.py            # Execute migration
-```
-
-#### Using the Web Interface
-
-1. Open the app and go to **Settings** (⚙️)
-2. Click on the **Credentials** tab
-3. Add or update your API keys
-4. Keys are stored securely in your system's Keychain
-
-#### Adding Credentials Manually
-
-Create a `.env` file in the root directory (copy from a template if available, or set the following):
-
-    ```env
-    # AI Configuration (Example for Ollama)
-    AI_MODEL_URL=http://localhost:11434/v1/chat/completions
-    AI_MODEL_NAME=qwen2.5
-    AI_TIMEOUT=120
-
-    # Paths
-    OUT_GRAPH=./frontend/public/graph.json
-    OUT_JSON=./output/suggestions.json
-    LOG_DIR=./logs
-
-    # Server
-    SERVER_HOST=0.0.0.0
-    SERVER_PORT=5002
-    ```
-
-1.  **Configure your Vault path** in `params.yaml`.
-2.  **Understanding the Similarity Filter**: The graph viewer includes a similarity filter (default: 70%) that controls which AI-inferred connections are displayed. You can adjust this in the sidebar:
-    - **70-100%**: Only strong AI connections (recommended for beginners).
-    - **30-70%**: Include moderate AI connections.
-    - **0-30%**: Show all AI connections (may include noise).
-
-## 🐳 Run with Docker (Recommended)
-
-Running with Docker isolates the application and avoids installing dependencies on your machine.
-
-1.  **Start the services:**
-    ```bash
-    docker-compose up -d --build
-    ```
-    This will start both Backend (port 5001) and Frontend (port 5173).
-
-2.  **Access the application:**
-    - Frontend: `http://localhost:5173`
-    - Backend API: `http://localhost:5001`
-
-3.  **Stop services:**
-    ```bash
-    docker-compose down
-    ```
-
-> [!NOTE]
-> When running with Docker, node modules differ from your local ones. Docker builds its own `node_modules` inside the container volume.
-
-## 🏃 Runs Locally (Alternative)
-
-### 1. Run the Analysis Pipeline
-This script runs the AI/Tag analysis on the local vault and generates the graph JSON.
-
-```bash
-python pipeline/skills/suggest_connections/scripts/suggest_connections_digital_brain.py
-```
-
-### 2. Start the Application (Recommended)
-The easiest way to run both the backend and frontend is using the provided helper script:
-
-```bash
-./sh/run_brain.sh
-```
-
-This will:
-- Check for open ports and clear them if necessary.
-- Start the Flask backend.
-- Start the Vite frontend.
-- Provide you with the local URLs.
-
-### 3. Manual Start (Alternative)
-
-**Backend:**
-```bash
-uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-Access your Gnosi at `http://localhost:5002` (or the port shown in the console).
-
-## 📂 Project Structure
-
--   `backend/`: Flask server application.
--   `frontend/`: React + Vite frontend application.
--   `pipeline/`: Python scripts for data fetching, AI analysis, and graph generation.
-    -   `suggest_connections_digital_brain.py`: Main pipeline script.
-    -   `ai_client.py`: AI model interaction.
--   `config/`: Configuration files and schemas.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-If you find this project useful, you can buy me a coffee:
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ismaelgarciafernandez)
-
-
-## 🛠️ First-time setup (clone fresc)
-
-Després d'un `git clone` per primer cop, abans de córrer Docker o
-`npm run dev` cal generar el bundle del visor PDF/EPUB de Zotero (no
-es comiten artifacts):
+After cloning, build the Zotero PDF/EPUB reader bundle once (build artifacts are not committed):
 
 ```bash
 git submodule update --init --recursive
 sh monorepo/apps/gnosi/sh/build-zotero-reader.sh
 ```
 
-El script clona els sub-submodules (pdfjs, epubjs), instal·la deps,
-construeix `build/web/` i el copia a `frontend/public/zotero-reader/`.
-Triga ~2 minuts el primer cop. Si no l'executes, els PDFs i altres
-documents del Vault serveixen 404 al iframe.
+The script clones the sub-submodules (pdf.js, epub.js), installs their deps, builds `build/web/`, and copies it to `frontend/public/zotero-reader/`. It takes ~2 minutes the first time. Without it, PDFs and other documents in the vault return 404 in the reader iframe. Re-run it whenever you update the submodule (`git submodule update --remote`).
 
-Si actualitzes el submodule (`git submodule update --remote`),
-torna'l a executar per regenerar el bundle.
+## 🐳 Run with Docker (recommended)
+
+```bash
+cd monorepo/apps/gnosi
+docker-compose up -d --build
+```
+
+This starts three services:
+
+- **Frontend** → `http://localhost:5173`
+- **Backend API** → `http://localhost:5002` (health check at `/api/health`)
+- **translation-server** → internal only (used by the backend for web reference capture)
+
+Stop everything with `docker-compose down`.
+
+## 🏃 Run locally (alternative)
+
+**Backend** (FastAPI):
+
+```bash
+cd monorepo/apps/gnosi
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
+```
+
+**Frontend** (Vite dev server, proxies `/api` to the backend):
+
+```bash
+cd monorepo/apps/gnosi/frontend
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173`.
+
+## ⚙️ Configuration
+
+- **Vault path** — point Gnosi at your Markdown folder via `params.yaml` (or the relevant `VAULT` setting). Keep the vault out of the local-only data directory; never put the SQLite database on cloud-synced storage.
+- **Credentials** — API keys and integration tokens (mail, Google/Microsoft, AI providers) are managed from **Settings → Credentials** in the UI, and can also be provided via environment variables (`.env_shared` for shared values, `.env` for local overrides).
+
+### Personal vs. Organization mode
+
+Gnosi runs in one of two modes (`gnosi_mode`):
+
+- **`personal`** *(default)* — a single user, no login, zero auth overhead. Collaboration and workspace gating are off.
+- **`org`** — multi-user: login is required, requests are authenticated with a JWT session cookie, and workspace membership / roles are enforced. Real-time presence activates here.
+
+You can switch modes from **Settings**.
+
+## 📂 Project structure
+
+```
+monorepo/apps/gnosi/
+├── backend/      # FastAPI app: routes (api/), services, models, agent, scheduler
+│   ├── api/      # HTTP + WebSocket route modules
+│   ├── services/ # business logic (auth, workspaces, mail, ...)
+│   ├── models/   # SQLAlchemy models (management DB)
+│   └── agent/    # LangGraph multi-agent workflow + MCP client
+├── frontend/     # React + Vite (BlockNote editor, Sigma.js graph)
+└── pipeline/     # Python skills/scripts (analysis, integrations, tools)
+```
+
+## 🤝 Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and the review process. If Gnosi is useful to you, you can also support development:
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ismaelgarciafernandez)
 
 ## 📄 License
 
-Distributed under the **GNU Affero General Public License v3.0 or later**
-(AGPL-3.0-or-later). See [LICENSE](LICENSE) for the full text.
+Distributed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later). See [LICENSE](LICENSE) for the full text.
 
-In short: Gnosi is free software. You may use, modify, and redistribute it,
-including running it as a network service, provided that any modifications
-you publish — or expose to users over a network — are also released under
-the same license, with the corresponding source code available to those
-users. This is the same license Zotero, Mastodon and Nextcloud use.
+In short: Gnosi is free software. You may use, modify, and redistribute it, including running it as a network service, **provided that any modifications you publish — or expose to users over a network — are also released under the same license**, with the corresponding source code available to those users. This is the same license Zotero, Mastodon, and Nextcloud use.
