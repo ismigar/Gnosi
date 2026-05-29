@@ -60,6 +60,26 @@ per UX immediata, però sense context complet pot ser sub-òptima.
 3. Prem **"Insereix bibliografia"** per generar la llista final
 4. Si canvies d'estil (APA → Chicago) o de locale, repeteix el pas 2
 
+## Requisit previ: HTTPS local (mkcert)
+
+⚠ **Word exigeix que el taskpane es carregui per HTTPS.** El `manifest.xml`
+apunta a `https://localhost:5173`, però el dev server (Vite) serveix per
+HTTP per defecte. Sense HTTPS, el panell es carrega en blanc.
+
+A més, ha de ser un certificat **de confiança**: el WebView de Word rebutja
+un autofirmat normal sense opció d'acceptar-lo. Solució: [mkcert](https://github.com/FiloSottile/mkcert),
+que instal·la una CA al clauer del sistema.
+
+```bash
+brew install mkcert nss          # un cop
+sh/setup-https-dev.sh            # CA + cert a frontend/certs/ (gitignorats)
+docker compose restart frontend  # perquè Vite rellegeixi la config i passi a HTTPS
+```
+
+`vite.config.js` detecta `frontend/certs/localhost.pem` i activa HTTPS sol.
+Comprova-ho: `curl -sI https://localhost:5173/word-addin/index.html` → `200`.
+(Si no hi ha certs, Vite segueix en HTTP i no es trenca res.)
+
 ## Instal·lació en local (sideload)
 
 Word 2016+ permet "sideload" d'un add-in per a dev/testing sense passar
@@ -72,8 +92,17 @@ mkdir -p ~/Library/Containers/com.microsoft.Word/Data/Documents/wef
 cp manifest.xml ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/
 ```
 
-Després obre Word, ves a **Insereix > Els meus add-ins > Add-ins
-desenvolupats** i hi hauria de sortir "Gnosi Cite".
+Després **tanca Word del tot (Cmd+Q)** i torna'l a obrir amb un document.
+On apareix:
+
+- **Al ribbon** (via principal): aquest add-in registra un botó propi via
+  `VersionOverrides`. Mira a la pestanya **Inici** un grup **Gnosi** amb el
+  botó **Cites Gnosi**. Clica'l → s'obre el panell lateral.
+- **Alternativa**: **Insereix > Complements > pestanya «Els meus complements»
+  > secció «Complements de desenvolupador» > Gnosi Cite**.
+
+Si no surt cap de les dues coses, el manifest no s'ha carregat: revisa que el
+fitxer sigui a `…/Documents/wef/` i que has reiniciat Word del tot.
 
 ### Windows
 
