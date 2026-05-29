@@ -3673,6 +3673,38 @@ def _parse_authors_to_csl(authors_str: str) -> list:
     return out
 
 
+def _normalize_authors_field(v):
+    """Normalitza el camp Authors quan ve ESTRUCTURAT a una cadena que
+    `_parse_authors_to_csl` entén ('Cognoms, Nom; ...').
+
+    La metadata cachejada del page_index pot guardar Authors com a string,
+    com a dict {nom, cognom1, cognom2}, o com a llista d'aquests. Les
+    strings es deixen tal qual (ja les processa `_parse_authors_to_csl`);
+    només convertim dicts/llistes."""
+    if isinstance(v, str):
+        return v
+
+    def one(a):
+        if isinstance(a, dict):
+            family = " ".join(
+                s for s in (
+                    str(a.get("cognom1") or "").strip(),
+                    str(a.get("cognom2") or "").strip(),
+                ) if s
+            ).strip()
+            given = str(a.get("nom") or "").strip()
+            if family and given:
+                return f"{family}, {given}"
+            return family or given
+        return str(a or "").strip()
+
+    if isinstance(v, list):
+        return "; ".join(n for n in (one(x) for x in v) if n)
+    if isinstance(v, dict):
+        return one(v)
+    return str(v or "")
+
+
 def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
     """Construeix CSL-JSON d'una pàgina de Recursos. Equivalent backend del
     `recursosPageToCsl` del frontend (mateix mapeig)."""
@@ -3738,23 +3770,49 @@ def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
     v_path = get_active_vault_path()
     if not v_path:
         return []
-    idx = _ensure_cite_key_index(str(v_path))
+    v_str = str(v_path)
+    idx = _ensure_cite_key_index(v_str)
+    # Snapshot de la metadata cachejada per id. Construir el CSL des d'aquí
+    # evita reobrir el .md — imprescindible quan el vault viu en
+    # emmagatzematge al núvol amb fitxers online-only (obrir-los provoca
+    # EDEADLK i la cita quedaria sense resoldre). Vegis environment_integrity.
+    with _page_index_lock:
+        meta_by_id = {
+            e.get("id"): (e.get("metadata") or {})
+            for e in _page_index_entries.get(v_str, {}).values()
+            if e.get("id")
+        }
     out = []
     for k in keys:
         entry = idx.get(k)
         if not entry:
             continue
-        try:
-            page_path = find_page_path(entry['id'])
-            if not page_path:
-                continue
-            raw_page = page_path.read_text(encoding='utf-8')
-            meta, _ = parse_frontmatter(raw_page, page_path)
-            csl_item = _recursos_metadata_to_csl(entry.get('title') or '', meta)
-            if csl_item:
-                out.append(csl_item)
-        except OSError:
-            continue
+        title = entry.get('title') or ''
+        csl_item = None
+        # 1) Metadata cachejada (sense I/O al núvol).
+        meta = meta_by_id.get(entry.get('id'))
+        if meta:
+            md_copy = dict(meta)
+            if md_copy.get('Authors') is not None:
+                md_copy['Authors'] = _normalize_authors_field(md_copy.get('Authors'))
+            md_copy.setdefault('Citation Key', k)
+            try:
+                csl_item = _recursos_metadata_to_csl(title, md_copy)
+            except Exception:
+                csl_item = None
+        # 2) Fallback: llegir el frontmatter del fitxer (cas legacy o cache
+        #    incompleta). Pot fallar amb fitxers online-only; es captura.
+        if not csl_item:
+            try:
+                page_path = find_page_path(entry['id'])
+                if page_path:
+                    raw_page = page_path.read_text(encoding='utf-8')
+                    meta2, _ = parse_frontmatter(raw_page, page_path)
+                    csl_item = _recursos_metadata_to_csl(title, meta2)
+            except OSError:
+                csl_item = None
+        if csl_item:
+            out.append(csl_item)
     return out
 
 
@@ -3783,17 +3841,19 @@ async def format_citation(
         return {"key": key_norm, "formatted": f"(@{key_norm})", "resolved": False}
 
     csl_path = _resolve_csl_path(style)
-    # Marcador únic per extreure'n l'inline citation de l'output pandoc.
-    marker_a = "<<<GNOSI_CITE_START>>>"
-    marker_b = "<<<GNOSI_CITE_END>>>"
-    md = f"{marker_a}[@{key_norm}]{marker_b}\n"
+    # Una sola cita inline. Pandoc-citeproc emet el cos (la cita) i,
+    # després d'una línia en blanc, la bibliografia; ens quedem amb el
+    # primer paràgraf. NOTA: no fem servir marcadors de text perquè pandoc
+    # en mode `plain` interpreta `<...>` com a HTML i els malmet (sortiria
+    # `<<>>` enganxat a la cita). `--wrap=none` evita salts de línia.
+    md = f"[@{key_norm}]\n"
 
     with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmt_') as tmpdir:
         tmp = Path(tmpdir)
         (tmp / 'input.md').write_text(md, encoding='utf-8')
         (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
         cmd = [
-            'pandoc', 'input.md', '-t', 'plain',
+            'pandoc', 'input.md', '-t', 'plain', '--wrap=none',
             '--citeproc', '--bibliography', 'refs.json',
             '--metadata', f'lang={locale}',
         ]
@@ -3809,10 +3869,9 @@ async def format_citation(
             raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
         out = r.stdout
 
-    m = re.search(re.escape(marker_a) + r'(.*?)' + re.escape(marker_b), out, re.DOTALL)
-    formatted = m.group(1).strip() if m else out.strip()
-    # El pandoc-citeproc afegeix la bibliografia al final per defecte; la
-    # ignorem perquè aquí només volem la cita inline.
+    # El cos (cita inline) va abans de la primera línia en blanc; la
+    # bibliografia ve després i la descartem.
+    formatted = out.split('\n\n', 1)[0].strip()
     return {"key": key_norm, "formatted": formatted, "resolved": True}
 
 
@@ -3857,14 +3916,18 @@ async def format_citations(payload: dict = Body(...)):
     # Markdown: una línia per cada cita en l'ordre original (amb duplicats!),
     # cada una embolcallada amb marcadors únics que identifiquen l'ordinal.
     # Així el parser sap quin text correspon a quina ocurrència.
+    # Marcadors NOMÉS alfanumèrics (sense `<>` ni `_`): pandoc en mode
+    # `plain` interpretaria `<...>` com a HTML i `_x_` com a èmfasi, i els
+    # malmetria (sortiria `<<>>`). Els espais al voltant de `[@k]`
+    # asseguren que citeproc reconeix la cita; després els retallem.
     lines = []
     for idx, k in enumerate(keys, start=1):
         if k in resolved_keys:
-            lines.append(f"<<<GC_{idx}_S>>>[@{k}]<<<GC_{idx}_E>>>")
+            lines.append(f"GCREF{idx}BEG [@{k}] GCREF{idx}FIN")
         else:
-            # Key no resolt: deixem un placeholder amb el text cru perquè
-            # el client el detecti i pugui mostrar un error.
-            lines.append(f"<<<GC_{idx}_S>>>(@{k})<<<GC_{idx}_E>>>")
+            # Key no resolt: placeholder amb el text cru perquè el client
+            # el detecti i pugui mostrar un error.
+            lines.append(f"GCREF{idx}BEG (@{k}) GCREF{idx}FIN")
     md = "\n\n".join(lines) + "\n"
 
     with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmts_') as tmpdir:
@@ -3889,7 +3952,7 @@ async def format_citations(payload: dict = Body(...)):
 
     items: List[dict] = []
     for idx, k in enumerate(keys, start=1):
-        pattern = re.compile(re.escape(f"<<<GC_{idx}_S>>>") + r'(.*?)' + re.escape(f"<<<GC_{idx}_E>>>"), re.DOTALL)
+        pattern = re.compile(re.escape(f"GCREF{idx}BEG") + r'\s*(.*?)\s*' + re.escape(f"GCREF{idx}FIN"), re.DOTALL)
         m = pattern.search(out)
         formatted = m.group(1).strip() if m else f"(@{k})"
         items.append({
@@ -5422,30 +5485,66 @@ async def search_citations(q: str = "", limit: int = 30):
     return enriched
 
 
+def _format_one_author(a) -> str:
+    """Formata un autor que pot venir com a string o com a dict estructurat
+    ({nom, cognom1, cognom2})."""
+    if isinstance(a, dict):
+        parts = [str(a.get(k) or "").strip() for k in ("nom", "cognom1", "cognom2")]
+        return " ".join(p for p in parts if p).strip()
+    return str(a or "").strip()
+
+
+def _cite_author_from_metadata(md: dict):
+    """Treu l'autor de la metadata cachejada del page_index, provant les
+    claus habituals (ca/en). Accepta strings, llistes i dicts estructurats
+    ({nom, cognom1, cognom2}); uneix múltiples autors amb comes."""
+    for k in ("Authors", "Autor", "Autors", "Author"):
+        v = md.get(k)
+        if not v:
+            continue
+        if isinstance(v, list):
+            names = [_format_one_author(x) for x in v]
+            v = ", ".join(n for n in names if n)
+        else:
+            v = _format_one_author(v)
+        v = str(v).strip()
+        if v:
+            return v
+    return None
+
+
+def _cite_year_from_metadata(md: dict):
+    """Treu l'any (4 dígits) de la metadata cachejada del page_index."""
+    for k in ("Any", "Year", "Data", "Date"):
+        v = md.get(k)
+        if v in (None, ""):
+            continue
+        m = re.search(r"(\d{4})", str(v))
+        if m:
+            return m.group(1)
+    return None
+
+
 def _enrich_cite_entry(entry: dict) -> dict:
-    """Llegeix Autor i Any del frontmatter per enriquir una entrada del
-    cite_key_index. Falla silenciosament si no hi ha frontmatter."""
+    """Completa autor i any d'una entrada del cite_key_index.
+
+    Preferim els valors ja resolts a la pròpia entrada (provinents de la
+    metadata cachejada del page_index). Només si falten, fem fallback a
+    llegir el frontmatter del .md — cosa que pot fallar si el vault viu en
+    emmagatzematge al núvol amb fitxers online-only (vegis la directiva
+    environment_integrity); en aquest cas es captura i es deixa buit."""
     out = {
         "id": entry.get("id"),
         "title": entry.get("title"),
         "citation_key": entry.get("citation_key"),
         "folder": entry.get("folder"),
-        "author": None,
-        "year": None,
+        "author": entry.get("author"),
+        "year": entry.get("year"),
     }
-    page_id = entry.get("id")
-    if not page_id:
+    if out["author"] or out["year"]:
         return out
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    if not v_path:
-        return out
-    with _page_index_lock:
-        idx = _page_index_entries.get(str(v_path), {})
-    page_entry = idx.get(page_id)
-    if not page_entry:
-        return out
-    path = page_entry.get("path")
+    # Fallback: llegir el frontmatter del fitxer (cas legacy sense metadata).
+    path = entry.get("path")
     if not path or not Path(path).exists():
         return out
     try:
@@ -5534,6 +5633,34 @@ def _ensure_cite_key_index(v_str: str) -> dict:
         with _page_index_lock:
             entries = list(_page_index_entries.get(v_str, {}).values())
         for entry in entries:
+            md = entry.get("metadata") or {}
+            # Camí ràpid i resilient: el Citation Key i el table_id ja solen
+            # estar a la metadata cachejada del page_index. Usar-la evita
+            # reobrir el .md — fonamental quan el vault viu en emmagatzematge
+            # al núvol (OneDrive/iCloud) amb fitxers "online-only": obrir-los
+            # provoca hidratació costosa o EDEADLK (Errno 35) i l'índex
+            # quedaria buit. Vegis la directiva environment_integrity.
+            ck = str(md.get("Citation Key") or "").strip()
+            if ck:
+                # Scope: només pàgines de la taula de referències designada.
+                if ref_canon:
+                    tid_raw = md.get("table_id") or md.get("database_table_id")
+                    page_tid = _canonicalize_id(str(tid_raw).strip()) if tid_raw else ""
+                    if page_tid != ref_canon:
+                        continue
+                if ck not in idx:
+                    idx[ck] = {
+                        "id": entry.get("id"),
+                        "title": entry.get("title"),
+                        "folder": entry.get("folder"),
+                        "citation_key": ck,
+                        "author": _cite_author_from_metadata(md),
+                        "year": _cite_year_from_metadata(md),
+                        "path": entry.get("path"),
+                    }
+                continue
+            # Fallback (metadata sense Citation Key): llegim la capçalera del
+            # .md com abans. Pot fallar amb fitxers online-only; es captura.
             path = entry.get("path")
             if not path or not Path(path).exists():
                 continue
@@ -5564,6 +5691,9 @@ def _ensure_cite_key_index(v_str: str) -> dict:
                         "title": entry.get("title"),
                         "folder": entry.get("folder"),
                         "citation_key": ck,
+                        "author": None,
+                        "year": None,
+                        "path": path,
                     }
             except OSError:
                 continue
