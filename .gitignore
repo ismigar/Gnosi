@@ -17,6 +17,9 @@ backend/data/logs/
 node_modules/
 dist/
 
+# Certificats HTTPS de dev (mkcert) per provar Office Add-ins — mai al repo
+frontend/certs/
+
 # Outputs
 out/markdown_backup/
 .env.example
