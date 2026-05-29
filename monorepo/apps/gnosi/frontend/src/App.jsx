@@ -21,9 +21,12 @@ import AgentChat from './components/AgentChat';
 import PageOutline from './components/PageOutline';
 import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
+import { useAuth } from './context/AuthContext';
+import { LoginPage } from './components/Auth/LoginPage';
 
 function App() {
   const { effectiveTheme } = useTheme();
+  const { user, gnosiMode, loading } = useAuth();
   // Captura clicks a file:// arreu i els redirigeix al shell del sistema
   // via el backend, en lloc de deixar que Chrome obri pestanyes en blanc.
   useFileLinkInterceptor();
@@ -36,6 +39,21 @@ function App() {
       root.classList.remove('dark');
     }
   }, [effectiveTheme]);
+
+  // Bootstrap: esperem a saber el mode i si hi ha sessió abans de decidir.
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
+        <div className="animate-pulse text-sm">Carregant…</div>
+      </div>
+    );
+  }
+
+  // Gate només en mode org: en personal l'usuari únic entra directe (el
+  // backend ja resol l'usuari legacy sense token).
+  if (gnosiMode === 'org' && !user) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">

@@ -11,7 +11,11 @@ export function useApi() {
 
     const apiFetch = useCallback(async (url, options = {}) => {
         const workspaceId = getWorkspaceId();
-        const userId = 'ismael-legacy';
+        // Usuari resolt al login (AuthContext el desa a localStorage). Fallback
+        // a 'ismael-legacy' per al mode personal sense autenticació, on el
+        // backend ja resol l'usuari únic. Si hi ha cookie JWT, el backend la
+        // prioritza per sobre d'aquest header (get_user_id_or_legacy).
+        const userId = localStorage.getItem('gnosi_user_id') || 'ismael-legacy';
         const userEmail = getUserEmail();
 
         const headers = {
@@ -28,6 +32,10 @@ export function useApi() {
         }
 
         const response = await fetch(url, {
+            // Envia la cookie de sessió `gnosi_session`. Same-origin ja ho faria
+            // per defecte (Vite proxy en dev, reverse-proxy en prod); explícit
+            // per robustesa i per suportar dev cross-origin amb CORS_ORIGINS.
+            credentials: 'include',
             ...options,
             headers,
         });

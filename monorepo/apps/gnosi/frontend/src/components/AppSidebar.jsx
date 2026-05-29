@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User } from 'lucide-react';
+import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { GlobalSettingsModal } from './GlobalSettingsModal';
 import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
+import { useAuth } from '../context/AuthContext';
+import { toast } from '../lib/toast';
 
 const GIcon = ({ size = 14 }) => (
     <div style={{
@@ -40,6 +42,12 @@ export function AppSidebar() {
     const [gnosiMode, setGnosiMode] = useState('personal');
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const { user, logout } = useAuth();
+
+    const handleLogout = async () => {
+        await logout();
+        toast.success('Sessió tancada.');
+    };
 
     useEffect(() => {
         // Fetch health to get gnosi_mode
@@ -172,6 +180,19 @@ export function AppSidebar() {
                             <kbd className="app-sidebar__tooltip-kbd">Ctrl ,</kbd>
                         </span>
                     </button>
+
+                    {user && (
+                        <button
+                            className="app-sidebar__item"
+                            title={`${user.name || user.email} — Tancar sessió`}
+                            onClick={handleLogout}
+                        >
+                            <LogOut size={16} strokeWidth={1.5} />
+                            <span className="app-sidebar__tooltip">
+                                <span>Tancar sessió ({user.name || user.email})</span>
+                            </span>
+                        </button>
+                    )}
 
                 </div>
             </nav>

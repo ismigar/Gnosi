@@ -1,9 +1,12 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
+import logging
 import os
 import threading
 from pathlib import Path
 from typing import Generator
+
+log = logging.getLogger(__name__)
 
 # Helper to resolve the database path safely
 def _get_mgmt_db_path() -> Path:
@@ -47,9 +50,45 @@ def _get_or_init_mgmt_engine():
                     pool_recycle=1800,
                 )
                 Base.metadata.create_all(bind=engine)
+                _apply_lightweight_migrations(engine)
                 _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
                 _engine = engine  # publicar al final per garantir visibilitat
     return _engine, _SessionLocal
+
+
+def _apply_lightweight_migrations(engine):
+    """Afegeix columnes noves a taules ja existents (no tenim Alembic).
+
+    `Base.metadata.create_all` crea taules que falten però MAI columnes noves
+    sobre taules que ja existeixen. Quan s'afegeix un camp a un model —p.ex.
+    `User.password_hash` per a l'auth JWT— les BD creades abans no el tenen i
+    qualsevol query peta amb «no such column». Aquí ho resolem de forma
+    idempotent: inspeccionem l'esquema real i fem `ALTER TABLE ... ADD COLUMN`
+    només si la columna no hi és. SQLite accepta afegir columnes nullable
+    sense reescriure la taula.
+    """
+    additive_columns = {
+        "users": {
+            "password_hash": "VARCHAR",
+        },
+    }
+    try:
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+        for table, columns in additive_columns.items():
+            if table not in existing_tables:
+                continue  # create_all ja l'haurà creat amb totes les columnes
+            present = {c["name"] for c in inspector.get_columns(table)}
+            for col_name, col_type in columns.items():
+                if col_name in present:
+                    continue
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
+                log.info(f"🛠️ Migració lleugera: afegida columna {table}.{col_name}")
+    except Exception as e:
+        # No bloquegem l'arrencada per un upgrade fallit; si la columna
+        # realment falta, l'error sortirà a la primera query i quedarà al log.
+        log.warning(f"⚠️ _apply_lightweight_migrations ha fallat: {e}")
 
 def get_mgmt_db() -> Generator[Session, None, None]:
     """Dependency per a FastAPI o ús intern."""
