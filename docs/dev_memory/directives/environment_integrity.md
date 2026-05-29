@@ -153,3 +153,47 @@ docker compose up -d --no-deps frontend
 
 ### Causa-Efecte (memoritzar)
 > `node_modules` és un volum anònim → persisteix entre rebuilds del servei → `build --no-cache` només refresca la imatge, no el volum → cal `compose rm -fsv` ABANS del rebuild quan canvien deps a fons.
+
+---
+
+## Regla Crítica: Vault al Núvol (OneDrive Files-On-Demand) i Fitxers `dataless`
+
+### Problema
+El vault es munta des de OneDrive (`${HOME}/Library/CloudStorage/OneDrive-UNED/Gnosi:/vault`). macOS marca els fitxers no descarregats com a **online-only** (flag `dataless`, visible amb `ls -lO` → `compressed,dataless`). Quan el backend, **dins el contenidor**, intenta llegir un fitxer `dataless` a través de la capa virtiofs de Docker, la hidratació sota demanda es bloqueja:
+
+```
+OSError: [Errno 35] Resource deadlock avoided   (EDEADLK)
+```
+
+Símptomes observats:
+- Crash-loop del backend en arrencar si `/vault/.gnosi/params.yaml` és `dataless`.
+- `search-citations` torna `[]` (índex de cites buit) i `format-citation` torna `(@key)` (no resol), perquè reobrir els `.md` de Recursos falla i les pàgines se salten en silenci (`except OSError: continue`).
+
+### Causa
+Llegir des de l'**amfitrió** funciona (el File Provider natiu hidrata el fitxer), però llegir des de **dins del contenidor** via virtiofs provoca el deadlock. A més, el flag «Mantén sempre en aquest dispositiu» és **per dispositiu**: fer el *pin* al Mac A no descarrega res al Mac B (workflow de dues màquines).
+
+### Regla
+1. **El codi de backend que serveix dades del vault NO ha de dependre de reobrir fitxers del vault.** Si la informació ja és a una caché local (p. ex. `_page_index_entries`, persistit al volum nomenat `gnosi_local_data`), construeix la resposta des d'allà i deixa la lectura del `.md` com a *fallback* protegit amb `try/except OSError`.
+2. Cap funció d'indexació o format ha de petar ni quedar buida perquè un fitxer sigui `dataless`.
+
+Aplicat a cites (`backend/api/vault_routes.py`):
+- `_ensure_cite_key_index` i `_build_csl_items_for_keys` llegeixen `Citation Key`, autors, any i `table_id` de `entry["metadata"]` (page_index cachejat), no del `.md`; el fitxer només es llegeix com a fallback.
+
+### Verificació
+```bash
+# Un fitxer concret és online-only?
+ls -lO "<fitxer>" | grep dataless          # si surt 'dataless' → no descarregat
+
+# El backend resol cites SENSE baixar el vault?
+curl -sk "https://localhost:5173/api/vault/search-citations?q=&limit=5"   # ha de tornar resultats
+# als logs del backend: "Built cite_key_index: N keys" amb N > 0
+```
+
+### Restriccions / Edge Cases
+- **`find ... -flags dataless` NO és fiable** a carpetes CloudStorage (l'enumeració de directoris online-only torna falsos negatius / 0 resultats). Comprova-ho fitxer a fitxer amb `ls -lO <fitxer>`.
+- Materialitzar un fitxer per CLI: `dd if="<fitxer>" of=/dev/null bs=65536` (força una lectura real de bytes → neteja `dataless`). `wc -c` **no** serveix (només fa `stat`). El `dd` pot ser lent o penjar-se si el File Provider d'OneDrive està saturat.
+- Les pàgines de la taula **Recursos** viuen a `BD/Cervell Digital/Recursos/` (no a una carpeta `Recursos` a l'arrel) — per això `find $VAULT/Recursos` no troba res.
+- La solució durable per a l'usuari és el *pin* d'OneDrive, però és **per dispositiu** i no sincronitza entre Macs; per això la resiliència ha d'estar al codi, no en l'estat del disc.
+
+### Causa-Efecte (memoritzar)
+> Vault a OneDrive → fitxers `dataless` (online-only) → llegir-los dins el contenidor (virtiofs) → EDEADLK → indexació/format de cites buits → construeix SEMPRE des de la caché del `page_index`, i el fitxer només com a *fallback* protegit.
