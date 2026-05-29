@@ -63,6 +63,7 @@ import { DbViewEmbed } from './DbViewEmbed';
 import { EmbedRenderer } from './EmbedRenderer';
 import { WikilinkInline } from './WikilinkInline';
 import { CiteInline } from './CiteInline';
+import { CollaborationPresence } from './CollaborationPresence';
 import { CitePicker } from './CitePicker';
 import { MetadataLookupModal } from './MetadataLookupModal';
 import { BibliographyBlock } from './BibliographyBlock';
@@ -3238,6 +3239,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         {t('editor.save_error')}
                                     </div>
                                 )}
+                                <CollaborationPresence pageId={noteFilename} />
                             </div>
                         </div>
                         <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center px-1 mb-1.5">

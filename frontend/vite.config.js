@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: `http://${env.VITE_BACKEND_HOST || "127.0.0.1"}:${backendPort}`,
           changeOrigin: true,
+          // ws:true reenvia l'upgrade WebSocket del canal de col·laboració
+          // (/api/vault/collab/{id}) al backend en dev. Sense això la
+          // connexió WS quedaria penjada al dev server de Vite.
+          ws: true,
         },
       },
     },
