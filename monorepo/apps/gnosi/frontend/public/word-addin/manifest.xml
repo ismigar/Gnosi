@@ -32,7 +32,9 @@
   <!-- Identificador únic (GUID). Generar un de nou per a producció amb
        uuidgen perquè cada add-in publicat tingui el seu. -->
   <Id>5e2c8b9a-1f2d-4b3c-9f8e-7d6c5b4a3e2f</Id>
-  <Version>0.1.0</Version>
+  <!-- Office rebutja add-ins amb versió < 1.0.0.0 (no els registra ni en
+       sideload). Cal mantenir-la >= 1.0.0.0. -->
+  <Version>1.0.0.0</Version>
   <ProviderName>Gnosi</ProviderName>
   <DefaultLocale>ca-ES</DefaultLocale>
   <DisplayName DefaultValue="Gnosi Cite" />
@@ -69,7 +71,9 @@
             <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
           </GetStarted>
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
-            <OfficeTab id="TabHome">
+            <!-- TabReferences = pestanya "Referències" integrada de Word
+                 (abans estava a TabHome / "Inici"). -->
+            <OfficeTab id="TabReferences">
               <Group id="GnosiCite.Group">
                 <Label resid="GnosiCite.GroupLabel" />
                 <Icon>
