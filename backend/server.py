@@ -37,6 +37,7 @@ from backend.api import (
     scheduler_routes, social_routes,
     vault_routes, vault_graph_routes, vault_views_routes, calendar_routes, mail_routes,
     reader, google_auth_routes, integrations_routes,
+    auth_routes,
     config_routes, env_routes, credentials_routes, ai_routes,
     workspace_routes, contacts_routes, identity_routes,
     microsoft_auth_routes,
@@ -267,6 +268,7 @@ app.include_router(contacts_routes.router, prefix="/api", tags=["Contacts"])
 app.include_router(google_auth_routes.router, tags=["Auth"])
 app.include_router(microsoft_auth_routes.router, tags=["Auth"])
 app.include_router(integrations_routes.router, tags=["Integrations"])
+app.include_router(auth_routes.router, tags=["Auth"])
 app.include_router(config_routes.router, prefix="/api", tags=["Config"])
 app.include_router(env_routes.router, prefix="/api", tags=["Env"])
 app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])

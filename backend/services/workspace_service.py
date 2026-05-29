@@ -8,6 +8,7 @@ from backend.config.app_config import load_params
 import uuid
 
 from backend.services.context_vars import active_vault_path
+from backend.services.auth_service import get_current_user_id
 
 class WorkspaceContext:
     def __init__(self, workspace_id: str, user_id: str, role: str, vault_path: Path, capabilities: list = None):
@@ -104,24 +105,33 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
 
 def get_workspace_context(
     x_workspace_id: Optional[str] = Header(None),
-    x_user_id: Optional[str] = Header("ismael-legacy"), 
-    db: Session = Depends(get_mgmt_db)
+    x_user_id: Optional[str] = Header(None),
+    db: Session = Depends(get_mgmt_db),
+    auth_uid: Optional[str] = Depends(get_current_user_id),
 ) -> WorkspaceContext:
-    
+
     params = load_params(strict_env=False)
     project_root = params.paths.get("PROJECT_DIR")
     default_vault_path = params.paths.get("VAULT")
 
+    # Resol l'usuari: prioritat JWT > X-User-ID > legacy "ismael-legacy".
+    # `auth_uid` ve d'`auth_service.get_current_user_id` (cookie/Bearer).
+    from backend.services.auth_service import get_user_id_or_legacy
+    resolved_user_id = get_user_id_or_legacy(auth_uid, x_user_id)
+
     # MODE PERSONAL: Simplificació total
     if params.gnosi_mode == "personal":
-        ws_id = _ensure_personal_exists(db, x_user_id, default_vault_path)
+        ws_id = _ensure_personal_exists(db, resolved_user_id, default_vault_path)
         active_vault_path.set(default_vault_path)
         return WorkspaceContext(
             workspace_id=ws_id,
-            user_id=x_user_id,
+            user_id=resolved_user_id,
             role="owner",
             vault_path=default_vault_path
         )
+
+    # MODE ORG: substitueix x_user_id per resolved_user_id a partir d'aquí.
+    x_user_id = resolved_user_id
 
     # MODE ORGANITZACIÓ: Lògica Multi-tenant
     if not x_workspace_id:

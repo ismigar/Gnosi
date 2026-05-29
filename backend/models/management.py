@@ -21,6 +21,11 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String)
     avatar_url = Column(String)
+    # PR Auth: hash bcrypt. Nullable per a backward compat amb usuaris
+    # creats abans del sistema d'auth (p.ex. el legacy "ismael-legacy" o
+    # usuaris importats via OAuth). Si és None, l'usuari ha d'usar OAuth
+    # o set-password per al primer login email/password.
+    password_hash = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
