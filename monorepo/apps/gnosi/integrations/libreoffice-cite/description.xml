@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description
+    xmlns="http://openoffice.org/extensions/description/2006"
+    xmlns:d="http://openoffice.org/extensions/description/2006"
+    xmlns:xlink="http://www.w3.org/1999/xlink">
+
+  <identifier value="com.gnosi.cite"/>
+  <version value="0.1.0"/>
+
+  <display-name>
+    <name lang="ca">Gnosi Cite</name>
+    <name lang="es">Gnosi Cite</name>
+    <name lang="en">Gnosi Cite</name>
+  </display-name>
+
+  <publisher>
+    <name xlink:href="https://github.com/ismigar" lang="en">Gnosi</name>
+  </publisher>
+
+  <!-- LibreOffice 5.0+ (l'API de reference marks i UNO dialogs hi és
+       estable des de fa molt). Es declara amb el nom històric. -->
+  <dependencies>
+    <OpenOffice.org-minimal-version value="5.0" d:name="LibreOffice 5.0"/>
+  </dependencies>
+
+</description>
