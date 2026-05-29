@@ -5395,9 +5395,11 @@ async def export_references(
 async def search_citations(q: str = "", limit: int = 30):
     """Cerca pàgines de Recursos per al CitePicker (Cmd+Shift+I).
 
-    Filtre lliure que cerca a `Citation Key`, `Títol` (`title`), i `Autor`
-    del frontmatter. Retorna `limit` (per defecte 30) resultats ordenats
-    per millor coincidència (prefix > infix > altres camps).
+    Filtre lliure que cerca a TOTS els camps cachejats al page_index:
+    `Citation Key`, `Títol`, `Autor`, `Any`, revista, editorial, DOI, etc.
+    Retorna `limit` (per defecte 30) resultats ordenats per millor
+    coincidència (key > títol > autor > altres camps). No reobre cap
+    fitxer del vault (funciona amb vault al núvol / online-only).
 
     Resposta: `[{ id, title, citation_key, author, year, folder }, ...]`
     Pensat per a un picker amb autocompletar — no és un endpoint d'index
@@ -5419,70 +5421,36 @@ async def search_citations(q: str = "", limit: int = 30):
         # només `limit` arxius — acceptable).
         return [_enrich_cite_entry(item) for item in items]
 
-    # Cerca per citation_key (prefix), després per títol (infix), després
-    # per autor (infix). Limitem a `limit*5` candidats per al ranking i
-    # tornem `limit`.
+    # Cerca a TOTS els camps cachejats: citation_key (prefix > infix),
+    # títol, autor i la resta de camps bibliogràfics (revista, editorial,
+    # any, DOI…) via el blob `search`. Tot des de la metadata cachejada al
+    # page_index — no reobrim cap .md, així funciona amb el vault al núvol
+    # (fitxers online-only). Ranking: key > títol > autor > altres camps.
     candidates = []
     for entry in idx.values():
         ck = str(entry.get("citation_key") or "").lower()
         title = str(entry.get("title") or "").lower()
+        author = str(entry.get("author") or "").lower()
+        blob = str(entry.get("search") or "")
         score = -1
         if ck.startswith(query):
             score = 100 - len(ck)  # prefer curtes
+        elif title.startswith(query):
+            score = 70 - len(title) // 10
         elif query in ck:
-            score = 50 - len(ck)
+            score = 55 - len(ck)
         elif query in title:
-            score = 30 - len(title) // 10
+            score = 45 - len(title) // 10
+        elif query in author:
+            score = 35
+        elif query in blob:
+            score = 15  # coincidència en qualsevol altre camp
         if score >= 0:
             candidates.append((score, entry))
 
     candidates.sort(key=lambda x: -x[0])
     top = [entry for _, entry in candidates[:limit]]
-    enriched = [_enrich_cite_entry(item) for item in top]
-
-    # Si encara hi ha lloc, cerquem també per autor llegint els
-    # frontmatters dels que no han fet match (cost més alt).
-    if len(enriched) < limit:
-        seen_ids = {e.get("id") for e in enriched}
-        with _page_index_lock:
-            entries = list(_page_index_entries.get(v_str, {}).values())
-        for entry in entries:
-            if entry.get("id") in seen_ids:
-                continue
-            path = entry.get("path")
-            if not path or not Path(path).exists():
-                continue
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    head = f.read(4096)
-                if not head.startswith("---"):
-                    continue
-                m_author = re.search(r"^Autor:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
-                if not m_author:
-                    continue
-                author_low = m_author.group(1).strip().lower()
-                if query not in author_low:
-                    continue
-                m_ck = re.search(r"^Citation Key:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
-                ck = m_ck.group(1).strip() if m_ck else None
-                if not ck:
-                    continue
-                m_year = re.search(r"^(?:Any|Year|Data):\s*['\"]?(\d{4})", head, re.MULTILINE)
-                year = m_year.group(1).strip() if m_year else None
-                enriched.append({
-                    "id": entry.get("id"),
-                    "title": entry.get("title"),
-                    "citation_key": ck,
-                    "author": m_author.group(1).strip(),
-                    "year": year,
-                    "folder": entry.get("folder"),
-                })
-                if len(enriched) >= limit:
-                    break
-            except OSError:
-                continue
-
-    return enriched
+    return [_enrich_cite_entry(item) for item in top]
 
 
 def _format_one_author(a) -> str:
@@ -5523,6 +5491,26 @@ def _cite_year_from_metadata(md: dict):
         if m:
             return m.group(1)
     return None
+
+
+def _cite_search_blob(title, ck, author, year, md) -> str:
+    """Cadena cercable (en minúscules) amb tots els camps rellevants d'una
+    cita, perquè `search-citations` pugui filtrar per «tots els camps»
+    sense reobrir el .md (resilient a vault al núvol). Inclou camps
+    bibliogràfics habituals i tags; exclou camps interns sorollosos."""
+    parts = [str(title or ""), str(ck or ""), str(author or ""), str(year or "")]
+    if md:
+        for k in ("Llibre/Revista", "Editorial", "Lloc", "DOI", "ISBN",
+                  "ISSN", "Idioma", "Item Type", "Volum", "Número", "URL"):
+            v = md.get(k)
+            if v:
+                parts.append(str(v))
+        tags = md.get("Tags")
+        if isinstance(tags, list):
+            parts.extend(str(t) for t in tags if t)
+        elif tags:
+            parts.append(str(tags))
+    return " ".join(parts).lower()
 
 
 def _enrich_cite_entry(entry: dict) -> dict:
@@ -5649,14 +5637,17 @@ def _ensure_cite_key_index(v_str: str) -> dict:
                     if page_tid != ref_canon:
                         continue
                 if ck not in idx:
+                    author = _cite_author_from_metadata(md)
+                    year = _cite_year_from_metadata(md)
                     idx[ck] = {
                         "id": entry.get("id"),
                         "title": entry.get("title"),
                         "folder": entry.get("folder"),
                         "citation_key": ck,
-                        "author": _cite_author_from_metadata(md),
-                        "year": _cite_year_from_metadata(md),
+                        "author": author,
+                        "year": year,
                         "path": entry.get("path"),
+                        "search": _cite_search_blob(entry.get("title"), ck, author, year, md),
                     }
                 continue
             # Fallback (metadata sense Citation Key): llegim la capçalera del
@@ -5694,6 +5685,7 @@ def _ensure_cite_key_index(v_str: str) -> dict:
                         "author": None,
                         "year": None,
                         "path": path,
+                        "search": _cite_search_blob(entry.get("title"), ck, None, None, None),
                     }
             except OSError:
                 continue
