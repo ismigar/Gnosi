@@ -16,6 +16,7 @@ import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
 import IdentityProfile from './Vault/IdentityProfile';
+import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -1497,9 +1498,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <div className="settings-sidebar-hr" />
 
                             <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
+                            <SidebarItem id="workspace" icon={Users} label={t('settings.tabs.workspace') || 'Workspace'} active={activeTab === 'workspace'} onClick={() => { setActiveTab('workspace'); setAddAccountType(null); }} />
                             <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
                             <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
-                            
+
                             <div className="settings-sidebar-hr" />
                             
                             <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />
@@ -1577,6 +1579,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </FormGroup>
                                         </Section>
                                     </div>
+                                </Section>
+                            )}
+
+                            {/* WORKSPACE — gestió de membres i accés a vaults */}
+                            {activeTab === 'workspace' && (
+                                <Section
+                                    title={t('settings.tabs.workspace') || 'Workspace'}
+                                    icon={Users}
+                                >
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 0, marginBottom: '16px', lineHeight: 1.5 }}>
+                                        {t('settings.workspace.intro', {
+                                            defaultValue: 'Gestiona membres, rols i accés a vaults del workspace actiu. Aquesta secció existeix per a cooperatives, equips de recerca i col·lectius que comparteixen una mateixa instància de Gnosi. La col·laboració en temps real està en desenvolupament — vegis la directiva collaboration_proposal.md.',
+                                        })}
+                                    </p>
+                                    <WorkspaceMembersPanel
+                                        workspaceId={draft.settings.active_workspace_id || draft.settings.workspace_id || null}
+                                        isAdmin={true}
+                                        currentUserId={draft.settings.user_id || null}
+                                    />
                                 </Section>
                             )}
 
