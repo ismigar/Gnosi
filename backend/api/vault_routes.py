@@ -4005,10 +4005,14 @@ async def format_bibliography(payload: dict = Body(...)):
         tmp = Path(tmpdir)
         (tmp / 'input.md').write_text(md, encoding='utf-8')
         (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
+        # `-t html` perquè citeproc emeti el format ric d'APA: títols en
+        # cursiva (<em>/<i> segons el CSL) i URL/DOI com a enllaços
+        # (link-bibliography). L'Office Add-in ho insereix amb insertHtml.
         cmd = [
-            'pandoc', 'input.md', '-t', 'plain',
+            'pandoc', 'input.md', '-t', 'html',
             '--citeproc', '--bibliography', 'refs.json',
             '--metadata', f'lang={locale}',
+            '--metadata', 'link-bibliography=true',
             '--wrap=none',
         ]
         if csl_path:
@@ -4021,12 +4025,26 @@ async def format_bibliography(payload: dict = Body(...)):
             raise HTTPException(status_code=504, detail="pandoc timeout")
         if r.returncode != 0:
             raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
-        out = r.stdout.strip()
+        out = r.stdout
 
-    # Cada entrada de la bibliografia és un paràgraf separat per línia buida.
-    entries = [e.strip() for e in re.split(r'\n\s*\n', out) if e.strip()]
+    # Pandoc emet cada entrada com <div class="csl-entry">…</div> dins d'un
+    # <div id="refs">. Extreu l'HTML de cada entrada (amb cursiva als títols
+    # i URL/DOI enllaçats) i deriva una versió en text pla com a fallback
+    # per a hosts que no acceptin HTML enriquit.
+    entries_html = [m.strip() for m in re.findall(
+        r'<div[^>]*class="[^"]*csl-entry[^"]*"[^>]*>(.*?)</div>', out, re.DOTALL)]
+    if not entries_html:
+        # Alguns CSL no embolcallen en csl-entry: cau a paràgrafs <p>.
+        entries_html = [m.strip() for m in re.findall(r'<p>(.*?)</p>', out, re.DOTALL)]
+
+    def _strip_tags(s: str) -> str:
+        import html as _h
+        return _h.unescape(re.sub(r'<[^>]+>', '', s)).strip()
+
+    entries = [_strip_tags(e) for e in entries_html]
     return {
         "entries": entries,
+        "entries_html": entries_html,
         "style": style,
         "locale": locale,
         "resolved": len(csl_items),

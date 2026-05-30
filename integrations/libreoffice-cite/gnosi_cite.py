@@ -61,13 +61,15 @@ MARK_PREFIX = "gnosicite::"
 STYLE_LABELS = ["APA 7", "Chicago (autor-data)", "MLA", "IEEE"]
 STYLE_VALUES = ["apa", "chicago-author-date", "modern-language-association", "ieee"]
 
-LOCALE_LABELS = ["Català", "Castellà", "Anglès (US)", "Anglès (UK)"]
-LOCALE_VALUES = ["ca-AD", "es-ES", "en-US", "en-GB"]
+# Locale fix (no exposat a la UI; paritat amb el Word Add-in). Es manté
+# com a constant perquè els endpoints del backend l'esperen i la config el
+# desa, però el diàleg ja no en mostra cap selector.
+DEFAULT_LOCALE = "ca-AD"
 
 DEFAULTS = {
     "backend_url": "http://localhost:5002",
     "style": "apa",
-    "locale": "ca-AD",
+    "locale": DEFAULT_LOCALE,
 }
 
 
@@ -380,14 +382,8 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
                   {"PositionX": 6, "PositionY": 148, "Width": 28, "Height": 10,
                    "Label": "Estil:"})
         self._add("ListBox", "lstStyle",
-                  {"PositionX": 36, "PositionY": 146, "Width": 84, "Height": 13,
+                  {"PositionX": 36, "PositionY": 146, "Width": 218, "Height": 13,
                    "Dropdown": True, "StringItemList": tuple(STYLE_LABELS)})
-        self._add("FixedText", "lblLocale",
-                  {"PositionX": 128, "PositionY": 148, "Width": 30, "Height": 10,
-                   "Label": "Idioma:"})
-        self._add("ListBox", "lstLocale",
-                  {"PositionX": 162, "PositionY": 146, "Width": 92, "Height": 13,
-                   "Dropdown": True, "StringItemList": tuple(LOCALE_LABELS)})
 
         self._add("Button", "btnInsert",
                   {"PositionX": 6, "PositionY": 166, "Width": 80, "Height": 14,
@@ -418,7 +414,6 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         self.txtSearch = self.dialog.getControl("txtSearch")
         self.lstResults = self.dialog.getControl("lstResults")
         self.lstStyle = self.dialog.getControl("lstStyle")
-        self.lstLocale = self.dialog.getControl("lstLocale")
         self.btnInsert = self.dialog.getControl("btnInsert")
         self.btnBib = self.dialog.getControl("btnBib")
         self.btnRefresh = self.dialog.getControl("btnRefresh")
@@ -426,9 +421,11 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         self.btnClose = self.dialog.getControl("btnClose")
         self.lblStatus = self.dialog.getControl("lblStatus")
 
-        # Selecció inicial d'estil/idioma segons la configuració.
+        # Selecció inicial d'estil segons la configuració. El locale és
+        # fix (ca-AD): amb estils autor-data com APA el locale a penes
+        # canvia res i el selector només afegia soroll (paritat amb el
+        # Word Add-in, que tampoc l'exposa).
         self._select(self.lstStyle, STYLE_VALUES, self.cfg.get("style"))
-        self._select(self.lstLocale, LOCALE_VALUES, self.cfg.get("locale"))
 
         toolkit = self.smgr.createInstanceWithContext(
             "com.sun.star.awt.Toolkit", self.ctx
@@ -489,7 +486,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
 
     def _persist(self):
         style = self._current(self.lstStyle, STYLE_VALUES, "apa")
-        locale = self._current(self.lstLocale, LOCALE_VALUES, "ca-AD")
+        locale = self.cfg.get("locale") or DEFAULT_LOCALE
         self.cfg["style"] = style
         self.cfg["locale"] = locale
         save_config(self.cfg)
