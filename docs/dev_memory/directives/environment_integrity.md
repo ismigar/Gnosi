@@ -197,3 +197,28 @@ curl -sk "https://localhost:5173/api/vault/search-citations?q=&limit=5"   # ha d
 
 ### Causa-Efecte (memoritzar)
 > Vault a OneDrive → fitxers `dataless` (online-only) → llegir-los dins el contenidor (virtiofs) → EDEADLK → indexació/format de cites buits → construeix SEMPRE des de la caché del `page_index`, i el fitxer només com a *fallback* protegit.
+
+### Fix d'amfitrió: VirtioFS → gRPC FUSE (2026-05-30)
+
+Complementari a la resiliència de codi anterior: el mateix `EDEADLK` també afecta `params.yaml` a l'arrencada (no és `dataless`, és YAML de text normal de 2757 bytes que es llegeix bé des del host). La causa és la **implementació de file sharing de Docker Desktop**: amb **VirtioFS** (el valor per defecte) la lectura de fitxers del File Provider de OneDrive des del contenidor deadlocka de manera intermitent; amb **gRPC FUSE** no.
+
+**Símptoma:** «no carrega cap pàgina ni BD». El frontend (https://localhost:5173) renderitza, però el backend (`gnosi_backend`, :5002) està en crash-loop (`RestartCount` puja, mai `healthy`) petant a `app_config.py:load_params` amb `OSError: [Errno 35] Resource deadlock avoided` en llegir `/vault/.gnosi/params.yaml`.
+
+**Diagnòstic ràpid:**
+```bash
+export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"   # docker NO és al PATH per defecte
+docker inspect gnosi_backend --format '{{.RestartCount}} {{.State.Health.Status}}'
+docker logs gnosi_backend --tail 50 | grep -i 'deadlock'
+```
+
+**Fix permanent (amfitrió):**
+1. Atura Docker del tot: `docker desktop stop` + `osascript -e 'quit app "Docker Desktop"'` (el GUI ha d'estar mort o reescriu els settings en sortir). Verifica 0 processos `Docker Desktop`/`com.docker.backend`/`com.docker.virtualization`.
+2. Afegeix `"fileSharingImplementation": "gRPC FUSE"` a `~/Library/Group Containers/group.com.docker/settings-store.json` (backup previ a `/tmp/`). Valors acceptats verificats a `app.asar`: `virtiofs`, `osxfs`, `gRPC FUSE`.
+3. `open -a Docker`; els contenidors tenen `restart: unless-stopped` → arrenquen sols. Read-back de la clau per confirmar que Docker la manté.
+
+**Verificació QA (feta):** `RestartCount` deixa de pujar i `Health=healthy`; `Application startup complete` als logs (sense `deadlock` nous, validat amb timestamp real `docker logs -t`); `/api/health`→200 JSON; `/api/vault/pages`→200 amb ~2 MB (prova que llegeix el vault de OneDrive des del contenidor sense deadlock); `/api/config` retorna el YAML d'usuari fusionat.
+
+**Restriccions / Edge cases:**
+- El recompte `docker logs --since 2m | grep deadlock` enganya: les línies d'uvicorn **no porten timestamp**, així que `--since` no filtra el tràfic vell del crash-loop. Per comptar deadlocks recents cal `docker logs -t --since 30s` (timestamp real de Docker).
+- Trampa de verificació: el backend serveix la SPA com a catch-all → rutes `/api/*` inexistents retornen JSON `{"detail":"Not Found"}` (404 correcte del router), no pas la SPA. Per provar que l'API viu, usa rutes reals (`/api/health`, `/api/config`, `/api/vault/pages`), no noms inventats com `/api/dashboards`.
+- L'altra Mac (workflow de dues màquines) hauria de tenir també gRPC FUSE si replica aquest entorn Docker+OneDrive.
