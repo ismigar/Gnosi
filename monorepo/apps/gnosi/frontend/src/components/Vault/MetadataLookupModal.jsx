@@ -232,6 +232,28 @@ export const MetadataLookupModal = ({
         return el;
     }, []);
 
+    // Dades derivades del resultat. Es calculen ABANS del primer `return`
+    // condicional perquè el `useMemo` de sota és un hook: per la regla dels
+    // hooks de React no pot quedar després d'un early return. Si hi quedés, en
+    // obrir el modal (isOpen false→true) es renderitzarien més hooks que al
+    // render anterior → "Rendered more hooks than during the previous render".
+    const sug = result?.suggested || {};
+    const fieldEntries = Object.entries(sug);
+    // L2: agrupa entries per rellevància segons el tipus Zotero del resultat.
+    // `Item Type` no apareix a la taula (es mostra com a badge al header).
+    // Si no es reconeix el tipus, tot va a "altres" (la taula es renderitza
+    // com una sola secció, sense capçalera de grup).
+    const zoteroType = resolveZoteroType(sug['Item Type']);
+    const { relevantEntries, otherEntries } = useMemo(() => {
+        const rel = [], oth = [];
+        for (const [k, v] of fieldEntries) {
+            if (k === 'Item Type') continue;
+            if (zoteroType && isFieldRelevantForType(k, zoteroType)) rel.push([k, v]);
+            else oth.push([k, v]);
+        }
+        return { relevantEntries: rel, otherEntries: oth };
+    }, [fieldEntries, zoteroType]);
+
     if (!isOpen || !portalEl) return null;
 
     // PR #5: validació format dels identificadors. Si el valor és buit la
@@ -254,25 +276,8 @@ export const MetadataLookupModal = ({
         }`;
     const hintCls = "text-[10px] text-red-500 mt-0.5";
 
-    const sug = result?.suggested || {};
-    const fieldEntries = Object.entries(sug);
     const allSelected = fieldEntries.length > 0 && fieldEntries.every(([k]) => selectedFields[k]);
-
-    // L2: agrupa entries per rellevància segons el tipus Zotero del resultat.
-    // `Item Type` no apareix a la taula (es mostra com a badge al header).
-    // Si no es reconeix el tipus, tot va a "altres" (la taula es renderitza
-    // com una sola secció, sense capçalera de grup).
-    const zoteroType = resolveZoteroType(sug['Item Type']);
     const typeLabelCa = zoteroType ? (ZOTERO_TYPE_LABELS['ca-AD']?.[zoteroType] || zoteroType) : null;
-    const { relevantEntries, otherEntries } = useMemo(() => {
-        const rel = [], oth = [];
-        for (const [k, v] of fieldEntries) {
-            if (k === 'Item Type') continue;
-            if (zoteroType && isFieldRelevantForType(k, zoteroType)) rel.push([k, v]);
-            else oth.push([k, v]);
-        }
-        return { relevantEntries: rel, otherEntries: oth };
-    }, [fieldEntries, zoteroType]);
 
     return ReactDOM.createPortal(
         <div

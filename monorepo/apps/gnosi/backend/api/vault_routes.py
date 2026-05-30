@@ -567,6 +567,14 @@ def kickoff_index_warmup(v_path: Path) -> None:
         }
 
     def _run():
+        # Precalienta l'índex id→títol (el fa servir /global-index a cada
+        # càrrega de pàgina): carrega de disc i refresca en background. Evita
+        # els ~15s en fred del primer /global-index després d'un reinici.
+        try:
+            _load_id_title_from_disk()
+            _refresh_id_title_index()
+        except Exception as e:
+            log.warning(f"id-title warmup skipped: {e}")
         try:
             # 1. Try to load from local disk cache first (fast path)
             loaded = _load_page_index_from_disk(v_str)
@@ -8322,11 +8330,68 @@ def trigger_n8n_webhook(filename: str, folder: str, content: str):
         log.warning(f"Could not notify event to n8n: {e}")
 
 
-# Cache TTL pel id_title_index: el fan servir /backlinks, /unlinked-mentions
-# i /global-index, tots a la càrrega d'una pàgina. Reusem `_iter_linkable_page_documents`
-# (que ja té cau pròpia) per construir-lo.
-def build_id_title_index() -> Dict[str, str]:
-    """Builds a global mapping page_id -> title for vault and dashboard."""
+# ── Índex global id→títol amb persistència a disc + stale-while-revalidate ───
+# El fan servir /backlinks, /unlinked-mentions i /global-index, tots a la
+# càrrega de QUALSEVOL pàgina. Construir-lo recorre el vault sencer a OneDrive
+# (rglob + parse frontmatter), cost mesurat ~15s EN FRED. Abans no es persistia
+# ni es precalentava al warmup, així que la 1a càrrega de pàgina després de
+# CADA reinici del backend pagava aquests ~15s (símptoma: "la vista incrustada
+# triga a carregar"). Ara, mateix patró que el page-index/body-cache:
+#   • es desa a /app/data/cache/vault_id_title_index.json,
+#   • es carrega de disc al startup (resposta instantània),
+#   • es refresca en background (stale-while-revalidate): la petició torna el
+#     valor cachejat i el rglob d'OneDrive es paga FORA de la petició.
+# Obsolescència màxima: _ID_TITLE_TTL (igual que el TTL de _iter_docs_cache,
+# del qual aquest índex deriva — per això no cal invalidació explícita als
+# endpoints d'escriptura: _iter_docs_cache ja s'actualitza surgical).
+_ID_TITLE_TTL = 60.0
+_id_title_cache: dict = {"index": None, "ts": 0.0}
+_id_title_lock = threading.Lock()
+_id_title_refreshing = False
+
+
+def _get_id_title_cache_path() -> Optional[Path]:
+    """Path local on persistir l'índex id→títol. Mateix patró que page-index."""
+    base = get_p("PAGE_INDEX_CACHE")
+    if base:
+        return base.parent / "vault_id_title_index.json"
+    return Path("/app/data/cache/vault_id_title_index.json")
+
+
+def _save_id_title_to_disk(index: Dict[str, str]) -> None:
+    try:
+        cache_path = _get_id_title_cache_path()
+        if not cache_path:
+            return
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_json(cache_path, index, indent=None, ensure_ascii=False)
+    except Exception as e:
+        log.warning(f"id-title persist failed: {e}")
+
+
+def _load_id_title_from_disk() -> bool:
+    """Carrega l'índex persistit i el marca STALE (ts=0) perquè el primer ús
+    dispari un refresh en background contra l'estat real del vault."""
+    try:
+        cache_path = _get_id_title_cache_path()
+        if not cache_path or not cache_path.exists():
+            return False
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return False
+        with _id_title_lock:
+            _id_title_cache["index"] = {str(k): str(v) for k, v in data.items()}
+            _id_title_cache["ts"] = 0.0
+        log.info(f"📂 id-title index loaded from disk ({len(data)} entries)")
+        return True
+    except Exception as e:
+        log.warning(f"id-title load skipped: {e}")
+        return False
+
+
+def _compute_id_title_index() -> Dict[str, str]:
+    """Càlcul real: id→títol de tot el vault i dashboards. Pot fer rglob a
+    OneDrive en fred (car). Cridar només fora de la petició (background)."""
     index: Dict[str, str] = {}
     for file_path, metadata, _body, is_dashboard in _iter_linkable_page_documents():
         try:
@@ -8341,6 +8406,64 @@ def build_id_title_index() -> Dict[str, str]:
         except Exception as e:
             log.warning(f"Error indexant {file_path.name}: {e}")
     return index
+
+
+def _refresh_id_title_index() -> None:
+    """Recalcula i persisteix en background. Un sol refresh concurrent."""
+    global _id_title_refreshing
+    with _id_title_lock:
+        if _id_title_refreshing:
+            return
+        _id_title_refreshing = True
+
+    def _run():
+        global _id_title_refreshing
+        try:
+            idx = _compute_id_title_index()
+            with _id_title_lock:
+                _id_title_cache["index"] = idx
+                _id_title_cache["ts"] = time.time()
+            _save_id_title_to_disk(idx)
+        except Exception as e:
+            log.warning(f"id-title refresh failed: {e}")
+        finally:
+            with _id_title_lock:
+                _id_title_refreshing = False
+
+    threading.Thread(target=_run, daemon=True, name="id-title-refresh").start()
+
+
+def build_id_title_index() -> Dict[str, str]:
+    """id→títol global amb caché persistent + stale-while-revalidate.
+
+    Mai bloqueja la petició si hi ha caché (memòria o disc): torna una còpia
+    del valor cachejat i dispara el recàlcul en background. Només la
+    PRIMERÍSSIMA vegada sense cap caché (ni disc) es paga el cost síncron.
+    Torna una còpia per evitar que un consumidor muti la caché compartida.
+    """
+    now = time.time()
+    with _id_title_lock:
+        idx = _id_title_cache.get("index")
+        ts = _id_title_cache.get("ts", 0.0)
+    if idx is not None:
+        if (now - ts) >= _ID_TITLE_TTL:
+            _refresh_id_title_index()
+        return dict(idx)
+
+    # Sense caché en memòria → prova disc (instantani després d'un reinici).
+    if _load_id_title_from_disk():
+        _refresh_id_title_index()
+        with _id_title_lock:
+            cur = _id_title_cache.get("index")
+        return dict(cur) if cur else {}
+
+    # Ni memòria ni disc → càlcul síncron (només el primer cop absolut).
+    idx = _compute_id_title_index()
+    with _id_title_lock:
+        _id_title_cache["index"] = idx
+        _id_title_cache["ts"] = time.time()
+    _save_id_title_to_disk(idx)
+    return dict(idx)
 
 
 # Cache amb TTL per `_iter_linkable_page_documents`. Cada crida iterava
