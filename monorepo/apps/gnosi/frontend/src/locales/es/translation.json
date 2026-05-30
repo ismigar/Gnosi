@@ -206,6 +206,7 @@
     "switch_normal_view": "Cambiar a vista normal",
     "switch_code_view": "Cambiar a vista código",
     "view_history": "Ver historial",
+    "translate_page": "Traducir página",
     "delete_current_page": "Eliminar página actual",
     "hide_sidebar": "Ocultar barra lateral",
     "show_sidebar": "Mostrar barra lateral"
@@ -935,6 +936,9 @@
     "intro": "Elige los idiomas destino. Para cada idioma se creará un subitem con la traducción de los campos marcados como traducibles.",
     "submit": "Traducir",
     "success": "Traducción iniciada — los subitems se crearán en breve.",
+    "title_page": "Traducir página",
+    "intro_page": "Elige los idiomas destino. Para cada idioma se creará una subpágina con la traducción del título y el contenido.",
+    "success_page": "Traducción iniciada — las subpáginas se crearán en breve.",
     "error": "Error iniciando la traducción",
     "error_pick_lang": "Selecciona al menos un idioma.",
     "provider_hint": "El catalán se traduce con Softcatalà; el resto con DeepL. Configura las credenciales en .env_shared."

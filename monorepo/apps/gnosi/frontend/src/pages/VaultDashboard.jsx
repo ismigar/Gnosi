@@ -18,6 +18,7 @@ import { ViewConfigModal } from '../components/Vault/ViewConfigModal';
 import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
 import { MetadataLookupModal } from '../components/Vault/MetadataLookupModal';
 import { RecentModal } from '../components/Vault/RecentModal';
+import { TranslateLanguagesModal } from '../components/Vault/TranslateLanguagesModal';
 import { DigitalBrainCalendar } from '../components/Vault/DigitalBrainCalendar';
 import { VaultGallery } from '../components/Vault/VaultGallery';
 import { VaultTimeline } from '../components/Vault/VaultTimeline';
@@ -84,6 +85,8 @@ export default function VaultDashboard() {
     const [activeViewId, setActiveViewId] = useState(null);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
     const [isRecentOpen, setIsRecentOpen] = useState(false);
+    // Id de la pàgina per a la qual el modal «Tradueix la pàgina» està obert (null = tancat).
+    const [translatePageModalId, setTranslatePageModalId] = useState(null);
     const [historyOpenSignal, setHistoryOpenSignal] = useState(0);
     const [globalIndex, setGlobalIndex] = useState({});
     const [registry, setRegistry] = useState({ databases: [], tables: [], views: [] });
@@ -2447,6 +2450,8 @@ export default function VaultDashboard() {
     const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
     const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
     const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
+    // Traduir pàgina: només per a pàgines markdown editables (ni taules ni PDFs).
+    const canTranslatePage = viewMode === 'editor' && Boolean(currentOpenPage && currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
     const quickOpenItems = React.useMemo(() => {
         const pageItems = pages
             .filter(p => !p.metadata?.is_template)
@@ -3116,6 +3121,11 @@ export default function VaultDashboard() {
                     return next;
                 });
             }}
+            canTranslatePage={canTranslatePage}
+            onTranslatePage={() => {
+                if (!canTranslatePage || !currentOpenPage?.id) return;
+                setTranslatePageModalId(currentOpenPage.id);
+            }}
         >
             <div className="h-full bg-[var(--bg-primary)] flex flex-col min-w-0">
                 {(viewMode === 'editor' || viewMode === 'drawing') && (
@@ -3471,6 +3481,16 @@ export default function VaultDashboard() {
                 allNotes={pages}
                 onNoteSelect={loadPage}
             />
+
+            {translatePageModalId && (
+                <TranslateLanguagesModal
+                    isOpen={true}
+                    mode="page"
+                    noteId={translatePageModalId}
+                    onClose={() => setTranslatePageModalId(null)}
+                    onTranslated={() => { setTranslatePageModalId(null); fetchPages(); }}
+                />
+            )}
 
             {
                 viewToDelete && (
