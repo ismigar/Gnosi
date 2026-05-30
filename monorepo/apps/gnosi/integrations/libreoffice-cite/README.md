@@ -16,7 +16,6 @@ i comparteix exactament el mateix backend i pipeline pandoc.
 - **Bibliografia automàtica**: recopila totes les cites del document i les
   renderitza al final via pandoc-citeproc
 - **Estils CSL**: APA 7, Chicago author-date, MLA, IEEE
-- **Idiomes**: ca-AD, es-ES, en-US, en-GB
 
 ## Arquitectura
 
@@ -105,7 +104,7 @@ Per desinstal·lar: `unopkg remove com.gnosi.cite`.
 1. **Gnosi Cite > Configuració…** → posa l'URL del backend (un cop)
 2. **Gnosi Cite > Insereix cita…** → s'obre el diàleg:
    - Escriu al cercador (filtra per key/títol/autor)
-   - Tria estil i idioma
+   - Tria l'estil de citació (APA 7, Chicago, MLA, IEEE)
    - Doble-clic a una entrada (o **Insereix cita**) per inserir-la al cursor
 3. Quan tinguis totes les cites: **Insereix bibliografia** i, per APA,
    **Actualitza tot (APA)**

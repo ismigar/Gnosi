@@ -83,7 +83,7 @@
         // totes juntes amb el context complet.
         try {
             const style = $('style-select').value || 'apa';
-            const locale = $('locale-select').value || 'ca-AD';
+            const locale = 'ca-AD';
             const url = new URL(API_BASE + '/api/vault/format-citation');
             url.searchParams.set('key', citationKey);
             url.searchParams.set('style', style);
@@ -110,7 +110,7 @@
         if (!citationKeys || !citationKeys.length) return [];
         try {
             const style = $('style-select').value || 'apa';
-            const locale = $('locale-select').value || 'ca-AD';
+            const locale = 'ca-AD';
             const r = await fetch(API_BASE + '/api/vault/format-citations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -128,7 +128,7 @@
     async function formatBibliography(citationKeys) {
         try {
             const style = $('style-select').value || 'apa';
-            const locale = $('locale-select').value || 'ca-AD';
+            const locale = 'ca-AD';
             const r = await fetch(API_BASE + '/api/vault/format-bibliography', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -140,10 +140,13 @@
             });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const data = await r.json();
-            return data && Array.isArray(data.entries) ? data.entries : [];
+            return {
+                entries: (data && Array.isArray(data.entries)) ? data.entries : [],
+                entriesHtml: (data && Array.isArray(data.entries_html)) ? data.entries_html : [],
+            };
         } catch (err) {
             console.warn('bibliography failed:', err && err.message);
-            return [];
+            return { entries: [], entriesHtml: [] };
         }
     }
 
@@ -298,26 +301,45 @@
             return [];
         }
         setFooter('Formatant ' + keys.length + ' entrades…');
-        const entries = await formatBibliography(keys);
-        return entries;
+        return await formatBibliography(keys);
     }
 
     async function insertBibliography() {
-        const entries = await refreshBibliography();
-        if (!entries.length) return;
+        const { entries, entriesHtml } = await refreshBibliography();
+        if (!entries.length && !entriesHtml.length) return;
+        const count = entriesHtml.length || entries.length;
         try {
             await Word.run(async (context) => {
                 const body = context.document.body;
                 body.insertParagraph('', Word.InsertLocation.end);
                 const heading = body.insertParagraph('Bibliografia', Word.InsertLocation.end);
                 heading.styleBuiltIn = Word.BuiltInStyleName.heading1;
-                entries.forEach((entry) => {
-                    const p = body.insertParagraph(entry, Word.InsertLocation.end);
-                    p.styleBuiltIn = Word.BuiltInStyleName.normal;
-                });
+                if (entriesHtml.length) {
+                    // Word converteix <em>/<i> en cursiva i <a href> en
+                    // hipervincle real. El format de paràgraf (alineació +
+                    // sagnia francesa) s'aplica DESPRÉS via Word.js, no per
+                    // CSS: el WebView de Word ignora text-align/marges de
+                    // l'HTML i, si no, hereta la justificació de l'estil del
+                    // document (espais enormes entre paraules — no és APA).
+                    const html = entriesHtml.map((e) => '<p>' + e + '</p>').join('');
+                    const range = body.insertHtml(html, Word.InsertLocation.end);
+                    range.load('paragraphs');
+                    await context.sync();
+                    range.paragraphs.items.forEach((p) => {
+                        p.alignment = Word.Alignment.left;   // ragged right (no justificat)
+                        p.leftIndent = 36;                   // 0,5" — base de la sagnia
+                        p.firstLineIndent = -36;             // hanging indent APA
+                        p.spaceAfter = 6;
+                    });
+                } else {
+                    entries.forEach((entry) => {
+                        const p = body.insertParagraph(entry, Word.InsertLocation.end);
+                        p.styleBuiltIn = Word.BuiltInStyleName.normal;
+                    });
+                }
                 await context.sync();
             });
-            setFooter('Bibliografia inserida amb ' + entries.length + ' entrades.');
+            setFooter('Bibliografia inserida amb ' + count + ' entrades.');
         } catch (err) {
             setFooter('Error inserint bibliografia: ' + (err && err.message));
         }

@@ -2,7 +2,8 @@
 
 **Objectiu**: gestor de cites estil Mendeley dins LibreOffice Writer, a
 paritat amb el Word Add-in (`frontend/public/word-addin/`). Cerca, selecció
-d'estil/idioma, inserció amb tracking, bibliografia i reformatació APA.
+d'estil de citació, inserció amb tracking, bibliografia i reformatació APA.
+(El locale és fix `ca-AD`, no exposat a la UI — paritat amb el Word Add-in.)
 
 **Ubicació**: `monorepo/apps/gnosi/integrations/libreoffice-cite/`
 
