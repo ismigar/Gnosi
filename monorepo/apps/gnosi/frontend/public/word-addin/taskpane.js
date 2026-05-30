@@ -168,8 +168,15 @@
                 (meta ? '<div class="result-meta">' + escapeHtml(meta) + '</div>' : '');
             li.addEventListener('click', () => insertCitation(item));
             li.addEventListener('mouseenter', () => {
+                // NOMÉS actualitzem el realçat (classe 'active'); NO
+                // re-renderitzem la llista. Re-renderitzar substitueix els
+                // <li> sota el cursor i, al WebView de Word per Mac, pot
+                // empassar-se el clic (mousedown i mouseup cauen en elements
+                // diferents) → la inserció no es disparava mai.
                 activeIdx = idx;
-                renderResults(items); // re-render to highlight
+                list.querySelectorAll('.result-item').forEach((el, i) => {
+                    el.classList.toggle('active', i === idx);
+                });
             });
             list.appendChild(li);
         });
@@ -187,40 +194,59 @@
     async function insertCitation(item) {
         if (!item || !item.citation_key) return;
         setFooter('Inserint cita…');
-        const text = await formatCitation(item.citation_key);
+        let text;
+        try {
+            text = await formatCitation(item.citation_key);
+        } catch (e) {
+            setFooter('Error formatant la cita: ' + (e && e.message));
+            return;
+        }
         const tag = 'gnosi-cite:' + item.citation_key;
 
-        // Word.run permet wrapping en Content Control per tracking.
-        // En context que no ho admeti (vell add-in mailbox, taskpane HTML
-        // pur sense Word host) caiem al fallback setSelectedDataAsync.
+        // Patró robust per a Word (inclòs Word per Mac): inserir el text a la
+        // selecció PRIMER (sync), i en una segona passada embolcallar-lo en
+        // un Content Control per al seguiment. Crear un Content Control buit
+        // sobre una selecció col·lapsada (només cursor) falla a Word per Mac.
         try {
+            if (typeof Word === 'undefined' || !Word.run) {
+                throw new Error('API de Word no disponible');
+            }
             await Word.run(async (context) => {
                 const range = context.document.getSelection();
-                const cc = range.insertContentControl();
-                cc.tag = tag;
-                cc.title = 'Gnosi cite ' + item.citation_key;
-                cc.insertText(text, Word.InsertLocation.replace);
-                cc.cannotEdit = false;
-                cc.cannotDelete = false;
+                const inserted = range.insertText(text, Word.InsertLocation.replace);
                 await context.sync();
+                try {
+                    const cc = inserted.insertContentControl();
+                    cc.tag = tag;
+                    cc.title = 'Gnosi cite ' + item.citation_key;
+                    await context.sync();
+                } catch (ccErr) {
+                    // El text JA és al document; només falla el seguiment per
+                    // Content Control (no bloqueja la inserció).
+                    console.warn('CC wrap failed (text inserit igualment):', ccErr && ccErr.message);
+                }
             });
             // Recordatori APA: la cita acabada d'inserir es renderitza sense
-            // context del document. Cal "Actualitza tot (APA)" per garantir
-            // desambiguacions i `et al.` correctes quan s'acabin d'inserir
-            // totes les cites.
-            setFooter('Inserida @' + item.citation_key + ' — recorda «Actualitza tot (APA)» abans de publicar.');
+            // context del document; cal «Actualitza tot (APA)» per a les
+            // desambiguacions i `et al.` correctes.
+            setFooter('Inserida @' + item.citation_key + ' — recorda «Actualitza tot (APA)».');
         } catch (err) {
             console.warn('Word.run insert failed, fallback:', err && err.message);
+            // Fallback: API genèrica d'Office (text pla a la selecció).
             try {
-                Office.context.document.setSelectedDataAsync(text + ' ', { coercionType: Office.CoercionType.Text }, (res) => {
-                    if (res.status === Office.AsyncResultStatus.Failed) {
-                        setFooter('Error: ' + res.error.message);
-                    } else {
-                        setFooter('Cita inserida (text pla): ' + item.citation_key);
+                Office.context.document.setSelectedDataAsync(
+                    text + ' ',
+                    { coercionType: Office.CoercionType.Text },
+                    (res) => {
+                        if (res.status === Office.AsyncResultStatus.Failed) {
+                            setFooter('No s\'ha pogut inserir (' + res.error.message + '). Fes clic dins del document, on vulguis la cita, i torna-ho a provar.');
+                        } else {
+                            setFooter('Cita inserida (text pla): @' + item.citation_key);
+                        }
                     }
-                });
+                );
             } catch (err2) {
-                setFooter('Error inserint: ' + (err2 && err2.message));
+                setFooter('Error inserint: ' + (err && err.message ? err.message : '') + (err2 ? ' / ' + err2.message : ''));
             }
         }
     }
