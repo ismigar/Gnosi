@@ -278,6 +278,7 @@
     "switch_normal_view": "Switch to normal view",
     "switch_code_view": "Switch to code view",
     "view_history": "View history",
+    "translate_page": "Translate page",
     "delete_current_page": "Delete current page",
     "hide_sidebar": "Hide sidebar",
     "show_sidebar": "Show sidebar"
@@ -1036,6 +1037,9 @@
     "intro": "Pick the target languages. For each language, a subitem will be created with the translation of the fields marked as translatable.",
     "submit": "Translate",
     "success": "Translation started — subitems will appear shortly.",
+    "title_page": "Translate page",
+    "intro_page": "Pick the target languages. For each language, a child page will be created with the translation of the title and content.",
+    "success_page": "Translation started — child pages will appear shortly.",
     "error": "Error starting translation",
     "error_pick_lang": "Pick at least one language.",
     "provider_hint": "Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in .env_shared."

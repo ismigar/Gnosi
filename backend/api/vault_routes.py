@@ -11073,6 +11073,138 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
     }
 
 
+@router.post("/skills/translate-page", dependencies=[Depends(require_role("editor"))])
+async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    """Translate a Vault page (title + markdown body) into one child page per language.
+
+    Body:
+        {
+          "page_id": "<uuid of the page>",
+          "target_languages": ["en", "es", ...],
+          "button_action": "translate_page"  # validated; rejects others
+        }
+
+    For each target language a child page is created (`parent_id = page_id`) with the
+    translated title and body. Gnosi's enriched-markdown directives (code fences, `:::`
+    blocks, wikilinks, citations, bibliography, transclusions) are preserved by the
+    `translate_page` skill's segmenter. Mirrors `translate_row` but for whole documents.
+    """
+    page_id = (payload.get("page_id") or "").strip()
+    target_languages = payload.get("target_languages") or []
+    button_action = payload.get("button_action") or "translate_page"
+
+    if not page_id:
+        raise HTTPException(status_code=400, detail="page_id is required")
+    if not isinstance(target_languages, list) or not target_languages:
+        raise HTTPException(status_code=400, detail="target_languages must be a non-empty list")
+    if button_action != "translate_page":
+        raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
+
+    # Defer the import so a missing dependency doesn't break the whole API —
+    # translation is opt-in per page.
+    try:
+        from pipeline.skills.translate_page.scripts.markdown_segmenter import (
+            translate_markdown as _translate_markdown,
+            translate_title as _translate_title,
+            detect_source_lang as _detect_source_lang,
+        )
+    except Exception as exc:
+        log.error(f"translate_page skill not importable: {exc}")
+        raise HTTPException(status_code=500, detail="translate_page skill unavailable")
+
+    # Read the DeepL API key from the Keychain (same source as translate_row).
+    deepl_api_key = ""
+    try:
+        from backend.security.keychain_manager import get_keychain
+        kc = get_keychain()
+        if kc.has_credential("deepl_api_key"):
+            deepl_api_key = kc.get_credential("deepl_api_key") or ""
+    except Exception as exc:
+        log.warning(f"translate_page: keychain unavailable, using env fallback: {exc}")
+
+    # 1. Locate and read the source page.
+    file_path = await asyncio.to_thread(find_page_path, page_id)
+    if not file_path or not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Page not found (ID: {page_id})")
+    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+    metadata, body = parse_frontmatter(raw_content, file_path)
+    parent_title = str(metadata.get("title") or "")
+
+    # 2. Detect source language from the body (falling back to the title).
+    sample = body.strip() if body and body.strip() else parent_title
+    source_lang = _detect_source_lang(sample) if sample else "ca"
+
+    # Sync worker run off the event loop: each segment is a blocking HTTP call.
+    def _translate_page_content(src_lang: str, tgt_lang: str):
+        providers = set()
+        t_title, title_provider = _translate_title(
+            parent_title, src_lang, tgt_lang, deepl_api_key=deepl_api_key
+        )
+        if title_provider != "noop":
+            providers.add(title_provider)
+        t_body, body_providers = _translate_markdown(
+            body, src_lang, tgt_lang, deepl_api_key=deepl_api_key
+        )
+        providers |= {p for p in body_providers if p != "noop"}
+        return t_title, t_body, providers
+
+    # 3. Translate per language and create one child page each.
+    created = []
+    skipped = []
+
+    for lang in target_languages:
+        if not isinstance(lang, str) or not lang.strip():
+            continue
+        lang = lang.strip().lower()
+        if lang == source_lang:
+            skipped.append({"lang": lang, "reason": "same as source"})
+            continue
+
+        try:
+            translated_title, translated_body, providers_used = await asyncio.to_thread(
+                _translate_page_content, source_lang, lang
+            )
+        except Exception as exc:
+            log.error(f"translate_page: failed translating page {page_id} → {lang}: {exc}")
+            skipped.append({"lang": lang, "reason": f"translate failed: {exc}"})
+            continue
+
+        sub_title = translated_title or (f"{parent_title} ({lang})" if parent_title else lang)
+        sub_metadata: Dict[str, Any] = {
+            "translation_lang": lang,
+            "translation_source_lang": source_lang,
+            "translation_origin_id": page_id,
+            "translation_provider": (
+                "mixed" if len(providers_used) > 1 else next(iter(providers_used), "noop")
+            ),
+        }
+        sub_request = PageSaveRequest(
+            title=sub_title,
+            content=translated_body,
+            parent_id=page_id,
+            metadata=sub_metadata,
+        )
+        try:
+            result = await create_page(sub_request, background_tasks)
+            created.append({
+                "id": result.get("id"),
+                "lang": lang,
+                "providers": sorted(providers_used),
+                "title": sub_title,
+            })
+        except Exception as exc:
+            log.error(f"translate_page: failed creating child page for {lang}: {exc}")
+            skipped.append({"lang": lang, "reason": f"create failed: {exc}"})
+
+    return {
+        "status": "ok",
+        "page_id": page_id,
+        "source_lang": source_lang,
+        "created": created,
+        "skipped": skipped,
+    }
+
+
 # -----------------------------------------------------------------------------
 # PDF annotations
 # -----------------------------------------------------------------------------

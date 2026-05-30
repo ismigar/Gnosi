@@ -188,6 +188,9 @@
     "intro": "Choisis les langues cible. Pour chaque langue, un sous-élément sera créé avec la traduction des champs marqués comme traduisibles.",
     "submit": "Traduire",
     "success": "Traduction lancée — les sous-éléments apparaîtront bientôt.",
+    "title_page": "Traduire la page",
+    "intro_page": "Choisis les langues cible. Pour chaque langue, une sous-page sera créée avec la traduction du titre et du contenu.",
+    "success_page": "Traduction lancée — les sous-pages apparaîtront bientôt.",
     "error": "Erreur au lancement de la traduction",
     "error_pick_lang": "Choisis au moins une langue.",
     "provider_hint": "Le catalan est traduit avec Softcatalà ; le reste avec DeepL. Configure les identifiants dans .env_shared."

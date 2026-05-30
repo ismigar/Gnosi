@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2, Lock, Unlock } from 'lucide-react';
+import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2, Lock, Unlock, Languages } from 'lucide-react';
 import { AppHeader } from '../AppHeader';
 
 export const VaultShell = ({
@@ -23,6 +23,8 @@ export const VaultShell = ({
     onToggleEditLock,
     canToggleEditLock = false,
     isEditLocked = false,
+    onTranslatePage,
+    canTranslatePage = false,
     children
 }) => {
     const { t } = useTranslation();
@@ -176,6 +178,19 @@ export const VaultShell = ({
                                 >
                                     <History size={14} />
                                     <span>{t('shell.view_history')}</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsPageMenuOpen(false);
+                                        if (canTranslatePage && onTranslatePage) {
+                                            onTranslatePage();
+                                        }
+                                    }}
+                                    disabled={!canTranslatePage}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                                >
+                                    <Languages size={14} />
+                                    <span>{t('shell.translate_page', 'Tradueix la pàgina')}</span>
                                 </button>
                                 <div className="border-t border-[var(--border-primary)] my-1" />
                                 <button
