@@ -48,17 +48,17 @@ Igual que al Word Add-in, l'estil APA i altres autor-data tenen regles
 homònims, `et al.` a partir de la segona aparició). Aquestes decisions
 requereixen que pandoc-citeproc rebi **totes les cites del document juntes**.
 
-La inserció puntual (`Insereix cita…`) crida `format-citation` singular per
-UX immediata, però sense context complet pot ser sub-òptima.
+La inserció des del diàleg ho fa **automàticament** (com Mendeley): cada
+cop que insereixes una cita, reformata **totes les cites** del document
+amb context complet — una sola crida `format-citations` (plural) amb
+totes les claus en ordre, incloent duplicats, i actualitza el text de
+cada *reference mark* (`2020a`/`2020b`, inicials, `et al.`). No cal cap
+acció manual.
 
-**Per garantir conformitat APA:**
-
-1. Insereix totes les cites que vulguis amb el diàleg
-2. Prem **«Actualitza tot (APA)»** — fa una sola crida `format-citations`
-   (plural) amb totes les cites en ordre, incloent duplicats, i actualitza
-   el text de cada *reference mark*
-3. Prem **«Insereix bibliografia»** per generar la llista final
-4. Si canvies d'estil o de locale, repeteix el pas 2
+**Si canvies d'estil** després d'inserir, fes servir el menú
+**Gnosi Cite > Actualitza tot (APA)** per repropagar-lo a tot el
+document (el desplegable del diàleg no detecta el canvi tot sol). La
+bibliografia es genera amb **«Insereix bibliografia»**.
 
 ## Requeriments
 
@@ -106,8 +106,9 @@ Per desinstal·lar: `unopkg remove com.gnosi.cite`.
    - Escriu al cercador (filtra per key/títol/autor)
    - Tria l'estil de citació (APA 7, Chicago, MLA, IEEE)
    - Doble-clic a una entrada (o **Insereix cita**) per inserir-la al cursor
-3. Quan tinguis totes les cites: **Insereix bibliografia** i, per APA,
-   **Actualitza tot (APA)**
+     (les cites del document es reformaten soles en APA a cada inserció)
+3. Quan tinguis totes les cites: **Insereix bibliografia**. Si has canviat
+   d'estil després d'inserir, fes **Gnosi Cite > Actualitza tot (APA)**.
 
 La configuració es desa a `~/.config/gnosi-cite/config.json`.
 

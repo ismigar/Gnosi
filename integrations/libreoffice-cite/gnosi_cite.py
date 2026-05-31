@@ -210,6 +210,14 @@ class DocOps(object):
         mark = self.doc.createInstance("com.sun.star.text.ReferenceMark")
         mark.Name = self._make_name(key)
         text.insertTextContent(cur, mark, True)
+        # Situa el cursor DESPRÉS de la cita (col·lapsat al final del rang
+        # que ocupa la marca) perquè l'usuari pugui continuar escrivint sense
+        # que el text entri dins el reference mark.
+        try:
+            end = mark.getAnchor().getEnd()
+            view_cursor.gotoRange(end, False)
+        except Exception:
+            pass
 
     # -- recol·lecció de claus -----------------------------------------
 
@@ -389,11 +397,8 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
                   {"PositionX": 6, "PositionY": 166, "Width": 80, "Height": 14,
                    "Label": "Insereix cita"})
         self._add("Button", "btnBib",
-                  {"PositionX": 90, "PositionY": 166, "Width": 84, "Height": 14,
+                  {"PositionX": 90, "PositionY": 166, "Width": 164, "Height": 14,
                    "Label": "Insereix bibliografia"})
-        self._add("Button", "btnRefresh",
-                  {"PositionX": 178, "PositionY": 166, "Width": 76, "Height": 14,
-                   "Label": "Actualitza tot (APA)"})
 
         self._add("FixedText", "lblStatus",
                   {"PositionX": 6, "PositionY": 186, "Width": 248, "Height": 20,
@@ -416,7 +421,6 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         self.lstStyle = self.dialog.getControl("lstStyle")
         self.btnInsert = self.dialog.getControl("btnInsert")
         self.btnBib = self.dialog.getControl("btnBib")
-        self.btnRefresh = self.dialog.getControl("btnRefresh")
         self.btnSettings = self.dialog.getControl("btnSettings")
         self.btnClose = self.dialog.getControl("btnClose")
         self.lblStatus = self.dialog.getControl("lblStatus")
@@ -439,7 +443,6 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         for ctrl, cmd in (
             (self.btnInsert, "insert"),
             (self.btnBib, "bib"),
-            (self.btnRefresh, "refresh"),
             (self.btnSettings, "settings"),
             (self.btnClose, "close"),
         ):
@@ -564,11 +567,20 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
             formatted = "(%s)" % key
         try:
             self.ops.insert_citation(key, formatted)
-            self._status(
-                "Inserida @%s — recorda «Actualitza tot (APA)» abans de publicar." % key
-            )
         except Exception as exc:
             self._status("Error inserint: %s" % exc)
+            return
+        # Recalcula totes les cites amb context complet (com Mendeley/Zotero):
+        # APA aplica 2020a/2020b, «et al.» i desambiguació de cognoms sense
+        # acció manual. Si el refresc falla, la cita inserida es manté.
+        try:
+            n, err = self.ops.refresh_all(self.api, style, locale)
+            if err:
+                self._status("Inserida @%s." % key)
+            else:
+                self._status("Inserida @%s — %d cites actualitzades (APA)." % (key, n))
+        except urllib.error.URLError:
+            self._status("Inserida @%s." % key)
 
     def _insert_bibliography(self):
         style, locale = self._persist()

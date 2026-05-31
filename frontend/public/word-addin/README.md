@@ -46,19 +46,18 @@ L'estil APA (i altres autor-data) té regles **sensibles a context**:
   → `Smith et al.`
 
 Aquestes decisions requereixen que pandoc-citeproc rebi **totes les
-cites del document juntes** en una sola crida. La inserció puntual
-(quan cliques una entrada al picker) crida `format-citation` singular
-per UX immediata, però sense context complet pot ser sub-òptima.
+cites del document juntes** en una sola crida. Per això l'add-in ho fa
+**automàticament** (com Mendeley/Zotero), sense cap botó:
 
-**Per garantir conformitat APA**:
-1. Insereix totes les cites que vulguis del document amb el picker
-2. Prem **"Actualitza bibliografia"** al peu de la sidebar — aquest botó
-   fa una sola crida `format-citations` (plural) amb totes les cites
-   detectades, en ordre, incloent duplicats. Pandoc-citeproc decideix
-   les desambiguacions correctament i el add-in actualitza tots els
-   Content Controls amb el text definitiu
-3. Prem **"Insereix bibliografia"** per generar la llista final
-4. Si canvies d'estil (APA → Chicago) o de locale, repeteix el pas 2
+- **En inserir una cita**, reformata totes les cites del document amb
+  context complet — una crida `format-citations` (plural) amb totes les
+  claus en ordre, incloent duplicats, i actualitza tots els Content
+  Controls amb el text definitiu (`2020a`/`2020b`, inicials, `et al.`).
+- **En canviar l'estil** (APA → Chicago) al selector, les cites ja
+  inserides es reformaten soles també.
+
+La **bibliografia** es genera amb el botó **«Insereix bibliografia»**;
+refés-la si has canviat d'estil després d'inserir-la.
 
 ## Requisit previ: HTTPS local (mkcert)
 
