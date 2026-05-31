@@ -5,7 +5,7 @@ import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
-import { filenameFromTarget } from '../../lib/fileResource';
+import { filenameFromTarget, isImageFieldName } from '../../lib/fileResource';
 import { sortKey } from '../../utils/vaultFilters';
 import { InsertContentModal } from './InsertContentModal';
 
@@ -1472,11 +1472,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     const isImageField = useCallback((field, fieldType) => {
         if (fieldType === 'files') return true;
-        // Si el camp està declarat al schema amb un tipus diferent de 'files',
-        // respectar-ho (no inferir per nom). Ex.: "Imatge Alt Text" de tipus text.
-        if (schema && schema[field] !== undefined && schema[field] !== null && schema[field] !== '') return false;
-        return /(image|imatge|cover|thumbnail|thumb|foto|imagen)/i.test(String(field || ''));
-    }, [schema]);
+        // Només inferim imatge pel NOM en camps de text (o sense tipus declarat):
+        // un camp explícitament number/date/select/relation/url/etc. mai és una
+        // imatge inferida. Abans aquí es bloquejava QUALSEVOL camp amb tipus
+        // declarat, cosa que també excloïa "Imatge" (tipus text) — ara només
+        // l'exclusió per nom ([[isImageFieldName]]) separa "Imatge" (ruta) de
+        // "Imatge Alt Text" (prosa). El render value-gateja amb la URL servible.
+        if (fieldType && fieldType !== 'text') return false;
+        return isImageFieldName(field);
+    }, []);
 
     const urlToVaultPath = useCallback((url) => {
         if (!url) return '';

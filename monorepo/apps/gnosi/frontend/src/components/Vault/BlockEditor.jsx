@@ -101,6 +101,8 @@ import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuU
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { FileFieldValue } from './FileFieldValue';
+import { ImageHoverPreview } from './ImageHoverPreview';
+import { isImageFieldName, toAssetPreviewUrl, servedUrlToVaultPath } from '../../lib/fileResource';
 import { AutoriaEditor, AutoriaDisplay } from './AutoriaField';
 import { dedupeAuthors } from './autoriaUtils';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
@@ -2652,6 +2654,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     
     const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
     const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
+    // Propietat (camp d'imatge per nom) per a la qual hi ha obert el selector
+    // d'imatge al panell de propietats. `null` = tancat.
+    const [imagePickerProp, setImagePickerProp] = useState(null);
     const iconTriggerRef = useRef(null);
     const coverTriggerRef = useRef(null);
     const headerHoverRef = useRef(null);
@@ -3424,6 +3429,40 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 ) : (() => {
                                                     const v = metadata[prop.name];
                                                     const hasVal = v !== undefined && v !== null && v !== '';
+                                                    // Camp imatge inferit pel NOM (mateixa detecció que la cel·la de
+                                                    // taula, via isImageFieldName) per a camps de text: si el valor
+                                                    // resol a una imatge servible es mostra com a miniatura amb
+                                                    // previsualització en hover; en edició, clicar obre el selector
+                                                    // (paritat amb la taula) i, si és buit, un afordament "+ Imatge".
+                                                    // "Imatge Alt Text" queda exclòs (és prosa) i segueix sent text.
+                                                    if ((!prop.type || prop.type === 'text') && isImageFieldName(prop.name)) {
+                                                        const previewUrl = toAssetPreviewUrl(typeof v === 'string' ? v : '');
+                                                        if (previewUrl) {
+                                                            if (!isEditor) return <ImageHoverPreview src={previewUrl} alt={prop.name} />;
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setImagePickerProp(prop.name)}
+                                                                    title={t('table.change_image', { defaultValue: 'Canviar imatge' })}
+                                                                    className="inline-flex items-center rounded hover:opacity-90 focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40"
+                                                                >
+                                                                    <ImageHoverPreview src={previewUrl} alt={prop.name} />
+                                                                </button>
+                                                            );
+                                                        }
+                                                        if (isEditor) {
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setImagePickerProp(prop.name)}
+                                                                    className="text-sm italic text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] px-2 py-1 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors text-left"
+                                                                >
+                                                                    {t('table.add_image', { defaultValue: '+ Imatge' })}
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return <span className="text-sm text-[var(--text-tertiary)]">{t('common.empty')}</span>;
+                                                    }
                                                     // Mode lectura: número/data formatats (global o override del camp).
                                                     if (!isEditor && hasVal && (prop.type === 'number' || prop.type === 'date' || prop.type === 'datetime')) {
                                                         const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
@@ -3746,6 +3785,22 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     Object.entries(patch).forEach(([k, v]) => {
                         handleMetaChange(k, v);
                     });
+                }}
+            />
+            {/* Selector d'imatge per als camps d'imatge (per nom) del panell de
+                propietats. Mateix modal i contracte que la cel·la de taula: valor
+                únic (reemplaça) i es desa la ruta relativa al vault. */}
+            <InsertContentModal
+                open={Boolean(imagePickerProp)}
+                tableId={rawTableId || ''}
+                fileField={null}
+                rowMetadata={metadata}
+                onClose={() => setImagePickerProp(null)}
+                onInsert={(result) => {
+                    if (!imagePickerProp) return;
+                    const newPath = servedUrlToVaultPath(result?.url || '');
+                    if (newPath) handleMetaChange(imagePickerProp, newPath);
+                    setImagePickerProp(null);
                 }}
             />
         </div>
