@@ -87,6 +87,10 @@ export default function VaultDashboard() {
     const [isRecentOpen, setIsRecentOpen] = useState(false);
     // Id de la pàgina per a la qual el modal «Tradueix la pàgina» està obert (null = tancat).
     const [translatePageModalId, setTranslatePageModalId] = useState(null);
+    // Mode del modal de traducció obert des del menú de pàgina: 'row' tradueix
+    // els camps traduïbles a un subitem (registre de taula traduïble); 'page'
+    // tradueix títol + cos a una subpàgina (pàgina normal). Vegeu GAP 2.
+    const [translatePageMode, setTranslatePageMode] = useState('page');
     const [historyOpenSignal, setHistoryOpenSignal] = useState(0);
     const [globalIndex, setGlobalIndex] = useState({});
     const [registry, setRegistry] = useState({ databases: [], tables: [], views: [] });
@@ -2452,6 +2456,13 @@ export default function VaultDashboard() {
     const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
     // Traduir pàgina: només per a pàgines markdown editables (ni taules ni PDFs).
     const canTranslatePage = viewMode === 'editor' && Boolean(currentOpenPage && currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
+    // GAP 2: si la pàgina oberta és un registre d'una taula traduïble (i no és
+    // ella mateixa una traducció), el menú ha de traduir els CAMPS a un subitem
+    // (mode 'row'), no el cos a una subpàgina. Per a pàgines normals, mode 'page'.
+    const openPageTableId = currentOpenPage ? resolvePageTableId(currentOpenPage) : null;
+    const openPageTable = openPageTableId ? registry.tables?.find(t => t.id === openPageTableId) : null;
+    const openPageIsTranslatableRecord = Boolean(openPageTable?.translation_enabled)
+        && !currentOpenPage?.metadata?.translation_lang;
     const quickOpenItems = React.useMemo(() => {
         const pageItems = pages
             .filter(p => !p.metadata?.is_template)
@@ -2843,6 +2854,10 @@ export default function VaultDashboard() {
                                     onCellSaved={async () => {
                                         await fetchPagesByTable(tableId);
                                     }}
+                                    onTranslated={async () => {
+                                        await fetchPagesByTable(tableId);
+                                        await fetchPages();
+                                    }}
                                     onCreateRecord={(templateId = null) => handleAddNewNote(tableId, templateId)}
                                     searchTerm={searchTerm}
                                     onSearchChange={setSearchTerm}
@@ -3063,6 +3078,10 @@ export default function VaultDashboard() {
                                 onCellSaved={async () => {
                                     await fetchPagesByTable(tableId);
                                 }}
+                                onTranslated={async () => {
+                                    await fetchPagesByTable(tableId);
+                                    await fetchPages();
+                                }}
                                 onCreateRecord={(templateId) => handleAddNewNote(tableId, templateId)}
                                 searchTerm={searchTerm}
                                 onSearchChange={setSearchTerm}
@@ -3122,8 +3141,12 @@ export default function VaultDashboard() {
                 });
             }}
             canTranslatePage={canTranslatePage}
+            translateLabel={openPageIsTranslatableRecord
+                ? t('shell.translate_record', 'Tradueix el registre')
+                : t('shell.translate_page', 'Tradueix la pàgina')}
             onTranslatePage={() => {
                 if (!canTranslatePage || !currentOpenPage?.id) return;
+                setTranslatePageMode(openPageIsTranslatableRecord ? 'row' : 'page');
                 setTranslatePageModalId(currentOpenPage.id);
             }}
         >
@@ -3410,6 +3433,10 @@ export default function VaultDashboard() {
                                                     await fetchPages();
                                                 }
                                             }}
+                                            onTranslated={async () => {
+                                                if (activeTableId) await fetchPagesByTable(activeTableId);
+                                                await fetchPages();
+                                            }}
                                             onCreateTemplate={() => {
                                                 setPromptModal({
                                                     isOpen: true,
@@ -3485,7 +3512,7 @@ export default function VaultDashboard() {
             {translatePageModalId && (
                 <TranslateLanguagesModal
                     isOpen={true}
-                    mode="page"
+                    mode={translatePageMode}
                     noteId={translatePageModalId}
                     onClose={() => setTranslatePageModalId(null)}
                     onTranslated={() => { setTranslatePageModalId(null); fetchPages(); }}

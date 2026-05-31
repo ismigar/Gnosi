@@ -209,7 +209,8 @@
     "translate_page": "Traducir página",
     "delete_current_page": "Eliminar página actual",
     "hide_sidebar": "Ocultar barra lateral",
-    "show_sidebar": "Mostrar barra lateral"
+    "show_sidebar": "Mostrar barra lateral",
+    "translate_record": "Traduce el registro"
   },
   "table": {
     "new_record": "Nuevo registro",
@@ -247,7 +248,10 @@
     "showing_records": "Mostrando {{count}} de {{total}} registros",
     "show_more_count": "Mostrar {{count}} más",
     "add_files": "+ Archivos",
-    "add_image": "+ Imagen"
+    "add_image": "+ Imagen",
+    "translate_row": "Traducir",
+    "translation_stale": "El original ha cambiado — vuelve a traducir para actualizar",
+    "translation_badge": "Traducción"
   },
   "dashboard": {
     "status_title": "Estado del Sistema",
@@ -941,7 +945,10 @@
     "success_page": "Traducción iniciada — las subpáginas se crearán en breve.",
     "error": "Error iniciando la traducción",
     "error_pick_lang": "Selecciona al menos un idioma.",
-    "provider_hint": "El catalán se traduce con Softcatalà; el resto con DeepL. Configura las credenciales en .env_shared."
+    "provider_hint": "El catalán se traduce con Softcatalà; el resto con DeepL. Configura las credenciales en .env_shared.",
+    "title_bulk": "Traducir {{count}} registros",
+    "intro_bulk": "Elige los idiomas destino. Por cada registro seleccionado e idioma se creará (o actualizará) un subítem con la traducción de los campos marcados como traducibles.",
+    "success_bulk": "Traducción iniciada para {{count}} registros."
   },
   "translate_settings": {
     "section_title": "Servicios de traducción",

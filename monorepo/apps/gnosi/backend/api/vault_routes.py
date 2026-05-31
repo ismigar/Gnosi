@@ -75,6 +75,10 @@ from backend.services.field_resolver import (
     to_response_names,
     to_storage_names,
 )
+from backend.services.translation_helpers import (
+    find_translations_of,
+    translatable_content_changed,
+)
 
 
 def _table_by_id(table_id: str) -> Optional[dict]:
@@ -6207,14 +6211,14 @@ async def save_page(
     # so a slow OneDrive read doesn't block other concurrent requests.
     def _read_old_meta():
         if not file_path or not file_path.exists():
-            return {}
+            return {}, ""
         try:
             raw_content = file_path.read_text(encoding="utf-8")
-            md, _ = parse_frontmatter(raw_content, file_path)
-            return md
+            md, bd = parse_frontmatter(raw_content, file_path)
+            return md, bd
         except Exception:
-            return {}
-    old_metadata = await asyncio.to_thread(_read_old_meta)
+            return {}, ""
+    old_metadata, old_body = await asyncio.to_thread(_read_old_meta)
     # Capturem el títol previ per detectar canvis al final i reescriure
     # els wikilinks `[[Old Title]]` → `[[New Title]]`. PUT pot rebre tant
     # `request.title` com `metadata.title` (consolidats en `metadata`).
@@ -6283,6 +6287,12 @@ async def save_page(
                 _recompute_cross_record_formulas_for_table, table_id, page_id
             )
         sync_to_google_calendar_if_needed(metadata, background_tasks)
+        # If this page is an original with translations, flag them stale when the
+        # edit touched translatable content (background; cheap no-op otherwise).
+        background_tasks.add_task(
+            _propagate_translation_staleness,
+            page_id, old_metadata, metadata, old_body, request.content,
+        )
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
         )
@@ -6524,6 +6534,12 @@ async def patch_page(
                 _recompute_cross_record_formulas_for_table, table_id, page_id
             )
         sync_to_google_calendar_if_needed(metadata, background_tasks)
+        # If this page is an original with translations, flag them stale when the
+        # edit touched translatable content (background; cheap no-op otherwise).
+        background_tasks.add_task(
+            _propagate_translation_staleness,
+            page_id, original_metadata_snapshot, metadata, body, content,
+        )
 
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
@@ -11049,65 +11065,193 @@ async def purge_page_history(page_id: str):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/skills/translate-row", dependencies=[Depends(require_role("editor"))])
-async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(...)):
-    """Translate the translatable fields of a row to one subitem per language.
+# --- Translation lifecycle helpers (idempotency + staleness) ---------------
+# Shared by translate-row / translate-rows / translate-page and by the save
+# hooks that flag translations as out-of-date. See directive
+# `translate_gaps_implementation` for the rationale and the autosave-safety
+# constraints.
 
-    Body:
-        {
-          "item_id": "<uuid of the row>",
-          "target_languages": ["en", "es", ...],
-          "button_action": "translate_row"  # validated; rejects others
-        }
 
-    The row's table must have `translation_enabled: true` and at least one
-    property marked with `translatable: true`. For each target language a new
-    subitem is created (`parent_id = item_id`), with the translated values
-    keyed by the same property `id`/`name` as the parent row.
+def _read_deepl_key() -> str:
+    """DeepL API key from the macOS Keychain (preferred), env fallback.
+
+    Returns "" when unavailable — the skills degrade to free providers /
+    visible placeholders rather than failing.
     """
-    item_id = (payload.get("item_id") or "").strip()
-    target_languages = payload.get("target_languages") or []
-    button_action = payload.get("button_action") or "translate_row"
+    try:
+        from backend.security.keychain_manager import get_keychain
+        kc = get_keychain()
+        if kc.has_credential("deepl_api_key"):
+            return kc.get_credential("deepl_api_key") or ""
+    except Exception as exc:
+        log.warning(f"translate: keychain unavailable, using env fallback: {exc}")
+    return ""
 
-    if not item_id:
-        raise HTTPException(status_code=400, detail="item_id is required")
-    if not isinstance(target_languages, list) or not target_languages:
-        raise HTTPException(status_code=400, detail="target_languages must be a non-empty list")
-    if button_action != "translate_row":
-        raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
 
-    # Defer the import so a missing `requests` dependency at startup doesn't
-    # break the whole API — translation is opt-in per table.
+def _load_translate_row_skill():
+    """Lazy import of the row skill (translate, detect_source_lang).
+
+    Deferred so a missing optional dependency never breaks app startup —
+    translation is opt-in per table.
+    """
     try:
         from pipeline.skills.translate_row.scripts.translate_text import (
             translate as _translate,
             detect_source_lang as _detect_source_lang,
         )
+        return _translate, _detect_source_lang
     except Exception as exc:
         log.error(f"translate_row skill not importable: {exc}")
         raise HTTPException(status_code=500, detail="translate_row skill unavailable")
 
-    # Read the DeepL API key from the Keychain — preferred location for
-    # secrets in Gnosi. Falls back silently to env var if Keychain isn't
-    # available. The Softcatalà URL lives in .env_shared since it isn't a
-    # secret, so we let the skill read it from os.environ.
-    deepl_api_key = ""
-    try:
-        from backend.security.keychain_manager import get_keychain
-        kc = get_keychain()
-        if kc.has_credential("deepl_api_key"):
-            deepl_api_key = kc.get_credential("deepl_api_key") or ""
-    except Exception as exc:
-        log.warning(f"translate_row: keychain unavailable, using env fallback: {exc}")
 
-    # 1. Locate and read the source page.
+async def _get_existing_translations(origin_id: str) -> Dict[str, Any]:
+    """Return ``{lang: PageInfo}`` of translation children already created for an
+    origin. Powers idempotent re-translation: a language that already has a
+    subitem/subpage is updated in place instead of duplicated. The lookup runs
+    over the TTL-cached page snapshot (in-memory) so it adds no disk I/O.
+    """
+    def _work():
+        try:
+            return find_translations_of(origin_id, _get_pages_snapshot())
+        except Exception as exc:
+            log.debug(f"existing-translations lookup failed for {origin_id}: {exc}")
+            return {}
+    return await asyncio.to_thread(_work)
+
+
+def _set_translation_stale_on_disk(page_id: str, file_path: Path) -> bool:
+    """Flag a single translation page as stale on disk. Idempotent.
+
+    Returns True only when it actually wrote (flag flipped). Writes the minimal
+    change directly with ``save_page_md`` — NOT through the PATCH handler — so it
+    never re-enters the rule engine, etag checks, or this very propagation. The
+    "already stale → no write" short-circuit is what keeps autosave from
+    triggering a write storm.
+    """
+    try:
+        raw = file_path.read_text(encoding="utf-8")
+        md, body = parse_frontmatter(raw, file_path)
+    except Exception as exc:
+        log.debug(f"stale-flag read failed for {page_id}: {exc}")
+        return False
+    if md.get("translation_stale") is True:
+        return False  # already flagged → no redundant write
+    md["translation_stale"] = True
+    try:
+        save_page_md(file_path, md, body)
+    except Exception as exc:
+        log.warning(f"stale-flag write failed for {page_id}: {exc}")
+        return False
+    # Surgical cache refresh so the UI sees the flag without a full rescan
+    # (mirrors what PATCH does after a write).
+    try:
+        from backend.services.context_vars import get_active_vault_path
+        v_path = get_active_vault_path()
+        if v_path:
+            v_str = str(v_path)
+            stat_result = file_path.stat()
+            new_entry = _build_cache_entry_from_memory(file_path, stat_result, md, body)
+            with _page_index_lock:
+                _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
+                _page_id_to_path.setdefault(v_str, {})[md.get("id") or page_id] = str(file_path)
+                _bump_page_index_version(v_str)
+        _pages_cache_invalidate_all()
+    except Exception as exc:
+        log.debug(f"stale-flag cache update failed for {page_id}: {exc}")
+    return True
+
+
+def _propagate_translation_staleness(
+    origin_id: str,
+    old_md: Optional[dict],
+    new_md: Optional[dict],
+    old_body: Optional[str],
+    new_body: Optional[str],
+) -> None:
+    """Background task: flag an original's translations stale after a real edit.
+
+    Guards (all required to keep autosave cheap and avoid loops):
+      • The edited page must NOT itself be a translation (`translation_lang`).
+      • The change must touch translatable content (`translatable_content_changed`)
+        — icon/cover/cursor churn is ignored.
+      • Each child write is idempotent (`_set_translation_stale_on_disk`).
+
+    It never regenerates translations (too costly/risky); it only signals that a
+    re-translation is due. Re-translation is idempotent, so acting on the signal
+    updates in place.
+    """
+    try:
+        new_md = new_md or {}
+        if new_md.get("translation_lang"):
+            return  # editing a translation, not an original → nothing to propagate
+        canonical_id = str(new_md.get("id") or origin_id)
+
+        table = _table_by_id(get_table_id(new_md))
+        if table and table.get("translation_enabled"):
+            props = [p for p in (table.get("properties") or []) if p.get("translatable") is True]
+            keys = [(p.get("id") or p.get("name")) for p in props]
+            title_matters = any(
+                (p.get("name") == "title" or p.get("type") == "title") for p in props
+            )
+            changed = translatable_content_changed(
+                keys, old_md, new_md, title_matters=title_matters
+            )
+        else:
+            # Plain page (translate_page mode): title + body are what we translate.
+            changed = translatable_content_changed(
+                [], old_md, new_md,
+                old_body=old_body, new_body=new_body, title_matters=True,
+            )
+        if not changed:
+            return
+
+        translations = find_translations_of(canonical_id, _get_pages_snapshot())
+        if not translations:
+            return
+        flagged = 0
+        for _lang, page in translations.items():
+            pid = getattr(page, "id", None)
+            ppath = getattr(page, "path", None)
+            if pid is None and isinstance(page, dict):
+                pid = page.get("id")
+                ppath = page.get("path")
+            if not pid:
+                continue
+            fp = Path(ppath) if ppath else find_page_path(pid)
+            if not fp or not fp.exists():
+                continue
+            if _set_translation_stale_on_disk(pid, fp):
+                flagged += 1
+        if flagged:
+            log.info(f"Flagged {flagged} translation(s) of {canonical_id} as stale.")
+    except Exception as exc:
+        log.debug(f"translation staleness propagation skipped: {exc}")
+
+
+async def _do_translate_row(
+    item_id: str,
+    target_languages: list,
+    *,
+    translate_fn,
+    detect_fn,
+    deepl_api_key: str,
+    background_tasks: BackgroundTasks,
+) -> dict:
+    """Translate one row's translatable fields into one subitem per language.
+
+    Creates the per-language subitem the first time and UPDATES it in place on
+    re-translation (idempotent — keyed by `translation_origin_id` +
+    `translation_lang`). Raises HTTPException for caller-visible problems; the
+    single endpoint re-raises them, the bulk endpoint catches them per item.
+    """
     file_path = await asyncio.to_thread(find_page_path, item_id)
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail=f"Page not found (ID: {item_id})")
     raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
     metadata, body = parse_frontmatter(raw_content, file_path)
 
-    # 2. Resolve the parent table.
+    # Resolve the parent table and validate it's set up for translation.
     table_id = get_table_id(metadata)
     table = _table_by_id(table_id) if table_id else None
     if not table:
@@ -11118,8 +11262,7 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
             detail="This table is not configured for translation. Enable it in the schema config.",
         )
 
-    # 3. Filter translatable properties — they carry the explicit flag the
-    #    SchemaConfigModal writes into each property's config.
+    # Translatable properties carry the explicit flag the SchemaConfigModal writes.
     properties = table.get("properties") or []
     translatable_props = [p for p in properties if p.get("translatable") is True]
     if not translatable_props:
@@ -11137,7 +11280,7 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
             return metadata.get(prop_name)
         return None
 
-    # 4. Detect source language from the longest non-empty translatable value.
+    # Detect source language from the longest non-empty translatable value.
     sample = ""
     for p in translatable_props:
         val = _read_meta(p)
@@ -11145,16 +11288,20 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
             sample = val.strip()
     if not sample:
         sample = str(metadata.get("title") or "")
-    source_lang = _detect_source_lang(sample) if sample else "ca"
+    source_lang = detect_fn(sample) if sample else "ca"
 
-    # 5. Translate per language and create subitems.
     parent_title = str(metadata.get("title") or "")
     title_is_translatable = any(
         (p.get("name") == "title" or p.get("type") == "title") and p.get("translatable") is True
         for p in translatable_props
     )
-    created = []
-    skipped = []
+
+    # Pre-fetch the already-existing translations so re-runs update instead of duplicate.
+    existing_translations = await _get_existing_translations(item_id)
+
+    created: list = []
+    updated: list = []
+    skipped: list = []
 
     for lang in target_languages:
         if not isinstance(lang, str) or not lang.strip():
@@ -11170,6 +11317,8 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
             "translation_lang": lang,
             "translation_source_lang": source_lang,
             "translation_origin_id": item_id,
+            # A fresh translation is, by definition, up to date with the origin.
+            "translation_stale": False,
         }
         providers_used = set()
         any_translated = False
@@ -11181,7 +11330,7 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
             if not isinstance(val, str) or not val.strip():
                 continue
             try:
-                translated, provider = _translate(val, source_lang, lang, deepl_api_key=deepl_api_key)
+                translated, provider = translate_fn(val, source_lang, lang, deepl_api_key=deepl_api_key)
             except Exception as exc:
                 log.warning(f"translate_row: failed translating field {prop.get('name')} → {lang}: {exc}")
                 translated = f"[error: {exc}]"
@@ -11211,6 +11360,25 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
             "mixed" if len(providers_used) > 1 else (next(iter(providers_used), "placeholder"))
         )
 
+        existing = existing_translations.get(lang)
+        existing_id = getattr(existing, "id", None) if existing is not None else None
+        if existing_id:
+            # Idempotent update: refresh the existing subitem. content stays None
+            # so any manual body the user added to the subitem is preserved.
+            patch_req = PagePatchRequest(title=sub_title, metadata=sub_metadata)
+            try:
+                await patch_page(existing_id, patch_req, background_tasks)
+                updated.append({
+                    "id": existing_id,
+                    "lang": lang,
+                    "providers": sorted(providers_used),
+                    "title": sub_title,
+                })
+            except Exception as exc:
+                log.error(f"translate_row: failed updating subitem for {lang}: {exc}")
+                skipped.append({"lang": lang, "reason": f"update failed: {exc}"})
+            continue
+
         sub_request = PageSaveRequest(
             title=sub_title,
             content="",
@@ -11230,12 +11398,111 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
             skipped.append({"lang": lang, "reason": f"create failed: {exc}"})
 
     return {
-        "status": "ok",
         "item_id": item_id,
         "source_lang": source_lang,
         "created": created,
+        "updated": updated,
         "skipped": skipped,
     }
+
+
+@router.post("/skills/translate-row", dependencies=[Depends(require_role("editor"))])
+async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    """Translate the translatable fields of a row to one subitem per language.
+
+    Body:
+        {
+          "item_id": "<uuid of the row>",
+          "target_languages": ["en", "es", ...],
+          "button_action": "translate_row"  # validated; rejects others
+        }
+
+    The row's table must have `translation_enabled: true` and at least one
+    property marked with `translatable: true`. For each target language a new
+    subitem is created (`parent_id = item_id`), with the translated values
+    keyed by the same property `id`/`name` as the parent row. Re-running updates
+    the existing per-language subitem in place (idempotent) instead of
+    duplicating it.
+    """
+    item_id = (payload.get("item_id") or "").strip()
+    target_languages = payload.get("target_languages") or []
+    button_action = payload.get("button_action") or "translate_row"
+
+    if not item_id:
+        raise HTTPException(status_code=400, detail="item_id is required")
+    if not isinstance(target_languages, list) or not target_languages:
+        raise HTTPException(status_code=400, detail="target_languages must be a non-empty list")
+    if button_action != "translate_row":
+        raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
+
+    translate_fn, detect_fn = _load_translate_row_skill()
+    deepl_api_key = _read_deepl_key()
+
+    result = await _do_translate_row(
+        item_id,
+        target_languages,
+        translate_fn=translate_fn,
+        detect_fn=detect_fn,
+        deepl_api_key=deepl_api_key,
+        background_tasks=background_tasks,
+    )
+    return {"status": "ok", **result}
+
+
+@router.post("/skills/translate-rows", dependencies=[Depends(require_role("editor"))])
+async def translate_rows(background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    """Bulk variant of translate-row: translate many selected rows at once.
+
+    Body:
+        {
+          "item_ids": ["<uuid>", ...],
+          "target_languages": ["en", "es", ...],
+          "button_action": "translate_row"  # validated; rejects others
+        }
+
+    Each row is processed independently and idempotently (see `_do_translate_row`).
+    A per-row failure (e.g. a selected row whose table isn't translatable) is
+    reported in `errors` rather than aborting the whole batch.
+    """
+    item_ids = payload.get("item_ids") or []
+    target_languages = payload.get("target_languages") or []
+    button_action = payload.get("button_action") or "translate_row"
+
+    if not isinstance(item_ids, list) or not item_ids:
+        raise HTTPException(status_code=400, detail="item_ids must be a non-empty list")
+    if not isinstance(target_languages, list) or not target_languages:
+        raise HTTPException(status_code=400, detail="target_languages must be a non-empty list")
+    if button_action != "translate_row":
+        raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
+
+    translate_fn, detect_fn = _load_translate_row_skill()
+    deepl_api_key = _read_deepl_key()
+
+    results: list = []
+    errors: list = []
+    seen: set = set()
+    for raw_id in item_ids:
+        item_id = raw_id.strip() if isinstance(raw_id, str) else ""
+        if not item_id or item_id in seen:
+            continue
+        seen.add(item_id)
+        try:
+            res = await _do_translate_row(
+                item_id,
+                target_languages,
+                translate_fn=translate_fn,
+                detect_fn=detect_fn,
+                deepl_api_key=deepl_api_key,
+                background_tasks=background_tasks,
+            )
+            results.append(res)
+        except HTTPException as exc:
+            errors.append({"item_id": item_id, "detail": exc.detail})
+        except Exception as exc:
+            log.error(f"translate_rows: unexpected error for {item_id}: {exc}")
+            errors.append({"item_id": item_id, "detail": str(exc)})
+
+    return {"status": "ok", "count": len(results), "results": results, "errors": errors}
 
 
 @router.post("/skills/translate-page", dependencies=[Depends(require_role("editor"))])
@@ -11313,8 +11580,10 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
         providers |= {p for p in body_providers if p != "noop"}
         return t_title, t_body, providers
 
-    # 3. Translate per language and create one child page each.
+    # 3. Translate per language and create (or idempotently update) one child page each.
+    existing_translations = await _get_existing_translations(page_id)
     created = []
+    updated = []
     skipped = []
 
     for lang in target_languages:
@@ -11339,10 +11608,33 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
             "translation_lang": lang,
             "translation_source_lang": source_lang,
             "translation_origin_id": page_id,
+            # A fresh translation is, by definition, up to date with the origin.
+            "translation_stale": False,
             "translation_provider": (
                 "mixed" if len(providers_used) > 1 else next(iter(providers_used), "noop")
             ),
         }
+
+        existing = existing_translations.get(lang)
+        existing_id = getattr(existing, "id", None) if existing is not None else None
+        if existing_id:
+            # Idempotent update: refresh the existing subpage's title + body in place.
+            patch_req = PagePatchRequest(
+                title=sub_title, content=translated_body, metadata=sub_metadata
+            )
+            try:
+                await patch_page(existing_id, patch_req, background_tasks)
+                updated.append({
+                    "id": existing_id,
+                    "lang": lang,
+                    "providers": sorted(providers_used),
+                    "title": sub_title,
+                })
+            except Exception as exc:
+                log.error(f"translate_page: failed updating child page for {lang}: {exc}")
+                skipped.append({"lang": lang, "reason": f"update failed: {exc}"})
+            continue
+
         sub_request = PageSaveRequest(
             title=sub_title,
             content=translated_body,
@@ -11366,6 +11658,7 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
         "page_id": page_id,
         "source_lang": source_lang,
         "created": created,
+        "updated": updated,
         "skipped": skipped,
     }
 

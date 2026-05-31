@@ -25,6 +25,7 @@ export const VaultShell = ({
     isEditLocked = false,
     onTranslatePage,
     canTranslatePage = false,
+    translateLabel,
     children
 }) => {
     const { t } = useTranslation();
@@ -190,7 +191,7 @@ export const VaultShell = ({
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                                 >
                                     <Languages size={14} />
-                                    <span>{t('shell.translate_page', 'Tradueix la pàgina')}</span>
+                                    <span>{translateLabel || t('shell.translate_page', 'Tradueix la pàgina')}</span>
                                 </button>
                                 <div className="border-t border-[var(--border-primary)] my-1" />
                                 <button
