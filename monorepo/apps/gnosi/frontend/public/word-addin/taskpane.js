@@ -194,6 +194,18 @@
             .replace(/'/g, '&#39;');
     }
 
+    function returnFocusToDocument() {
+        // Best-effort: torna el focus del teclat del taskpane al document.
+        // No hi ha API oficial a Word d'escriptori; window.blur() és el
+        // workaround més fiable i és innocu si la build no el respecta.
+        try {
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+            window.blur();
+        } catch (e) { /* no-op */ }
+    }
+
     async function insertCitation(item) {
         if (!item || !item.citation_key) return;
         setFooter('Inserint cita…');
@@ -222,17 +234,33 @@
                     const cc = inserted.insertContentControl();
                     cc.tag = tag;
                     cc.title = 'Gnosi cite ' + item.citation_key;
+                    // El cursor ha de quedar DESPRÉS de la cita, FORA del
+                    // content control, per poder continuar escrivint sense
+                    // que el text entri dins la cita. RangeLocation.After és
+                    // el punt degenerat just després del CC.
+                    cc.getRange(Word.RangeLocation.after).select();
                     await context.sync();
                 } catch (ccErr) {
                     // El text JA és al document; només falla el seguiment per
-                    // Content Control (no bloqueja la inserció).
+                    // Content Control. Igualment, situa el cursor al final.
+                    try {
+                        inserted.getRange(Word.RangeLocation.after).select();
+                        await context.sync();
+                    } catch (selErr) { /* no-op */ }
                     console.warn('CC wrap failed (text inserit igualment):', ccErr && ccErr.message);
                 }
             });
-            // Recordatori APA: la cita acabada d'inserir es renderitza sense
-            // context del document; cal «Actualitza tot (APA)» per a les
-            // desambiguacions i `et al.` correctes.
-            setFooter('Inserida @' + item.citation_key + ' — recorda «Actualitza tot (APA)».');
+            // Recalcula totes les cites amb context complet (com
+            // Mendeley/Zotero): APA aplica 2020a/2020b, `et al.` i
+            // desambiguació de cognoms sol, sense cap acció manual.
+            await reformatAllCitations({ silent: true });
+            // Retorna el focus del teclat al document. Office.js NO té API
+            // per fer-ho a Word d'escriptori (limitació coneguda,
+            // office-js#316/#4549), però window.blur() des del taskpane
+            // allibera el WebView en força builds i el focus torna al
+            // document; on no funcioni és innocu.
+            returnFocusToDocument();
+            setFooter('Inserida @' + item.citation_key + '.');
         } catch (err) {
             console.warn('Word.run insert failed, fallback:', err && err.message);
             // Fallback: API genèrica d'Office (text pla a la selecció).
@@ -345,6 +373,52 @@
         }
     }
 
+    async function reformatAllCitations(opts) {
+        // Reformata TOTES les cites del document amb context complet en una
+        // sola crida pandoc-citeproc (en ordre, amb duplicats): APA pot
+        // decidir 2020a/2020b per mateix autor+any, inicials per a cognoms
+        // homònims i `et al.` segons primera vs següents aparicions. Es crida
+        // automàticament després de cada inserció (com Mendeley/Zotero), de
+        // manera que l'usuari no ha de prémer cap botó. `silent` evita
+        // sobreescriure el missatge de peu en el flux automàtic.
+        const silent = !!(opts && opts.silent);
+        if (typeof Word === 'undefined' || !Word.run) return;
+        try {
+            await Word.run(async (context) => {
+                const ccs = context.document.contentControls;
+                ccs.load('items/tag');
+                await context.sync();
+                const targets = [];  // [{cc, key}] en ordre del document
+                ccs.items.forEach((cc) => {
+                    const tag = String(cc.tag || '');
+                    if (!tag.startsWith('gnosi-cite:')) return;
+                    const key = tag.substring('gnosi-cite:'.length);
+                    if (!key) return;
+                    targets.push({ cc, key });
+                });
+                if (!targets.length) return;
+                const keys = targets.map((t) => t.key);
+                const formatted = await formatCitationsBatch(keys);
+                if (!formatted.length) return;
+                // Mapeig per ordinal — preserva duplicats i ordre del document.
+                targets.forEach((t, idx) => {
+                    const item = formatted[idx];
+                    if (!item) return;
+                    try {
+                        t.cc.insertText(item.formatted, Word.InsertLocation.replace);
+                    } catch (e) {
+                        console.warn('Failed to replace CC text:', e && e.message);
+                    }
+                });
+                await context.sync();
+            });
+            if (!silent) setFooter('Cites actualitzades (APA).');
+        } catch (err) {
+            if (silent) console.warn('reformatAllCitations failed:', err && err.message);
+            else setFooter('Error actualitzant cites: ' + (err && err.message));
+        }
+    }
+
     function bindUI() {
         const input = $('search-input');
         if (input) {
@@ -377,53 +451,11 @@
         const insertBibBtn = $('insert-bibliography');
         if (insertBibBtn) insertBibBtn.addEventListener('click', insertBibliography);
 
-        const refreshBibBtn = $('refresh-bibliography');
-        if (refreshBibBtn) refreshBibBtn.addEventListener('click', async () => {
-            // Reformata totes les cites del document amb el context
-            // complet — APA-conforme: una sola crida pandoc-citeproc rep
-            // totes les cites en ordre i pot decidir desambiguacions
-            // (Smith J. vs Smith A.), sufixos a/b per mateix any, i
-            // `et al.` en funció de primera vs següents aparicions.
-            setFooter('Reformatant cites (APA)…');
-            try {
-                await Word.run(async (context) => {
-                    const ccs = context.document.contentControls;
-                    ccs.load('items/tag');
-                    await context.sync();
-                    const targets = [];  // [{cc, key}] en ordre del document
-                    ccs.items.forEach((cc) => {
-                        const tag = String(cc.tag || '');
-                        if (!tag.startsWith('gnosi-cite:')) return;
-                        const key = tag.substring('gnosi-cite:'.length);
-                        if (!key) return;
-                        targets.push({ cc, key });
-                    });
-                    if (!targets.length) {
-                        setFooter('No s\'han trobat cites al document.');
-                        return;
-                    }
-                    const keys = targets.map((t) => t.key);
-                    const formatted = await formatCitationsBatch(keys);
-                    if (!formatted.length) {
-                        setFooter('No s\'ha pogut reformatar.');
-                        return;
-                    }
-                    // Mapeig per ordinal — preserva duplicats i ordre del document.
-                    targets.forEach((t, idx) => {
-                        const item = formatted[idx];
-                        if (!item) return;
-                        try {
-                            t.cc.insertText(item.formatted, Word.InsertLocation.replace);
-                        } catch (e) {
-                            console.warn('Failed to replace CC text:', e && e.message);
-                        }
-                    });
-                    await context.sync();
-                });
-                setFooter('Cites reformatades amb context APA.');
-            } catch (err) {
-                setFooter('Error reformatant: ' + (err && err.message));
-            }
+        // En canviar l'estil (APA → Chicago…), reformata les cites ja
+        // inserides perquè el canvi es propagui sense acció manual.
+        const styleSelect = $('style-select');
+        if (styleSelect) styleSelect.addEventListener('change', () => {
+            reformatAllCitations({ silent: false });
         });
     }
 
