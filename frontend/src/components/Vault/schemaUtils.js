@@ -41,6 +41,86 @@ export function getFieldConfig(schema = {}, fieldName) {
     return schema[`${fieldName}${RESERVED_KEYS_SUFFIX}`] || {};
 }
 
+// Noms de camp que solem usar per a "l'idioma del registre". El modal de
+// traducció els busca per amagar l'idioma origen de la llista de destins.
+// Comparació accent/caixa-insensible (vegeu detectRecordSourceLang).
+const LANGUAGE_FIELD_NAMES = ['idioma', 'llengua', 'language', 'lang', 'lengua', 'lingua'];
+
+// Etiquetes habituals → codi ISO 639-1, perquè el camp "Idioma" pot tenir
+// valors com "CA", "ca", "Català", "Castellà", "EN-GB"… L'objectiu és casar-ho
+// amb els `code` de DEFAULT_LANGUAGES del modal. Si no es reconeix, es retorna
+// el prefix de 2 lletres en minúscula (cobreix "EN-GB"→"en", "pt-BR"→"pt").
+const LANGUAGE_VALUE_TO_CODE = {
+    ca: 'ca', cat: 'ca', català: 'ca', catala: 'ca', catalan: 'ca', catalán: 'ca',
+    es: 'es', spa: 'es', cas: 'es', castellà: 'es', castella: 'es', castellano: 'es', español: 'es', espanyol: 'es', spanish: 'es',
+    en: 'en', eng: 'en', anglès: 'en', angles: 'en', inglés: 'en', english: 'en',
+    fr: 'fr', fra: 'fr', fre: 'fr', francès: 'fr', frances: 'fr', francés: 'fr', french: 'fr',
+    de: 'de', deu: 'de', ger: 'de', alemany: 'de', alemán: 'de', aleman: 'de', german: 'de',
+    it: 'it', ita: 'it', italià: 'it', italia: 'it', italiano: 'it', italian: 'it',
+    pt: 'pt', por: 'pt', portuguès: 'pt', portugues: 'pt', portugués: 'pt', portuguese: 'pt',
+    nl: 'nl', nld: 'nl', dut: 'nl', neerlandès: 'nl', neerlandes: 'nl', neerlandés: 'nl', dutch: 'nl', holandés: 'nl',
+    eu: 'eu', eus: 'eu', baq: 'eu', basc: 'eu', euskera: 'eu', euskara: 'eu', vasco: 'eu', vascuence: 'eu', basque: 'eu',
+    gl: 'gl', glg: 'gl', gallec: 'gl', gallego: 'gl', galego: 'gl', galician: 'gl',
+    ar: 'ar', ara: 'ar', àrab: 'ar', arab: 'ar', árabe: 'ar', arabe: 'ar', arabic: 'ar',
+    zh: 'zh', zho: 'zh', chi: 'zh', xinès: 'zh', xines: 'zh', chino: 'zh', chinese: 'zh', mandarí: 'zh', mandarin: 'zh',
+};
+
+/**
+ * Normalitza un valor d'idioma ("Català", "EN-GB", "ca") a codi ISO 639-1.
+ * Retorna '' si no es pot determinar.
+ * @param {string} value
+ * @returns {string}
+ */
+export function normalizeLangCode(value) {
+    if (!value || typeof value !== 'string') return '';
+    const raw = value.trim().toLowerCase();
+    if (!raw) return '';
+    if (LANGUAGE_VALUE_TO_CODE[raw]) return LANGUAGE_VALUE_TO_CODE[raw];
+    // "en-gb" / "pt_br" → prefix abans del separador.
+    const prefix = raw.split(/[-_]/)[0];
+    if (LANGUAGE_VALUE_TO_CODE[prefix]) return LANGUAGE_VALUE_TO_CODE[prefix];
+    // Últim recurs: si ja sembla un codi de 2 lletres, accepta'l tal qual.
+    return /^[a-z]{2}$/.test(prefix) ? prefix : '';
+}
+
+/**
+ * Detecta l'idioma origen d'un registre llegint el seu camp "Idioma" (o
+ * sinònims) del metadata. El modal de traducció l'usa per amagar l'idioma que
+ * ja és l'original i evitar que l'usuari el trii. Retorna el codi ISO 639-1, o
+ * '' si el registre no té camp idioma reconeixible (en aquest cas el backend
+ * salta l'origen igualment com a xarxa de seguretat).
+ *
+ * @param {Object} metadata  metadata del registre (note.metadata)
+ * @param {Object} schema    esquema de la taula (per resoldre nom↔id del camp)
+ * @returns {string}
+ */
+export function detectRecordSourceLang(metadata = {}, schema = {}) {
+    if (!metadata || typeof metadata !== 'object') return '';
+    const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // 1) Localitza el nom del camp idioma a l'esquema (accent/caixa-insensible).
+    const langFieldName = getSchemaFieldNames(schema).find(name =>
+        LANGUAGE_FIELD_NAMES.includes(stripAccents(String(name).toLowerCase()))
+    );
+    // 2) Reuneix les claus candidates al metadata: el nom del camp, el seu id
+    //    estable, i qualsevol clau que coincideixi pel nom (per metadata que
+    //    s'hagi desat per nom o per id).
+    const candidates = [];
+    if (langFieldName) {
+        candidates.push(langFieldName);
+        const cfgId = getFieldConfig(schema, langFieldName)?.id;
+        if (cfgId) candidates.push(cfgId);
+    }
+    for (const k of Object.keys(metadata)) {
+        if (LANGUAGE_FIELD_NAMES.includes(stripAccents(String(k).toLowerCase()))) candidates.push(k);
+    }
+    for (const key of candidates) {
+        const val = metadata[key];
+        const code = normalizeLangCode(Array.isArray(val) ? val[0] : val);
+        if (code) return code;
+    }
+    return '';
+}
+
 /**
  * Construeix un esquema pla (objecte) a partir d'una llista de propietats de taula
  * (format que utilitza el backend: [{ name, type, ...config }]).

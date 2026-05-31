@@ -1049,7 +1049,8 @@
     "provider_hint": "Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in .env_shared.",
     "title_bulk": "Translate {{count}} records",
     "intro_bulk": "Choose target languages. For each selected record and language a subitem will be created (or updated) with the translation of the fields marked as translatable.",
-    "success_bulk": "Translation started for {{count}} records."
+    "success_bulk": "Translation started for {{count}} records.",
+    "source_hidden": "The original language ({{lang}}) is hidden: it's the translation source."
   },
   "translate_settings": {
     "section_title": "Translation services",

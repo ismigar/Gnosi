@@ -2930,6 +2930,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     onClose={() => setPendingAction(null)}
                     noteId={pendingAction.noteId}
                     fieldConfig={pendingAction.fieldConfig}
+                    recordMetadata={noteById.get(pendingAction.noteId)?.metadata || {}}
+                    schema={schema}
                     onTranslated={(data) => { setPendingAction(null); onTranslated?.(data); }}
                 />
             )}

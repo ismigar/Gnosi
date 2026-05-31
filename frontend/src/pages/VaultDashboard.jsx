@@ -3514,6 +3514,8 @@ export default function VaultDashboard() {
                     isOpen={true}
                     mode={translatePageMode}
                     noteId={translatePageModalId}
+                    recordMetadata={currentOpenPage?.metadata || {}}
+                    schema={openPageTableId ? getSchemaFromTableId(openPageTableId) : {}}
                     onClose={() => setTranslatePageModalId(null)}
                     onTranslated={() => { setTranslatePageModalId(null); fetchPages(); }}
                 />

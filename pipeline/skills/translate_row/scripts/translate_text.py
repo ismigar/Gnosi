@@ -162,13 +162,27 @@ _ISO639_2_TO_3 = {
     "nl": "nld",
     "oc": "oci",
     "ro": "ron",
-    "ar": "arg",
+    "eu": "eus",  # basc — Apertium el cobreix des de ca/es
+    "gl": "glg",  # gallec — Apertium el cobreix des de ca/es
+    "ar": "ara",  # àrab (era "arg" = aragonès, error). Apertium no el cobreix → via DeepL
+    "zh": "zho",  # xinès — Apertium no el cobreix → via DeepL
     "eo": "epo",
 }
 
 
 def _to_iso3(code: str) -> str:
     return _ISO639_2_TO_3.get(code, code)
+
+
+# Llengües que l'Apertium de Softcatalà tradueix des de/cap al català (parells
+# `cat↔xxx`), VERIFICADES empíricament contra l'endpoint (les no verificades
+# donaven HTTP 400). Per a la resta (àrab, xinès, basc, i gallec des de català)
+# no hi ha motor cat↔ i cal recórrer a DeepL.
+#   - eu (basc): Apertium NO el cobreix ni des de ca ni des de es → DeepL.
+#   - gl (gallec): Apertium el cobreix des de ES (spa→glg ✅) però NO des de
+#     català (cat→glg dóna 400). Per això gl NO és aquí: amb origen català
+#     cauria a DeepL; amb origen castellà el cobreix el bloc d'Apertium públic.
+_SOFTCATALA_APERTIUM_LANGS = {"es", "en", "fr", "pt", "it", "oc", "ro", "de", "nl"}
 
 
 def _parse_apertium_response(data) -> str:
@@ -214,18 +228,34 @@ def translate(
     pair = {source_lang, target_lang}
     involves_catalan = "ca" in pair
 
-    # 1. Català: Softcatalà sempre. NMT si és en↔ca; Apertium si no, amb
-    # quick-fix d'acrònims perquè "API" no es tradueixi com a "apio/céleri".
+    # 1. Català: Softcatalà. NMT si és en↔ca; Apertium per a les llengües que
+    # cobreix (regionals i romàniques properes), amb quick-fix d'acrònims perquè
+    # "API" no es tradueixi com a "apio/céleri". Per a parells amb català que
+    # Apertium NO cobreix (p. ex. àrab, xinès), NO retornem placeholder aquí:
+    # caiem cap a DeepL (bloc 4) com a últim recurs.
     if involves_catalan:
-        try:
-            if pair == {"en", "ca"}:
+        other = (pair - {"ca"}).pop() if pair != {"ca"} else "ca"
+        if pair == {"en", "ca"}:
+            try:
                 return _translate_softcatala_nmt(text, source_lang, target_lang, softcatala_url), "softcatala_nmt"
-            protected, acro = _protect_acronyms(text)
-            translated = _translate_softcatala_apertium(protected, source_lang, target_lang, softcatala_url)
-            return _restore_acronyms(translated, acro), "softcatala_apertium"
-        except Exception as exc:
-            log.warning("Softcatalà translation failed (%s→%s): %s", source_lang, target_lang, exc)
-            return f"[{target_lang}] {text}", "placeholder"
+            except Exception as exc:
+                log.warning("Softcatalà NMT failed (%s→%s): %s — trying DeepL", source_lang, target_lang, exc)
+        elif other in _SOFTCATALA_APERTIUM_LANGS:
+            try:
+                protected, acro = _protect_acronyms(text)
+                translated = _translate_softcatala_apertium(protected, source_lang, target_lang, softcatala_url)
+                return _restore_acronyms(translated, acro), "softcatala_apertium"
+            except Exception as exc:
+                log.warning("Softcatalà Apertium failed (%s→%s): %s — trying DeepL", source_lang, target_lang, exc)
+        # Si arribem aquí, Apertium no cobreix el parell (o ha fallat) →
+        # continuem cap al fallback de DeepL més avall.
+        api_key = (deepl_api_key or os.environ.get("DEEPL_API_KEY", "")).strip()
+        if api_key:
+            try:
+                return _translate_deepl(text, source_lang, target_lang, api_key), "deepl"
+            except Exception as exc:
+                log.warning("DeepL translation failed (%s→%s): %s", source_lang, target_lang, exc)
+        return f"[{target_lang}] {text}", "placeholder"
 
     # 2. es↔fr: OPUS-MT local lazy. Apertium públic dóna qualitat molt baixa
     # per a aquest parell (errors gramaticals greus), justifica carregar un

@@ -948,7 +948,8 @@
     "provider_hint": "El catalán se traduce con Softcatalà; el resto con DeepL. Configura las credenciales en .env_shared.",
     "title_bulk": "Traducir {{count}} registros",
     "intro_bulk": "Elige los idiomas destino. Por cada registro seleccionado e idioma se creará (o actualizará) un subítem con la traducción de los campos marcados como traducibles.",
-    "success_bulk": "Traducción iniciada para {{count}} registros."
+    "success_bulk": "Traducción iniciada para {{count}} registros.",
+    "source_hidden": "El idioma original ({{lang}}) no aparece: es el origen de la traducción."
   },
   "translate_settings": {
     "section_title": "Servicios de traducción",
