@@ -194,10 +194,26 @@
             .replace(/'/g, '&#39;');
     }
 
-    function returnFocusToDocument() {
-        // Best-effort: torna el focus del teclat del taskpane al document.
-        // No hi ha API oficial a Word d'escriptori; window.blur() és el
-        // workaround més fiable i és innocu si la build no el respecta.
+    async function returnFocusToDocument() {
+        // 1) API nativa: Window.setFocus() (WordApiDesktop 1.4, anunciada a
+        //    Ignite 2025) retorna el focus del teclat al cos del document de
+        //    manera fiable. El mètode penja de document.activeWindow (un
+        //    Word.Window), NO de document. Es fa en un Word.run propi perquè,
+        //    si la build no suporta el requirement set, el throw al sync no
+        //    afecti la inserció.
+        try {
+            if (typeof Word !== 'undefined' && Word.run) {
+                await Word.run(async (context) => {
+                    context.document.activeWindow.setFocus();
+                    await context.sync();
+                });
+                return;
+            }
+        } catch (e) {
+            console.warn('Window.setFocus no disponible; fallback a blur:', e && e.message);
+        }
+        // 2) Fallback per a builds antigues: window.blur() allibera el WebView
+        //    en algunes versions; innocu si no es respecta.
         try {
             if (document.activeElement && document.activeElement.blur) {
                 document.activeElement.blur();
@@ -254,12 +270,10 @@
             // Mendeley/Zotero): APA aplica 2020a/2020b, `et al.` i
             // desambiguació de cognoms sol, sense cap acció manual.
             await reformatAllCitations({ silent: true });
-            // Retorna el focus del teclat al document. Office.js NO té API
-            // per fer-ho a Word d'escriptori (limitació coneguda,
-            // office-js#316/#4549), però window.blur() des del taskpane
-            // allibera el WebView en força builds i el focus torna al
-            // document; on no funcioni és innocu.
-            returnFocusToDocument();
+            // Retorna el focus del teclat al document perquè l'usuari pugui
+            // continuar escrivint sense clicar-hi. Via API nativa
+            // Document.setFocus() (WordApiDesktop 1.3+) amb fallback a blur.
+            await returnFocusToDocument();
             setFooter('Inserida @' + item.citation_key + '.');
         } catch (err) {
             console.warn('Word.run insert failed, fallback:', err && err.message);
