@@ -2878,6 +2878,7 @@ export default function VaultDashboard() {
             <BlockEditor
                 key={tab.id}
                 noteFilename={tab.id}
+                referenceTableId={refTableId}
                 initialContent={tab.content}
                 initialMetadata={tab.metadata}
                 isCodeView={Boolean(codeViewByTabId[tab.id])}
