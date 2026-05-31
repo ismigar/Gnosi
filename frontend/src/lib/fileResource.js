@@ -80,6 +80,38 @@ export function toAssetPreviewUrl(value) {
     return toServedAssetUrl(value);
 }
 
+/**
+ * Heurística: el NOM d'un camp suggereix que el seu valor és una imatge (una
+ * ruta/URL d'imatge), p. ex. "Imatge", "Cover", "Foto", "Thumbnail".
+ *
+ * Compartida entre la cel·la de taula (`VaultTable`) i el panell de propietats
+ * (`BlockEditor`) perquè la detecció sigui IDÈNTICA als dos llocs: un camp de
+ * tipus `text` anomenat "Imatge" s'ha de comportar igual a la taula i al detall.
+ *
+ * Exclou noms que denoten TEXT *sobre* la imatge (alt, peu, descripció,
+ * llegenda, caption): p. ex. "Imatge Alt Text" conté prosa, no una ruta, i ha
+ * de seguir sent un camp de text. La decisió final de mostrar miniatura la pren
+ * qui crida comprovant que el VALOR resol a una imatge servible
+ * ([[toAssetPreviewUrl]]); aquesta funció només mira el nom.
+ */
+export function isImageFieldName(name) {
+    const s = String(name || '');
+    if (/\balt\b|\btext\b|\bcaption\b|\bpeu\b|\bllegenda\b|\bleyenda\b|descrip/i.test(s)) return false;
+    return /(image|imatge|cover|thumbnail|thumb|foto|imagen)/i.test(s);
+}
+
+/**
+ * Inversa de `toServedAssetUrl` per a assets del vault: converteix una URL
+ * servida `/api/vault/assets/<path>` de tornada a la ruta relativa del vault
+ * (`<path>`) per desar-la al camp. Qualsevol altra URL (remota, data:) o ruta
+ * ja relativa es manté tal qual.
+ */
+export function servedUrlToVaultPath(url) {
+    const v = String(url || '');
+    const prefix = '/api/vault/assets/';
+    return v.startsWith(prefix) ? v.slice(prefix.length) : v;
+}
+
 // Formata un autor {nom, cognom1, cognom2} segons l'accessor del token del patró:
 //   .cognom → "Cognom1 Cognom2"; .nom → "Nom"; cap/altre → "Nom Cognom1 Cognom2".
 function formatAuthorToken(a, accessor) {
