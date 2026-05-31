@@ -216,7 +216,7 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
-import { getFieldConfig, getFieldType, getSchemaFieldEntries } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames } from './schemaUtils';
 import {
     isComputedType,
     isPasteableType,
@@ -286,7 +286,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, searchTerm: searchTermProp, onSearchChange }) {
+export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange }) {
     const { t, i18n } = useTranslation();
     // Defaults globals de format (moneda/número/data) — override per camp via config.format.
     const localeSettings = useLocaleSettings();
@@ -417,6 +417,20 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const [addingSubitemFor, setAddingSubitemFor] = useState(null); // parent ID for adding a subitem
     const [openingResourceId, setOpeningResourceId] = useState(null);
     const [visibleRowsCount, setVisibleRowsCount] = useState(ROWS_BATCH_SIZE);
+    // Snapshot d'ids per a la traducció massiva (GAP 3c). Capturem la selecció
+    // en obrir el modal perquè netejar-la després no buidi la petició.
+    const [bulkTranslateIds, setBulkTranslateIds] = useState(null);
+
+    // La taula és traduïble si té almenys un camp marcat `translatable`. És el
+    // mateix senyal que valida el backend (translate-row fa 400 si no n'hi ha
+    // cap) i que SchemaConfigModal només escriu quan la traducció està activada
+    // — per això no cal una prop addicional `translation_enabled`.
+    const isTranslatableTable = useMemo(
+        () => getSchemaFieldNames(schema).some(
+            (name) => getFieldConfig(schema, name)?.translatable === true
+        ),
+        [schema]
+    );
     // `useCallback` per mantenir la referència estable: `React.memo` al
     // `InfiniteLoadSentinel` només funciona si les props no canvien a
     // cada render del pare. Sense això, una nova funció inline per
@@ -2415,6 +2429,25 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     <span className="row-action-tooltip">{t('table.open_parallel')}<kbd>⌥P</kbd></span>
                                 </button>
                             )}
+                            {isTranslatableTable && !isListView && !note.metadata?.translation_lang && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Reutilitza el mateix flux que el camp `button`:
+                                        // obre TranslateLanguagesModal en mode fila (subitems).
+                                        setPendingAction({
+                                            noteId: note.id,
+                                            fieldConfig: { button_action: 'translate_row' },
+                                            action: 'translate_row',
+                                        });
+                                    }}
+                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors opacity-0 group-hover/row:opacity-100"
+                                    title={t('table.translate_row', 'Traduir')}
+                                >
+                                    <Languages size={14} />
+                                    <span className="row-action-tooltip">{t('table.translate_row', 'Traduir')}</span>
+                                </button>
+                            )}
                             {!isListView && onDeletePage && (
                                 <button
                                     onClick={(e) => {
@@ -2441,6 +2474,17 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         onDoubleClick={(e) => { e.stopPropagation(); onNoteSelect(note.id); }}
                     >
                         <div className="flex items-center gap-1.5">
+                            {note.metadata?.translation_lang && (
+                                <span
+                                    className={`shrink-0 inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-bold uppercase ${note.metadata?.translation_stale ? 'bg-amber-500/15 text-amber-600' : 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'}`}
+                                    title={note.metadata?.translation_stale
+                                        ? t('table.translation_stale', "L'original ha canviat — torna a traduir per actualitzar")
+                                        : t('table.translation_badge', 'Traducció')}
+                                >
+                                    {note.metadata?.translation_stale && <AlertTriangle size={9} />}
+                                    {String(note.metadata.translation_lang).toUpperCase()}
+                                </span>
+                            )}
                             {isChild && (
                                 <div className="flex shrink-0" style={{ width: depth * 20 }}>
                                     <div className="flex-1" />
@@ -2886,6 +2930,21 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     onClose={() => setPendingAction(null)}
                     noteId={pendingAction.noteId}
                     fieldConfig={pendingAction.fieldConfig}
+                    onTranslated={(data) => { setPendingAction(null); onTranslated?.(data); }}
+                />
+            )}
+
+            {bulkTranslateIds && bulkTranslateIds.length > 0 && (
+                <TranslateLanguagesModal
+                    isOpen={true}
+                    mode="bulk"
+                    noteIds={bulkTranslateIds}
+                    onClose={() => setBulkTranslateIds(null)}
+                    onTranslated={(data) => {
+                        setBulkTranslateIds(null);
+                        clearSelection();
+                        onTranslated?.(data);
+                    }}
                 />
             )}
 

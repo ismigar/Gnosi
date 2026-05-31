@@ -8,7 +8,7 @@
  * exportar selecció a BibTeX/RIS.
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, X, CheckSquare, Tag, Download, ChevronDown } from 'lucide-react';
+import { Trash2, X, CheckSquare, Tag, Download, ChevronDown, Languages } from 'lucide-react';
 
 /**
  * @param {Object} props
@@ -20,6 +20,7 @@ import { Trash2, X, CheckSquare, Tag, Download, ChevronDown } from 'lucide-react
  * @param {Array<{value, label}>=} props.itemTypeOptions - Opcions per a "Canviar tipus"
  * @param {Function=} props.onChangeItemType   - (value) → void; rep el tipus triat
  * @param {Function=} props.onExportSelection  - (fmt: 'bibtex'|'ris') → void
+ * @param {Function=} props.onTranslateSelection - () → void; obre el modal de traducció massiva
  */
 export function VaultBulkActionsBar({
     selectedIds,
@@ -30,6 +31,7 @@ export function VaultBulkActionsBar({
     itemTypeOptions,
     onChangeItemType,
     onExportSelection,
+    onTranslateSelection,
 }) {
     const [typeMenuOpen, setTypeMenuOpen] = useState(false);
     const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -127,6 +129,18 @@ export function VaultBulkActionsBar({
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Traduir selecció (opcional) */}
+            {onTranslateSelection && (
+                <button
+                    onClick={onTranslateSelection}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                    title="Traduir seleccionats"
+                >
+                    <Languages size={13} />
+                    Traduir
+                </button>
             )}
 
             {/* Eliminar */}

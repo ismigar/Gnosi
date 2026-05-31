@@ -221,7 +221,8 @@
     "hide_sidebar": "Amagar barra lateral",
     "show_sidebar": "Mostrar barra lateral",
     "lock_edit": "Bloqueja edició (només lectura)",
-    "unlock_edit": "Desbloqueja per editar"
+    "unlock_edit": "Desbloqueja per editar",
+    "translate_record": "Tradueix el registre"
   },
   "table": {
     "new_record": "Nou registre",
@@ -259,7 +260,10 @@
     "showing_records": "Mostrant {{count}} de {{total}} registres",
     "show_more_count": "Mostrar {{count}} més",
     "add_files": "+ Arxius",
-    "add_image": "+ Imatge"
+    "add_image": "+ Imatge",
+    "translate_row": "Traduir",
+    "translation_stale": "L'original ha canviat — torna a traduir per actualitzar",
+    "translation_badge": "Traducció"
   },
   "dashboard": {
     "status_title": "Estat del Sistema",
@@ -1054,7 +1058,10 @@
     "success_page": "Traducció iniciada — les subpàgines es crearan en breu.",
     "error": "Error iniciant la traducció",
     "error_pick_lang": "Selecciona almenys un idioma.",
-    "provider_hint": "El català es tradueix amb Softcatalà; la resta amb DeepL. Configura les credencials a .env_shared."
+    "provider_hint": "El català es tradueix amb Softcatalà; la resta amb DeepL. Configura les credencials a .env_shared.",
+    "title_bulk": "Traduir {{count}} registres",
+    "intro_bulk": "Tria els idiomes destí. Per cada registre seleccionat i idioma es crearà (o s'actualitzarà) un subitem amb la traducció dels camps marcats com a traduïbles.",
+    "success_bulk": "Traducció iniciada per {{count}} registres."
   },
   "translate_settings": {
     "section_title": "Serveis de traducció",

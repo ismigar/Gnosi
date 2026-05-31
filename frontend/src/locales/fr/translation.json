@@ -193,7 +193,10 @@
     "success_page": "Traduction lancée — les sous-pages apparaîtront bientôt.",
     "error": "Erreur au lancement de la traduction",
     "error_pick_lang": "Choisis au moins une langue.",
-    "provider_hint": "Le catalan est traduit avec Softcatalà ; le reste avec DeepL. Configure les identifiants dans .env_shared."
+    "provider_hint": "Le catalan est traduit avec Softcatalà ; le reste avec DeepL. Configure les identifiants dans .env_shared.",
+    "title_bulk": "Traduire {{count}} enregistrements",
+    "intro_bulk": "Choisissez les langues cibles. Pour chaque enregistrement sélectionné et chaque langue, un sous-élément sera créé (ou mis à jour) avec la traduction des champs marqués comme traduisibles.",
+    "success_bulk": "Traduction lancée pour {{count}} enregistrements."
   },
   "translate_settings": {
     "section_title": "Services de traduction",
@@ -399,7 +402,10 @@
   "reader_podcast_error": "Erreur lors du lancement du podcast.",
   "table": {
     "add_files": "+ Fichiers",
-    "add_image": "+ Image"
+    "add_image": "+ Image",
+    "translate_row": "Traduire",
+    "translation_stale": "L'original a changé — retraduisez pour mettre à jour",
+    "translation_badge": "Traduction"
   },
   "files": {
     "delete_title": "Supprimer le fichier",
@@ -421,5 +427,8 @@
     "nav_media": "Photos",
     "nav_dashboard": "Tableau de bord",
     "nav_settings": "Paramètres"
+  },
+  "shell": {
+    "translate_record": "Traduire l'enregistrement"
   }
 }

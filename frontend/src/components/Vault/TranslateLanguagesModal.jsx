@@ -19,13 +19,15 @@ const DEFAULT_LANGUAGES = [
     { code: 'nl', label: 'Neerlandès' },
 ];
 
-export function TranslateLanguagesModal({ isOpen, onClose, noteId, fieldConfig, onTranslated, mode = 'row' }) {
+export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [], fieldConfig, onTranslated, mode = 'row' }) {
     const { t } = useTranslation();
     const [selected, setSelected] = useState([]);
     const [submitting, setSubmitting] = useState(false);
     // `mode` generalitza el modal: 'row' tradueix una fila de taula (subitems),
-    // 'page' tradueix una pàgina sencera (subpàgines filles).
+    // 'page' tradueix una pàgina sencera (subpàgines filles), 'bulk' tradueix
+    // diverses files seleccionades alhora (un subitem per fila i idioma).
     const isPage = mode === 'page';
+    const isBulk = mode === 'bulk';
 
     useEffect(() => {
         if (isOpen) setSelected([]);
@@ -44,16 +46,25 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, fieldConfig, 
         }
         setSubmitting(true);
         try {
-            const endpoint = isPage
-                ? '/api/vault/skills/translate-page'
-                : '/api/vault/skills/translate-row';
-            const payload = isPage
-                ? { page_id: noteId, target_languages: selected, button_action: 'translate_page' }
-                : { item_id: noteId, target_languages: selected, button_action: fieldConfig?.button_action || 'translate_row' };
+            let endpoint, payload, successMsg;
+            if (isBulk) {
+                endpoint = '/api/vault/skills/translate-rows';
+                payload = { item_ids: noteIds, target_languages: selected, button_action: 'translate_row' };
+                successMsg = t('translate.success_bulk', {
+                    count: noteIds.length,
+                    defaultValue: 'Traducció iniciada per {{count}} registres.',
+                });
+            } else if (isPage) {
+                endpoint = '/api/vault/skills/translate-page';
+                payload = { page_id: noteId, target_languages: selected, button_action: 'translate_page' };
+                successMsg = t('translate.success_page', 'Traducció iniciada — les subpàgines es crearan en breu.');
+            } else {
+                endpoint = '/api/vault/skills/translate-row';
+                payload = { item_id: noteId, target_languages: selected, button_action: fieldConfig?.button_action || 'translate_row' };
+                successMsg = t('translate.success', 'Traducció iniciada — els subitems es crearan en breu.');
+            }
             const res = await axios.post(endpoint, payload);
-            toast.success(isPage
-                ? t('translate.success_page', 'Traducció iniciada — les subpàgines es crearan en breu.')
-                : t('translate.success', 'Traducció iniciada — els subitems es crearan en breu.'));
+            toast.success(successMsg);
             if (onTranslated) onTranslated(res.data);
             onClose();
         } catch (err) {
@@ -71,7 +82,11 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, fieldConfig, 
                 <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Languages size={18} className="text-[var(--gnosi-primary)]" />
-                        {isPage ? t('translate.title_page', 'Tradueix la pàgina') : t('translate.title', 'Traduir fila')}
+                        {isBulk
+                            ? t('translate.title_bulk', { count: noteIds.length, defaultValue: 'Traduir {{count}} registres' })
+                            : isPage
+                                ? t('translate.title_page', 'Tradueix la pàgina')
+                                : t('translate.title', 'Traduir fila')}
                     </h2>
                     <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar" disabled={submitting}>
                         <X />
@@ -80,9 +95,11 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, fieldConfig, 
 
                 <div className="p-5 space-y-4">
                     <p className="text-xs text-[var(--text-secondary)]/80">
-                        {isPage
-                            ? t('translate.intro_page', 'Tria els idiomes destí. Per cada idioma es crearà una subpàgina amb la traducció del títol i el contingut.')
-                            : t('translate.intro', 'Tria els idiomes destí. Per cada idioma es crearà un subitem amb la traducció dels camps marcats com a traduïbles.')}
+                        {isBulk
+                            ? t('translate.intro_bulk', 'Tria els idiomes destí. Per cada registre seleccionat i idioma es crearà (o s\'actualitzarà) un subitem amb la traducció dels camps marcats com a traduïbles.')
+                            : isPage
+                                ? t('translate.intro_page', 'Tria els idiomes destí. Per cada idioma es crearà una subpàgina amb la traducció del títol i el contingut.')
+                                : t('translate.intro', 'Tria els idiomes destí. Per cada idioma es crearà un subitem amb la traducció dels camps marcats com a traduïbles.')}
                     </p>
 
                     <div className="grid grid-cols-2 gap-2">
