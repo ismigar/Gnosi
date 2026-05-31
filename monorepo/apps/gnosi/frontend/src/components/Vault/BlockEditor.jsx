@@ -2604,7 +2604,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewerRole = role === 'viewer';
@@ -2754,6 +2754,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
+    // El registre actual és una font bibliogràfica si pertany a la taula de
+    // referències designada a Settings (`referenceTableId`). És la mateixa font
+    // de veritat que governa «Crear des d'una font» i la resta del gating de
+    // referències; així «Omplir des d'una font» segueix la designació de Settings
+    // en comptes d'un heurístic local pel «Citation Key».
+    const isReferenceRecord = Boolean(
+        referenceTableId && currentTableId &&
+        String(currentTableId) === String(referenceTableId)
+    );
     // Les opcions de `select`/`multi_select` poden viure a `prop.config.options`
     // (les escriu el PATCH inline) o a `prop.options` de nivell superior (les
     // escriu el desat del modal). El PATCH no toca el nivell superior, però el
@@ -3259,8 +3268,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         </div>
                                     </button>
                                     {/* Botó d'enrichment per identificador (DOI/ISBN/arXiv/URL).
-                                        Sempre present si l'editor és editable. */}
-                                    {isEditable && (
+                                        Només en fonts bibliogràfiques (registres de la taula de
+                                        referències designada), no a totes les pàgines del Vault. */}
+                                    {isEditable && isReferenceRecord && (
                                         <button
                                             type="button"
                                             onClick={() => setIsMetadataLookupOpen(true)}
