@@ -64,7 +64,10 @@ export function useApi() {
         apiGet, 
         apiPost,
         workspaceId: getWorkspaceId(),
-        role: localStorage.getItem('gnosi_role') || 'viewer',
+        // En mode personal (sense login → gnosi_user_id null) l'usuari és
+        // l'únic propietari → admin. Si hi ha login però gnosi_role no s'ha
+        // guardat encara (edge-case de timing), anem a 'viewer' per seguretat.
+        role: localStorage.getItem('gnosi_role') || (localStorage.getItem('gnosi_user_id') ? 'viewer' : 'admin'),
         userEmail: getUserEmail(),
     };
 }
