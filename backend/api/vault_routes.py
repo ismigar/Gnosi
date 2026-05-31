@@ -3506,6 +3506,26 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
     return None
 
 
+async def _materialize_if_online_only(file_path: Path, label: str = "") -> None:
+    """Materialitza el fitxer si OneDrive el té com a online-only (`dataless`)
+    ABANS de llegir-lo, evitant l'`OSError [Errno 35]` (EDEADLK) que es
+    produeix en llegir-lo des de dins el contenidor.
+
+    No-op silenciós si falla (daemon de warmup caigut, fora d'àmbit, etc.): el
+    cridador conserva el seu retry loop com a xarxa de seguretat. És el mateix
+    patró que ja segueix `_compute_preview` per als previews.
+    """
+    try:
+        provider = get_files_provider()
+        st = file_path.stat()
+        if provider.is_online_only(file_path, st):
+            await provider.materialize(file_path)
+    except OSError:
+        pass  # cap mal: el retry loop del cridador ja ho gestiona.
+    except Exception as e:
+        log.debug(f"Warmup proactiu falla per {label or file_path}: {e}")
+
+
 @router.get("/pages/{page_id}")
 async def get_page(page_id: str):
     """Returns the full content of a page by ID."""
@@ -3517,6 +3537,12 @@ async def get_page(page_id: str):
         raise HTTPException(
             status_code=404, detail=f"Page not found (ID: {page_id})"
         )
+
+    # Warmup proactiu: si el fitxer és online-only, materialitza'l abans de
+    # llegir-lo. Sense això, obrir una pàgina d'un fitxer dataless donava 500
+    # (EDEADLK) tot i tenir el warmup daemon viu, perquè aquest camí —a
+    # diferència del preview— no demanava la materialització.
+    await _materialize_if_online_only(file_path, page_id)
 
     def _read_and_parse():
         if _is_dashboard_file_path(file_path):
@@ -5806,17 +5832,9 @@ async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any
         mtime = 0.0
 
     # Warmup proactiu: si el fitxer és online-only, el File Provider d'OneDrive
-    # ha de descarregar-lo abans que `read_text` no peti amb errno 35. Aquest
-    # mateix patró el segueix _serve_file_with_containment per a Assets/Images.
-    try:
-        provider = get_files_provider()
-        st = file_path.stat()
-        if provider.is_online_only(file_path, st):
-            await provider.materialize(file_path)
-    except OSError:
-        pass  # cap mal: el retry loop de _read_and_parse ja ho gestiona.
-    except Exception as e:
-        log.debug(f"Warmup proactiu falla per {page_id}: {e}")
+    # ha de descarregar-lo abans que `read_text` no peti amb errno 35. Mateix
+    # helper que usa get_page.
+    await _materialize_if_online_only(file_path, page_id)
 
     def _read_and_parse():
         if _is_dashboard_file_path(file_path):
@@ -7918,6 +7936,12 @@ async def serve_local_file(token: str, filename: str | None = None):
 @router.get("/custom-icons")
 async def get_custom_icons():
     """Returns the shared custom icon library for Vault icon picker."""
+    # El JSON de la biblioteca viu al vault (OneDrive). Si està online-only,
+    # `_load_custom_icons` el llegiria amb EDEADLK i el seu `except` silenciós
+    # tornaria una llista buida (icones desaparegudes). Materialitza'l abans.
+    icons_path = get_custom_icons_path()
+    if icons_path:
+        await _materialize_if_online_only(icons_path, "custom-icons")
     return {"icons": _load_custom_icons()}
 
 
