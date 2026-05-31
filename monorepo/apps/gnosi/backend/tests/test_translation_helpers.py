@@ -14,6 +14,8 @@ from backend.services.translation_helpers import (
     canonicalize_id,
     find_translations_of,
     translatable_content_changed,
+    normalize_lang_code,
+    detect_record_source_lang,
 )
 
 
@@ -139,3 +141,49 @@ def test_page_no_change_when_body_and_title_stable():
 def test_none_bodies_treated_as_empty_equal():
     # Cap body passat → no es compara cos; títol igual → sense canvi.
     assert translatable_content_changed([], {"title": "A"}, {"title": "A"}) is False
+
+
+# --------------------------------------------------------------------------- #
+# normalize_lang_code
+# --------------------------------------------------------------------------- #
+def test_normalize_lang_code_iso_and_labels():
+    assert normalize_lang_code("ca") == "ca"
+    assert normalize_lang_code("CA") == "ca"
+    assert normalize_lang_code("Català") == "ca"
+    assert normalize_lang_code("Castellà") == "es"
+    assert normalize_lang_code("basc") == "eu"
+    assert normalize_lang_code("gallego") == "gl"
+
+
+def test_normalize_lang_code_regional_variants():
+    assert normalize_lang_code("EN-GB") == "en"
+    assert normalize_lang_code("pt_BR") == "pt"
+
+
+def test_normalize_lang_code_unknown_and_blank():
+    assert normalize_lang_code("") == ""
+    assert normalize_lang_code(None) == ""
+    assert normalize_lang_code("xx") == "xx"   # codi 2 lletres desconegut → tal qual
+    assert normalize_lang_code("Klingon") == ""
+
+
+# --------------------------------------------------------------------------- #
+# detect_record_source_lang
+# --------------------------------------------------------------------------- #
+def test_detect_source_from_idioma_field():
+    assert detect_record_source_lang({"Idioma": "ES"}) == "es"
+    assert detect_record_source_lang({"Idioma": "CA"}) == "ca"
+    assert detect_record_source_lang({"Idioma": "EN-GB"}) == "en"
+
+
+def test_detect_source_field_name_accent_case_insensitive():
+    assert detect_record_source_lang({"idioma": "Castellà"}) == "es"
+    assert detect_record_source_lang({"Llengua": "basc"}) == "eu"
+    assert detect_record_source_lang({"language": "zh"}) == "zh"
+
+
+def test_detect_source_absent_or_empty_returns_blank():
+    assert detect_record_source_lang({"Estat": "Publicat"}) == ""
+    assert detect_record_source_lang({}) == ""
+    assert detect_record_source_lang({"Idioma": ""}) == ""
+    assert detect_record_source_lang(None) == ""

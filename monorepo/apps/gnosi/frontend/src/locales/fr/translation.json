@@ -196,7 +196,8 @@
     "provider_hint": "Le catalan est traduit avec Softcatalà ; le reste avec DeepL. Configure les identifiants dans .env_shared.",
     "title_bulk": "Traduire {{count}} enregistrements",
     "intro_bulk": "Choisissez les langues cibles. Pour chaque enregistrement sélectionné et chaque langue, un sous-élément sera créé (ou mis à jour) avec la traduction des champs marqués comme traduisibles.",
-    "success_bulk": "Traduction lancée pour {{count}} enregistrements."
+    "success_bulk": "Traduction lancée pour {{count}} enregistrements.",
+    "source_hidden": "La langue d'origine ({{lang}}) n'apparaît pas : c'est la source de la traduction."
   },
   "translate_settings": {
     "section_title": "Services de traduction",

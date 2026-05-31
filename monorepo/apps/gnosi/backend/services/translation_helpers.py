@@ -103,3 +103,69 @@ def translatable_content_changed(
             return True
 
     return False
+
+
+# --- Detecció de l'idioma origen via el camp "Idioma" del registre ----------
+# Mirall del helper de frontend (schemaUtils.detectRecordSourceLang): backend i
+# UI han de coincidir en quin és l'idioma original. Si el registre té un camp
+# "Idioma" (o sinònim), el seu valor mana sobre la detecció heurística del text.
+
+# Noms de camp que solem usar per a "l'idioma del registre".
+_LANGUAGE_FIELD_NAMES = {"idioma", "llengua", "language", "lang", "lengua", "lingua"}
+
+# Etiquetes/codis habituals → codi ISO 639-1.
+_LANGUAGE_VALUE_TO_CODE = {
+    "ca": "ca", "cat": "ca", "català": "ca", "catala": "ca", "catalan": "ca", "catalán": "ca",
+    "es": "es", "spa": "es", "cas": "es", "castellà": "es", "castella": "es", "castellano": "es", "español": "es", "espanyol": "es", "spanish": "es",
+    "en": "en", "eng": "en", "anglès": "en", "angles": "en", "inglés": "en", "english": "en",
+    "fr": "fr", "fra": "fr", "fre": "fr", "francès": "fr", "frances": "fr", "francés": "fr", "french": "fr",
+    "de": "de", "deu": "de", "ger": "de", "alemany": "de", "alemán": "de", "aleman": "de", "german": "de",
+    "it": "it", "ita": "it", "italià": "it", "italia": "it", "italiano": "it", "italian": "it",
+    "pt": "pt", "por": "pt", "portuguès": "pt", "portugues": "pt", "portugués": "pt", "portuguese": "pt",
+    "nl": "nl", "nld": "nl", "dut": "nl", "neerlandès": "nl", "neerlandes": "nl", "neerlandés": "nl", "dutch": "nl", "holandés": "nl",
+    "eu": "eu", "eus": "eu", "baq": "eu", "basc": "eu", "euskera": "eu", "euskara": "eu", "vasco": "eu", "vascuence": "eu", "basque": "eu",
+    "gl": "gl", "glg": "gl", "gallec": "gl", "gallego": "gl", "galego": "gl", "galician": "gl",
+    "ar": "ar", "ara": "ar", "àrab": "ar", "arab": "ar", "árabe": "ar", "arabe": "ar", "arabic": "ar",
+    "zh": "zh", "zho": "zh", "chi": "zh", "xinès": "zh", "xines": "zh", "chino": "zh", "chinese": "zh", "mandarí": "zh", "mandarin": "zh",
+}
+
+
+def _strip_accents(s: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+def normalize_lang_code(value: Any) -> str:
+    """Normalitza un valor d'idioma ("Català", "EN-GB", "ca") a codi ISO 639-1.
+
+    Retorna '' si no es pot determinar.
+    """
+    if not isinstance(value, str):
+        return ""
+    raw = value.strip().lower()
+    if not raw:
+        return ""
+    if raw in _LANGUAGE_VALUE_TO_CODE:
+        return _LANGUAGE_VALUE_TO_CODE[raw]
+    prefix = raw.split("-")[0].split("_")[0]  # "en-gb" / "pt_br" → prefix
+    if prefix in _LANGUAGE_VALUE_TO_CODE:
+        return _LANGUAGE_VALUE_TO_CODE[prefix]
+    return prefix if len(prefix) == 2 and prefix.isalpha() else ""
+
+
+def detect_record_source_lang(metadata: Optional[Dict[str, Any]]) -> str:
+    """Idioma origen d'un registre llegit del seu camp "Idioma" (o sinònim).
+
+    Retorna el codi ISO 639-1, o '' si el registre no té un camp idioma
+    reconeixible amb valor vàlid (el caller cau llavors a la heurística de text).
+    Es compara el nom de la clau accent/caixa-insensiblement.
+    """
+    if not metadata or not isinstance(metadata, dict):
+        return ""
+    for key, val in metadata.items():
+        norm_key = _strip_accents(str(key).lower())
+        if norm_key in _LANGUAGE_FIELD_NAMES:
+            code = normalize_lang_code(val[0] if isinstance(val, list) and val else val)
+            if code:
+                return code
+    return ""

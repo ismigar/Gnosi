@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { X, Languages, Loader2 } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { detectRecordSourceLang } from './schemaUtils';
 
-// Idiomes oferts per defecte. L'idioma origen es detecta a la skill del
-// backend (o el deixa decidir l'usuari més endavant); aquí només triem
-// destins. Els codis ISO 639-1 es passen tal qual a la skill, que sap
-// rutar-los al proveïdor adequat (Softcatalà per `ca`, DeepL per la resta).
+// Idiomes oferts per defecte. L'idioma origen el detecta la skill del backend
+// en enviar; aquí, a més, l'amaguem de la llista quan el coneixem pel camp
+// "Idioma" del registre (vegeu sourceLang). Els codis ISO 639-1 es passen tal
+// qual a la skill, que sap rutar-los al proveïdor adequat (Softcatalà/Apertium
+// per ca/es i regionals; DeepL per a la resta com àrab o xinès).
 const DEFAULT_LANGUAGES = [
     { code: 'ca', label: 'Català' },
     { code: 'es', label: 'Castellà' },
@@ -17,9 +19,13 @@ const DEFAULT_LANGUAGES = [
     { code: 'it', label: 'Italià' },
     { code: 'pt', label: 'Portuguès' },
     { code: 'nl', label: 'Neerlandès' },
+    { code: 'eu', label: 'Basc' },
+    { code: 'gl', label: 'Gallec' },
+    { code: 'ar', label: 'Àrab' },
+    { code: 'zh', label: 'Xinès' },
 ];
 
-export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [], fieldConfig, onTranslated, mode = 'row' }) {
+export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [], fieldConfig, recordMetadata = null, schema = {}, onTranslated, mode = 'row' }) {
     const { t } = useTranslation();
     const [selected, setSelected] = useState([]);
     const [submitting, setSubmitting] = useState(false);
@@ -29,6 +35,19 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
     const isPage = mode === 'page';
     const isBulk = mode === 'bulk';
 
+    // Idioma origen del registre, llegit del seu camp "Idioma" (si en té). En
+    // mode 'bulk' no s'amaga cap idioma: cada fila pot tenir un origen diferent
+    // i el backend ja salta l'origen de cadascuna individualment.
+    const sourceLang = useMemo(
+        () => (isBulk ? '' : detectRecordSourceLang(recordMetadata || {}, schema || {})),
+        [isBulk, recordMetadata, schema]
+    );
+    // Llista de destins: amaga l'idioma origen quan el coneixem.
+    const languages = useMemo(
+        () => DEFAULT_LANGUAGES.filter(l => l.code !== sourceLang),
+        [sourceLang]
+    );
+
     useEffect(() => {
         if (isOpen) setSelected([]);
     }, [isOpen]);
@@ -36,6 +55,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
     if (!isOpen) return null;
 
     const toggle = (code) => {
+        if (code === sourceLang) return; // no es pot triar l'idioma original
         setSelected(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
     };
 
@@ -103,7 +123,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                     </p>
 
                     <div className="grid grid-cols-2 gap-2">
-                        {DEFAULT_LANGUAGES.map(lang => {
+                        {languages.map(lang => {
                             const isOn = selected.includes(lang.code);
                             return (
                                 <label
@@ -127,6 +147,15 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                             );
                         })}
                     </div>
+
+                    {sourceLang && (
+                        <p className="text-[10px] text-[var(--text-secondary)]/60">
+                            {t('translate.source_hidden', {
+                                lang: (DEFAULT_LANGUAGES.find(l => l.code === sourceLang)?.label || sourceLang.toUpperCase()),
+                                defaultValue: "L'idioma original ({{lang}}) no apareix: és l'origen de la traducció.",
+                            })}
+                        </p>
+                    )}
 
                     <p className="text-[10px] text-[var(--text-secondary)]/60">
                         {t('translate.provider_hint', 'El català es tradueix amb Softcatalà; la resta amb DeepL. Configura les credencials a .env_shared.')}

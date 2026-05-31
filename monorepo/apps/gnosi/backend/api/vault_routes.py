@@ -78,6 +78,7 @@ from backend.services.field_resolver import (
 from backend.services.translation_helpers import (
     find_translations_of,
     translatable_content_changed,
+    detect_record_source_lang,
 )
 
 
@@ -11272,29 +11273,68 @@ async def _do_translate_row(
         )
 
     def _read_meta(prop: dict):
-        prop_id = prop.get("id") or prop.get("name")
+        # El camp títol es desa sota la clau canònica `title`. La clau amb el
+        # NOM de la propietat (p. ex. "Títol") pot existir al frontmatter però
+        # BUIDA — per això s'ha de prioritzar `title` per als camps títol; si no,
+        # `_read_meta` retornava "" i el subitem acabava agafant el títol del
+        # primer camp de text ("Imatge Alt Text"). Veure bug "no veo resultados".
+        is_title = prop.get("type") == "title" or prop.get("name") == "title"
+        candidate_keys = []
+        if is_title:
+            candidate_keys.append("title")
+        prop_id = prop.get("id")
         prop_name = prop.get("name") or ""
-        if prop_id and prop_id in metadata:
-            return metadata.get(prop_id)
-        if prop_name and prop_name in metadata:
-            return metadata.get(prop_name)
-        return None
+        if prop_id:
+            candidate_keys.append(prop_id)
+        if prop_name:
+            candidate_keys.append(prop_name)
+        if is_title:
+            candidate_keys.append("title")  # darrer recurs, ja inclòs abans
+        # Primer valor NO buit entre les claus candidates.
+        fallback = None
+        for key in candidate_keys:
+            if key in metadata:
+                val = metadata.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val
+                if val not in (None, "", [], {}):
+                    return val
+                if fallback is None:
+                    fallback = val
+        return fallback
 
-    # Detect source language from the longest non-empty translatable value.
-    sample = ""
-    for p in translatable_props:
-        val = _read_meta(p)
-        if isinstance(val, str) and len(val.strip()) > len(sample):
-            sample = val.strip()
-    if not sample:
-        sample = str(metadata.get("title") or "")
-    source_lang = detect_fn(sample) if sample else "ca"
+    # Source language: el camp "Idioma" del registre mana (si el té); altrament
+    # heurística sobre el text del camp traduïble més llarg. Així respectem la
+    # dada explícita de l'usuari en lloc d'endevinar (p. ex. ES marcat com a CA).
+    source_lang = detect_record_source_lang(metadata)
+    if not source_lang:
+        sample = ""
+        for p in translatable_props:
+            val = _read_meta(p)
+            if isinstance(val, str) and len(val.strip()) > len(sample):
+                sample = val.strip()
+        if not sample:
+            sample = str(metadata.get("title") or "")
+        source_lang = detect_fn(sample) if sample else "ca"
 
     parent_title = str(metadata.get("title") or "")
     title_is_translatable = any(
         (p.get("name") == "title" or p.get("type") == "title") and p.get("translatable") is True
         for p in translatable_props
     )
+
+    # El cos markdown de l'original també es tradueix (els articles tenen el text
+    # al cos, no només als camps). Reusem el segmentador de `translate_page`, que
+    # preserva codi, wikilinks, cites, etc. Si no és importable, el cos es deixa
+    # buit i només es tradueixen els camps (degradació, no error).
+    _translate_markdown = None
+    if body and body.strip():
+        try:
+            from pipeline.skills.translate_page.scripts.markdown_segmenter import (
+                translate_markdown as _translate_markdown,
+            )
+        except Exception as exc:
+            log.warning(f"translate_row: markdown segmenter unavailable, body left empty: {exc}")
 
     # Pre-fetch the already-existing translations so re-runs update instead of duplicate.
     existing_translations = await _get_existing_translations(item_id)
@@ -11329,13 +11369,25 @@ async def _do_translate_row(
             val = _read_meta(prop)
             if not isinstance(val, str) or not val.strip():
                 continue
+            # Si el camp JA està en l'idioma destí (p. ex. un Alt Text en català
+            # dins un registre marcat com a ES), copiar-lo tal qual: traduir-lo
+            # el corromptria ("persones"→"personis"). Detecció per heurística;
+            # només saltem si estem prou segurs que ja és l'idioma destí.
             try:
-                translated, provider = translate_fn(val, source_lang, lang, deepl_api_key=deepl_api_key)
-            except Exception as exc:
-                log.warning(f"translate_row: failed translating field {prop.get('name')} → {lang}: {exc}")
-                translated = f"[error: {exc}]"
-                provider = "error"
-            providers_used.add(provider)
+                field_lang = detect_fn(val)
+            except Exception:
+                field_lang = ""
+            if field_lang == lang:
+                translated, provider = val, "noop"
+            else:
+                try:
+                    translated, provider = translate_fn(val, source_lang, lang, deepl_api_key=deepl_api_key)
+                except Exception as exc:
+                    log.warning(f"translate_row: failed translating field {prop.get('name')} → {lang}: {exc}")
+                    translated = f"[error: {exc}]"
+                    provider = "error"
+            if provider != "noop":
+                providers_used.add(provider)
             # Persist by the same key the parent row uses, preferring stable id.
             key = prop.get("id") or prop.get("name")
             if key:
@@ -11346,7 +11398,20 @@ async def _do_translate_row(
             elif not first_text_translation and prop.get("type") in ("text", "rich_text"):
                 first_text_translation = translated
 
-        if not any_translated:
+        # Traduir el cos markdown de l'original (si n'hi ha i el segmentador
+        # està disponible). El resultat és el `content` del subitem.
+        translated_body = ""
+        if _translate_markdown is not None:
+            try:
+                translated_body, body_providers = await asyncio.to_thread(
+                    _translate_markdown, body, source_lang, lang, deepl_api_key=deepl_api_key
+                )
+                providers_used |= {p for p in body_providers if p != "noop"}
+            except Exception as exc:
+                log.warning(f"translate_row: failed translating body → {lang}: {exc}")
+                translated_body = body  # millor el text original que res
+
+        if not any_translated and not (translated_body and translated_body.strip()):
             skipped.append({"lang": lang, "reason": "no translatable content"})
             continue
 
@@ -11363,9 +11428,14 @@ async def _do_translate_row(
         existing = existing_translations.get(lang)
         existing_id = getattr(existing, "id", None) if existing is not None else None
         if existing_id:
-            # Idempotent update: refresh the existing subitem. content stays None
-            # so any manual body the user added to the subitem is preserved.
-            patch_req = PagePatchRequest(title=sub_title, metadata=sub_metadata)
+            # Idempotent update: refresh títol, camps i cos. Només passem `content`
+            # si hem traduït cos; si no, el deixem com estava (None) per no
+            # esborrar un cos que l'usuari hagués pogut editar manualment.
+            patch_req = PagePatchRequest(
+                title=sub_title,
+                metadata=sub_metadata,
+                content=(translated_body if (translated_body and translated_body.strip()) else None),
+            )
             try:
                 await patch_page(existing_id, patch_req, background_tasks)
                 updated.append({
@@ -11381,7 +11451,7 @@ async def _do_translate_row(
 
         sub_request = PageSaveRequest(
             title=sub_title,
-            content="",
+            content=translated_body or "",
             parent_id=item_id,
             metadata=sub_metadata,
         )
@@ -11562,9 +11632,12 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
     metadata, body = parse_frontmatter(raw_content, file_path)
     parent_title = str(metadata.get("title") or "")
 
-    # 2. Detect source language from the body (falling back to the title).
-    sample = body.strip() if body and body.strip() else parent_title
-    source_lang = _detect_source_lang(sample) if sample else "ca"
+    # 2. Source language: el camp "Idioma" del registre mana (si la pàgina és un
+    # registre de taula i en té); altrament heurística sobre el cos/títol.
+    source_lang = detect_record_source_lang(metadata)
+    if not source_lang:
+        sample = body.strip() if body and body.strip() else parent_title
+        source_lang = _detect_source_lang(sample) if sample else "ca"
 
     # Sync worker run off the event loop: each segment is a blocking HTTP call.
     def _translate_page_content(src_lang: str, tgt_lang: str):
