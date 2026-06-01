@@ -3,8 +3,11 @@ import sys
 import os
 from pathlib import Path
 
-# Afegir el directori de l'app al path per poder importar els mòduls del backend
-sys.path.append("/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi")
+# Afegir el directori de l'app al path per poder importar els mòduls del backend.
+# Derivem de la ubicació d'aquest fitxer (.../monorepo/apps/gnosi/backend/scratch_sync.py
+# al host, /app/backend dins Docker) en comptes d'una ruta absoluta amb un usuari macOS
+# hardcodejat, que trencava en l'altra màquina.
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import logging
 logging.basicConfig(level=logging.INFO)

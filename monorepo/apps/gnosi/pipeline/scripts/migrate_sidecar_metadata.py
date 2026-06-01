@@ -6,7 +6,7 @@ Vegeu `docs/dev_memory/directives/sidecar_internal_metadata.md`.
 
 Ús:
 
-    cd /Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi
+    cd ~/Projectes/monorepo/apps/gnosi
     DIGITAL_BRAIN_VAULT_PATH=/ruta/vault \\
         python -m pipeline.scripts.migrate_sidecar_metadata --dry-run
     DIGITAL_BRAIN_VAULT_PATH=/ruta/vault \\

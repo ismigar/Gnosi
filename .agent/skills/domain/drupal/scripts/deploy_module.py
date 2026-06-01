@@ -13,7 +13,7 @@ from pipeline.private_skills.drupal.scripts.remote_agent import DrupalRemoteAgen
 agent = DrupalRemoteAgent()
 
 # Rutas locales
-local_base = "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Projectes/temenos/web/modules/custom/n8n_helper"
+local_base = os.path.join(os.path.expanduser("~"), "Library/CloudStorage/OneDrive-UNED/Projectes/temenos/web/modules/custom/n8n_helper")
 routing_file = os.path.join(local_base, "n8n_helper.routing.yml")
 controller_file = os.path.join(local_base, "src/Controller/NodeController.php")
 

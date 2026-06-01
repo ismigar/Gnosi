@@ -1,4 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// Replica la detecció de vite.config (frontend/vite.config.js): el dev server
+// serveix HTTPS si existeixen els certs mkcert a frontend/certs/, si no HTTP.
+// Així local-amb-certs usa https i CI/altra-Mac (sense certs) usa http, sense
+// trencar cap dels dos. Override manual: GNOSI_BASE_URL. Vegeu frontend_https_dev.
+const CERT_FILE = path.join(__dirname, '..', 'frontend', 'certs', 'localhost.pem');
+const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
+  ? 'https://localhost:5173'
+  : 'http://localhost:5173';
 
 /**
  * Playwright config for Gnosi E2E tests.
@@ -31,7 +42,8 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: process.env.GNOSI_BASE_URL || 'http://localhost:5173',
+    baseURL: process.env.GNOSI_BASE_URL || DEFAULT_BASE_URL,
+    ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

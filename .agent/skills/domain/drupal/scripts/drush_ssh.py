@@ -33,7 +33,7 @@ def load_envs():
         current_dir = current_dir.parent
     
     # Fallback a ruta conocida
-    env_shared = Path("/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Projectes/.env.shared")
+    env_shared = Path.home() / "Library/CloudStorage/OneDrive-UNED/Projectes/.env.shared"
     if env_shared.exists():
         load_dotenv(env_shared)
         return True

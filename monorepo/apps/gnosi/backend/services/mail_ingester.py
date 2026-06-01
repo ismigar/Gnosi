@@ -256,8 +256,27 @@ def fetch_and_store_newsletters():
     db: Session = SessionLocal()
     try:
         cfg = _load_account_config(db)
-        if not cfg["email"] or not cfg["password"]:
-            log.warning("⚠️ Mail credentials not configured. Skipping newsletters.")
+        server = (cfg.get("server") or "").strip()
+
+        # poplib.POP3(host) crida getaddrinfo, que codifica el host amb el codec
+        # 'idna'. Un host buit o placeholder ("...", labels buits) peta amb un
+        # UnicodeError críptic ("label empty or too long") i la tasca surt
+        # 'error'. Validem amb el MATEIX codec abans de connectar: si no és un
+        # host vàlid (no configurat / encara amb valors d'exemple), skip net.
+        def _is_valid_host(h: str) -> bool:
+            if not h:
+                return False
+            try:
+                h.encode("idna")
+                return True
+            except Exception:
+                return False
+
+        if not cfg["email"] or not cfg["password"] or not _is_valid_host(server):
+            log.warning(
+                f"⚠️ Newsletter POP3 no configurat o host invàlid ('{server}'). "
+                "Skipping newsletters."
+            )
             return 0
 
         try:

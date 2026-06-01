@@ -5,7 +5,7 @@ set -e
 
 SERVER="ismigar@web-12.pangea.org"
 REMOTE_BASE="/home/ismigar/webapps/web/web/sites/default/files"
-LOCAL_BASE="/Users/ismaelgarciafernandez/Projectes/temenos/web/sites/default/files"
+LOCAL_BASE="$HOME/Projectes/temenos/web/sites/default/files"
 
 # Directoris a processar
 DIRS=("images-blog" "2026-01" "2025-12" "2026-02" "resources")

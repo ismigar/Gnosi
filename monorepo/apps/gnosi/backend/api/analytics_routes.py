@@ -18,12 +18,21 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 # --- Helpers ---
 
 def _get_base_dir() -> Path:
-    """Find monorepo root. Priority to absolute path for Docker stability."""
-    # Priority 1: Direct absolute path (works in Docker thanks to volume mount)
-    host_root = Path("/Users/ismaelgarciafernandez/Projectes")
+    """Find monorepo root. Priority to env-derived host path for Docker stability."""
+    # Priority 1: arrel del repo al host. Dins Docker tot $HOME es munta a la mateixa
+    # ruta (${HOME}:${HOME}:ro), així que el repo és a HOME_HOST_PATH/Projectes (o
+    # REPO_ROOT si està definit al .env). Abans es hardcodejava /Users/<usuari>/Projectes,
+    # que trencava en màquines amb un altre usuari macOS. NO usem PROJECT_DIR: dins el
+    # contenidor és /app, on no hi ha docs/ ni monorepo/.
+    repo_root_env = os.environ.get("REPO_ROOT")
+    if repo_root_env:
+        host_root = Path(repo_root_env)
+    else:
+        host_home = os.environ.get("HOME_HOST_PATH") or str(Path.home())
+        host_root = Path(host_home) / "Projectes"
     if host_root.exists():
         return host_root
-        
+
     # Priority 2: Walk up from current file (works for local dev without Docker)
     current_path = Path(__file__).resolve().parent
     base_dir = current_path

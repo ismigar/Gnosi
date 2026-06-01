@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # Afegir el path del backend per poder importar els mòduls
-backend_path = Path('/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/backend')
+backend_path = Path(__file__).resolve().parents[1] / "monorepo" / "apps" / "gnosi" / "backend"
 sys.path.append(str(backend_path))
 
 try:

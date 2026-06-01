@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # Add backend to path
-BACKEND_DIR = Path("/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/backend")
+BACKEND_DIR = Path(__file__).resolve().parent / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 if str(BACKEND_DIR.parent) not in sys.path:

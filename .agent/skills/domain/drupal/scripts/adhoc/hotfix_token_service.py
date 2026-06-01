@@ -5,7 +5,7 @@ import os
 agent = DrupalRemoteAgent()
 
 # Archivos locales
-base_local = "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Projectes/monorepo/apps/gnosi/pipeline/sandbox"
+base_local = os.path.join(os.path.expanduser("~"), "Library/CloudStorage/OneDrive-UNED/Projectes/monorepo/apps/gnosi/pipeline/sandbox")
 dummy_php = os.path.join(base_local, "TokenEntityHooksDummy.php")
 services_yml = os.path.join(base_local, "n8n_helper.services.yml")
 

@@ -43,6 +43,14 @@ docker-compose build backend && docker-compose up -d backend
 
 **Mai** `docker-compose restart backend` per aplicar canvis de codi.
 
+> **Actualització 2026-06-01:** en aquesta màquina el `docker-compose.yml` ja
+> munta `backend/` com a **bind mount rw** (`→ /app/backend`) i uvicorn corre amb
+> `--reload --reload-dir /app/backend`. Per tant els canvis de codi Python
+> **s'apliquen sols (hot-reload) o amb `restart`**, sense `build`. Verifica-ho
+> sempre abans d'assumir: `docker inspect gnosi_backend --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'`.
+> El `build` continua sent necessari per a canvis de `requirements.txt` o si el
+> bind mount del codi desapareix del compose.
+
 ### Verificació
 Per confirmar que el contenidor executa el codi nou:
 ```bash

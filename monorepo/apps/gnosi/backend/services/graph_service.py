@@ -574,24 +574,24 @@ class GraphService:
         return page_nodes
 
     def _add_contact_nodes(self, G: nx.Graph):
-        """Afegeix contactes des de la BD SQLite local (evita escanejar Contacts/ via OneDrive)."""
+        """Afegeix contactes des de management.sqlite (BD local, NO el vault).
+
+        El model Contact viu a management_db.Base (management.sqlite) — la
+        mateixa BD que serveix /api/contacts via get_mgmt_db. Abans s'obria la
+        BD del vault (get_engine_for_path), que NO té la taula 'contacts' →
+        'no such table: contacts' i cap contacte al graf.
+        """
         try:
-            from backend.data.db import get_engine_for_path
+            from backend.data.management_db import get_mgmt_session
             from backend.models.contact import Contact
 
             cfg = load_params(strict_env=False)
-            vault_path = cfg.paths.get("VAULT")
-            if not vault_path:
-                return
+            node_colors = cfg.colors.get("node_types", {})
+            color_cfg = node_colors.get("contact", node_colors.get("default", {}))
+            color = color_cfg.get("bg", "#10b981")
 
-            _, SessionLocal = get_engine_for_path(vault_path)
-            db = SessionLocal()
-            try:
+            with get_mgmt_session() as db:
                 contacts = db.query(Contact).all()
-                node_colors = cfg.colors.get("node_types", {})
-                color_cfg = node_colors.get("contact", node_colors.get("default", {}))
-                color = color_cfg.get("bg", "#10b981")
-
                 for c in contacts:
                     node_id = f"contact_{c.id}"
                     label = c.name or c.email or str(c.id)
@@ -611,8 +611,6 @@ class GraphService:
                                size=8,
                                metadata=metadata,
                                path=f"Contacts/{label}.md")
-            finally:
-                db.close()
         except Exception as e:
             log.warning(f"_add_contact_nodes: {e}")
 

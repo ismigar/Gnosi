@@ -1,10 +1,14 @@
+import os
+import sys
 import xml.etree.ElementTree as ET
 from backend.data.db import SessionLocal
 from backend.models.reader import FeedSource
 
 db = SessionLocal()
 try:
-    tree = ET.parse('/Users/ismaelgarciafernandez/Downloads/Feeds.opml')
+    # Ruta de l'OPML: 1r argument o, per defecte, ~/Downloads (no hardcodejar usuari)
+    opml_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/Downloads/Feeds.opml")
+    tree = ET.parse(opml_path)
     imported = 0
     for outline in tree.findall('.//outline'):
         if 'xmlUrl' in outline.attrib:

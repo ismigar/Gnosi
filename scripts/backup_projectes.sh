@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# Configuration
-SOURCE_DIR="/Users/ismaelgarciafernandez/Projectes/"
-DEST_DIR="/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
-LOG_FILE="/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/sandbox/backup_projectes.log"
+# Configuration. Derivem de $HOME (script del host, no Docker): la ruta absoluta amb
+# un usuari macOS hardcodejat trencava en l'altra màquina (la font no existia i el
+# backup fallava silenciosament).
+SOURCE_DIR="$HOME/Projectes/"
+DEST_DIR="$HOME/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
+LOG_FILE="$HOME/Projectes/monorepo/apps/gnosi/pipeline/sandbox/backup_projectes.log"
 
 # Exclusions
 EXCLUDES=(
