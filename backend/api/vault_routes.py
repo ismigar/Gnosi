@@ -8004,8 +8004,17 @@ def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict:
             url = f"/api/vault/assets/{rel}"
         return {"path": rel, "url": url, "storage": "assets"}
     else:
-        # Absolute path — returned as-is so the frontend can display the filename
-        return {"path": str(dest_path), "url": None, "storage": "absolute"}
+        # Biblioteca: a més del path absolut (compat / obrir al Finder), tornem
+        # una URL relativa servida `/api/vault/biblioteca/<rel>`. El frontend desa
+        # `data.url || data.path` → els NOUS adjunts queden PORTABLES per
+        # construcció (cap usuari/núvol al valor desat); el contenidor els serveix
+        # via serve_biblioteca_file i open/delete els re-arrelen a la màquina actual.
+        try:
+            rel = str(dest_path.relative_to(get_p("BIBLIOTECA"))).replace("\\", "/")
+            url = f"/api/vault/biblioteca/{rel}"
+        except ValueError:
+            url = None  # fora de Biblioteca (no hauria de passar): cau al path absolut
+        return {"path": str(dest_path), "url": url, "storage": "absolute"}
 
 
 @router.post("/upload-property-file", dependencies=[Depends(require_role("editor"))])
@@ -8161,6 +8170,10 @@ async def delete_physical_file(body: dict):
         vault_path = (get_p("VAULT").resolve() / "Assets" / target[len("/api/vault/assets/"):])
     elif target.startswith("Assets/"):
         vault_path = get_p("VAULT").resolve() / target
+    elif target.startswith("/api/vault/biblioteca/"):
+        # Nous adjunts de biblioteca (portables): re-arrelats a l'arrel actual.
+        # Va abans del catch-all "/" perquè aquesta forma també comença per "/".
+        host_path = get_p("BIBLIOTECA") / urllib.parse.unquote(target[len("/api/vault/biblioteca/"):])
     elif target.startswith("/"):
         host_path = Path(target)
     else:
@@ -10137,6 +10150,15 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     re-arrelat si existeix, si no None.
     """
     s = (raw or "").strip()
+    # Forma relativa servida (els nous adjunts de biblioteca, portables): resol
+    # directament a l'arrel de Biblioteca d'aquesta màquina.
+    m_rel = re.match(r"^/api/vault/biblioteca/(.+)$", s)
+    if m_rel:
+        try:
+            cand = get_p("BIBLIOTECA") / urllib.parse.unquote(m_rel.group(1))
+        except Exception:
+            return None
+        return cand if cand.exists() else None
     if s.lower().startswith("file://"):
         rest = s[7:]
         s = urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
