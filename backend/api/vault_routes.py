@@ -115,10 +115,17 @@ def get_p(key: str) -> Path:
         # contenidor (VAULT_HOST_PATH definit), resolem a la ruta del HOST, que
         # es munta en rw a la mateixa ruta (veure docker-compose). Fora de Docker
         # mantenim el càlcul relatiu al vault actiu.
+        # Override explícit BIBLIOTECA_HOST_PATH (layouts on Biblioteca no és
+        # germana del vault, o un altre núvol). Si no: germana del vault
+        # derivada de VAULT_HOST_PATH (Docker); fora de Docker, relativa al vault.
         "BIBLIOTECA": (
-            Path(os.environ["VAULT_HOST_PATH"]).parent / "Biblioteca"
-            if os.environ.get("VAULT_HOST_PATH")
-            else base.parent / "Biblioteca"
+            Path(os.environ["BIBLIOTECA_HOST_PATH"])
+            if os.environ.get("BIBLIOTECA_HOST_PATH")
+            else (
+                Path(os.environ["VAULT_HOST_PATH"]).parent / "Biblioteca"
+                if os.environ.get("VAULT_HOST_PATH")
+                else base.parent / "Biblioteca"
+            )
         ),
         "DATABASES": base / "BD",
         # The REGISTRY is now a file inside BD
@@ -10117,6 +10124,40 @@ async def open_resource(payload: OpenResourceRequest):
         )
 
 
+def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
+    """Re-arrela un path/URI d'adjunt sota l'arrel de Biblioteca d'AQUESTA
+    màquina, perquè els enllaços desats en una altra màquina (un altre usuari
+    macOS) o amb un altre proveïdor (OneDrive/Dropbox/iCloud/Drive/local)
+    segueixin resolent-se aquí.
+
+    El tram després de la carpeta de Biblioteca és estable entre màquines
+    (el vault i els seus paths es sincronitzen); només canvia el prefix
+    (home + núvol). NO és destructiu: només s'usa com a fallback quan el path
+    tal com està desat no existeix en aquesta màquina. Retorna el Path
+    re-arrelat si existeix, si no None.
+    """
+    s = (raw or "").strip()
+    if s.lower().startswith("file://"):
+        rest = s[7:]
+        s = urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
+    try:
+        biblioteca_root = get_p("BIBLIOTECA")
+    except Exception:
+        return None
+    anchor = f"/{biblioteca_root.name}/"
+    # rfind: ancla a l'ÚLTIMA aparició de la carpeta. Si el nom de Biblioteca es
+    # repeteix dins el path, ens quedem amb el segment més proper a l'arrel real
+    # (find agafaria el primer i calcularia un suffix relatiu incorrecte).
+    idx = s.rfind(anchor)
+    if idx == -1:
+        return None
+    rel = s[idx + len(anchor):].lstrip("/")
+    if not rel:
+        return None
+    candidate = biblioteca_root / rel
+    return candidate if candidate.exists() else None
+
+
 @router.post("/open-local-path", dependencies=[Depends(require_role("editor"))])
 async def open_local_path(payload: dict = Body(...)):
     """
@@ -10147,7 +10188,15 @@ async def open_local_path(payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="Invalid path")
 
     if not path.exists():
-        raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+        # Portabilitat entre màquines/núvols: l'enllaç pot venir d'un altre Mac
+        # (un altre usuari macOS) o d'un altre proveïdor (Dropbox/iCloud...). Si
+        # el path desat no existeix aquí, re-arrelem el tram sota Biblioteca a
+        # l'arrel d'aquesta màquina abans de rendir-nos.
+        rerooted = _reroot_attachment_under_current_host(raw)
+        if rerooted is not None:
+            path = rerooted
+        else:
+            raise HTTPException(status_code=404, detail=f"Path not found: {path}")
 
     try:
         _safe_open_target(str(path))
