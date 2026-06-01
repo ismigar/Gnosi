@@ -28,13 +28,15 @@ Ejemplo de configuración:
 {
   "mcpServers": {
     "drupal-proxy": {
-      "command": "/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/mcp-servers/drupal-proxy/start_server.sh",
-      "args": [],
+      "command": "/bin/sh",
+      "args": ["-c", "exec $HOME/Projectes/monorepo/apps/gnosi/mcp-servers/drupal-proxy/start_server.sh"],
       "env": {}
     }
   }
 }
 ```
+
+> **Nota:** el campo `command` de los clientes MCP se ejecuta **sin shell**, por lo que `~`/`$HOME` no se expanden si se ponen tal cual (daría `No such file or directory`). Por eso se envuelve con `/bin/sh -c` (así `$HOME` resuelve por máquina), en lugar de una ruta absoluta atada a un usuario concreto.
 
 ### config.yaml
 

@@ -11,7 +11,7 @@
 
 *Maintain an up-to-date and efficient backup of the entire local development ecosystem to the cloud.*
 
-- **Main Objective:** Perform a daily incremental backup of the `/Users/ismaelgarciafernandez/Projectes` folder to `/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes`.
+- **Main Objective:** Perform a daily incremental backup of the `~/Projectes` folder to `~/Library/CloudStorage/OneDrive-UNED/Backups/Projectes`.
 - **Success Criteria:** 
     - The destination folder is an exact replica (excluding temporary files).
     - The script generates a success log.
@@ -22,8 +22,8 @@
 ## 2. Input/Output (I/O) Specifications
 
 ### Inputs
-- **Source Path:** `/Users/ismaelgarciafernandez/Projectes/`
-- **Destination Path:** `/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/`
+- **Source Path:** `~/Projectes/`
+- **Destination Path:** `~/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/`
 - **Exclusion List:**
     - `node_modules/`
     - `.venv/`

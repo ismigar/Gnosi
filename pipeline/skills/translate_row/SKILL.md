@@ -149,7 +149,7 @@ títol no és traduïble).
 ## Test ràpid
 
 ```bash
-cd /Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi
+cd ~/Projectes/monorepo/apps/gnosi
 python3 -m pipeline.skills.translate_row.scripts.translate_text \
     --text "Hola, com estàs?" --source ca --target en
 ```

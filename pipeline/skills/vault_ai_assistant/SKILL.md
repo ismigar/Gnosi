@@ -11,7 +11,7 @@ This skill allows the AI agent (Antigravity/Alejabot) to act as a co-pilot for t
 ## 1. Technical Context
 
 ### Data Sources
-1. **Local Registry**: `/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi/BD/vault_db_registry.json`. Contains the schema and IDs of all databases.
+1. **Local Registry**: `~/Library/CloudStorage/OneDrive-UNED/Gnosi/BD/vault_db_registry.json`. Contains the schema and IDs of all databases.
 2. **Notion API**: Accessed via the `notion-server` MCP.
 
 ### Key Paths (from `paths_config.py`)
