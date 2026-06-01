@@ -14,7 +14,7 @@ if not str(requested).startswith(str(img_root)):
     raise HTTPException(status_code=403, detail="Access denied")
 ```
 
-A macOS amb OneDrive, `/Users/ismaelgarciafernandez/Library/CloudStorage/...` pot resoldre's a camins que comencen de forma diferent (ex: `/Volumes/...`) o tenir problemes amb espais, causant un 403 o 404.
+A macOS amb OneDrive, `~/Library/CloudStorage/...` pot resoldre's a camins que comencen de forma diferent (ex: `/Volumes/...`) o tenir problemes amb espais, causant un 403 o 404.
 
 ## Protocol de Verificació
 1. Crear un script a `sandbox/` per simular la resolució de camins amb els paràmetres reals del sistema.

@@ -33,8 +33,8 @@ Ensure a stable and deterministic development environment in VS Code/Cursor for 
 
 | Date | Error Detected | Root Cause | Solution/Patch Applied |
 | --- | --- | --- | --- |
-| 26/02 | `${workspaceFolder}/monorepo/apps/gnosi/.venv/bin/python` could not be resolved | Variable resolution failure in specific IDE state | Use absolute path: `/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/.venv/bin/python` |
-| 28/03 | `ERROR MCP: drupal-proxy: error: No such file or directory` | Incorrect path in `mcp_config.json` pointing to `gnosi` instead of `gnosi` | Updated `mcp_config.json` with correct path: `/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/mcp-servers/drupal-proxy` |
+| 26/02 | `${workspaceFolder}/monorepo/apps/gnosi/.venv/bin/python` could not be resolved | Variable resolution failure in specific IDE state | Usa `${userHome}` (var de VS Code → ruta absoluta i portable; `~` no s'expandeix als settings): `${userHome}/Projectes/monorepo/apps/gnosi/.venv/bin/python` |
+| 28/03 | `ERROR MCP: drupal-proxy: error: No such file or directory` | Incorrect path in `mcp_config.json` pointing to `gnosi` instead of `gnosi` | Updated `mcp_config.json` with correct path (`${userHome}`, no `~` que no s'expandeix): `${userHome}/Projectes/monorepo/apps/gnosi/mcp-servers/drupal-proxy` |
 | 13/04 | `npm` and `docker` command not found (exit 127) | Commands not available in the current agent shell environment or not in PATH | Avoid running dev servers locally; rely on code analysis and update memory (Directives) until environment is fixed. |
 
 ## 8. Pre-Execution Checklist

@@ -57,7 +57,7 @@ nsis:
 
 publish:
   provider: github
-  owner: ismaelgarciafernandez
+  owner: ismigar
   repo: projectes
   releaseType: release
 

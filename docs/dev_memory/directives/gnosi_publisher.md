@@ -23,7 +23,7 @@ Publishing to Drupal is prioritized as a "validation step." Once we have the pub
 
 ## Related Files and Implementation
 For technical details, database IDs, or CLI commands, refer to:
-- [**Skill: Publisher**](file:///Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/skills/publisher/SKILL.md)
+- [**Skill: Publisher**](../../../monorepo/apps/gnosi/pipeline/skills/publisher/SKILL.md)
 - Synchronization Script: `sync_vault_to_drupal.py`
 - Social Media Script: `broadcast_social.py`
 

@@ -113,7 +113,7 @@ Funcionament:
 ## Test
 
 ```bash
-cd /Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi
+cd ~/Projectes/monorepo/apps/gnosi
 # dry-run primer per veure què es migrarà
 DIGITAL_BRAIN_VAULT_PATH=/path/al/vault \
     python -m pipeline.sandbox.migrate_sidecar_metadata --dry-run

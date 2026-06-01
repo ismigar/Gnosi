@@ -14,7 +14,7 @@ L'objectiu és que el flux de comunicació externa (Mail) sigui processat i emma
 ## Implementació Tècnica
 Per a protocols de generació de frontmatter (YAML), IDs de taula (`mail`) i scripts d'execució, consulteu:
 
-- [**Skill: Mail Sync**](file:///Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/skills/mail_sync/SKILL.md)
+- [**Skill: Mail Sync**](../../../monorepo/apps/gnosi/pipeline/skills/mail_sync/SKILL.md)
 
 ---
 *Nota: Aquesta directiva serveix com a nexe d'unió entre la lògica de negoci i l'eina técnica.*

@@ -3,7 +3,7 @@
 This document maps the physical and logical structure of the Gnosi ecosystem. It defines where components reside and how they are categorized to ensure a clean monorepo organization.
 
 > [!IMPORTANT]
-> **Operational Protocol**: For detailed instructions on agent roles, the "Central Loop," and the "Self-Correction Protocol," always refer to the primary [AGENTS.md](file:///Users/ismaelgarciafernandez/Projectes/AGENTS.md).
+> **Operational Protocol**: For detailed instructions on agent roles, the "Central Loop," and the "Self-Correction Protocol," always refer to the primary [AGENTS.md](../../../AGENTS.md).
 
 ---
 
