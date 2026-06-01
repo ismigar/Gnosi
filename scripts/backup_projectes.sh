@@ -4,7 +4,9 @@
 # un usuari macOS hardcodejat trencava en l'altra màquina (la font no existia i el
 # backup fallava silenciosament).
 SOURCE_DIR="$HOME/Projectes/"
-DEST_DIR="$HOME/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
+# Destí del backup: per defecte el OneDrive de l'autor, overridable via
+# BACKUP_DEST_DIR (Dropbox/iCloud/Drive o sense núvol — una carpeta local).
+DEST_DIR="${BACKUP_DEST_DIR:-$HOME/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/}"
 LOG_FILE="$HOME/Projectes/monorepo/apps/gnosi/pipeline/sandbox/backup_projectes.log"
 
 # Exclusions

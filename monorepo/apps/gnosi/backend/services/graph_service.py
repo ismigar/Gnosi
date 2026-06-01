@@ -178,6 +178,107 @@ class GraphService:
     _LAYOUT_CACHE = {}
     _LAYOUT_HASH: Optional[str] = None
 
+    # Persistència del _NODE_DATA_CACHE a disc: evita rellegir milers de fitxers
+    # del vault al primer build després de reiniciar el backend (cold start
+    # ~10s -> ~1s). La invalidació per mtime (a _add_page_nodes) garanteix
+    # coherència: els fitxers canviats es rellegeixen igualment.
+    _NODE_CACHE_LOADED = False
+
+    @staticmethod
+    def _node_cache_path():
+        try:
+            base = load_params(strict_env=False).paths.get("LOCAL_CACHE")
+            return (base / "graph_node_cache.json") if base else None
+        except Exception:
+            return None
+
+    @classmethod
+    def _load_node_cache(cls):
+        """Carrega _NODE_DATA_CACHE de disc un sol cop (cold start). Best-effort."""
+        if cls._NODE_CACHE_LOADED:
+            return
+        cls._NODE_CACHE_LOADED = True
+        if cls._NODE_DATA_CACHE:
+            return  # ja poblat en memòria
+        p = cls._node_cache_path()
+        if not p or not p.exists():
+            return
+        try:
+            import json
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                cls._NODE_DATA_CACHE.update(data)
+                log.info(f"📥 Graph node cache: {len(data)} entrades carregades de disc")
+        except Exception as e:
+            log.warning(f"No s'ha pogut carregar el graph node cache: {e}")
+
+    @classmethod
+    def _save_node_cache(cls):
+        """Persisteix _NODE_DATA_CACHE a disc (escriptura atòmica). Best-effort."""
+        p = cls._node_cache_path()
+        if not p or not cls._NODE_DATA_CACHE:
+            return
+        try:
+            import json
+            p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(".json.tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(cls._NODE_DATA_CACHE, f, default=str)
+            tmp.replace(p)
+        except Exception as e:
+            log.warning(f"No s'ha pogut desar el graph node cache: {e}")
+
+    _LAYOUT_CACHE_LOADED = False
+
+    @classmethod
+    def _load_layout_cache(cls):
+        """Carrega el layout (posicions) de disc un cop. El layout (igraph) és
+        la part més lenta del cold start; persistir-lo evita recalcular-lo si
+        l'estructura del graf no ha canviat (mateix hash). Best-effort."""
+        if cls._LAYOUT_CACHE_LOADED:
+            return
+        cls._LAYOUT_CACHE_LOADED = True
+        if cls._LAYOUT_CACHE:
+            return
+        try:
+            base = load_params(strict_env=False).paths.get("LOCAL_CACHE")
+            p = (base / "graph_layout_cache.json") if base else None
+            if not p or not p.exists():
+                return
+            import json
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+            cls._LAYOUT_HASH = data.get("hash")
+            cls._LAYOUT_CACHE = {k: tuple(v) for k, v in (data.get("pos") or {}).items()}
+            if cls._LAYOUT_CACHE:
+                log.info(f"📥 Graph layout cache: {len(cls._LAYOUT_CACHE)} posicions de disc")
+        except Exception as e:
+            log.warning(f"No s'ha pogut carregar el graph layout cache: {e}")
+
+    @classmethod
+    def _save_layout_cache(cls):
+        """Persisteix el layout a disc (escriptura atòmica). Best-effort."""
+        if not cls._LAYOUT_CACHE or not cls._LAYOUT_HASH:
+            return
+        try:
+            base = load_params(strict_env=False).paths.get("LOCAL_CACHE")
+            p = (base / "graph_layout_cache.json") if base else None
+            if not p:
+                return
+            import json
+            p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(".json.tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(
+                    {"hash": cls._LAYOUT_HASH,
+                     "pos": {k: [float(v[0]), float(v[1])] for k, v in cls._LAYOUT_CACHE.items()}},
+                    f,
+                )
+            tmp.replace(p)
+        except Exception as e:
+            log.warning(f"No s'ha pogut desar el graph layout cache: {e}")
+
     def __init__(self):
         self.registry = self._load_registry()
         
@@ -303,7 +404,12 @@ class GraphService:
         # so that _add_structural_edges can resolve parent IDs, then strip them before export.
         self._add_registry_nodes(G)
 
+        # Cold start: carrega el node cache de disc per no rellegir milers de
+        # fitxers després d'un reinici (la invalidació per mtime es manté).
+        GraphService._load_node_cache()
+        GraphService._load_layout_cache()
         page_nodes = self._add_page_nodes(G)
+        GraphService._save_node_cache()
         self._add_contact_nodes(G)
         self._add_structural_edges(G, page_nodes)
 
@@ -324,7 +430,8 @@ class GraphService:
             log.info(f"Layout computed in {time.time() - t0:.2f}s")
             GraphService._LAYOUT_CACHE = pos
             GraphService._LAYOUT_HASH = graph_hash
-            
+            GraphService._save_layout_cache()
+
         nodes = []
         for node_id in G.nodes():
             attrs = G.nodes[node_id]

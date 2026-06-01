@@ -8,7 +8,10 @@ import logging
 # existia i el backup fallava silenciosament → risc de pèrdua de dades).
 HOME = os.path.expanduser("~")
 SOURCE_DIR = f"{HOME}/Projectes/"
-DEST_DIR = f"{HOME}/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
+# Destí del backup: per defecte el OneDrive de l'autor, però overridable via
+# BACKUP_DEST_DIR perquè funcioni amb un altre núvol (Dropbox/iCloud/Drive) o
+# sense núvol (una carpeta local). Cap assumpció de proveïdor hardcodejada.
+DEST_DIR = os.environ.get("BACKUP_DEST_DIR") or f"{HOME}/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
 LOG_FILE = os.path.join(SOURCE_DIR, "monorepo/apps/gnosi/pipeline/sandbox/backup.log")
 
 # Exclusions
