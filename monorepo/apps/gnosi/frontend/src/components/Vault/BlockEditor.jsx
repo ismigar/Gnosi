@@ -3523,7 +3523,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             onChange={(nextDict) => handleMetaChange('Zotero Extras', nextDict)}
                                             onRemoveAll={() => handleRemoveProperty('Zotero Extras')}
                                             tableId={currentTableId}
-                                            onPromoted={() => { try { onReloadPage?.(); } catch { /* ignore */ } }}
+                                            // Promoure migra pàgines + afegeix columna a l'esquema. L'editor
+                                            // obert no re-sincronitza `metadata` (estat local, `key` estable),
+                                            // així que una recàrrega completa és l'única manera fidel de
+                                            // reflectir-ho — mateix idioma que `onRestore` del PageHistory.
+                                            onPromoted={() => window.location.reload()}
                                         />
                                     )}
 
