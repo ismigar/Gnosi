@@ -30,8 +30,6 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     env_vault_host = os.environ.get("VAULT_HOST_PATH")
     env_vault = env_vault_docker or env_vault_host
     if env_vault and (env_vault_docker or Path(env_vault).exists()):
-    env_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH") or os.environ.get("VAULT_HOST_PATH")
-    if env_vault:
         vault_path = Path(env_vault)
     else:
         vault_raw = overrides.get("vault")
