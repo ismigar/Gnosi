@@ -263,6 +263,10 @@ class PagePatchRequest(BaseModel):
     metadata: Optional[dict] = None
     parent_id: Optional[str] = None
     is_database: Optional[bool] = None
+    # Claus de metadata a ELIMINAR del frontmatter. El PATCH fa merge
+    # (`metadata.update`), que no pot treure claus; això permet esborrar
+    # propietats locals (ad-hoc) que no pertanyen a l'esquema de la taula.
+    remove_metadata_keys: Optional[list] = None
     # Optimistic concurrency (same semantics as PageSaveRequest)
     expected_etag: Optional[str] = None
     force: bool = False
@@ -6394,6 +6398,11 @@ async def patch_page(
         if request.metadata is not None:
             # Merge metadata
             metadata.update(request.metadata)
+        # `metadata.update` no pot treure claus: per ELIMINAR propietats
+        # (p.ex. camps locals/ad-hoc des del panell) cal treure-les aquí.
+        if request.remove_metadata_keys:
+            for _rk in request.remove_metadata_keys:
+                metadata.pop(_rk, None)
 
         content = request.content if request.content is not None else body
 

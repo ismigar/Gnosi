@@ -2672,7 +2672,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] }, pageId: noteFilename, onOpenPageViewModal: openPageViewModalFromContext }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry, noteFilename, openPageViewModalFromContext]);
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
-    const _doSaveMetadata = useCallback(async (currentMetadata) => {
+    const _doSaveMetadata = useCallback(async (currentMetadata, removeKeys = null) => {
         if (!noteFilename) return;
         setSaveStatus('saving');
         try {
@@ -2680,6 +2680,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 title: currentMetadata?.title || t('editor.untitled'),
                 metadata: currentMetadata
             };
+            // El PATCH fa merge al backend; per ELIMINAR claus (propietats
+            // locals/ad-hoc) cal enviar-les explícitament.
+            if (removeKeys && removeKeys.length) data.remove_metadata_keys = removeKeys;
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
             setSaveStatus('saved');
             // Notifica el pare perquè el `tabs[i].title` i el breadcrumb
@@ -2712,13 +2715,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         if (options.immediate) {
             if (metaSaveTimerRef.current) clearTimeout(metaSaveTimerRef.current);
             metaSaveTimerRef.current = null;
-            void _doSaveMetadata(currentMetadata);
+            void _doSaveMetadata(currentMetadata, options.removeKeys || null);
             return;
         }
         if (metaSaveTimerRef.current) clearTimeout(metaSaveTimerRef.current);
         metaSaveTimerRef.current = setTimeout(() => {
             metaSaveTimerRef.current = null;
-            void _doSaveMetadata(currentMetadata);
+            void _doSaveMetadata(currentMetadata, options.removeKeys || null);
         }, 600);
     }, [_doSaveMetadata]);
 
@@ -2755,7 +2758,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // Removing a property is a structural change → save immediately so the
     // server-side state can never have a "stale" property removed only
     // locally if the user navigates away within 600ms.
-    const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta, { immediate: true }); };
+    const handleRemoveProperty = (key) => { const nextMeta = { ...metadata }; delete nextMeta[key]; setMetadata(nextMeta); handleSaveMetadata(nextMeta, { immediate: true, removeKeys: [key] }); };
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
@@ -3503,8 +3506,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                     placeholder={t('editor.empty_local')} 
                                                     className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" 
                                                 />
-                                                {!currentTable && (
-                                                    <button onClick={() => handleRemoveProperty(key)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_local_property')}><X size={14} /></button>
+                                                {/* Camp LOCAL (ad-hoc): sempre eliminable des de la seva fila,
+                                                    encara que la pàgina pertanyi a una col·lecció — "Gestionar
+                                                    Camps" només toca el schema, no aquestes claus locals. */}
+                                                {isEditor && (
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveProperty(key); }} className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] hover:bg-[var(--bg-secondary)] shrink-0" title={t('editor.remove_local_property')} aria-label={t('editor.remove_local_property')}><Trash2 size={14} /></button>
                                                 )}
                                             </div>
                                         </React.Fragment>
