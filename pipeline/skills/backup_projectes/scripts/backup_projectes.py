@@ -3,9 +3,12 @@ import os
 import datetime
 import logging
 
-# Configuació
-SOURCE_DIR = "/Users/ismaelgarciafernandez/Projectes/"
-DEST_DIR = "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
+# Configuració. Derivem de $HOME perquè és un script del host (no Docker): la ruta
+# absoluta amb un usuari macOS hardcodejat trencava en l'altra màquina (la font no
+# existia i el backup fallava silenciosament → risc de pèrdua de dades).
+HOME = os.path.expanduser("~")
+SOURCE_DIR = f"{HOME}/Projectes/"
+DEST_DIR = f"{HOME}/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
 LOG_FILE = os.path.join(SOURCE_DIR, "monorepo/apps/gnosi/pipeline/sandbox/backup.log")
 
 # Exclusions

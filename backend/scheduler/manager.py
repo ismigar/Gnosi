@@ -93,62 +93,137 @@ class SchedulerManager:
     def __init__(self):
         cfg = load_params(strict_env=False)
         self.config_path = cfg.paths.get("SCHEDULER")
-        
-        if self.config_path:
-            try:
-                self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                pass
+
+        # Mirror local del scheduler_config: SEMPRE llegible, immune a OneDrive
+        # online-only. És la xarxa de seguretat que evita perdre la config quan
+        # el fitxer del vault (.gnosi/) és dataless en arrencar. Viu a
+        # local_data, com management.sqlite (vegeu paths_config.py).
+        local_data = cfg.paths.get("LOCAL_DATA")
+        self.local_mirror_path = (
+            local_data / "system" / "scheduler_config.local.json"
+            if local_data else None
+        )
+
+        for p in (self.config_path, self.local_mirror_path):
+            if p:
+                try:
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    pass
 
         self._tasks: Dict[str, ScheduledTask] = {}
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._lock_file = None  # held while scheduler owns the singleton mutex
+        self._degraded = False  # True si arrenquem sense poder llegir cap font
 
         self._load_config()
 
+    @staticmethod
+    def _try_read_tasks(path) -> Optional[Dict[str, Any]]:
+        """Llegeix i parseja un fitxer de config de tasques.
+
+        Retorna el dict {name: task_data} si el fitxer existeix, és llegible i
+        conté tasques; None en qualsevol altre cas (inexistent, buit,
+        dataless/online-only, JSON corrupte). Reintenta unes quantes vegades
+        perquè OneDrive sovint serveix un fitxer online-only només al 2n intent.
+        """
+        if not path or not path.exists():
+            return None
+        import time as _time
+        for attempt in range(3):
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+                tasks = data.get("tasks", {})
+                return tasks or None  # JSON vàlid però sense tasques -> buit
+            except Exception:
+                _time.sleep(0.5 * (attempt + 1))  # backoff curt per dataless
+        return None
+
+    def _reconcile_available_tasks(self) -> bool:
+        """Elimina tasques obsoletes i afegeix les noves de AVAILABLE_TASKS.
+
+        Retorna True si hi ha hagut algun canvi."""
+        updated = False
+        for task_name in list(self._tasks.keys()):
+            if task_name not in self.AVAILABLE_TASKS:
+                del self._tasks[task_name]
+                updated = True
+        for name, config in self.AVAILABLE_TASKS.items():
+            if name not in self._tasks:
+                self._tasks[name] = ScheduledTask(
+                    name=name,
+                    description=config["description"],
+                    interval_minutes=config["default_interval"],
+                    enabled=False,
+                )
+                updated = True
+        return updated
+
     def _load_config(self):
-        """Load scheduler configuration from file."""
-        if not self.config_path or not self.config_path.exists():
-            self._init_default_tasks()
-            return
-            
-        try:
-            updated = False
-            with open(self.config_path) as f:
-                data = json.load(f)
-                for name, task_data in data.get("tasks", {}).items():
+        """Carrega la config del planificador de manera resilient.
+
+        Ordre de preferència:
+          1. Fitxer del vault (`.gnosi/`, sincronitzat entre màquines).
+          2. Mirror local (`local_data/`, sempre llegible, immune a OneDrive).
+          3. Defaults EN MEMÒRIA — només si cap font no existeix.
+
+        CRÍTIC: si el fitxer del vault EXISTEIX però ara mateix no es pot llegir
+        (online-only/dataless/corrupte), MAI l'inicialitzem amb defaults ni el
+        sobreescrivim. Així mai es perd la config de l'usuari per un problema
+        transitori de OneDrive — abans, aquest era el camí que buidava el
+        planificador (vegeu directive scheduler_config_resilience).
+        """
+        from backend.config.logger_config import get_logger
+        log = get_logger(__name__)
+
+        tasks = self._try_read_tasks(self.config_path)
+        source = "vault"
+        if tasks is None:
+            tasks = self._try_read_tasks(self.local_mirror_path)
+            source = "mirror local"
+
+        if tasks is not None:
+            for name, task_data in tasks.items():
+                try:
                     self._tasks[name] = ScheduledTask(**task_data)
+                except Exception:
+                    pass  # ignora claus desconegudes / formats antics
+            self._reconcile_available_tasks()
+            log.info(
+                f"⏰ Scheduler: config carregada des de {source} "
+                f"({len(self._tasks)} tasques)"
+            )
+            # No reescrivim el vault a l'arrencada (evita churn/conflictes de
+            # OneDrive); només refresquem el mirror local amb el que hem llegit.
+            self._save_mirror()
+            return
 
-                # Filter out tasks that are no longer in AVAILABLE_TASKS
-                current_task_names = list(self._tasks.keys())
-                for task_name in current_task_names:
-                    if task_name not in self.AVAILABLE_TASKS:
-                        del self._tasks[task_name]
-                        updated = True
+        # Cap font llegible.
+        vault_exists = bool(self.config_path and self.config_path.exists())
+        mirror_exists = bool(self.local_mirror_path and self.local_mirror_path.exists())
+        if vault_exists or mirror_exists:
+            # El fitxer existeix però és il·legible ARA. NO el toquem: arrenquem
+            # en mode degradat amb defaults EN MEMÒRIA (sense persistir), per no
+            # destruir la config bona. Es recuperarà al proper restart llegible.
+            log.error(
+                "❌ Scheduler: el fitxer de config existeix però és il·legible "
+                "(online-only/corrupte). Mode degradat: defaults en memòria, "
+                "NO se sobreescriu cap fitxer."
+            )
+            self._degraded = True
+            self._init_default_tasks(persist=False)
+        else:
+            log.info("⏰ Scheduler: cap config trobada; creant defaults.")
+            self._init_default_tasks(persist=True)
 
-                # Ensure all available tasks exist
-                for name, config in self.AVAILABLE_TASKS.items():
-                    if name not in self._tasks:
-                        self._tasks[name] = ScheduledTask(
-                            name=name,
-                            description=config["description"],
-                            interval_minutes=config["default_interval"],
-                            enabled=False,
-                        )
-                        updated = True
+    def _init_default_tasks(self, persist: bool = True):
+        """Initialize with default tasks (all disabled).
 
-                if updated:
-                    self._save_config()
-        except Exception as e:
-            from backend.config.logger_config import get_logger
-            log = get_logger(__name__)
-            log.error(f"❌ Error loading scheduler config: {e}")
-            if not self._tasks:
-                self._init_default_tasks()
-
-    def _init_default_tasks(self):
-        """Initialize with default tasks."""
+        `persist=False` deixa els defaults només en memòria — usat en mode
+        degradat per no sobreescriure un fitxer existent però il·legible.
+        """
         for name, config in self.AVAILABLE_TASKS.items():
             self._tasks[name] = ScheduledTask(
                 name=name,
@@ -156,24 +231,46 @@ class SchedulerManager:
                 interval_minutes=config["default_interval"],
                 enabled=False,  # Disabled by default
             )
-        self._save_config()
+        if persist:
+            self._save_config()
 
     def _save_config(self):
-        """Save scheduler configuration to file."""
-        if not self.config_path:
-            return
+        """Persisteix la config al vault i SEMPRE al mirror local.
 
-        try:
+        En mode degradat NO escrivim el vault (preservem el fitxer existent que
+        ara no podem llegir), però sí el mirror local perquè la sessió actual
+        no perdi els canvis.
+        """
+        from backend.utils.safe_io import safe_write_json
+
+        data = {"tasks": {name: asdict(task) for name, task in self._tasks.items()}}
+
+        if self.config_path and not self._degraded:
+            try:
+                # Atomic write: el fitxer es modifica desenes de cops per
+                # execució de tasca; un crash a meitat deixaria el JSON corrupte.
+                safe_write_json(self.config_path, data, indent=2)
+            except Exception as e:
+                from backend.config.logger_config import get_logger
+                get_logger(__name__).error(
+                    f"Failed to save scheduler config to {self.config_path}: {e}"
+                )
+
+        self._save_mirror(data)
+
+    def _save_mirror(self, data: Optional[Dict[str, Any]] = None):
+        """Escriu el mirror local (sempre llegible; immune a OneDrive)."""
+        if not self.local_mirror_path:
+            return
+        if data is None:
             data = {"tasks": {name: asdict(task) for name, task in self._tasks.items()}}
-            # Atomic write: el fitxer es modifica desenes de cops per execució
-            # de tasca; un crash a meitat deixaria scheduler.json corrupte i
-            # tot l'scheduler caduria al següent restart (al _load_config).
+        try:
             from backend.utils.safe_io import safe_write_json
-            safe_write_json(self.config_path, data, indent=2)
+            safe_write_json(self.local_mirror_path, data, indent=2)
         except Exception as e:
             from backend.config.logger_config import get_logger
-            get_logger(__name__).error(
-                f"Failed to save scheduler config to {self.config_path}: {e}"
+            get_logger(__name__).warning(
+                f"Failed to save scheduler mirror to {self.local_mirror_path}: {e}"
             )
 
     def get_tasks(self) -> List[Dict[str, Any]]:
@@ -203,8 +300,16 @@ class SchedulerManager:
         except ImportError:
             fcntl = None  # Non-POSIX; fall back to in-process singleton only.
 
-        if fcntl and self.config_path:
-            lock_path = self.config_path.parent / ".scheduler.lock"
+        # El lock viu a local_data (NO al vault): un flock sobre un fitxer de
+        # OneDrive/virtiofs no s'allibera de manera fiable quan el procés mor,
+        # i cada --reload hi deixava un lock fantasma -> el loop no arrencava
+        # MAI ("Another scheduler already holds..."). En disc local funciona bé.
+        lock_dir = (
+            self.local_mirror_path.parent if self.local_mirror_path
+            else (self.config_path.parent if self.config_path else None)
+        )
+        if fcntl and lock_dir:
+            lock_path = lock_dir / ".scheduler.lock"
             try:
                 self._lock_file = open(lock_path, "w")
                 fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -540,17 +645,22 @@ class SchedulerManager:
         details = {}
         
         cfg = load_params(strict_env=False)
-        
+
+        # Arrel de l'app Gnosi derivada d'aquest fitxer (backend/scheduler/manager.py):
+        # parents[2] = .../monorepo/apps/gnosi al host i /app dins el contenidor (mateixa
+        # derivació que _task_zotero_sync). Abans s'usava cfg.paths["PROJECT_DIR"] /
+        # "monorepo/apps/gnosi/pipeline", però dins Docker PROJECT_DIR és /app i això
+        # resolia a /app/monorepo/apps/gnosi/pipeline (inexistent; el pipeline real és
+        # /app/pipeline) → les neteges de logs, sandbox i .tmp eren no-ops silencioses.
+        gnosi_root = Path(__file__).resolve().parents[2]
+        pipeline_base = gnosi_root / "pipeline"
+
         # 1. Purge Logs
         log_dir = cfg.paths.get("LOG_DIR")
         if log_dir and log_dir.exists():
             log_patterns = [str(log_dir / "*.log"), str(log_dir.parent / "*.log")]
-            
-            project_root = cfg.paths.get("PROJECT_DIR")
-            if project_root:
-                pipeline_base = project_root / "monorepo" / "apps" / "gnosi" / "pipeline"
-                log_patterns.append(str(pipeline_base / "sandbox" / "*.log"))
-                log_patterns.append(str(pipeline_base / ".tmp" / "*.log"))
+            log_patterns.append(str(pipeline_base / "sandbox" / "*.log"))
+            log_patterns.append(str(pipeline_base / ".tmp" / "*.log"))
 
             for pattern in log_patterns:
                 for filepath in glob.glob(pattern):
@@ -566,7 +676,18 @@ class SchedulerManager:
         details["logs_cleared"] = purged_count
 
         # 2. Clear Agent Mailbox Archive
-        mailbox_archive = Path("/Users/ismaelgarciafernandez/Projectes/monorepo/.antigravity/team/mailbox/archive")
+        # L'arxiu del mailbox de l'equip viu a `{arrel_repo}/.antigravity/team/mailbox/archive`
+        # (vegeu pipeline/brain/orchestrator.py i monorepo/AGENTS.md). El docker-compose el
+        # munta a la MATEIXA ruta absoluta host↔contenidor via `${REPO_ROOT:-$HOME/Projectes}`,
+        # així que derivem la base de REPO_ROOT (fallback: HOME_HOST_PATH/Projectes) per coincidir
+        # amb el mount. NO usem PROJECT_DIR: dins el contenidor és `/app`, on no hi ha el mount.
+        repo_root_env = os.environ.get("REPO_ROOT")
+        if repo_root_env:
+            repo_root = Path(repo_root_env)
+        else:
+            host_home = os.environ.get("HOME_HOST_PATH") or str(Path.home())
+            repo_root = Path(host_home) / "Projectes"
+        mailbox_archive = repo_root / ".antigravity" / "team" / "mailbox" / "archive"
         msg_purged = 0
         if mailbox_archive.exists():
             for msg_file in glob.glob(str(mailbox_archive / "*")):
@@ -579,10 +700,7 @@ class SchedulerManager:
         details["mailbox_archive_purged"] = msg_purged
 
         # 3. Cleanup Pipeline Sandbox & .tmp
-        pipeline_dirs = []
-        if project_root:
-             p_base = project_root / "monorepo" / "apps" / "gnosi" / "pipeline"
-             pipeline_dirs = [p_base / "sandbox", p_base / ".tmp"]
+        pipeline_dirs = [pipeline_base / "sandbox", pipeline_base / ".tmp"]
 
         sandbox_deleted = 0
         for d in pipeline_dirs:
@@ -601,10 +719,13 @@ class SchedulerManager:
                         log.warning(f"Failed to delete {item}: {e}")
         details["temporary_files_deleted"] = sandbox_deleted
 
-        # 4. Cleanup Pycache
+        # 4. Cleanup Pycache (només dirs de codi: backend i pipeline; evitem fer walk
+        # sobre /app/data, el volum local de dades amb SQLite/índexs).
         pycache_count = 0
-        if project_root:
-            for root, dirs, files in os.walk(project_root / "monorepo" / "apps" / "gnosi"):
+        for code_dir in (gnosi_root / "backend", pipeline_base):
+            if not code_dir.exists():
+                continue
+            for root, dirs, files in os.walk(code_dir):
                 for d in dirs:
                     if d == "__pycache__":
                         try:

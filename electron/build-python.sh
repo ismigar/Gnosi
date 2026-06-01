@@ -95,7 +95,7 @@ $PYTHON_VENV << PYSCRIPT
 import os
 import platform
 
-backend_dir = os.environ.get('BACKEND_DIR', '/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/backend')
+backend_dir = os.environ.get('BACKEND_DIR') or os.path.expanduser('~/Projectes/monorepo/apps/gnosi/backend')
 system = platform.system().lower()
 
 hiddenimports = [

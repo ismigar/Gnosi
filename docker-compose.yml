@@ -34,7 +34,7 @@ services:
       # Only the agent mailbox archive needs write access (system_maintenance
       # task purges old messages). Scoped explicitly so a process inside the
       # container can't tamper with the rest of $HOME.
-      - ${REPO_ROOT:-$HOME/Projectes}/monorepo/.antigravity:${REPO_ROOT:-$HOME/Projectes}/monorepo/.antigravity:rw
+      - ${REPO_ROOT:-$HOME/Projectes}/.antigravity:${REPO_ROOT:-$HOME/Projectes}/.antigravity:rw
       - ${HOME}/.gnosi:/root/.gnosi:ro
       - ./backend:/app/backend
       # Credencials d'integracions (tokens Google, contrasenyes IMAP/SMTP)
@@ -46,7 +46,7 @@ services:
       # storage — SQLite + cloud sync = corruption. See paths_config.py.
       - gnosi_local_data:/app/data
     # Rutes del host parametritzades: ${HOME} resol per màquina. ${REPO_ROOT}
-    # (arrel del repo, per al mount de monorepo/.antigravity) per defecte és
+    # (arrel del repo, per al mount de .antigravity) per defecte és
     # $HOME/Projectes; si el repo viu en una altra ubicació (p. ex.
     # ~/Projectes/Projectes), defineix REPO_ROOT al `.env` local (gitignored).
     env_file:

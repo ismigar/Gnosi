@@ -59,7 +59,12 @@ BLACKLISTED_DB_NAMES = [
 
 VAULT_PATH_STR = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or os.getenv("VAULT_PATH")
 if not VAULT_PATH_STR:
-    VAULT_PATH_STR = "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi"
+    # Fallback derivat de l'entorn (no hardcodejar un usuari macOS): VAULT_HOST_PATH
+    # si està definida, si no la ruta canònica dins $HOME (HOME_HOST_PATH o ~).
+    _home = os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
+    VAULT_PATH_STR = os.environ.get("VAULT_HOST_PATH") or os.path.join(
+        _home, "Library/CloudStorage/OneDrive-UNED/Gnosi"
+    )
 
 VAULT_PATH = Path(VAULT_PATH_STR)
 ASSETS_PATH = VAULT_PATH / "Assets"

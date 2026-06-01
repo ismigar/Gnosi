@@ -77,9 +77,14 @@ class MDChannel(BaseNotificationChannel):
             # és per-instància — la ubicació correcta per a logs operatius.
             local_data = cfg.paths.get("LOCAL_DATA")
             if not local_data:
-                # Fallback raonable per execucions fora de Docker (host).
+                # Fallback raonable per execucions fora de Docker (host). Derivem el
+                # path del vault de l'entorn en comptes de hardcodejar un usuari macOS
+                # (que trencava en l'altra màquina): VAULT_HOST_PATH si està definida,
+                # si no la ruta canònica dins $HOME (HOME_HOST_PATH o Path.home()).
+                host_home = os.environ.get("HOME_HOST_PATH") or str(Path.home())
+                default_vault = Path(host_home) / "Library/CloudStorage/OneDrive-UNED/Gnosi"
                 vault_p = cfg.paths.get("VAULT") or Path(
-                    "/Users/ismaelgarciafernandez/Library/CloudStorage/OneDrive-UNED/Gnosi"
+                    os.environ.get("VAULT_HOST_PATH") or default_vault
                 )
                 local_data = Path(vault_p) / ".gnosi"
 

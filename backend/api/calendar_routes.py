@@ -183,12 +183,38 @@ async def get_events(
 
     # Events del vault (notes locals amb camp date)
     if include_vault:
-        vault_events = _get_vault_events(time_min, time_max, search)
+        vault_events = await asyncio.to_thread(
+            _get_vault_events, time_min, time_max, search
+        )
         if hidden_ids:
             vault_events = [ev for ev in vault_events if ev.get("id") not in hidden_ids]
         all_events.extend(vault_events)
 
     return all_events
+
+
+def _iter_event_md_files(vault_path):
+    """Itera els .md candidats a events, saltant carpetes pesades/irrellevants
+    i fitxers online-only. Llegir tot el vault (incloent Mail/, ~8700 fitxers
+    dataless de OneDrive) feia que /events pengés >30s i bloquegés l'event loop."""
+    import os
+    from pathlib import Path
+    EXCLUDE_TOP = {"Mail", "Images", "Assets", ".git", ".gnosi", "node_modules"}
+    for root, sub, files in os.walk(str(vault_path)):
+        parts = os.path.relpath(root, str(vault_path)).split(os.sep)
+        if parts and parts[0] in EXCLUDE_TOP:
+            sub[:] = []  # poda el subarbre
+            continue
+        for fn in files:
+            if not fn.endswith(".md"):
+                continue
+            md = Path(root) / fn
+            try:
+                if getattr(md.stat(), "st_blocks", 1) == 0:
+                    continue  # online-only: no forcem descàrrega de OneDrive
+            except OSError:
+                continue
+            yield md
 
 
 def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> list[dict]:
@@ -201,7 +227,7 @@ def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> li
         # Exclou la carpeta Calendar/External (eren fitxers de sync antic)
         exclude = vault_path / "Calendar" / "External"
 
-        for md in vault_path.rglob("*.md"):
+        for md in _iter_event_md_files(vault_path):
             if str(md).startswith(str(exclude)):
                 continue
             try:
