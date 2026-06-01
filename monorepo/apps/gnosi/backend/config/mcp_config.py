@@ -1,13 +1,6 @@
 # backend/config/mcp_config.py
 
-# Definim els servidors disponibles i com connectar-s'hi.
-# En aquest cas, utilitzem 'docker exec' per connectar amb els contenidors que ja corren.
-# Important: Els contenidors han de tenir noms fixos (ex: notion-mcp, n8n-mcp).
-
-MCP_SERVERS = {
-    "n8n": {
-        "command": "docker",
-        "args": ["exec", "-i", "n8n-mcp", "node", "index.js"],
-        "description": "Access to n8n workflows (List, Execute, Get Status)."
-    }
-}
+# Servidors MCP disponibles (docker exec a contenidors amb nom fix).
+# n8n eliminat (l'usuari ja no l'utilitza). Sense servidors configurats,
+# MultiServerMCPClient no intenta connectar a res a l'arrencada.
+MCP_SERVERS: dict = {}

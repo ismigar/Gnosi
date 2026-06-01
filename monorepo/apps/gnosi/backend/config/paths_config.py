@@ -24,13 +24,25 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     project_root = _this_file.parents[2]  # backend/config -> gnosi
 
     # ── Resolve Vault Path ──
-    # Prioritat: Variable d'entorn (Docker) > params.yaml (Settings UI)
-    env_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
+    # Prioritat: env (Docker: DIGITAL_BRAIN_VAULT_PATH=/vault; host: VAULT_HOST_PATH)
+    # > params.yaml (Settings UI).
+    env_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH") or os.environ.get("VAULT_HOST_PATH")
     if env_vault:
         vault_path = Path(env_vault)
     else:
         vault_raw = overrides.get("vault")
         vault_path = Path(vault_raw) if vault_raw else None
+        # Robustesa entre Macs (fora de Docker): `params.yaml` viu DINS el vault i
+        # se sincronitza per OneDrive, així que `vault:` pot ser la ruta absoluta de
+        # l'ALTRE Mac (/Users/<altre_usuari>/...) i no existir aquí. Si és el cas,
+        # re-arrelem el tram després de l'usuari a $HOME actual (sense hardcodejar
+        # usuari ni núvol). En Docker no s'activa mai: DIGITAL_BRAIN_VAULT_PATH mana.
+        if vault_path and vault_path.is_absolute() and not vault_path.exists():
+            parts = vault_path.parts
+            if len(parts) >= 4 and parts[1] in ("Users", "home"):
+                rerooted = Path.home().joinpath(*parts[3:])
+                if rerooted.exists():
+                    vault_path = rerooted
     
     if vault_path and not vault_path.is_absolute():
         vault_path = project_root / vault_path

@@ -153,6 +153,21 @@ class DockerMCPClient:
             "arguments": arguments
         })
 
+async def _docker_container_running(name: str) -> bool:
+    """True si el contenidor docker `name` està en execució.
+
+    Silenciós si docker no és accessible (retorna False)."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "inspect", "-f", "{{.State.Running}}", name,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        )
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
+        return out.strip() == b"true"
+    except Exception:
+        return False
+
+
 class MultiServerMCPClient:
     def __init__(self, config: Dict[str, Dict]):
         self.clients: Dict[str, DockerMCPClient] = {}
@@ -165,6 +180,20 @@ class MultiServerMCPClient:
             cmd = cfg["command"]
             args = cfg.get("args", [])
             full_cmd = [cmd] + args
+
+            # Si és un MCP via `docker exec -i <container>`, comprova que el
+            # contenidor existeix abans de connectar. Sense això, si el servei
+            # (p. ex. n8n-mcp) no està desplegat, cada arrencada perdia 2s en un
+            # handshake que sempre feia timeout i omplia els logs d'errors.
+            if cmd == "docker" and len(args) >= 3 and args[0] == "exec":
+                container = args[2]
+                if not await _docker_container_running(container):
+                    log.info(
+                        f"⏭️  MCP '{name}': contenidor '{container}' no actiu; "
+                        "ometent (es connectarà quan es desplegui)."
+                    )
+                    continue
+
             client = DockerMCPClient(name, full_cmd)
             self.clients[name] = client
             tasks.append(client.start())

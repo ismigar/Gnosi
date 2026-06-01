@@ -30,8 +30,6 @@ CREDENTIAL_INFO = {
         "description": "API key for OpenRouter",
     },
     "telegram_bot_token": {"name": "Telegram", "description": "Bot token for Telegram"},
-    "n8n_api_key": {"name": "n8n", "description": "API key for n8n"},
-    "n8n_password": {"name": "n8n Password", "description": "Password for n8n"},
     "google_oauth_client_id": {
         "name": "Google OAuth",
         "description": "OAuth Client ID",

@@ -96,8 +96,11 @@ else
   log "AVÍS: Docker.app no trobat a $DOCKER_APP"
 fi
 
-# --- 3) BD/ : gran -> en segon pla, no bloqueja el boot ---
-log "materialitzant BD/ en segon pla..."
-( materialize "$VAULT/BD" "BD" 8000; log "BD/ materialització acabada" ) &
+# --- 3) BD/ : gran -> SÍNCRON. NO en segon pla amb '&': launchd mata el
+# process group quan el job principal retorna, deixant BD a mig materialitzar
+# (bug observat: el warmup de BD no s'acabava mai via LaunchAgent). Síncron, el
+# job dura més però no bloqueja l'usuari (corre en background del sistema).
+log "materialitzant BD/ (síncron)..."
+materialize "$VAULT/BD" "BD" 8000
 
-log "=== gnosi_boot fi (BD continua en segon pla) ==="
+log "=== gnosi_boot fi ==="
