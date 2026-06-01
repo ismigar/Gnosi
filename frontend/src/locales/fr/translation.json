@@ -7,6 +7,7 @@
   },
   "common": {
     "undo": "Annuler",
+    "new_dashboard": "Nouveau tableau de bord",
     "delete": "Supprimer",
     "open": "Ouvrir"
   },
@@ -427,6 +428,8 @@
     "nav_social": "Social",
     "nav_media": "Photos",
     "nav_dashboard": "Tableau de bord",
+    "dashboards": "Tableaux de bord",
+    "no_dashboard_pages": "Aucun tableau de bord",
     "nav_settings": "Paramètres"
   },
   "shell": {

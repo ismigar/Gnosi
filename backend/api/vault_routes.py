@@ -6740,6 +6740,42 @@ def _read_trash_entries() -> List[Dict[str, Any]]:
     return entries
 
 
+async def _materialize_trash_sidecar(page_id: str) -> None:
+    """Materialitza NOMÉS el `_trash.json` d'una entrada abans de llegir-lo al
+    thread síncron (restore/purge). Sense això, un sidecar dataless d'OneDrive
+    peta amb [Errno 35] EDEADLK. El càlcul del path —que toca el FS via
+    `_trash_root()` (mkdir)— va a un worker thread per no bloquejar l'event
+    loop; només la materialització async es fa aquí. No es baixa `page.md`
+    (innecessari: el move del restore és un rename i la purga només fa unlink)."""
+    def _existing_sidecar() -> Optional[Path]:
+        sidecar = _trash_entry_dir(page_id) / "_trash.json"
+        return sidecar if sidecar.exists() else None
+    try:
+        sidecar = await asyncio.to_thread(_existing_sidecar)
+    except OSError:
+        return
+    if sidecar is not None:
+        await _materialize_if_online_only(sidecar, f"trash/{page_id}")
+
+
+async def _materialize_all_trash_sidecars() -> None:
+    """Warmup de tots els `_trash.json` abans de llistar la paperera. L'escaneig
+    de `.trash` (mkdir/iterdir, cf. la nota de `_trash_root`) va a un worker
+    thread; només la materialització async es fa a l'event loop. Sense això, els
+    sidecars dataless peten amb EDEADLK i les entrades surten com a "(corrupt)"."""
+    def _scan_sidecars() -> List[Path]:
+        root = _trash_root()
+        if not root.exists():
+            return []
+        return [d / "_trash.json" for d in root.iterdir() if d.is_dir()]
+    try:
+        sidecars = await asyncio.to_thread(_scan_sidecars)
+    except OSError:
+        return
+    for sidecar in sidecars:
+        await _materialize_if_online_only(sidecar, f"trash/{sidecar.parent.name}")
+
+
 def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
     """Elimina permanentment una entrada de la paperera."""
     entry_dir = _trash_entry_dir(page_id)
@@ -6874,6 +6910,7 @@ async def delete_page(page_id: str):
 )
 async def restore_page(page_id: str):
     """Restaura una pàgina de la paperera al seu `original_path`."""
+    await _materialize_trash_sidecar(page_id)
     try:
         result = await asyncio.to_thread(_restore_page_from_trash, page_id)
     except FileNotFoundError:
@@ -6912,6 +6949,11 @@ async def list_trash(q: Optional[str] = Query(None)):
 
     Suport opcional de filtre `?q=` sobre el títol (case-insensitive).
     """
+    # Warmup proactiu: materialitza els sidecars online-only abans de llegir-los
+    # al thread. Sense això, els _trash.json dataless d'OneDrive peten amb
+    # EDEADLK i les entrades surten com a "(corrupt)" (ni es llisten ni es poden
+    # restaurar/purgar). Mateix patró que get_page (#272).
+    await _materialize_all_trash_sidecars()
     try:
         entries = await asyncio.to_thread(_read_trash_entries)
     except Exception as e:
@@ -6935,6 +6977,7 @@ async def list_trash(q: Optional[str] = Query(None)):
 )
 async def purge_trash_entry(page_id: str):
     """Purga immediatament una entrada de la paperera (irreversible)."""
+    await _materialize_trash_sidecar(page_id)
     try:
         result = await asyncio.to_thread(_purge_trash_entry, page_id)
     except FileNotFoundError:
