@@ -82,15 +82,6 @@ class DryRunManager:
                 page_id = arguments.get("page_id", arguments.get("id", "desconegut"))
                 return f"🗑️ ELIMINARÀ la pàgina {page_id} - ACCIÓ IRREVERSIBLE"
         
-        # Common patterns for n8n operations
-        if "n8n" in tool_name.lower() or "workflow" in tool_name.lower():
-            if "create" in tool_name.lower():
-                return f"🔧 Crearà un nou workflow a n8n: {arguments.get('name', 'sense nom')}"
-            elif "update" in tool_name.lower():
-                return f"✏️ Modificarà el workflow {arguments.get('id', 'desconegut')}"
-            elif "activate" in tool_name.lower():
-                return f"▶️ Activarà el workflow {arguments.get('id', 'desconegut')}"
-        
         # Generic fallback
         return f"⚠️ Executarà '{tool_name}' amb arguments: {json.dumps(arguments, default=str)[:150]}..."
     

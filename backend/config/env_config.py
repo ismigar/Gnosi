@@ -47,8 +47,6 @@ def _load_keychain():
             "GROQ_API_KEY": "groq_api_key",
             "OPENROUTER_API_KEY": "openrouter_api_key",
             "TELEGRAM_BOT_TOKEN": "telegram_bot_token",
-            "N8N_API_KEY": "n8n_api_key",
-            "N8N_PASSWORD": "n8n_password",
             "GOOGLE_OAUTH_CLIENT_ID": "google_oauth_client_id",
             "GOOGLE_OAUTH_CLIENT_SECRET": "google_oauth_client_secret",
             "MICROSOFT_OAUTH_CLIENT_ID": "microsoft_oauth_client_id",

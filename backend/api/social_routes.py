@@ -311,43 +311,21 @@ async def interact_with_post(request: InteractionRequest):
 
 @router.post("/post", dependencies=[Depends(require_role("editor"))])
 async def create_post(request: CreatePostRequest):
-    """Publishes a post to selected networks via n8n webhook."""
-    
-    N8N_WEBHOOK_URL = "http://host.docker.internal:5678/webhook/social-post-v2"
-    
-    payload = {
-        "content": request.content,
-        "networks": request.networks,
-        "timestamp": datetime.now().isoformat()
-    }
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(N8N_WEBHOOK_URL, json=payload, timeout=10.0)
-            response.raise_for_status()
-        
-        POST_HISTORY.append({
-            "id": str(uuid.uuid4()),
-            "content": request.content,
-            "networks": request.networks,
-            "published_at": datetime.now().isoformat(),
-            "status": "success"
-        })
-            
-        log.info(f"Successfully sent post to n8n: {response.status_code}")
-        return {"status": "success", "published_to": request.networks}
-        
-    except httpx.HTTPError as e:
-        log.error(f"Failed to call n8n webhook: {e}")
-        POST_HISTORY.append({
-            "id": str(uuid.uuid4()),
-            "content": request.content,
-            "networks": request.networks,
-            "published_at": datetime.now().isoformat(),
-            "status": "failed",
-            "error": str(e)
-        })
-        raise HTTPException(status_code=502, detail=safe_error_detail(e, context="POST /api/social/post n8n webhook"))
+    """Publicació a xarxes DESACTIVADA.
+
+    Depenia d'un webhook de n8n que s'ha eliminat (l'usuari ja no fa servir
+    n8n). Es manté l'endpoint perquè la UI rebi un 501 clar en lloc d'un 502
+    críptic; reactivar-la requereix configurar una nova via de publicació.
+    """
+    log.warning(
+        f"Intent de publicar a xarxes ({request.networks}), però la integració "
+        "n8n s'ha eliminat."
+    )
+    raise HTTPException(
+        status_code=501,
+        detail="Publicació a xarxes desactivada: la integració n8n s'ha eliminat. "
+               "Configura una nova via de publicació per reactivar-la.",
+    )
 
 
 @router.post("/schedule", dependencies=[Depends(require_role("editor"))])

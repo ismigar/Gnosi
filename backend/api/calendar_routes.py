@@ -193,81 +193,60 @@ async def get_events(
     return all_events
 
 
-def _iter_event_md_files(vault_path):
-    """Itera els .md candidats a events, saltant carpetes pesades/irrellevants
-    i fitxers online-only. Llegir tot el vault (incloent Mail/, ~8700 fitxers
-    dataless de OneDrive) feia que /events pengés >30s i bloquegés l'event loop."""
-    import os
-    from pathlib import Path
-    EXCLUDE_TOP = {"Mail", "Images", "Assets", ".git", ".gnosi", "node_modules"}
-    for root, sub, files in os.walk(str(vault_path)):
-        parts = os.path.relpath(root, str(vault_path)).split(os.sep)
-        if parts and parts[0] in EXCLUDE_TOP:
-            sub[:] = []  # poda el subarbre
-            continue
-        for fn in files:
-            if not fn.endswith(".md"):
-                continue
-            md = Path(root) / fn
-            try:
-                if getattr(md.stat(), "st_blocks", 1) == 0:
-                    continue  # online-only: no forcem descàrrega de OneDrive
-            except OSError:
-                continue
-            yield md
-
-
 def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> list[dict]:
-    """Llegeix notes del vault que tinguin camp 'date' (events locals Gnosi)."""
+    """Events del vault (notes amb camp 'date') des del page_index de l'app.
+
+    Usa `_get_pages_snapshot()` —l'índex cachejat que també alimenta la sidebar—
+    en lloc de fer `rglob`+`read_text` sobre tot el vault. Abans llegia ~2939
+    fitxers a cada petició (~11s); ara filtra en memòria les ~119 pàgines amb
+    camp `date` sense tocar el disc (l'índex ja porta tota la metadata, inclosa
+    `description`). Vegeu directive async_event_loop_vault_io.
+    """
     try:
-        vault_path = get_active_vault_path()
-        events = []
+        from backend.api.vault_routes import _get_pages_snapshot
         q = (search or "").lower()
-
-        # Exclou la carpeta Calendar/External (eren fitxers de sync antic)
-        exclude = vault_path / "Calendar" / "External"
-
-        for md in _iter_event_md_files(vault_path):
-            if str(md).startswith(str(exclude)):
+        lo, hi = time_min[:10], time_max[:10]
+        events = []
+        for p in _get_pages_snapshot(only_calendar=False):
+            meta = p.metadata or {}
+            date_val = meta.get("date")
+            if not date_val:
                 continue
-            try:
-                content = md.read_text(encoding="utf-8")
-                meta, body = get_frontmatter(content)
-                date_val = meta.get("date")
-                if not date_val:
-                    continue
-                source = meta.get("source", "Gnosi")
-                if source and source not in ("Gnosi", "Gnosi Vault") and "External" in str(md):
-                    continue
-                date_str = str(date_val)
-                if date_str < time_min[:10] or date_str > time_max[:10]:
-                    continue
-                title = meta.get("title") or md.stem
-                if q and q not in title.lower() and q not in body.lower():
-                    continue
-                events.append({
-                    "id":            meta.get("id") or md.stem,
-                    "vault_path":    str(md),
-                    "calendar_id":   "gnosi",
-                    "calendar_name": "Gnosi",
-                    "title":         title,
-                    "start":         date_str,
-                    "end":           str(meta.get("end_date") or ""),
-                    "all_day":       bool(meta.get("all_day", "T" not in date_str)),
-                    "location":      meta.get("location", ""),
-                    "description":   body[:500],
-                    "source":        source or "Gnosi",
-                    "account":       "",
-                    "provider":      "vault",
-                    "color":         None,
-                    "status":        "confirmed",
-                    "link":          "",
-                    "recurrence":    meta.get("rrule"),
-                    "recurring_event_id": None,
-                    "is_read_only":  False,
-                })
-            except Exception:
+            path_str = p.path or ""
+            # Exclou Calendar/External (fitxers de sync antic) i fonts externes.
+            if "Calendar/External" in path_str:
                 continue
+            source = meta.get("source", "Gnosi")
+            if source and source not in ("Gnosi", "Gnosi Vault") and "External" in path_str:
+                continue
+            date_str = str(date_val)
+            if date_str < lo or date_str > hi:
+                continue
+            title = meta.get("title") or p.title
+            body = str(meta.get("description") or "")
+            if q and q not in title.lower() and q not in body.lower():
+                continue
+            events.append({
+                "id":            meta.get("id") or p.id,
+                "vault_path":    path_str,
+                "calendar_id":   "gnosi",
+                "calendar_name": "Gnosi",
+                "title":         title,
+                "start":         date_str,
+                "end":           str(meta.get("end_date") or ""),
+                "all_day":       bool(meta.get("all_day", "T" not in date_str)),
+                "location":      meta.get("location", ""),
+                "description":   body[:500],
+                "source":        source or "Gnosi",
+                "account":       "",
+                "provider":      "vault",
+                "color":         None,
+                "status":        "confirmed",
+                "link":          "",
+                "recurrence":    meta.get("rrule"),
+                "recurring_event_id": None,
+                "is_read_only":  False,
+            })
         return events
     except Exception as ex:
         log.warning(f"_get_vault_events: {ex}")

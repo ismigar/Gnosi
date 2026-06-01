@@ -3251,9 +3251,6 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     try:
         save_page_md(file_path, metadata, request.content)
-        background_tasks.add_task(
-            trigger_n8n_webhook, file_path.name, "Universal", request.content
-        )
         table_id = get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
@@ -6286,9 +6283,6 @@ async def save_page(
                 new_title,
             )
 
-        background_tasks.add_task(
-            trigger_n8n_webhook, file_path.name, "Universal", request.content
-        )
         table_id = get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
@@ -6533,9 +6527,6 @@ async def patch_page(
                 new_title,
             )
 
-        background_tasks.add_task(
-            trigger_n8n_webhook, file_path.name, "Universal", content
-        )
         table_id = get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
@@ -8377,9 +8368,6 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
             new_metadata = _ensure_recursos_citation_key(new_metadata, regenerate=True)
             save_page_md(new_file_path, new_metadata, body)
 
-        background_tasks.add_task(
-            trigger_n8n_webhook, new_file_path.name, "Universal", body
-        )
         background_tasks.add_task(update_link_index_for_page, new_file_path)
 
         return {
@@ -8392,21 +8380,6 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
     except Exception as e:
         log.error(f"Error duplicating page {page_id}: {e}")
         raise HTTPException(status_code=500, detail="Error duplicating target file")
-
-
-def trigger_n8n_webhook(filename: str, folder: str, content: str):
-    """Sends a POST to n8n invisibly when a note is saved or created."""
-    try:
-        url = "http://n8n:5678/webhook/vault-update"
-        payload = {
-            "event": "note_saved",
-            "folder": folder,
-            "filename": filename,
-            "content": content[:2000],  # Limit content text for lightness
-        }
-        requests.post(url, json=payload, timeout=2)
-    except Exception as e:
-        log.warning(f"Could not notify event to n8n: {e}")
 
 
 # ── Índex global id→títol amb persistència a disc + stale-while-revalidate ───
