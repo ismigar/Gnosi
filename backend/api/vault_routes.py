@@ -1128,6 +1128,62 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
     Així cap camí d'escriptura pot deixar `fld_*` al frontmatter. Vegeu la
     directiva `vault_persist_by_name.md`.
     """
+    # GUARDA ANTI-PÈRDUA — regressió "frontmatter mutilat" (vegeu la red flag a
+    # `wikilink_interactions.md`). Una pàgina sense `id` al frontmatter s'indexa
+    # pel nom de fitxer (`metadata.get("id") or file_path.stem`), de manera que
+    # TOTS els wikilinks per UUID que hi apunten passen a fer 404 silenciosament.
+    # Cap caller legítim arriba aquí sense `id` (create_page sempre el posa;
+    # PATCH/PUT el preserven del frontmatter llegit). Si hi arriba —p.ex. perquè
+    # `parse_frontmatter` ha tornat `{}` en llegir un fitxer truncat/online-only
+    # d'OneDrive i el PATCH hi ha afegit només `parent_id`— recuperem l'`id` del
+    # fitxer en disc (frontmatter, o per regex sobre el text cru si el YAML és
+    # corrupte); si tot falla, en generem un de nou. MAI escrivim un `.md` sense `id`.
+    if not str((metadata or {}).get("id") or "").strip():
+        recovered_id = None
+        recovered_title = None
+        try:
+            if file_path.exists():
+                existing_raw = file_path.read_text(encoding="utf-8")
+                try:
+                    if _is_dashboard_file_path(file_path):
+                        existing_md, _ = _read_dashboard_file(file_path)
+                    else:
+                        existing_md, _ = parse_frontmatter(existing_raw, file_path)
+                    recovered_id = str((existing_md or {}).get("id") or "").strip() or None
+                    recovered_title = (existing_md or {}).get("title")
+                except Exception:
+                    pass
+                if not recovered_id:
+                    # YAML corrupte: rescat per regex del text cru.
+                    _m = re.search(
+                        r"(?mi)^\s*id:\s*['\"]?"
+                        r"([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})",
+                        existing_raw,
+                    )
+                    if _m:
+                        recovered_id = _m.group(1).strip()
+        except Exception as e:
+            log.warning(f"save_page_md: no s'ha pogut recuperar l'id de {file_path}: {e}")
+        metadata = dict(metadata or {})
+        if recovered_id:
+            metadata["id"] = recovered_id
+            if not str(metadata.get("title") or "").strip():
+                metadata["title"] = recovered_title or file_path.stem
+            log.error(
+                f"save_page_md: metadata SENSE 'id' per {file_path}; recuperat del disc "
+                f"({recovered_id}). Un caller perd el frontmatter — investigar "
+                f"(la nota NO s'ha corromput)."
+            )
+        else:
+            _new_id = str(uuid.uuid4())
+            metadata["id"] = _new_id
+            if not str(metadata.get("title") or "").strip():
+                metadata["title"] = file_path.stem
+            log.error(
+                f"save_page_md: metadata SENSE 'id' per {file_path} i no recuperable del "
+                f"disc; assignat id nou {_new_id} per no corrompre. Investigar el caller."
+            )
+
     try:
         _tid = get_table_id(metadata)
         if _tid:
