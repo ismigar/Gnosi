@@ -384,6 +384,11 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedIndex, setHighlightedIndex] = useState(0);
+    // Valors anteriors de searchTerm/isOpen per poder reiniciar
+    // highlightedIndex DURANT el render (vegeu el bloc d'ajust més avall),
+    // en comptes d'un useEffect amb setState (que dispara renders en cascada).
+    const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     const containerRef = useRef(null);
     const listRef = useRef(null);
     const currentValues = useMemo(() => {
@@ -420,11 +425,18 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
     );
     const totalItems = filteredOptions.length + (canCreate ? 1 : 0);
 
-    // Reseteja l'índex marcat quan canvia la cerca o s'obre el dropdown:
+    // Reseteja l'índex marcat quan canvia la cerca o s'obre/tanca el dropdown:
     // mantenir el highlight desactualitzat trauria la fletxa de lloc i,
     // sobretot, Enter podria seleccionar una opció diferent de la primera
-    // visible.
-    useEffect(() => { setHighlightedIndex(0); }, [searchTerm, isOpen]);
+    // visible. Ho ajustem DURANT el render comparant amb el valor anterior
+    // —patró recomanat de React— en comptes d'un useEffect amb setState, que
+    // dispara renders en cascada (react-hooks/set-state-in-effect).
+    // https://react.dev/learn/you-might-not-need-an-effect
+    if (searchTerm !== prevSearchTerm || isOpen !== prevIsOpen) {
+        setPrevSearchTerm(searchTerm);
+        setPrevIsOpen(isOpen);
+        setHighlightedIndex(0);
+    }
 
     // Scroll automàtic dins del dropdown perquè l'opció marcada sempre
     // sigui visible quan es navega amb fletxes en una llista llarga.
