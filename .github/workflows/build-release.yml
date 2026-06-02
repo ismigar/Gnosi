@@ -56,7 +56,7 @@ jobs:
           npm run build:mac
 
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-arm64
           path: monorepo/apps/gnosi/electron/dist/*.dmg
@@ -101,7 +101,7 @@ jobs:
           npm run build:linux
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-x64
           path: |
@@ -148,7 +148,7 @@ jobs:
           npm run build:win
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-x64
           path: monorepo/apps/gnosi/electron/dist/*Setup*.exe
