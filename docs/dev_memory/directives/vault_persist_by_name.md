@@ -54,6 +54,25 @@ la robustesa davant de renombrar columnes mitjançant **àlies** al registry
 - PATCH segueix fent merge; `save_page_md` canonicalitza el resultat fusionat
   (neutralitza els `fld_` que enviï el frontend durant la transició).
 
+### Garantia "mai un `.md` sense `id`" (anti frontmatter-mutilat)
+
+A més de la canonicalització de claus, `save_page_md` garanteix que **cap
+pàgina s'escrigui sense `id`** al frontmatter. Motiu: una nota sense `id`
+s'indexa pel **nom de fitxer** (`metadata.get("id") or file_path.stem`,
+~2107/2256), de manera que tots els wikilinks per UUID que hi apunten passen a
+fer **404 silenciós** (red flag a `wikilink_interactions.md`).
+
+- **Vector real:** `parse_frontmatter` torna `{}` en llegir un fitxer
+  truncat/online-only d'OneDrive; un PATCH de reparent hi afegeix només
+  `parent_id` i el desa → frontmatter amb només `parent_id`. Detectat
+  2026-06 a la sub-nota «Model de pacte ètic…» de «Pla de futur i cures».
+- **Guarda (abans de serialitzar):** si el `metadata` no porta `id`, recupera'l
+  del fitxer en disc (frontmatter; o per regex sobre el text cru si el YAML és
+  corrupte); si no és recuperable, genera un uuid nou. Sempre `log.error`
+  perquè el caller defectuós es detecti. Cobreix els 6 callers de cop.
+- **Test:** `backend/tests/test_save_page_md_guard.py` (5 casos: escriptura
+  normal, recuperació del disc, YAML corrupte, generació d'uuid, metadata buit).
+
 ### Rename de columna (`patch_table_property`, ~9106)
 - En canviar `name`: afegir el nom antic a `aliases` (dedup; treure el nom nou
   dels propis àlies; si el nom nou és àlies d'una altra property, treure'l

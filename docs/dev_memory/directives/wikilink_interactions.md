@@ -128,6 +128,7 @@ ProseMirror (l'editor sota BlockNote) processa `mousedown` ABANS que el `click` 
 - Si el click reemplaça la tab però l'antiga roman visible → revisa `setTabs(prev => prev.filter(...))` a `handleOpenInCurrentTab`.
 - Si els clicks dins ExcalidrawEditor o PageViewModal no fan res → manca el handler. El fallback hauria d'usar `onOpenParallel`. Si tampoc, és un problema d'instanciació.
 - Cache de preview creix indefinidament → revisa `CACHE_MAX` (eviction FIFO).
+- **Wikilink per UUID dona 404 però la pàgina sembla existir** → la nota destí ha perdut l'`id` (i sovint el `title`) del frontmatter, quedant només amb `parent_id`. Típic d'una edició externa o sync entre màquines (vegeu `two_computer_workflow`). Sense `id`, l'indexer la registra amb el **nom de fitxer** com a id (`metadata.get("id") or file_path.stem`, `find_page_path`/`_get_cached_page_entries`), així que l'UUID antic del wikilink ja no resol — i `find_page_path` **no fa rglob** si el cache té entrades (confia en cache), de manera que segueix 404 fins al rescan. **Cura:** restaurar al frontmatter de la nota destí l'`id` (és el mateix UUID que apareix dins `[[uuid|…]]` a la nota d'origen) i el `title`; el rescan la reindexa (cooldown `_VAULT_SYNC_COOLDOWN_SECONDS`=600s, o un `GET /pages` un cop passat el cooldown dispara `📡 Background sync`). Verificat 2026-06-01 amb la sub-nota «Model de pacte ètic…» de «Pla de futur i cures».
 
 ## 10. Pre-Execution Checklist
 
