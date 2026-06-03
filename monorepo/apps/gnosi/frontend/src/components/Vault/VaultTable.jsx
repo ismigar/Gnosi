@@ -2372,6 +2372,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             setActiveCell({ rowId: note.id, field: 'title' });
             setAnchorCell(null);
         };
+        // Obre l'editor inline del títol (paral·lel a `openEditor` de les
+        // cel·les de metadades). El títol viu a note.title → originalMetaKey
+        // 'title' i camí d'escriptura propi (saveTitle).
+        const openTitleEditor = () => {
+            setEditInitial(null);
+            setActiveCell({ rowId: note.id, field: 'title' });
+            setAnchorCell(null);
+            setEditingCell({ rowId: note.id, field: 'title', originalMetaKey: 'title' });
+        };
 
         return (
             <tr
@@ -2474,8 +2483,17 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             ${titleSel.inRange && !titleSel.isActive ? 'bg-[var(--gnosi-primary)]/10' : isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
                             ${isListView ? 'group-hover:bg-[var(--bg-secondary)]' : 'border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]'}
                             ${titleSel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); selectTitleCell(e); }}
-                        onDoubleClick={(e) => { e.stopPropagation(); onNoteSelect(note.id); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Mateix model que la resta de cel·les: clic sobre la cel·la
+                            // ja activa (sense Shift) obre l'editor inline del títol; si no,
+                            // només mou el cursor. Obrir la fitxa = botons de l'esquerra
+                            // o Alt+O (ja no el clic/doble-clic al títol).
+                            const alreadyActive = !e.shiftKey && activeCell && activeCell.rowId === note.id && activeCell.field === 'title';
+                            if (alreadyActive) { openTitleEditor(); return; }
+                            selectTitleCell(e);
+                        }}
+                        onDoubleClick={(e) => { e.stopPropagation(); openTitleEditor(); }}
                     >
                         <div className="flex items-center gap-1.5">
                             {note.metadata?.translation_lang && (
