@@ -230,3 +230,35 @@ docker logs gnosi_backend --tail 50 | grep -i 'deadlock'
 - El recompte `docker logs --since 2m | grep deadlock` enganya: les línies d'uvicorn **no porten timestamp**, així que `--since` no filtra el tràfic vell del crash-loop. Per comptar deadlocks recents cal `docker logs -t --since 30s` (timestamp real de Docker).
 - Trampa de verificació: el backend serveix la SPA com a catch-all → rutes `/api/*` inexistents retornen JSON `{"detail":"Not Found"}` (404 correcte del router), no pas la SPA. Per provar que l'API viu, usa rutes reals (`/api/health`, `/api/config`, `/api/vault/pages`), no noms inventats com `/api/dashboards`.
 - L'altra Mac (workflow de dues màquines) hauria de tenir també gRPC FUSE si replica aquest entorn Docker+OneDrive.
+
+---
+
+## Watchdog: la VM de Docker es penja (procés viu, daemon mort) — 2026-06-03
+
+### Problema
+Independentment del crash-loop del backend (que gRPC FUSE cura), la **VM de
+Docker Desktop** es penja de tant en tant al Mac Intel 2014 amb el vault a
+OneDrive: el procés "Docker Desktop" segueix **viu** però el daemon/VM està
+**mort** (`docker ps` es penja o dóna `500 ... check if the server supports the
+requested API version`; al log de la VM, `still dialing 192.168.65.7:2376: no
+route to host`). Símptoma per a l'usuari: **tot Gnosi a 000**. Disparador
+probable: estrès d'I/O de OneDrive (vist `GET /volumes` trigant 15,7 s) sobre
+maquinari vell. No és OOM (la VM té 7,75 GiB i la memòria lliure és ~67%).
+
+### Per què el `gnosi_boot.sh` no n'hi ha prou
+`gnosi_boot.sh` només reaixeca Docker si `pgrep "Docker Desktop"` no troba res
+(procés mort). En el cas "penjat" el procés segueix viu → no detecta res. A més
+corre cada 6 h (massa espaiat per recuperar un penjat).
+
+### Solució: `sh/docker_watchdog.sh` + LaunchAgent `com.gnosi.docker-watchdog`
+LaunchAgent amb `StartInterval` curt (180 s) que comprova la salut REAL i, si el
+daemon està penjat, fa `kill -9` dels processos Docker + `open -a Docker`.
+Instal·lar amb `sh sh/install_docker_watchdog.sh` (portable, genera el plist amb
+`$HOME`). Disseny anti-bucle/anti-fals-positiu (verificat):
+- Camí ràpid: si `/api/health` respon, surt sense fer res.
+- Només actua si el procés és VIU **i** `docker info` no respon (timeout casolà,
+  perquè macOS no té `timeout` i el propi watchdog no es pengi).
+- Si el daemon respon però el backend no → NO toca Docker (el backend es recupera
+  sol via `restart: unless-stopped`).
+- Cooldown de 300 s via stamp file → no reincideix mentre Docker arrenca (~90 s).
+- Si Docker està parat del tot (procés absent) → NO actua (ho gestionen boot/usuari).

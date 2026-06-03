@@ -10137,6 +10137,14 @@ def _pick_existing_path(
         except Exception:
             continue
 
+    # Portabilitat entre màquines: cap candidat existeix tal qual (p. ex.
+    # l'enllaç ve d'una Mac amb un altre usuari macOS). Intenta re-arrelar-los
+    # sota aquesta màquina abans de rendir-nos.
+    for candidate in candidates:
+        rerooted = _reroot_attachment_under_current_host(candidate)
+        if rerooted is not None and rerooted.is_file():
+            return str(rerooted)
+
     return None
 
 
@@ -10219,20 +10227,27 @@ async def open_resource(payload: OpenResourceRequest):
 
 
 def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
-    """Re-arrela un path/URI d'adjunt sota l'arrel de Biblioteca d'AQUESTA
-    màquina, perquè els enllaços desats en una altra màquina (un altre usuari
-    macOS) o amb un altre proveïdor (OneDrive/Dropbox/iCloud/Drive/local)
-    segueixin resolent-se aquí.
+    """Re-arrela un path/URI d'adjunt sota les arrels d'AQUESTA màquina, perquè
+    els enllaços desats en una altra Mac (un altre usuari macOS) segueixin
+    resolent-se aquí.
 
-    El tram després de la carpeta de Biblioteca és estable entre màquines
-    (el vault i els seus paths es sincronitzen); només canvia el prefix
-    (home + núvol). NO és destructiu: només s'usa com a fallback quan el path
-    tal com està desat no existeix en aquesta màquina. Retorna el Path
-    re-arrelat si existeix, si no None.
+    L'usuari treballa des de dues Macs amb noms d'usuari diferents; el prefix
+    `/Users/<usuari>/` dels enllaços `file://` és específic de la màquina on es
+    van inserir. El tram posterior (Library/CloudStorage/<núvol>/<carpeta>/…) és
+    estable entre màquines perquè el vault i les seves germanes se sincronitzen.
+
+    Estratègies, en ordre, retornant el primer candidat que EXISTEIXI:
+      1. Forma servida `/api/vault/biblioteca/<rel>` → arrel de Biblioteca.
+      2. Sota l'arrel del núvol (germana del vault): cobreix Biblioteca,
+         Documents i qualsevol carpeta germana sincronitzada.
+      3. Intercanvi del home macOS `/Users/<algú>` pel home del host actual:
+         cobreix fitxers fora del núvol (Desktop, Downloads…).
+
+    NO és destructiu: només s'usa com a fallback quan el path desat no existeix
+    tal qual; mai reescriu el .md. Vegeu `attachment_link_portability.md`.
     """
     s = (raw or "").strip()
-    # Forma relativa servida (els nous adjunts de biblioteca, portables): resol
-    # directament a l'arrel de Biblioteca d'aquesta màquina.
+    # (1) Forma relativa servida (adjunts de biblioteca nous, ja portables).
     m_rel = re.match(r"^/api/vault/biblioteca/(.+)$", s)
     if m_rel:
         try:
@@ -10247,18 +10262,46 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
         biblioteca_root = get_p("BIBLIOTECA")
     except Exception:
         return None
-    anchor = f"/{biblioteca_root.name}/"
-    # rfind: ancla a l'ÚLTIMA aparició de la carpeta. Si el nom de Biblioteca es
-    # repeteix dins el path, ens quedem amb el segment més proper a l'arrel real
-    # (find agafaria el primer i calcularia un suffix relatiu incorrecte).
-    idx = s.rfind(anchor)
-    if idx == -1:
-        return None
-    rel = s[idx + len(anchor):].lstrip("/")
-    if not rel:
-        return None
-    candidate = biblioteca_root / rel
-    return candidate if candidate.exists() else None
+    # Arrel del núvol = germana comuna del vault i de Biblioteca (p. ex.
+    # `.../OneDrive-UNED`). Derivada de BIBLIOTECA, que dins Docker ve de
+    # VAULT_HOST_PATH (ruta del host, muntada al contenidor) — no de
+    # get_active_vault_path(), que dins Docker tornaria `/vault`.
+    cloud_root = biblioteca_root.parent
+
+    candidates: List[Path] = []
+
+    # (2) Re-arrelar sota l'arrel del núvol per la carpeta germana. rfind: ancla
+    # a l'ÚLTIMA aparició (si el nom es repeteix, agafem el segment més proper a
+    # l'arrel real; find calcularia un suffix relatiu incorrecte).
+    cloud_anchor = f"/{cloud_root.name}/"
+    idx = s.rfind(cloud_anchor)
+    if idx != -1:
+        rel = s[idx + len(cloud_anchor):].lstrip("/")
+        if rel:
+            candidates.append(cloud_root / rel)
+
+    # (3) Intercanvi del home macOS: /Users/<algú>/<resta> → <home_actual>/<resta>.
+    # El home actual es deriva de biblioteca_root (/Users/<actual>/Library/...).
+    m_home = re.match(r"^/Users/[^/]+/(.+)$", s)
+    if (
+        m_home
+        and len(biblioteca_root.parts) >= 3
+        and biblioteca_root.parts[1] == "Users"
+    ):
+        host_home = (
+            Path(biblioteca_root.parts[0])
+            / biblioteca_root.parts[1]
+            / biblioteca_root.parts[2]
+        )
+        candidates.append(host_home / m_home.group(1))
+
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                return candidate
+        except Exception:
+            continue
+    return None
 
 
 @router.post("/open-local-path", dependencies=[Depends(require_role("editor"))])

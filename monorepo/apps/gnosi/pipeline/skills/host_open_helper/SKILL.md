@@ -41,17 +41,34 @@ OneDrive trigava segons. Spotlight, amb índex viu, torna en mil·lisegons.
 
 ## Instal·lació (LaunchAgent al Mac)
 
+**Recomanat — instal·lador portable** (genera el plist amb el `$HOME` d'aquesta
+màquina, sense cap usuari hardcodejat; idempotent, verifica al final):
+
 ```bash
-# 1) Carrega el LaunchAgent (s'executa al login i sempre que es mor)
+sh pipeline/skills/host_open_helper/scripts/install_launchagent.sh
+```
+
+> ⚠️ **No instal·lis `com.gnosi.host-open-helper.plist` (el del repo)
+> directament.** Porta un nom d'usuari macOS concret incrustat a les rutes
+> (`/Users/<usuari>/…`) i només serveix a la màquina d'aquell usuari. En una
+> segona Mac amb un altre usuari, `launchctl` no troba l'script → el helper no
+> arrenca → els enllaços `file://` del vault no s'obren (símptoma:
+> `Could not open: ... 'xdg-open'` al backend). Usa sempre l'instal·lador, que
+> deriva les rutes de `$HOME` i de la ubicació del propi script. Vegeu
+> `docs/dev_memory/directives/attachment_link_portability.md`.
+
+Instal·lació manual (només si saps que les rutes del plist coincideixen amb
+aquesta màquina):
+
+```bash
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.gnosi.host-open-helper.plist
-# 2) Verifica
 curl -sS http://127.0.0.1:5099/healthz
 ```
 
 Per aturar-lo:
 
 ```bash
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.gnosi.host-open-helper.plist
+launchctl bootout gui/$(id -u)/com.gnosi.host-open-helper
 ```
 
 ### Recarregar després d'un canvi de codi
