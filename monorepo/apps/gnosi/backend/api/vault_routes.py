@@ -10344,6 +10344,16 @@ async def open_local_path(payload: dict = Body(...)):
         else:
             raise HTTPException(status_code=404, detail=f"Path not found: {path}")
 
+    # Warmup proactiu: si el fitxer és online-only (placeholder dataless
+    # d'OneDrive), materialitza'l ABANS d'obrir-lo. Sense això, demanàvem al
+    # sistema que obrís un fitxer de 0 bytes → l'app (Word/Excel/Preview)
+    # s'obre EN BLANC o amb error mentre OneDrive encara el baixa. Els altres
+    # camins de lectura (`get_page`, visor de PDF) ja fan aquest warmup; aquest
+    # no, i per això els enllaços a fitxers no descarregats "no funcionaven".
+    # Només per a fitxers: una carpeta no és materialitzable.
+    if path.is_file():
+        await _materialize_if_online_only(path, "open-local-path")
+
     try:
         _safe_open_target(str(path))
         return {"status": "ok", "target": str(path), "kind": "dir" if path.is_dir() else "file"}
