@@ -191,6 +191,7 @@
     "end_time": "End time",
     "location": "Location / URL",
     "location_placeholder": "Room 3, https://meet.google...",
+    "location_verified": "Verified location",
     "reminder": "Reminder",
     "recurrence": "Recurrence",
     "ends": "Ends",
