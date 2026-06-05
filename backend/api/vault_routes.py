@@ -3339,6 +3339,17 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
             log.warning(f"Could not insert new page into index cache, falling back to clear: {e}")
             _clear_page_index_cache()
 
+        # El micro-cache de resposta del snapshot (`_pages_resp_cache`, TTL 1.5s)
+        # NO es refresca en actualitzar `_page_index_entries`. Sense invalidar-lo
+        # aquí, una crida a `_get_pages_snapshot()` dins del TTL retorna un
+        # snapshot SENSE aquesta pàgina nova. Conseqüència real: la idempotència
+        # de `translate-row` cerca les traduccions existents via snapshot; just
+        # després de crear el primer subitem, una re-traducció ràpida del mateix
+        # idioma no el troba i en CREA UN DUPLICAT ("… (2).md") en lloc
+        # d'actualitzar-lo. PATCH/PUT/DELETE ja invaliden el micro-cache; les
+        # altes (`create_page`) també ho han de fer per coherència.
+        _pages_cache_invalidate_all()
+
         background_tasks.add_task(update_link_index_for_page, file_path)
 
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
