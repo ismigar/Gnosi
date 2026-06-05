@@ -258,6 +258,12 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     const lastSavedData = useRef(null);
     const autoSaveTimeoutRef = useRef(null);
     const flushSaveRef = useRef(() => {});
+    // En mode 'create' la cita NO es crea fins que hi ha títol. createdIdRef guarda
+    // l'id un cop creada perquè els autosaves següents facin PATCH (no dupliquin).
+    // createdId és l'equivalent reactiu per a la UI (capçalera i botó Eliminar).
+    const createdIdRef = useRef(null);
+    const isCreatingRef = useRef(false);
+    const [createdId, setCreatedId] = useState(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen] = useState(false);
     const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
@@ -266,6 +272,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     useEffect(() => {
         isInitializing.current = true;
         lastSavedData.current = null;
+        createdIdRef.current = null;
+        isCreatingRef.current = false;
+        setCreatedId(null);
 
         if ((mode === 'edit' || mode === 'view') && eventData) {
             const meta = eventData.metadata || {};
@@ -336,11 +345,20 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             originalAttendeesRef.current = loadedAttendees.map(a => a.email);
         } else {
             setTitle('');
-            setStartDate(initialDate || '');
+            // initialDate pot venir com a "YYYY-MM-DD" (tot el dia) o amb hora
+            // ("YYYY-MM-DDTHH:mm[:ss]") si s'ha clicat una franja horària.
+            const rawInit = initialDate || '';
+            if (rawInit.includes('T')) {
+                setStartDate(rawInit.split('T')[0]);
+                setStartTime(padTime(rawInit.split('T')[1]?.substring(0, 5) || ''));
+                setAllDay(false);
+            } else {
+                setStartDate(rawInit);
+                setStartTime('');
+                setAllDay(true);
+            }
             setEndDate('');
-            setStartTime('');
             setEndTime('');
-            setAllDay(true);
 
             // Calendari predeterminat (configurat per l'usuari o primer disponible)
             const defCalId = defaultCalendarId || calendars.find(c => c.is_default)?.id || calendars[0]?.id || '';
@@ -369,11 +387,12 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         }, 150);
     }, [mode, eventData, initialDate]);
 
-    // Autosave en cada modificació (debounced) quan l'event ja existeix
+    // Autosave en cada modificació (debounced). En edició desa la cita existent; en
+    // creació la crea (només quan hi ha títol vàlid) i continua editant-la.
     useEffect(() => {
         if (isInitializing.current || saving || deleting) return;
-        if (mode !== 'edit' || !eventData?.id) return;
-        if (!title.trim() || !startDate) return;
+        if (mode === 'view') return; // els events externs (Google) no s'autodesen
+        if (!title.trim() || !startDate) return; // sense títol no es crea res (evita esborranys)
 
         const currentData = {
             title, allDay, startDate, endDate, startTime, endTime,
@@ -382,10 +401,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         };
         const currentStr = JSON.stringify(currentData);
 
-        // Primer render després de carregar dades: establir baseline sense desar
+        // Edició d'una cita existent: el primer render fixa la línia base sense desar
+        // (no re-desem dades acabades de carregar). En creació deixem la base a null
+        // perquè el primer títol vàlid dispari la creació via debounce.
         if (lastSavedData.current === null) {
-            lastSavedData.current = currentStr;
-            return;
+            if (mode === 'edit' && eventData?.id) {
+                lastSavedData.current = currentStr;
+                return;
+            }
         }
 
         if (lastSavedData.current === currentStr) return;
@@ -554,6 +577,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         if (e) e.preventDefault();
         if (!title.trim() || !startDate) return;
 
+        // Evita una segona creació (POST) mentre la primera encara està en vol
+        if (!eventData?.id && !createdIdRef.current && isCreatingRef.current) return;
+
         // Si és un guardat manual (no silent) d'un event recurrent i no hem triat encara
         const isRecurrent = !!(eventData?.metadata?.rrule || eventData?.metadata?.recurrence);
         if (!silent && isRecurrent && !isSeries && !isInstanceOnly && !isFollowing) {
@@ -684,13 +710,28 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     onSaved?.(response.data);
                     if (!silent) onClose?.();
                 }
+            } else if (createdIdRef.current) {
+                // Cita ja creada en aquesta mateixa sessió: PATCH (continuem editant-la)
+                const response = await axios.patch(`/api/vault/pages/${createdIdRef.current}`, {
+                    title: title.trim(),
+                    content: description.trim() || undefined,
+                    metadata,
+                    ...(removeMetaKeys.length ? { remove_metadata_keys: removeMetaKeys } : {}),
+                });
+                if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
+                onSaved?.(response.data);
+                if (!silent) onClose?.();
             } else {
-                // Create logic
+                // Primera creació: POST. Guarda l'id perquè els autosaves següents facin
+                // PATCH (no dupliquin) i la UI passi a mode "edició".
+                isCreatingRef.current = true;
                 const response = await axios.post('/api/vault/pages', {
                     title: title.trim(),
                     content: description.trim() || '',
                     metadata,
                 });
+                createdIdRef.current = response.data?.id || null;
+                setCreatedId(createdIdRef.current);
                 if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
                 onSaved?.(response.data);
                 if (!silent) onClose?.();
@@ -709,14 +750,16 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         } finally {
             setSaving(false);
             setIsRecurrenceModifyOpen(false);
+            isCreatingRef.current = false;
         }
     };
 
     const handleDelete = async (isSeries = false, isInstanceOnly = false, isFollowing = false) => {
-        if (!eventData?.id) return;
+        const deleteId = eventData?.id || createdIdRef.current;
+        if (!deleteId) return;
 
-        // Si és recurrent i no hem triat, obrim el modal
-        const isRecurrent = !!(eventData.metadata?.rrule || eventData.metadata?.recurrence);
+        // Si és recurrent i no hem triat, obrim el modal (una cita nova mai és recurrent)
+        const isRecurrent = !!(eventData?.metadata?.rrule || eventData?.metadata?.recurrence);
         if (isRecurrent && !isSeries && !isInstanceOnly && !isFollowing) {
             setIsRecurrenceDeleteOpen(true);
             return;
@@ -753,7 +796,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 });
                 toast.success(t('calendar.following_deleted', 'Sèrie truncada des d\'avui.'));
             } else {
-                await axios.delete(`/api/vault/pages/${eventData.id}`);
+                await axios.delete(`/api/vault/pages/${deleteId}`);
                 toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
             }
             onSaved?.();
@@ -776,15 +819,15 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             clearTimeout(autoSaveTimeoutRef.current);
             autoSaveTimeoutRef.current = null;
         }
-        if (mode !== 'edit' || !eventData?.id) return;
-        if (!title.trim() || !startDate) return;
+        if (mode === 'view') return; // els events externs (Google) no s'autodesen
+        if (!title.trim() || !startDate) return; // sense títol: no crear/desar (evita esborranys)
         const snap = JSON.stringify({
             title, allDay, startDate, endDate, startTime, endTime,
             calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
             endType, endCount, untilDate, description
         });
         if (lastSavedData.current !== snap) {
-            handleSubmit(null, true, snap);
+            handleSubmit(null, true, snap); // crea (POST) o actualitza (PATCH) segons calgui
         }
     };
 
@@ -801,7 +844,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         <X />
                     </button>
                     <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-                        {mode === 'create' ? t('calendar.new_event', 'Nova cita') : t('calendar.edit_event', 'Editar cita')}
+                        {mode === 'create' && !createdId ? t('calendar.new_event', 'Nova cita') : t('calendar.edit_event', 'Editar cita')}
                     </span>
                 </div>
                 <div className="flex items-center gap-1" />
@@ -1212,7 +1255,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     {saving ? t('calendar.saving', 'Desant...') : deleting ? t('calendar.deleting', 'Eliminant...') : saveError ? '⚠ Error desant' : t('calendar.saved', 'Guardat')}
                 </div>
                 <div className="flex gap-1.5">
-                    {mode === 'edit' && eventData?.id && (
+                    {((mode === 'edit' && eventData?.id) || createdId) && (
                         <button
                             type="button"
                             onClick={() => setIsDeleteConfirmOpen(true)}
