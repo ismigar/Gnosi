@@ -262,3 +262,34 @@ Instal·lar amb `sh sh/install_docker_watchdog.sh` (portable, genera el plist am
   sol via `restart: unless-stopped`).
 - Cooldown de 300 s via stamp file → no reincideix mentre Docker arrenca (~90 s).
 - Si Docker està parat del tot (procés absent) → NO actua (ho gestionen boot/usuari).
+
+---
+
+## Regla Crítica: Els Secrets d'Integracions Viuen al Volum Nomenat, MAI a l'Arbre Git — 2026-06-05
+
+### Problema
+Els calendaris (i el mail) de Google deixen de carregar de cop: `/api/calendar/calendars` torna `[]` amb HTTP 200 i **sense** capçalera `X-Calendar-Auth-Error`, i `/api/integrations` torna `{}`. Els events del *vault* (`provider:"vault"`) SÍ es veuen, cosa que despista. El backend està **sa** (`docker inspect gnosi_backend` → healthy, `RestartCount=0`): no és OneDrive dataless, ni crash-loop, ni Docker aturat.
+
+### Causa
+`integrations.json` (que guarda TOTES les credencials OAuth de Google) havia desaparegut. Vivia a `project_root/pipeline/private_skills/secrets/`, que al `docker-compose.yml` és un **bind mount dins l'arbre git** (`./pipeline/private_skills/secrets:/app/...`). El fitxer és gitignored → un `git clean -fdx`, una neteja o una reinstal·lació l'esborra, i el directori buit el recrea el `mkdir` del boot (`IntegrationManager.__init__`). Sense fitxer, `integration_manager._load()` → `{}` → `email_list` buit → cap calendari a consultar (ni error, perquè no hi ha res a autenticar). El `integration_manager` és singleton global i llegeix NOMÉS d'aquest fitxer (no toca Keychain).
+
+### Regla
+Els secrets per-instància (integracions, tokens) van al **volum nomenat `gnosi_local_data`** (`/app/data/secrets/`), com `management.sqlite` — `paths_config.py` ja ho documenta com a *"Local-only data (NEVER on cloud-synced storage)"*. **MAI** a l'arbre git (git clean) ni al vault/OneDrive (dataless/EDEADLK + tokens en clar al núvol).
+
+- `SECRETS = local_data / "secrets"` a `paths_config.py`. Tots els consumidors (`integration_manager`, `mail_metadata_manager`, `google_calendar_service`) hereten via `cfg.paths["SECRETS"]`.
+- Migració idempotent dins `get_paths`: copia l'`integrations.json` antic al volum si encara existeix i el nou no (cobreix l'altre Mac després d'un `git pull`).
+- És **local per màquina** (no se sincronitza): es reconnecta un cop per Mac via Settings → Calendari → "Reconnecta Google" (`/api/auth/google/login?type=calendar`, repetir `type=email`) i ja no es perd. El client OAuth (`GOOGLE_OAUTH_CLIENT_ID/SECRET`) viu a l'entorn, NO a integrations.json.
+
+### Per què NO al vault `.gnosi/` (sincronitzat per OneDrive)
+Temptador per heretar les credencials a l'altre Mac sol, però: (1) OneDrive marca el fitxer `dataless` → EDEADLK en llegir-lo dins el contenidor (mateix patró que BD/registry/scheduler); (2) tokens en clar pujats al núvol; (3) en **mode organització** un vault pot ser compartit (`VaultAccess`) → els tokens d'una persona quedarien llegibles per tots els membres = fuga/suplantació, i hi ha múltiples vaults però el manager és singleton global. Si algun dia cal sync entre Macs, fer-ho per **git xifrat** (SOPS/git-crypt), no per OneDrive.
+
+### Verificació
+```bash
+docker exec gnosi_backend python -c "from backend.config.app_config import load_params; print(load_params(strict_env=False).paths['SECRETS'])"
+# → /app/data/secrets   (no /app/pipeline/...)
+curl -s localhost:5002/api/auth/google/health   # configured:true (client OAuth a l'entorn, intacte)
+# després de reconnectar: /api/calendar/calendars deixa de tornar []
+```
+
+### Causa-Efecte (memoritzar)
+> Secrets a bind mount dins git → `git clean` esborra integrations.json → integration_manager `{}` → calendaris/mail de Google buits (però events del vault SÍ, i backend sa). Solució: SECRETS al volum nomenat `gnosi_local_data`, local per màquina, reconnectar un cop per Mac.
