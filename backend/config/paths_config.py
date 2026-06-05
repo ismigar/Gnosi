@@ -80,6 +80,29 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     except Exception:
         pass
 
+    # ── Secrets (credencials d'integracions: Google Calendar/Mail, etc.) ──
+    # ABANS vivien a project_root/pipeline/private_skills/secrets, un BIND MOUNT
+    # dins l'arbre git. Un `git clean -fdx` (o una neteja/reinstal·lació)
+    # esborrava integrations.json i TOTES les integracions de Google deixaven
+    # de carregar (calendaris/mail buits, sense ni error d'auth).
+    # Ara viuen al volum nomenat `gnosi_local_data` (/app/data), com
+    # management.sqlite: fora de git, fora de OneDrive (cap dataless/EDEADLK),
+    # persistent entre rebuilds. És local per màquina — es reconnecta un cop per
+    # Mac via OAuth i ja no es perd. Vegeu directive environment_integrity.md.
+    secrets_dir = local_data / "secrets"
+    try:
+        secrets_dir.mkdir(parents=True, exist_ok=True)
+        # Migració idempotent (un sol cop): si encara hi ha el fitxer a la
+        # ubicació antiga —p. ex. l'altre Mac després d'un `git pull`— el copiem
+        # al volum nou. No esborrem l'antic (és inofensiu com a fallback).
+        _old_secrets = project_root / "pipeline" / "private_skills" / "secrets" / "integrations.json"
+        _new_secrets = secrets_dir / "integrations.json"
+        if _old_secrets.exists() and not _new_secrets.exists():
+            import shutil
+            shutil.copy2(_old_secrets, _new_secrets)
+    except Exception:
+        pass
+
     db_path = safe_base / "BD"
     # Newsletters: clau mantinguda pel frontend (settings tab) per a
     # subscripcions futures, però NO es crea automàticament al disc per
@@ -159,7 +182,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "BACKUPS": local_data / "backups",
         "OUT_DIR": local_data / "out",
         "STOPWORDS_PATH": project_root / "config" / "stopwords.json",
-        "SECRETS": project_root / "pipeline" / "private_skills" / "secrets",
+        "SECRETS": secrets_dir,
         "MGMT_DB": local_data / "system" / "management.sqlite",
         # SQLite of the generated-tools registry. Living on OneDrive (under
         # AGENT_TOOLS) caused the same corruption pattern as management.sqlite
