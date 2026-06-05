@@ -123,3 +123,30 @@ def test_source_language_is_skipped(captured):
     langs_created = {req.metadata.get("translation_lang") for req in captured}
     assert langs_created == {"ca"}
     assert any(s["lang"] == "es" and "source" in s["reason"] for s in result["skipped"])
+
+
+def test_explicit_source_translates_title_despite_spurious_detect(captured):
+    """Bug del títol: amb origen declarat (Idioma: ES), un títol curt s'ha de
+    traduir a CA encara que `detect_fn` el torni com a 'ca' (el default espuri
+    de `detect_source_lang` sobre text sense paraules-pista). Abans el salt
+    `field_lang == lang` el deixava sense traduir (noop)."""
+
+    def detect_always_ca(_text):
+        # Imita el default espuri: torna el TARGET (ca) per a qualsevol text.
+        return "ca"
+
+    result = asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["ca"],
+            translate_fn=_fake_translate,
+            detect_fn=detect_always_ca,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    assert len(result["created"]) == 1
+    md = captured[0].metadata
+    # El títol porta el marcador [ca] de _fake_translate → s'ha traduït, no és noop.
+    assert md.get("fld_title", "").endswith("[ca]"), md
+    assert captured[0].title.endswith("[ca]")

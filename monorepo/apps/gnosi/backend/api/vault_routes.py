@@ -11587,6 +11587,10 @@ async def _do_translate_row(
     # heurística sobre el text del camp traduïble més llarg. Així respectem la
     # dada explícita de l'usuari en lloc d'endevinar (p. ex. ES marcat com a CA).
     source_lang = detect_record_source_lang(metadata)
+    # Si l'origen ve del camp "Idioma" és una dada FIABLE (l'usuari l'ha declarat);
+    # si ve de la heurística de text, no tant. Ho recordem per decidir si podem
+    # confiar en la detecció per-camp del salt-traducció més avall.
+    source_is_explicit = bool(source_lang)
     if not source_lang:
         sample = ""
         for p in translatable_props:
@@ -11666,12 +11670,20 @@ async def _do_translate_row(
                 continue
             # Si el camp JA està en l'idioma destí (p. ex. un Alt Text en català
             # dins un registre marcat com a ES), copiar-lo tal qual: traduir-lo
-            # el corromptria ("persones"→"personis"). Detecció per heurística;
-            # només saltem si estem prou segurs que ja és l'idioma destí.
-            try:
-                field_lang = detect_fn(val)
-            except Exception:
+            # el corromptria ("persones"→"personis"). PERÒ aquesta detecció per
+            # heurística és poc fiable en text curt: `detect_source_lang` cau al
+            # seu default "ca" quan no troba cap paraula-pista (un títol com
+            # "Enfadoaccionados en las plazas" → "ca"), i amb destí "ca" el títol
+            # quedava sense traduir. Quan el registre declara l'origen explícitament
+            # (camp "Idioma"), ens hi fiem i traduïm tots els camps origen→destí; el
+            # salt només s'aplica amb origen heurístic (sense certesa).
+            if source_is_explicit:
                 field_lang = ""
+            else:
+                try:
+                    field_lang = detect_fn(val)
+                except Exception:
+                    field_lang = ""
             if field_lang == lang:
                 translated, provider = val, "noop"
             else:
