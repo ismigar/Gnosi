@@ -678,6 +678,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     if (resp.data?.id) {
                         googleRef.current = { id: resp.data.id, account: selCal.account, calendar_id: selCal.google_calendar_id };
                         setCreatedId(resp.data.id);
+                        // Si la cita ja existia al Vault (canvi de calendari Tasques→Google),
+                        // esborra-la perquè no quedi duplicada.
+                        if (createdIdRef.current) {
+                            try { await axios.delete(`/api/vault/pages/${createdIdRef.current}`); }
+                            catch (delErr) { console.error('Error netejant cita duplicada al Vault:', delErr); }
+                            createdIdRef.current = null;
+                        }
                     }
                 }
                 lastSavedData.current = formSnap;
@@ -848,11 +855,19 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 });
                 createdIdRef.current = response.data?.id || null;
                 setCreatedId(createdIdRef.current);
+                // Si la cita ja existia a Google (canvi de calendari Google→taula),
+                // esborra-la de Google perquè no quedi duplicada.
+                if (googleRef.current?.id) {
+                    try {
+                        await axios.delete(`/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`);
+                    } catch (delErr) { console.error('Error netejant cita duplicada a Google:', delErr); }
+                    googleRef.current = null;
+                }
                 if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
                 onSaved?.(response.data);
                 if (!silent) onClose?.();
             }
-            
+
             lastSavedData.current = snapshot || JSON.stringify({
                 title, allDay, startDate, endDate, startTime, endTime,
                 calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
