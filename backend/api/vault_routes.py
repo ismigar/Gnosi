@@ -11337,6 +11337,69 @@ async def _get_existing_translations(origin_id: str) -> Dict[str, Any]:
     return await asyncio.to_thread(_work)
 
 
+async def _recover_translations_from_disk(
+    origin_id: str, table_dir: Path, known_langs
+) -> Dict[str, Any]:
+    """Xarxa de seguretat per a la idempotència de translate-row sota OneDrive.
+
+    `_get_existing_translations` mira el snapshot de l'índex en memòria. Si una
+    traducció filla existeix al disc però l'indexer NO l'ha pogut indexar —un
+    fitxer online-only (dataless) fa fallar el parse i queda com a entry *stub*
+    sense `translation_origin_id`/`translation_lang`, així que
+    `find_translations_of` no el reconeix— el lookup la dona per inexistent i
+    translate-row en crearia un DUPLICAT («… (2).md»).
+
+    Aquest respaldo escaneja el directori de la taula, materialitza els
+    online-only i reparseja el frontmatter per recuperar les traduccions filles
+    de `origin_id` dels idiomes que falten. Acotat al directori de la taula i
+    cridat NOMÉS quan falta algun idioma al snapshot, així que el cost és
+    marginal comparat amb les pròpies crides de traducció. Retorna
+    `{lang: SimpleNamespace(id, metadata)}` (mateixa forma d'accés `.id` que els
+    `PageInfo` del snapshot) per als idiomes no coneguts.
+    """
+    from types import SimpleNamespace
+
+    out: Dict[str, Any] = {}
+    target = _canonicalize_id(origin_id)
+    if not target:
+        return out
+    known = {str(l).strip().lower() for l in known_langs}
+    try:
+        candidates = sorted(table_dir.glob("*.md"))
+    except OSError:
+        return out
+    for p in candidates:
+        try:
+            await _materialize_if_online_only(p, f"translate-recover/{origin_id}")
+            meta, _ = await asyncio.to_thread(_read_frontmatter_partial, p)
+        except Exception:
+            continue
+        meta = meta or {}
+        if _canonicalize_id(meta.get("translation_origin_id")) != target:
+            continue
+        lang = str(meta.get("translation_lang") or "").strip().lower()
+        if lang and lang not in known and lang not in out:
+            pid = meta.get("id")
+            # Reparem l'índex: inserim l'entrada recuperada (mateix patró que
+            # create_page) perquè el patch_page posterior —via find_page_path— la
+            # trobi, i quedi indexada per a futurs lookups. Sense això, l'update
+            # falla amb 404 perquè el fitxer no era a l'índex.
+            try:
+                from backend.services.context_vars import get_active_vault_path
+                v_str = str(get_active_vault_path())
+                entry = _build_page_cache_entry(p, p.stat())
+                with _page_index_lock:
+                    _page_index_entries.setdefault(v_str, {})[str(p)] = entry
+                    if pid:
+                        _page_id_to_path.setdefault(v_str, {})[pid] = str(p)
+                    _bump_page_index_version(v_str)
+                _pages_cache_invalidate_all()
+            except Exception as exc:
+                log.debug(f"translate-recover: no s'ha pogut indexar {p}: {exc}")
+            out[lang] = SimpleNamespace(id=pid, metadata=meta)
+    return out
+
+
 def _set_translation_stale_on_disk(page_id: str, file_path: Path) -> bool:
     """Flag a single translation page as stale on disk. Idempotent.
 
@@ -11554,6 +11617,21 @@ async def _do_translate_row(
 
     # Pre-fetch the already-existing translations so re-runs update instead of duplicate.
     existing_translations = await _get_existing_translations(item_id)
+    # Xarxa de seguretat OneDrive: si el snapshot de l'índex no té totes les
+    # traduccions demanades, és possible que existeixin al disc però l'indexer
+    # no les hagi pogut indexar (fitxers online-only/dataless → entry stub). Les
+    # recuperem del disc abans de crear, per no duplicar («… (2).md»).
+    _requested_langs = {
+        str(lang).strip().lower()
+        for lang in target_languages
+        if isinstance(lang, str) and lang.strip()
+    }
+    if not _requested_langs.issubset(existing_translations.keys()):
+        _recovered = await _recover_translations_from_disk(
+            item_id, file_path.parent, set(existing_translations.keys())
+        )
+        for _lang, _page in _recovered.items():
+            existing_translations.setdefault(_lang, _page)
 
     created: list = []
     updated: list = []
