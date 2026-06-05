@@ -465,22 +465,23 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             }
 
             // Delete to remove event (only if not focused on input/textarea)
-            if (e.key === 'Delete' || e.key === 'Backspace' && (e.metaKey || e.ctrlKey)) {
+            if (e.key === 'Delete' || (e.key === 'Backspace' && (e.metaKey || e.ctrlKey))) {
                 const active = document.activeElement;
                 const isInput = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA';
-                if (!isInput && mode === 'edit' && eventData?.id) {
-                    const isGoogleEvent = eventData?.metadata?.source === 'google' || (eventData?.id && eventData.id.length > 20 && !eventData.id.includes('-'));
-                    if (isGoogleEvent) {
-                        toast.error(t('calendar.external_event_delete_warning', 'No es poden eliminar cites de Google Calendar des de Gnosi.'));
-                        return;
-                    }
+                if (isInput) return;
+                const gmeta = eventData?.metadata || {};
+                const isGoogle = (gmeta._provider === 'google' || !!gmeta._account) && !gmeta._vault_path && eventData?.id;
+                const canDelete = (mode === 'edit' && eventData?.id) || createdId || (isGoogle && !gmeta.readonly);
+                if (canDelete) {
                     setIsDeleteConfirmOpen(true);
+                } else if (isGoogle && gmeta.readonly) {
+                    toast.error(t('calendar.external_event_delete_warning', 'No es pot eliminar: és una cita de només lectura.'));
                 }
             }
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [onClose, mode, eventData]);
+    }, [onClose, mode, eventData, createdId]);
 
     // Flush del desament pendent quan el panell es desmunta (canvi d'event, navegació...)
     useEffect(() => {
@@ -905,6 +906,30 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             return;
         }
 
+        // Event de Google ja existent (reobert en mode lectura): esborra'l a Google si no és de només lectura
+        const gmeta = eventData?.metadata || {};
+        const gIsGoogle = (gmeta._provider === 'google' || !!gmeta._account) && !gmeta._vault_path;
+        if (gIsGoogle && eventData?.id) {
+            if (gmeta.readonly) {
+                toast.error(t('calendar.external_event_delete_warning', 'No es pot eliminar: és una cita de només lectura.'));
+                return;
+            }
+            setDeleting(true);
+            try {
+                await axios.delete(`/api/calendar/events/${encodeURIComponent(eventData.id)}?email=${encodeURIComponent(gmeta._account)}&calendar_id=${encodeURIComponent(gmeta._calendar_id || 'primary')}`);
+                toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
+                onSaved?.();
+                onClose?.();
+            } catch (err) {
+                console.error('Error eliminant event de Google:', err);
+                toast.error(t('calendar.event_delete_error', 'Error eliminant la cita.'));
+            } finally {
+                setDeleting(false);
+                setIsRecurrenceDeleteOpen(false);
+            }
+            return;
+        }
+
         const deleteId = eventData?.id || createdIdRef.current;
         if (!deleteId) return;
 
@@ -982,6 +1007,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     };
 
     const isViewMode = mode === 'view';
+    // Un event de Google ja existent (reobert) es pot eliminar si no és de només lectura
+    const _gmeta = eventData?.metadata || {};
+    const isDeletableGoogleEvent = !!((_gmeta._provider === 'google' || _gmeta._account) && !_gmeta._vault_path && !_gmeta.readonly && eventData?.id);
     const inputClass = `w-full bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg px-2.5 py-1.5 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/30 focus:border-[var(--gnosi-primary)] transition-all ${isViewMode ? 'disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-[var(--bg-tertiary)]' : ''}`;
     const labelClass = "flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-1";
 
@@ -1437,7 +1465,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     {saving ? t('calendar.saving', 'Desant...') : deleting ? t('calendar.deleting', 'Eliminant...') : saveError ? '⚠ Error desant' : t('calendar.saved', 'Guardat')}
                 </div>
                 <div className="flex gap-1.5">
-                    {((mode === 'edit' && eventData?.id) || createdId) && (
+                    {((mode === 'edit' && eventData?.id) || createdId || isDeletableGoogleEvent) && (
                         <button
                             type="button"
                             onClick={() => setIsDeleteConfirmOpen(true)}

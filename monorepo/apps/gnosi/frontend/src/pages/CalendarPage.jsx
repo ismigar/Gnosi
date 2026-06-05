@@ -737,10 +737,13 @@ export default function CalendarPage() {
                 }));
             }
         } else {
-            // Si no se pasa evento, refrescar todo
+            // Si no es passa cap event, refresca-ho tot: Vault i també els events de
+            // Google (les operacions a Google criden onSaved() sense argument).
             fetchPages();
+            if (dateRange) fetchExternalEvents(dateRange.start, dateRange.end, searchQuery);
         }
-    }, [selectedEventId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedEventId, dateRange, searchQuery]);
 
     // RSVP: acceptar/rebutjar/potser una invitació de Google Calendar
     const handleRsvp = useCallback(async (rsvpStatus) => {
