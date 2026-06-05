@@ -144,12 +144,24 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
         return False
 
     try:
+        # Calendari de destí (subcalendaris inclosos); per defecte el principal
+        cal_id = patch_data.get("calendar_id") or "primary"
+
         # Fetch existing event
-        event = service.events().get(calendarId="primary", eventId=event_uid).execute()
+        event = service.events().get(calendarId=cal_id, eventId=event_uid).execute()
 
         # Update fields
         if "summary" in patch_data:
             event["summary"] = patch_data["summary"]
+        if "location" in patch_data:
+            event["location"] = patch_data["location"] or ""
+        if "description" in patch_data:
+            event["description"] = patch_data["description"] or ""
+        if "attendees" in patch_data and isinstance(patch_data["attendees"], list):
+            event["attendees"] = [
+                {"email": a["email"], "displayName": a.get("name", "")}
+                for a in patch_data["attendees"] if a.get("email")
+            ]
 
         # Start time logic
         if "start" in patch_data and patch_data["start"]:
@@ -177,7 +189,7 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
 
         # Update back to Google API
         service.events().update(
-            calendarId="primary", eventId=event_uid, body=event
+            calendarId=cal_id, eventId=event_uid, body=event
         ).execute()
         return True
     except Exception as e:
