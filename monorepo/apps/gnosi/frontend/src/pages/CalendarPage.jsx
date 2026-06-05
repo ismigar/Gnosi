@@ -347,58 +347,19 @@ export default function CalendarPage() {
         return `${base}T${h}:${min}:00`;
     };
 
-    const handleCreateEventAtDate = useCallback(async (clickedDate) => {
-        try {
-            const hasTime = clickedDate instanceof Date && (clickedDate.getHours() !== 0 || clickedDate.getMinutes() !== 0);
-            const metadata = {
-                date: hasTime ? formatLocalDateTime(clickedDate) : formatLocalDate(clickedDate),
-                source: 'Gnosi',
-                all_day: !hasTime,
-            };
-
-            // Assignar el calendari per defecte immediatament
-            if (defaultCalendarId) {
-                const defCfg = calendarConfigs.find(c => c.id === defaultCalendarId);
-                if (defCfg?.kind === 'table') {
-                    metadata.table_id = defaultCalendarId;
-                    metadata.database_table_id = defaultCalendarId;
-                    metadata.table_name = defCfg.name;
-                    metadata.database_table_name = defCfg.name;
-                }
-            }
-
-            const response = await axios.post('/api/vault/pages', {
-                title: t('calendar.new_event'),
-                content: '',
-                metadata,
-            });
-
-            let createdEvent = response.data;
-            if (response.data?.id) {
-                try {
-                    const fullRes = await axios.get(`/api/vault/pages/${response.data.id}`);
-                    createdEvent = fullRes.data;
-                } catch (loadErr) {
-                    // Fallback: mantenim una forma mínima compatible fins que arribi un refresh
-                    createdEvent = {
-                        id: response.data.id,
-                        title: response.data.title || t('calendar.new_event'),
-                        content: '',
-                        metadata,
-                    };
-                }
-            }
-
-            setPages(prevPages => [...prevPages, createdEvent]);
-            setSelectedEventId(createdEvent.id);
-            setSelectedEvent(createdEvent);
-            setIsEditingEvent(true);
-            setEventPanel({ mode: 'edit', data: createdEvent, date: '', isEditing: true });
-        } catch (err) {
-            console.error('Error creating event:', err);
-            toast.error(t('calendar.event_save_error'));
-        }
-    }, [t, defaultCalendarId, calendarConfigs]);
+    const handleCreateEventAtDate = useCallback((clickedDate) => {
+        const hasTime = clickedDate instanceof Date && (clickedDate.getHours() !== 0 || clickedDate.getMinutes() !== 0);
+        const dateStr = hasTime ? formatLocalDateTime(clickedDate) : formatLocalDate(clickedDate);
+        // Obre el formulari en mode creació SENSE crear encara la cita: només es desa
+        // quan l'usuari hi posa un títol (l'autosave del formulari ho gestiona). Així
+        // s'eviten els esborranys "Nova cita" buits si es tanca sense escriure res.
+        setSelectedEventId(null);
+        setSelectedEvent(null);
+        setIsEditingEvent(true);
+        setShowRightSidebar(true);
+        setEventPanel({ mode: 'create', data: null, date: dateStr, isEditing: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleRenameCalendar = async (source, newName) => {
         try {
