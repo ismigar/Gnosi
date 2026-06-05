@@ -600,6 +600,31 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAbortLikeError, resolvePageTableId, shouldIncludeTableRecord]);
 
+    // Després de traduir (translate-row/-rows/-page) la taula s'ha de refrescar.
+    // Però les pàgines acabades de crear poden trigar un instant a ser visibles a
+    // l'índex del backend (indexació sota OneDrive): un refresc immediat de vegades
+    // retornava la llista SENSE les traduccions i quedaven "invisibles" fins a un
+    // F5 manual. Com que la resposta de la traducció ens dóna els ids creats/
+    // actualitzats, reintentem la càrrega de la taula fins que hi apareguin (o
+    // esgotem els intents). Sense ids (cap creació) fa un sol refresc, com abans.
+    const refreshTableAfterTranslate = useCallback(async (tableId, data) => {
+        const expectedIds = [
+            ...(data?.created || []),
+            ...(data?.updated || []),
+            // translate-rows (bulk) embolcalla el resultat de cada fila dins `results`.
+            ...((data?.results || []).flatMap(r => [...(r?.created || []), ...(r?.updated || [])])),
+        ].map(x => x?.id).filter(Boolean);
+
+        let pages = tableId ? await fetchPagesByTable(tableId) : [];
+        for (let attempt = 1; attempt < 6 && expectedIds.length; attempt++) {
+            const have = new Set((pages || []).map(p => p.id));
+            if (expectedIds.every(id => have.has(id))) break;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (tableId) pages = await fetchPagesByTable(tableId);
+        }
+        await fetchPages();
+    }, [fetchPagesByTable, fetchPages]);
+
     const loadPage = useCallback(async (pageId, fromHistory = false, attempt = 0) => {
         if (!pageId) return;
         // Si el wikilink ha passat un títol literal en lloc d'un UUID
@@ -2854,10 +2879,7 @@ export default function VaultDashboard() {
                                     onCellSaved={async () => {
                                         await fetchPagesByTable(tableId);
                                     }}
-                                    onTranslated={async () => {
-                                        await fetchPagesByTable(tableId);
-                                        await fetchPages();
-                                    }}
+                                    onTranslated={(data) => refreshTableAfterTranslate(tableId, data)}
                                     onCreateRecord={(templateId = null) => handleAddNewNote(tableId, templateId)}
                                     searchTerm={searchTerm}
                                     onSearchChange={setSearchTerm}
@@ -3079,10 +3101,7 @@ export default function VaultDashboard() {
                                 onCellSaved={async () => {
                                     await fetchPagesByTable(tableId);
                                 }}
-                                onTranslated={async () => {
-                                    await fetchPagesByTable(tableId);
-                                    await fetchPages();
-                                }}
+                                onTranslated={(data) => refreshTableAfterTranslate(tableId, data)}
                                 onCreateRecord={(templateId) => handleAddNewNote(tableId, templateId)}
                                 searchTerm={searchTerm}
                                 onSearchChange={setSearchTerm}
@@ -3434,10 +3453,7 @@ export default function VaultDashboard() {
                                                     await fetchPages();
                                                 }
                                             }}
-                                            onTranslated={async () => {
-                                                if (activeTableId) await fetchPagesByTable(activeTableId);
-                                                await fetchPages();
-                                            }}
+                                            onTranslated={(data) => refreshTableAfterTranslate(activeTableId, data)}
                                             onCreateTemplate={() => {
                                                 setPromptModal({
                                                     isOpen: true,
@@ -3518,7 +3534,7 @@ export default function VaultDashboard() {
                     recordMetadata={currentOpenPage?.metadata || {}}
                     schema={openPageTableId ? getSchemaFromTableId(openPageTableId) : {}}
                     onClose={() => setTranslatePageModalId(null)}
-                    onTranslated={() => { setTranslatePageModalId(null); fetchPages(); }}
+                    onTranslated={(data) => { setTranslatePageModalId(null); refreshTableAfterTranslate(openPageTableId, data); }}
                 />
             )}
 
