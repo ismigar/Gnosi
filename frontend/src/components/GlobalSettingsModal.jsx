@@ -436,7 +436,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
     const [syncErrorAccounts, setSyncErrorAccounts] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem('gnosi_mail_sync_errors') || '[]')); } catch { return new Set(); }
-    }); // Emails amb error de sync (persistit a localStorage)
+    }); // Emails amb error de sync de CORREU (persistit a localStorage). NO s'ha
+        // d'usar per pintar Calendari/Contactes: cada servei té el seu propi senyal.
+    // Errors d'autenticació del Calendari: derivats de la capçalera
+    // X-Calendar-Auth-Error a cada obertura de la pestanya (senyal viu, no persistit).
+    const [calendarAuthErrors, setCalendarAuthErrors] = useState(() => new Set());
+    // Errors de sincronització de Contactes: resultat del sync manual (no persistit).
+    const [contactsSyncErrors, setContactsSyncErrors] = useState(() => new Set());
     const [mailDarkBody, setMailDarkBody] = useState(() => {
         try { return localStorage.getItem('gnosi_mail_dark_body') === '1'; } catch { return false; }
     });
@@ -640,7 +646,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         if (activeTab === 'calendar' && isOpen) {
             fetch('/api/calendar/calendars')
                 .then(r => {
-                    setGoogleCalAuthError(Boolean(r.headers.get('X-Calendar-Auth-Error')));
+                    const authErr = r.headers.get('X-Calendar-Auth-Error') || '';
+                    setGoogleCalAuthError(Boolean(authErr));
+                    // Emails concrets amb token caducat → pinten el badge ERROR
+                    // NOMÉS d'aquesta pestanya (no s'hereta de l'estat de Correu).
+                    setCalendarAuthErrors(new Set(authErr.split(',').map(e => e.trim()).filter(Boolean)));
                     return r.ok ? r.json() : [];
                 })
                 .then(setGoogleSubCalendars)
@@ -1256,6 +1266,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         const accountId = account?.id || account;
         if (!accountId) return;
         const email = account?.email || account?.username || '';
+        // Cada servei manté el seu propi conjunt d'errors: un sync fallit de
+        // Contactes/Calendari no ha de marcar el compte com a erroni a Correu.
+        const markError = category === 'contacts' ? setContactsSyncErrors
+                        : category === 'calendar' ? setCalendarAuthErrors
+                        : setSyncErrorAccounts;
         setSyncingAccounts(prev => ({ ...prev, [accountId]: true }));
         setSavingStatus('saving');
         try {
@@ -1273,7 +1288,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const partial = res.data.status === 'partial';
             if (ok || partial) {
                 const failedEmails = res.data.failed || [];
-                setSyncErrorAccounts(prev => {
+                markError(prev => {
                     const next = new Set(prev);
                     if (email) failedEmails.includes(email) ? next.add(email) : next.delete(email);
                     return next;
@@ -1285,13 +1300,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 }
             } else {
                 setSavingStatus('error');
-                if (email) setSyncErrorAccounts(prev => new Set(prev).add(email));
+                if (email) markError(prev => new Set(prev).add(email));
                 alert(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
             }
         } catch (e) {
             console.error("Sync error:", e);
             setSavingStatus('error');
-            if (email) setSyncErrorAccounts(prev => new Set(prev).add(email));
+            if (email) markError(prev => new Set(prev).add(email));
             const detail = e?.response?.data?.detail || e?.message || 'Error desconegut';
             alert(`Error en la sincronització: ${detail}`);
         } finally {
@@ -2372,7 +2387,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 key={`acc-${idx}`}
                                                                 name={acc.name || acc.email}
                                                                 description={acc.username || acc.email}
-                                                                status={syncErrorAccounts.has(acc.email || acc.username) ? 'error' : 'connected'}
+                                                                status={(activeTab === 'calendar' ? calendarAuthErrors : activeTab === 'contacts' ? contactsSyncErrors : syncErrorAccounts).has(acc.email || acc.username) ? 'error' : 'connected'}
                                                                 type={activeTab}
                                                                 provider={acc.provider}
                                                                 enabled={acc.enabled !== false}
