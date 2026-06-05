@@ -147,6 +147,7 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.storage_folder) config.storage_folder = prop.storage_folder;
         if (prop.name_pattern) config.name_pattern = prop.name_pattern;
         if (prop.translatable === true) config.translatable = true;
+        if (prop.system === true) config.system = true;
         if (prop.button_action) config.button_action = prop.button_action;
         if (prop.button_label) config.button_label = prop.button_label;
         if (prop.format && typeof prop.format === 'object') config.format = prop.format;

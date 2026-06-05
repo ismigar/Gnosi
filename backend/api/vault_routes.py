@@ -11793,6 +11793,392 @@ async def _do_translate_row(
     }
 
 
+# === Sincronització amb Drupal: escriptura per fila ========================
+# Crea o actualitza un node de Drupal (i les seves traduccions) a partir d'una
+# fila del Vault, segons el mapatge de camps de la taula. Idempotent: ancorat
+# per `drupal_uuid` (metadata oculta). Resistent al WAF (crear=POST JSON:API,
+# actualitzar/traduir=endpoints POST custom). Vegeu drupal_sync_service.py.
+
+# Pseudo-referència del mapatge que associa el COS markdown de la pàgina (no un
+# camp) a un camp de text ric de Drupal (p. ex. `body`).
+DRUPAL_BODY_REF = "__body__"
+
+
+def _drupal_props_by_ref(table: dict) -> dict:
+    """Índex de propietats de la taula per id estable i per nom."""
+    out: Dict[str, dict] = {}
+    for p in table.get("properties") or []:
+        if p.get("id"):
+            out[p["id"]] = p
+        if p.get("name"):
+            out.setdefault(p["name"], p)
+    return out
+
+
+def _drupal_find_column(table: dict, name: str) -> Optional[dict]:
+    """Propietat per nom (case-insensitive); per a les columnes NID/URL."""
+    target = name.strip().lower()
+    for p in table.get("properties") or []:
+        if (p.get("name") or "").strip().lower() == target:
+            return p
+    return None
+
+
+def _drupal_read_prop_value(metadata: dict, prop: dict):
+    """Valor d'una propietat al frontmatter, amb prioritat title→id→nom."""
+    is_title = prop.get("type") == "title" or prop.get("name") == "title"
+    keys = []
+    if is_title:
+        keys.append("title")
+    if prop.get("id"):
+        keys.append(prop["id"])
+    if prop.get("name"):
+        keys.append(prop["name"])
+    for k in keys:
+        if k in metadata:
+            v = metadata.get(k)
+            if v not in (None, "", [], {}):
+                return v
+    return None
+
+
+def _drupal_coerce_scalar(value, field_type: Optional[str]):
+    """Adapta un valor escalar de Gnosi al tipus de camp de Drupal."""
+    if value is None:
+        return None
+    if field_type in ("integer",):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
+    if field_type in ("decimal", "float"):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value if v not in (None, ""))
+    return str(value)
+
+
+def _drupal_resolve_local_path(value) -> Optional[Path]:
+    """Resol el valor d'un camp d'imatge/fitxer a una ruta local al disc.
+
+    Cobreix les dues formes en què Gnosi desa els fitxers: rutes relatives al
+    Vault (``Assets/...``) i rutes absolutes / ``file://`` (Biblioteca).
+    """
+    if not value:
+        return None
+    raw = value[0] if isinstance(value, list) else value
+    raw = str(raw).strip()
+    if not raw:
+        return None
+    if raw.startswith("file://"):
+        from urllib.parse import unquote, urlparse
+
+        return Path(unquote(urlparse(raw).path))
+    p = Path(raw)
+    if p.is_absolute():
+        return p
+    try:
+        return (get_p("VAULT") / raw).resolve()
+    except Exception:
+        return None
+
+
+async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, image_cache):
+    """Puja un fitxer local a un camp d'imatge/fitxer i retorna la relació JSON:API.
+
+    Materialitza els fitxers online-only de OneDrive abans de llegir-los i
+    reaprofita un fitxer ja pujat dins la mateixa execució (cache per ruta).
+    Retorna ``None`` si no es pot resoldre el fitxer.
+    """
+    from backend.services import drupal_sync_service as drupal
+
+    path = _drupal_resolve_local_path(value)
+    if not path:
+        return None
+    await _materialize_if_online_only(path, "drupal-img")
+    if not path.exists():
+        raise RuntimeError(f"fitxer no trobat: {path}")
+    key = str(path)
+    file_uuid = image_cache.get(key)
+    if not file_uuid:
+        data = await asyncio.to_thread(path.read_bytes)
+        file_uuid = await drupal.upload_image(bundle, drupal_field, path.name, data)
+        image_cache[key] = file_uuid
+    alt = str(metadata.get("title") or path.stem)
+    return {"data": {"type": "file--file", "id": file_uuid, "meta": {"alt": alt}}}
+
+
+async def _drupal_build_fields(
+    *, mapping, props_by_ref, field_meta, metadata, body, bundle,
+    term_cache, image_cache, text_only=False,
+):
+    """Construeix (attributes, relationships, skipped) d'un registre.
+
+    ``field_meta``: ``{field_name: {"type":.., "vocab":..}}``. Amb ``text_only``
+    només es construeixen text/escalars/cos — taxonomia i imatge a Drupal són
+    camps compartits entre traduccions, no es tradueixen.
+    """
+    from backend.services import drupal_sync_service as drupal
+
+    attributes: Dict[str, Any] = {}
+    relationships: Dict[str, Any] = {}
+    skipped: list = []
+    for ref, drupal_field in (mapping or {}).items():
+        if not drupal_field:
+            continue
+        meta = field_meta.get(drupal_field) or {}
+        ftype = meta.get("type")
+        if ref == DRUPAL_BODY_REF:
+            html = await asyncio.to_thread(drupal.markdown_to_full_html, body or "")
+            attributes[drupal_field] = {"value": html, "format": "full_html"}
+            continue
+        prop = props_by_ref.get(ref)
+        if not prop:
+            continue
+        value = _drupal_read_prop_value(metadata, prop)
+        if value in (None, "", [], {}):
+            continue
+        if ftype in ("text_with_summary", "text_long"):
+            html = await asyncio.to_thread(drupal.markdown_to_full_html, str(value))
+            attributes[drupal_field] = {"value": html, "format": "full_html"}
+        elif ftype == "entity_reference":
+            if text_only:
+                continue
+            vocab = meta.get("vocab") or "tags"
+            names = value if isinstance(value, list) else re.split(r"[;,]", str(value))
+            data = []
+            for name in names:
+                name = str(name).strip()
+                if not name:
+                    continue
+                try:
+                    tid = await drupal.resolve_or_create_term(vocab, name, cache=term_cache)
+                    data.append({"type": f"taxonomy_term--{vocab}", "id": tid})
+                except drupal.DrupalSyncError as exc:
+                    skipped.append({"field": drupal_field, "value": name, "reason": str(exc)})
+            if data:
+                relationships[drupal_field] = {"data": data}
+        elif ftype in ("image", "file"):
+            if text_only:
+                continue
+            try:
+                rel = await _drupal_upload_field_image(value, bundle, drupal_field, metadata, image_cache)
+                if rel:
+                    relationships[drupal_field] = rel
+            except Exception as exc:
+                skipped.append({"field": drupal_field, "reason": f"image: {exc}"})
+        else:
+            coerced = _drupal_coerce_scalar(value, ftype)
+            if coerced is not None:
+                attributes[drupal_field] = coerced
+    return attributes, relationships, skipped
+
+
+async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True) -> dict:
+    """Crea o actualitza el node de Drupal d'una fila (i les seves traduccions).
+
+    Amb ``publish=False`` el node es crea despublicat (esborrany) perquè l'usuari
+    el revisi a Drupal abans de publicar-lo. En actualitzar no es toca l'estat.
+    """
+    from backend.services import drupal_sync_service as drupal
+
+    file_path = await asyncio.to_thread(find_page_path, item_id)
+    if not file_path or not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Page not found (ID: {item_id})")
+    await _materialize_if_online_only(file_path, "drupal-sync")
+    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+    metadata, body = parse_frontmatter(raw_content, file_path)
+
+    table_id = get_table_id(metadata)
+    table = _table_by_id(table_id) if table_id else None
+    if not table:
+        raise HTTPException(status_code=400, detail="Row is not part of a table")
+    if not table.get("drupal_sync_enabled"):
+        raise HTTPException(status_code=400, detail="Drupal sync is not enabled on this table")
+    bundle = (table.get("drupal_bundle") or "").strip()
+    mapping = table.get("drupal_field_mapping") or {}
+    if not bundle or not mapping:
+        raise HTTPException(status_code=400, detail="Drupal content type or field mapping not configured")
+
+    props_by_ref = _drupal_props_by_ref(table)
+    try:
+        drupal_fields = await drupal.list_fields(bundle)
+    except drupal.DrupalSyncError as exc:
+        raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
+    field_meta: Dict[str, dict] = {}
+    for f in drupal_fields:
+        ftype = f.get("field_type")
+        vocab = None
+        if ftype == "entity_reference":
+            tbs = f.get("target_bundles") or []
+            vocab = tbs[0] if tbs else "tags"
+        field_meta[f["field_name"]] = {"type": ftype, "vocab": vocab}
+    term_cache: Dict[str, str] = {}
+    image_cache: Dict[str, str] = {}
+
+    attributes, relationships, skipped_fields = await _drupal_build_fields(
+        mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+        metadata=metadata, body=body, bundle=bundle,
+        term_cache=term_cache, image_cache=image_cache,
+    )
+    # Drupal exigeix un títol no buit.
+    if not attributes.get("title"):
+        attributes["title"] = str(metadata.get("title") or "Sense títol")
+
+    source_lang = detect_record_source_lang(metadata) or "ca"
+
+    drupal_uuid = (str(metadata.get("drupal_uuid") or "")).strip() or None
+    prev_url = (str(metadata.get("drupal_url") or "")).strip() or None
+    nid = None
+    url = None
+    created = False
+    try:
+        if drupal_uuid:
+            try:
+                res = await drupal.update_node(drupal_uuid, bundle, attributes, relationships)
+                nid = res.get("nid")
+                url = prev_url or (f"{drupal.base_url()}/node/{nid}" if nid else None)
+            except drupal.DrupalNotFound:
+                drupal_uuid = None  # uuid ranci → crear de nou
+        if not drupal_uuid:
+            create_attrs = attributes if publish else {**attributes, "status": False}
+            res = await drupal.create_node(bundle, create_attrs, relationships, langcode=source_lang)
+            drupal_uuid = res.get("uuid")
+            nid = res.get("nid")
+            url = res.get("url")
+            created = True
+    except drupal.DrupalSyncError as exc:
+        raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
+
+    # --- Traduccions: empeny només text/cos a cada langcode existent ---
+    translations: list = []
+    existing = await _get_existing_translations(item_id)
+    for lang, page in (existing or {}).items():
+        sub_id = getattr(page, "id", None)
+        if not sub_id:
+            continue
+        sub_path = await asyncio.to_thread(find_page_path, sub_id)
+        if not sub_path or not sub_path.exists():
+            continue
+        await _materialize_if_online_only(sub_path, "drupal-sync-tr")
+        sub_raw = await asyncio.to_thread(sub_path.read_text, encoding="utf-8")
+        sub_meta, sub_body = parse_frontmatter(sub_raw, sub_path)
+        tfields, _, _ = await _drupal_build_fields(
+            mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+            metadata=sub_meta, body=sub_body, bundle=bundle,
+            term_cache=term_cache, image_cache=image_cache, text_only=True,
+        )
+        if not tfields:
+            translations.append({"lang": lang, "status": "skipped (sense text)"})
+            continue
+        try:
+            await drupal.add_translation(drupal_uuid, lang, tfields)
+            translations.append({"lang": lang, "status": "ok"})
+        except drupal.DrupalSyncError as exc:
+            translations.append({"lang": lang, "status": f"error: {exc}"})
+
+    # --- Escriu identitat a la fila (columnes visibles + metadata oculta) ---
+    meta_update: Dict[str, Any] = {
+        "drupal_uuid": drupal_uuid or "",
+        "drupal_nid": str(nid) if nid is not None else "",
+        "drupal_url": url or "",
+    }
+    nid_col = _drupal_find_column(table, "Drupal NID")
+    url_col = _drupal_find_column(table, "Drupal URL")
+    if nid_col:
+        meta_update[nid_col.get("id") or nid_col["name"]] = str(nid) if nid is not None else ""
+    if url_col:
+        meta_update[url_col.get("id") or url_col["name"]] = url or ""
+    try:
+        await patch_page(item_id, PagePatchRequest(metadata=meta_update), background_tasks)
+    except Exception as exc:
+        log.error(f"sync-drupal: failed writing identity back to {item_id}: {exc}")
+
+    return {
+        "item_id": item_id,
+        "uuid": drupal_uuid,
+        "nid": nid,
+        "url": url,
+        "created": created,
+        "source_lang": source_lang,
+        "translations": translations,
+        "skipped_fields": skipped_fields,
+    }
+
+
+# --- Sincronització amb Drupal --------------------------------------------
+# Descoberta (lectura) de tipus de contingut i camps de Drupal per alimentar el
+# checkbox "Sincronitzar amb Drupal" i l'editor de mapatge de la config de la
+# taula. L'escriptura per fila (sync-drupal-row) va més avall, al costat de
+# translate-row. Client: `backend/services/drupal_sync_service.py`.
+
+
+@router.get("/drupal/content-types", dependencies=[Depends(require_role("editor"))])
+async def drupal_content_types():
+    """Tipus de contingut de Drupal per al desplegable de la config de taula."""
+    from backend.services import drupal_sync_service as drupal
+
+    try:
+        return {"content_types": await drupal.list_content_types()}
+    except drupal.DrupalSyncError as exc:
+        raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
+
+
+@router.get(
+    "/drupal/content-types/{bundle}/fields",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def drupal_content_type_fields(bundle: str):
+    """Camps d'un tipus de contingut de Drupal per a l'editor de mapatge."""
+    from backend.services import drupal_sync_service as drupal
+
+    try:
+        return {"bundle": bundle, "fields": await drupal.list_fields(bundle)}
+    except drupal.DrupalSyncError as exc:
+        raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
+
+
+@router.post("/skills/sync-drupal-row", dependencies=[Depends(require_role("editor"))])
+async def sync_drupal_row(background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    """Crea o actualitza el node de Drupal d'una fila (i les seves traduccions).
+
+    Body: ``{ "item_id": "<uuid>", "button_action": "sync_drupal" }``.
+    Idempotent (ancorat per `drupal_uuid`). Escriu nid/url a les columnes de la
+    fila i l'uuid a la metadata oculta.
+    """
+    item_id = (payload.get("item_id") or "").strip()
+    button_action = payload.get("button_action") or "sync_drupal"
+    if not item_id:
+        raise HTTPException(status_code=400, detail="item_id is required")
+    if button_action != "sync_drupal":
+        raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
+    publish = payload.get("publish", True)
+    result = await _do_sync_drupal_row(item_id, background_tasks=background_tasks, publish=bool(publish))
+    return {"status": "ok", **result}
+
+
+@router.post("/skills/sync-drupal-rows", dependencies=[Depends(require_role("editor"))])
+async def sync_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    """Variant en bloc de sync-drupal-row. Cada fila és independent; els errors
+    per fila es reporten a `errors` en lloc d'avortar el lot."""
+    item_ids = payload.get("item_ids") or []
+    if not isinstance(item_ids, list) or not item_ids:
+        raise HTTPException(status_code=400, detail="item_ids must be a non-empty list")
+    results: list = []
+    errors: list = []
+    for iid in item_ids:
+        try:
+            results.append(await _do_sync_drupal_row(str(iid), background_tasks=background_tasks))
+        except HTTPException as exc:
+            errors.append({"item_id": iid, "detail": exc.detail})
+        except Exception as exc:
+            errors.append({"item_id": iid, "detail": str(exc)})
+    return {"status": "ok", "results": results, "errors": errors}
+
+
 @router.post("/skills/translate-row", dependencies=[Depends(require_role("editor"))])
 async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(...)):
     """Translate the translatable fields of a row to one subitem per language.

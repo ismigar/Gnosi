@@ -3628,6 +3628,9 @@ export default function VaultDashboard() {
                             initialEnableSubitems={cv?.enableSubitems}
                             initialEnableTranslation={!!activeTable?.translation_enabled}
                             initialVisibleProperties={cv?.is_main ? getSchemaFieldNames(currentSchemaObj) : cv?.visibleProperties}
+                            initialEnableDrupalSync={!!activeTable?.drupal_sync_enabled}
+                            initialDrupalBundle={activeTable?.drupal_bundle || ''}
+                            initialDrupalFieldMapping={activeTable?.drupal_field_mapping || {}}
                             onSchemaUpdated={(newSchema) => setSchema(newSchema)}
                             onSave={async (newSchemaObj, viewConfig) => {
                                 const newProperties = buildTablePropertiesFromSchema(newSchemaObj);
@@ -3639,7 +3642,10 @@ export default function VaultDashboard() {
                                     await axios.post(`/api/vault/tables`, {
                                         ...activeTable,
                                         properties: newProperties,
-                                        translation_enabled: !!viewConfig.enableTranslation
+                                        translation_enabled: !!viewConfig.enableTranslation,
+                                        drupal_sync_enabled: !!viewConfig.enableDrupalSync,
+                                        drupal_bundle: viewConfig.enableDrupalSync ? (viewConfig.drupalBundle || '') : '',
+                                        drupal_field_mapping: viewConfig.enableDrupalSync ? (viewConfig.drupalFieldMapping || {}) : {},
                                     });
                                     setSchema(newSchemaObj);
 
