@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -663,13 +663,22 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
     );
 }
 
-export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false }) {
+export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null }) {
     const { t } = useTranslation();
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
     const [virtualComputers, setVirtualComputers] = useState([]);
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
     const [enableTranslation, setEnableTranslation] = useState(initialEnableTranslation);
+    // Sincronització amb Drupal (config de taula; es persisteix al registre).
+    const [enableDrupalSync, setEnableDrupalSync] = useState(initialEnableDrupalSync);
+    const [drupalBundle, setDrupalBundle] = useState(initialDrupalBundle || '');
+    const [drupalFieldMapping, setDrupalFieldMapping] = useState(initialDrupalFieldMapping || {});
+    // Catàlegs descoberts de Drupal (efímers; només alimenten els <select>).
+    const [drupalContentTypes, setDrupalContentTypes] = useState([]);
+    const [drupalFields, setDrupalFields] = useState([]);
+    const [drupalLoading, setDrupalLoading] = useState(false);
+    const [drupalError, setDrupalError] = useState('');
     // Guard d'inicialització: només volem sincronitzar l'estat local amb les
     // props quan el modal s'obre. Si el pare re-renderitza mentre està obert
     // (p.ex. fetchRegistry posterior a una acció no relacionada), les props
@@ -722,6 +731,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     storage_folder: cfg.storage_folder || '',
                     name_pattern: cfg.name_pattern || '',
                     translatable: !!cfg.translatable,
+                    system: !!cfg.system,
                     button_action: cfg.button_action || '',
                     button_label: cfg.button_label || '',
                     format: (cfg.format && typeof cfg.format === 'object') ? cfg.format : {},
@@ -732,6 +742,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             setFields(fieldsArray);
             setEnableSubitems(initialEnableSubitems);
             setEnableTranslation(initialEnableTranslation);
+            setEnableDrupalSync(initialEnableDrupalSync);
+            setDrupalBundle(initialDrupalBundle || '');
+            setDrupalFieldMapping(initialDrupalFieldMapping || {});
 
             // Load all tables for relations
             const fetchTables = async () => {
@@ -756,7 +769,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             };
             fetchVirtualComputers();
         }
-    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation]);
+    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle, initialDrupalFieldMapping]);
 
     // Comprova si ja existeix un camp botó amb l'acció de traducció.
     // Tot camp `button` rep `button_action` al crear-se (handleUpdateField i
@@ -818,6 +831,66 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             addTranslateButton();
         }
     };
+
+    // --- Sincronització amb Drupal -----------------------------------------
+    // Noms de les columnes gestionades pel sistema on el sync desa el NID i
+    // l'URL del node de Drupal. Read-only a la graella (config.system).
+    const DRUPAL_NID_COL = t('schema.drupal_nid_column', 'Drupal NID');
+    const DRUPAL_URL_COL = t('schema.drupal_url_column', 'Drupal URL');
+
+    // Afegeix les dues columnes de sortida (NID/URL) si encara no hi són. Es
+    // gestionen com a part de l'esquema (com el botó de traduir): així es
+    // persisteixen via buildPayload i no les esborra l'autosave continu.
+    const addDrupalColumns = () => {
+        const mk = (name, type) => ({
+            id: generateFieldId(), name, type,
+            formula: '', compute: '', defaultFormula: '', relationField: '',
+            targetProperty: '', aggregation: 'count_values', limit: '', fallbackValue: '',
+            relation_database_id: '', cardinality: 'one-to-many', file_mode: 'upload',
+            storage_folder: '', name_pattern: '', translatable: false, system: true,
+            button_action: '', button_label: '', options: [], format: {}, visible: true,
+        });
+        setFields((prev) => {
+            const have = new Set(prev.map((f) => (f.name || '').trim().toLowerCase()));
+            const additions = [];
+            if (!have.has(DRUPAL_NID_COL.toLowerCase())) additions.push(mk(DRUPAL_NID_COL, 'text'));
+            if (!have.has(DRUPAL_URL_COL.toLowerCase())) additions.push(mk(DRUPAL_URL_COL, 'url'));
+            return additions.length ? [...prev, ...additions] : prev;
+        });
+    };
+
+    const handleToggleDrupalSync = (next) => {
+        setEnableDrupalSync(next);
+        if (next) addDrupalColumns();
+    };
+
+    // Descobreix els tipus de contingut de Drupal en activar la sincronització.
+    useEffect(() => {
+        if (!isOpen || !enableDrupalSync || drupalContentTypes.length > 0) return;
+        let cancelled = false;
+        setDrupalLoading(true);
+        setDrupalError('');
+        axios.get('/api/vault/drupal/content-types')
+            .then((res) => { if (!cancelled) setDrupalContentTypes(res.data?.content_types || []); })
+            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_load_error', "No s'ha pogut connectar amb Drupal.")); })
+            .finally(() => { if (!cancelled) setDrupalLoading(false); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, enableDrupalSync]);
+
+    // Descobreix els camps del tipus de contingut triat.
+    useEffect(() => {
+        if (!isOpen || !enableDrupalSync || !drupalBundle) { setDrupalFields([]); return; }
+        let cancelled = false;
+        setDrupalLoading(true);
+        setDrupalError('');
+        axios.get(`/api/vault/drupal/content-types/${encodeURIComponent(drupalBundle)}/fields`)
+            .then((res) => { if (!cancelled) setDrupalFields(res.data?.fields || []); })
+            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_fields_error', "No s'han pogut carregar els camps.")); })
+            .finally(() => { if (!cancelled) setDrupalLoading(false); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, enableDrupalSync, drupalBundle]);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -930,6 +1003,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             if (f.id && /^fld_[0-9a-f]{8}$/.test(f.id)) {
                 config.id = f.id;
             }
+            // Columna gestionada pel sistema (Drupal NID/URL): read-only a la
+            // graella. El sync n'escriu el valor; l'usuari no l'edita.
+            if (f.system === true) {
+                config.system = true;
+            }
             if (f.type === 'formula') {
                 config.formula = f.formula.trim();
             }
@@ -1030,7 +1108,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             try {
                 const { newSchemaObj, visibleProperties } = buildPayload();
                 if (onSave) {
-                    await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation });
+                    await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping });
                 } else {
                     await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
                 }
@@ -1044,7 +1122,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         const handle = setTimeout(doSave, 600);
         return () => clearTimeout(handle);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, fields, enableSubitems, enableTranslation]);
+    }, [isOpen, fields, enableSubitems, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping]);
 
     // Flush del desat pendent en desmuntar el modal (p.ex. tancar amb Esc o la X
     // just després d'editar, abans dels 600ms del debounce). Fire-and-forget:
@@ -1172,6 +1250,102 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                 </div>
                             )}
                         </div>
+
+                        <div className="border-t border-[var(--border-primary)] pt-4">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableDrupalSync ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'}`}>
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={enableDrupalSync}
+                                        onChange={(e) => handleToggleDrupalSync(e.target.checked)}
+                                    />
+                                    <div className={`bg-[var(--bg-primary)] w-4 h-4 rounded-full shadow-sm transform transition-transform ${enableDrupalSync ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </div>
+                                <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-1.5">
+                                    <Globe size={14} className={enableDrupalSync ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
+                                    {t('schema.drupal_sync_enabled', 'Sincronitzar amb Drupal')}
+                                </span>
+                            </label>
+                            <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
+                                {t('schema.drupal_sync_hint', 'Publica els registres com a nodes de Drupal. Tria el tipus de contingut i associa cada camp de la taula a un camp del tipus.')}
+                            </p>
+
+                            {enableDrupalSync && (
+                                <div className="mt-3 space-y-3">
+                                    {drupalError && (
+                                        <p className="text-xs text-red-500">{drupalError}</p>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-xs font-medium text-[var(--text-secondary)] w-36 shrink-0">
+                                            {t('schema.drupal_content_type', 'Tipus de contingut')}
+                                        </label>
+                                        <select
+                                            value={drupalBundle}
+                                            onChange={(e) => setDrupalBundle(e.target.value)}
+                                            className="flex-1 text-sm px-2 py-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                        >
+                                            <option value="">{drupalLoading && drupalContentTypes.length === 0 ? t('common.loading', 'Carregant…') : t('schema.drupal_pick_type', '— Tria un tipus —')}</option>
+                                            {drupalContentTypes.map((ct) => (
+                                                <option key={ct.machine} value={ct.machine}>{ct.label} ({ct.machine})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {drupalBundle && (
+                                        <div className="rounded-lg border border-[var(--border-primary)] overflow-hidden">
+                                            <div className="px-3 py-2 bg-[var(--bg-tertiary)] text-xs font-semibold text-[var(--text-secondary)] flex items-center justify-between">
+                                                <span>{t('schema.drupal_field_mapping', 'Associació de camps')}</span>
+                                                <span className="text-[var(--text-tertiary)] font-normal">{t('schema.drupal_field_drupal', 'camp de Drupal')}</span>
+                                            </div>
+                                            <div className="divide-y divide-[var(--border-primary)]">
+                                                <div className="flex items-center gap-2 px-3 py-1.5">
+                                                    <span className="text-xs italic text-[var(--text-secondary)] w-36 shrink-0 truncate" title={t('schema.drupal_body_hint', 'El text Markdown del cos de la pàgina')}>{t('schema.drupal_body_field', 'Cos de la pàgina')}</span>
+                                                    <span className="text-[var(--text-tertiary)] text-xs">→</span>
+                                                    <select
+                                                        value={drupalFieldMapping['__body__'] || ''}
+                                                        onChange={(e) => setDrupalFieldMapping((prev) => {
+                                                            const next = { ...prev };
+                                                            if (e.target.value) next['__body__'] = e.target.value;
+                                                            else delete next['__body__'];
+                                                            return next;
+                                                        })}
+                                                        className="flex-1 text-xs px-2 py-1 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                                    >
+                                                        <option value="">{t('schema.drupal_no_map', '— No sincronitzar —')}</option>
+                                                        {drupalFields.map((df) => (
+                                                            <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                {fields.filter((f) => f.name?.trim() && f.type !== 'button' && !f.system).map((f) => (
+                                                    <div key={f.id} className="flex items-center gap-2 px-3 py-1.5">
+                                                        <span className="text-xs text-[var(--text-secondary)] w-36 shrink-0 truncate" title={f.name}>{f.name}</span>
+                                                        <span className="text-[var(--text-tertiary)] text-xs">→</span>
+                                                        <select
+                                                            value={drupalFieldMapping[f.id] || ''}
+                                                            onChange={(e) => setDrupalFieldMapping((prev) => {
+                                                                const next = { ...prev };
+                                                                if (e.target.value) next[f.id] = e.target.value;
+                                                                else delete next[f.id];
+                                                                return next;
+                                                            })}
+                                                            className="flex-1 text-xs px-2 py-1 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                                        >
+                                                            <option value="">{t('schema.drupal_no_map', '— No sincronitzar —')}</option>
+                                                            {drupalFields.map((df) => (
+                                                                <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                     </div>
 
                     <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2 px-1">

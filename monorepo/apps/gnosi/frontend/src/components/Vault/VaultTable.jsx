@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap, Globe } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
@@ -235,6 +235,7 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { TranslateLanguagesModal } from './TranslateLanguagesModal';
+import { SyncDrupalModal } from './SyncDrupalModal';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
@@ -429,6 +430,17 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         () => getSchemaFieldNames(schema).some(
             (name) => getFieldConfig(schema, name)?.translatable === true
         ),
+        [schema]
+    );
+    // Mostra el botó de sincronitzar amb Drupal quan la taula té la funció
+    // activada. El senyal és a l'esquema: en activar-la s'hi afegeixen columnes
+    // `system` "Drupal NID/URL" (vegeu SchemaConfigModal), de manera que no cal
+    // enfilar un prop nou per tots els llocs on es renderitza VaultTable.
+    const isDrupalSyncTable = useMemo(
+        () => getSchemaFieldNames(schema).some((name) => {
+            const cfg = getFieldConfig(schema, name);
+            return cfg?.system === true && /drupal/i.test(name);
+        }),
         [schema]
     );
     // `useCallback` per mantenir la referència estable: `React.memo` al
@@ -2461,6 +2473,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     <span className="row-action-tooltip">{t('table.translate_row', 'Traduir')}</span>
                                 </button>
                             )}
+                            {isDrupalSyncTable && !isListView && !note.metadata?.translation_lang && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPendingAction({
+                                            noteId: note.id,
+                                            fieldConfig: { button_action: 'sync_drupal' },
+                                            action: 'sync_drupal',
+                                        });
+                                    }}
+                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors opacity-0 group-hover/row:opacity-100"
+                                    title={note.metadata?.drupal_uuid ? t('table.sync_drupal_update', 'Actualitzar a Drupal') : t('table.sync_drupal', 'Sincronitzar amb Drupal')}
+                                >
+                                    <Globe size={14} className={note.metadata?.drupal_uuid ? 'text-[var(--gnosi-primary)]' : ''} />
+                                    <span className="row-action-tooltip">{note.metadata?.drupal_uuid ? t('table.sync_drupal_update', 'Actualitzar a Drupal') : t('table.sync_drupal', 'Sincronitzar amb Drupal')}</span>
+                                </button>
+                            )}
                             {!isListView && onDeletePage && (
                                 <button
                                     onClick={(e) => {
@@ -2955,6 +2984,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     recordMetadata={noteById.get(pendingAction.noteId)?.metadata || {}}
                     schema={schema}
                     onTranslated={(data) => { setPendingAction(null); onTranslated?.(data); }}
+                />
+            )}
+
+            {pendingAction && pendingAction.action === 'sync_drupal' && (
+                <SyncDrupalModal
+                    isOpen={true}
+                    onClose={() => setPendingAction(null)}
+                    noteId={pendingAction.noteId}
+                    recordMetadata={noteById.get(pendingAction.noteId)?.metadata || {}}
+                    onSynced={() => { setPendingAction(null); onTranslated?.({}); }}
                 />
             )}
 
