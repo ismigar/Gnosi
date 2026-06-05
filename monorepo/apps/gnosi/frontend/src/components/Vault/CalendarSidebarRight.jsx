@@ -277,6 +277,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     const createdIdRef = useRef(null);
     const isCreatingRef = useRef(false);
     const [createdId, setCreatedId] = useState(null);
+    // Quan la cita es crea en un calendari de Google, guardem l'id de l'event de Google
+    // (+ compte i calendar_id) perquè els canvis següents facin PATCH a Google, no al Vault.
+    const googleRef = useRef(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen] = useState(false);
     const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
@@ -287,6 +290,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         lastSavedData.current = null;
         createdIdRef.current = null;
         isCreatingRef.current = false;
+        googleRef.current = null;
         setCreatedId(null);
 
         if ((mode === 'edit' || mode === 'view') && eventData) {
@@ -588,6 +592,38 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         return date;
     };
 
+    // Construeix l'event en format Google Calendar API (per a calendaris de Google)
+    const buildGoogleEventData = () => {
+        const tz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Madrid';
+        const ev = { summary: title.trim() };
+        if (allDay) {
+            ev.start = { date: startDate };
+            // A Google, end.date és EXCLUSIU → +1 dia respecte l'últim dia
+            const base = endDate || startDate;
+            const d = new Date(`${base}T00:00:00`);
+            d.setDate(d.getDate() + 1);
+            const pad = (n) => String(n).padStart(2, '0');
+            ev.end = { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` };
+        } else {
+            const st = `${startDate}T${startTime || '00:00'}:00`;
+            const en = (endDate && endTime) ? `${endDate}T${endTime}:00`
+                : (endTime ? `${startDate}T${endTime}:00` : `${startDate}T${startTime || '00:00'}:00`);
+            ev.start = { dateTime: st, timeZone: tz };
+            ev.end = { dateTime: en, timeZone: tz };
+        }
+        if (location.trim()) ev.location = location.trim();
+        if (description.trim()) ev.description = description.trim();
+        if (attendees.length > 0) ev.attendees = attendees.map(a => ({ email: a.email, displayName: a.name || undefined }));
+        if (recurrence) {
+            const parts = [`FREQ=${recurrence}`];
+            if (recurrence === 'WEEKLY' && selectedDays.length > 0) parts.push(`BYDAY=${selectedDays.join(',')}`);
+            if (endType === 'count') parts.push(`COUNT=${endCount}`);
+            else if (endType === 'until' && untilDate) parts.push(`UNTIL=${untilDate.replace(/-/g, '')}T235959Z`);
+            ev.recurrence = [`RRULE:${parts.join(';')}`];
+        }
+        return ev;
+    };
+
     const handleSubmit = async (e, silent = true, snapshot = null, isSeries = false, isInstanceOnly = false, isFollowing = false) => {
         if (e) e.preventDefault();
         if (!title.trim() || !startDate) return;
@@ -607,6 +643,58 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
         const fullStart = buildDatetime(startDate, startTime);
         const fullEnd = buildDatetime(endDate, endTime);
+
+        // ─── Calendari de Google: crear/editar l'event DE DEBÒ a Google (no al Vault) ───
+        const selCal = calendars.find(c => c.id === calendarId);
+        const isGoogleCal = !!(selCal && selCal.kind === 'external' && selCal.google_calendar_id && selCal.account);
+        if (isGoogleCal && mode !== 'edit') {
+            const formSnap = snapshot || JSON.stringify({
+                title, allDay, startDate, endDate, startTime, endTime,
+                calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
+                endType, endCount, untilDate, description, attendees, travelTime
+            });
+            try {
+                if (googleRef.current?.id) {
+                    // Actualitza l'event que ja hem creat a Google en aquesta sessió
+                    await axios.patch(
+                        `/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`,
+                        {
+                            summary: title.trim(),
+                            location: location.trim(),
+                            description: description.trim() || '',
+                            start: fullStart,
+                            end: fullEnd || fullStart,
+                            calendar_id: googleRef.current.calendar_id,
+                            attendees,
+                        }
+                    );
+                } else if (!isCreatingRef.current) {
+                    // Crea l'event nou a Google (guardem l'id per no duplicar-lo)
+                    isCreatingRef.current = true;
+                    const resp = await axios.post(
+                        `/api/calendar/events?email=${encodeURIComponent(selCal.account)}&calendar_id=${encodeURIComponent(selCal.google_calendar_id)}`,
+                        buildGoogleEventData()
+                    );
+                    if (resp.data?.id) {
+                        googleRef.current = { id: resp.data.id, account: selCal.account, calendar_id: selCal.google_calendar_id };
+                        setCreatedId(resp.data.id);
+                    }
+                }
+                lastSavedData.current = formSnap;
+                if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
+                onSaved?.();
+                if (!silent) onClose?.();
+            } catch (err) {
+                console.error('Error desant event a Google Calendar:', err);
+                setSaveError(true);
+                if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
+                if (silent && snapshot) lastSavedData.current = snapshot;
+            } finally {
+                setSaving(false);
+                isCreatingRef.current = false;
+            }
+            return;
+        }
 
         const metadata = {
             date: fullStart,
@@ -657,8 +745,19 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 metadata.database_table_id = calendarId;
                 metadata.table_name = cal.name;
                 metadata.database_table_name = cal.name;
-            } else if (cal?.source) {
-                metadata.source = cal.source;
+            } else {
+                // Calendari extern (Google): NO canviem el source a l'email del calendari.
+                // fetchPages filtra tot el que no és source 'Gnosi', així que la cita
+                // desapareixeria en refrescar. Mentre no hi hagi la integració per crear-la
+                // realment a Google, la desem a la primera taula de Gnosi perquè romangui
+                // visible i no es perdi.
+                const fallbackTable = calendars.find(c => c.kind === 'table');
+                if (fallbackTable) {
+                    metadata.table_id = fallbackTable.id;
+                    metadata.database_table_id = fallbackTable.id;
+                    metadata.table_name = fallbackTable.name;
+                    metadata.database_table_name = fallbackTable.name;
+                }
             }
         }
 
@@ -772,6 +871,25 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     };
 
     const handleDelete = async (isSeries = false, isInstanceOnly = false, isFollowing = false) => {
+        // Si la cita s'ha creat en un calendari de Google en aquesta sessió, esborra-la a Google
+        if (googleRef.current?.id) {
+            setDeleting(true);
+            try {
+                await axios.delete(`/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`);
+                toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
+                googleRef.current = null;
+                onSaved?.();
+                onClose?.();
+            } catch (err) {
+                console.error('Error eliminant event de Google:', err);
+                toast.error(t('calendar.event_delete_error', 'Error eliminant la cita.'));
+            } finally {
+                setDeleting(false);
+                setIsRecurrenceDeleteOpen(false);
+            }
+            return;
+        }
+
         const deleteId = eventData?.id || createdIdRef.current;
         if (!deleteId) return;
 

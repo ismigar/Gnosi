@@ -21,6 +21,7 @@ export default function CalendarPage() {
     const navigate = useNavigate();
     const [pages, setPages] = useState([]);           // notes vault locals (source=Gnosi)
     const [externalEvents, setExternalEvents] = useState([]); // events de Google/CalDAV
+    const [googleCalendars, setGoogleCalendars] = useState([]); // calendaris reals de Google (id, name, account)
     const [undatedNotes, setUndatedNotes] = useState([]);
     const [dateRange, setDateRange] = useState(null);  // { start, end } del rang visible
     const [loading, setLoading] = useState(true);
@@ -118,18 +119,33 @@ export default function CalendarPage() {
 
             const customColor = integrations?.calendar_colors?.[s];
 
+            // Resol el calendari real de Google (calendar_id + provider) per crear-hi events de debò
+            let googleCalId = null;
+            let provider = null;
+            if (!isGnosi && !isTable) {
+                const gcal = googleCalendars.find(gc =>
+                    gc.account === account && (
+                        (subName && gc.name === subName) ||
+                        (!subName && (gc.id === account || gc.primary || gc.name === account))
+                    )
+                );
+                if (gcal) { googleCalId = gcal.id; provider = gcal.provider || 'google'; }
+            }
+
             return {
                 id: table?.id || s,
                 source: s,
                 kind: isTable ? 'table' : 'external',
                 name: customName || subName || integration?.name || s,
                 account: account,
+                google_calendar_id: googleCalId,
+                provider,
                 color: customColor || integration?.color || (isGnosi ? 'var(--gnosi-primary)' : fallbackColors[index % fallbackColors.length])
             };
         });
 
         return configs;
-    }, [availableCalendars, integrations, enabledTables]);
+    }, [availableCalendars, integrations, enabledTables, googleCalendars]);
 
     const defaultCalendarId = useMemo(() => {
         const defSource = integrations?.default_calendar;
@@ -314,6 +330,15 @@ export default function CalendarPage() {
 
     useEffect(() => {
         fetchPages();
+    }, []);
+
+    // Carrega els calendaris reals de Google (id/account) per poder crear-hi events de debò
+    useEffect(() => {
+        let cancelled = false;
+        axios.get('/api/calendar/calendars')
+            .then(res => { if (!cancelled) setGoogleCalendars(Array.isArray(res.data) ? res.data : []); })
+            .catch(() => { if (!cancelled) setGoogleCalendars([]); });
+        return () => { cancelled = true; };
     }, []);
 
     // Avortar la request d'events externs si el component es desmunta.
