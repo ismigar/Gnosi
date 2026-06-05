@@ -169,3 +169,93 @@ def detect_record_source_lang(metadata: Optional[Dict[str, Any]]) -> str:
             if code:
                 return code
     return ""
+
+
+# --- Omplir el camp "Idioma" de la traducció ---------------------------------
+# `detect_record_source_lang` LLEGEIX l'idioma de l'original; aquestes funcions
+# fan l'invers: decideixen QUÈ escriure al camp "Idioma" del subitem traduït
+# perquè quedi marcat amb l'idioma destí (abans quedava buit). Són pures (dades
+# entren, dades surten) perquè el test no hagi d'importar el backend sencer.
+
+
+def find_language_property(properties: Optional[Iterable[Any]]) -> Optional[Dict[str, Any]]:
+    """Retorna la propietat "Idioma" (o sinònim) d'una llista de propietats de
+    taula, o None si no en té cap. El nom es compara accent/caixa-insensiblement
+    (mirall de `detect_record_source_lang`)."""
+    for p in properties or []:
+        if not isinstance(p, dict):
+            continue
+        if _strip_accents(str(p.get("name") or "").lower()) in _LANGUAGE_FIELD_NAMES:
+            return p
+    return None
+
+
+def _select_option_values(prop: Dict[str, Any]) -> list:
+    """Valors triables d'un select: `config.options` (niat, el que escriu el PATCH
+    inline) o `options` (nivell superior, el que escriu el desat del modal). Cada
+    opció pot ser un string o un dict {name/label/value}. Retorna strings nets."""
+    cfg = prop.get("config")
+    raw = None
+    if isinstance(cfg, dict) and isinstance(cfg.get("options"), list):
+        raw = cfg["options"]
+    elif isinstance(prop.get("options"), list):
+        raw = prop["options"]
+    out: list = []
+    for o in raw or []:
+        label = (o.get("name") or o.get("label") or o.get("value")) if isinstance(o, dict) else o
+        if isinstance(label, str) and label.strip():
+            out.append(label.strip())
+    return out
+
+
+def language_field_value(prop: Dict[str, Any], target_lang: str) -> str:
+    """Valor a escriure al camp idioma per a `target_lang`.
+
+    Prioritza una opció existent del catàleg del select que casi amb el codi
+    destí (estil Notion: reaprofita el valor que l'usuari ja té —"Català", "CA"…—
+    en lloc de duplicar-lo). Si no n'hi ha cap, cau al codi ISO en MAJÚSCULES
+    ("CA", "EN"…), el format dels registres ja existents. Retorna '' si el codi
+    no es pot determinar.
+    """
+    # normalize_lang_code ja accepta tant etiquetes ("Català") com qualsevol codi
+    # ISO de 2 lletres ("ca", "ja"…); si el rebutja, no és un idioma → no escrivim.
+    code = normalize_lang_code(target_lang)
+    if not code:
+        return ""
+    for opt in _select_option_values(prop):
+        if normalize_lang_code(opt) == code:
+            return opt
+    return code.upper()
+
+
+def language_field_assignment(
+    properties: Optional[Iterable[Any]],
+    target_lang: str,
+    parent_metadata: Optional[Dict[str, Any]] = None,
+) -> tuple:
+    """(clau, valor) per marcar el camp idioma d'una traducció, o (None, None) si
+    la taula no té camp idioma o el codi no es pot resoldre.
+
+    La `clau` és l'id estable de la propietat (o el nom si no en té); el backend
+    (`to_storage_names`) la reescriu al nom en desar, com fa amb la resta de
+    camps. El `valor` respecta el format multi_select (llista) quan la propietat
+    ho és, o quan el pare ja desava l'idioma com a llista.
+    """
+    prop = find_language_property(properties)
+    if not prop:
+        return None, None
+    key = prop.get("id") or prop.get("name")
+    if not key:
+        return None, None
+    value = language_field_value(prop, target_lang)
+    if not value:
+        return None, None
+    ptype = str(prop.get("type") or "").lower().replace("-", "_")
+    is_multi = ptype in ("multi_select", "multiselect")
+    if not is_multi and isinstance(parent_metadata, dict):
+        parent_val = parent_metadata.get(prop.get("name"))
+        if parent_val is None and prop.get("id"):
+            parent_val = parent_metadata.get(prop.get("id"))
+        if isinstance(parent_val, list):
+            is_multi = True
+    return key, ([value] if is_multi else value)

@@ -16,6 +16,9 @@ from backend.services.translation_helpers import (
     translatable_content_changed,
     normalize_lang_code,
     detect_record_source_lang,
+    find_language_property,
+    language_field_value,
+    language_field_assignment,
 )
 
 
@@ -187,3 +190,97 @@ def test_detect_source_absent_or_empty_returns_blank():
     assert detect_record_source_lang({}) == ""
     assert detect_record_source_lang({"Idioma": ""}) == ""
     assert detect_record_source_lang(None) == ""
+
+
+# --------------------------------------------------------------------------- #
+# find_language_property
+# --------------------------------------------------------------------------- #
+def test_find_language_property_by_name_accent_insensitive():
+    props = [
+        {"name": "Títol", "type": "title", "id": "f1"},
+        {"name": "Idioma", "type": "select", "id": "f2"},
+    ]
+    assert find_language_property(props)["id"] == "f2"
+    assert find_language_property([{"name": "Llengua", "id": "f3"}])["id"] == "f3"
+    assert find_language_property([{"name": "language", "id": "f4"}])["id"] == "f4"
+
+
+def test_find_language_property_absent_returns_none():
+    assert find_language_property([{"name": "Estat", "id": "f1"}]) is None
+    assert find_language_property([]) is None
+    assert find_language_property(None) is None
+
+
+# --------------------------------------------------------------------------- #
+# language_field_value
+# --------------------------------------------------------------------------- #
+def test_language_value_falls_back_to_uppercase_code():
+    # Select sense catàleg d'opcions (s'autogeneren) → codi en majúscules,
+    # el format dels registres ja existents ("Idioma: CA").
+    prop = {"name": "Idioma", "type": "select", "id": "f2"}
+    assert language_field_value(prop, "ca") == "CA"
+    assert language_field_value(prop, "en") == "EN"
+    assert language_field_value(prop, "Català") == "CA"  # accepta etiqueta com a entrada
+
+
+def test_language_value_reuses_existing_catalog_option():
+    # Estil Notion: si el catàleg ja té l'opció que casa amb el codi, reaprofita-la
+    # (no duplica "EN" al costat de "Anglès").
+    prop = {"name": "Llengua", "type": "select", "id": "f2",
+            "options": ["Català", "Castellà", "Anglès"]}
+    assert language_field_value(prop, "ca") == "Català"
+    assert language_field_value(prop, "en") == "Anglès"
+
+
+def test_language_value_catalog_nested_in_config_with_dicts():
+    prop = {"name": "language", "type": "select", "id": "f3",
+            "config": {"options": [{"name": "EN"}, {"name": "FR"}]}}
+    assert language_field_value(prop, "en") == "EN"
+
+
+def test_language_value_blank_target_returns_blank():
+    assert language_field_value({"name": "Idioma"}, "") == ""
+    assert language_field_value({"name": "Idioma"}, "Klingon") == ""
+
+
+# --------------------------------------------------------------------------- #
+# language_field_assignment
+# --------------------------------------------------------------------------- #
+# Cas real de la taula "Articles": Idioma és un select sense options i l'original
+# es desa amb codi en majúscules ("Idioma: ES"). La traducció ha de quedar marcada
+# amb el seu propi idioma destí.
+ARTICLES_PROPS = [
+    {"name": "Títol", "type": "title", "id": "fld_f7f2aa14", "translatable": True},
+    {"name": "Idioma", "type": "select", "id": "fld_31e396dc"},
+    {"name": "Imatge Alt Text", "type": "text", "id": "fld_92aad08e", "translatable": True},
+]
+
+
+def test_assignment_real_articles_table():
+    # Clau = id estable (to_storage_names la reescriu a "Idioma" en desar); valor = codi majúscules.
+    assert language_field_assignment(ARTICLES_PROPS, "ca", {"Idioma": "ES"}) == ("fld_31e396dc", "CA")
+    assert language_field_assignment(ARTICLES_PROPS, "en", {"Idioma": "ES"}) == ("fld_31e396dc", "EN")
+
+
+def test_assignment_no_language_field_is_noop():
+    props = [{"name": "Títol", "type": "title", "id": "f1", "translatable": True}]
+    assert language_field_assignment(props, "en", {}) == (None, None)
+
+
+def test_assignment_blank_target_is_noop():
+    assert language_field_assignment(ARTICLES_PROPS, "", {"Idioma": "ES"}) == (None, None)
+
+
+def test_assignment_falls_back_to_name_when_no_id():
+    assert language_field_assignment([{"name": "Idioma", "type": "select"}], "ca", {}) == ("Idioma", "CA")
+
+
+def test_assignment_multi_select_wraps_in_list():
+    assert language_field_assignment([{"name": "Idioma", "type": "multi_select", "id": "f4"}], "pt", {}) == ("f4", ["PT"])
+
+
+def test_assignment_replicates_parent_list_format():
+    # Si el pare desava l'idioma com a llista, la traducció també (encara que el
+    # tipus sigui un select simple).
+    props = [{"name": "Idioma", "type": "select", "id": "f5"}]
+    assert language_field_assignment(props, "de", {"Idioma": ["ES"]}) == ("f5", ["DE"])
