@@ -79,6 +79,7 @@ from backend.services.translation_helpers import (
     find_translations_of,
     translatable_content_changed,
     detect_record_source_lang,
+    language_field_assignment,
 )
 
 
@@ -11691,6 +11692,16 @@ async def _do_translate_row(
                 translated_title = translated
             elif not first_text_translation and prop.get("type") in ("text", "rich_text"):
                 first_text_translation = translated
+
+        # Marca el camp "Idioma" del subitem amb l'idioma de la traducció (si la
+        # taula en té un). Abans quedava buit: el subitem heretava els camps
+        # traduïts però no deia en quina llengua estava. Reaprofita l'opció del
+        # catàleg que casi amb el codi; si no, hi posa el codi en majúscules
+        # ("CA", "EN"…). S'escriu DESPRÉS del bucle de camps perquè mani fins i
+        # tot si algú hagués marcat el propi camp idioma com a traduïble.
+        lang_key, lang_value = language_field_assignment(properties, lang, metadata)
+        if lang_key and lang_value is not None:
+            sub_metadata[lang_key] = lang_value
 
         # Traduir el cos markdown de l'original (si n'hi ha i el segmentador
         # està disponible). El resultat és el `content` del subitem.
