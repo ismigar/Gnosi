@@ -105,7 +105,8 @@
     },
     "calendar": {
       "google_token_expired": "Le jeton Google a expiré ou a été révoqué. Reconnecte le compte pour recharger les calendriers.",
-      "reconnect_google": "Reconnecter Google"
+      "reconnect_google": "Reconnecter Google",
+      "location_verified": "Emplacement vérifié"
     }
   },
   "schema": {

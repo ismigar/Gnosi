@@ -119,6 +119,7 @@
     "end_time": "Hora fin",
     "location": "Ubicación / URL",
     "location_placeholder": "Sala 3, https://meet.google...",
+    "location_verified": "Ubicación verificada",
     "reminder": "Recordatorio",
     "recurrence": "Repetición",
     "ends": "Finaliza",

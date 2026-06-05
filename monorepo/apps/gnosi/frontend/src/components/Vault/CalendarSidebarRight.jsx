@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus } from 'lucide-react';
+import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus, Loader2, Check } from 'lucide-react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
@@ -230,6 +230,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     const [endTime, setEndTime] = useState('');
     const [calendarId, setCalendarId] = useState('');
     const [location, setLocation] = useState('');
+    const [locationLat, setLocationLat] = useState(null);
+    const [locationLon, setLocationLon] = useState(null);
+    const [locationSuggestions, setLocationSuggestions] = useState([]);
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [locationHighlight, setLocationHighlight] = useState(-1);
+    const locationSuggestTimeoutRef = useRef(null);
+    const locationBlurTimeoutRef = useRef(null);
     const [reminder, setReminder] = useState('');
     const [recurrence, setRecurrence] = useState('');
     const [selectedDays, setSelectedDays] = useState([]);
@@ -250,6 +257,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     const isInitializing = useRef(true);
     const lastSavedData = useRef(null);
     const autoSaveTimeoutRef = useRef(null);
+    const flushSaveRef = useRef(() => {});
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen] = useState(false);
     const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
@@ -288,6 +296,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             const fallbackCalId = defaultCalendarId || calendars[0]?.id || '';
             setCalendarId(hasCalendarOption ? tableId : fallbackCalId);
             setLocation(meta.location || '');
+            setLocationLat(meta.location_lat ?? null);
+            setLocationLon(meta.location_lon ?? null);
             setReminder(meta.reminder || '');
 
             // Re-populate RRULE
@@ -337,6 +347,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             setCalendarId(defCalId);
 
             setLocation('');
+            setLocationLat(null);
+            setLocationLon(null);
             setReminder('');
             setRecurrence('');
             setSelectedDays([]);
@@ -347,6 +359,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         }
         setAttendeeInput('');
         setAttendeeSuggestions([]);
+        setLocationSuggestions([]);
+        setLocationHighlight(-1);
 
 
         setTimeout(() => {
@@ -363,7 +377,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
         const currentData = {
             title, allDay, startDate, endDate, startTime, endTime,
-            calendarId, location, reminder, recurrence, selectedDays,
+            calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
             endType, endCount, untilDate, description
         };
         const currentStr = JSON.stringify(currentData);
@@ -391,7 +405,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         };
     }, [
         mode, eventData, title, allDay, startDate, endDate, startTime, endTime,
-        calendarId, location, reminder, recurrence, selectedDays,
+        calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
         endType, endCount, untilDate, description, saving, deleting
     ]);
 
@@ -403,6 +417,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         const handleKey = (e) => {
             // Escape to deselect/close
             if (e.key === 'Escape') {
+                flushSaveRef.current();
                 onClose?.();
                 return;
             }
@@ -424,6 +439,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [onClose, mode, eventData]);
+
+    // Flush del desament pendent quan el panell es desmunta (canvi d'event, navegació...)
+    useEffect(() => {
+        return () => { flushSaveRef.current?.(); };
+    }, []);
 
     // ─── Attendees helpers ────────────────────────────────────────────────────
     const handleAttendeeInputChange = useCallback((val) => {
@@ -460,6 +480,68 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         setAttendees(prev => prev.filter(a => a.email !== email));
     }, []);
 
+    // ─── Geocoding d'ubicació (OpenStreetMap / Photon) ─────────────────────────
+    const fetchLocationSuggestions = useCallback((val) => {
+        const query = (val || '').trim();
+        // No geocodifiquem URLs ni consultes massa curtes
+        if (query.length < 3 || /^(https?:\/\/|www\.)/i.test(query)) {
+            setLocationSuggestions([]);
+            setLocationLoading(false);
+            return;
+        }
+        setLocationLoading(true);
+        locationSuggestTimeoutRef.current = setTimeout(async () => {
+            try {
+                const res = await axios.get(`/api/calendar/geocode?q=${encodeURIComponent(query)}`);
+                setLocationSuggestions(Array.isArray(res.data) ? res.data : []);
+                setLocationHighlight(-1);
+            } catch {
+                setLocationSuggestions([]);
+            } finally {
+                setLocationLoading(false);
+            }
+        }, 350);
+    }, []);
+
+    const handleLocationChange = useCallback((val) => {
+        setLocation(val);
+        // L'edició manual invalida la verificació prèvia (coordenades)
+        setLocationLat(null);
+        setLocationLon(null);
+        if (locationSuggestTimeoutRef.current) clearTimeout(locationSuggestTimeoutRef.current);
+        fetchLocationSuggestions(val);
+    }, [fetchLocationSuggestions]);
+
+    const selectLocationSuggestion = useCallback((sug) => {
+        if (!sug) return;
+        setLocation(sug.label);
+        setLocationLat(typeof sug.lat === 'number' ? sug.lat : null);
+        setLocationLon(typeof sug.lon === 'number' ? sug.lon : null);
+        setLocationSuggestions([]);
+        setLocationHighlight(-1);
+        if (locationSuggestTimeoutRef.current) clearTimeout(locationSuggestTimeoutRef.current);
+    }, []);
+
+    const handleLocationKeyDown = useCallback((e) => {
+        if (locationSuggestions.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setLocationHighlight((i) => Math.min(i + 1, locationSuggestions.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setLocationHighlight((i) => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (locationHighlight >= 0) selectLocationSuggestion(locationSuggestions[locationHighlight]);
+        } else if (e.key === 'Escape') {
+            // Tanca només el desplegable, no el panell sencer
+            e.preventDefault();
+            e.stopPropagation();
+            setLocationSuggestions([]);
+            setLocationHighlight(-1);
+        }
+    }, [locationSuggestions, locationHighlight, selectLocationSuggestion]);
+
     // ─────────────────────────────────────────────────────────────────────────
 
     const buildDatetime = (date, time) => {
@@ -492,7 +574,20 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             exdates: eventData?.metadata?.exdates || [],
         };
         if (fullEnd) metadata.end_date = fullEnd;
-        if (location.trim()) metadata.location = location.trim();
+        const removeMetaKeys = [];
+        if (location.trim()) {
+            metadata.location = location.trim();
+            if (locationLat != null && locationLon != null) {
+                metadata.location_lat = locationLat;
+                metadata.location_lon = locationLon;
+            } else {
+                // Ubicació no verificada (text lliure/URL): neteja coords antigues (PATCH fa merge)
+                removeMetaKeys.push('location_lat', 'location_lon');
+            }
+        } else {
+            // Sense ubicació: neteja tot el bloc d'ubicació
+            removeMetaKeys.push('location', 'location_lat', 'location_lon');
+        }
         if (reminder) metadata.reminder = reminder;
         if (attendees.length > 0) metadata.attendees = attendees;
 
@@ -582,6 +677,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         title: title.trim(),
                         content: description.trim() || undefined,
                         metadata,
+                        ...(removeMetaKeys.length ? { remove_metadata_keys: removeMetaKeys } : {}),
                     });
                     
                     if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
@@ -602,7 +698,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             
             lastSavedData.current = snapshot || JSON.stringify({
                 title, allDay, startDate, endDate, startTime, endTime,
-                calendarId, location, reminder, recurrence, selectedDays,
+                calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
                 endType, endCount, untilDate, description
             });
         } catch (err) {
@@ -672,6 +768,26 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         }
     };
 
+    // Desa qualsevol canvi pendent abans de tancar/desmuntar. L'autosave té un debounce
+    // de 450ms; sense aquest flush, tancar de pressa perdria l'últim canvi. S'actualitza
+    // cada render perquè capturi els valors i el handleSubmit més recents.
+    flushSaveRef.current = () => {
+        if (autoSaveTimeoutRef.current) {
+            clearTimeout(autoSaveTimeoutRef.current);
+            autoSaveTimeoutRef.current = null;
+        }
+        if (mode !== 'edit' || !eventData?.id) return;
+        if (!title.trim() || !startDate) return;
+        const snap = JSON.stringify({
+            title, allDay, startDate, endDate, startTime, endTime,
+            calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
+            endType, endCount, untilDate, description
+        });
+        if (lastSavedData.current !== snap) {
+            handleSubmit(null, true, snap);
+        }
+    };
+
     const isViewMode = mode === 'view';
     const inputClass = `w-full bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg px-2.5 py-1.5 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/30 focus:border-[var(--gnosi-primary)] transition-all ${isViewMode ? 'disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-[var(--bg-tertiary)]' : ''}`;
     const labelClass = "flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-1";
@@ -681,7 +797,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-tertiary)]">
                 <div className="flex items-center gap-2">
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar panell">
+                    <button onClick={() => { flushSaveRef.current(); onClose?.(); }} className="gnosi-close-btn" aria-label="Tancar panell">
                         <X />
                     </button>
                     <span className="text-[13px] font-semibold text-[var(--text-primary)]">
@@ -783,14 +899,52 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         <MapPin size={10} />
                         {t('calendar.location', 'Ubicació / URL')}
                     </label>
-                    <input
-                        type="text"
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        onBlur={handleFieldBlur}
-                        placeholder={t('calendar.location_placeholder', "Sala 3, https://meet.google...")}
-                        className={inputClass}
-                    />
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={location}
+                            onChange={(e) => handleLocationChange(e.target.value)}
+                            onKeyDown={handleLocationKeyDown}
+                            onFocus={() => { if (locationBlurTimeoutRef.current) clearTimeout(locationBlurTimeoutRef.current); }}
+                            onBlur={() => {
+                                // Retard per permetre el clic sobre un suggeriment abans de tancar
+                                locationBlurTimeoutRef.current = setTimeout(() => {
+                                    setLocationSuggestions([]);
+                                    setLocationHighlight(-1);
+                                }, 150);
+                            }}
+                            placeholder={t('calendar.location_placeholder', "Sala 3, https://meet.google...")}
+                            className={`${inputClass} ${(locationLoading || locationLat != null) ? 'pr-8' : ''}`}
+                            autoComplete="off"
+                        />
+                        {locationLoading ? (
+                            <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-tertiary)]" />
+                        ) : locationLat != null ? (
+                            <span
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--status-success,#22c55e)]"
+                                title={t('calendar.location_verified', 'Ubicació verificada')}
+                            >
+                                <Check size={14} strokeWidth={3} />
+                            </span>
+                        ) : null}
+
+                        {locationSuggestions.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 z-50 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl mt-0.5 overflow-hidden max-h-56 overflow-y-auto">
+                                {locationSuggestions.map((s, i) => (
+                                    <button
+                                        key={`${s.label}-${i}`}
+                                        type="button"
+                                        onMouseDown={(e) => { e.preventDefault(); selectLocationSuggestion(s); }}
+                                        onMouseEnter={() => setLocationHighlight(i)}
+                                        className={`w-full text-left px-3 py-1.5 transition-colors border-b border-[var(--border-primary)] last:border-none flex items-start gap-2 ${i === locationHighlight ? 'bg-[var(--bg-secondary)]' : 'hover:bg-[var(--bg-secondary)]'}`}
+                                    >
+                                        <MapPin size={12} className="mt-0.5 flex-shrink-0 text-[var(--text-tertiary)]" />
+                                        <span className="text-[12px] text-[var(--text-primary)] leading-tight">{s.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Recordatori */}
@@ -1069,14 +1223,6 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             {t('common.delete', 'Eliminar')}
                         </button>
                     )}
-                    <button
-                        type="submit"
-                        onClick={(e) => handleSubmit(e, false)}
-                        disabled={saving || deleting}
-                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-lg bg-[var(--gnosi-primary)] text-white hover:bg-[var(--gnosi-primary-hover)] disabled:opacity-50 transition-all shadow-sm"
-                    >
-                        {saving ? t('calendar.saving', 'Desant...') : t('common.save', 'Guardar')}
-                    </button>
                 </div>
             </div>
 

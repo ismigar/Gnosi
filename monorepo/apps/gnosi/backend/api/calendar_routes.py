@@ -466,6 +466,91 @@ async def search_attendees(q: str = Query(..., min_length=1)):
     return results
 
 
+# ── GET /geocode ──────────────────────────────────────────────────────────────
+
+def _photon_label(props: dict) -> str:
+    """Construeix una etiqueta d'adreça llegible a partir de les propietats de Photon."""
+    name = props.get("name")
+    house = props.get("housenumber")
+    street = props.get("street")
+    postcode = props.get("postcode")
+    city = props.get("city") or props.get("town") or props.get("village") or props.get("county")
+    state = props.get("state")
+    country = props.get("country")
+
+    line1_parts = []
+    if name:
+        line1_parts.append(name)
+    if street:
+        line1_parts.append(f"{street}, {house}" if house else street)
+    elif house and not name:
+        line1_parts.append(house)
+
+    locality = " ".join(p for p in [postcode, city] if p)
+
+    segments = []
+    if line1_parts:
+        segments.append(", ".join(line1_parts))
+    if locality:
+        segments.append(locality)
+    if state and state != city:
+        segments.append(state)
+    if country:
+        segments.append(country)
+
+    # Elimina duplicats consecutius (p. ex. ciutat == estat)
+    deduped = []
+    for seg in segments:
+        if seg and (not deduped or deduped[-1] != seg):
+            deduped.append(seg)
+    return ", ".join(deduped)
+
+
+@router.get("/geocode")
+async def geocode_location(q: str = Query(..., min_length=3)):
+    """Autocompleta/verifica adreces via Photon (OpenStreetMap). Sense API key.
+
+    Retorna una llista de suggeriments [{label, lat, lon}] per al camp Ubicació
+    del formulari de cites. No geocodifica si la consulta sembla una URL.
+    """
+    import httpx
+
+    query = (q or "").strip()
+    if not query or query.lower().startswith(("http://", "https://", "www.")):
+        return []
+
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            resp = await client.get(
+                "https://photon.komoot.io/api/",
+                params={"q": query, "limit": 6},
+                headers={"User-Agent": "Gnosi-Calendar/1.0 (self-hosted personal use)"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as ex:
+        log.warning(f"geocode_location error per '{query}': {ex}")
+        return []
+
+    results = []
+    seen = set()
+    for feat in data.get("features", []):
+        props = feat.get("properties", {}) or {}
+        geom = feat.get("geometry", {}) or {}
+        coords = geom.get("coordinates") or []
+        if len(coords) < 2:
+            continue
+        lon, lat = coords[0], coords[1]
+        label = _photon_label(props)
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        results.append({"label": label, "lat": lat, "lon": lon})
+        if len(results) >= 6:
+            break
+    return results
+
+
 # ── POST /events/{event_id}/rsvp ──────────────────────────────────────────────
 
 @router.post("/events/{event_id}/rsvp", dependencies=[Depends(require_role("editor"))])
