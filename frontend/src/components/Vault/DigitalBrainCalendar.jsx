@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Clock, MapPin, AlignLeft } from 'lucide-react';
+import { Clock, MapPin, AlignLeft, Users, Bell, Navigation } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -222,6 +222,9 @@ export const DigitalBrainCalendar = ({
             allDay: event.allDay,
             location: metadata?.location,
             description: metadata?.description,
+            attendees: metadata?.attendees,
+            reminder: metadata?.reminder,
+            travelTime: metadata?.travel_time,
             color: event.backgroundColor || event.borderColor,
             x: jsEvent.clientX,
             y: jsEvent.clientY
@@ -575,10 +578,34 @@ export const DigitalBrainCalendar = ({
                                 {hoveredEvent.location && (
                                     <div className="flex items-start text-[var(--text-secondary)]">
                                         <MapPin className="w-4 h-4 mr-3 opacity-70 shrink-0 mt-0.5" />
-                                        <span className="leading-relaxed">{hoveredEvent.location}</span>
+                                        <span className="leading-relaxed break-words">{hoveredEvent.location}</span>
                                     </div>
                                 )}
-                                
+
+                                {hoveredEvent.travelTime ? (
+                                    <div className="flex items-center text-[var(--text-secondary)]">
+                                        <Navigation className="w-4 h-4 mr-3 opacity-70 shrink-0" />
+                                        <span>{i18n.language === 'es' ? 'Desplazamiento' : 'Desplaçament'}: {hoveredEvent.travelTime} min</span>
+                                    </div>
+                                ) : null}
+
+                                {hoveredEvent.reminder ? (
+                                    <div className="flex items-center text-[var(--text-secondary)]">
+                                        <Bell className="w-4 h-4 mr-3 opacity-70 shrink-0" />
+                                        <span>{(() => { const n = parseInt(hoveredEvent.reminder); const v = n % 1440 === 0 ? `${n / 1440} d` : n % 60 === 0 ? `${n / 60} h` : `${n} min`; return `${i18n.language === 'es' ? 'Aviso' : 'Avís'} ${v} ${i18n.language === 'es' ? 'antes' : 'abans'}`; })()}</span>
+                                    </div>
+                                ) : null}
+
+                                {Array.isArray(hoveredEvent.attendees) && hoveredEvent.attendees.length > 0 && (
+                                    <div className="flex items-start text-[var(--text-secondary)]">
+                                        <Users className="w-4 h-4 mr-3 opacity-70 shrink-0 mt-0.5" />
+                                        <span className="leading-relaxed break-words">
+                                            {hoveredEvent.attendees.slice(0, 5).map(a => a.name || a.email).join(', ')}
+                                            {hoveredEvent.attendees.length > 5 ? ` +${hoveredEvent.attendees.length - 5}` : ''}
+                                        </span>
+                                    </div>
+                                )}
+
                                 {hoveredEvent.description && (
                                     <div className="flex items-start text-[var(--text-tertiary)] pt-3 border-t border-[var(--border-primary)] border-opacity-30 mt-2">
                                         <AlignLeft className="w-4 h-4 mr-3 mt-1 opacity-70 shrink-0" />

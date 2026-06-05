@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus, Loader2, Check } from 'lucide-react';
+import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus, Loader2, Check, Navigation } from 'lucide-react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,18 @@ const REMINDER_OPTIONS = [
     { value: '30', label: '30 minuts abans' },
     { value: '60', label: '1 hora abans' },
     { value: '1440', label: '1 dia abans' },
+];
+
+const TRAVEL_TIME_OPTIONS = [
+    { value: '', label: 'Cap' },
+    { value: '5', label: '5 min' },
+    { value: '10', label: '10 min' },
+    { value: '15', label: '15 min' },
+    { value: '30', label: '30 min' },
+    { value: '45', label: '45 min' },
+    { value: '60', label: '1 hora' },
+    { value: '90', label: '1 h 30 min' },
+    { value: '120', label: '2 hores' },
 ];
 
 const RECURRENCE_OPTIONS = [
@@ -238,6 +250,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     const locationSuggestTimeoutRef = useRef(null);
     const locationBlurTimeoutRef = useRef(null);
     const [reminder, setReminder] = useState('');
+    const [travelTime, setTravelTime] = useState('');
     const [recurrence, setRecurrence] = useState('');
     const [selectedDays, setSelectedDays] = useState([]);
     const [endType, setEndType] = useState('never');
@@ -308,6 +321,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             setLocationLat(meta.location_lat ?? null);
             setLocationLon(meta.location_lon ?? null);
             setReminder(meta.reminder || '');
+            setTravelTime(meta.travel_time != null ? String(meta.travel_time) : '');
 
             // Re-populate RRULE
             const rawRrule = meta.rrule || meta.recurrence || '';
@@ -368,6 +382,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             setLocationLat(null);
             setLocationLon(null);
             setReminder('');
+            setTravelTime('');
             setRecurrence('');
             setSelectedDays([]);
             setEndType('never');
@@ -397,7 +412,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         const currentData = {
             title, allDay, startDate, endDate, startTime, endTime,
             calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
-            endType, endCount, untilDate, description
+            endType, endCount, untilDate, description, attendees, travelTime
         };
         const currentStr = JSON.stringify(currentData);
 
@@ -429,7 +444,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     }, [
         mode, eventData, title, allDay, startDate, endDate, startTime, endTime,
         calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
-        endType, endCount, untilDate, description, saving, deleting
+        endType, endCount, untilDate, description, attendees, travelTime, saving, deleting
     ]);
 
     // Legacy hook: kept as no-op because autosave now happens on every change
@@ -615,6 +630,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             removeMetaKeys.push('location', 'location_lat', 'location_lon');
         }
         if (reminder) metadata.reminder = reminder;
+        if (travelTime) metadata.travel_time = parseInt(travelTime, 10);
+        else removeMetaKeys.push('travel_time');
         if (attendees.length > 0) metadata.attendees = attendees;
 
         if (recurrence) {
@@ -740,7 +757,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             lastSavedData.current = snapshot || JSON.stringify({
                 title, allDay, startDate, endDate, startTime, endTime,
                 calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
-                endType, endCount, untilDate, description
+                endType, endCount, untilDate, description, attendees, travelTime
             });
         } catch (err) {
             console.error('Error desant event:', err);
@@ -824,7 +841,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         const snap = JSON.stringify({
             title, allDay, startDate, endDate, startTime, endTime,
             calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
-            endType, endCount, untilDate, description
+            endType, endCount, untilDate, description, attendees, travelTime
         });
         if (lastSavedData.current !== snap) {
             handleSubmit(null, true, snap); // crea (POST) o actualitza (PATCH) segons calgui
@@ -959,6 +976,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             placeholder={t('calendar.location_placeholder', "Sala 3, https://meet.google...")}
                             className={`${inputClass} ${(locationLoading || locationLat != null) ? 'pr-8' : ''}`}
                             autoComplete="off"
+                            title={location || undefined}
                         />
                         {locationLoading ? (
                             <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-tertiary)]" />
@@ -988,6 +1006,24 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             </div>
                         )}
                     </div>
+                    {location && (location.length > 36 || locationLat != null) && (
+                        <div className="mt-1 flex items-start gap-1.5 px-0.5">
+                            <span className="text-[11px] text-[var(--text-tertiary)] leading-snug break-words flex-1" title={location}>
+                                {location}
+                            </span>
+                            {locationLat != null && locationLon != null && (
+                                <a
+                                    href={`https://www.openstreetmap.org/?mlat=${locationLat}&mlon=${locationLon}#map=17/${locationLat}/${locationLon}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-[var(--gnosi-primary)] hover:underline shrink-0 whitespace-nowrap"
+                                    title={t('calendar.view_on_map', 'Veure al mapa')}
+                                >
+                                    {t('calendar.map', 'mapa')}
+                                </a>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Recordatori */}
@@ -998,6 +1034,19 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     </label>
                     <select value={reminder} onChange={(e) => setReminder(e.target.value)} onBlur={handleFieldBlur} className={inputClass}>
                         {REMINDER_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Temps de desplaçament */}
+                <div>
+                    <label className={labelClass}>
+                        <Navigation size={10} />
+                        {t('calendar.travel_time', 'Temps de desplaçament')}
+                    </label>
+                    <select value={travelTime} onChange={(e) => setTravelTime(e.target.value)} className={inputClass}>
+                        {TRAVEL_TIME_OPTIONS.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
