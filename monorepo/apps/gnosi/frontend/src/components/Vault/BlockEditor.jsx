@@ -3824,6 +3824,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 onClose={() => setImagePickerProp(null)}
                 onInsert={(result) => {
                     if (!imagePickerProp) return;
+                    // Només metadades: conserva el src actual del camp.
+                    if (result?.metadataOnly) {
+                        const currentSrc = parseImageField(metadata[imagePickerProp]).src;
+                        if (currentSrc) handleMetaChange(imagePickerProp, buildImageValue(currentSrc, result.imageMeta || {}));
+                        setImagePickerProp(null);
+                        return;
+                    }
                     const newPath = servedUrlToVaultPath(result?.url || '');
                     if (newPath) handleMetaChange(imagePickerProp, buildImageValue(newPath, result?.imageMeta || {}));
                     setImagePickerProp(null);

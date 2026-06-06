@@ -3029,6 +3029,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 onInsert={(result) => {
                     if (!mediaPickerCell) return;
                     const { rowId, field, originalMetaKey } = mediaPickerCell;
+                    // Només metadades (alt/títol/…): conserva el src actual del camp.
+                    if (result?.metadataOnly) {
+                        const note = safeNotes.find(n => n.id === rowId);
+                        const currentSrc = getImageSrc(note?.metadata?.[originalMetaKey]);
+                        if (currentSrc) {
+                            handleCellSave(rowId, field, buildImageValue(currentSrc, result.imageMeta || {}), originalMetaKey);
+                        }
+                        setMediaPickerCell(null);
+                        return;
+                    }
                     const newPath = urlToVaultPath(result?.url || '');
                     let value = newPath;
                     // Els camps `files` són multi-fitxer: afegim a la llista existent.
