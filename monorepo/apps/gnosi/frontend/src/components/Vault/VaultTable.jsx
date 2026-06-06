@@ -216,7 +216,7 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
-import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef } from './schemaUtils';
 import {
     isComputedType,
     isPasteableType,
@@ -652,6 +652,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         // Ensure the field used as title is not duplicated
         return baseFields.filter(([key]) => key !== titleFieldName);
     }, [activeView, schema]);
+
+    // La columna "Idioma" és visible a la vista actual? Si ho és, el badge
+    // d'idioma del costat del títol mostra el mateix valor que la cel·la →
+    // redundant. L'amaguem, però conservem l'avís "stale" (que la columna no
+    // porta). Compara per nom resolt perquè les columnes poden venir per id o nom.
+    const hasVisibleLanguageColumn = useMemo(() => {
+        const langFieldName = getLanguageFieldName(schema);
+        if (!langFieldName) return false;
+        return dynamicColumns.some(([key]) => resolveFieldRef(schema, key).name === langFieldName);
+    }, [dynamicColumns, schema]);
 
     // Initialize missing column widths
     useEffect(() => {
@@ -2532,7 +2542,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         onDoubleClick={(e) => { e.stopPropagation(); openTitleEditor(); }}
                     >
                         <div className="flex items-center gap-1.5">
-                            {note.metadata?.translation_lang && (
+                            {note.metadata?.translation_lang && (!hasVisibleLanguageColumn || note.metadata?.translation_stale) && (
                                 <span
                                     className={`shrink-0 inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-bold uppercase ${note.metadata?.translation_stale ? 'bg-amber-500/15 text-amber-600' : 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'}`}
                                     title={note.metadata?.translation_stale
@@ -2540,7 +2550,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                         : t('table.translation_badge', 'Traducció')}
                                 >
                                     {note.metadata?.translation_stale && <AlertTriangle size={9} />}
-                                    {String(note.metadata.translation_lang).toUpperCase()}
+                                    {!hasVisibleLanguageColumn && String(note.metadata.translation_lang).toUpperCase()}
                                 </span>
                             )}
                             {isChild && (

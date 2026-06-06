@@ -122,6 +122,20 @@ export function detectRecordSourceLang(metadata = {}, schema = {}) {
 }
 
 /**
+ * Retorna el NOM del camp "Idioma" (o sinònim) de l'esquema, o undefined si no
+ * n'hi ha cap. Reconeix els mateixos noms que detectRecordSourceLang. La taula
+ * el fa servir per no duplicar el badge d'idioma quan la columna ja és visible.
+ * @param {Object} schema
+ * @returns {string|undefined}
+ */
+export function getLanguageFieldName(schema = {}) {
+    const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return getSchemaFieldNames(schema).find(name =>
+        LANGUAGE_FIELD_NAMES.includes(stripAccents(String(name).toLowerCase()))
+    );
+}
+
+/**
  * Construeix un esquema pla (objecte) a partir d'una llista de propietats de taula
  * (format que utilitza el backend: [{ name, type, ...config }]).
  * @param {Array} tableProperties
