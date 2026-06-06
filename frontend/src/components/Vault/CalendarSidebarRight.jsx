@@ -409,8 +409,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     // Autosave en cada modificació (debounced). En edició desa la cita existent; en
     // creació la crea (només quan hi ha títol vàlid) i continua editant-la.
     useEffect(() => {
-        if (isInitializing.current || saving || deleting) return;
-        if (mode === 'view') return; // els events externs (Google) no s'autodesen
+        if (saving || deleting) return;
+        if (mode === 'view') return; // els events externs (Google) en mode lectura no s'autodesen
         if (!title.trim() || !startDate) return; // sense títol no es crea res (evita esborranys)
 
         const currentData = {
@@ -420,9 +420,10 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         };
         const currentStr = JSON.stringify(currentData);
 
-        // Edició d'una cita existent: el primer render fixa la línia base sense desar
-        // (no re-desem dades acabades de carregar). En creació deixem la base a null
-        // perquè el primer títol vàlid dispari la creació via debounce.
+        // Edició d'una cita existent: fixa la línia base amb les dades acabades de carregar
+        // —encara que estiguem inicialitzant— perquè el PRIMER canvi de l'usuari ja es detecti
+        // i es desi. En creació deixem la base a null perquè el primer títol vàlid dispari la
+        // creació via debounce.
         if (lastSavedData.current === null) {
             if (mode === 'edit' && eventData?.id) {
                 lastSavedData.current = currentStr;
@@ -430,6 +431,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             }
         }
 
+        // No autodesar durant la inicialització (un cop fixada la línia base en edició).
+        if (isInitializing.current) return;
         if (lastSavedData.current === currentStr) return;
 
         if (autoSaveTimeoutRef.current) {
@@ -644,6 +647,43 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
         const fullStart = buildDatetime(startDate, startTime);
         const fullEnd = buildDatetime(endDate, endTime);
+
+        // ─── Editar un event de Google JA EXISTENT (reobert en mode edició) → PATCH a Google ───
+        const existGm = eventData?.metadata || {};
+        const isExistingGoogle = mode === 'edit' && eventData?.id && (existGm._provider === 'google' || existGm._account) && !existGm._vault_path;
+        if (isExistingGoogle) {
+            const formSnap = snapshot || JSON.stringify({
+                title, allDay, startDate, endDate, startTime, endTime,
+                calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
+                endType, endCount, untilDate, description, attendees, travelTime
+            });
+            try {
+                await axios.patch(
+                    `/api/calendar/events/${encodeURIComponent(eventData.id)}?email=${encodeURIComponent(existGm._account)}&calendar_id=${encodeURIComponent(existGm._calendar_id || 'primary')}`,
+                    {
+                        summary: title.trim(),
+                        location: location.trim(),
+                        description: description.trim() || '',
+                        start: fullStart,
+                        end: fullEnd || fullStart,
+                        calendar_id: existGm._calendar_id || 'primary',
+                        attendees,
+                    }
+                );
+                lastSavedData.current = formSnap;
+                if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
+                onSaved?.();
+                if (!silent) onClose?.();
+            } catch (err) {
+                console.error('Error actualitzant event de Google:', err);
+                setSaveError(true);
+                if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
+                if (silent && snapshot) lastSavedData.current = snapshot;
+            } finally {
+                setSaving(false);
+            }
+            return;
+        }
 
         // ─── Calendari de Google: crear/editar l'event DE DEBÒ a Google (no al Vault) ───
         const selCal = calendars.find(c => c.id === calendarId);

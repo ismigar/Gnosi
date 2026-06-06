@@ -481,11 +481,16 @@ export default function CalendarPage() {
         // Comprovar si és un event extern (Google/CalDAV)
         const externalEv = externalEvents.find(ev => ev.id === pageId);
         if (externalEv) {
+            // Les cites de Google pròpies (no de només lectura) s'obren en mode edició perquè
+            // es puguin editar (es desen amb PATCH a Google); les compartides/read-only i la
+            // resta d'externs, en mode lectura.
+            const m = externalEv.metadata || {};
+            const isEditableGoogle = (m._provider === 'google' || !!m._account) && !m._vault_path && !m.readonly;
             setSelectedEventId(pageId);
             setSelectedEvent(externalEv);
-            setIsEditingEvent(false);
+            setIsEditingEvent(isEditableGoogle);
             setShowRightSidebar(true);
-            setEventPanel({ mode: 'view', data: externalEv, date: '', isEditing: false, isExternal: true });
+            setEventPanel({ mode: isEditableGoogle ? 'edit' : 'view', data: externalEv, date: '', isEditing: isEditableGoogle, isExternal: true });
             return;
         }
 
