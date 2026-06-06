@@ -65,9 +65,17 @@ de la taula (`drupal_sync_enabled`, `drupal_bundle`, `drupal_field_mapping`).
   **columnes reals** gestionades pel sistema ("Drupal NID" / "Drupal URL",
   `config.system: true`, read-only) i també a metadata oculta (`drupal_nid`,
   `drupal_url`).
-- Re-sync: si hi ha `drupal_uuid` → update; si no → create. Traduccions per
-  langcode (crea o actualitza). Termes resolts-o-creats per nom. Imatges en cache
-  per ruta dins l'execució.
+- **Crear** un node fa el build complet (imatge/tags/cos) en l'idioma de la fila.
+  **Actualitzar** un node existent toca NOMÉS el TEXT de l'idioma de la fila via
+  `add_translation(uuid, langcode, {title, body})` — apunta al langcode correcte
+  (no al per defecte) i **no re-puja la imatge**. Termes resolts-o-creats per nom.
+- **Abast del sync** (`scope`, param de `sync-drupal-row`): `"all"` (per defecte)
+  sincronitza l'idioma de la fila + les traduccions (subitems) + les **files
+  germanes** (altres registres amb el mateix `drupal_nid`, un per idioma);
+  `"lang_only"` només l'idioma d'aquesta fila. Triable al modal `SyncDrupalModal`.
+- **Guard de cos buit**: si el cos (markdown) de la fila és buit, NO s'envia el
+  camp `body` → no s'esborra el cos a Drupal. Per omplir buits, porta el contingut
+  de Drupal a Gnosi (HTML→MD) primer.
 
 ## Restriccions i casos límit (aprenentatge)
 - **`article` té `field_image` OBLIGATORI** → sincronitzar un article **exigeix**

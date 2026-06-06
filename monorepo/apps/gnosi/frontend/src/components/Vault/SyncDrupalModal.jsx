@@ -10,6 +10,7 @@ import { toast } from '../../lib/toast';
 export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, onSynced }) {
     const { t } = useTranslation();
     const [submitting, setSubmitting] = useState(false);
+    const [scope, setScope] = useState('all');
     if (!isOpen) return null;
 
     const existingUrl = recordMetadata?.drupal_url || '';
@@ -22,6 +23,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
             const res = await axios.post('/api/vault/skills/sync-drupal-row', {
                 item_id: noteId,
                 button_action: 'sync_drupal',
+                scope,
             });
             const d = res.data || {};
             const trOk = (d.translations || []).filter((x) => x.status === 'ok').length;
@@ -60,9 +62,20 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                 <div className="p-5 space-y-3">
                     <p className="text-xs text-[var(--text-secondary)]/80">
                         {alreadySynced
-                            ? t('drupal.sync_intro_update', "S'actualitzarà el node existent a Drupal i les seves traduccions.")
-                            : t('drupal.sync_intro_create', 'Es crearà un node nou a Drupal amb els camps mapats i les traduccions existents.')}
+                            ? t('drupal.sync_intro_update', "S'actualitzarà el node a Drupal segons l'abast triat.")
+                            : t('drupal.sync_intro_create', 'Es crearà el node a Drupal amb els camps mapats.')}
                     </p>
+
+                    <div className="space-y-1.5 rounded-lg border border-[var(--border-primary)] p-3">
+                        <label className="flex items-start gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
+                            <input type="radio" name="drupal-scope" className="mt-0.5" checked={scope === 'all'} onChange={() => setScope('all')} disabled={submitting} />
+                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.scope_all', 'Tot el node')}</span> — {t('drupal.scope_all_hint', "l'original i totes les traduccions / idiomes")}</span>
+                        </label>
+                        <label className="flex items-start gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
+                            <input type="radio" name="drupal-scope" className="mt-0.5" checked={scope === 'lang_only'} onChange={() => setScope('lang_only')} disabled={submitting} />
+                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.scope_lang', 'Només aquest idioma')}</span></span>
+                        </label>
+                    </div>
                     {alreadySynced && existingUrl && (
                         <a
                             href={existingUrl}
