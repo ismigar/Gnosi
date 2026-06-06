@@ -672,7 +672,22 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 );
                 lastSavedData.current = formSnap;
                 if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
-                onSaved?.();
+                // Actualització optimista (sense refetch) per no recarregar tot el calendari a
+                // cada tecla: passem l'event actualitzat perquè es refresqui només aquest.
+                onSaved?.({
+                    id: eventData.id,
+                    title: title.trim(),
+                    content: description.trim() || '',
+                    metadata: {
+                        ...existGm,
+                        date: fullStart,
+                        end_date: fullEnd || fullStart,
+                        all_day: allDay,
+                        location: location.trim(),
+                        description: description.trim() || '',
+                        attendees,
+                    },
+                });
                 if (!silent) onClose?.();
             } catch (err) {
                 console.error('Error actualitzant event de Google:', err);
