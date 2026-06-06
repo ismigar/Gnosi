@@ -11824,6 +11824,24 @@ def _drupal_find_column(table: dict, name: str) -> Optional[dict]:
     return None
 
 
+def _drupal_identity_meta(table: dict, uuid, nid, url) -> Dict[str, Any]:
+    """Metadata d'identitat de Drupal a escriure a la fila: claus ocultes
+    (`drupal_uuid/nid/url`) + les columnes visibles "Drupal NID" / "Drupal URL"
+    si existeixen. Compartit pel sync i pel match per títol."""
+    meta: Dict[str, Any] = {
+        "drupal_uuid": uuid or "",
+        "drupal_nid": str(nid) if nid is not None else "",
+        "drupal_url": url or "",
+    }
+    nid_col = _drupal_find_column(table, "Drupal NID")
+    url_col = _drupal_find_column(table, "Drupal URL")
+    if nid_col:
+        meta[nid_col.get("id") or nid_col["name"]] = str(nid) if nid is not None else ""
+    if url_col:
+        meta[url_col.get("id") or url_col["name"]] = url or ""
+    return meta
+
+
 def _drupal_read_prop_value(metadata: dict, prop: dict):
     """Valor d'una propietat al frontmatter, amb prioritat title→id→nom."""
     is_title = prop.get("type") == "title" or prop.get("name") == "title"
@@ -11911,6 +11929,87 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
     return {"data": {"type": "file--file", "id": file_uuid, "meta": {"alt": alt}}}
 
 
+# Preprocessat del markdown de Gnosi abans d'enviar-lo a Drupal: resol els
+# wikilinks `[[...]]` (a enllaç del node si el target ja està sincronitzat, o a
+# text pla) i treu els embeds `![[...]]`. La tipografia i els blocs `:::` els
+# gestiona pandoc (vegeu drupal_sync_service.markdown_to_full_html).
+_DRUPAL_EMBED_RE = re.compile(r"!\[\[([^\]]+)\]\]")
+_DRUPAL_WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
+_DRUPAL_UUID_RE = re.compile(r"^[0-9a-fA-F-]{32,36}$")
+
+
+def _drupal_resolve_title_to_id(title: str) -> Optional[str]:
+    """Títol → page_id via l'índex en memòria (com /resolve-by-title)."""
+    tl = str(title or "").strip().lower()
+    if not tl:
+        return None
+    try:
+        from backend.services.context_vars import get_active_vault_path
+
+        v_path = get_active_vault_path()
+        if not v_path:
+            return None
+        with _page_index_lock:
+            for entry in list(_page_index_entries.get(str(v_path), {}).values()):
+                if str(entry.get("title") or "").strip().lower() == tl:
+                    return entry.get("id")
+    except Exception:
+        return None
+    return None
+
+
+def _drupal_wikilink_url(target: str, cache: dict) -> Optional[str]:
+    """URL de Drupal del node d'un target de wikilink (títol o uuid), o None."""
+    base = target.split("#", 1)[0].strip()
+    if not base:
+        return None
+    if base in cache:
+        return cache[base]
+    url = None
+    pid = base if _DRUPAL_UUID_RE.match(base) else _drupal_resolve_title_to_id(base)
+    if pid:
+        try:
+            fp = find_page_path(pid)
+            if fp and fp.exists():
+                meta, _ = parse_frontmatter(fp.read_text(encoding="utf-8"), fp)
+                url = str(meta.get("drupal_url") or "").strip() or None
+        except Exception:
+            url = None
+    cache[base] = url
+    return url
+
+
+def _drupal_preprocess_md(md: str, *, cache: Optional[dict] = None) -> str:
+    """Adapta el markdown de Gnosi per a Drupal: treu embeds i resol wikilinks."""
+    if not md:
+        return md
+    cache = cache if cache is not None else {}
+    md = _DRUPAL_EMBED_RE.sub("", md)  # embeds/transclusions: no incrustables
+
+    def _repl(m):
+        inner = m.group(1)
+        if "|" in inner:
+            target, display = inner.split("|", 1)
+            display = display.strip()
+        else:
+            target = inner
+            display = inner.split("#", 1)[0].strip()
+        try:
+            url = _drupal_wikilink_url(target.strip(), cache)
+        except Exception:
+            url = None
+        return f"[{display}]({url})" if url else display
+
+    return _DRUPAL_WIKILINK_RE.sub(_repl, md)
+
+
+def _drupal_md_to_html(text: str, wl_cache: dict) -> str:
+    """Preprocessa (wikilinks/embeds) i converteix a HTML amb pandoc. Bloquejant."""
+    from backend.services import drupal_sync_service as drupal
+
+    return drupal.markdown_to_full_html(_drupal_preprocess_md(text or "", cache=wl_cache))
+
+
 async def _drupal_build_fields(
     *, mapping, props_by_ref, field_meta, metadata, body, bundle,
     term_cache, image_cache, text_only=False,
@@ -11926,13 +12025,14 @@ async def _drupal_build_fields(
     attributes: Dict[str, Any] = {}
     relationships: Dict[str, Any] = {}
     skipped: list = []
+    wl_cache: Dict[str, Any] = {}  # cache de resolució de wikilinks per a aquesta crida
     for ref, drupal_field in (mapping or {}).items():
         if not drupal_field:
             continue
         meta = field_meta.get(drupal_field) or {}
         ftype = meta.get("type")
         if ref == DRUPAL_BODY_REF:
-            html = await asyncio.to_thread(drupal.markdown_to_full_html, body or "")
+            html = await asyncio.to_thread(_drupal_md_to_html, body or "", wl_cache)
             attributes[drupal_field] = {"value": html, "format": "full_html"}
             continue
         prop = props_by_ref.get(ref)
@@ -11942,7 +12042,7 @@ async def _drupal_build_fields(
         if value in (None, "", [], {}):
             continue
         if ftype in ("text_with_summary", "text_long"):
-            html = await asyncio.to_thread(drupal.markdown_to_full_html, str(value))
+            html = await asyncio.to_thread(_drupal_md_to_html, str(value), wl_cache)
             attributes[drupal_field] = {"value": html, "format": "full_html"}
         elif ftype == "entity_reference":
             if text_only:
@@ -12081,17 +12181,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             translations.append({"lang": lang, "status": f"error: {exc}"})
 
     # --- Escriu identitat a la fila (columnes visibles + metadata oculta) ---
-    meta_update: Dict[str, Any] = {
-        "drupal_uuid": drupal_uuid or "",
-        "drupal_nid": str(nid) if nid is not None else "",
-        "drupal_url": url or "",
-    }
-    nid_col = _drupal_find_column(table, "Drupal NID")
-    url_col = _drupal_find_column(table, "Drupal URL")
-    if nid_col:
-        meta_update[nid_col.get("id") or nid_col["name"]] = str(nid) if nid is not None else ""
-    if url_col:
-        meta_update[url_col.get("id") or url_col["name"]] = url or ""
+    meta_update = _drupal_identity_meta(table, drupal_uuid, nid, url)
     try:
         await patch_page(item_id, PagePatchRequest(metadata=meta_update), background_tasks)
     except Exception as exc:
@@ -12177,6 +12267,80 @@ async def sync_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Bo
         except Exception as exc:
             errors.append({"item_id": iid, "detail": str(exc)})
     return {"status": "ok", "results": results, "errors": errors}
+
+
+@router.post("/skills/match-drupal-rows", dependencies=[Depends(require_role("editor"))])
+async def match_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    """Vincula files amb nodes de Drupal **existents** pel títol, sense crear res.
+
+    Cerca cada fila per títol exacte; si en troba exactament un, escriu
+    nid/url/uuid a la fila (no toca Drupal). Salta subitems de traducció i files
+    ja vinculades. Amb ``dry_run`` (per defecte True) només reporta què faria.
+
+    Body: ``{table_id, bundle?, item_ids?, dry_run?}``.
+    """
+    from backend.services import drupal_sync_service as drupal
+
+    table_id = (payload.get("table_id") or "").strip()
+    if not table_id:
+        raise HTTPException(status_code=400, detail="table_id is required")
+    table = _table_by_id(table_id)
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    bundle = (payload.get("bundle") or table.get("drupal_bundle") or "").strip()
+    if not bundle:
+        raise HTTPException(status_code=400, detail="Drupal bundle not configured (pass `bundle` or enable sync)")
+    dry_run = bool(payload.get("dry_run", True))
+    only_ids = payload.get("item_ids")
+    wanted = set(str(i) for i in only_ids) if isinstance(only_ids, list) and only_ids else None
+
+    rows = await asyncio.to_thread(_get_pages_for_table, table_id)
+
+    matched: list = []
+    unmatched: list = []
+    ambiguous: list = []
+    for p in rows:
+        if wanted is not None and p.id not in wanted:
+            continue
+        md = p.metadata or {}
+        if md.get("translation_lang"):
+            continue  # subitem de traducció: el cobreix el node pare
+        if str(md.get("drupal_uuid") or "").strip():
+            continue  # ja vinculada
+        title = (p.title or md.get("title") or "").strip()
+        if not title:
+            continue
+        try:
+            found = await drupal.find_nodes_by_title(bundle, title)
+        except drupal.DrupalSyncError as exc:
+            unmatched.append({"row_id": p.id, "title": title, "reason": str(exc)})
+            continue
+        if len(found) == 1:
+            m = found[0]
+            entry = {"row_id": p.id, "title": title, "nid": m["nid"], "url": m["url"], "uuid": m["uuid"]}
+            if not dry_run:
+                try:
+                    meta = _drupal_identity_meta(table, m["uuid"], m["nid"], m["url"])
+                    await patch_page(p.id, PagePatchRequest(metadata=meta), background_tasks)
+                    entry["applied"] = True
+                except Exception as exc:
+                    entry["applied"] = False
+                    entry["error"] = str(exc)
+            matched.append(entry)
+        elif not found:
+            unmatched.append({"row_id": p.id, "title": title})
+        else:
+            ambiguous.append({"row_id": p.id, "title": title, "nids": [m["nid"] for m in found]})
+
+    return {
+        "status": "ok",
+        "dry_run": dry_run,
+        "bundle": bundle,
+        "counts": {"matched": len(matched), "unmatched": len(unmatched), "ambiguous": len(ambiguous)},
+        "matched": matched,
+        "unmatched": unmatched,
+        "ambiguous": ambiguous,
+    }
 
 
 @router.post("/skills/translate-row", dependencies=[Depends(require_role("editor"))])

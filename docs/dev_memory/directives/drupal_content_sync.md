@@ -47,8 +47,13 @@ via `keychain_manager`). **El client normalitza la URL al host canònic sense
 de la taula (`drupal_sync_enabled`, `drupal_bundle`, `drupal_field_mapping`).
 - text/string/list_string/email → atribut string.
 - integer/decimal → número.
-- text_with_summary/text_long (p. ex. `body`) → `{value: <html>, format:'full_html'}`
-  (Markdown→HTML amb pandoc). El **cos de la pàgina** es mapa via `__body__`.
+- text_with_summary/text_long (p. ex. `body`) → `{value: <html>, format:'full_html'}`.
+  El **cos de la pàgina** es mapa via `__body__`. Conversió Markdown→HTML amb
+  pandoc: `-f markdown-smart` (no toca cometes/guions), `--shift-heading-level-by=1`
+  (els títols del cos no fan `<h1>`, que ja és el títol del node), i els blocs
+  `::: nom … :::` → `<div class="nom">`. **Abans** de pandoc, `_drupal_preprocess_md`
+  resol els wikilinks `[[X]]` / `[[X|àlies]]` (a un enllaç del node si el target ja
+  està sincronitzat —té `drupal_url`—, o a text pla si no) i treu els embeds `![[…]]`.
 - entity_reference (p. ex. `field_tags`) → `taxonomy_term--<vocab>`; el vocabulari
   surt de `settings.handler_settings.target_bundles` (defecte `tags`). Crea termes
   que faltin.
