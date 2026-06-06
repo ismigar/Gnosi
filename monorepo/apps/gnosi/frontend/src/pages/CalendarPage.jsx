@@ -713,26 +713,38 @@ export default function CalendarPage() {
     // Callback quan es desa un event - actualizar solo ese evento en el estado local
     const handleEventSaved = useCallback((updatedEvent) => {
         if (updatedEvent) {
-            // Actualització optimista
-            setPages(prevPages => {
-                const existingIndex = prevPages.findIndex(page => page.id === updatedEvent.id);
-                if (existingIndex !== -1) {
-                    // Event existent: actualitzar
-                    return prevPages.map(page => 
-                        page.id === updatedEvent.id
-                            ? {
-                                ...page,
-                                ...updatedEvent,
-                                metadata: updatedEvent.metadata || page.metadata,
-                            }
-                            : page
-                    );
-                } else {
-                    // Event nou: afegir
-                    return [...prevPages, updatedEvent];
-                }
-            });
-            
+            const m = updatedEvent.metadata || {};
+            const isGoogle = (m._provider === 'google' || !!m._account) && !m._vault_path;
+            if (isGoogle) {
+                // Actualització optimista d'un event extern (Google): actualitza NOMÉS aquest
+                // event, sense refetch, per no recarregar tot el calendari a cada tecla.
+                setExternalEvents(prev => prev.map(ev =>
+                    ev.id === updatedEvent.id
+                        ? { ...ev, ...updatedEvent, metadata: { ...ev.metadata, ...(updatedEvent.metadata || {}) } }
+                        : ev
+                ));
+            } else {
+                // Actualització optimista (Vault)
+                setPages(prevPages => {
+                    const existingIndex = prevPages.findIndex(page => page.id === updatedEvent.id);
+                    if (existingIndex !== -1) {
+                        // Event existent: actualitzar
+                        return prevPages.map(page =>
+                            page.id === updatedEvent.id
+                                ? {
+                                    ...page,
+                                    ...updatedEvent,
+                                    metadata: updatedEvent.metadata || page.metadata,
+                                }
+                                : page
+                        );
+                    } else {
+                        // Event nou: afegir
+                        return [...prevPages, updatedEvent];
+                    }
+                });
+            }
+
             // Si l'event actualitzat és el seleccionat, actualitzar selectedEvent també
             if (selectedEventId === updatedEvent.id) {
                 setSelectedEvent(prevEvent => ({
@@ -963,10 +975,20 @@ export default function CalendarPage() {
                             onSearchChange={setSearchQuery}
                             eventPanel={eventPanel}
                             onClosePanel={() => {
+                                const wasEditing = eventPanel?.mode === 'edit';
                                 setEventPanel(null);
                                 setSelectedEventId(null);
                                 setSelectedEvent(null);
                                 setIsEditingEvent(false);
+                                // Després d'editar, refresca UN sol cop en tancar perquè el calendari
+                                // reflecteixi els canvis desats. Durant l'edició fem actualització
+                                // optimista (sense refetch) per evitar el parpadeig a cada tecla.
+                                if (wasEditing && dateRange) {
+                                    setTimeout(() => {
+                                        fetchExternalEvents(dateRange.start, dateRange.end, searchQuery);
+                                        fetchPages();
+                                    }, 700);
+                                }
                             }}
                             onSaved={handleEventSaved}
                             onRsvp={handleRsvp}
