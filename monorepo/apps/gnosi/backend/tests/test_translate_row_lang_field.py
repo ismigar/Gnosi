@@ -19,6 +19,7 @@ from fastapi import BackgroundTasks
 
 import backend.api.vault_routes as vr
 from backend.api.vault_routes import _do_translate_row
+from backend.services import translation_index
 
 TABLE_ID = "tbl_articles"
 ORIGIN_ID = "11111111-2714-8031-911a-e4191d7d01fd"
@@ -65,6 +66,9 @@ def captured(tmp_path, monkeypatch):
         "---\n",  # cos buit a propòsit: no carrega el segmenter → cap crida de xarxa
         encoding="utf-8",
     )
+    # Índex de traduccions aïllat al tmp (mai toca el /app/data real).
+    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path))
+
     monkeypatch.setattr(vr, "find_page_path", lambda pid: origin)
     monkeypatch.setattr(vr, "_table_by_id", lambda tid: _make_table() if tid == TABLE_ID else None)
 
@@ -74,8 +78,12 @@ def captured(tmp_path, monkeypatch):
     async def _no_recover(*a, **k):
         return {}
 
+    async def _noop_materialize(p, label=""):
+        return None
+
     monkeypatch.setattr(vr, "_get_existing_translations", _no_existing)
     monkeypatch.setattr(vr, "_recover_translations_from_disk", _no_recover)
+    monkeypatch.setattr(vr, "_materialize_if_online_only", _noop_materialize)
 
     created = []
 
@@ -83,7 +91,11 @@ def captured(tmp_path, monkeypatch):
         created.append(request)
         return {"id": f"new-{len(created)}"}
 
+    async def _fake_patch_page(page_id, request, background_tasks):
+        return {"id": page_id}
+
     monkeypatch.setattr(vr, "create_page", _fake_create_page)
+    monkeypatch.setattr(vr, "patch_page", _fake_patch_page)
     return created
 
 
@@ -175,3 +187,36 @@ def test_image_field_keeps_src_translates_alt(captured):
     assert isinstance(img, dict), md
     assert img["src"] == "Articles/prueba.png"  # imatge mantinguda, no duplicada
     assert img["alt"] == "Texto alternativo en castellano. [ca]"  # alt traduït
+
+
+def test_translation_registered_in_local_index(captured):
+    """En crear subitems, translate-row els registra a l'índex local
+    (origin → lang → id), font fiable d'idempotència fora d'OneDrive."""
+    asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["ca", "en"],
+            translate_fn=_fake_translate,
+            detect_fn=_fake_detect,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    known = translation_index.get_known_translations(ORIGIN_ID)
+    assert set(known.keys()) == {"ca", "en"}
+    assert all(v for v in known.values())
+
+
+def test_idempotent_via_local_index_no_duplicate(captured):
+    """Re-traduir el mateix idioma reusa el subitem registrat a l'índex local
+    (patch), no en crea un de nou — encara que snapshot i _recover tornin buit
+    (el cas OneDrive online-only que duplicava). Només hi ha d'haver 1 create."""
+    args = dict(
+        translate_fn=_fake_translate,
+        detect_fn=_fake_detect,
+        deepl_api_key="",
+        background_tasks=BackgroundTasks(),
+    )
+    asyncio.run(_do_translate_row(ORIGIN_ID, ["ca"], **args))
+    asyncio.run(_do_translate_row(ORIGIN_ID, ["ca"], **args))
+    assert len(captured) == 1  # el segon translate fa patch via l'índex, no create
