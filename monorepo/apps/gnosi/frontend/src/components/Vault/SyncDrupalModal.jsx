@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { X, Globe, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // Modal de confirmació per sincronitzar una fila amb Drupal. A diferència de la
 // traducció, no hi ha res a triar: es crea/actualitza el node i totes les seves
@@ -12,7 +13,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
     const [submitting, setSubmitting] = useState(false);
     const [scope, setScope] = useState('all');
     const [pushMedia, setPushMedia] = useState(false);
-    if (!isOpen) return null;
+    const containerRef = useRef(null);
 
     const existingUrl = recordMetadata?.drupal_url || '';
     const existingNid = recordMetadata?.drupal_nid || '';
@@ -51,9 +52,27 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
         }
     };
 
+    // Esc cancel·la, Enter confirma (acció positiva). Veure useModalKeyboard.
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        onConfirm: handleSubmit,
+        confirmDisabled: submitting,
+        containerRef,
+    });
+
+    if (!isOpen) return null;
+
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm">
-            <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]">
+        <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
+            onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
+        >
+            <div
+                ref={containerRef}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]"
+            >
                 <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Globe size={18} className="text-[var(--gnosi-primary)]" />
@@ -112,6 +131,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                         {t('common.cancel')}
                     </button>
                     <button
+                        autoFocus
                         onClick={handleSubmit}
                         disabled={submitting}
                         className="btn-gnosi btn-gnosi-primary px-5 flex items-center gap-2 disabled:opacity-50"

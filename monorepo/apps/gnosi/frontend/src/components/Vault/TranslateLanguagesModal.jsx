@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { X, Languages, Loader2 } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { detectRecordSourceLang } from './schemaUtils';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // Idiomes oferts per defecte. L'idioma origen el detecta la skill del backend
 // en enviar; aquí, a més, l'amaguem de la llista quan el coneixem pel camp
@@ -29,6 +30,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
     const { t } = useTranslation();
     const [selected, setSelected] = useState([]);
     const [submitting, setSubmitting] = useState(false);
+    const containerRef = useRef(null);
     // `mode` generalitza el modal: 'row' tradueix una fila de taula (subitems),
     // 'page' tradueix una pàgina sencera (subpàgines filles), 'bulk' tradueix
     // diverses files seleccionades alhora (un subitem per fila i idioma).
@@ -51,8 +53,6 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
     useEffect(() => {
         if (isOpen) setSelected([]);
     }, [isOpen]);
-
-    if (!isOpen) return null;
 
     const toggle = (code) => {
         if (code === sourceLang) return; // no es pot triar l'idioma original
@@ -96,9 +96,27 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
         }
     };
 
+    // Esc cancel·la, Enter confirma (acció positiva). Veure useModalKeyboard.
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        onConfirm: handleSubmit,
+        confirmDisabled: submitting || selected.length === 0,
+        containerRef,
+    });
+
+    if (!isOpen) return null;
+
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm">
-            <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]">
+        <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
+            onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
+        >
+            <div
+                ref={containerRef}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]"
+            >
                 <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Languages size={18} className="text-[var(--gnosi-primary)]" />
