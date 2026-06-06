@@ -5,6 +5,24 @@
 Documentar el setup robust del daemon `onedrive_warmup_daemon.py` perquè
 sobrevisqui reboots, relaunch i actualitzacions de codi sense ritual manual.
 
+## ⚠️ CORRECCIÓ CRÍTICA (2026-06-06) — el LaunchAgent NO materialitza
+
+**El setup de LaunchAgent d'aquesta directiva NO pot materialitzar fitxers
+online-only.** Provat empíricament (sessió tender-shtern): macOS denega la
+materialització del File Provider de tercers (OneDrive) als processos de
+**fons** (LaunchAgent, fins i tot `gui/$UID`): `read()` → **EDEADLK (errno 11)**,
+`qlmanage` → timeout. El **MATEIX daemon, mateix binari `/usr/bin/python3`,
+arrencat des d'una SESSIÓ GRÀFICA** (Terminal o Login Item) SÍ materialitza
+(provat: instància a port 5010 → `{"status":"materialized"}` en 1,3s).
+
+**No és FDA** (l'errno és 11, no 1) ni el bundle `.app` (el llançador no llegeix,
+només fa `exec` de python3). És el **context de llançament**.
+
+→ **Fix**: arrencar el daemon com a **Login Item** (sessió gràfica), no com a
+LaunchAgent. Vegeu `sh/install_warmup_loginitem.sh`. La resta d'aquesta directiva
+(plist/LaunchAgent) queda **obsoleta** per a la materialització (el LaunchAgent
+encara serveix `/healthz` i `/thumb` de fitxers ja locals, però no materialitza).
+
 ## Components
 
 | Component | Path | Funció |
