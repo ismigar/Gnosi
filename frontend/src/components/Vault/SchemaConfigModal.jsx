@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -663,7 +663,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
     );
 }
 
-export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null }) {
+export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, tableId = null }) {
     const { t } = useTranslation();
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
@@ -679,6 +679,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const [drupalFields, setDrupalFields] = useState([]);
     const [drupalLoading, setDrupalLoading] = useState(false);
     const [drupalError, setDrupalError] = useState('');
+    const [matching, setMatching] = useState(false);
     // Guard d'inicialització: només volem sincronitzar l'estat local amb les
     // props quan el modal s'obre. Si el pare re-renderitza mentre està obert
     // (p.ex. fetchRegistry posterior a una acció no relacionada), les props
@@ -862,6 +863,23 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const handleToggleDrupalSync = (next) => {
         setEnableDrupalSync(next);
         if (next) addDrupalColumns();
+    };
+
+    // Vincula les files existents amb nodes de Drupal pel títol (backfill de
+    // nid/url, sense crear res a Drupal). Útil per a contingut creat abans
+    // d'activar la sinc, o en afegir registres nous.
+    const handleMatchExisting = async () => {
+        if (!tableId || !drupalBundle) return;
+        setMatching(true);
+        try {
+            const res = await axios.post('/api/vault/skills/match-drupal-rows', { table_id: tableId, dry_run: false });
+            const c = res.data?.counts || {};
+            toast.success(t('schema.drupal_match_done', { matched: c.matched || 0, unmatched: c.unmatched || 0, defaultValue: '{{matched}} vinculats · {{unmatched}} sense match.' }));
+        } catch (err) {
+            toast.error(err.response?.data?.detail || t('schema.drupal_match_error', 'Error vinculant amb Drupal.'));
+        } finally {
+            setMatching(false);
+        }
     };
 
     // Descobreix els tipus de contingut de Drupal en activar la sincronització.
@@ -1341,6 +1359,18 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                                 ))}
                                             </div>
                                         </div>
+                                    )}
+                                    {drupalBundle && tableId && (
+                                        <button
+                                            type="button"
+                                            onClick={handleMatchExisting}
+                                            disabled={matching}
+                                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50"
+                                            title={t('schema.drupal_match_hint', 'Cerca per títol nodes ja existents a Drupal i n\'omple el NID/URL a les files (no crea res).')}
+                                        >
+                                            {matching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                                            {t('schema.drupal_match_existing', 'Vincular registres existents per títol')}
+                                        </button>
                                     )}
                                 </div>
                             )}

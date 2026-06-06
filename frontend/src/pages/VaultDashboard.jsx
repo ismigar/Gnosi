@@ -3631,6 +3631,7 @@ export default function VaultDashboard() {
                             initialEnableDrupalSync={!!activeTable?.drupal_sync_enabled}
                             initialDrupalBundle={activeTable?.drupal_bundle || ''}
                             initialDrupalFieldMapping={activeTable?.drupal_field_mapping || {}}
+                            tableId={activeTableId}
                             onSchemaUpdated={(newSchema) => setSchema(newSchema)}
                             onSave={async (newSchemaObj, viewConfig) => {
                                 const newProperties = buildTablePropertiesFromSchema(newSchemaObj);

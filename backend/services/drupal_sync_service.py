@@ -178,6 +178,34 @@ async def list_fields(bundle: str) -> list[dict]:
     return fields
 
 
+async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[dict]:
+    """Nodes del bundle amb el títol EXACTE indicat: ``[{uuid, nid, url, title}]``.
+
+    Serveix per vincular files de Gnosi a nodes de Drupal ja existents sense
+    crear-ne de nous (match per títol).
+    """
+    title = (title or "").strip()
+    if not title:
+        return []
+    async with _client() as c:
+        r = await c.get(
+            f"/jsonapi/node/{bundle}",
+            params={"filter[title]": title, "page[limit]": limit},
+        )
+    _raise_for(r, "find_nodes_by_title")
+    base = _base_url()
+    out: list[dict] = []
+    for d in r.json().get("data", []):
+        a = d.get("attributes", {})
+        out.append({
+            "uuid": d.get("id"),
+            "nid": a.get("drupal_internal__nid"),
+            "url": _node_url(base, a),
+            "title": a.get("title"),
+        })
+    return out
+
+
 # --- Escriptura ------------------------------------------------------------
 
 async def create_node(
@@ -342,7 +370,12 @@ def markdown_to_full_html(md: str) -> str:
             tmp = Path(tmpdir)
             (tmp / "in.md").write_text(text, encoding="utf-8")
             r = subprocess.run(
-                ["pandoc", "in.md", "-f", "markdown", "-t", "html", "--wrap=none"],
+                # markdown-smart: NO transforma cometes/guions (respecta el text
+                # de l'autor). shift-heading-level-by=1: el títol del node ja és
+                # l'<h1>, així els títols del cos baixen un nivell (cap <h1>
+                # duplicat). Els blocs `::: nom … :::` → <div class="nom">.
+                ["pandoc", "in.md", "-f", "markdown-smart", "-t", "html",
+                 "--wrap=none", "--shift-heading-level-by=1"],
                 cwd=tmp, capture_output=True, text=True, timeout=30,
             )
             if r.returncode == 0:
