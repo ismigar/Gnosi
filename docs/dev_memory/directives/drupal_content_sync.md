@@ -72,6 +72,13 @@ de la taula (`drupal_sync_enabled`, `drupal_bundle`, `drupal_field_mapping`).
   **Actualitzar** un node existent toca NOMÉS el TEXT de l'idioma de la fila via
   `add_translation(uuid, langcode, {title, body})` — apunta al langcode correcte
   (no al per defecte) i **no re-puja la imatge**. Termes resolts-o-creats per nom.
+- **Re-empènyer mèdia** (`push_media`, param de `sync-drupal-row`): en
+  ACTUALITZAR, a més del text, torna a pujar i re-enllaça `field_image` (build
+  `_drupal_build_fields(media_only=True)` → `update_node`). La imatge és un camp
+  compartit entre traduccions → es fa **un sol cop** per al node. El
+  `NodeController` (n8n_helper) aplica `relationships.field_image.data.meta.alt`
+  a l'alt. Casella "Tornar a pujar la imatge" al `SyncDrupalModal` (només quan el
+  node ja existeix; en crear, la imatge sempre s'inclou).
 - **Abast del sync** (`scope`, param de `sync-drupal-row`): `"all"` (per defecte)
   sincronitza l'idioma de la fila + les traduccions (subitems) + les **files
   germanes** (altres registres amb el mateix `drupal_nid`, un per idioma);
