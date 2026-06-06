@@ -84,6 +84,7 @@ from backend.services.translation_helpers import (
     is_image_field_name,
     translate_image_field,
 )
+from backend.services import translation_index
 
 
 def _table_by_id(table_id: str) -> Optional[dict]:
@@ -11661,6 +11662,22 @@ async def _do_translate_row(
         for _lang, _page in _recovered.items():
             existing_translations.setdefault(_lang, _page)
 
+    # Font MÉS fiable sota OneDrive: l'índex LOCAL de traduccions, que viu fora
+    # del Vault i mai és online-only (a diferència del snapshot i del disc, que
+    # fallen amb fitxers descarregats → es creaven duplicats). Hi confiem per als
+    # idiomes que les altres vies no han trobat, validant cada id contra el disc;
+    # si el subitem ja no existeix (esborrat), netegem l'entrada rància.
+    from types import SimpleNamespace as _SNS
+    _local_known = await asyncio.to_thread(translation_index.get_known_translations, item_id)
+    for _lang, _sid in _local_known.items():
+        if _lang in existing_translations:
+            continue
+        _p = await asyncio.to_thread(find_page_path, _sid)
+        if _p and _p.exists():
+            existing_translations[_lang] = _SNS(id=_sid, metadata={})
+        else:
+            await asyncio.to_thread(translation_index.forget_translation, item_id, _lang)
+
     created: list = []
     updated: list = []
     skipped: list = []
@@ -11763,6 +11780,11 @@ async def _do_translate_row(
         existing = existing_translations.get(lang)
         existing_id = getattr(existing, "id", None) if existing is not None else None
         if existing_id:
+            # Materialitza el subitem si OneDrive l'ha descarregat (online-only)
+            # perquè el patch —que el llegeix per fer merge— no falli amb errno 35.
+            _existing_path = await asyncio.to_thread(find_page_path, existing_id)
+            if _existing_path:
+                await _materialize_if_online_only(_existing_path, f"translate-patch/{existing_id}")
             # Idempotent update: refresh títol, camps i cos. Només passem `content`
             # si hem traduït cos; si no, el deixem com estava (None) per no
             # esborrar un cos que l'usuari hagués pogut editar manualment.
@@ -11773,6 +11795,7 @@ async def _do_translate_row(
             )
             try:
                 await patch_page(existing_id, patch_req, background_tasks)
+                await asyncio.to_thread(translation_index.record_translation, item_id, lang, existing_id)
                 updated.append({
                     "id": existing_id,
                     "lang": lang,
@@ -11792,8 +11815,11 @@ async def _do_translate_row(
         )
         try:
             result = await create_page(sub_request, background_tasks)
+            _new_id = result.get("id")
+            if _new_id:
+                await asyncio.to_thread(translation_index.record_translation, item_id, lang, _new_id)
             created.append({
-                "id": result.get("id"),
+                "id": _new_id,
                 "lang": lang,
                 "providers": sorted(providers_used),
                 "title": sub_title,
