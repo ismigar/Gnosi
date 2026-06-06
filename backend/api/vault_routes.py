@@ -12032,7 +12032,9 @@ async def _drupal_build_fields(
         meta = field_meta.get(drupal_field) or {}
         ftype = meta.get("type")
         if ref == DRUPAL_BODY_REF:
-            html = await asyncio.to_thread(_drupal_md_to_html, body or "", wl_cache)
+            if not (body or "").strip():
+                continue  # cos buit: no l'enviïs (evita esborrar el cos a Drupal)
+            html = await asyncio.to_thread(_drupal_md_to_html, body, wl_cache)
             attributes[drupal_field] = {"value": html, "format": "full_html"}
             continue
         prop = props_by_ref.get(ref)
@@ -12077,11 +12079,56 @@ async def _drupal_build_fields(
     return attributes, relationships, skipped
 
 
-async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True) -> dict:
-    """Crea o actualitza el node de Drupal d'una fila (i les seves traduccions).
+def _drupal_sibling_rows(table_id, nid, exclude_id):
+    """Files germanes: altres registres de la mateixa taula vinculats al MATEIX
+    node de Drupal (mateix nid), cada un en el seu idioma. Per a taules on les
+    traduccions són files separades (no subitems)."""
+    if not nid:
+        return []
+    out = []
+    try:
+        for p in _get_pages_for_table(table_id):
+            if p.id == exclude_id:
+                continue
+            md = p.metadata or {}
+            if md.get("translation_lang"):
+                continue
+            if str(md.get("drupal_nid") or "") == str(nid) and str(md.get("drupal_uuid") or "").strip():
+                out.append(p)
+    except Exception as exc:
+        log.warning(f"sync-drupal: sibling lookup failed: {exc}")
+    return out
 
-    Amb ``publish=False`` el node es crea despublicat (esborrany) perquè l'usuari
-    el revisi a Drupal abans de publicar-lo. En actualitzar no es toca l'estat.
+
+async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta, bundle, term_cache, image_cache):
+    """Llegeix una fila i en construeix els camps de TEXT (per a add_translation).
+    Retorna (fields, langcode) o (None, None) si no es pot llegir."""
+    fp = await asyncio.to_thread(find_page_path, page_id)
+    if not fp or not fp.exists():
+        return None, None
+    await _materialize_if_online_only(fp, "drupal-sync")
+    raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
+    meta, bdy = parse_frontmatter(raw, fp)
+    fields, _, _ = await _drupal_build_fields(
+        mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+        metadata=meta, body=bdy, bundle=bundle,
+        term_cache=term_cache, image_cache=image_cache, text_only=True,
+    )
+    if fields and not fields.get("title"):
+        fields["title"] = str(meta.get("title") or "Sense títol")
+    return fields, (detect_record_source_lang(meta) or "ca")
+
+
+async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True, scope: str = "all") -> dict:
+    """Crea o actualitza el node de Drupal d'una fila.
+
+    ``scope``:
+      - ``"all"``: l'idioma d'aquesta fila + totes les traduccions (subitems) i
+        les files germanes (mateix node, un registre per idioma).
+      - ``"lang_only"``: només l'idioma d'aquesta fila.
+    Crear un node nou puja imatge/tags; actualitzar només toca el TEXT de
+    l'idioma corresponent (``add_translation``), sense re-pujar la imatge.
+    Amb ``publish=False`` el node nou es crea despublicat.
     """
     from backend.services import drupal_sync_service as drupal
 
@@ -12119,16 +12166,19 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     term_cache: Dict[str, str] = {}
     image_cache: Dict[str, str] = {}
 
-    attributes, relationships, skipped_fields = await _drupal_build_fields(
+    source_lang = detect_record_source_lang(metadata) or "ca"
+    skipped_fields: list = []
+    languages: list = []
+
+    # Camps de TEXT d'aquesta fila (per actualitzar el seu idioma sense re-pujar
+    # la imatge). El build complet (imatge/tags) només es fa en CREAR el node.
+    text_attrs, _, _ = await _drupal_build_fields(
         mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
         metadata=metadata, body=body, bundle=bundle,
-        term_cache=term_cache, image_cache=image_cache,
+        term_cache=term_cache, image_cache=image_cache, text_only=True,
     )
-    # Drupal exigeix un títol no buit.
-    if not attributes.get("title"):
-        attributes["title"] = str(metadata.get("title") or "Sense títol")
-
-    source_lang = detect_record_source_lang(metadata) or "ca"
+    if not text_attrs.get("title"):
+        text_attrs["title"] = str(metadata.get("title") or "Sense títol")
 
     drupal_uuid = (str(metadata.get("drupal_uuid") or "")).strip() or None
     prev_url = (str(metadata.get("drupal_url") or "")).strip() or None
@@ -12137,48 +12187,68 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     created = False
     try:
         if drupal_uuid:
+            # Actualitza NOMÉS l'idioma d'aquesta fila (text), al langcode correcte.
             try:
-                res = await drupal.update_node(drupal_uuid, bundle, attributes, relationships)
-                nid = res.get("nid")
-                url = prev_url or (f"{drupal.base_url()}/node/{nid}" if nid else None)
+                r = await drupal.add_translation(drupal_uuid, source_lang, text_attrs)
+                nid = r.get("nid")
+                url = prev_url or (f"{drupal.base_url()}/node/{nid}" if nid else prev_url)
+                languages.append(source_lang)
             except drupal.DrupalNotFound:
                 drupal_uuid = None  # uuid ranci → crear de nou
         if not drupal_uuid:
-            create_attrs = attributes if publish else {**attributes, "status": False}
+            # Node NOU: build complet (imatge/tags/cos) en l'idioma de la fila.
+            full_attrs, relationships, skipped_fields = await _drupal_build_fields(
+                mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+                metadata=metadata, body=body, bundle=bundle,
+                term_cache=term_cache, image_cache=image_cache,
+            )
+            if not full_attrs.get("title"):
+                full_attrs["title"] = str(metadata.get("title") or "Sense títol")
+            create_attrs = full_attrs if publish else {**full_attrs, "status": False}
             res = await drupal.create_node(bundle, create_attrs, relationships, langcode=source_lang)
             drupal_uuid = res.get("uuid")
             nid = res.get("nid")
             url = res.get("url")
             created = True
+            languages.append(source_lang)
     except drupal.DrupalSyncError as exc:
         raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
-    # --- Traduccions: empeny només text/cos a cada langcode existent ---
+    # --- Abast "tot el node": traduccions (subitems) + files germanes ---
     translations: list = []
-    existing = await _get_existing_translations(item_id)
-    for lang, page in (existing or {}).items():
-        sub_id = getattr(page, "id", None)
-        if not sub_id:
-            continue
-        sub_path = await asyncio.to_thread(find_page_path, sub_id)
-        if not sub_path or not sub_path.exists():
-            continue
-        await _materialize_if_online_only(sub_path, "drupal-sync-tr")
-        sub_raw = await asyncio.to_thread(sub_path.read_text, encoding="utf-8")
-        sub_meta, sub_body = parse_frontmatter(sub_raw, sub_path)
-        tfields, _, _ = await _drupal_build_fields(
-            mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-            metadata=sub_meta, body=sub_body, bundle=bundle,
-            term_cache=term_cache, image_cache=image_cache, text_only=True,
-        )
-        if not tfields:
-            translations.append({"lang": lang, "status": "skipped (sense text)"})
-            continue
-        try:
-            await drupal.add_translation(drupal_uuid, lang, tfields)
-            translations.append({"lang": lang, "status": "ok"})
-        except drupal.DrupalSyncError as exc:
-            translations.append({"lang": lang, "status": f"error: {exc}"})
+    if scope == "all" and drupal_uuid:
+        # 1) Traduccions com a subitems (parent + subitems fills).
+        existing = await _get_existing_translations(item_id)
+        for lang, page in (existing or {}).items():
+            sub_id = getattr(page, "id", None)
+            if not sub_id:
+                continue
+            tfields, _ = await _drupal_row_text_fields(
+                sub_id, mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+                bundle=bundle, term_cache=term_cache, image_cache=image_cache)
+            if not tfields:
+                translations.append({"lang": lang, "status": "skipped (sense text)"})
+                continue
+            try:
+                await drupal.add_translation(drupal_uuid, lang, tfields)
+                translations.append({"lang": lang, "status": "ok"})
+                languages.append(lang)
+            except drupal.DrupalSyncError as exc:
+                translations.append({"lang": lang, "status": f"error: {exc}"})
+        # 2) Files germanes: altres registres del mateix node (un per idioma).
+        siblings = await asyncio.to_thread(_drupal_sibling_rows, table_id, nid, item_id)
+        for sib in siblings:
+            tfields, sib_lang = await _drupal_row_text_fields(
+                sib.id, mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+                bundle=bundle, term_cache=term_cache, image_cache=image_cache)
+            if not tfields or not sib_lang:
+                continue
+            try:
+                await drupal.add_translation(drupal_uuid, sib_lang, tfields)
+                translations.append({"lang": sib_lang, "row": sib.id, "status": "ok"})
+                languages.append(sib_lang)
+            except drupal.DrupalSyncError as exc:
+                translations.append({"lang": sib_lang, "row": sib.id, "status": f"error: {exc}"})
 
     # --- Escriu identitat a la fila (columnes visibles + metadata oculta) ---
     meta_update = _drupal_identity_meta(table, drupal_uuid, nid, url)
@@ -12194,6 +12264,8 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
         "url": url,
         "created": created,
         "source_lang": source_lang,
+        "scope": scope,
+        "languages": sorted(set(languages)),
         "translations": translations,
         "skipped_fields": skipped_fields,
     }
@@ -12246,7 +12318,12 @@ async def sync_drupal_row(background_tasks: BackgroundTasks, payload: dict = Bod
     if button_action != "sync_drupal":
         raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
     publish = payload.get("publish", True)
-    result = await _do_sync_drupal_row(item_id, background_tasks=background_tasks, publish=bool(publish))
+    scope = payload.get("scope") or "all"
+    if scope not in ("all", "lang_only"):
+        scope = "all"
+    result = await _do_sync_drupal_row(
+        item_id, background_tasks=background_tasks, publish=bool(publish), scope=scope
+    )
     return {"status": "ok", **result}
 
 
