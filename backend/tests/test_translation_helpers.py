@@ -19,6 +19,9 @@ from backend.services.translation_helpers import (
     find_language_property,
     language_field_value,
     language_field_assignment,
+    is_image_field_name,
+    is_composite_image_value,
+    translate_image_field,
 )
 
 
@@ -284,3 +287,52 @@ def test_assignment_replicates_parent_list_format():
     # tipus sigui un select simple).
     props = [{"name": "Idioma", "type": "select", "id": "f5"}]
     assert language_field_assignment(props, "de", {"Idioma": ["ES"]}) == ("f5", ["DE"])
+
+
+# --------------------------------------------------------------------------- #
+# Camps imatge compostos
+# --------------------------------------------------------------------------- #
+def test_is_image_field_name_accepts_image_excludes_text():
+    assert is_image_field_name("Imatge") is True
+    assert is_image_field_name("Cover") is True
+    assert is_image_field_name("Foto portada") is True
+    # Noms que denoten text SOBRE la imatge → no són camps imatge:
+    assert is_image_field_name("Imatge Alt Text") is False
+    assert is_image_field_name("Caption") is False
+    assert is_image_field_name("Peu de foto") is False
+    assert is_image_field_name("Títol") is False
+
+
+def test_is_composite_image_value():
+    assert is_composite_image_value({"src": "Articles/x.png", "alt": "y"}) is True
+    assert is_composite_image_value({"url": "http://x/y.png"}) is True
+    assert is_composite_image_value({"alt": "y"}) is False   # sense src/url/path
+    assert is_composite_image_value("Articles/x.png") is False  # ruta string
+    assert is_composite_image_value(None) is False
+
+
+def test_translate_image_field_keeps_src_translates_text_subfields():
+    val = {"src": "Articles/x.png", "alt": "hola", "title": "títol", "credit": "autor"}
+    out, provs, any_tr = translate_image_field(val, lambda s: (s.upper(), "p"))
+    assert out["src"] == "Articles/x.png"      # imatge intacta (no es duplica)
+    assert out["alt"] == "HOLA"
+    assert out["title"] == "TÍTOL"
+    assert out["credit"] == "AUTOR"
+    assert any_tr is True
+    assert provs == {"p"}
+
+
+def test_translate_image_field_string_path_unchanged():
+    # Una ruta string es manté tal qual: no es tradueix la ruta com si fos prosa.
+    out, provs, any_tr = translate_image_field("Articles/x.png", lambda s: (s.upper(), "p"))
+    assert out == "Articles/x.png"
+    assert any_tr is False
+    assert provs == set()
+
+
+def test_translate_image_field_noop_provider_not_collected():
+    val = {"src": "x.png", "alt": "ja en destí"}
+    out, provs, any_tr = translate_image_field(val, lambda s: (s, "noop"))
+    assert out["alt"] == "ja en destí"
+    assert any_tr is True           # s'ha processat el subcamp...
+    assert provs == set()           # ...però el provider "noop" no es comptabilitza

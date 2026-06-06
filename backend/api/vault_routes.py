@@ -80,6 +80,9 @@ from backend.services.translation_helpers import (
     translatable_content_changed,
     detect_record_source_lang,
     language_field_assignment,
+    is_composite_image_value,
+    is_image_field_name,
+    translate_image_field,
 )
 
 
@@ -11601,6 +11604,26 @@ async def _do_translate_row(
             sample = str(metadata.get("title") or "")
         source_lang = detect_fn(sample) if sample else "ca"
 
+    def _translate_one(text: str, lang: str):
+        """Tradueix un string origen→`lang` respectant el salt per-camp (#309):
+        amb origen explícit (camp "Idioma") traduïm sempre; sense, si el camp ja
+        sembla en l'idioma destí es manté. Reusat per camps de text i pels
+        subcamps de text dels camps imatge. Retorna (traduït, provider)."""
+        if source_is_explicit:
+            field_lang = ""
+        else:
+            try:
+                field_lang = detect_fn(text)
+            except Exception:
+                field_lang = ""
+        if field_lang == lang:
+            return text, "noop"
+        try:
+            return translate_fn(text, source_lang, lang, deepl_api_key=deepl_api_key)
+        except Exception as exc:
+            log.warning(f"translate_row: failed translating field → {lang}: {exc}")
+            return f"[error: {exc}]", "error"
+
     parent_title = str(metadata.get("title") or "")
     title_is_translatable = any(
         (p.get("name") == "title" or p.get("type") == "title") and p.get("translatable") is True
@@ -11666,37 +11689,32 @@ async def _do_translate_row(
 
         for prop in translatable_props:
             val = _read_meta(prop)
-            if not isinstance(val, str) or not val.strip():
-                continue
-            # Si el camp JA està en l'idioma destí (p. ex. un Alt Text en català
-            # dins un registre marcat com a ES), copiar-lo tal qual: traduir-lo
-            # el corromptria ("persones"→"personis"). PERÒ aquesta detecció per
-            # heurística és poc fiable en text curt: `detect_source_lang` cau al
-            # seu default "ca" quan no troba cap paraula-pista (un títol com
-            # "Enfadoaccionados en las plazas" → "ca"), i amb destí "ca" el títol
-            # quedava sense traduir. Quan el registre declara l'origen explícitament
-            # (camp "Idioma"), ens hi fiem i traduïm tots els camps origen→destí; el
-            # salt només s'aplica amb origen heurístic (sense certesa).
-            if source_is_explicit:
-                field_lang = ""
-            else:
-                try:
-                    field_lang = detect_fn(val)
-                except Exception:
-                    field_lang = ""
-            if field_lang == lang:
-                translated, provider = val, "noop"
-            else:
-                try:
-                    translated, provider = translate_fn(val, source_lang, lang, deepl_api_key=deepl_api_key)
-                except Exception as exc:
-                    log.warning(f"translate_row: failed translating field {prop.get('name')} → {lang}: {exc}")
-                    translated = f"[error: {exc}]"
-                    provider = "error"
-            if provider != "noop":
-                providers_used.add(provider)
             # Persist by the same key the parent row uses, preferring stable id.
             key = prop.get("id") or prop.get("name")
+
+            # Camp imatge ({src, alt, title…} compost o ruta string): es manté la
+            # imatge (src, sense duplicar el fitxer — el subitem referencia el
+            # mateix) i només es tradueixen els subcamps de TEXT (alt, title,
+            # caption, credit). Una ruta string es copia tal qual (no es tradueix
+            # la ruta com si fos prosa). Detectat pel valor compost o pel nom.
+            if is_composite_image_value(val) or (
+                is_image_field_name(prop.get("name")) and isinstance(val, (dict, str)) and val
+            ):
+                new_val, img_provs, img_tr = translate_image_field(
+                    val, lambda s: _translate_one(s, lang)
+                )
+                if key:
+                    sub_metadata[key] = new_val
+                providers_used |= img_provs
+                if img_tr:
+                    any_translated = True
+                continue
+
+            if not isinstance(val, str) or not val.strip():
+                continue
+            translated, provider = _translate_one(val, lang)
+            if provider != "noop":
+                providers_used.add(provider)
             if key:
                 sub_metadata[key] = translated
             any_translated = True

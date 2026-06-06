@@ -11,6 +11,7 @@ Viuen a `services/` (no inline a `vault_routes`) per dos motius:
 
 Sense I/O, sense FastAPI, sense imports del backend: dades entren, dades surten.
 """
+import re
 from typing import Any, Dict, Iterable, Optional
 
 
@@ -259,3 +260,63 @@ def language_field_assignment(
         if isinstance(parent_val, list):
             is_multi = True
     return key, ([value] if is_multi else value)
+
+
+# --- Camps imatge compostos -------------------------------------------------
+# Un camp imatge pot tenir com a valor una ruta (string) o un mapa compost
+# {src, alt, title, caption, credit} (veure frontend lib/fileResource.js). Quan
+# és traduïble, NO s'ha de traduir la imatge (src) — es manté la mateixa (el
+# subitem referencia el mateix fitxer, sense duplicar-lo) — i només es tradueixen
+# els subcamps de TEXT (alt, title, caption, credit).
+
+_IMAGE_SRC_KEYS = ("src", "url", "path")
+_IMAGE_TEXT_SUBKEYS = ("alt", "title", "caption", "credit", "description")
+# Mirall de isImageFieldName(): exclou noms de text SOBRE la imatge (Alt, Peu…)
+# i accepta Imatge/Cover/Foto… El fem servir per als camps imatge sense subcamps
+# (valor ruta string) perquè no se'ls tradueixi la ruta com si fos text.
+_IMAGE_NAME_RE = re.compile(r"(image|imatge|cover|thumbnail|thumb|foto|imagen)", re.IGNORECASE)
+_IMAGE_NAME_EXCLUDE_RE = re.compile(
+    r"\balt\b|\btext\b|\bcaption\b|\bpeu\b|\bllegenda\b|\bleyenda\b|descrip", re.IGNORECASE
+)
+
+
+def is_image_field_name(name: Any) -> bool:
+    """True si el NOM del camp denota una imatge (Imatge/Cover/Foto…), excloent
+    els que denoten text sobre la imatge (Alt/Caption/Peu…)."""
+    s = str(name or "")
+    if _IMAGE_NAME_EXCLUDE_RE.search(s):
+        return False
+    return bool(_IMAGE_NAME_RE.search(s))
+
+
+def is_composite_image_value(val: Any) -> bool:
+    """True si el valor és un mapa d'imatge compost (té src/url/path no buit)."""
+    return isinstance(val, dict) and any(
+        isinstance(val.get(k), str) and val.get(k).strip() for k in _IMAGE_SRC_KEYS
+    )
+
+
+def translate_image_field(val: Any, translate_one) -> tuple:
+    """Tradueix els subcamps de text d'un camp imatge, mantenint la imatge.
+
+    `translate_one(text) -> (traduït, provider)`. Retorna
+    `(nou_valor, providers, any_translated)`:
+      - Si `val` és un mapa compost, es còpia i es tradueixen alt/title/caption/
+        credit/description; el src (i la resta de claus) es manté → el subitem
+        referencia el mateix fitxer, no se'n crea cap còpia.
+      - Si `val` és un string (ruta) es retorna tal qual (no es tradueix la ruta).
+    """
+    if not isinstance(val, dict):
+        return val, set(), False
+    out = dict(val)
+    providers: set = set()
+    any_tr = False
+    for k in _IMAGE_TEXT_SUBKEYS:
+        sub = val.get(k)
+        if isinstance(sub, str) and sub.strip():
+            translated, provider = translate_one(sub)
+            out[k] = translated
+            if provider and provider != "noop":
+                providers.add(provider)
+            any_tr = True
+    return out, providers, any_tr
