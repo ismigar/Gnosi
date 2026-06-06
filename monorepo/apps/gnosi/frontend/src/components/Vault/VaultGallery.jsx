@@ -4,6 +4,7 @@ import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { FileFieldValue } from './FileFieldValue';
+import { getImageSrc, toAssetPreviewUrl } from '../../lib/fileResource';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -172,6 +173,13 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     </button>
                 );
             default:
+                if (value && typeof value === 'object') {
+                    // Camp imatge COMPOST {src, …}: miniatura si resol, si no el src.
+                    const src = getImageSrc(value);
+                    const previewUrl = toAssetPreviewUrl(src);
+                    if (previewUrl) return <img src={previewUrl} alt={value.alt || field} className="h-9 w-9 rounded object-cover" />;
+                    return <span className="truncate text-xs block text-[var(--text-secondary)]" title={src}>{src}</span>;
+                }
                 return <span className="truncate text-xs block text-[var(--text-secondary)]" title={value}>{value}</span>;
         }
     };

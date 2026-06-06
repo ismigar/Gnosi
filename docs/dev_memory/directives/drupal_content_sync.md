@@ -57,8 +57,11 @@ de la taula (`drupal_sync_enabled`, `drupal_bundle`, `drupal_field_mapping`).
 - entity_reference (p. ex. `field_tags`) → `taxonomy_term--<vocab>`; el vocabulari
   surt de `settings.handler_settings.target_bundles` (defecte `tags`). Crea termes
   que faltin.
-- image/file (p. ex. `field_image`) → puja el fitxer i enllaça `file--file` amb
-  `meta.alt` (= títol de la fila).
+- image/file (p. ex. `field_image`) → puja el fitxer i enllaça `file--file`. El
+  camp imatge pot ser COMPOST `{src, alt, title, caption, credit}` (vegeu
+  `fileResource.parseImageField`): `meta.alt`/`meta.title` surten del mapa (amb
+  fallback de l'alt al títol de la fila); un string es tracta com `{src}`. La
+  ruta relativa (p. ex. "Articles/x.jpg") es resol sota `<Vault>/Assets/`.
 
 ## Identitat i idempotència
 - Ancorada per `drupal_uuid` (metadata oculta de la fila). nid/url es desen a dues

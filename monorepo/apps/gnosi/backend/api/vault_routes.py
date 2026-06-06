@@ -11898,8 +11898,13 @@ def _drupal_resolve_local_path(value) -> Optional[Path]:
     p = Path(raw)
     if p.is_absolute():
         return p
+    # Ruta relativa: és relativa a la carpeta Assets del Vault (igual que
+    # toServedAssetUrl al frontend), tant si porta el prefix "Assets/" com si no
+    # (p. ex. "Articles/x.jpg" → <Vault>/Assets/Articles/x.jpg).
+    idx = raw.find("Assets/")
+    rel = raw[idx + len("Assets/"):] if idx >= 0 else raw.lstrip("./")
     try:
-        return (get_p("VAULT") / raw).resolve()
+        return (get_p("ASSETS") / rel).resolve()
     except Exception:
         return None
 
@@ -11913,7 +11918,14 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
     """
     from backend.services import drupal_sync_service as drupal
 
-    path = _drupal_resolve_local_path(value)
+    # Camp imatge COMPOST {src, alt, title} o string (ruta) — retrocompatible.
+    if isinstance(value, dict):
+        src = value.get("src") or value.get("url") or value.get("path")
+        comp_alt = value.get("alt")
+        comp_title = value.get("title")
+    else:
+        src, comp_alt, comp_title = value, None, None
+    path = _drupal_resolve_local_path(src)
     if not path:
         return None
     await _materialize_if_online_only(path, "drupal-img")
@@ -11925,8 +11937,11 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
         data = await asyncio.to_thread(path.read_bytes)
         file_uuid = await drupal.upload_image(bundle, drupal_field, path.name, data)
         image_cache[key] = file_uuid
-    alt = str(metadata.get("title") or path.stem)
-    return {"data": {"type": "file--file", "id": file_uuid, "meta": {"alt": alt}}}
+    alt = str(comp_alt or metadata.get("title") or path.stem)
+    meta = {"alt": alt}
+    if comp_title:
+        meta["title"] = str(comp_title)
+    return {"data": {"type": "file--file", "id": file_uuid, "meta": meta}}
 
 
 # Preprocessat del markdown de Gnosi abans d'enviar-lo a Drupal: resol els
