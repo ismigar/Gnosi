@@ -34,6 +34,7 @@ def _make_table():
             {"name": "Títol", "type": "title", "id": "fld_title", "translatable": True},
             {"name": "Idioma", "type": "select", "id": "fld_lang"},
             {"name": "Descripció", "type": "text", "id": "fld_desc", "translatable": True},
+            {"name": "Imatge", "type": "text", "id": "fld_img", "translatable": True},
         ],
     }
 
@@ -58,6 +59,9 @@ def captured(tmp_path, monkeypatch):
         "title: Enfadoaccionados en las plazas\n"
         "Idioma: ES\n"
         "Descripció: Texto de prueba en castellano.\n"
+        "Imatge:\n"
+        "  src: Articles/prueba.png\n"
+        "  alt: Texto alternativo en castellano.\n"
         "---\n",  # cos buit a propòsit: no carrega el segmenter → cap crida de xarxa
         encoding="utf-8",
     )
@@ -150,3 +154,24 @@ def test_explicit_source_translates_title_despite_spurious_detect(captured):
     # El títol porta el marcador [ca] de _fake_translate → s'ha traduït, no és noop.
     assert md.get("fld_title", "").endswith("[ca]"), md
     assert captured[0].title.endswith("[ca]")
+
+
+def test_image_field_keeps_src_translates_alt(captured):
+    """Camp imatge compost traduïble: el subitem manté la MATEIXA imatge (src, sense
+    duplicar el fitxer) i tradueix els subcamps de text (alt)."""
+    result = asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["ca"],
+            translate_fn=_fake_translate,
+            detect_fn=_fake_detect,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    assert len(result["created"]) == 1
+    md = captured[0].metadata
+    img = md.get("fld_img") or md.get("Imatge")
+    assert isinstance(img, dict), md
+    assert img["src"] == "Articles/prueba.png"  # imatge mantinguda, no duplicada
+    assert img["alt"] == "Texto alternativo en castellano. [ca]"  # alt traduït
