@@ -11,6 +11,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
     const { t } = useTranslation();
     const [submitting, setSubmitting] = useState(false);
     const [scope, setScope] = useState('all');
+    const [pushMedia, setPushMedia] = useState(false);
     if (!isOpen) return null;
 
     const existingUrl = recordMetadata?.drupal_url || '';
@@ -24,16 +25,20 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                 item_id: noteId,
                 button_action: 'sync_drupal',
                 scope,
+                push_media: pushMedia,
             });
             const d = res.data || {};
             const trOk = (d.translations || []).filter((x) => x.status === 'ok').length;
             const base = d.created
                 ? t('drupal.sync_created', 'Node creat a Drupal.')
                 : t('drupal.sync_updated', 'Node actualitzat a Drupal.');
+            const withMedia = d.media_pushed
+                ? `${base} ${t('drupal.media_updated', 'Imatge actualitzada.')}`
+                : base;
             toast.success(
                 trOk
-                    ? `${base} ${t('drupal.sync_translations', { count: trOk, defaultValue: '{{count}} traduccions.' })}`
-                    : base
+                    ? `${withMedia} ${t('drupal.sync_translations', { count: trOk, defaultValue: '{{count}} traduccions.' })}`
+                    : withMedia
             );
             if (onSynced) onSynced(d);
             onClose();
@@ -76,6 +81,12 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                             <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.scope_lang', 'Només aquest idioma')}</span></span>
                         </label>
                     </div>
+                    {alreadySynced && (
+                        <label className="flex items-start gap-2 cursor-pointer text-xs text-[var(--text-secondary)] rounded-lg border border-[var(--border-primary)] p-3">
+                            <input type="checkbox" className="mt-0.5" checked={pushMedia} onChange={(e) => setPushMedia(e.target.checked)} disabled={submitting} />
+                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.push_media', 'Tornar a pujar la imatge')}</span> — {t('drupal.push_media_hint', "actualitza la imatge i el seu alt (per defecte, actualitzar només toca el text)")}</span>
+                        </label>
+                    )}
                     {alreadySynced && existingUrl && (
                         <a
                             href={existingUrl}

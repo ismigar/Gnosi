@@ -12027,13 +12027,15 @@ def _drupal_md_to_html(text: str, wl_cache: dict) -> str:
 
 async def _drupal_build_fields(
     *, mapping, props_by_ref, field_meta, metadata, body, bundle,
-    term_cache, image_cache, text_only=False,
+    term_cache, image_cache, text_only=False, media_only=False,
 ):
     """Construeix (attributes, relationships, skipped) d'un registre.
 
     ``field_meta``: ``{field_name: {"type":.., "vocab":..}}``. Amb ``text_only``
     només es construeixen text/escalars/cos — taxonomia i imatge a Drupal són
-    camps compartits entre traduccions, no es tradueixen.
+    camps compartits entre traduccions, no es tradueixen. Amb ``media_only``
+    només es construeixen els camps imatge/fitxer (per re-empènyer-los en
+    actualitzar un node ja existent, que pel text no els toca).
     """
     from backend.services import drupal_sync_service as drupal
 
@@ -12047,6 +12049,8 @@ async def _drupal_build_fields(
         meta = field_meta.get(drupal_field) or {}
         ftype = meta.get("type")
         if ref == DRUPAL_BODY_REF:
+            if media_only:
+                continue
             if not (body or "").strip():
                 continue  # cos buit: no l'enviïs (evita esborrar el cos a Drupal)
             html = await asyncio.to_thread(_drupal_md_to_html, body, wl_cache)
@@ -12059,10 +12063,12 @@ async def _drupal_build_fields(
         if value in (None, "", [], {}):
             continue
         if ftype in ("text_with_summary", "text_long"):
+            if media_only:
+                continue
             html = await asyncio.to_thread(_drupal_md_to_html, str(value), wl_cache)
             attributes[drupal_field] = {"value": html, "format": "full_html"}
         elif ftype == "entity_reference":
-            if text_only:
+            if text_only or media_only:
                 continue
             vocab = meta.get("vocab") or "tags"
             names = value if isinstance(value, list) else re.split(r"[;,]", str(value))
@@ -12088,6 +12094,8 @@ async def _drupal_build_fields(
             except Exception as exc:
                 skipped.append({"field": drupal_field, "reason": f"image: {exc}"})
         else:
+            if media_only:
+                continue
             coerced = _drupal_coerce_scalar(value, ftype)
             if coerced is not None:
                 attributes[drupal_field] = coerced
@@ -12134,7 +12142,7 @@ async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta,
     return fields, (detect_record_source_lang(meta) or "ca")
 
 
-async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True, scope: str = "all") -> dict:
+async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True, scope: str = "all", push_media: bool = False) -> dict:
     """Crea o actualitza el node de Drupal d'una fila.
 
     ``scope``:
@@ -12143,6 +12151,8 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
       - ``"lang_only"``: només l'idioma d'aquesta fila.
     Crear un node nou puja imatge/tags; actualitzar només toca el TEXT de
     l'idioma corresponent (``add_translation``), sense re-pujar la imatge.
+    Amb ``push_media`` també es torna a pujar i re-enllaçar la imatge (i el seu
+    alt) en actualitzar un node ja existent.
     Amb ``publish=False`` el node nou es crea despublicat.
     """
     from backend.services import drupal_sync_service as drupal
@@ -12229,6 +12239,27 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     except drupal.DrupalSyncError as exc:
         raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
+    # --- Re-empènyer la imatge (i el seu alt) en ACTUALITZAR ---
+    # En crear, la imatge ja s'inclou; el camí de text d'actualització no la
+    # toca. Amb push_media es re-puja i re-enllaça field_image via update_node.
+    # La imatge és un camp compartit entre traduccions → n'hi ha prou de fer-ho
+    # un cop per al node (no cal repetir-ho per germanes/subitems).
+    media_pushed = False
+    if push_media and drupal_uuid and not created:
+        _ma, media_rels, media_skipped = await _drupal_build_fields(
+            mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+            metadata=metadata, body=body, bundle=bundle,
+            term_cache=term_cache, image_cache=image_cache, media_only=True,
+        )
+        if media_skipped:
+            skipped_fields.extend(media_skipped)
+        if media_rels:
+            try:
+                await drupal.update_node(drupal_uuid, bundle, {}, media_rels)
+                media_pushed = True
+            except drupal.DrupalSyncError as exc:
+                skipped_fields.append({"field": "media", "reason": str(exc)})
+
     # --- Abast "tot el node": traduccions (subitems) + files germanes ---
     translations: list = []
     if scope == "all" and drupal_uuid:
@@ -12278,6 +12309,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
         "nid": nid,
         "url": url,
         "created": created,
+        "media_pushed": media_pushed,
         "source_lang": source_lang,
         "scope": scope,
         "languages": sorted(set(languages)),
@@ -12336,8 +12368,10 @@ async def sync_drupal_row(background_tasks: BackgroundTasks, payload: dict = Bod
     scope = payload.get("scope") or "all"
     if scope not in ("all", "lang_only"):
         scope = "all"
+    push_media = bool(payload.get("push_media"))
     result = await _do_sync_drupal_row(
-        item_id, background_tasks=background_tasks, publish=bool(publish), scope=scope
+        item_id, background_tasks=background_tasks, publish=bool(publish),
+        scope=scope, push_media=push_media,
     )
     return {"status": "ok", **result}
 
@@ -12349,11 +12383,19 @@ async def sync_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Bo
     item_ids = payload.get("item_ids") or []
     if not isinstance(item_ids, list) or not item_ids:
         raise HTTPException(status_code=400, detail="item_ids must be a non-empty list")
+    scope = payload.get("scope") or "all"
+    if scope not in ("all", "lang_only"):
+        scope = "all"
+    publish = bool(payload.get("publish", True))
+    push_media = bool(payload.get("push_media"))
     results: list = []
     errors: list = []
     for iid in item_ids:
         try:
-            results.append(await _do_sync_drupal_row(str(iid), background_tasks=background_tasks))
+            results.append(await _do_sync_drupal_row(
+                str(iid), background_tasks=background_tasks,
+                publish=publish, scope=scope, push_media=push_media,
+            ))
         except HTTPException as exc:
             errors.append({"item_id": iid, "detail": exc.detail})
         except Exception as exc:
