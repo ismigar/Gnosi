@@ -101,6 +101,50 @@ export function isImageFieldName(name) {
 }
 
 /**
+ * Camp imatge COMPOST: el valor pot ser un string (ruta, retrocompatible) o un
+ * mapa `{ src, alt, title, caption, credit }`. Aquests helpers normalitzen la
+ * lectura perquè tots els consumidors funcionin amb totes dues formes.
+ */
+
+/** Extreu la RUTA/URL d'un valor de camp imatge (string | {src} | array). */
+export function getImageSrc(value) {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return getImageSrc(value[0]);
+    if (typeof value === 'object') return String(value.src || value.url || value.path || '');
+    return '';
+}
+
+/** Desglossa un valor de camp imatge a `{ src, alt, title, caption, credit }`. */
+export function parseImageField(value) {
+    const src = getImageSrc(value);
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return {
+            src,
+            alt: String(value.alt || ''),
+            title: String(value.title || ''),
+            caption: String(value.caption || ''),
+            credit: String(value.credit || ''),
+        };
+    }
+    return { src, alt: '', title: '', caption: '', credit: '' };
+}
+
+/**
+ * Construeix el valor a desar a partir de `src` + extres (alt/title/caption/credit).
+ * Si no hi ha cap extra significatiu, retorna un STRING pla (frontmatter net i
+ * retrocompatible); altrament un mapa compost.
+ */
+export function buildImageValue(src, extras = {}) {
+    const out = { src: String(src || '').trim() };
+    for (const k of ['alt', 'title', 'caption', 'credit']) {
+        const v = extras[k];
+        if (v != null && String(v).trim() !== '') out[k] = String(v).trim();
+    }
+    return Object.keys(out).length === 1 ? out.src : out;
+}
+
+/**
  * Inversa de `toServedAssetUrl` per a assets del vault: converteix una URL
  * servida `/api/vault/assets/<path>` de tornada a la ruta relativa del vault
  * (`<path>`) per desar-la al camp. Qualsevol altra URL (remota, data:) o ruta

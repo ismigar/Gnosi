@@ -99,6 +99,8 @@ export const InsertContentModal = ({
     // reanomenat segons `namePattern` interpolat amb les metadades de la fila.
     fileField = null, // { propertyName, storageFolder, namePattern, fileMode } | null
     rowMetadata = {},
+    imageField = false, // mostra inputs alt/title/caption/credit (camp imatge compost)
+    initialImageMeta = null, // { alt, title, caption, credit } per pre-omplir
 }) => {
     const { t } = useTranslation();
     // Pestanyes que tenen sentit segons el context: sense camp (contingut inline
@@ -120,6 +122,12 @@ export const InsertContentModal = ({
     const [uploadFile, setUploadFile] = useState(initialFile);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
+    // Metadades del camp imatge compost (alt/title/caption/credit).
+    const [imgMeta, setImgMeta] = useState({});
+    useEffect(() => {
+        if (open) setImgMeta(initialImageMeta || {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
     const uploadInputRef = useRef(null);
     const confirmBtnRef = useRef(null);
 
@@ -330,7 +338,7 @@ export const InsertContentModal = ({
             if (!finalUrl) {
                 throw new Error("No s'ha pogut obtenir la URL final");
             }
-            onInsert?.({ url: finalUrl, mode, kind: selected.kind, name: selected.name });
+            onInsert?.({ url: finalUrl, mode, kind: selected.kind, name: selected.name, imageMeta: imageField ? imgMeta : undefined });
             onClose?.();
         } catch (e) {
             const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || 'Error desconegut';
@@ -338,7 +346,7 @@ export const InsertContentModal = ({
         } finally {
             setBusy(false);
         }
-    }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t]);
+    }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t, imageField, imgMeta]);
 
     if (!open) return null;
 
@@ -552,6 +560,22 @@ export const InsertContentModal = ({
                                 )}
                             </div>
 
+                            {imageField && (
+                                <div className="flex-1 grid grid-cols-2 gap-1.5 mr-3 max-w-lg">
+                                    <input value={imgMeta.alt || ''} onChange={(e) => setImgMeta((m) => ({ ...m, alt: e.target.value }))}
+                                        placeholder={t('insert.img_alt', { defaultValue: 'Alt text (accessibilitat)' })}
+                                        className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
+                                    <input value={imgMeta.title || ''} onChange={(e) => setImgMeta((m) => ({ ...m, title: e.target.value }))}
+                                        placeholder={t('insert.img_title', { defaultValue: 'Títol (opcional)' })}
+                                        className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
+                                    <input value={imgMeta.caption || ''} onChange={(e) => setImgMeta((m) => ({ ...m, caption: e.target.value }))}
+                                        placeholder={t('insert.img_caption', { defaultValue: 'Peu de foto (opcional)' })}
+                                        className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
+                                    <input value={imgMeta.credit || ''} onChange={(e) => setImgMeta((m) => ({ ...m, credit: e.target.value }))}
+                                        placeholder={t('insert.img_credit', { defaultValue: 'Crèdit (opcional)' })}
+                                        className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
+                                </div>
+                            )}
                             <div className="flex gap-2 ml-auto">
                                 <button
                                     onClick={onClose}

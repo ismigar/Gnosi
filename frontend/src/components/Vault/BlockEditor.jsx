@@ -102,7 +102,7 @@ import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { FileFieldValue } from './FileFieldValue';
 import { ImageHoverPreview } from './ImageHoverPreview';
-import { isImageFieldName, toAssetPreviewUrl, servedUrlToVaultPath } from '../../lib/fileResource';
+import { isImageFieldName, toAssetPreviewUrl, servedUrlToVaultPath, parseImageField, buildImageValue } from '../../lib/fileResource';
 import { AutoriaEditor, AutoriaDisplay } from './AutoriaField';
 import { dedupeAuthors } from './autoriaUtils';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
@@ -3451,9 +3451,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                     // (paritat amb la taula) i, si és buit, un afordament "+ Imatge".
                                                     // "Imatge Alt Text" queda exclòs (és prosa) i segueix sent text.
                                                     if ((!prop.type || prop.type === 'text') && isImageFieldName(prop.name)) {
-                                                        const previewUrl = toAssetPreviewUrl(typeof v === 'string' ? v : '');
+                                                        const imgMeta = parseImageField(v);
+                                                        const previewUrl = toAssetPreviewUrl(imgMeta.src);
+                                                        const imgAlt = imgMeta.alt || prop.name;
                                                         if (previewUrl) {
-                                                            if (!isEditor) return <ImageHoverPreview src={previewUrl} alt={prop.name} />;
+                                                            if (!isEditor) return <ImageHoverPreview src={previewUrl} alt={imgAlt} />;
                                                             return (
                                                                 <button
                                                                     type="button"
@@ -3461,7 +3463,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                     title={t('table.change_image', { defaultValue: 'Canviar imatge' })}
                                                                     className="inline-flex items-center rounded hover:opacity-90 focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40"
                                                                 >
-                                                                    <ImageHoverPreview src={previewUrl} alt={prop.name} />
+                                                                    <ImageHoverPreview src={previewUrl} alt={imgAlt} />
                                                                 </button>
                                                             );
                                                         }
@@ -3817,11 +3819,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 tableId={rawTableId || ''}
                 fileField={null}
                 rowMetadata={metadata}
+                imageField={Boolean(imagePickerProp)}
+                initialImageMeta={imagePickerProp ? parseImageField(metadata[imagePickerProp]) : null}
                 onClose={() => setImagePickerProp(null)}
                 onInsert={(result) => {
                     if (!imagePickerProp) return;
                     const newPath = servedUrlToVaultPath(result?.url || '');
-                    if (newPath) handleMetaChange(imagePickerProp, newPath);
+                    if (newPath) handleMetaChange(imagePickerProp, buildImageValue(newPath, result?.imageMeta || {}));
                     setImagePickerProp(null);
                 }}
             />

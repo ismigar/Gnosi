@@ -5,7 +5,7 @@ import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
-import { filenameFromTarget, isImageFieldName } from '../../lib/fileResource';
+import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue } from '../../lib/fileResource';
 import { sortKey } from '../../utils/vaultFilters';
 import { InsertContentModal } from './InsertContentModal';
 
@@ -1502,9 +1502,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     }, []);
 
     const getImagePreviewUrlFromValue = useCallback((rawValue) => {
+        // Camp imatge COMPOST {src, alt, …}: extreu la ruta.
+        if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+            return toImagePreviewUrl(getImageSrc(rawValue));
+        }
         if (Array.isArray(rawValue)) {
             for (const item of rawValue) {
-                const candidate = toImagePreviewUrl(String(item || ''));
+                const candidate = toImagePreviewUrl(getImageSrc(item));
                 if (candidate) return candidate;
             }
             return '';
@@ -1594,11 +1598,14 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         const noteTableId = activeView?.table_id || resolveNoteTableId(note);
         const metaKey = getMetaKey(note, key);
         const cfg = fieldType === 'files' ? (getFieldConfig(schema, key) || {}) : null;
+        const isImg = fieldType !== 'files'; // camp imatge detectat pel nom (no `files`)
         setMediaPickerCell({
             rowId: note.id, field: key, originalMetaKey: metaKey, tableId: noteTableId,
             fileField: cfg
                 ? { propertyName: key, storageFolder: cfg.storage_folder || 'assets', namePattern: cfg.name_pattern || '', fileMode: cfg.file_mode || 'upload' }
                 : null,
+            imageField: isImg,
+            imageMeta: isImg ? parseImageField(note.metadata?.[metaKey]) : null,
             rowMetadata: note.metadata || {},
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3016,6 +3023,8 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 tableId={mediaPickerCell?.tableId || ''}
                 fileField={mediaPickerCell?.fileField || null}
                 rowMetadata={mediaPickerCell?.rowMetadata || {}}
+                imageField={Boolean(mediaPickerCell?.imageField)}
+                initialImageMeta={mediaPickerCell?.imageMeta || null}
                 onClose={() => setMediaPickerCell(null)}
                 onInsert={(result) => {
                     if (!mediaPickerCell) return;
@@ -3031,6 +3040,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             .map(v => String(v ?? '')).filter(v => v.trim() !== '');
                         const next = [...arr, newPath];
                         value = next.length === 1 ? next[0] : next;
+                    } else if (newPath) {
+                        // Camp imatge: valor compost {src, alt, title, …} si hi ha metadades.
+                        value = buildImageValue(newPath, result?.imageMeta || {});
                     }
                     handleCellSave(rowId, field, value, originalMetaKey);
                     setMediaPickerCell(null);
