@@ -11953,6 +11953,64 @@ def _drupal_resolve_local_path(value) -> Optional[Path]:
         return None
 
 
+# Drupal limita `field_image` a 2 MiB. Les imatges del Vault solen ser d'alta
+# resolució (6+ MB) → la pujada falla amb 422. Reduïm la còpia que va a Drupal
+# (downscale + recompressió), mantenint l'original al Vault intacte.
+_DRUPAL_IMAGE_MAX_BYTES = 1_900_000  # marge sota el límit de 2 MiB de Drupal
+
+
+def _drupal_shrink_image(data: bytes, filename: str):
+    """Si la imatge supera el límit de Drupal, la redueix perquè càpiga: primer
+    baixa la resolució (PNG optimitzat); si no n'hi ha prou, converteix a JPEG amb
+    qualitat decreixent. Retorna ``(bytes, filename)`` —l'extensió pot passar a
+    ``.jpg``. Si ja és prou petita o no és una imatge processable, la retorna sense
+    tocar. CPU-bound: crida-la dins ``asyncio.to_thread``."""
+    if len(data) <= _DRUPAL_IMAGE_MAX_BYTES:
+        return data, filename
+    try:
+        from io import BytesIO
+        from PIL import Image
+    except Exception:
+        return data, filename
+    try:
+        img = Image.open(BytesIO(data))
+        img.load()
+    except Exception:
+        return data, filename  # no és una imatge que Pillow sàpiga obrir
+    fmt = (img.format or "PNG").upper()
+    stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+
+    def _encode(im, as_jpeg, quality=85):
+        buf = BytesIO()
+        if as_jpeg:
+            im.convert("RGB").save(buf, format="JPEG", quality=quality, optimize=True)
+        else:
+            mode = "RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB"
+            im.convert(mode).save(buf, format="PNG", optimize=True)
+        return buf.getvalue()
+
+    def _scaled(max_dim):
+        w, h = img.size
+        scale = min(1.0, max_dim / float(max(w, h)))
+        if scale >= 1.0:
+            return img
+        return img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
+
+    out = data
+    # 1) Downscale progressiu mantenint el format (PNG optimitzat o JPEG).
+    as_jpeg = fmt not in ("PNG",)
+    for max_dim in (2000, 1600, 1280, 1024, 800):
+        out = _encode(_scaled(max_dim), as_jpeg)
+        if len(out) <= _DRUPAL_IMAGE_MAX_BYTES:
+            return out, (filename if not as_jpeg else f"{stem}.jpg")
+    # 2) Últim recurs: JPEG (encara que fos PNG) amb qualitat decreixent.
+    for q in (80, 70, 60, 50):
+        out = _encode(_scaled(1280), True, quality=q)
+        if len(out) <= _DRUPAL_IMAGE_MAX_BYTES:
+            return out, f"{stem}.jpg"
+    return out, f"{stem}.jpg"  # millor intent (encara així, millor que el 422)
+
+
 async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, image_cache):
     """Puja un fitxer local a un camp d'imatge/fitxer i retorna la relació JSON:API.
 
@@ -11979,7 +12037,10 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
     file_uuid = image_cache.get(key)
     if not file_uuid:
         data = await asyncio.to_thread(path.read_bytes)
-        file_uuid = await drupal.upload_image(bundle, drupal_field, path.name, data)
+        # Redueix si supera el límit de Drupal (no-op si ja és petita o no és
+        # imatge, p. ex. un PDF d'un camp `file`). Manté l'original al Vault.
+        data, upload_name = await asyncio.to_thread(_drupal_shrink_image, data, path.name)
+        file_uuid = await drupal.upload_image(bundle, drupal_field, upload_name, data)
         image_cache[key] = file_uuid
     alt = str(comp_alt or metadata.get("title") or path.stem)
     meta = {"alt": alt}
@@ -12281,6 +12342,20 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             created = True
             languages.append(source_lang)
     except drupal.DrupalSyncError as exc:
+        msg = str(exc)
+        # Cas freqüent: l'article exigeix `field_image` però la imatge no s'ha
+        # pogut preparar (massa gran tot i reduir, inexistent o format no vàlid).
+        # Missatge clar en comptes del 422/502 cru de Drupal.
+        if "field_image" in msg:
+            img_reason = next(
+                (s.get("reason") for s in (skipped_fields or [])
+                 if "image" in str(s.get("reason", ""))),
+                None,
+            )
+            detail = "Aquest article necessita una imatge vàlida (menys de 2 MB) per publicar-se a Drupal."
+            if img_reason:
+                detail += f" Detall: {img_reason}"
+            raise HTTPException(status_code=400, detail=detail)
         raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
     # --- Re-empènyer la imatge (i el seu alt) en ACTUALITZAR ---
