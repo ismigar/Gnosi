@@ -90,7 +90,15 @@ de la taula (`drupal_sync_enabled`, `drupal_bundle`, `drupal_field_mapping`).
 ## Restriccions i casos límit (aprenentatge)
 - **`article` té `field_image` OBLIGATORI** → sincronitzar un article **exigeix**
   mapar una imatge; si no, el create falla amb 422. (Altres tipus com `page`,
-  `recurs` no en tenen.)
+  `recurs` no en tenen.) Si la imatge no s'hi pot posar, `_do_sync_drupal_row`
+  retorna un **400 amb missatge clar** (no el 422 cru).
+- **Límit de 2 MiB a `field_image`**: les imatges del Vault solen ser d'alta
+  resolució (6+ MB) i la pujada fallava amb 422 "excedeix el màxim de 2 MB" →
+  `field_image` nul → create 422. `_drupal_shrink_image` (Pillow) redueix la
+  còpia que va a Drupal (downscale progressiu + recompressió; PNG→JPEG si cal)
+  sota ~1,9 MB, **mantenint l'original al Vault intacte**. S'aplica a la pujada
+  (`_drupal_upload_field_image`); no-op si ja és petita o no és imatge (PDF d'un
+  camp `file`).
 - **Traduccions**: el `TranslationController` fa `set()` genèric → només s'hi
   empeny text/cos. Tags i imatge són camps compartits (no traduïbles) a Drupal.
 - **OneDrive online-only**: materialitzar (`_materialize_if_online_only`) la fila,
