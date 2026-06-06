@@ -616,10 +616,17 @@ export default function VaultDashboard() {
         ].map(x => x?.id).filter(Boolean);
 
         let pages = tableId ? await fetchPagesByTable(tableId) : [];
-        for (let attempt = 1; attempt < 6 && expectedIds.length; attempt++) {
+        // Les pàgines acabades de crear poden trigar a ser visibles a l'índex del
+        // backend (indexació sota OneDrive: mesurat fins a ~10s). Reintentem amb
+        // backoff creixent fins a ~15s: els primers intents són ràpids (cas
+        // normal → s'atura de seguida) i els últims més espaiats per cobrir el
+        // lag sense saturar de peticions. Abans eren 6×500ms=3s i s'esgotava.
+        const backoffMs = [400, 700, 1100, 1600, 2200, 3000, 3000, 3000];
+        for (const delay of backoffMs) {
+            if (!expectedIds.length) break;
             const have = new Set((pages || []).map(p => p.id));
             if (expectedIds.every(id => have.has(id))) break;
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, delay));
             if (tableId) pages = await fetchPagesByTable(tableId);
         }
         await fetchPages();
