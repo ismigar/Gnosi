@@ -163,29 +163,29 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
                 for a in patch_data["attendees"] if a.get("email")
             ]
 
+        # Zona horària: Google exigeix `timeZone` quan el dateTime no porta
+        # offset. Preserva la de l'event original i, si no en té, la de l'usuari.
+        default_tz = (
+            (event.get("start") or {}).get("timeZone")
+            or (event.get("end") or {}).get("timeZone")
+            or "Europe/Madrid"
+        )
+
         # Start time logic
         if "start" in patch_data and patch_data["start"]:
             start_val = patch_data["start"]
             if "T" in start_val:
-                event["start"] = {"dateTime": start_val}
-                if "date" in event["start"]:
-                    del event["start"]["date"]
+                event["start"] = {"dateTime": start_val, "timeZone": default_tz}
             else:
                 event["start"] = {"date": start_val[:10]}
-                if "dateTime" in event["start"]:
-                    del event["start"]["dateTime"]
 
         # End time logic
         if "end" in patch_data and patch_data["end"]:
             end_val = patch_data["end"]
             if "T" in end_val:
-                event["end"] = {"dateTime": end_val}
-                if "date" in event["end"]:
-                    del event["end"]["date"]
+                event["end"] = {"dateTime": end_val, "timeZone": default_tz}
             else:
                 event["end"] = {"date": end_val[:10]}
-                if "dateTime" in event["end"]:
-                    del event["end"]["dateTime"]
 
         # Update back to Google API
         service.events().update(
