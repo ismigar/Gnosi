@@ -297,10 +297,22 @@ export const DigitalBrainCalendar = ({
             return;
         }
 
+        // Cita de Google: actualitzar a Google (no al Vault). Usem startStr/endStr (hora
+        // local) perquè el backend hi posi la zona correcta; toISOString() seria UTC.
+        const isGoogle = (metadata?._provider === 'google' || !!metadata?._account) && !metadata?._vault_path;
         try {
-            const patchData = { metadata: { date: newStart } };
-            if (newEnd) patchData.metadata.end_date = newEnd;
-            await axios.patch(`/api/vault/pages/${id}`, patchData);
+            if (isGoogle) {
+                const gStart = event.startStr;
+                const gEnd = event.endStr || gStart;
+                await axios.patch(
+                    `/api/calendar/events/${encodeURIComponent(id)}?email=${encodeURIComponent(metadata._account)}&calendar_id=${encodeURIComponent(metadata._calendar_id || 'primary')}`,
+                    { start: gStart, end: gEnd, calendar_id: metadata._calendar_id || 'primary' }
+                );
+            } else {
+                const patchData = { metadata: { date: newStart } };
+                if (newEnd) patchData.metadata.end_date = newEnd;
+                await axios.patch(`/api/vault/pages/${id}`, patchData);
+            }
             toast.success("Data actualitzada!");
             onRefresh?.();
         } catch (error) {
@@ -337,10 +349,18 @@ export const DigitalBrainCalendar = ({
             return;
         }
 
+        const isGoogle = (metadata?._provider === 'google' || !!metadata?._account) && !metadata?._vault_path;
         try {
-            await axios.patch(`/api/vault/pages/${id}`, {
-                metadata: { end_date: newEnd }
-            });
+            if (isGoogle) {
+                await axios.patch(
+                    `/api/calendar/events/${encodeURIComponent(id)}?email=${encodeURIComponent(metadata._account)}&calendar_id=${encodeURIComponent(metadata._calendar_id || 'primary')}`,
+                    { start: event.startStr, end: event.endStr || event.startStr, calendar_id: metadata._calendar_id || 'primary' }
+                );
+            } else {
+                await axios.patch(`/api/vault/pages/${id}`, {
+                    metadata: { end_date: newEnd }
+                });
+            }
             toast.success("Durada actualitzada!");
             onRefresh?.();
         } catch (error) {
