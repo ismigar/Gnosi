@@ -23,7 +23,7 @@ import { MediaPicker } from './MediaPicker';
 import { FilesystemPickerModal } from '../FilesystemPickerModal';
 import { fileUrlToSentinel } from './markdown-mapper';
 import { toast } from '../../lib/toast';
-import { interpolateNamePattern } from '../../lib/fileResource';
+import { interpolateNamePattern, toAssetPreviewUrl } from '../../lib/fileResource';
 
 const KIND_META = {
     image: { Icon: ImageIcon, label: 'Imatge' },
@@ -128,6 +128,9 @@ export const InsertContentModal = ({
         if (open) setImgMeta(initialImageMeta || {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
+    // Src de la imatge ja present al camp (si n'hi ha). Permet mostrar-la i desar
+    // només els metadades (alt/títol/…) sense haver de re-seleccionar-la.
+    const currentSrc = imageField ? (initialImageMeta?.src || '') : '';
     const uploadInputRef = useRef(null);
     const confirmBtnRef = useRef(null);
 
@@ -302,11 +305,15 @@ export const InsertContentModal = ({
     }, [isFieldUpload, resolvedName]);
 
     const canInsert = useMemo(() => {
-        if (!selected) return false;
+        if (!selected) {
+            // Camp imatge amb imatge actual i sense fitxer nou: es pot desar
+            // igualment (només canvien els metadades, es conserva el src).
+            return Boolean(imageField && currentSrc);
+        }
         if (selected.source === 'upload-pending' && !uploadFile) return false;
         if (selected.source === 'url' && !urlInput.trim()) return false;
         return modeAvailableFor(selected.kind, mode);
-    }, [selected, uploadFile, urlInput, mode]);
+    }, [selected, uploadFile, urlInput, mode, imageField, currentSrc]);
 
     // En triar/arrossegar un fitxer (o triar-ne un del disc), mou el focus al
     // botó "Insereix" perquè es pugui confirmar amb Enter directament. No ho fem
@@ -320,6 +327,13 @@ export const InsertContentModal = ({
     }, [open, busy, canInsert, selected?.source]);
 
     const handleConfirm = useCallback(async () => {
+        // Camp imatge sense fitxer nou seleccionat: desa només els metadades
+        // (alt/títol/peu/crèdit), conservant la imatge actual del camp.
+        if (!selected && imageField && currentSrc) {
+            onInsert?.({ metadataOnly: true, imageMeta: imgMeta });
+            onClose?.();
+            return;
+        }
         if (!selected) return;
         setBusy(true);
         try {
@@ -346,7 +360,7 @@ export const InsertContentModal = ({
         } finally {
             setBusy(false);
         }
-    }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t, imageField, imgMeta]);
+    }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t, imageField, imgMeta, currentSrc]);
 
     if (!open) return null;
 
@@ -382,6 +396,24 @@ export const InsertContentModal = ({
                             </button>
                         ))}
                     </div>
+
+                    {imageField && currentSrc && !selected && (
+                        <div className="px-5 py-2 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 flex items-center gap-3">
+                            <img
+                                src={toAssetPreviewUrl(currentSrc)}
+                                alt=""
+                                className="w-10 h-10 rounded object-cover border border-[var(--border-primary)] shrink-0 bg-[var(--bg-secondary)]"
+                            />
+                            <div className="min-w-0">
+                                <div className="text-xs font-medium text-[var(--text-primary)] truncate">
+                                    {t('insert.current_image', { defaultValue: 'Imatge actual' })}: {currentSrc.split('/').pop()}
+                                </div>
+                                <div className="text-[11px] text-[var(--text-tertiary)]">
+                                    {t('insert.current_image_hint', { defaultValue: "Edita els camps de sota i desa, o tria'n una de nova per substituir-la." })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex-1 overflow-hidden p-4">
                         {tab === 'vault' && (
@@ -590,7 +622,9 @@ export const InsertContentModal = ({
                                     className="px-4 py-2 rounded-lg text-sm bg-[var(--gnosi-primary)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     {busy && <Loader2 size={14} className="animate-spin" />}
-                                    {t('insert.confirm', { defaultValue: 'Insereix' })}
+                                    {(!selected && imageField && currentSrc)
+                                        ? t('insert.save_meta', { defaultValue: 'Desa' })
+                                        : t('insert.confirm', { defaultValue: 'Insereix' })}
                                 </button>
                             </div>
                         </div>
