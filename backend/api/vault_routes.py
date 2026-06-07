@@ -11980,32 +11980,42 @@ def _drupal_shrink_image(data: bytes, filename: str):
     fmt = (img.format or "PNG").upper()
     stem = filename.rsplit(".", 1)[0] if "." in filename else filename
 
-    def _encode(im, as_jpeg, quality=85):
+    # Downscale UN sol cop a 1600px màx (prou per web) abans de recomprimir, per
+    # no repetir re-encodes lents sobre una imatge gran.
+    w, h = img.size
+    if max(w, h) > 1600:
+        s = 1600.0 / float(max(w, h))
+        img = img.resize((max(1, int(w * s)), max(1, int(h * s))), Image.LANCZOS)
+
+    def _png():
         buf = BytesIO()
-        if as_jpeg:
-            im.convert("RGB").save(buf, format="JPEG", quality=quality, optimize=True)
-        else:
-            mode = "RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB"
-            im.convert(mode).save(buf, format="PNG", optimize=True)
+        mode = "RGBA" if img.mode in ("RGBA", "LA", "P") else "RGB"
+        img.convert(mode).save(buf, format="PNG", optimize=True)
         return buf.getvalue()
 
-    def _scaled(max_dim):
-        w, h = img.size
-        scale = min(1.0, max_dim / float(max(w, h)))
-        if scale >= 1.0:
-            return img
-        return img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
+    def _jpeg(q):
+        buf = BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=q, optimize=True)
+        return buf.getvalue()
 
-    out = data
-    # 1) Downscale progressiu mantenint el format (PNG optimitzat o JPEG).
-    as_jpeg = fmt not in ("PNG",)
-    for max_dim in (2000, 1600, 1280, 1024, 800):
-        out = _encode(_scaled(max_dim), as_jpeg)
+    # Només intenta mantenir el PNG si té transparència REAL (cal preservar
+    # l'alfa); un PNG opac va directe a JPEG (molt més ràpid i petit). Evita la
+    # passada lenta de PNG optimize en imatges opaques.
+    keep_png = False
+    if fmt == "PNG":
+        try:
+            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                alpha = img.convert("RGBA").getchannel("A")
+                keep_png = alpha.getextrema()[0] < 255
+        except Exception:
+            keep_png = True
+    if keep_png:
+        out = _png()
         if len(out) <= _DRUPAL_IMAGE_MAX_BYTES:
-            return out, (filename if not as_jpeg else f"{stem}.jpg")
-    # 2) Últim recurs: JPEG (encara que fos PNG) amb qualitat decreixent.
-    for q in (80, 70, 60, 50):
-        out = _encode(_scaled(1280), True, quality=q)
+            return out, filename
+    out = data
+    for q in (85, 75, 65, 55):
+        out = _jpeg(q)
         if len(out) <= _DRUPAL_IMAGE_MAX_BYTES:
             return out, f"{stem}.jpg"
     return out, f"{stem}.jpg"  # millor intent (encara així, millor que el 422)
