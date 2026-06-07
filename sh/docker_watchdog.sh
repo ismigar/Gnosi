@@ -15,8 +15,9 @@
 #   - Camí ràpid: si el backend respon, surt immediatament (cas normal).
 #   - Només actua si el procés és VIU però el DAEMON no respon (= penjat),
 #     mai si Docker està parat del tot (això ho gestionen el boot/usuari).
-#   - Si el daemon respon però el backend no, NO toca res (el backend es
-#     recupera sol via restart: unless-stopped o encara arrenca).
+#   - Si el daemon respon però el backend no respon ni 10s després (event loop
+#     penjat per una recàrrega de --reload), fa `docker restart gnosi_backend`
+#     (amb cooldown). Una recàrrega normal (uns segons) s'auto-recupera i no s'hi toca.
 #   - Cooldown via stamp file: no reinicia si ja ho ha fet fa <COOLDOWN s
 #     (Docker triga ~90 s a estar healthy).
 #   - Timeout casolà a `docker info` (macOS no té `timeout`) perquè el propi
@@ -65,8 +66,28 @@ wait "$DPID" 2>/dev/null
 DAEMON_RC=$?
 
 if [ "$DAEMON_RC" -eq 0 ]; then
-  # Daemon viu, backend no → el backend s'està reiniciant sol o encara arrenca.
-  log "daemon viu però backend no respon; no actuo (el backend es recupera sol)."
+  # Daemon viu però el backend NO respon. Cal distingir:
+  #   - Recàrrega/arrencada normal (uns segons) → s'auto-recupera, no toquem res.
+  #   - PENJAT: l'event loop es bloqueja després d'una recàrrega de `--reload`
+  #     (el worker no mor amb el SIGTERM i el supervisor no n'arrenca cap de nou)
+  #     → NO s'auto-recupera mai. Cal `docker restart gnosi_backend`.
+  # Re-comprovem després d'una espera curta: si era normal, ja haurà tornat.
+  sleep 10
+  if curl -s -o /dev/null --max-time 6 "$HEALTH_URL" 2>/dev/null; then
+    exit 0
+  fi
+  BSTAMP="$HOME/.gnosi_backend_restart.laststart"
+  BCOOLDOWN="${GNOSI_BACKEND_COOLDOWN:-90}"   # anti-flapping del backend
+  bnow=$(date +%s); blast=0
+  [ -f "$BSTAMP" ] && blast=$(cat "$BSTAMP" 2>/dev/null || echo 0)
+  case "$blast" in ''|*[!0-9]*) blast=0 ;; esac
+  if [ "$((bnow - blast))" -lt "$BCOOLDOWN" ]; then
+    log "backend no respon però reiniciat fa $((bnow - blast))s (<${BCOOLDOWN}s); espero."
+    exit 0
+  fi
+  log "BACKEND PENJAT (daemon viu, /api/health KO després de 10s) → docker restart gnosi_backend."
+  echo "$bnow" > "$BSTAMP"
+  docker restart gnosi_backend >/dev/null 2>&1 && log "backend reiniciat." || log "docker restart gnosi_backend ha fallat."
   exit 0
 fi
 
