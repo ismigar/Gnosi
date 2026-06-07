@@ -79,6 +79,7 @@ from backend.services.translation_helpers import (
     find_translations_of,
     translatable_content_changed,
     detect_record_source_lang,
+    detect_record_lang_raw,
     language_field_assignment,
     is_composite_image_value,
     is_image_field_name,
@@ -12238,12 +12239,127 @@ def _drupal_sibling_rows(table_id, nid, exclude_id):
     return out
 
 
+_DRUPAL_LANGCODES_CACHE = None
+
+
+async def _drupal_langcodes() -> set:
+    """Langcodes configurats a Drupal (cache de procés). P. ex. {'ca','es','en-gb'}."""
+    global _DRUPAL_LANGCODES_CACHE
+    if _DRUPAL_LANGCODES_CACHE is not None:
+        return _DRUPAL_LANGCODES_CACHE
+    from backend.services import drupal_sync_service as drupal
+    langs: set = set()
+    try:
+        async with drupal._client() as c:
+            r = await c.get(
+                "/jsonapi/configurable_language/configurable_language",
+                params={"fields[configurable_language--configurable_language]": "drupal_internal__id"},
+            )
+        for l in (r.json() or {}).get("data", []):
+            code = (l.get("attributes") or {}).get("drupal_internal__id")
+            if code and str(code).lower() not in ("und", "zxx"):
+                langs.add(str(code).lower())
+    except Exception as exc:
+        log.warning(f"drupal: no he pogut llegir els idiomes configurats: {exc}")
+    _DRUPAL_LANGCODES_CACHE = langs
+    return langs
+
+
+async def _drupal_resolve_langcode(metadata: dict) -> str:
+    """Mapa el camp Idioma de la fila al langcode REAL de Drupal, que pot ser
+    regional (p. ex. 'en-gb', no 'en'). Si no hi ha match, cau a la normalització
+    de 2 lletres."""
+    langs = await _drupal_langcodes()
+    raw = detect_record_lang_raw(metadata)  # 'en-gb'
+    if raw and langs:
+        if raw in langs:
+            return raw
+        pref = raw.split("-")[0].split("_")[0]
+        if pref in langs:
+            return pref
+    code = detect_record_source_lang(metadata)  # 'en' (2 lletres)
+    if code and (not langs or code in langs):
+        return code
+    return code or "ca"
+
+
+_DRUPAL_FIELD_TRANSLATABLE_CACHE: dict = {}
+
+
+async def _drupal_uuid_to_fid(file_uuid):
+    """uuid d'un fitxer de Drupal → el seu fid intern. Cal per posar field_image a
+    les traduccions: el TranslationController fa un set() genèric i el camp imatge
+    espera ``{target_id: fid, alt: ...}`` (no el format relació JSON:API per uuid)."""
+    if not file_uuid:
+        return None
+    from backend.services import drupal_sync_service as drupal
+    try:
+        async with drupal._client() as c:
+            r = await c.get(
+                f"/jsonapi/file/file/{file_uuid}",
+                params={"fields[file--file]": "drupal_internal__fid"},
+            )
+        return ((r.json() or {}).get("data") or {}).get("attributes", {}).get("drupal_internal__fid")
+    except Exception as exc:
+        log.warning("drupal: uuid→fid ha fallat: %s", exc)
+        return None
+
+
+async def _drupal_field_translatable(bundle: str, field_name: str) -> bool:
+    """True si el camp del bundle és TRADUÏBLE a Drupal (cache). Si ho és, cada
+    traducció necessita el seu valor (p. ex. field_image amb el seu alt)."""
+    key = f"{bundle}.{field_name}"
+    if key in _DRUPAL_FIELD_TRANSLATABLE_CACHE:
+        return _DRUPAL_FIELD_TRANSLATABLE_CACHE[key]
+    from backend.services import drupal_sync_service as drupal
+    val = False
+    try:
+        async with drupal._client() as c:
+            r = await c.get(
+                "/jsonapi/field_config/field_config",
+                params={
+                    "filter[field_name]": field_name, "filter[bundle]": bundle,
+                    "fields[field_config--field_config]": "translatable",
+                },
+            )
+        data = (r.json() or {}).get("data") or []
+        if data:
+            val = bool(data[0].get("attributes", {}).get("translatable"))
+    except Exception as exc:
+        log.warning("drupal: no he pogut llegir 'translatable' de %s: %s", field_name, exc)
+    _DRUPAL_FIELD_TRANSLATABLE_CACHE[key] = val
+    return val
+
+
+def _drupal_image_mapping(mapping, field_meta):
+    """(ref_prop, camp_drupal) del primer camp imatge/fitxer del mapatge, o (None, None)."""
+    for ref, dfield in (mapping or {}).items():
+        if dfield and (field_meta.get(dfield) or {}).get("type") in ("image", "file"):
+            return ref, dfield
+    return None, None
+
+
+def _drupal_row_image_alt(metadata, props_by_ref, image_ref) -> str:
+    """Alt de la imatge d'una fila: del compost {src,alt}, o d'un camp 'Alt' orfe
+    (files no migrades), o el títol com a fallback."""
+    if image_ref:
+        prop = props_by_ref.get(image_ref)
+        if prop:
+            val = _drupal_read_prop_value(metadata, prop)
+            if isinstance(val, dict) and val.get("alt"):
+                return str(val["alt"])
+    for k, v in (metadata or {}).items():
+        if "alt" in str(k).lower() and isinstance(v, str) and v.strip():
+            return v.strip()
+    return str((metadata or {}).get("title") or "")
+
+
 async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta, bundle, term_cache, image_cache):
     """Llegeix una fila i en construeix els camps de TEXT (per a add_translation).
     Retorna (fields, langcode) o (None, None) si no es pot llegir."""
     fp = await asyncio.to_thread(find_page_path, page_id)
     if not fp or not fp.exists():
-        return None, None
+        return None, None, None
     await _materialize_if_online_only(fp, "drupal-sync")
     raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
     meta, bdy = parse_frontmatter(raw, fp)
@@ -12254,7 +12370,7 @@ async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta,
     )
     if fields and not fields.get("title"):
         fields["title"] = str(meta.get("title") or "Sense títol")
-    return fields, (detect_record_source_lang(meta) or "ca")
+    return fields, (await _drupal_resolve_langcode(meta)), meta
 
 
 async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True, scope: str = "all", push_media: bool = False) -> dict:
@@ -12306,7 +12422,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     term_cache: Dict[str, str] = {}
     image_cache: Dict[str, str] = {}
 
-    source_lang = detect_record_source_lang(metadata) or "ca"
+    source_lang = await _drupal_resolve_langcode(metadata)
     skipped_fields: list = []
     languages: list = []
 
@@ -12320,16 +12436,52 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     if not text_attrs.get("title"):
         text_attrs["title"] = str(metadata.get("title") or "Sense títol")
 
+    # field_image TRADUÏBLE: prepara un fitxer compartit (pujat un cop, del
+    # registre principal) per posar-lo a CADA traducció amb el seu alt propi. Si
+    # el camp no és traduïble, Drupal el comparteix sol i no cal fer-ho per idioma.
+    image_ref, image_field = _drupal_image_mapping(mapping, field_meta)
+    shared_img_fid = None
+    if image_field and await _drupal_field_translatable(bundle, image_field):
+        main_img = _drupal_read_prop_value(metadata, props_by_ref.get(image_ref)) if image_ref else None
+        if main_img not in (None, "", [], {}):
+            try:
+                rel = await _drupal_upload_field_image(main_img, bundle, image_field, metadata, image_cache)
+                if rel:
+                    shared_img_fid = await _drupal_uuid_to_fid(rel.get("data", {}).get("id"))
+            except Exception as exc:
+                skipped_fields.append({"field": image_field, "reason": f"image(trad): {exc}"})
+
+    def _img_field(meta):
+        """field_image per a una traducció: fitxer compartit + l'alt d'aquesta fila."""
+        if not (shared_img_fid and image_field):
+            return {}
+        return {image_field: {"target_id": shared_img_fid, "alt": _drupal_row_image_alt(meta, props_by_ref, image_ref)}}
+
     drupal_uuid = (str(metadata.get("drupal_uuid") or "")).strip() or None
     prev_url = (str(metadata.get("drupal_url") or "")).strip() or None
     nid = None
     url = None
     created = False
+    # Evita DUPLICATS: si la fila no està enllaçada però ja existeix un node del
+    # mateix títol exacte, enllaça-t'hi (i actualitza) en comptes de crear-ne un
+    # de nou (que Drupal desambiguaria amb un àlies '-0'). Si n'hi ha >1 (ja hi ha
+    # duplicat), no desambiguem automàticament: cau a crear i cal neteja manual.
+    if not drupal_uuid:
+        title_txt = str(metadata.get("title") or "").strip()
+        try:
+            matches = await drupal.find_nodes_by_title(bundle, title_txt) if title_txt else []
+        except drupal.DrupalSyncError:
+            matches = []
+        if len(matches) == 1:
+            drupal_uuid = matches[0]["uuid"]
+            nid = matches[0].get("nid")
+            url = matches[0].get("url")
+            log.info("sync-drupal: '%s' enllaçat per títol al node %s (evita duplicat)", title_txt[:40], nid)
     try:
         if drupal_uuid:
             # Actualitza NOMÉS l'idioma d'aquesta fila (text), al langcode correcte.
             try:
-                r = await drupal.add_translation(drupal_uuid, source_lang, text_attrs)
+                r = await drupal.add_translation(drupal_uuid, source_lang, {**text_attrs, **_img_field(metadata)})
                 nid = r.get("nid")
                 url = prev_url or (f"{drupal.base_url()}/node/{nid}" if nid else prev_url)
                 languages.append(source_lang)
@@ -12398,28 +12550,29 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             sub_id = getattr(page, "id", None)
             if not sub_id:
                 continue
-            tfields, _ = await _drupal_row_text_fields(
+            tfields, tlang, tmeta = await _drupal_row_text_fields(
                 sub_id, mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
                 bundle=bundle, term_cache=term_cache, image_cache=image_cache)
+            tlang = tlang or lang  # langcode REAL de Drupal (p. ex. en-gb, no en)
             if not tfields:
-                translations.append({"lang": lang, "status": "skipped (sense text)"})
+                translations.append({"lang": tlang, "status": "skipped (sense text)"})
                 continue
             try:
-                await drupal.add_translation(drupal_uuid, lang, tfields)
-                translations.append({"lang": lang, "status": "ok"})
-                languages.append(lang)
+                await drupal.add_translation(drupal_uuid, tlang, {**tfields, **_img_field(tmeta)})
+                translations.append({"lang": tlang, "status": "ok"})
+                languages.append(tlang)
             except drupal.DrupalSyncError as exc:
-                translations.append({"lang": lang, "status": f"error: {exc}"})
+                translations.append({"lang": tlang, "status": f"error: {exc}"})
         # 2) Files germanes: altres registres del mateix node (un per idioma).
         siblings = await asyncio.to_thread(_drupal_sibling_rows, table_id, nid, item_id)
         for sib in siblings:
-            tfields, sib_lang = await _drupal_row_text_fields(
+            tfields, sib_lang, smeta = await _drupal_row_text_fields(
                 sib.id, mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
                 bundle=bundle, term_cache=term_cache, image_cache=image_cache)
             if not tfields or not sib_lang:
                 continue
             try:
-                await drupal.add_translation(drupal_uuid, sib_lang, tfields)
+                await drupal.add_translation(drupal_uuid, sib_lang, {**tfields, **_img_field(smeta)})
                 translations.append({"lang": sib_lang, "row": sib.id, "status": "ok"})
                 languages.append(sib_lang)
             except drupal.DrupalSyncError as exc:

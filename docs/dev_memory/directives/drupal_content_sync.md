@@ -103,10 +103,27 @@ de la taula (`drupal_sync_enabled`, `drupal_bundle`, `drupal_field_mapping`).
   empeny text/cos. Tags i imatge són camps compartits (no traduïbles) a Drupal.
 - **OneDrive online-only**: materialitzar (`_materialize_if_online_only`) la fila,
   els subitems i les imatges abans de llegir-los (errno 35 si no).
-- **langcode**: `detect_record_source_lang` → ISO 2 lletres; si el tipus no està
-  habilitat per a un idioma, Drupal torna 4xx → es reporta a `translations[].status`
-  sense avortar.
+- **langcode (regional)**: Drupal pot tenir codis regionals (`en-gb`, no `en`).
+  `_drupal_resolve_langcode` mapa el camp Idioma al langcode REAL de Drupal
+  (consulta `/jsonapi/configurable_language`; `detect_record_lang_raw` NO trunca).
+  NO usar `detect_record_source_lang` (2 lletres) per a Drupal. Els subitems de
+  traducció també han d'usar el langcode resolt (`en-gb`), no el cru (`en`).
+- **Evitar duplicats**: abans de CREAR, `_do_sync_drupal_row` busca un node del
+  mateix títol (`find_nodes_by_title`) i s'hi enllaça. Match NORMALITZAT
+  (`_norm_title`: minúscules, sense accents/puntuació/espais) perquè títols amb
+  espais finals o variacions no creïn duplicats (Drupal hi posa àlies `-0`). Si
+  n'hi ha >1 match, no desambigua → cal neteja manual (drush).
+- **field_image TRADUÏBLE**: si el camp imatge és traduïble a Drupal, les
+  traduccions NO hereten la imatge de l'original → la sync la posa a cada idioma.
+  Puja la imatge un cop (fid compartit via `_drupal_uuid_to_fid`) i la posa a
+  cada traducció amb el seu alt propi (`{target_id: fid, alt}`, que el `set()`
+  genèric del TranslationController accepta). `_drupal_field_translatable` ho
+  comprova. Si NO és traduïble, Drupal la comparteix sol (no cal per idioma).
 - **Vocabularis**: a temenosismael.org només hi ha `tags`.
+- **Diagnòstic de penjades**: si el backend deixa de respondre (event loop
+  bloquejat), `docker exec gnosi_backend py-spy dump --pid 1 --subprocesses`
+  mostra l'stack en viu. PID 1 és el supervisor de `uvicorn --reload`; el worker
+  real és un subprocés (d'aquí `--subprocesses`).
 
 ## Neteja de nodes de prova
 DELETE per API està bloquejat. Esborra per `drush` (skill `.agent/skills/domain/drupal/`):
