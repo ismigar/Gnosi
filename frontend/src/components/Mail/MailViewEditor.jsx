@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { X, Plus, Trash2, GripVertical, Eye, EyeOff } from 'lucide-react';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -119,7 +120,7 @@ function Pills({ options, value, onChange }) {
     );
 }
 
-function FieldRow({ field, onToggle, onMoveUp, onMoveDown, isFirst, isLast }) {
+function FieldRow({ field, onToggle }) {
     const meta = ALL_FIELDS.find(f => f.key === field.key);
     return (
         <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-secondary)] group">
@@ -274,10 +275,19 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
         }
     };
 
+    const formRef = useRef(null);
+    // Esc cancel·la (tanca l'editor). Enter desa via el submit natiu del form.
+    useModalKeyboard({ isOpen: true, onClose: onCancel, containerRef: formRef });
+
     return (
-        <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div
+            className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+        >
             <form
+                ref={formRef}
                 onSubmit={handleSubmit}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="w-full max-w-lg bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
             >
                 {/* Header */}

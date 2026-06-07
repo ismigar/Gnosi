@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Link2, Upload, Search, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
 
@@ -109,6 +110,9 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
+
+    // Esc tanca el popover de portada (l'Enter de l'input d'URL es manté intacte).
+    useModalKeyboard({ isOpen, onClose });
 
     if (!isOpen) return null;
 

@@ -9,6 +9,7 @@ import { toast } from '../../lib/toast';
 import { translateFolderName } from './mailFolderUtils';
 import { useMailTags } from '../../hooks/useMailTags';
 import MailTagPicker, { TagPill } from './MailTagPicker';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 const cleanName = (addr) =>
     (addr || '').split('<')[0].trim().replace(/^["']+|["']+$/g, '').trim() || addr || '';
@@ -389,6 +390,13 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedIds, messages, focusedIndex]);
+
+    // Esc tanca cadascun dels menús desplegables (dropdowns: només Esc).
+    // No interfereix amb la navegació de la llista (fletxes/Enter/Delete) del
+    // handler global de dalt, que no toca Escape.
+    useModalKeyboard({ isOpen: !!moveMenu, onClose: () => setMoveMenu(null) });
+    useModalKeyboard({ isOpen: !!batchMoveMenu, onClose: () => setBatchMoveMenu(null) });
+    useModalKeyboard({ isOpen: !!contextMenu, onClose: () => setContextMenu(null) });
 
     const purgeMsgFromCache = (msgId, threadId) => {
         const idsToRemove = [msgId];

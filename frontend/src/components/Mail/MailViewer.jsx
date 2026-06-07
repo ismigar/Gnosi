@@ -15,6 +15,7 @@ import { ca } from 'date-fns/locale';
 import { toast } from '../../lib/toast';
 import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useMailTags } from '../../hooks/useMailTags';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import axios from 'axios';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { translateFolderName } from './mailFolderUtils';
@@ -376,6 +377,21 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
     const [activeTagIds, setActiveTagIds] = useState([]);
     const tagBtnRef = useRef(null);
     const { tags, createTag, deleteTag, getMessageTags, setMessageTags } = useMailTags();
+    const calendarPickerRef = useRef(null);
+
+    // Esc tanca els overlays de la barra d'accions. Cridem els hooks al nivell
+    // superior (abans de qualsevol early return de baix) per respectar l'ordre.
+    //   - Calendar picker: modal-diàleg → Esc + focus-trap (sense Enter: cada
+    //     calendari és un botó propi).
+    //   - Move / Snooze: dropdowns → només Esc.
+    useModalKeyboard({
+        isOpen: !!showEventCalendarPicker,
+        onClose: () => setShowEventCalendarPicker(null),
+        containerRef: calendarPickerRef,
+        trapFocus: true,
+    });
+    useModalKeyboard({ isOpen: showMove, onClose: () => setShowMove(false) });
+    useModalKeyboard({ isOpen: showSnooze, onClose: () => setShowSnooze(false) });
 
     const [fullThreadMsgs, setFullThreadMsgs] = useState([]);
 
@@ -1210,8 +1226,15 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
             {/* Calendar Picker Modal */}
             {showEventCalendarPicker && (
-                <div className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-[var(--bg-primary)] w-full max-w-md rounded-3xl shadow-2xl border border-[var(--border-primary)] overflow-hidden animate-in zoom-in-95 duration-200">
+                <div
+                    className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onMouseDown={(e) => { if (e.target === e.currentTarget) setShowEventCalendarPicker(null); }}
+                >
+                    <div
+                        ref={calendarPickerRef}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="bg-[var(--bg-primary)] w-full max-w-md rounded-3xl shadow-2xl border border-[var(--border-primary)] overflow-hidden animate-in zoom-in-95 duration-200"
+                    >
                         <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-secondary)]/50">
                             <h3 className="font-bold text-[var(--text-primary)]">Tria un calendari</h3>
                             <button onClick={() => setShowEventCalendarPicker(null)} className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors">
