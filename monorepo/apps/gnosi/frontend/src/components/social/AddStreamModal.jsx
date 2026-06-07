@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Check, Rss, Bell, Globe, Search, Hash } from 'lucide-react';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 const NETWORKS = [
     { id: 'mastodon', name: 'Mastodon', icon: '🐘', color: 'bg-purple-500/20 text-purple-200' },
@@ -22,6 +23,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
     const [selectedType, setSelectedType] = useState(STREAM_TYPES[0]);
     const [streamName, setStreamName] = useState('');
 
+    const modalRef = useRef(null);
     const handleSubmitRef = React.useRef(null);
     handleSubmitRef.current = (e) => {
         if (e) e.preventDefault();
@@ -37,18 +39,16 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
         onClose();
     };
 
-    React.useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                onClose();
-            } else if (e.key === 'Enter') {
-                handleSubmitRef.current();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // Lògica rica de teclat: Esc tanca, Enter envia el formulari (acció
+    // primària "Add Stream"), Tab focus-trap, restauració de focus. Veure
+    // useModalKeyboard.
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        onConfirm: () => handleSubmitRef.current(),
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -57,14 +57,15 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                onMouseDown={onClose}
             />
 
             {/* Modal Content */}
-            <div className="relative w-full max-w-md bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div ref={modalRef} onMouseDown={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
                     <h2 className="text-xl font-semibold text-white">Add New Stream</h2>
@@ -157,6 +158,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
 
                     {/* Submit Button */}
                     <button
+                        data-autofocus="true"
                         type="submit"
                         className="w-full bg-primary hover:bg-blue-600 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-4"
                     >

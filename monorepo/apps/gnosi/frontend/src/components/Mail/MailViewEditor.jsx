@@ -311,7 +311,7 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
                             value={form.name}
                             onChange={e => set('name', e.target.value)}
                             placeholder="Ex: Newsletters, Feina..."
-                            autoFocus
+                            data-autofocus="true"
                             className="w-full text-[13px] bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg px-3 py-2 text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--gnosi-blue)]"
                         />
                     </div>

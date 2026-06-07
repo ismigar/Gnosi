@@ -131,7 +131,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                         {t('common.cancel')}
                     </button>
                     <button
-                        autoFocus
+                        data-autofocus="true"
                         onClick={handleSubmit}
                         disabled={submitting}
                         className="btn-gnosi btn-gnosi-primary px-5 flex items-center gap-2 disabled:opacity-50"

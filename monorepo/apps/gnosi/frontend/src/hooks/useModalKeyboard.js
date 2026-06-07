@@ -61,8 +61,27 @@ export function useModalKeyboard({
     useEffect(() => {
         if (!isOpen) return undefined;
 
-        // Recordem qui tenia el focus per restaurar-lo en tancar (accessibilitat).
+        // Recordem qui tenia el focus ABANS d'obrir, per restaurar-lo en tancar
+        // (accessibilitat). Funciona perquè els modals ja NO usen autoFocus HTML
+        // (que mouria el focus abans d'aquesta línia): el focus inicial el posa
+        // aquest hook més avall, després de capturar l'element extern.
         const previouslyFocused = trapFocus ? document.activeElement : null;
+
+        // Focus inicial dins el modal: l'element marcat amb [data-autofocus], o
+        // el primer focusable, o el panell mateix. Síncron dins l'effect (NO en
+        // requestAnimationFrame, que es pausa en pestanyes en segon pla). El
+        // contingut ja és al DOM quan corre l'effect. Només amb trapFocus.
+        if (trapFocus && containerRef?.current) {
+            const root = containerRef.current;
+            if (!root.contains(document.activeElement)) {
+                const target = root.querySelector('[data-autofocus]')
+                    || root.querySelector(
+                        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                    )
+                    || root;
+                try { target?.focus?.(); } catch { /* element no enfocable */ }
+            }
+        }
 
         const getFocusable = () => {
             const root = containerRef?.current;

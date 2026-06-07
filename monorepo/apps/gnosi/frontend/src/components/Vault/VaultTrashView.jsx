@@ -237,7 +237,7 @@ export function VaultTrashView({ onAfterChange }) {
                             </button>
                             <button
                                 type="button"
-                                autoFocus
+                                data-autofocus="true"
                                 onClick={handleEmptyAll}
                                 className="px-3 py-1.5 text-sm font-semibold rounded-md bg-red-500 text-white hover:bg-red-600"
                             >

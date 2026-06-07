@@ -7,6 +7,7 @@ import {
     PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
@@ -610,6 +611,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // -- AUTO-SAVE CONTROLS --
     const autoSaveTimeoutRef = useRef(null);
     const lastSavedData = useRef(null);
+    // Ref al panell del modal (.settings-modal): delimita el focus-trap del teclat.
+    const panelRef = useRef(null);
     const [savingStatus, setSavingStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
     const [isAddingTable, setIsAddingTable] = useState(false);
@@ -777,22 +780,23 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         return () => { cancelled = true; };
     }, [activeTab, isOpen, integrations.mail_accounts, integrations.emails]);
 
-    // Keyboard support - Escape/Enter to close
-    useEffect(() => {
-        const handleKeyPress = (e) => {
-            if (!isOpen) return;
-            
-            if (e.key === 'Escape') {
-                onClose();
-            } else if (e.key === 'Enter') {
-                if (document.activeElement.tagName === 'TEXTAREA') return;
-                if (document.activeElement.isContentEditable) return;
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyPress);
-        return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [isOpen, onClose]);
+    // Teclat canònic: Esc tanca i Tab fa focus-trap dins el panell (amb
+    // restauració del focus). SENSE onConfirm: és un panell de configuració
+    // amb pestanyes i autosave, sense una única acció primària; abans Enter
+    // també tancava el modal, però això era un comportament estrany (prémer
+    // Enter en un input tancava Configuració), així que ara Enter queda lliure.
+    //
+    // Els sub-modals (proveïdor d'IA, agent, picker de carpetes, confirmació)
+    // es renderitzen com a germans FORA de `.settings-modal` i tenen el seu
+    // propi focus-trap. Mentre n'hi hagi un d'obert, desactivem el trap d'aquí
+    // perquè no els hi robi el focus (el Tab quedaria atrapat al panell de fons).
+    const childModalOpen = isConnectModalOpen || !!editingAgent || pickerOpen || confirmConfig.isOpen;
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        containerRef: panelRef,
+        trapFocus: !childModalOpen,
+    });
 
     const checkGoogleAuth = async () => {
         try {
@@ -1482,7 +1486,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     return (
         <>
             <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
-            <div className={`settings-modal ${isOpen ? 'active' : ''}`}>
+            <div ref={panelRef} className={`settings-modal ${isOpen ? 'active' : ''}`}>
                 {/* Botó X fora de .settings-main perquè s'ancori al modal i no
                     desaparegui amb el scroll del contingut. */}
                 <button onClick={onClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
@@ -2014,7 +2018,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }}
                                                             onBlur={() => setAddAccountEmailBlurred(true)}
                                                             placeholder="exemple@pangea.org"
-                                                            autoFocus
+                                                            data-autofocus="true"
                                                         />
                                                     </FormGroup>
 
@@ -3581,7 +3585,9 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
     const [apiKey, setApiKey] = useState('');
     const [baseUrl, setBaseUrl] = useState(editingProvider?.base_url || '');
-    
+    // Ref al panell: delimita el focus-trap i l'àmbit del Enter.
+    const panelRef = useRef(null);
+
     useEffect(() => {
         if (selectedId && aiCatalog[selectedId]) {
             setBaseUrl(aiCatalog[selectedId].base_url || '');
@@ -3591,18 +3597,14 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     const provider = aiCatalog[selectedId];
     const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-            else if (e.key === 'Enter') {
-                if (document.activeElement.tagName === 'TEXTAREA') return;
-                onSave(selectedId, { api_key: apiKey, base_url: baseUrl });
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, onSave, selectedId, apiKey, baseUrl]);
+    // Teclat canònic: Esc tanca i prou (coherent amb tot el Config), Tab fa
+    // focus-trap. Sense Enter→desa: el desat es fa amb el botó "Desar".
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        containerRef: panelRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -3611,8 +3613,8 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
             zIndex: 99999, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh'
         }}>
-            <div className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{ 
-                width: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '40px', 
+            <div ref={panelRef} className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{
+                width: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '40px',
                 borderRadius: '32px', boxShadow: '0 30px 80px rgba(0,0,0,0.15)', border: '1px solid var(--settings-border)',
                 background: 'var(--settings-bg)', overflow: 'hidden', position: 'relative'
             }}>
@@ -3692,22 +3694,19 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
     const [provider, setProvider] = useState(agent.provider || '');
     const [model, setModel] = useState(agent.model || '');
     const [icon, setIcon] = useState(agent.icon || '🤖');
+    // Ref al panell: delimita el focus-trap i l'àmbit del Enter.
+    const panelRef = useRef(null);
 
     const availableModels = aiCatalog[provider]?.models || [];
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-            else if (e.key === 'Enter') {
-                if (document.activeElement.tagName === 'TEXTAREA') return;
-                onSave({ ...agent, name, provider, model, icon });
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, onSave, agent, name, provider, model, icon]);
+    // Teclat canònic: Esc tanca i prou (coherent amb tot el Config), Tab fa
+    // focus-trap. Sense Enter→desa: el desat es fa amb el botó "Desar Agent".
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        containerRef: panelRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -3725,14 +3724,14 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
             width: '100vw',
             height: '100vh'
         }}>
-            <div className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{ 
-                width: '500px', 
+            <div ref={panelRef} className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{
+                width: '500px',
                 maxHeight: '90vh',
                 display: 'flex',
                 flexDirection: 'column',
-                padding: '40px', 
-                borderRadius: '32px', 
-                boxShadow: '0 30px 80px rgba(0,0,0,0.15)', 
+                padding: '40px',
+                borderRadius: '32px',
+                boxShadow: '0 30px 80px rgba(0,0,0,0.15)',
                 border: '1px solid var(--settings-border)',
                 background: 'var(--settings-bg)',
                 overflow: 'hidden',

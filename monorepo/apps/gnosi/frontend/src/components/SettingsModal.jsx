@@ -4,6 +4,7 @@ import { useApi } from '../hooks/use-api';
 import { X } from 'lucide-react';
 import toast from '../lib/toast';
 import { emitConfigChanged } from '../lib/configEvents';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import './SettingsModal.css';
 
 export function SettingsModal({ isOpen, onClose }) {
@@ -20,6 +21,7 @@ export function SettingsModal({ isOpen, onClose }) {
     const [schedulers, setSchedulers] = useState([]);
     const initializedRef = useRef(false);
     const skipNextAutosaveRef = useRef(false);
+    const modalRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -33,14 +35,14 @@ export function SettingsModal({ isOpen, onClose }) {
         loadCredentials();
     }, [isOpen]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // Formulari complex amb autosave i sense una única acció primària: NOMÉS
+    // Esc + focus-trap, sense onConfirm. Veure useModalKeyboard.
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     // Autosave silenciós (debounce 800ms — més llarg que altres modals
     // perquè aquí es toquen color pickers que disparen molts canvis
@@ -162,8 +164,8 @@ export function SettingsModal({ isOpen, onClose }) {
     if (!isOpen) return null;
 
     return (
-        <div className="settings-modal-overlay">
-            <div className="settings-modal">
+        <div className="settings-modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div ref={modalRef} className="settings-modal" onMouseDown={(e) => e.stopPropagation()}>
                 <div className="settings-header">
                     <h2>{t('settings') || 'Settings'}</h2>
                     <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { AlertCircle, X, Check } from 'lucide-react';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 export const ConfirmModal = ({
     isOpen,
@@ -26,70 +27,17 @@ export const ConfirmModal = ({
         }
     }, [isSubmitting, onConfirm]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-
-        // Save the previously focused element so we can restore focus when
-        // the modal closes (accessibility best practice — keyboard users
-        // should return to where they were).
-        const previouslyFocused = document.activeElement;
-
-        const getFocusable = () => {
-            if (!modalRef.current) return [];
-            return Array.from(
-                modalRef.current.querySelectorAll(
-                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-                ),
-            );
-        };
-
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                if (isSubmitting) return;
-                onClose();
-                return;
-            }
-            if (e.key === 'Enter') {
-                // Only trigger Enter→confirm when focus is INSIDE the modal
-                // (otherwise pressing Enter on a background input could
-                // accidentally fire a destructive action).
-                if (modalRef.current?.contains(document.activeElement)) {
-                    e.preventDefault();
-                    handleConfirm();
-                }
-                return;
-            }
-            // Focus trap on Tab: cycle within the modal.
-            if (e.key === 'Tab') {
-                const items = getFocusable();
-                if (items.length === 0) return;
-                const first = items[0];
-                const last = items[items.length - 1];
-                const active = document.activeElement;
-                if (e.shiftKey) {
-                    if (active === first || !modalRef.current?.contains(active)) {
-                        e.preventDefault();
-                        last.focus();
-                    }
-                } else {
-                    if (active === last || !modalRef.current?.contains(active)) {
-                        e.preventDefault();
-                        first.focus();
-                    }
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            // Restore focus to the trigger element on close.
-            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-                try { previouslyFocused.focus(); } catch { /* element gone */ }
-            }
-        };
-    }, [isOpen, onClose, handleConfirm, isSubmitting]);
+    // Lògica rica de teclat (Esc, Enter→confirma, Tab focus-trap, restauració
+    // de focus en tancar): ara centralitzada al hook canònic. Esc no avorta una
+    // operació destructiva en curs (guard isSubmitting), igual que el backdrop.
+    useModalKeyboard({
+        isOpen,
+        onClose: () => { if (!isSubmitting) onClose(); },
+        onConfirm: handleConfirm,
+        confirmDisabled: isSubmitting,
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     useEffect(() => {
         if (!isOpen) {
@@ -153,7 +101,7 @@ export const ConfirmModal = ({
                         {cancelText}
                     </button>
                     <button
-                        autoFocus
+                        data-autofocus="true"
                         type="button"
                         onClick={handleConfirm}
                         disabled={isSubmitting}

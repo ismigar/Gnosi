@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Eye, EyeOff, SlidersHorizontal, ArrowUpDown, Filter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { VIEW_TYPES } from './viewConstants';
 import { getSchemaFieldNames } from './schemaUtils';
 
@@ -65,6 +66,7 @@ export function ViewConfigModal({
     const allFields = schema ? getSchemaFieldNames(schema) : [];
     const initializedRef = useRef(false);
     const skipNextAutosaveRef = useRef(false);
+    const modalRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -114,14 +116,15 @@ export function ViewConfigModal({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, visibleProperties, cardSize, galleryPreview, filters, sorts, currentViewType]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // Modal de configuració amb autosave i sense botó "Desa" (els canvis es
+    // persisteixen sols): NOMÉS Esc + focus-trap, sense onConfirm. Veure
+    // useModalKeyboard.
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -156,8 +159,8 @@ export function ViewConfigModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm">
-            <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] border border-[var(--border-primary)]">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div ref={modalRef} onMouseDown={(e) => e.stopPropagation()} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] border border-[var(--border-primary)]">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">

@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { VIEW_TYPES } from './viewConstants';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 /**
  * Modal per afegir una vista de BD a una pàgina (slash command /vista).
@@ -33,6 +34,9 @@ const TABS = [
 
 export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null }) {
     const { t } = useTranslation();
+
+    // Ref al panell interior del modal: delimita el focus-trap del teclat.
+    const panelRef = useRef(null);
 
     const [activeTab, setActiveTab] = useState('general');
     const [heading, setHeading] = useState('');
@@ -280,23 +284,17 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
     }, [sourceTableId, selectedTable, tableFields]);
 
-    // Esc tanca el modal. Aquest hook ha d'anar abans del early return
-    // (`if (!isOpen) return null;`) per respectar les Rules of Hooks.
-    useEffect(() => {
-        if (!isOpen) return;
-        const handler = (e) => {
-            if (e.key === 'Escape') {
-                e.stopPropagation();
-                e.preventDefault();
-                onClose(false);
-            }
-        };
-        // Capture phase perquè BlockNote (TipTap/ProseMirror) atrapa Esc al
-        // bubble phase i el meu listener mai ho rebia. Amb capture, executem
-        // primer i fem stopPropagation per quedar-nos amb l'event.
-        window.addEventListener('keydown', handler, true);
-        return () => window.removeEventListener('keydown', handler, true);
-    }, [isOpen, onClose]);
+    // Lògica de teclat canònica: Esc tanca, Tab fa focus-trap dins el panell i
+    // es restaura el focus en tancar. Sense onConfirm: aquest modal és un
+    // configurador amb autosave/desat explícit, sense una única acció primària
+    // que Enter hagi de disparar. El hook escolta en CAPTURA a window, així
+    // venç el stopPropagation de BlockNote (TipTap/ProseMirror).
+    useModalKeyboard({
+        isOpen,
+        onClose: () => onClose(false),
+        containerRef: panelRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -502,7 +500,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-sm"
             onClick={handleOverlayClick}
         >
-            <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl border border-[var(--border-primary)] flex flex-col max-h-[85vh]">
+            <div ref={panelRef} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl border border-[var(--border-primary)] flex flex-col max-h-[85vh]">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] rounded-t-xl shrink-0">
                     <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">

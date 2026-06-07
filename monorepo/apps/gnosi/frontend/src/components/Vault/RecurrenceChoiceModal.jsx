@@ -1,18 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Trash2, CalendarPlus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-const RecurrenceKeyboardHandler = ({ onClose, onConfirm }) => {
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-            else if (e.key === 'Enter') onConfirm();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose, onConfirm]);
-    return null;
-};
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 export const RecurrenceChoiceModal = ({
     isOpen,
@@ -23,6 +12,18 @@ export const RecurrenceChoiceModal = ({
     actionType = 'delete', // 'delete' | 'modify'
 }) => {
     const { t } = useTranslation();
+    const modalRef = useRef(null);
+
+    // Lògica rica de teclat: Esc tanca, Enter confirma l'opció per defecte
+    // (només aquesta instància), Tab focus-trap, restauració de focus. Veure
+    // useModalKeyboard. (Substitueix l'antic RecurrenceKeyboardHandler.)
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        onConfirm: () => onConfirm(false, true, false),
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -34,13 +35,9 @@ export const RecurrenceChoiceModal = ({
     const seriesText = isDelete ? 'text-red-500' : 'text-[var(--gnosi-primary)]';
 
     return (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onClose} />
-            <RecurrenceKeyboardHandler 
-                onClose={onClose} 
-                onConfirm={() => onConfirm(false, true)} 
-            />
-            <div className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onMouseDown={onClose} />
+            <div ref={modalRef} onMouseDown={(e) => e.stopPropagation()} className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex items-center gap-4 mb-6">
                     <div className={`p-3 ${bgColor} rounded-2xl ${accentColor}`}><Icon size={24} /></div>
                     <h3 className="text-xl font-black tracking-tight">{title}</h3>
@@ -49,7 +46,8 @@ export const RecurrenceChoiceModal = ({
                     {message}
                 </p>
                 <div className="flex flex-col gap-3">
-                    <button 
+                    <button
+                        data-autofocus="true"
                         onClick={() => onConfirm(false, true, false)}
                         className="w-full p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] hover:border-[var(--gnosi-primary)] text-left transition-all group"
                     >
