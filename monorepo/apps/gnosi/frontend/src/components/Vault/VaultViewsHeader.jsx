@@ -27,6 +27,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { VIEW_TYPES, getViewIcon, isMainView } from './viewConstants';
 import { ReferenceImportExport } from './ReferenceImportExport';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigure }) {
     const { t } = useTranslation();
@@ -61,6 +62,9 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
         if (showMenu) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showMenu]);
+
+    // Esc tanca el menú de la pestanya (dropdown).
+    useModalKeyboard({ isOpen: showMenu, onClose: () => setShowMenu(false) });
 
     return (
         <div
@@ -201,7 +205,12 @@ export function VaultViewsHeader({
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [showNewMenu]);
-    
+
+    // Esc tanca cadascun dels dropdowns d'aquesta capçalera.
+    useModalKeyboard({ isOpen: showNewMenu, onClose: () => setShowNewMenu(false) });
+    useModalKeyboard({ isOpen: isAddingView, onClose: () => setIsAddingView(false) });
+    useModalKeyboard({ isOpen: showOverflow, onClose: () => setShowOverflow(false) });
+
     // Dynamic calculation of how many tabs fit
     useEffect(() => {
         if (!containerRef.current) return;

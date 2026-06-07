@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Settings, LayoutTemplate, List, Calendar as CalendarIcon, Columns, FileImage, BarChart2, Hash, Layers, Globe, MapPin, AlignLeft } from 'lucide-react';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 const viewIcons = {
     table: Hash,
@@ -29,6 +30,9 @@ const viewLabels = {
 
 export function VaultViewsTabs({ views, activeViewId, onSelectView, onAddView, onConfigureView }) {
     const [isAdding, setIsAdding] = useState(false);
+
+    // Esc tanca el menú d'afegir vista (dropdown).
+    useModalKeyboard({ isOpen: isAdding, onClose: () => setIsAdding(false) });
 
     const handleAddClick = (type) => {
         setIsAdding(false);

@@ -4,6 +4,7 @@
  *
  *   Esc   → acció negativa (cancel·lar / tancar)  — sempre, sense condicions
  *   Enter → acció positiva (confirmar)            — amb salvaguardes
+ *   Tab   → focus-trap dins el modal              — opcional (trapFocus)
  *
  * Per què en fase de CAPTURA i a `window`:
  *   Editors i pickers de dins del modal (BlockEditor, dnd-kit, MultiSelectPills…)
@@ -19,13 +20,19 @@
  *   desvincularia/revincularia constantment i deixaria finestres on una pulsació
  *   real es perd. Llegim els callbacks via ref, sempre actualitzats.
  *
+ * Conviu amb navegació pròpia (fletxes ↑↓ per llistes): aquest hook NOMÉS toca
+ * Escape, Enter (si passes onConfirm) i Tab (si trapFocus). Deixa la resta de
+ * tecles intactes, així un modal amb llista navegable manté el seu handler de
+ * fletxes i només delega Esc/Enter aquí.
+ *
  * @param {Object}   params
  * @param {boolean}  params.isOpen           - El modal és visible.
  * @param {Function} params.onClose          - Acció negativa (Esc / backdrop).
- * @param {Function} [params.onConfirm]      - Acció positiva (Enter). Omet-la si el modal no en té.
+ * @param {Function} [params.onConfirm]      - Acció positiva (Enter). Omet-la si el modal no en té (p. ex. dropdowns o llistes amb Enter propi).
  * @param {boolean}  [params.confirmDisabled] - Si true, Enter no confirma (mirall del botó primari deshabilitat).
- * @param {React.RefObject} [params.containerRef] - Ref al panell del modal. Enter només confirma si el focus hi és a dins.
+ * @param {React.RefObject} [params.containerRef] - Ref al panell del modal. Enter només confirma si el focus hi és a dins; necessari per a trapFocus.
  * @param {boolean}  [params.closeOnEscape]  - Permet desactivar Esc en casos molt concrets (per defecte true).
+ * @param {boolean}  [params.trapFocus]      - Si true, Tab cicla dins el modal i es restaura el focus al tancar (necessita containerRef).
  */
 import { useEffect, useRef } from 'react';
 
@@ -36,6 +43,7 @@ export function useModalKeyboard({
     confirmDisabled = false,
     containerRef = null,
     closeOnEscape = true,
+    trapFocus = false,
 }) {
     const onCloseRef = useRef(onClose);
     const onConfirmRef = useRef(onConfirm);
@@ -53,10 +61,43 @@ export function useModalKeyboard({
     useEffect(() => {
         if (!isOpen) return undefined;
 
+        // Recordem qui tenia el focus per restaurar-lo en tancar (accessibilitat).
+        const previouslyFocused = trapFocus ? document.activeElement : null;
+
+        const getFocusable = () => {
+            const root = containerRef?.current;
+            if (!root) return [];
+            return Array.from(
+                root.querySelectorAll(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ),
+            ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+        };
+
         const handleKeyDown = (e) => {
             if (closeOnEscape && e.key === 'Escape') {
                 e.preventDefault();
                 onCloseRef.current?.();
+                return;
+            }
+
+            // Focus-trap: Tab cicla dins el modal (opcional).
+            if (trapFocus && e.key === 'Tab') {
+                const items = getFocusable();
+                if (items.length === 0) return;
+                const root = containerRef?.current;
+                const first = items[0];
+                const last = items[items.length - 1];
+                const active = document.activeElement;
+                if (e.shiftKey) {
+                    if (active === first || !root?.contains(active)) {
+                        e.preventDefault();
+                        last.focus();
+                    }
+                } else if (active === last || !root?.contains(active)) {
+                    e.preventDefault();
+                    first.focus();
+                }
                 return;
             }
 
@@ -86,8 +127,14 @@ export function useModalKeyboard({
         };
 
         window.addEventListener('keydown', handleKeyDown, true);
-        return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [isOpen, closeOnEscape, containerRef]);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown, true);
+            // Restaura el focus a qui el tenia abans d'obrir (només amb trapFocus).
+            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                try { previouslyFocused.focus(); } catch { /* l'element ja no existeix */ }
+            }
+        };
+    }, [isOpen, closeOnEscape, containerRef, trapFocus]);
 }
 
 export default useModalKeyboard;

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Tag, Plus, Check, X, Pencil, Trash2 } from 'lucide-react';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 const PRESET_COLORS = [
     '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -78,6 +79,9 @@ export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onTo
         document.addEventListener('mousedown', handle);
         return () => document.removeEventListener('mousedown', handle);
     }, [onClose]);
+
+    // Esc tanca el picker (dropdown: només Esc, sense Enter ni trap).
+    useModalKeyboard({ isOpen: true, onClose });
 
     const style = anchorRect ? {
         position: 'fixed',

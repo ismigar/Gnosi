@@ -6,6 +6,7 @@ import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
 
@@ -163,6 +164,9 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         if (isOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen, onClose, triggerRef]);
+
+    // Esc tanca el popover de selecció d'icona.
+    useModalKeyboard({ isOpen, onClose });
 
     if (!isOpen) return null;
 

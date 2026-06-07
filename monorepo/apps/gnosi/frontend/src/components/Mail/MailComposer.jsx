@@ -11,6 +11,7 @@ import axios from 'axios';
 import MailBlockEditor from './MailBlockEditor';
 import { AddressInput } from './MailAddressInput';
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // ─── AttachmentBadge ──────────────────────────────────────────────────────────
 function AttachmentBadge({ file, onRemove }) {
@@ -150,6 +151,10 @@ export default function MailComposer({
         const timer = setInterval(saveDraft, 2000);
         return () => clearInterval(timer);
     }, [fromAccount, saveDraft]);
+
+    // Esc tanca el dropdown de fragments (dropdown: només Esc). L'Esc global
+    // del composer (availability/closeConfirm/closeRequest) es gestiona a part.
+    useModalKeyboard({ isOpen: showSnippets, onClose: () => setShowSnippets(false) });
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files || []);

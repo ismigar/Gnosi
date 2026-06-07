@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Trash2, Undo2, Clock, Search, AlertTriangle } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 function fmtDate(iso) {
     if (!iso) return '—';
@@ -30,6 +31,7 @@ export function VaultTrashView({ onAfterChange }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [retentionDays, setRetentionDays] = useState(90);
     const [confirmEmptyAll, setConfirmEmptyAll] = useState(false);
+    const confirmRef = useRef(null);
 
     const fetchTrash = useCallback(async () => {
         setLoading(true);
@@ -99,6 +101,15 @@ export function VaultTrashView({ onAfterChange }) {
             toast.error('Error buidant la paperera');
         }
     };
+
+    // Esc cancel·la, Enter confirma (buidar). Veure useModalKeyboard.
+    useModalKeyboard({
+        isOpen: confirmEmptyAll,
+        onClose: () => setConfirmEmptyAll(false),
+        onConfirm: handleEmptyAll,
+        containerRef: confirmRef,
+        trapFocus: true,
+    });
 
     return (
         <div className="w-full h-full overflow-y-auto bg-[var(--bg-secondary)] flex flex-col">
@@ -203,8 +214,15 @@ export function VaultTrashView({ onAfterChange }) {
             </div>
 
             {confirmEmptyAll && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg p-6 max-w-md w-full mx-4">
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                    onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirmEmptyAll(false); }}
+                >
+                    <div
+                        ref={confirmRef}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg p-6 max-w-md w-full mx-4"
+                    >
                         <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Buidar la paperera?</h2>
                         <p className="text-sm text-[var(--text-secondary)] mb-4">
                             S'eliminaran permanentment {items.length} elements. Aquesta acció no es pot desfer.
@@ -219,6 +237,7 @@ export function VaultTrashView({ onAfterChange }) {
                             </button>
                             <button
                                 type="button"
+                                autoFocus
                                 onClick={handleEmptyAll}
                                 className="px-3 py-1.5 text-sm font-semibold rounded-md bg-red-500 text-white hover:bg-red-600"
                             >
