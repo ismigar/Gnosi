@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import asyncio
 import logging
 import os
 import re
@@ -170,8 +171,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
     if hasattr(app.state, "mcp_client"):
-        await app.state.mcp_client.stop()
-        log.info("✅ MCP Client stopped.")
+        # Timeout: si el stop del client MCP es penja (servidors no responen),
+        # no bloqueja el shutdown del worker (i amb ell la recàrrega de --reload).
+        try:
+            await asyncio.wait_for(app.state.mcp_client.stop(), timeout=5)
+            log.info("✅ MCP Client stopped.")
+        except Exception as e:
+            log.warning(f"⚠️ MCP Client stop timed out/failed: {e}")
 
 # Instance creation
 app = FastAPI(title="Gnosi Agent", version="0.2.0", lifespan=lifespan)
