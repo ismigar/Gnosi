@@ -7,6 +7,7 @@ import { toast } from '../../lib/toast';
 import { LABEL_TO_ZOTERO_TYPE, ZOTERO_TYPE_LABELS, ZOTERO_TO_CSL_TYPE } from './zoteroSchema';
 import { isFieldRelevantForType } from './recursosZoteroMapping';
 import { validateIdentifier } from './identifierValidators';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 /**
  * Normalitza un valor d'"Item Type" del lookup (pot venir com a clau Zotero
@@ -73,6 +74,7 @@ export const MetadataLookupModal = ({
     const [selectedFields, setSelectedFields] = useState({}); // { fieldName: bool }
     const firstInputRef = useRef(null);
     const pdfInputRef = useRef(null);
+    const panelRef = useRef(null);
 
     // Post-processat comú d'una resposta (lookup per identificador o per PDF):
     // desa el resultat i pre-marca els camps que ara estan buits.
@@ -210,16 +212,13 @@ export const MetadataLookupModal = ({
     }, [result, selectedFields, onApply, onClose, t]);
 
     const handleKeyDown = useCallback((e) => {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            onClose?.();
-            return;
-        }
+        // L'Esc el gestiona useModalKeyboard (captura, robust). Aquí només
+        // mantenim Enter=cerca mentre encara no hi ha resultat.
         if (e.key === 'Enter' && !e.shiftKey && !loading && !result) {
             e.preventDefault();
             handleSearch();
         }
-    }, [onClose, loading, result, handleSearch]);
+    }, [loading, result, handleSearch]);
 
     const portalEl = useMemo(() => {
         if (typeof document === 'undefined') return null;
@@ -254,6 +253,12 @@ export const MetadataLookupModal = ({
         return { relevantEntries: rel, otherEntries: oth };
     }, [fieldEntries, zoteroType]);
 
+    // Esc + focus-trap centralitzats al hook canònic (abans de l'early-return
+    // per no introduir hooks condicionals). NO passem onConfirm: l'Enter
+    // d'aquest modal el gestiona handleKeyDown (Enter=cerca quan no hi ha
+    // resultat).
+    useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
+
     if (!isOpen || !portalEl) return null;
 
     // PR #5: validació format dels identificadors. Si el valor és buit la
@@ -286,6 +291,7 @@ export const MetadataLookupModal = ({
             onKeyDown={handleKeyDown}
         >
             <div
+                ref={panelRef}
                 className="w-full max-w-3xl rounded-xl shadow-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] overflow-hidden max-h-[85vh] flex flex-col"
                 onMouseDown={(e) => e.stopPropagation()}
             >

@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { History, RotateCcw, X, Loader2, FileText, Clock, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { ConfirmModal } from '../ConfirmModal';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const { t } = useTranslation();
+  const panelRef = useRef(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [previewContent, setPreviewContent] = useState(null);
@@ -22,14 +24,17 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     }
   }, [open, pageId]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  // Esc + focus-trap centralitzats al hook canònic. Sense onConfirm: la
+  // restauració/purga es confereix via clics i ConfirmModals interns. Quan un
+  // d'aquests ConfirmModals és obert, l'Esc l'ha de tancar només a ell (que té
+  // el seu propi hook), no aquest modal pare.
+  useModalKeyboard({
+    isOpen: open,
+    onClose,
+    containerRef: panelRef,
+    trapFocus: true,
+    closeOnEscape: !isRestoreOpen && !isPurgeOpen,
+  });
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -98,7 +103,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div ref={panelRef} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-secondary)]">
           <div className="flex items-center gap-3">

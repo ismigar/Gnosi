@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Search, X, Quote } from 'lucide-react';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 /**
  * Modal-portal picker per inserir citacions al BlockEditor.
@@ -32,8 +33,13 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
     const [activeIdx, setActiveIdx] = useState(0);
     const inputRef = useRef(null);
     const listRef = useRef(null);
+    const panelRef = useRef(null);
     const debounceRef = useRef(null);
     const abortRef = useRef(null);
+
+    // Esc + focus-trap centralitzats al hook canònic. NO passem onConfirm:
+    // l'Enter d'aquest modal selecciona la citació ressaltada (handler propi).
+    useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
     // Càrrega inicial + cerca amb debounce
     useEffect(() => {
@@ -81,11 +87,6 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
     }, [onSelect, onClose]);
 
     const handleKeyDown = useCallback((e) => {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            onClose?.();
-            return;
-        }
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             setActiveIdx((i) => Math.min(i + 1, Math.max(items.length - 1, 0)));
@@ -102,7 +103,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
             if (item) handleSelect(item);
             return;
         }
-    }, [items, activeIdx, handleSelect, onClose]);
+    }, [items, activeIdx, handleSelect]);
 
     // Auto-scroll element actiu a la vista
     useEffect(() => {
@@ -138,6 +139,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
             }}
         >
             <div
+                ref={panelRef}
                 className="w-full max-w-2xl rounded-xl shadow-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] overflow-hidden"
                 onMouseDown={(e) => e.stopPropagation()}
             >

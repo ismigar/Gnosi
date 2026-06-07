@@ -19,6 +19,7 @@ import {
     Folder,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { MediaPicker } from './MediaPicker';
 import { FilesystemPickerModal } from '../FilesystemPickerModal';
 import { fileUrlToSentinel } from './markdown-mapper';
@@ -133,25 +134,13 @@ export const InsertContentModal = ({
     const currentSrc = imageField ? (initialImageMeta?.src || '') : '';
     const uploadInputRef = useRef(null);
     const confirmBtnRef = useRef(null);
+    // Ref al panell del modal: delimita el focus-trap i l'àmbit del Enter.
+    const panelRef = useRef(null);
 
     useEffect(() => {
         if (!selected?.kind) return;
         setMode((current) => modeAvailableFor(selected.kind, current) ? current : defaultModeFor(selected.kind));
     }, [selected?.kind]);
-
-    useEffect(() => {
-        if (!open) return undefined;
-        const handler = (e) => {
-            if (e.key === 'Escape' && !pickerOpen) {
-                e.stopPropagation();
-                e.preventDefault();
-                onClose?.();
-            }
-        };
-        // Capture phase: BlockNote (ProseMirror) atrapa Esc al bubble phase.
-        window.addEventListener('keydown', handler, true);
-        return () => window.removeEventListener('keydown', handler, true);
-    }, [open, onClose, pickerOpen]);
 
     useEffect(() => {
         if (!open) {
@@ -362,6 +351,23 @@ export const InsertContentModal = ({
         }
     }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t, imageField, imgMeta, currentSrc]);
 
+    // Teclat canònic: Esc tanca, Enter confirma la inserció (mirall del botó
+    // "Insereix": deshabilitat si !canInsert o busy), Tab fa focus-trap dins el
+    // panell. CAPTURA a window per vèncer el stopPropagation de BlockNote
+    // (ProseMirror). Quan el FilesystemPickerModal intern és obert (pickerOpen)
+    // li cedim el teclat: ell té el seu propi Esc + focus-trap (és un germà fora
+    // de panelRef), així que aquí desactivem Esc i el trap per no barallar-nos
+    // amb el seu.
+    useModalKeyboard({
+        isOpen: open,
+        onClose,
+        onConfirm: handleConfirm,
+        confirmDisabled: !canInsert || busy,
+        containerRef: panelRef,
+        trapFocus: !pickerOpen,
+        closeOnEscape: !pickerOpen,
+    });
+
     if (!open) return null;
 
     const SelectedKindMeta = selected?.kind && KIND_META[selected.kind];
@@ -369,7 +375,7 @@ export const InsertContentModal = ({
     return (
         <>
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] max-h-[760px] flex flex-col overflow-hidden">
+                <div ref={panelRef} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] max-h-[760px] flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-primary)]">
                         <h2 className="text-base font-semibold flex items-center gap-2">
                             <Frame size={18} />
@@ -508,7 +514,7 @@ export const InsertContentModal = ({
                             <div className="h-full flex flex-col gap-3">
                                 <input
                                     type="url"
-                                    autoFocus
+                                    data-autofocus="true"
                                     value={urlInput}
                                     onChange={(e) => handleUrlChange(e.target.value)}
                                     placeholder="https://…"

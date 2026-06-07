@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Plus, Trash2, Upload, Rss, Mail, Clock, RefreshCw, AlertCircle, Check } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 const API_BASE = '/api';
 
@@ -17,6 +18,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     const [addLoading, setAddLoading] = useState(false);
 
     const fileRef = useRef(null);
+    const modalRef = useRef(null);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
 
     useEffect(() => {
@@ -26,16 +28,15 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         }
     }, [isOpen]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    // Gestor de feeds (pestanyes/llista) sense una única acció primària: NOMÉS
+    // Esc + focus-trap, sense onConfirm (l'Enter d'"Afegir Feed" ja el gestiona
+    // el submit natiu del seu <form>). Veure useModalKeyboard.
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -182,8 +183,8 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     const newsletterSources = sources.filter(s => s.type === 'newsletter');
 
     return (
-        <div className="settings-overlay">
-            <div className="feed-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="settings-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div ref={modalRef} className="feed-modal" onMouseDown={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div className="settings-modal__header">
                     <h2 className="settings-modal__title">📡 Gestió de Feeds</h2>

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Folder, ChevronRight, ArrowLeft, Home, Search } from 'lucide-react';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
@@ -11,6 +12,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const modalRef = useRef(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -18,22 +20,15 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
         }
     }, [isOpen, initialPath]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                onClose();
-            } else if (e.key === 'Enter') {
-                if (document.activeElement.tagName === 'INPUT') {
-                    // Si estem cercant, potser no volem seleccionar la carpeta immediatament
-                    // depèn de l'UX, però l'ordre és "enter = ok".
-                }
-                onSelect(currentPath);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose, onSelect, currentPath]);
+    // Lògica rica de teclat (Esc tanca, Enter selecciona la carpeta actual,
+    // Tab focus-trap, restauració de focus): centralitzada al hook canònic.
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        onConfirm: () => onSelect(currentPath),
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     const browserInit = async () => {
         const startPath = initialPath || currentPath || '/';
@@ -78,8 +73,8 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
         // té `display: none` definit a GlobalSettingsModal.css. Sense
         // aquesta classe el portal queda invisible (i els clics passen a
         // través per `pointer-events: none`).
-        <div className="settings-overlay active" onClick={onClose}>
-            <div className="settings-modal active" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div className="settings-overlay active" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div ref={modalRef} className="settings-modal active" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onMouseDown={(e) => e.stopPropagation()}>
                 <div className="settings-modal__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
                     <h2 className="settings-modal__title" style={{ margin: 0, fontSize: '1.1em' }}>📁 Seleccionar Carpeta</h2>
                     <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
@@ -181,6 +176,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                         Cancel·lar
                     </button>
                     <button
+                        data-autofocus="true"
                         onClick={() => onSelect(currentPath)}
                         style={{ padding: '8px 16px', borderRadius: '6px', background: '#3b82f6', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '500' }}
                     >

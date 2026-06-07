@@ -2,11 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, FileText, Hash, FolderClosed, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isCalendarPage } from './schemaUtils';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const { t, i18n } = useTranslation();
     const [selectedIndex, setSelectedIndex] = useState(0);
     const listRef = useRef(null);
+    const panelRef = useRef(null);
+
+    // Esc + focus-trap centralitzats al hook canònic. NO passem onConfirm:
+    // l'Enter d'aquest modal selecciona l'ítem ressaltat (handler propi).
+    useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
     // Filter and sort notes
     const recentNotes = React.useMemo(() => {
@@ -34,9 +40,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
         const handleKeyDown = (e) => {
             if (!isOpen) return;
 
-            if (e.key === 'Escape') {
-                onClose();
-            } else if (e.key === 'ArrowDown') {
+            if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 setSelectedIndex(prev => (prev < recentNotes.length - 1 ? prev + 1 : prev));
             } else if (e.key === 'ArrowUp') {
@@ -54,7 +58,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, recentNotes, selectedIndex, onClose, onNoteSelect]);
+    }, [isOpen, recentNotes, selectedIndex, onNoteSelect, onClose]);
 
     // Scroll selected item into view
     useEffect(() => {
@@ -92,7 +96,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
             ></div>
 
             {/* Modal */}
-            <div className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]">
+            <div ref={panelRef} className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]">
                 <div className="flex items-center px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
                     <Clock size={20} className="text-[var(--text-tertiary)]/70 shrink-0 mr-3" />
                     <h2 className="text-lg font-bold text-[var(--text-primary)] flex-1">{t('vault.recent.title')}</h2>

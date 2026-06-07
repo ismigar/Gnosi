@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Folder, ChevronRight, ArrowLeft, Home, Search, File as FileIcon } from 'lucide-react';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
@@ -37,6 +38,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     // Resultats de la cerca global. `null` = no s'està buscant (mode browse).
     const [searchResults, setSearchResults] = useState(null);
     const [searchTruncated, setSearchTruncated] = useState(false);
+    const modalRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -50,19 +52,16 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         if (isOpen) setSearchQuery(initialQuery || '');
     }, [isOpen, initialQuery]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                e.stopPropagation();
-                e.preventDefault();
-                onClose();
-            }
-        };
-        // Capture phase: BlockNote (ProseMirror) atrapa Esc al bubble phase.
-        window.addEventListener('keydown', handleKeyDown, true);
-        return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [isOpen, onClose]);
+    // Picker de navegació sense una única acció primària (en mode 'file' es
+    // selecciona clicant un fitxer de la llista; en 'folder'/'any' el botó del
+    // peu). Per això NOMÉS Esc + focus-trap, sense onConfirm. El hook escolta en
+    // CAPTURA a window (venç el stopPropagation de BlockNote/ProseMirror).
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     // Cerca global a tot el disk amb debounce. Si el query és curt (<2 chars)
     // tornem a mode browse i mostrem el directori actual.
@@ -168,9 +167,10 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         <div
             className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             style={{ zIndex: 10010 }}
-            onClick={onClose}
+            onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
+                ref={modalRef}
                 className="bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border-primary)]"
                 style={{
                     maxWidth: '560px', width: '100%', height: '660px',
@@ -178,7 +178,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     borderRadius: '10px',
                     boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
                 }}
-                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
             >
                 <div
                     className="bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]"
