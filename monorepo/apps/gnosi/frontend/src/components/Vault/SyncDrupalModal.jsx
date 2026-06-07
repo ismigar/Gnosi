@@ -27,6 +27,10 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                 button_action: 'sync_drupal',
                 scope,
                 push_media: pushMedia,
+            }, {
+                // La sync fa reducció d'imatge + múltiples escriptures a Drupal
+                // (remot): pot passar dels 30s del timeout global d'axios.
+                timeout: 180000,
             });
             const d = res.data || {};
             const trOk = (d.translations || []).filter((x) => x.status === 'ok').length;
