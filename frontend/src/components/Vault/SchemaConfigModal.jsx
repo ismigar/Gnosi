@@ -194,7 +194,7 @@ function OptionsEditor({ options = [], onChange }) {
 }
 
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {} }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -285,6 +285,30 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             {t('schema.field_translatable', 'Traduïble')}
                         </span>
                     </label>
+                )}
+
+                {enableDrupalSync && drupalBundle && field.name?.trim() && field.type !== 'button' && !field.system && (
+                    <div
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+                        title={t('schema.field_drupal_map_hint', 'Associa aquest camp a un camp del tipus de contingut de Drupal.')}
+                    >
+                        <Globe size={13} className={drupalFieldMapping[field.id] ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
+                        <select
+                            value={drupalFieldMapping[field.id] || ''}
+                            onChange={(e) => setDrupalFieldMapping((prev) => {
+                                const next = { ...prev };
+                                if (e.target.value) next[field.id] = e.target.value;
+                                else delete next[field.id];
+                                return next;
+                            })}
+                            className="text-xs px-2 py-1 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] max-w-[150px]"
+                        >
+                            <option value="">{t('schema.drupal_no_map', '— No sincronitzar —')}</option>
+                            {drupalFields.map((df) => (
+                                <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
+                            ))}
+                        </select>
+                    </div>
                 )}
 
                 {field.type !== 'title' && (
@@ -1286,7 +1310,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                 </span>
                             </label>
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
-                                {t('schema.drupal_sync_hint', 'Publica els registres com a nodes de Drupal. Tria el tipus de contingut i associa cada camp de la taula a un camp del tipus.')}
+                                {t('schema.drupal_sync_hint', 'Publica els registres com a nodes de Drupal. Tria el tipus de contingut; després associa cada camp des de la llista de columnes de sota.')}
                             </p>
 
                             {enableDrupalSync && (
@@ -1336,27 +1360,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                                         ))}
                                                     </select>
                                                 </div>
-                                                {fields.filter((f) => f.name?.trim() && f.type !== 'button' && !f.system).map((f) => (
-                                                    <div key={f.id} className="flex items-center gap-2 px-3 py-1.5">
-                                                        <span className="text-xs text-[var(--text-secondary)] w-36 shrink-0 truncate" title={f.name}>{f.name}</span>
-                                                        <span className="text-[var(--text-tertiary)] text-xs">→</span>
-                                                        <select
-                                                            value={drupalFieldMapping[f.id] || ''}
-                                                            onChange={(e) => setDrupalFieldMapping((prev) => {
-                                                                const next = { ...prev };
-                                                                if (e.target.value) next[f.id] = e.target.value;
-                                                                else delete next[f.id];
-                                                                return next;
-                                                            })}
-                                                            className="flex-1 text-xs px-2 py-1 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                                                        >
-                                                            <option value="">{t('schema.drupal_no_map', '— No sincronitzar —')}</option>
-                                                            {drupalFields.map((df) => (
-                                                                <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                ))}
+                                                <div className="px-3 py-2 text-[11px] text-[var(--text-secondary)]/60">
+                                                    {t('schema.drupal_perfield_note', "L'associació de cada camp es configura a la llista de columnes de sota, al costat de cada camp.")}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -1399,6 +1405,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                         handleUpdateField={handleUpdateField}
                                         handleRemoveField={handleRemoveField}
                                         enableTranslation={enableTranslation}
+                                        enableDrupalSync={enableDrupalSync}
+                                        drupalBundle={drupalBundle}
+                                        drupalFields={drupalFields}
+                                        drupalFieldMapping={drupalFieldMapping}
+                                        setDrupalFieldMapping={setDrupalFieldMapping}
                                     />
                                 ))}
                             </div>
