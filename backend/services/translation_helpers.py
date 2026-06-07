@@ -172,6 +172,19 @@ def detect_record_source_lang(metadata: Optional[Dict[str, Any]]) -> str:
     return ""
 
 
+def detect_record_lang_raw(metadata: Optional[Dict[str, Any]]) -> str:
+    """Valor CRU (minúscules) del camp "Idioma" de la fila, SENSE truncar a 2
+    lletres. P. ex. "EN-GB" → "en-gb". '' si no en té. Per a destins que accepten
+    codis regionals (com Drupal, que pot tenir "en-gb")."""
+    if not metadata or not isinstance(metadata, dict):
+        return ""
+    for key, val in metadata.items():
+        if _strip_accents(str(key).lower()) in _LANGUAGE_FIELD_NAMES:
+            v = val[0] if isinstance(val, list) and val else val
+            return str(v or "").strip().lower()
+    return ""
+
+
 # --- Omplir el camp "Idioma" de la traducció ---------------------------------
 # `detect_record_source_lang` LLEGEIX l'idioma de l'original; aquestes funcions
 # fan l'invers: decideixen QUÈ escriure al camp "Idioma" del subitem traduït

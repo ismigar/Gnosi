@@ -17,8 +17,10 @@ import html as _html
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
@@ -178,6 +180,16 @@ async def list_fields(bundle: str) -> list[dict]:
     return fields
 
 
+def _norm_title(s) -> str:
+    """Clau de comparació de títols, robusta: minúscules, sense accents, sense
+    puntuació ni caràcters especials, espais col·lapsats. Perquè el match entre
+    Gnosi i Drupal toleri diferències d'espais/majúscules/accents/signes."""
+    s = unicodedata.normalize("NFKD", str(s or ""))
+    s = "".join(c for c in s if not unicodedata.combining(c))  # treu accents
+    s = re.sub(r"[^0-9a-z\s]", " ", s.lower())  # treu puntuació/especials
+    return " ".join(s.split())  # col·lapsa espais
+
+
 async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[dict]:
     """Nodes del bundle amb el títol EXACTE indicat: ``[{uuid, nid, url, title}]``.
 
@@ -187,16 +199,30 @@ async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[d
     title = (title or "").strip()
     if not title:
         return []
+    # Match INSENSIBLE A ESPAIS: alguns nodes de Drupal tenen el títol amb espais
+    # sobrants (p. ex. "…totes   "), que feien fallar el match exacte i creaven
+    # duplicats. Cerquem amb CONTAINS i filtrem client-side pel títol normalitzat.
+    norm = _norm_title(title)
+    if not norm:
+        return []
+    words = re.findall(r"\w+", title, flags=re.UNICODE)
+    needle = max(words, key=len) if words else title
     async with _client() as c:
         r = await c.get(
             f"/jsonapi/node/{bundle}",
-            params={"filter[title]": title, "page[limit]": limit},
+            params={
+                "filter[title][operator]": "CONTAINS",
+                "filter[title][value]": needle,
+                "page[limit]": 50,
+            },
         )
     _raise_for(r, "find_nodes_by_title")
     base = _base_url()
     out: list[dict] = []
     for d in r.json().get("data", []):
         a = d.get("attributes", {})
+        if _norm_title(a.get("title")) != norm:
+            continue  # CONTAINS pot retornar títols més llargs: exigim match normalitzat
         out.append({
             "uuid": d.get("id"),
             "nid": a.get("drupal_internal__nid"),
