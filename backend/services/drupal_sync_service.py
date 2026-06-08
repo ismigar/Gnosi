@@ -324,10 +324,15 @@ async def upload_image(
     amb el cos binari i ``Content-Disposition: file; filename="…"``. L'UUID
     retornat s'enllaça després com a relació ``file--file`` (amb ``meta.alt``).
     """
+    # El header Content-Disposition ha de ser ASCII. Els noms de la Biblioteca solen
+    # portar accents (sovint com a caràcters combinants NFD de macOS, p. ex.
+    # "García"); transliterem a ASCII per al nom de pujada (el contingut binari i
+    # l'``alt`` del camp conserven el text original intacte).
+    ascii_name = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii") or "file"
     headers = {
         "Accept": JSONAPI,
         "Content-Type": "application/octet-stream",
-        "Content-Disposition": f'file; filename="{filename}"',
+        "Content-Disposition": f'file; filename="{ascii_name}"',
     }
     async with _client() as c:
         r = await c.post(f"/jsonapi/node/{bundle}/{field_name}", content=data, headers=headers)
@@ -336,6 +341,46 @@ async def upload_image(
     if not fid:
         raise DrupalSyncError(f"upload_image: resposta sense UUID de fitxer ({r.text[:200]})")
     return fid
+
+
+async def find_existing_file(filename: str, filesize: Optional[int] = None) -> Optional[str]:
+    """UUID d'un fitxer ja pujat a Drupal amb el mateix nom (i mida), per
+    reaprofitar-lo en comptes de crear-ne una còpia nova a cada re-sincronització.
+
+    Drupal NO sobreescriu en rebre un nom repetit: crea ``nom_0``, ``nom_1``… i
+    això inflava ``sites/default/files`` amb centenars de còpies de la mateixa
+    imatge. L'entitat conserva el nom ORIGINAL a ``filename`` (el sufix de
+    col·lisió va només a l'``uri``), així que filtrem pel nom EXACTE de pujada i,
+    si es passa ``filesize``, validem la mida en bytes per no reaprofitar una
+    versió amb contingut diferent. Retorna el fitxer més antic coincident (UUID),
+    o ``None`` (i aleshores el cridant puja, com abans — sense regressió).
+    """
+    if not filename:
+        return None
+    ascii_name = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii") or "file"
+    try:
+        async with _client() as c:
+            r = await c.get(
+                "/jsonapi/file/file",
+                params={
+                    "filter[filename]": ascii_name,
+                    # Només fitxers PERMANENT: un de temporary el podria esborrar el
+                    # garbage collector de Drupal i deixar el node amb la imatge trencada.
+                    "filter[status]": "1",
+                    "fields[file--file]": "filename,filesize",
+                    "sort": "drupal_internal__fid",
+                    "page[limit]": 50,
+                },
+            )
+        if r.status_code >= 400:
+            log.warning("drupal: find_existing_file HTTP %s per «%s»", r.status_code, ascii_name)
+            return None
+        for row in (r.json() or {}).get("data", []):
+            if filesize is None or (row.get("attributes") or {}).get("filesize") == filesize:
+                return row.get("id")
+    except Exception as exc:
+        log.warning("drupal: find_existing_file ha fallat (%s): %s", filename, exc)
+    return None
 
 
 async def resolve_or_create_term(

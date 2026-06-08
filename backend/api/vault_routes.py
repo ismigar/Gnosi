@@ -11975,11 +11975,38 @@ def _drupal_coerce_scalar(value, field_type: Optional[str]):
     return str(value)
 
 
+def _drupal_reanchor_home(p: Path) -> Path:
+    """Reancora un path absolut de OneDrive al HOME real si no existeix tal qual.
+
+    Els enllaços ``file://`` de la Biblioteca es van desar amb el nom d'usuari del
+    HOME del moment (p. ex. ``/Users/ismaelgarcia/``); si el HOME actual és un altre
+    (``/Users/ismaelgarciafernandez/``) el path no resol. Reancora el tram des de
+    ``/Library/CloudStorage/`` al HOME real (``HOME_HOST_PATH`` dins el contenidor,
+    o ``~``). Retorna el candidat si existeix; si no, el path original sense tocar.
+    """
+    try:
+        if p.exists():
+            return p
+        marker = "/Library/CloudStorage/"
+        s = str(p)
+        idx = s.find(marker)
+        if idx < 0:
+            return p
+        home = os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
+        candidate = Path(home) / s[idx + 1:]  # "Library/CloudStorage/..."
+        if candidate.exists():
+            return candidate
+    except Exception:
+        pass
+    return p
+
+
 def _drupal_resolve_local_path(value) -> Optional[Path]:
     """Resol el valor d'un camp d'imatge/fitxer a una ruta local al disc.
 
     Cobreix les dues formes en què Gnosi desa els fitxers: rutes relatives al
-    Vault (``Assets/...``) i rutes absolutes / ``file://`` (Biblioteca).
+    Vault (``Assets/...``) i rutes absolutes / ``file://`` (Biblioteca). Reancora els
+    paths absoluts de OneDrive desats amb un altre nom d'usuari (``_drupal_reanchor_home``).
     """
     if not value:
         return None
@@ -11990,10 +12017,10 @@ def _drupal_resolve_local_path(value) -> Optional[Path]:
     if raw.startswith("file://"):
         from urllib.parse import unquote, urlparse
 
-        return Path(unquote(urlparse(raw).path))
+        return _drupal_reanchor_home(Path(unquote(urlparse(raw).path)))
     p = Path(raw)
     if p.is_absolute():
-        return p
+        return _drupal_reanchor_home(p)
     # Ruta relativa: és relativa a la carpeta Assets del Vault (igual que
     # toServedAssetUrl al frontend), tant si porta el prefix "Assets/" com si no
     # (p. ex. "Articles/x.jpg" → <Vault>/Assets/Articles/x.jpg).
@@ -12073,6 +12100,51 @@ def _drupal_shrink_image(data: bytes, filename: str):
     return out, f"{stem}.jpg"  # millor intent (encara així, millor que el 422)
 
 
+# Els PDFs del Vault (escanejats, alta resolució) poden pesar desenes de MB i fer
+# fallar la pujada o omplir el servidor. Ghostscript els recomprimeix a un compromís
+# qualitat/pes raonable (/ebook ≈ 150 dpi) abans de pujar-los, mantenint l'original
+# al Vault intacte.
+_DRUPAL_GS_PDF_SETTING = "/ebook"  # ~150 dpi: compromís qualitat/pes per a web
+
+
+def _drupal_shrink_pdf(data: bytes, filename: str):
+    """Comprimeix un PDF amb Ghostscript (``/ebook``) si en redueix el pes. Retorna
+    ``(bytes, filename)``. És un no-op (retorna l'original) si no és un PDF, si ``gs``
+    no està instal·lat (p. ex. al host de dev), si la compressió peta/excedeix el
+    temps, o si el resultat no és més petit. CPU/IO-bound: crida-la dins
+    ``asyncio.to_thread``."""
+    if data[:5] != b"%PDF-":
+        return data, filename
+    import os
+    import subprocess
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            in_path = os.path.join(td, "in.pdf")
+            out_path = os.path.join(td, "out.pdf")
+            with open(in_path, "wb") as f:
+                f.write(data)
+            # Llista d'arguments (mai shell=True) amb paths controlats → sense injecció.
+            subprocess.run(
+                [
+                    "gs", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4",
+                    f"-dPDFSETTINGS={_DRUPAL_GS_PDF_SETTING}",
+                    "-dNOPAUSE", "-dQUIET", "-dBATCH",
+                    f"-sOutputFile={out_path}", in_path,
+                ],
+                check=True, capture_output=True, timeout=120,
+            )
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                with open(out_path, "rb") as f:
+                    out = f.read()
+                # Valida que la sortida és un PDF real i estrictament més petit.
+                if out[:5] == b"%PDF-" and len(out) < len(data):
+                    return out, filename
+    except Exception as exc:  # gs absent, timeout, sortida corrupta… → original
+        log.warning("drupal: compressió de PDF omesa (%s): %s", filename, exc)
+    return data, filename
+
+
 async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, image_cache):
     """Puja un fitxer local a un camp d'imatge/fitxer i retorna la relació JSON:API.
 
@@ -12099,10 +12171,19 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
     file_uuid = image_cache.get(key)
     if not file_uuid:
         data = await asyncio.to_thread(path.read_bytes)
-        # Redueix si supera el límit de Drupal (no-op si ja és petita o no és
-        # imatge, p. ex. un PDF d'un camp `file`). Manté l'original al Vault.
-        data, upload_name = await asyncio.to_thread(_drupal_shrink_image, data, path.name)
-        file_uuid = await drupal.upload_image(bundle, drupal_field, upload_name, data)
+        # Redueix el pes abans de pujar (manté l'original al Vault intacte): els
+        # PDFs amb Ghostscript (/ebook), la resta com a imatge amb Pillow. Tots dos
+        # són no-op si ja són prou petits o si l'eina no és disponible.
+        if data[:5] == b"%PDF-":
+            data, upload_name = await asyncio.to_thread(_drupal_shrink_pdf, data, path.name)
+        else:
+            data, upload_name = await asyncio.to_thread(_drupal_shrink_image, data, path.name)
+        # Reaprofita un fitxer ja pujat a Drupal amb el mateix nom i mida: evita
+        # crear còpies «_0/_1/…» a cada re-sincronització (inflaven sites/default/files
+        # fins a centenars de duplicats de la mateixa imatge — vegeu find_existing_file).
+        file_uuid = await drupal.find_existing_file(upload_name, len(data))
+        if not file_uuid:
+            file_uuid = await drupal.upload_image(bundle, drupal_field, upload_name, data)
         image_cache[key] = file_uuid
     alt = str(comp_alt or metadata.get("title") or path.stem)
     meta = {"alt": alt}
@@ -12192,6 +12273,40 @@ def _drupal_md_to_html(text: str, wl_cache: dict) -> str:
     return drupal.markdown_to_full_html(_drupal_preprocess_md(text or "", cache=wl_cache))
 
 
+def _drupal_media_signatures(mapping, props_by_ref, field_meta, metadata) -> Dict[str, str]:
+    """Signatura per camp NO-text (imatge/fitxer i tags) per detectar canvis entre
+    syncs i evitar re-pujar/reescriure el que no ha canviat. image/file →
+    ``"mida:mtime"`` del fitxer font; entity_reference (tags) → noms normalitzats i
+    ordenats. Els camps sense valor o no resolubles s'ometen. No materialitza fitxers
+    (només llegeix ``stat``), així que és barata."""
+    sigs: Dict[str, str] = {}
+    for ref, drupal_field in (mapping or {}).items():
+        if not drupal_field:
+            continue
+        ftype = (field_meta.get(drupal_field) or {}).get("type")
+        prop = props_by_ref.get(ref)
+        if not prop:
+            continue
+        value = _drupal_read_prop_value(metadata, prop)
+        if value in (None, "", [], {}):
+            continue
+        if ftype in ("image", "file"):
+            src = value.get("src") if isinstance(value, dict) else value
+            try:
+                path = _drupal_resolve_local_path(src)
+                if path and path.exists():
+                    st = path.stat()
+                    sigs[drupal_field] = f"{st.st_size}:{int(st.st_mtime)}"
+            except Exception:
+                pass
+        elif ftype == "entity_reference":
+            raw = value if isinstance(value, list) else re.split(r"[;,]", str(value))
+            names = sorted(s for s in (str(x).strip().lower() for x in raw) if s)
+            if names:
+                sigs[drupal_field] = "tags:" + "|".join(names)
+    return sigs
+
+
 async def _drupal_build_fields(
     *, mapping, props_by_ref, field_meta, metadata, body, bundle,
     term_cache, image_cache, text_only=False, media_only=False,
@@ -12201,8 +12316,10 @@ async def _drupal_build_fields(
     ``field_meta``: ``{field_name: {"type":.., "vocab":..}}``. Amb ``text_only``
     només es construeixen text/escalars/cos — taxonomia i imatge a Drupal són
     camps compartits entre traduccions, no es tradueixen. Amb ``media_only``
-    només es construeixen els camps imatge/fitxer (per re-empènyer-los en
-    actualitzar un node ja existent, que pel text no els toca).
+    es construeixen els camps NO-text compartits entre traduccions: imatge/fitxer
+    **i taxonomia (tags)** — per re-empènyer-los en actualitzar un node ja existent
+    (el camí de text no els toca). Nota: si una fila es queda sense cap tag, el camp
+    no s'envia i els tags antics NO es buiden a Drupal (només s'afegeixen/reemplacen).
     """
     from backend.services import drupal_sync_service as drupal
 
@@ -12235,7 +12352,9 @@ async def _drupal_build_fields(
             html = await asyncio.to_thread(_drupal_md_to_html, str(value), wl_cache)
             attributes[drupal_field] = {"value": html, "format": "full_html"}
         elif ftype == "entity_reference":
-            if text_only or media_only:
+            # Tags: camp compartit no-text → s'inclou en crear i en re-empènyer
+            # mèdia (media_only), però NO en el camí de només-text (text_only).
+            if text_only:
                 continue
             vocab = meta.get("vocab") or "tags"
             names = value if isinstance(value, list) else re.split(r"[;,]", str(value))
@@ -12571,26 +12690,31 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             raise HTTPException(status_code=400, detail=detail)
         raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
-    # --- Re-empènyer la imatge (i el seu alt) en ACTUALITZAR ---
-    # En crear, la imatge ja s'inclou; el camí de text d'actualització no la
-    # toca. Amb push_media es re-puja i re-enllaça field_image via update_node.
-    # La imatge és un camp compartit entre traduccions → n'hi ha prou de fer-ho
-    # un cop per al node (no cal repetir-ho per germanes/subitems).
+    # --- Re-empènyer mèdia (imatge/fitxer) i tags en ACTUALITZAR ---
+    # En crear, mèdia i tags ja s'inclouen; el camí de text d'actualització no els
+    # toca. Amb push_media es re-pugen/reescriuen via update_node (camps compartits
+    # entre traduccions → n'hi ha prou de fer-ho un cop per al node). Detecció de
+    # canvi: només es re-puja si la signatura de mèdia/tags difereix de l'últim sync,
+    # per evitar re-pujar i crear+esborrar fitxers a Drupal a cada toc innecessàriament.
     media_pushed = False
+    cur_media_sig = None
     if push_media and drupal_uuid and not created:
-        _ma, media_rels, media_skipped = await _drupal_build_fields(
-            mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-            metadata=metadata, body=body, bundle=bundle,
-            term_cache=term_cache, image_cache=image_cache, media_only=True,
-        )
-        if media_skipped:
-            skipped_fields.extend(media_skipped)
-        if media_rels:
-            try:
-                await drupal.update_node(drupal_uuid, bundle, {}, media_rels)
-                media_pushed = True
-            except drupal.DrupalSyncError as exc:
-                skipped_fields.append({"field": "media", "reason": str(exc)})
+        cur_media_sig = _drupal_media_signatures(mapping, props_by_ref, field_meta, metadata)
+        prev_media_sig = metadata.get("drupal_media_sig") or {}
+        if cur_media_sig != prev_media_sig:
+            _ma, media_rels, media_skipped = await _drupal_build_fields(
+                mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
+                metadata=metadata, body=body, bundle=bundle,
+                term_cache=term_cache, image_cache=image_cache, media_only=True,
+            )
+            if media_skipped:
+                skipped_fields.extend(media_skipped)
+            if media_rels:
+                try:
+                    await drupal.update_node(drupal_uuid, bundle, {}, media_rels)
+                    media_pushed = True
+                except drupal.DrupalSyncError as exc:
+                    skipped_fields.append({"field": "media", "reason": str(exc)})
 
     # --- Abast "tot el node": traduccions (subitems) + files germanes ---
     translations: list = []
@@ -12631,6 +12755,12 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
 
     # --- Escriu identitat a la fila (columnes visibles + metadata oculta) ---
     meta_update = _drupal_identity_meta(table, drupal_uuid, nid, url)
+    # Desa la signatura de mèdia/tags per a la detecció de canvi del proper sync,
+    # EXCLOENT els camps que han fallat (skipped) perquè es reintentin i no quedin
+    # marcats com a sincronitzats sense haver-se pujat realment.
+    if cur_media_sig is not None:
+        _failed = {s.get("field") for s in (skipped_fields or []) if s.get("field")}
+        meta_update["drupal_media_sig"] = {k: v for k, v in cur_media_sig.items() if k not in _failed}
     try:
         await patch_page(item_id, PagePatchRequest(metadata=meta_update), background_tasks)
     except Exception as exc:
@@ -12701,7 +12831,7 @@ async def sync_drupal_row(background_tasks: BackgroundTasks, payload: dict = Bod
     scope = payload.get("scope") or "all"
     if scope not in ("all", "lang_only"):
         scope = "all"
-    push_media = bool(payload.get("push_media"))
+    push_media = bool(payload.get("push_media", True))
     result = await _do_sync_drupal_row(
         item_id, background_tasks=background_tasks, publish=bool(publish),
         scope=scope, push_media=push_media,
@@ -12720,7 +12850,7 @@ async def sync_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Bo
     if scope not in ("all", "lang_only"):
         scope = "all"
     publish = bool(payload.get("publish", True))
-    push_media = bool(payload.get("push_media"))
+    push_media = bool(payload.get("push_media", True))
     results: list = []
     errors: list = []
     for iid in item_ids:

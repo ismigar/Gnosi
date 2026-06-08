@@ -7,8 +7,9 @@ WORKDIR /app
 # per al servei d'export (Markdown del Vault → .docx/.odt/.html/.tex amb
 # cites resoltes via --citeproc + CSL). pandoc inclou citeproc al binari
 # des de v2.11. Tamany: ~150MB; opcional eliminar si no es vol l'export.
+# ghostscript: compressió de PDFs abans de pujar-los a Drupal (_drupal_shrink_pdf).
 RUN apt-get update \
-    && apt-get install -y docker.io pandoc \
+    && apt-get install -y docker.io pandoc ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
