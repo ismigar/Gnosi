@@ -28,6 +28,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { VIEW_TYPES, getViewIcon, isMainView } from './viewConstants';
 import { ReferenceImportExport } from './ReferenceImportExport';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { matchesFilters } from '../../utils/vaultFilters';
 
 function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigure }) {
     const { t } = useTranslation();
@@ -154,11 +155,12 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
     );
 }
 
-export function VaultViewsHeader({ 
-    tableName, 
-    recordCount, 
-    views, 
-    activeViewId, 
+export function VaultViewsHeader({
+    tableName,
+    recordCount,
+    notes = [],
+    views,
+    activeViewId,
     onViewSelect, 
     onAddView, 
     onEditView,
@@ -182,6 +184,22 @@ export function VaultViewsHeader({
     const [showSearch, setShowSearch] = useState(false);
     const [isAddingView, setIsAddingView] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
+
+    // Compte de registres de la vista ACTIVA (no de tota la taula). Si la vista
+    // té filtres, només els registres que els compleixen; si no en té, equival
+    // al total. Reutilitza `matchesFilters` (la mateixa funció pura que aplica
+    // VaultTable via useVaultViewData) perquè el badge i la taula no divergeixin.
+    // La cerca es deixa fora a posta: és transitòria i ja la reflecteix el
+    // "Mostrant X de Y" de dins de la taula; el badge és la mida de la vista.
+    const activeViewFilters = useMemo(
+        () => (views?.find(v => v.id === activeViewId)?.filters) || [],
+        [views, activeViewId]
+    );
+    const viewRecordCount = useMemo(() => {
+        if (!activeViewFilters.length) return recordCount;
+        return (notes || []).filter(n => matchesFilters(n, activeViewFilters)).length;
+    }, [notes, activeViewFilters, recordCount]);
+    const isFilteredView = viewRecordCount !== recordCount;
     
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -286,8 +304,13 @@ export function VaultViewsHeader({
                     <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2 md:gap-3 mt-0 leading-none">
                         {tableName}
                     </h1>
-                    <span className="text-[10px] md:text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full border border-[var(--border-primary)]">
-                        {t('views_header.records_count', { count: recordCount })}
+                    <span
+                        className="text-[10px] md:text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full border border-[var(--border-primary)]"
+                        title={isFilteredView ? t('views_header.records_count_in_view_hint', { count: viewRecordCount, total: recordCount }) : undefined}
+                    >
+                        {isFilteredView
+                            ? t('views_header.records_count_in_view', { count: viewRecordCount, total: recordCount })
+                            : t('views_header.records_count', { count: recordCount })}
                     </span>
                 </div>
 
