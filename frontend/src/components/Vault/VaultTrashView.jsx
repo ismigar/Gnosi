@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Trash2, Undo2, Clock, Search, AlertTriangle } from 'lucide-react';
 import { toast } from '../../lib/toast';
-import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { ConfirmModal } from '../ConfirmModal';
 
 function fmtDate(iso) {
     if (!iso) return '—';
@@ -31,7 +31,8 @@ export function VaultTrashView({ onAfterChange }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [retentionDays, setRetentionDays] = useState(90);
     const [confirmEmptyAll, setConfirmEmptyAll] = useState(false);
-    const confirmRef = useRef(null);
+    // Entrada pendent de purga individual: { id, title } o null.
+    const [purgeTarget, setPurgeTarget] = useState(null);
 
     const fetchTrash = useCallback(async () => {
         setLoading(true);
@@ -75,41 +76,47 @@ export function VaultTrashView({ onAfterChange }) {
         }
     };
 
-    const handlePurge = async (id, title) => {
-        const ok = window.confirm(`Eliminar permanentment "${title || id}"? No es podrà recuperar.`);
-        if (!ok) return;
+    // La confirmació la gestiona el ConfirmModal (modal de l'app, no el
+    // `window.confirm` natiu —que Chrome pot suprimir després de diversos
+    // diàlegs, deixant la purga sense fer).
+    const executePurge = async () => {
+        if (!purgeTarget) return;
+        const { id } = purgeTarget;
         try {
             await axios.delete(`/api/vault/trash/${id}`);
             toast.success('Eliminat permanentment');
+            setPurgeTarget(null);
             await fetchTrash();
             onAfterChange?.();
         } catch (err) {
             console.error('Error purgant:', err);
             toast.error('No s\'ha pogut purgar');
+            setPurgeTarget(null);
         }
     };
 
+    // Buidar tota la paperera en UNA sola petició al servidor. Abans es
+    // disparaven N `DELETE /trash/{id}` concurrents des del client, que
+    // esgotaven el pool de connexions de BD (QueuePool timeout → 500 amagats
+    // per `Promise.allSettled` → la paperera no es buidava). Vegeu l'endpoint
+    // `DELETE /api/vault/trash`.
     const handleEmptyAll = async () => {
         try {
-            await Promise.allSettled(items.map(it => axios.delete(`/api/vault/trash/${it.id}`)));
-            toast.success(`Paperera buidada (${items.length} elements)`);
+            const res = await axios.delete('/api/vault/trash');
+            const { purged_count = 0, failed_count = 0 } = res.data || {};
+            if (failed_count > 0) {
+                toast.error(`Paperera buidada parcialment: ${purged_count} eliminats, ${failed_count} amb error`);
+            } else {
+                toast.success(`Paperera buidada (${purged_count} elements)`);
+            }
             setConfirmEmptyAll(false);
             await fetchTrash();
             onAfterChange?.();
         } catch (err) {
             console.error('Error buidant:', err);
-            toast.error('Error buidant la paperera');
+            toast.error('No s\'ha pogut buidar la paperera');
         }
     };
-
-    // Esc cancel·la, Enter confirma (buidar). Veure useModalKeyboard.
-    useModalKeyboard({
-        isOpen: confirmEmptyAll,
-        onClose: () => setConfirmEmptyAll(false),
-        onConfirm: handleEmptyAll,
-        containerRef: confirmRef,
-        trapFocus: true,
-    });
 
     return (
         <div className="w-full h-full overflow-y-auto bg-[var(--bg-secondary)] flex flex-col">
@@ -199,7 +206,7 @@ export function VaultTrashView({ onAfterChange }) {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => handlePurge(it.id, it.title)}
+                                            onClick={() => setPurgeTarget({ id: it.id, title: it.title })}
                                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-red-500/30 text-red-500 hover:bg-red-500/10"
                                             title="Eliminar permanentment"
                                         >
@@ -213,40 +220,25 @@ export function VaultTrashView({ onAfterChange }) {
                 )}
             </div>
 
-            {confirmEmptyAll && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-                    onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirmEmptyAll(false); }}
-                >
-                    <div
-                        ref={confirmRef}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg p-6 max-w-md w-full mx-4"
-                    >
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Buidar la paperera?</h2>
-                        <p className="text-sm text-[var(--text-secondary)] mb-4">
-                            S'eliminaran permanentment {items.length} elements. Aquesta acció no es pot desfer.
-                        </p>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setConfirmEmptyAll(false)}
-                                className="px-3 py-1.5 text-sm rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
-                            >
-                                Cancel·lar
-                            </button>
-                            <button
-                                type="button"
-                                data-autofocus="true"
-                                onClick={handleEmptyAll}
-                                className="px-3 py-1.5 text-sm font-semibold rounded-md bg-red-500 text-white hover:bg-red-600"
-                            >
-                                Buidar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmModal
+                isOpen={confirmEmptyAll}
+                onClose={() => setConfirmEmptyAll(false)}
+                onConfirm={handleEmptyAll}
+                title="Buidar la paperera?"
+                message={`S'eliminaran permanentment ${items.length} elements. Aquesta acció no es pot desfer.`}
+                confirmText="Buidar"
+            />
+
+            <ConfirmModal
+                isOpen={!!purgeTarget}
+                onClose={() => setPurgeTarget(null)}
+                onConfirm={executePurge}
+                title="Eliminar permanentment?"
+                message={purgeTarget
+                    ? `S'eliminarà permanentment "${purgeTarget.title || purgeTarget.id}". No es podrà recuperar.`
+                    : ''}
+                confirmText="Eliminar"
+            />
         </div>
     );
 }

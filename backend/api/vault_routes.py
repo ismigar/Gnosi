@@ -7044,6 +7044,57 @@ async def list_trash(q: Optional[str] = Query(None)):
     return {"items": entries, "retention_days": TRASH_RETENTION_DAYS}
 
 
+@router.delete("/trash", dependencies=[Depends(require_role("admin"))])
+async def empty_trash():
+    """Buida tota la paperera en UNA sola petició (purga definitiva).
+
+    Substitueix el patró antic d'N peticions `DELETE /trash/{id}` des del
+    client. Amb ~100 entrades, el client disparava ~100 DELETE concurrents i
+    cadascuna retenia una connexió del pool de BD (via les dependències de
+    workspace/rol) durant tota la petició, esgotant el `QueuePool` (size 20 +
+    overflow 30) → moltes peticions feien timeout als 30s i retornaven 500.
+    `Promise.allSettled` al frontend amagava aquests 500 i la paperera no es
+    buidava («no funciona»). Fer-ho tot al servidor usa UNA connexió i tolera
+    errors per entrada (en reporta el compte real).
+    """
+    def _empty_all() -> Dict[str, Any]:
+        root = _trash_root()
+        purged = 0
+        failed = 0
+        freed = 0
+        failed_ids: List[str] = []
+        # Materialitzem la llista abans d'iterar: purguem (rmtree) dins el bucle
+        # i no volem mutar el directori mentre el recorre l'iterador peresós.
+        for entry_dir in list(root.iterdir()):
+            if not entry_dir.is_dir():
+                continue
+            try:
+                res = _purge_trash_entry(entry_dir.name)
+                purged += 1
+                freed += int(res.get("freed_bytes") or 0)
+            except Exception as exc:
+                failed += 1
+                failed_ids.append(entry_dir.name)
+                log.warning(
+                    f"Purga fallida en buidar la paperera per {entry_dir.name}: {exc}"
+                )
+        return {
+            "purged_count": purged,
+            "failed_count": failed,
+            "failed_ids": failed_ids,
+            "freed_bytes": freed,
+        }
+
+    try:
+        result = await asyncio.to_thread(_empty_all)
+    except Exception as e:
+        log.error(f"Error buidant la paperera: {e}")
+        raise HTTPException(
+            status_code=500, detail=safe_error_detail(e, "DELETE /trash")
+        )
+    return {"status": "emptied", **result}
+
+
 @router.delete(
     "/trash/{page_id}",
     dependencies=[Depends(require_role("admin"))],
