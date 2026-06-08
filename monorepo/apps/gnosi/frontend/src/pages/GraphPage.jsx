@@ -54,6 +54,9 @@ function GraphPage() {
     // Map of "tableId:fieldName" -> Set of active values
     const [fieldFilters, setFieldFilters] = useState({});
     const [availableTables, setAvailableTables] = useState([]);
+    // Mapa id→títol (totes les pàgines) per mostrar el títol de les pàgines
+    // relacionades als filtres de camps de tipus referència, en comptes de l'id.
+    const [idTitleMap, setIdTitleMap] = useState({});
 
     // Visualization State
     const [showArrows, setShowArrows] = useState(true);
@@ -225,6 +228,13 @@ function GraphPage() {
             .then(r => r.json())
             .then(data => setAvailableTables(data))
             .catch(e => console.error("Error fetching tables for filters:", e));
+
+        // Mapa id→títol global per resoldre els valors dels camps de tipus
+        // referència als filtres (mostrar el títol de la pàgina, no l'id).
+        fetch('/api/vault/global-index')
+            .then(r => (r.ok ? r.json() : {}))
+            .then(data => setIdTitleMap(data && typeof data === 'object' ? data : {}))
+            .catch(e => console.error("Error fetching global index for filters:", e));
 
         const matcher = window.matchMedia('(prefers-color-scheme: dark)');
         const onChange = (e) => setIsDarkMode(e.matches);
@@ -421,8 +431,32 @@ function GraphPage() {
         return result;
     }, [graphData, visibleFields]);
 
+    // Mapa combinat id→títol: global-index + etiquetes dels nodes del graf (cobreix
+    // pàgines presents al graf que potser no són a l'índex). Per resoldre el títol
+    // de les pàgines relacionades als filtres de camps de tipus referència.
+    const idLabelResolver = useMemo(() => {
+        const m = { ...idTitleMap };
+        for (const n of (graphData?.nodes || [])) {
+            const label = n.label;
+            if (!label) continue;
+            for (const k of [n.id, n.key, n.metadata?.id]) {
+                if (k && !(String(k) in m)) m[String(k)] = label;
+            }
+        }
+        return m;
+    }, [idTitleMap, graphData]);
 
-
+    // Etiqueta a mostrar per a un valor de filtre: si és l'id d'una pàgina coneguda
+    // → el seu títol; si sembla un id (UUID/Notion) sense resoldre (relació penjada)
+    // → forma escurçada en comptes del UUID sencer; si no → el valor tal qual
+    // (p. ex. opcions de select com "Acabada").
+    const displayFieldValue = (val) => {
+        const s = String(val);
+        if (idLabelResolver[s]) return idLabelResolver[s];
+        const looksLikeId = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(s)
+            || /^[0-9a-f]{32}$/i.test(s);
+        return looksLikeId ? s.slice(0, 8) + '…' : s;
+    };
 
     if (loading) {
         return (
@@ -661,7 +695,7 @@ function GraphPage() {
                                                                 <span className="custom-checkbox" style={{ width: '14px', height: '14px', backgroundColor: 'var(--gnosi-blue)', opacity: isActive ? 1 : 0.2 }}>
                                                                     {isActive && <Check size={8} color="white" />}
                                                                 </span>
-                                                                <span className="filter-label-text" style={{ fontSize: '0.75rem' }}>{String(val)} ({count})</span>
+                                                                <span className="filter-label-text" style={{ fontSize: '0.75rem' }} title={String(val)}>{displayFieldValue(val)} ({count})</span>
                                                             </label>
                                                         </div>
                                                     );
