@@ -2742,6 +2742,7 @@ export default function VaultDashboard() {
                     <VaultViewsHeader
                         tableName={table?.title || table?.name || t('common.table')}
                         recordCount={paneNotes.length}
+                        notes={paneNotes}
                         referenceTableId={refTableId && refTableId === tableId ? tableId : undefined}
                         onReferencesImported={fetchPages}
                         onCreateFromSource={() => setCreateSourceTableId(tableId)}
@@ -2958,6 +2959,7 @@ export default function VaultDashboard() {
                 <VaultViewsHeader
                     tableName={table?.title || table?.name || "Taula"}
                     recordCount={paneNotes.length}
+                    notes={paneNotes}
                     referenceTableId={refTableId && refTableId === tableId ? tableId : undefined}
                     onReferencesImported={fetchPages}
                     onCreateFromSource={() => setCreateSourceTableId(tableId)}
@@ -3275,6 +3277,7 @@ export default function VaultDashboard() {
                                     <VaultViewsHeader
                                         tableName={activeTable ? (activeTable.title || activeTable.name) : t('common.table')}
                                         recordCount={(tableNotes || []).length}
+                                        notes={tableNotes || []}
                                         referenceTableId={refTableId && refTableId === activeTableId ? activeTableId : undefined}
                                         onReferencesImported={fetchPages}
                                         onCreateFromSource={() => setCreateSourceTableId(activeTableId)}
