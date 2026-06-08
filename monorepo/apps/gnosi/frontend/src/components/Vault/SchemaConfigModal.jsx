@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2 } from 'lucide-react';
@@ -115,6 +116,7 @@ function SortableOptionRow({ option, onRename, onRemove }) {
 function OptionsEditor({ options = [], onChange }) {
     const { t } = useTranslation();
     const [newOption, setNewOption] = useState('');
+    const [confirmRemove, setConfirmRemove] = useState({ isOpen: false, value: null });
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -132,7 +134,14 @@ function OptionsEditor({ options = [], onChange }) {
         onChange(options.map((o) => (o === oldVal ? newVal : o)));
     };
 
-    const removeOption = (val) => onChange(options.filter((o) => o !== val));
+    // Eliminar una opció la treu de TOTS els registres que la facin servir (no
+    // només del catàleg), per això demanem confirmació abans d'esborrar
+    // (accessibilitat: evita pèrdues de dades per clics accidentals).
+    const requestRemoveOption = (val) => setConfirmRemove({ isOpen: true, value: val });
+    const executeRemoveOption = () => {
+        if (confirmRemove.value !== null) onChange(options.filter((o) => o !== confirmRemove.value));
+        setConfirmRemove({ isOpen: false, value: null });
+    };
 
     const handleDragEnd = ({ active, over }) => {
         if (active && over && active.id !== over.id) {
@@ -143,6 +152,7 @@ function OptionsEditor({ options = [], onChange }) {
     };
 
     return (
+        <>
         <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 flex items-center gap-1.5">
@@ -157,7 +167,7 @@ function OptionsEditor({ options = [], onChange }) {
                                         key={opt}
                                         option={opt}
                                         onRename={renameOption}
-                                        onRemove={removeOption}
+                                        onRemove={requestRemoveOption}
                                     />
                                 ))}
                             </div>
@@ -191,6 +201,19 @@ function OptionsEditor({ options = [], onChange }) {
                 </div>
             </div>
         </div>
+        {createPortal(
+            <ConfirmModal
+                isOpen={confirmRemove.isOpen}
+                onClose={() => setConfirmRemove({ isOpen: false, value: null })}
+                onConfirm={executeRemoveOption}
+                title={t('schema.confirm_remove_option_title', 'Eliminar opció')}
+                message={t('schema.confirm_remove_option_message', { name: confirmRemove.value, defaultValue: "Segur que vols eliminar l'opció «{{name}}»? S'eliminarà de tots els registres que la facin servir. Aquesta acció no es pot desfer." })}
+                confirmText={t('schema.confirm_remove_option_confirm', 'Eliminar')}
+                isDestructive={true}
+            />,
+            document.body
+        )}
+        </>
     );
 }
 
