@@ -89,7 +89,7 @@ class DrupalRemoteAgent:
                     pass
 
                 child.sendline('suweb')
-                j = child.expect(['assword:', 'Ontraseña:', 'ontrasenya:', 'su: Authentication failure', pexpect.TIMEOUT], timeout=10)
+                j = child.expect(['(?i)password:', '(?i)contrase', '(?i)contrasenya', '(?i)(authentication failure|fallo de auten|fallida)', pexpect.TIMEOUT], timeout=10)
                 
                 if j < 3: 
                      child.sendline(self.suweb_pass)

@@ -52,6 +52,16 @@ class NodeController extends ControllerBase
         }
       }
 
+      // Captura els fitxers ACTUALS dels camps file/image que es reemplaçaran, per
+      // alliberar-los després si queden orfes (no anar acumulant còpies al servidor).
+      $displaced_file_ids = [];
+      foreach ($relationships as $field_name => $_rel) {
+        if ($node->hasField($field_name)
+            && in_array($node->getFieldDefinition($field_name)->getType(), ['image', 'file'], TRUE)) {
+          $displaced_file_ids[$field_name] = array_column($node->get($field_name)->getValue(), 'target_id');
+        }
+      }
+
       // Actualitzar relacions (imatge, tags, etc.)
       foreach ($relationships as $field_name => $relation_data) {
         if (!$node->hasField($field_name)) {
@@ -105,6 +115,40 @@ class NodeController extends ControllerBase
       }
 
       $node->save();
+
+      // Allibera els fitxers desplaçats (els que el camp ja no referencia): els marca
+      // com a `temporary` perquè el cron de Drupal els esborri FÍSICAMENT (revalida
+      // file.usage abans → segur amb imatges compartides entre traduccions encara per
+      // reescriure). Mai propaga errors: un fitxer orfe és menys greu que un 500 espuri.
+      $file_usage = \Drupal::service('file.usage');
+      foreach ($displaced_file_ids as $field_name => $old_ids) {
+        $new_ids = $node->hasField($field_name)
+          ? array_column($node->get($field_name)->getValue(), 'target_id') : [];
+        foreach (array_diff($old_ids, $new_ids) as $gone_fid) {
+          try {
+            $file = \Drupal\file\Entity\File::load($gone_fid);
+            if (!$file) {
+              continue;
+            }
+            // Treu els registres d'usage d'AQUEST node (de qualsevol mòdul: 'file',
+            // 'notion_bridge'…). Si no, queden rancis i el cron no esborraria el fitxer.
+            foreach ($file_usage->listUsage($file) as $module => $types) {
+              if (!empty($types['node'][$node->id()])) {
+                $file_usage->delete($file, $module, 'node', $node->id(), $types['node'][$node->id()]);
+              }
+            }
+            // Si ja no l'usa res més, marca'l temporary perquè el cron l'esborri
+            // físicament. Segur amb imatges compartides entre traduccions: si una altra
+            // entitat encara el referencia, listUsage no és buit i no es toca.
+            if (empty($file_usage->listUsage($file))) {
+              $file->setTemporary();
+              $file->save();
+            }
+          } catch (\Throwable $e) {
+            \Drupal::logger('n8n_helper')->warning('orphan @fid: @m', ['@fid' => $gone_fid, '@m' => $e->getMessage()]);
+          }
+        }
+      }
 
       return new JsonResponse([
         'message' => 'Node actualitzat correctament',
