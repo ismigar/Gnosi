@@ -6,6 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
+import { ConfirmModal } from '../ConfirmModal';
 import { useTranslation } from 'react-i18next';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -1001,8 +1002,21 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         setFields(newFields);
     };
 
+    // Confirmació abans d'eliminar una propietat: el botó de paperera no ha de
+    // ser destructiu a la primera pulsació (accessibilitat — evita esborrats
+    // accidentals per tremolor/distonia). Desem índex i nom per mostrar-lo al diàleg.
+    const [confirmRemoveField, setConfirmRemoveField] = useState({ isOpen: false, index: null, name: '' });
+
     const handleRemoveField = (index) => {
-        setFields(fields.filter((_, i) => i !== index));
+        const name = fields[index]?.name?.trim() || t('schema.untitled_property', 'sense nom');
+        setConfirmRemoveField({ isOpen: true, index, name });
+    };
+
+    const executeRemoveField = () => {
+        if (confirmRemoveField.index !== null) {
+            setFields((curr) => curr.filter((_, i) => i !== confirmRemoveField.index));
+        }
+        setConfirmRemoveField({ isOpen: false, index: null, name: '' });
     };
 
     const handleDragEnd = (event) => {
@@ -1203,6 +1217,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     if (!isOpen) return null;
 
     return (
+        <>
         <div
             ref={modalRef}
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 font-sans backdrop-blur-sm"
@@ -1426,5 +1441,16 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
 
             </div>
         </div>
+
+        <ConfirmModal
+            isOpen={confirmRemoveField.isOpen}
+            onClose={() => setConfirmRemoveField({ isOpen: false, index: null, name: '' })}
+            onConfirm={executeRemoveField}
+            title={t('schema.confirm_remove_field_title', 'Eliminar propietat')}
+            message={t('schema.confirm_remove_field_message', { name: confirmRemoveField.name, defaultValue: 'Segur que vols eliminar la propietat «{{name}}»? Aquesta acció no es pot desfer.' })}
+            confirmText={t('schema.confirm_remove_field_confirm', 'Eliminar')}
+            isDestructive={true}
+        />
+        </>
     );
 }
