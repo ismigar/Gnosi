@@ -12032,20 +12032,26 @@ def _drupal_resolve_local_path(value) -> Optional[Path]:
         return None
 
 
-# Drupal limita `field_image` a 2 MiB. Les imatges del Vault solen ser d'alta
-# resolució (6+ MB) → la pujada falla amb 422. Reduïm la còpia que va a Drupal
-# (downscale + recompressió), mantenint l'original al Vault intacte.
-_DRUPAL_IMAGE_MAX_BYTES = 1_900_000  # marge sota el límit de 2 MiB de Drupal
+# Optimització d'imatges per a WEB abans de pujar-les a Drupal. Les imatges del
+# Vault solen ser d'alta resolució (3-6 MB); les reduïm a 1600px i les recomprimim
+# (JPEG per a fotos, PNG per a gràfics plans o amb transparència) per servir-les
+# lleugeres i evitar el límit de 2 MiB de `field_image`. L'original al Vault queda
+# intacte (només es transforma la còpia que va a Drupal).
+_DRUPAL_IMAGE_MAX_BYTES = 1_900_000   # tope dur, sota el límit de 2 MiB de Drupal
+_DRUPAL_IMAGE_WEB_TARGET = 450_000    # objectiu web: optimitza si el pes supera ~450 KB
+_DRUPAL_IMAGE_MAX_DIM = 1600          # amplada/alçada màx (px) recomanada per a web
+_DRUPAL_JPEG_QUALITY = 82             # qualitat mínima recomanada per a web (bon detall, poc pes)
 
 
 def _drupal_shrink_image(data: bytes, filename: str):
-    """Si la imatge supera el límit de Drupal, la redueix perquè càpiga: primer
-    baixa la resolució (PNG optimitzat); si no n'hi ha prou, converteix a JPEG amb
-    qualitat decreixent. Retorna ``(bytes, filename)`` —l'extensió pot passar a
-    ``.jpg``. Si ja és prou petita o no és una imatge processable, la retorna sense
-    tocar. CPU-bound: crida-la dins ``asyncio.to_thread``."""
-    if len(data) <= _DRUPAL_IMAGE_MAX_BYTES:
-        return data, filename
+    """Optimitza una imatge per a web i retorna ``(bytes, filename)``.
+
+    S'aplica SEMPRE que en millori el pes (no només quan supera el límit de Drupal):
+    redueix a ``_DRUPAL_IMAGE_MAX_DIM`` px i recomprimeix —JPEG q82 per a fotos, PNG
+    per a gràfics de pocs colors o amb transparència (preserva la nitidesa/alfa).
+    L'extensió pot passar a ``.jpg``. És un no-op si Pillow no hi és, si no és una
+    imatge, o si el resultat NO seria més petit que l'original (mai empitjora).
+    CPU-bound: crida-la dins ``asyncio.to_thread``."""
     try:
         from io import BytesIO
         from PIL import Image
@@ -12058,46 +12064,55 @@ def _drupal_shrink_image(data: bytes, filename: str):
         return data, filename  # no és una imatge que Pillow sàpiga obrir
     fmt = (img.format or "PNG").upper()
     stem = filename.rsplit(".", 1)[0] if "." in filename else filename
-
-    # Downscale UN sol cop a 1600px màx (prou per web) abans de recomprimir, per
-    # no repetir re-encodes lents sobre una imatge gran.
     w, h = img.size
-    if max(w, h) > 1600:
-        s = 1600.0 / float(max(w, h))
+    too_big = max(w, h) > _DRUPAL_IMAGE_MAX_DIM
+    # Si ja és lleugera I de mida web, no la toquem: un re-encode només la degradaria.
+    if not too_big and len(data) <= _DRUPAL_IMAGE_WEB_TARGET:
+        return data, filename
+
+    if too_big:
+        s = _DRUPAL_IMAGE_MAX_DIM / float(max(w, h))
         img = img.resize((max(1, int(w * s)), max(1, int(h * s))), Image.LANCZOS)
 
-    def _png():
+    def _png() -> bytes:
         buf = BytesIO()
         mode = "RGBA" if img.mode in ("RGBA", "LA", "P") else "RGB"
         img.convert(mode).save(buf, format="PNG", optimize=True)
         return buf.getvalue()
 
-    def _jpeg(q):
+    def _jpeg(q: int) -> bytes:
         buf = BytesIO()
-        img.convert("RGB").save(buf, format="JPEG", quality=q, optimize=True)
+        img.convert("RGB").save(buf, format="JPEG", quality=q, optimize=True, progressive=True)
         return buf.getvalue()
 
-    # Només intenta mantenir el PNG si té transparència REAL (cal preservar
-    # l'alfa); un PNG opac va directe a JPEG (molt més ràpid i petit). Evita la
-    # passada lenta de PNG optimize en imatges opaques.
-    keep_png = False
-    if fmt == "PNG":
+    # Transparència real → cal PNG (preserva l'alfa).
+    has_alpha = False
+    try:
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            has_alpha = img.convert("RGBA").getchannel("A").getextrema()[0] < 255
+    except Exception:
+        has_alpha = (fmt == "PNG")
+    # Gràfic pla de pocs colors (logo, il·lustració) → PNG es veu millor i pesa poc;
+    # foto (molts colors) → JPEG, molt més lleuger.
+    is_graphic = False
+    if not has_alpha:
         try:
-            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-                alpha = img.convert("RGBA").getchannel("A")
-                keep_png = alpha.getextrema()[0] < 255
+            is_graphic = img.convert("RGB").getcolors(maxcolors=4096) is not None
         except Exception:
-            keep_png = True
-    if keep_png:
+            is_graphic = False
+
+    if has_alpha or is_graphic:
         out = _png()
-        if len(out) <= _DRUPAL_IMAGE_MAX_BYTES:
-            return out, filename
-    out = data
-    for q in (85, 75, 65, 55):
-        out = _jpeg(q)
-        if len(out) <= _DRUPAL_IMAGE_MAX_BYTES:
-            return out, f"{stem}.jpg"
-    return out, f"{stem}.jpg"  # millor intent (encara així, millor que el 422)
+        return (out, filename) if len(out) < len(data) else (data, filename)
+
+    # Foto opaca → JPEG a qualitat web; només abaixa la qualitat si cal pel límit dur.
+    best = data
+    for q in (_DRUPAL_JPEG_QUALITY, 75, 65, 55):
+        cand = _jpeg(q)
+        best = cand
+        if len(cand) <= _DRUPAL_IMAGE_MAX_BYTES:
+            break
+    return (best, f"{stem}.jpg") if len(best) < len(data) else (data, filename)
 
 
 # Els PDFs del Vault (escanejats, alta resolució) poden pesar desenes de MB i fer
