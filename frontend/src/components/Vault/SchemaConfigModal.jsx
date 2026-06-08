@@ -1291,21 +1291,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
                                 {t('schema.translation_hint', 'Permet marcar camps com a traduïbles i afegir botons que generen subitems amb la traducció a altres idiomes.')}
                             </p>
-                            {enableTranslation && !hasTranslateButton && (
-                                <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/5">
-                                    <p className="text-xs text-[var(--text-secondary)] flex-1">
-                                        {t('schema.translate_button_missing', "Aquesta taula encara no té cap botó per disparar la traducció.")}
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={addTranslateButton}
-                                        className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 flex items-center gap-1.5 text-xs shrink-0"
-                                    >
-                                        <Plus size={12} />
-                                        {t('schema.add_translate_button', 'Afegir botó de traducció')}
-                                    </button>
-                                </div>
-                            )}
                         </div>
 
                         <div className="border-t border-[var(--border-primary)] pt-4">
