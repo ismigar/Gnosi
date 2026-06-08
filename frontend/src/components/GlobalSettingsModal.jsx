@@ -13,6 +13,7 @@ import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
 import { toast } from '../lib/toast';
 import { emitConfigChanged } from '../lib/configEvents';
+import { getEffectiveTableId, toValueStrings } from '../utils/graphFilters';
 import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
@@ -284,6 +285,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [googleSubCalendars, setGoogleSubCalendars] = useState([]);
     const [databases, setDatabases] = useState([]);
     const [tables, setTables] = useState([]);
+    // Nodes del graf (càrrega mandrosa) per derivar les opcions reals dels camps
+    // de tipus llista al control "Valor fix / defecte" de la pestanya del graf.
+    const [graphNodes, setGraphNodes] = useState(null);
+    const [graphNodesLoading, setGraphNodesLoading] = useState(false);
+    const graphNodesFetchedRef = useRef(false);
     // Taula de referències designada (Settings → backend get_reference_table_id).
     const [referenceTable, setReferenceTable] = useState({ table_id: null, configured: false, name: null });
     const [refBusy, setRefBusy] = useState(false);
@@ -392,6 +398,105 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             ] 
         }
     ], [integrations]);
+
+    // Carrega els nodes del graf un sol cop en entrar a la pestanya del graf, per
+    // poblar els desplegables de "Valor fix / defecte" dels camps de tipus llista.
+    // Reutilitza l'endpoint del graf: així el valor escollit casa amb els valors
+    // reals que mostra el filtre del graf.
+    useEffect(() => {
+        if (!isOpen || activeTab !== 'graph' || graphNodesFetchedRef.current) return;
+        graphNodesFetchedRef.current = true;
+        setGraphNodesLoading(true);
+        fetch('/api/graph')
+            .then(r => (r.ok ? r.json() : { nodes: [] }))
+            .then(g => setGraphNodes(Array.isArray(g?.nodes) ? g.nodes : []))
+            .catch(() => setGraphNodes([]))
+            .finally(() => setGraphNodesLoading(false));
+    }, [isOpen, activeTab]);
+
+    // Índex tableId → camp(minúscules) → conjunt de valors, derivat dels nodes.
+    // getEffectiveTableId unifica taules de BD i entitats del sistema igual que el
+    // filtre del graf, de manera que l'id del fieldKey hi casa.
+    const graphFieldValues = useMemo(() => {
+        const idx = new Map();
+        for (const node of (graphNodes || [])) {
+            const tid = getEffectiveTableId(node);
+            if (!tid) continue;
+            const meta = node.metadata || {};
+            let fm = idx.get(tid);
+            if (!fm) { fm = new Map(); idx.set(tid, fm); }
+            for (const k of Object.keys(meta)) {
+                const vals = toValueStrings(meta[k]);
+                if (vals.length === 0) continue;
+                const kl = k.toLowerCase();
+                let set = fm.get(kl);
+                if (!set) { set = new Set(); fm.set(kl, set); }
+                for (const v of vals) set.add(v);
+            }
+        }
+        return idx;
+    }, [graphNodes]);
+
+    const getFieldOptions = (tableId, fieldName) => {
+        const fm = graphFieldValues.get(tableId);
+        if (!fm) return [];
+        const set = fm.get(String(fieldName).toLowerCase());
+        return set ? Array.from(set).sort((a, b) => a.localeCompare(b)) : [];
+    };
+
+    // Render del control "Valor fix / defecte" segons el tipus del camp: llista →
+    // desplegable amb les opcions reals; casella → checkbox; data/data-hora/número →
+    // input natiu; la resta → text. És una funció (no un component) per no perdre el
+    // focus dels inputs en cada re-render del draft.
+    const renderFieldDefaultInput = (field, fieldKey, placeholder) => {
+        const ftype = (field?.type || 'text').toLowerCase();
+        const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
+        const setVal = (v) => setDraft(p => ({
+            ...p,
+            graph: { ...p.graph, field_defaults: { ...(p.graph.field_defaults || {}), [fieldKey]: v } }
+        }));
+        const baseStyle = { fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' };
+
+        // Llista (select / multi_select / status) → desplegable amb opcions reals.
+        if (ftype === 'select' || ftype === 'multi_select' || ftype === 'status') {
+            const [tableId, fieldName] = fieldKey.split(':');
+            const opts = getFieldOptions(tableId, fieldName);
+            if (opts.length === 0) {
+                if (graphNodesLoading) {
+                    return <span style={{ ...baseStyle, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center' }}>{t('common.loading', 'Carregant…')}</span>;
+                }
+                // Sense valors coneguts: text lliure perquè l'usuari en pugui fixar un.
+                return <input type="text" className="gnosi-input" style={baseStyle} placeholder={placeholder} value={defaultVal} onChange={e => setVal(e.target.value)} />;
+            }
+            const withCurrent = (defaultVal && !opts.includes(defaultVal)) ? [defaultVal, ...opts] : opts;
+            return (
+                <select className="gnosi-input" style={baseStyle} value={defaultVal} onChange={e => setVal(e.target.value)}>
+                    <option value="">—</option>
+                    {withCurrent.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+            );
+        }
+
+        // Casella (checkbox) → checkbox real. Marcat = 'true'; desmarcat = sense valor.
+        if (ftype === 'checkbox') {
+            const checked = defaultVal === 'true';
+            return (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: '130px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={checked} onChange={e => setVal(e.target.checked ? 'true' : '')} style={{ accentColor: 'var(--gnosi-blue)', width: '16px', height: '16px' }} />
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{checked ? t('common.yes', 'Sí') : '—'}</span>
+                </label>
+            );
+        }
+
+        // Data / Data i hora / Número → inputs natius del tipus corresponent.
+        if (ftype === 'date') return <input type="date" className="gnosi-input" style={baseStyle} value={defaultVal} onChange={e => setVal(e.target.value)} />;
+        if (ftype === 'datetime') return <input type="datetime-local" className="gnosi-input" style={baseStyle} value={defaultVal} onChange={e => setVal(e.target.value)} />;
+        if (ftype === 'number') return <input type="number" className="gnosi-input" style={baseStyle} placeholder={placeholder} value={defaultVal} onChange={e => setVal(e.target.value)} />;
+
+        // Per defecte → text.
+        return <input type="text" className="gnosi-input" style={baseStyle} placeholder={placeholder} value={defaultVal} onChange={e => setVal(e.target.value)} />;
+    };
+
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerField, setPickerField] = useState(null);
     const [aiValidationStatus, setAiValidationStatus] = useState({});
@@ -2982,7 +3087,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                 {tableFields.map(field => {
                                                                                                     const fieldKey = `${table.id}:${field.name}`;
                                                                                                     const isExposed = draft.graph.visible_fields?.includes(fieldKey);
-                                                                                                    const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
                                                                                                     return (
                                                                                                         <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                                                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
@@ -2994,10 +3098,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                                     <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}><div className="gnosi-toggle-handle" /></div>
                                                                                                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
                                                                                                                 </div>
-                                                                                                                <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor fix / defecte" value={defaultVal} onChange={e => {
-                                                                                                                    const v = e.target.value;
-                                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, field_defaults: { ...(p.graph.field_defaults||{}), [fieldKey]: v } } }));
-                                                                                                                }} />
+                                                                                                                {renderFieldDefaultInput(field, fieldKey, "Valor fix / defecte")}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     );
@@ -3159,8 +3260,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                     {entityFields.map(field => {
                                                                                                         const fieldKey = `${item.id}:${field.name}`;
                                                                                                         const isExposed = draft.graph.visible_fields?.includes(fieldKey);
-                                                                                                        const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
-
                                                                                                         return (
                                                                                                             <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                                                                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
@@ -3177,10 +3276,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                                         </div>
                                                                                                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
                                                                                                                     </div>
-                                                                                                                    <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor defecte" value={defaultVal} onChange={(e) => {
-                                                                                                                        const val = e.target.value;
-                                                                                                                        setDraft(prev => ({ ...prev, graph: { ...prev.graph, field_defaults: { ...(prev.graph.field_defaults || {}), [fieldKey]: val } } }));
-                                                                                                                    }} />
+                                                                                                                    {renderFieldDefaultInput(field, fieldKey, "Valor defecte")}
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                         );
@@ -3197,8 +3293,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                         {entityFields.map(field => {
                                                                                             const fieldKey = `${entity.id}:${field.name}`;
                                                                                             const isExposed = draft.graph.visible_fields?.includes(fieldKey);
-                                                                                            const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
-
                                                                                             return (
                                                                                                 <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                                                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
@@ -3215,10 +3309,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                             </div>
                                                                                                             <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
                                                                                                         </div>
-                                                                                                        <input type="text" className="gnosi-input" style={{ fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' }} placeholder="Valor defecte" value={defaultVal} onChange={(e) => {
-                                                                                                            const val = e.target.value;
-                                                                                                            setDraft(prev => ({ ...prev, graph: { ...prev.graph, field_defaults: { ...(prev.graph.field_defaults || {}), [fieldKey]: val } } }));
-                                                                                                        }} />
+                                                                                                        {renderFieldDefaultInput(field, fieldKey, "Valor defecte")}
                                                                                                     </div>
                                                                                                 </div>
                                                                                             );
