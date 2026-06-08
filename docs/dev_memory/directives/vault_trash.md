@@ -74,6 +74,14 @@ Substituir l'eliminació destructiva de pàgines del Vault (`DELETE /api/vault/p
 3. Eliminar assets orfes associats (Covers/Icons/attachments si encara existeixen i sap quins eren via sidecar — opcional V1).
 4. Retornar 200 `{ "status": "purged" }`.
 
+### 3.4-bis Buidar tota la paperera: `DELETE /api/vault/trash` (sense `{id}`)
+
+1. Iterar `list(VAULT/.trash/*)` (materialitzar la llista abans: purguem mentre iterem).
+2. Per a cada dir, `_purge_trash_entry(name)` dins un `try/except` (tolerant: si una falla, segueix).
+3. Tot al servidor en `asyncio.to_thread` → **una sola petició HTTP, una sola connexió de BD**.
+4. Retornar `{ "status": "emptied", "purged_count", "failed_count", "failed_ids", "freed_bytes" }`.
+5. **Prohibit** fer el buidat com a N `DELETE /trash/{id}` concurrents des del client (vegeu §6, error 2026-06-08).
+
 ### 3.5 Cron `purge_trash`
 
 1. Registrat a `SchedulerManager.AVAILABLE_TASKS` amb `default_interval = 1440` min (24h).
@@ -103,6 +111,8 @@ Substituir l'eliminació destructiva de pàgines del Vault (`DELETE /api/vault/p
 | --- | --- | --- | --- |
 | 2026-05-12 | (inicial) | — | Directriu creada |
 | 2026-05-12 | `_restore_page_from_trash` llançava `ValueError: not in the subpath` als tests amb tmpfs | `vault_root` no resolt vs `target.resolve()` (macOS /var → /private/var) | Sempre fer `vault_root.resolve()` abans de fer `relative_to`. També a la comprovació anti-traversal. |
+| 2026-06-08 | «Buidar paperera no funciona»: amb ~100 entrades, la paperera no es buidava (toast d'èxit fals, elements encara presents). Logs: `QueuePool limit of size 20 overflow 30 reached, connection timed out` → `500` en moltes `DELETE /trash/{id}`. | El frontend disparava **N `DELETE /trash/{id}` concurrents** (un per entrada). Cada petició retenia una connexió del pool de BD (via deps `require_role`/`get_workspace_context`) tota la seva durada → el `QueuePool` (20+30) s'esgotava → timeout 30 s → 500. `Promise.allSettled` al client **amagava** els 500 (mai mira els resultats) i mostrava «Paperera buidada». | **No buidar amb N peticions client → satura el pool → 500 amagats. Usar `DELETE /api/vault/trash`** (§3.4-bis): tot al servidor, 1 connexió, reporta `purged/failed`. El client fa **1** crida i mostra el compte real. |
+| 2026-06-08 | «El Purge no obre el modal de confirmació de la app» | El botó «Purgar» (purga individual) usava `window.confirm()` natiu. Chrome el **suprimeix** després de diversos diàlegs (casella «impedir diàlegs addicionals») → retorna `false` sense mostrar res → la purga no s'executa i sembla que «no obre». | Substituït per `<ConfirmModal>` (modal de l'app, patró canònic). Cf. §12 («el modal es manté NOMÉS per a la purga»). **Mai `window.confirm/alert/prompt` per a confirmacions destructives** — usar `ConfirmModal`. |
 
 ## 7. Rationalizations (Anti-Atajos)
 
