@@ -40,37 +40,45 @@ if [ -f "$LOG" ] && [ "$(stat -f%z "$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; 
 fi
 
 # 0) host_open_helper (cerca Spotlight del picker "Seleccionar fitxer o carpeta").
-#    És un dimoni de llarga durada; després de dies, la seva atribució
-#    TCC/Spotlight es ranceja i `mdfind` torna BUIT per a TOT → la cerca del
-#    picker "no troba res" (ni tan sols fitxers que mdfind des de Terminal sí
-#    veu). Sentinella: cerquem "Documents" (sempre existeix a HOME). Si el
-#    helper RESPON però amb 0 resultats, està encallat → kickstart (KeepAlive
-#    el reaixeca net amb una atribució TCC fresca). Independent del backend, així
-#    que va ABANS del camí ràpid de Docker. Cooldown propi → mai entra en bucle;
-#    si no respon, no hi toquem (KeepAlive ja el reaixeca).
+#    És un dimoni de llarga durada que perd l'accés a ~/Library/CloudStorage
+#    (OneDrive) al cap d'UNES HORES: el File Provider d'OneDrive es ranceja per
+#    al procés vell i `mdfind -onlyin <CloudStorage>` torna BUIT, tot i que la
+#    resta del disc (Containers, etc.) encara es veu. Símptoma: la cerca del
+#    picker "no troba" fitxers del Vault (p.ex. "Ética de Kant"). Un kickstart
+#    reconnecta el File Provider i ho arregla a l'instant (verificat).
+#    Sentinella: "OneDrive" DINS ~/Library/CloudStorage (casa el nom del
+#    proveïdor "OneDrive-UNED"; independent del contingut del Vault). COMPTE: un
+#    terme genèric a HOME (p.ex. "Documents") NO serveix com a sentinella — casa
+#    a ~/Library/Containers i tornaria resultats encara amb CloudStorage caigut,
+#    amagant el fallu. Si el helper RESPON però amb 0 resultats aquí → encallat
+#    → kickstart. Independent del backend (va ABANS del camí ràpid de Docker);
+#    cooldown propi → mai entra en bucle; si no respon, no hi toquem (KeepAlive).
+CLOUDSTORAGE="$HOME/Library/CloudStorage"
 HELPER_STAMP="$HOME/.gnosi_host_helper_restart.laststart"
-HELPER_COOLDOWN="${GNOSI_HELPER_COOLDOWN:-600}"   # s; marge ampli, Spotlight no canvia sovint
-helper_resp=$(curl -s --max-time 8 -X POST "http://127.0.0.1:5099/search" \
-  -H 'Content-Type: application/json' \
-  -d "{\"query\":\"Documents\",\"limit\":1,\"roots\":[\"$HOME\"]}" 2>/dev/null)
-case "$helper_resp" in
-  *'"path"'*)
-    : ;;                                          # troba resultats → sa
-  *'"results"'*)                                  # resposta vàlida però sense cap "path" → encallat
-    hnow=$(date +%s); hlast=0
-    [ -f "$HELPER_STAMP" ] && hlast=$(cat "$HELPER_STAMP" 2>/dev/null || echo 0)
-    case "$hlast" in ''|*[!0-9]*) hlast=0 ;; esac
-    if [ "$((hnow - hlast))" -ge "$HELPER_COOLDOWN" ]; then
-      log "host_open_helper encallat (sentinella 'Documents' sense resultats) → kickstart."
-      launchctl kickstart -k "gui/$(id -u)/com.gnosi.host-open-helper" 2>/dev/null
-      echo "$hnow" > "$HELPER_STAMP"
-    else
-      log "host_open_helper sembla encallat però reiniciat fa $((hnow - hlast))s (<${HELPER_COOLDOWN}s); espero."
-    fi
-    ;;
-  *)
-    : ;;                                          # buit / no respon → KeepAlive ja se n'ocupa
-esac
+HELPER_COOLDOWN="${GNOSI_HELPER_COOLDOWN:-600}"   # s; marge ampli, no cal reiniciar sovint
+if [ -d "$CLOUDSTORAGE" ]; then
+  helper_resp=$(curl -s --max-time 8 -X POST "http://127.0.0.1:5099/search" \
+    -H 'Content-Type: application/json' \
+    -d "{\"query\":\"OneDrive\",\"limit\":1,\"roots\":[\"$CLOUDSTORAGE\"]}" 2>/dev/null)
+  case "$helper_resp" in
+    *'"path"'*)
+      : ;;                                          # veu CloudStorage → sa
+    *'"results"'*)                                  # resposta vàlida però sense cap "path" → CloudStorage caigut
+      hnow=$(date +%s); hlast=0
+      [ -f "$HELPER_STAMP" ] && hlast=$(cat "$HELPER_STAMP" 2>/dev/null || echo 0)
+      case "$hlast" in ''|*[!0-9]*) hlast=0 ;; esac
+      if [ "$((hnow - hlast))" -ge "$HELPER_COOLDOWN" ]; then
+        log "host_open_helper sense accés a CloudStorage (sentinella 'OneDrive' buit) → kickstart."
+        launchctl kickstart -k "gui/$(id -u)/com.gnosi.host-open-helper" 2>/dev/null
+        echo "$hnow" > "$HELPER_STAMP"
+      else
+        log "host_open_helper sembla encallat però reiniciat fa $((hnow - hlast))s (<${HELPER_COOLDOWN}s); espero."
+      fi
+      ;;
+    *)
+      : ;;                                          # buit / no respon → KeepAlive ja se n'ocupa
+  esac
+fi
 
 # 1) Camí ràpid: el backend respon → tot OK, no fem res (sense soroll al log).
 if curl -s -o /dev/null --max-time 6 "$HEALTH_URL" 2>/dev/null; then
