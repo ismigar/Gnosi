@@ -92,6 +92,42 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
         }
     };
 
+    // Pujada de DIVERSOS fitxers a la vegada (input `multiple`). Puja tots i fa
+    // UN sol `emit` amb tots afegits, per evitar la cursa de N emits consecutius
+    // (cadascun llegiria el mateix `entries` ranci i només l'últim sobreviuria).
+    const handleUploadFiles = async (fileList) => {
+        const files = Array.from(fileList || []).filter(Boolean);
+        if (files.length === 0) return;
+        if (files.length === 1) { await handleUpload(files[0]); return; }
+        try {
+            let destFolder = null;
+            if (isFree) {
+                destFolder = await openPicker('folder');
+                if (!destFolder) return; // cancel·lat
+            }
+            setLoading(true); setError('');
+            const sf = isFree ? 'free' : storageFolder;
+            const newRaws = [];
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                if (isFree) formData.append('dest_folder', destFolder);
+                const res = await apiFetch(
+                    `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=${sf}${nameQuery}`,
+                    { method: 'POST', body: formData },
+                );
+                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
+                const data = await res.json();
+                newRaws.push(data.url || data.path);
+            }
+            emit([...entries, ...newRaws]);
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleLinkExisting = async () => {
         const path = await openPicker('file');
         if (!path) return; // cancel·lat
@@ -159,8 +195,9 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
             <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }}
+                onChange={(e) => { handleUploadFiles(e.target.files); e.target.value = ''; }}
             />
 
             {error && (

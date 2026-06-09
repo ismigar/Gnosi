@@ -3086,6 +3086,19 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         setMediaPickerCell(null);
                         return;
                     }
+                    // Multi-fitxer (camp `files`): afegeix TOTES les URLs d'una sola
+                    // vegada (evita la cursa d'afegir-les una a una via N onInsert).
+                    if (Array.isArray(result?.urls) && result.urls.length && getFieldType(schema, field) === 'files') {
+                        const note = safeNotes.find(n => n.id === rowId);
+                        const existing = note?.metadata?.[originalMetaKey];
+                        const arr = (Array.isArray(existing) ? existing : (existing ? [existing] : []))
+                            .map(v => String(v ?? '')).filter(v => v.trim() !== '');
+                        const adds = result.urls.map(u => urlToVaultPath(u || '')).filter(Boolean);
+                        const next = [...arr, ...adds];
+                        handleCellSave(rowId, field, next.length === 1 ? next[0] : next, originalMetaKey);
+                        setMediaPickerCell(null);
+                        return;
+                    }
                     const newPath = urlToVaultPath(result?.url || '');
                     let value = newPath;
                     // Els camps `files` són multi-fitxer: afegim a la llista existent.

@@ -241,12 +241,6 @@ export const InsertContentModal = ({
         setSelected({ source: 'upload-pending', name: file.name, kind });
     }, []);
 
-    const handleUploadDrop = useCallback((e) => {
-        e.preventDefault();
-        const f = e.dataTransfer?.files?.[0];
-        if (f) handlePickUploadFile(f);
-    }, [handlePickUploadFile]);
-
     // Camp `files` configurat: la pujada/enllaç ruten pels endpoints de propietat
     // (destí + reanomenat segons l'esquema) en comptes del genèric assets/upload.
     const isFieldUpload = Boolean(fileField?.propertyName && tableId);
@@ -292,6 +286,41 @@ export const InsertContentModal = ({
         const { data } = await axios.post('/api/vault/local-file/register', { file_path: path });
         return data?.url;
     }, [isFieldUpload, resolvedName]);
+
+    // Pujada de DIVERSOS fitxers a la vegada — només per a camps `files`. Puja
+    // tots i els insereix directament (sense passar pel preview/mode d'un sol
+    // fitxer). El camí d'UN sol fitxer (handlePickUploadFile) queda intacte; per
+    // a camps imatge/contingut inline `multiple` està desactivat, així que mai
+    // s'arriba aquí amb >1 fitxer.
+    const handlePickUploadFiles = async (fileList) => {
+        const files = Array.from(fileList || []).filter(Boolean);
+        if (files.length === 0) return;
+        if (!(isFieldUpload && files.length > 1)) {
+            handlePickUploadFile(files[0]);
+            return;
+        }
+        setBusy(true);
+        try {
+            const urls = [];
+            for (const f of files) {
+                const u = await performUpload(f);
+                if (u) urls.push(u);
+            }
+            if (!urls.length) throw new Error("No s'ha pogut pujar cap fitxer");
+            onInsert?.({ urls, kind: 'file' });
+            onClose?.();
+        } catch (e) {
+            const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || 'Error desconegut';
+            toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg }));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleUploadDrop = (e) => {
+        e.preventDefault();
+        handlePickUploadFiles(e.dataTransfer?.files);
+    };
 
     const canInsert = useMemo(() => {
         if (!selected) {
@@ -485,7 +514,9 @@ export const InsertContentModal = ({
                                         </>
                                     ) : (
                                         <>
-                                            <div className="text-sm font-medium">{t('insert.drop_or_click', { defaultValue: 'Arrossega un fitxer aquí o clica per triar-lo' })}</div>
+                                            <div className="text-sm font-medium">{isFieldUpload
+                                                ? t('insert.drop_or_click_multi', { defaultValue: 'Arrossega fitxers aquí o clica per triar-ne (pots triar-ne diversos)' })
+                                                : t('insert.drop_or_click', { defaultValue: 'Arrossega un fitxer aquí o clica per triar-lo' })}</div>
                                             <div className="text-xs text-[var(--text-tertiary)]">
                                                 {isFieldUpload && fileField?.storageFolder === 'biblioteca'
                                                     ? (resolvedName
@@ -498,8 +529,9 @@ export const InsertContentModal = ({
                                     <input
                                         ref={uploadInputRef}
                                         type="file"
+                                        multiple={isFieldUpload}
                                         className="hidden"
-                                        onChange={(e) => handlePickUploadFile(e.target.files?.[0])}
+                                        onChange={(e) => handlePickUploadFiles(e.target.files)}
                                     />
                                 </div>
                                 {busy && uploadProgress > 0 && uploadProgress < 100 && (
