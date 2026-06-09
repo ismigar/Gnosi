@@ -13,7 +13,10 @@ log = logging.getLogger(__name__)
 
 class MastodonClient:
     """Client for Mastodon API."""
-    
+
+    network = "mastodon"
+    char_limit = 500
+
     def __init__(self):
         self.instance = os.getenv("TEMENOS_MASTODON_INSTANCE", "https://mastodon.social")
         self.bearer = os.getenv("TEMENOS_MASTODON_BEARER", "")
@@ -22,6 +25,12 @@ class MastodonClient:
             "Authorization": f"Bearer {self.bearer}",
             "Content-Type": "application/json"
         }
+        # Headers SENSE Content-Type json per a pujades multipart (media).
+        self.auth_headers = {"Authorization": f"Bearer {self.bearer}"}
+
+    def is_configured(self) -> bool:
+        """True si hi ha token per publicar/llegir."""
+        return bool(self.bearer)
     
     async def get_home_timeline(self, limit: int = 20) -> List[Dict]:
         """Get the home timeline feed. Fallback to trends if empty."""
@@ -169,15 +178,43 @@ class MastodonClient:
             })
         return transformed
 
-    async def post_status(self, status: str) -> Optional[Dict]:
-        """Publish a new status."""
+    async def _upload_media(self, media: Optional[list]) -> list:
+        """Puja fitxers locals a Mastodon i retorna els media_ids.
+
+        Cada element pot ser una ruta (str) o una tupla (ruta, alt_text).
+        """
+        media_ids: list = []
+        for item in media or []:
+            path = item[0] if isinstance(item, (list, tuple)) else item
+            alt = item[1] if isinstance(item, (list, tuple)) and len(item) > 1 else None
+            with open(path, "rb") as fh:
+                content = fh.read()
+            files = {"file": (os.path.basename(str(path)), content)}
+            data = {"description": alt} if alt else {}
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self.instance}/api/v2/media",
+                    headers=self.auth_headers,
+                    files=files,
+                    data=data,
+                    timeout=60.0,
+                )
+                resp.raise_for_status()
+                media_ids.append(resp.json()["id"])
+        return media_ids
+
+    async def post_status(self, status: str, media_ids: Optional[list] = None) -> Optional[Dict]:
+        """Publish a new status (optionally with already-uploaded media)."""
         try:
+            payload: Dict[str, Any] = {"status": status}
+            if media_ids:
+                payload["media_ids"] = media_ids
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.instance}/api/v1/statuses",
                     headers=self.headers,
-                    json={"status": status},
-                    timeout=10.0
+                    json=payload,
+                    timeout=15.0
                 )
                 response.raise_for_status()
                 return response.json()
@@ -187,16 +224,29 @@ class MastodonClient:
                  log.error(f"Response body: {e.response.text}")
             raise
 
+    async def publish(self, text: str, media: Optional[list] = None) -> Dict:
+        """Interfície uniforme de publicació. Retorna {url, id}."""
+        media_ids = await self._upload_media(media) if media else []
+        result = await self.post_status(text, media_ids=media_ids) or {}
+        return {"url": result.get("url"), "id": result.get("id")}
+
 
 class BlueskyClient:
     """Client for Bluesky AT Protocol API."""
-    
+
+    network = "bluesky"
+    char_limit = 300
+
     def __init__(self):
         self.handle = os.getenv("TEMENOS_BLUESKY_HANDLE", "")
         self.app_password = os.getenv("TEMENOS_BLUESKY_APP_PASSWORD", "")
         self.base_url = "https://bsky.social/xrpc"
         self.access_token = None
         self.did = None
+
+    def is_configured(self) -> bool:
+        """True si hi ha handle + app password per autenticar."""
+        return bool(self.handle and self.app_password)
     
     async def _authenticate(self) -> bool:
         """Authenticate with Bluesky and get access token."""
@@ -319,11 +369,42 @@ class BlueskyClient:
             log.error(f"Bluesky repost error: {e}")
             return False
 
-    async def create_post(self, text: str) -> Optional[Dict]:
-        """Create a new post."""
+    async def _upload_blob(self, path: str) -> Dict:
+        """Puja un fitxer com a blob i retorna l'objecte blob per a l'embed."""
+        import mimetypes
+        with open(path, "rb") as fh:
+            content = fh.read()
+        mime = mimetypes.guess_type(str(path))[0] or "image/jpeg"
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self.base_url}/com.atproto.repo.uploadBlob",
+                headers={"Authorization": f"Bearer {self.access_token}", "Content-Type": mime},
+                content=content,
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            return resp.json()["blob"]
+
+    async def create_post(self, text: str, media: Optional[list] = None) -> Optional[Dict]:
+        """Create a new post (optionally with images embedded)."""
         if not await self._authenticate():
              raise Exception("Failed to authenticate with Bluesky")
-            
+
+        record: Dict[str, Any] = {
+            "$type": "app.bsky.feed.post",
+            "text": text,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        }
+        if media:
+            images = []
+            for item in media:
+                path = item[0] if isinstance(item, (list, tuple)) else item
+                alt = item[1] if isinstance(item, (list, tuple)) and len(item) > 1 else ""
+                blob = await self._upload_blob(path)
+                images.append({"alt": alt or "", "image": blob})
+            if images:
+                record["embed"] = {"$type": "app.bsky.embed.images", "images": images}
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -332,19 +413,23 @@ class BlueskyClient:
                     json={
                         "repo": self.did,
                         "collection": "app.bsky.feed.post",
-                        "record": {
-                            "$type": "app.bsky.feed.post",
-                            "text": text,
-                            "createdAt": datetime.now(timezone.utc).isoformat()
-                        }
+                        "record": record,
                     },
-                    timeout=10.0
+                    timeout=15.0
                 )
                 response.raise_for_status()
                 return response.json()
         except Exception as e:
             log.error(f"Bluesky create post error: {e}")
             raise
+
+    async def publish(self, text: str, media: Optional[list] = None) -> Dict:
+        """Interfície uniforme de publicació. Retorna {url, id}."""
+        result = await self.create_post(text, media=media) or {}
+        uri = result.get("uri", "")
+        rkey = uri.split("/")[-1] if uri else ""
+        url = f"https://bsky.app/profile/{self.handle}/post/{rkey}" if rkey else None
+        return {"url": url, "id": uri}
     
     def _transform_posts(self, feed: List[Dict]) -> List[Dict]:
         """Transform Bluesky posts to our unified format."""
@@ -381,6 +466,43 @@ class BlueskyClient:
         return transformed
 
 
+class UnconfiguredPublisher:
+    """Stub uniforme per a xarxes encara no implementades (Fase 1+).
+
+    Apareixen al registry perquè la UI les pugui llistar i guiar la connexió,
+    però `publish()` falla amb un missatge clar i `is_configured()` és False.
+    """
+
+    def __init__(self, network: str, char_limit: int = 280):
+        self.network = network
+        self.char_limit = char_limit
+
+    def is_configured(self) -> bool:
+        return False
+
+    async def publish(self, text: str, media: Optional[list] = None) -> Dict:
+        raise NotImplementedError(
+            f"La xarxa '{self.network}' encara no està implementada (prevista en una fase posterior)."
+        )
+
+
 # Singleton instances
 mastodon_client = MastodonClient()
 bluesky_client = BlueskyClient()
+linkedin_client = UnconfiguredPublisher("linkedin", 3000)
+facebook_client = UnconfiguredPublisher("facebook", 63206)
+instagram_client = UnconfiguredPublisher("instagram", 2200)
+x_client = UnconfiguredPublisher("x", 280)
+
+# Registry uniforme network → client. Tots exposen la mateixa interfície:
+#   .network (str), .char_limit (int), .is_configured() -> bool,
+#   async .publish(text, media) -> {url, id}
+# Permet que /compose i /publish iterin sense `if` per xarxa.
+SOCIAL_PUBLISHERS: Dict[str, Any] = {
+    "mastodon": mastodon_client,
+    "bluesky": bluesky_client,
+    "linkedin": linkedin_client,
+    "facebook": facebook_client,
+    "instagram": instagram_client,
+    "x": x_client,
+}

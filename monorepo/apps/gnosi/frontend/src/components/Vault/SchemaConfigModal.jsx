@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2 } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2, Send } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -722,6 +722,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const [enableDrupalSync, setEnableDrupalSync] = useState(initialEnableDrupalSync);
     const [drupalBundle, setDrupalBundle] = useState(initialDrupalBundle || '');
     const [drupalFieldMapping, setDrupalFieldMapping] = useState(initialDrupalFieldMapping || {});
+    // Publicació a XXSS: el senyal viu a l'esquema (columna `system` "XXSS"),
+    // com Drupal. L'estat del toggle es deriva de l'esquema en obrir (no és un prop).
+    const [enableSocialPublish, setEnableSocialPublish] = useState(false);
     // Catàlegs descoberts de Drupal (efímers; només alimenten els <select>).
     const [drupalContentTypes, setDrupalContentTypes] = useState([]);
     const [drupalFields, setDrupalFields] = useState([]);
@@ -794,6 +797,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             setEnableDrupalSync(initialEnableDrupalSync);
             setDrupalBundle(initialDrupalBundle || '');
             setDrupalFieldMapping(initialDrupalFieldMapping || {});
+            setEnableSocialPublish(fieldsArray.some((f) => f.system && /xxss|social/i.test(f.name || '')));
 
             // Load all tables for relations
             const fetchTables = async () => {
@@ -911,6 +915,30 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const handleToggleDrupalSync = (next) => {
         setEnableDrupalSync(next);
         if (next) addDrupalColumns();
+    };
+
+    // Columna `system` que marca la taula com a publicable a XXSS. La seva
+    // presència és el senyal que fa aparèixer el botó "Publicar a XXSS" (com les
+    // columnes de Drupal). Es persisteix amb l'esquema via l'autosave de `fields`.
+    const SOCIAL_PUBLISH_COL = t('schema.social_column', 'XXSS');
+    const addSocialPublishColumns = () => {
+        setFields((prev) => {
+            const have = new Set(prev.map((f) => (f.name || '').trim().toLowerCase()));
+            if (have.has(SOCIAL_PUBLISH_COL.toLowerCase())) return prev;
+            return [...prev, {
+                id: generateFieldId(), name: SOCIAL_PUBLISH_COL, type: 'text',
+                formula: '', compute: '', defaultFormula: '', relationField: '',
+                targetProperty: '', aggregation: 'count_values', limit: '', fallbackValue: '',
+                relation_database_id: '', cardinality: 'one-to-many', file_mode: 'upload',
+                storage_folder: '', name_pattern: '', translatable: false, system: true,
+                button_action: '', button_label: '', options: [], format: {}, visible: true,
+            }];
+        });
+    };
+
+    const handleToggleSocialPublish = (next) => {
+        setEnableSocialPublish(next);
+        if (next) addSocialPublishColumns();
     };
 
     // Vincula les files existents amb nodes de Drupal pel títol (backfill de
@@ -1313,6 +1341,27 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                             </label>
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
                                 {t('schema.translation_hint', 'Permet marcar camps com a traduïbles i afegir botons que generen subitems amb la traducció a altres idiomes.')}
+                            </p>
+                        </div>
+
+                        <div className="border-t border-[var(--border-primary)] pt-4">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableSocialPublish ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'}`}>
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={enableSocialPublish}
+                                        onChange={(e) => handleToggleSocialPublish(e.target.checked)}
+                                    />
+                                    <div className={`bg-[var(--bg-primary)] w-4 h-4 rounded-full shadow-sm transform transition-transform ${enableSocialPublish ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </div>
+                                <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-1.5">
+                                    <Send size={14} className={enableSocialPublish ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
+                                    {t('schema.social_publish_enabled', 'Publicable a XXSS')}
+                                </span>
+                            </label>
+                            <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
+                                {t('schema.social_publish_hint', 'Afegeix un botó per generar amb IA i publicar els registres a les xarxes socials configurades.')}
                             </p>
                         </div>
 

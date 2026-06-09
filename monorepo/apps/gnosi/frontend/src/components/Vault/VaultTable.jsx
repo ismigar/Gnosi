@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap, Globe } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap, Globe, Send } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
@@ -236,6 +236,7 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { TranslateLanguagesModal } from './TranslateLanguagesModal';
 import { SyncDrupalModal } from './SyncDrupalModal';
+import { PublishSocialModal } from './PublishSocialModal';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
@@ -440,6 +441,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         () => getSchemaFieldNames(schema).some((name) => {
             const cfg = getFieldConfig(schema, name);
             return cfg?.system === true && /drupal/i.test(name);
+        }),
+        [schema]
+    );
+    // Mostra el botó "Publicar a XXSS" quan la taula té la funció activada. En
+    // activar-la, SchemaConfigModal hi afegeix una columna `system` "XXSS"
+    // (estat de publicació), de manera que el senyal viu a l'esquema com Drupal.
+    const isSocialPublishTable = useMemo(
+        () => getSchemaFieldNames(schema).some((name) => {
+            const cfg = getFieldConfig(schema, name);
+            return cfg?.system === true && /xxss|social/i.test(name);
         }),
         [schema]
     );
@@ -2507,6 +2518,22 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     <span className="row-action-tooltip">{note.metadata?.drupal_uuid ? t('table.sync_drupal_update', 'Actualitzar a Drupal') : t('table.sync_drupal', 'Sincronitzar amb Drupal')}</span>
                                 </button>
                             )}
+                            {isSocialPublishTable && !isListView && !note.metadata?.translation_lang && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPendingAction({
+                                            noteId: note.id,
+                                            action: 'publish_social',
+                                        });
+                                    }}
+                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors opacity-0 group-hover/row:opacity-100"
+                                    title={t('table.publish_social', 'Publicar a XXSS')}
+                                >
+                                    <Send size={14} />
+                                    <span className="row-action-tooltip">{t('table.publish_social', 'Publicar a XXSS')}</span>
+                                </button>
+                            )}
                             {!isListView && onDeletePage && (
                                 <button
                                     onClick={(e) => {
@@ -3011,6 +3038,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     noteId={pendingAction.noteId}
                     recordMetadata={noteById.get(pendingAction.noteId)?.metadata || {}}
                     onSynced={() => { setPendingAction(null); onTranslated?.({}); }}
+                />
+            )}
+
+            {pendingAction && pendingAction.action === 'publish_social' && (
+                <PublishSocialModal
+                    isOpen={true}
+                    onClose={() => setPendingAction(null)}
+                    noteId={pendingAction.noteId}
+                    recordMetadata={noteById.get(pendingAction.noteId)?.metadata || {}}
+                    onPublished={() => { setPendingAction(null); onTranslated?.({}); }}
                 />
             )}
 
