@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, LayoutDashboard, Calendar, History } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Sparkles } from 'lucide-react';
 import Column from '../components/social/Column';
 import Composer from '../components/social/Composer';
 import AddStreamModal from '../components/social/AddStreamModal';
 import ContentCalendar from './ContentCalendar';
 import PostHistory from './PostHistory';
+import { PublishSocialModal } from '../components/Vault/PublishSocialModal';
 
 const DEFAULT_STREAMS = [
     { id: "mastodon-home", title: "Mastodon Home", icon: "🐘", network: "mastodon" },
@@ -21,6 +22,7 @@ const TABS = [
 const SocialDashboard = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [showComposer, setShowComposer] = useState(false);
+    const [showAIComposer, setShowAIComposer] = useState(false);
     const [showAddStream, setShowAddStream] = useState(false);
     const [columns, setColumns] = useState(DEFAULT_STREAMS);
     const [streamData, setStreamData] = useState({});
@@ -112,13 +114,22 @@ const SocialDashboard = () => {
                 </div>
 
                 {activeTab === 'dashboard' && (
-                    <button
-                        onClick={() => setShowComposer(v => !v)}
-                        className="flex items-center gap-2 bg-[var(--gnosi-blue)] hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-all shadow-lg text-sm font-medium"
-                    >
-                        <Plus size={16} />
-                        <span>{showComposer ? 'Tancar' : 'Nou post'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowAIComposer(true)}
+                            className="flex items-center gap-2 border border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 px-4 py-1.5 rounded-lg transition-all text-sm font-medium"
+                        >
+                            <Sparkles size={16} />
+                            <span>Amb IA</span>
+                        </button>
+                        <button
+                            onClick={() => setShowComposer(v => !v)}
+                            className="flex items-center gap-2 bg-[var(--gnosi-blue)] hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-all shadow-lg text-sm font-medium"
+                        >
+                            <Plus size={16} />
+                            <span>{showComposer ? 'Tancar' : 'Nou post'}</span>
+                        </button>
+                    </div>
                 )}
             </header>
 
@@ -177,6 +188,12 @@ const SocialDashboard = () => {
                 {activeTab === 'calendar' && <ContentCalendar />}
                 {activeTab === 'history'  && <PostHistory />}
             </main>
+
+            <PublishSocialModal
+                isOpen={showAIComposer}
+                onClose={() => setShowAIComposer(false)}
+                onPublished={() => { setShowAIComposer(false); columns.forEach(fetchStreamFeed); }}
+            />
         </div>
     );
 };

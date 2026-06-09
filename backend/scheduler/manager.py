@@ -88,6 +88,10 @@ class SchedulerManager:
             "description": "Buida la paperera del Vault (entrades > 90 dies)",
             "default_interval": 1440,  # 24 hours
         },
+        "publish_scheduled_social": {
+            "description": "Publica les publicacions socials programades vençudes",
+            "default_interval": 5,  # 5 minutes
+        },
     }
 
     def __init__(self):
@@ -513,6 +517,27 @@ class SchedulerManager:
             self._save_config()
             return {"success": False, "error": error_msg}
 
+    def _task_publish_scheduled_social(self) -> Dict[str, Any]:
+        """Publica les publicacions socials programades que ja han vençut.
+
+        Reaprofita l'endpoint async `process_scheduled_posts`. El job corre en un
+        thread del scheduler sense event loop, així que `asyncio.run` és segur; si
+        excepcionalment ja n'hi hagués un, l'executem en un thread propi.
+        """
+        import asyncio
+        from fastapi import BackgroundTasks
+        from backend.api.social_routes import process_scheduled_posts
+
+        def _runner():
+            return asyncio.run(process_scheduled_posts(BackgroundTasks()))
+
+        try:
+            return _runner()
+        except RuntimeError:
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                return ex.submit(_runner).result()
+
     def _execute_task(self, name: str) -> Dict[str, Any]:
         """Execute a specific task."""
         if name == "fetch_feeds":
@@ -539,6 +564,8 @@ class SchedulerManager:
             return self._task_zotero_sync()
         elif name == "purge_trash":
             return self._task_purge_trash()
+        elif name == "publish_scheduled_social":
+            return self._task_publish_scheduled_social()
 
         return {"error": f"Unknown task: {name}"}
 
