@@ -9,9 +9,11 @@ a dimoni de llarga durada, NO veu de forma fiable `~/Library/CloudStorage`
 torna buit per a tot el Vault (símptoma: "no troba" fitxers com "Ética de Kant").
 Un kickstart del helper NO ho arregla.
 
-El contenidor del backend té el Vault muntat a `/vault` i el llegeix de forma
-fiable amb `os.walk` (inclosos els fitxers ONLINE-ONLY, que també hi surten).
-Per això mantenim aquí un índex de noms en memòria, construït en segon pla.
+El contenidor del backend té tot HOME muntat (`${HOME}:${HOME}:ro`) i llegeix
+`~/Library/CloudStorage` de forma fiable amb `os.walk` (inclosos els fitxers
+ONLINE-ONLY, que també hi surten). Per això mantenim aquí un índex de noms en
+memòria, construït en segon pla, que cobreix TOTA la CloudStorage (OneDrive,
+Google Drive…), no només el Vault — vegeu `_index_roots`.
 
 Per què UNIÓ i no REPLACE (clau per als online-only)
 ---------------------------------------------------
@@ -89,22 +91,38 @@ def _to_host(internal_path: str) -> str:
     return internal_path
 
 
-def _index_roots() -> List[tuple]:
-    """Arrels a indexar: (ruta_a_recórrer, cal_mapejar_a_host). Indexem les
-    arrels de CloudStorage que el helper no veu fiable: Vault + Biblioteca."""
-    roots: List[tuple] = []
+def _index_roots() -> List[str]:
+    """Arrels a indexar (rutes HOST, accessibles al contenidor via el mount HOME
+    `ro`). Indexem TOT `~/Library/CloudStorage` (OneDrive, Google Drive…), no
+    només el Vault: el helper (mdfind) no veu de forma fiable CAP carpeta de
+    CloudStorage des del seu context, així que tot el que hi viu (Vault,
+    Biblioteca, Documents/ESS, etc.) ha d'anar a l'índex. La resta de HOME
+    (Documents/Downloads LOCALS, fora de CloudStorage) la cobreix el helper.
+
+    Per què va caldre: l'usuari cercava `Presentación vivienda cooperativa.pdf`
+    (a `OneDrive-UNED/Documents/ESS/`, fora del Vault) i no sortia perquè
+    l'índex només cobria Vault + Biblioteca.
+    """
+    home = os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
+    cloudstorage = os.path.join(home, "Library", "CloudStorage")
+    if Path(cloudstorage).is_dir():
+        return [cloudstorage]
+    # Fallback (layouts sense CloudStorage o fora de Docker): Vault + Biblioteca.
+    roots: List[str] = []
     if Path(_VAULT_INTERNAL).is_dir():
-        roots.append((_VAULT_INTERNAL, True))
+        roots.append(_VAULT_INTERNAL)
     if _BIBLIOTECA_HOST and Path(_BIBLIOTECA_HOST).is_dir():
-        roots.append((_BIBLIOTECA_HOST, False))
+        roots.append(_BIBLIOTECA_HOST)
     return roots
 
 
 def _walk() -> List[Dict[str, Any]]:
     """Recorre les arrels i retorna la llista plana d'entrades (pot ser parcial
-    si el File Provider serveix llistats incomplets en aquest moment)."""
+    si el File Provider serveix llistats incomplets en aquest moment). Les rutes
+    es retornen sempre com a HOST (via `_to_host`, que només mapeja el prefix
+    `/vault` del fallback; les arrels de CloudStorage ja són host)."""
     out: List[Dict[str, Any]] = []
-    for root, map_to_host in _index_roots():
+    for root in _index_roots():
         for dirpath, dirs, files in os.walk(root, followlinks=False):
             dirs[:] = [
                 d for d in dirs
@@ -118,11 +136,10 @@ def _walk() -> List[Dict[str, Any]]:
                 if not is_dir and name.startswith("."):
                     continue
                 internal = os.path.join(dirpath, name)
-                host = _to_host(internal) if map_to_host else internal
                 out.append({
                     "name": name,
                     "name_norm": _norm(name),
-                    "path": host,
+                    "path": _to_host(internal),
                     "is_dir": is_dir,
                 })
     return out

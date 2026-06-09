@@ -8270,6 +8270,7 @@ async def link_existing_file(body: dict):
         raise HTTPException(status_code=400, detail="Path is not a file")
 
     target_name = str(body.get("target_name", "")).strip()
+    renamed = False
     if target_name:
         new_stem = _sanitize_filename_base(target_name)
         ext = p.suffix
@@ -8285,9 +8286,17 @@ async def link_existing_file(body: dict):
             try:
                 p.rename(desired)
                 p = desired
+                renamed = True
             except OSError as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Could not rename file: {e}"
+                # No es pot reanomenar: típicament el fitxer és FORA del Vault,
+                # en un mount read-only (~/Library/CloudStorage via el mount HOME
+                # `ro` → errno 30 EROFS), o és un linked attachment de Zotero. NO
+                # bloquegem la inserció: enllacem el fitxer amb el seu nom
+                # ORIGINAL. A més, reanomenar un fitxer de la OneDrive general de
+                # l'usuari (fora del Vault) seria intrusiu — millor no tocar-lo.
+                log.warning(
+                    f"link-existing-file: no s'ha pogut reanomenar "
+                    f"{p} → {desired} ({e}); s'enllaça amb el nom original."
                 )
 
     return {
@@ -8296,6 +8305,7 @@ async def link_existing_file(body: dict):
         "storage": "absolute",
         "name": p.name,
         "size": p.stat().st_size,
+        "renamed": renamed,
     }
 
 
