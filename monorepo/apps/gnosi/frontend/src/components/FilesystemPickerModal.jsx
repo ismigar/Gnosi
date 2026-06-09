@@ -38,7 +38,17 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     // Resultats de la cerca global. `null` = no s'està buscant (mode browse).
     const [searchResults, setSearchResults] = useState(null);
     const [searchTruncated, setSearchTruncated] = useState(false);
+    // Índex de l'element ressaltat a la llista (carpetes/fitxers o resultats de
+    // cerca). Compartit per teclat (↑↓) i ratolí (hover), igual que el patró
+    // canònic de MultiSelectPills: un sol `highlightedIndex` per a tots dos.
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const modalRef = useRef(null);
+    // Contenidor scrollable de la llista (role="listbox"): rep el focus i les
+    // fletxes; manté el focus en entrar/sortir de carpetes, així la navegació
+    // amb teclat no s'interromp. Patró aria-activedescendant.
+    const listRef = useRef(null);
+    // Refs a cada opció renderitzada, per fer scrollIntoView de la ressaltada.
+    const itemRefs = useRef([]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -87,7 +97,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 }
                 setSearchResults(Array.isArray(data.results) ? data.results : []);
                 setSearchTruncated(!!data.truncated);
-            } catch (err) {
+            } catch {
                 setError('Error de connexió');
                 setSearchResults([]);
             } finally {
@@ -96,6 +106,26 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         }, 300);
         return () => clearTimeout(handle);
     }, [isOpen, searchQuery]);
+
+    // En canviar de carpeta o de resultats de cerca, torna a ressaltar el
+    // primer element (o cap, si la llista és buida). Així ↑↓ i Enter sempre
+    // tenen un punt de partida coherent.
+    useEffect(() => {
+        const showFilesNow = mode === 'file' || mode === 'any';
+        const count = searchResults !== null
+            ? searchResults.filter((it) => showFilesNow || it.is_dir).length
+            : directories.length + (showFilesNow ? files.length : 0);
+        setHighlightedIndex(count > 0 ? 0 : -1);
+    }, [currentPath, searchResults, directories, files, mode]);
+
+    // Manté l'element ressaltat visible quan es navega amb el teclat.
+    useEffect(() => {
+        if (highlightedIndex < 0) return;
+        const el = itemRefs.current[highlightedIndex];
+        if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'nearest' });
+        }
+    }, [highlightedIndex]);
 
     const browse = async (path) => {
         setLoading(true);
@@ -117,7 +147,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 setDirectories(data.directories || []);
                 setFiles(data.files || []);
             }
-        } catch (err) {
+        } catch {
             setError('Error de connexió');
         } finally {
             setLoading(false);
@@ -160,6 +190,109 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
             void browse(item.path);
         } else if (showFiles) {
             onSelect(item.path, { isDir: false });
+        }
+    };
+
+    // ── Navegació amb teclat ──
+    // Llista plana i ordenada de tot el que es pot seleccionar ara mateix. Un
+    // sol array perquè l'índex ressaltat (↑↓) i les refs casin amb el que es
+    // pinta, tant en mode cerca com en mode browse.
+    const visibleSearchResults = isSearching
+        ? searchResults.filter((it) => showFiles || it.is_dir)
+        : [];
+    const items = isSearching
+        ? visibleSearchResults.map((data) => ({ kind: 'search', data }))
+        : [
+            ...visibleDirectories.map((name) => ({ kind: 'dir', name })),
+            ...visibleFiles.map((name) => ({ kind: 'file', name })),
+        ];
+    const itemCount = items.length;
+    const optionId = (i) => `fp-opt-${i}`;
+
+    const goUp = () => void browse(joinPath(currentPath, '..'));
+
+    // Obre/selecciona l'element a `index`: carpeta → hi entra; fitxer → el
+    // retorna; resultat de cerca → delega al seu handler (que ja distingeix).
+    const activate = (index) => {
+        const it = items[index];
+        if (!it) return;
+        if (it.kind === 'search') handleSearchResultClick(it.data);
+        else if (it.kind === 'dir') void browse(joinPath(currentPath, it.name));
+        else handleSelectFile(it.name);
+    };
+
+    const moveHighlight = (delta) => {
+        if (itemCount === 0) return;
+        setHighlightedIndex((i) => {
+            const base = i < 0 ? (delta > 0 ? -1 : 0) : i;
+            return Math.max(0, Math.min(itemCount - 1, base + delta));
+        });
+    };
+
+    // Tecles dins la llista (contenidor role="listbox"). El focus hi viu, així
+    // que ↑↓ no es perden en entrar/sortir de carpetes.
+    const handleListKeyDown = (e) => {
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                moveHighlight(1);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                moveHighlight(-1);
+                break;
+            case 'Home':
+                e.preventDefault();
+                setHighlightedIndex(itemCount > 0 ? 0 : -1);
+                break;
+            case 'End':
+                e.preventDefault();
+                setHighlightedIndex(itemCount - 1);
+                break;
+            case 'Enter':
+                if (highlightedIndex >= 0) {
+                    e.preventDefault();
+                    activate(highlightedIndex);
+                }
+                break;
+            // → només entra a carpetes (no selecciona fitxers, que seria inesperat).
+            case 'ArrowRight': {
+                const it = items[highlightedIndex];
+                if (it && (it.kind === 'dir' || (it.kind === 'search' && it.data.is_dir))) {
+                    e.preventDefault();
+                    activate(highlightedIndex);
+                }
+                break;
+            }
+            // "Anar enrere": puja un nivell. Dins la llista no s'escriu text,
+            // així que ⌫ i ← són segurs per a aquesta drecera (estil Finder).
+            case 'Backspace':
+            case 'ArrowLeft':
+                e.preventDefault();
+                goUp();
+                break;
+            default:
+                break;
+        }
+    };
+
+    // Tecles dins el cercador. ↓ baixa a la llista; Enter obre el ressaltat;
+    // ⌫ amb el camp buit puja un nivell (no interfereix mai mentre s'escriu).
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (itemCount > 0) {
+                setHighlightedIndex((i) => (i < 0 ? 0 : i));
+                listRef.current?.focus();
+            }
+        } else if (e.key === 'Enter') {
+            if (itemCount > 0) {
+                e.preventDefault();
+                activate(highlightedIndex >= 0 ? highlightedIndex : 0);
+            }
+        } else if (e.key === 'Backspace' && searchQuery === '') {
+            e.preventDefault();
+            goUp();
         }
     };
 
@@ -213,12 +346,13 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                             </div>
                         </div>
                         <button
-                            onClick={() => browse(joinPath(currentPath, '..'))}
-                            title="Pujar un nivell"
-                            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            onClick={goUp}
+                            title="Anar enrere (⌫)"
+                            aria-label="Pujar un nivell"
+                            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] hover:bg-[var(--bg-primary)]"
+                            style={{ background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 10px', borderRadius: '6px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
                         >
-                            <ArrowLeft size={16} />
+                            <ArrowLeft size={15} /> Amunt
                         </button>
                     </div>
 
@@ -256,91 +390,85 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         <Search size={14} className="text-[var(--text-tertiary)]" style={{ position: 'absolute', left: '20px', top: '18px' }} />
                         <input
                             type="text"
+                            data-autofocus
                             placeholder={searchPlaceholder}
+                            aria-label={searchPlaceholder}
                             className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-primary)]"
                             style={{ width: '100%', padding: '6px 12px 6px 30px', borderRadius: '6px', fontSize: '0.9em' }}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={handleSearchKeyDown}
                         />
                     </div>
 
-                    {/* List */}
-                    <div className="bg-[var(--bg-primary)]" style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+                    {/* List (role="listbox": el focus hi viu i les fletxes el naveguen) */}
+                    <div
+                        ref={listRef}
+                        role="listbox"
+                        tabIndex={0}
+                        aria-label="Carpetes i fitxers"
+                        aria-activedescendant={highlightedIndex >= 0 ? optionId(highlightedIndex) : undefined}
+                        onKeyDown={handleListKeyDown}
+                        className="bg-[var(--bg-primary)]"
+                        style={{ flex: 1, overflowY: 'auto', padding: '10px', outline: 'none' }}
+                    >
                         {loading ? (
                             <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '40px' }}>
                                 {isSearching ? 'Cercant a tot el Mac...' : 'Carregant...'}
                             </div>
                         ) : error ? (
                             <div style={{ color: '#ef4444', padding: '20px', textAlign: 'center' }}>{error}</div>
-                        ) : isSearching ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                {searchResults.length === 0 ? (
-                                    <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '20px', fontSize: '0.9em' }}>
-                                        Cap resultat per a “{searchQuery}”
-                                    </div>
-                                ) : (
-                                    <>
-                                        {searchResults
-                                            .filter((item) => showFiles || item.is_dir)
-                                            .map((item) => (
-                                                <button
-                                                    key={`${item.is_dir ? 'd' : 'f'}:${item.path}`}
-                                                    onClick={() => handleSearchResultClick(item)}
-                                                    className="text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] group"
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '6px', textAlign: 'left', width: '100%' }}
-                                                >
-                                                    {item.is_dir
-                                                        ? <Folder size={18} className="text-[var(--gnosi-primary)]" />
-                                                        : <FileIcon size={18} className="text-[var(--text-secondary)]" />}
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                                                        <div className="text-[var(--text-tertiary)]" style={{ fontSize: '0.72rem', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {item.path}
-                                                        </div>
-                                                    </div>
-                                                    {item.is_dir && (
-                                                        <ChevronRight size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]" />
-                                                    )}
-                                                </button>
-                                            ))}
-                                        {searchTruncated && (
-                                            <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '10px', fontSize: '0.78rem', fontStyle: 'italic' }}>
-                                                Massa resultats — afina la cerca per veure'n més
-                                            </div>
-                                        )}
-                                    </>
-                                )}
+                        ) : itemCount === 0 ? (
+                            <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '20px', fontSize: '0.9em' }}>
+                                {isSearching
+                                    ? `Cap resultat per a “${searchQuery}”`
+                                    : (showFiles ? "No s'han trobat fitxers ni carpetes" : "No s'han trobat carpetes")}
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                {visibleDirectories.length === 0 && visibleFiles.length === 0 && (
-                                    <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '20px', fontSize: '0.9em' }}>
-                                        {showFiles ? "No s'han trobat fitxers ni carpetes" : "No s'han trobat carpetes"}
+                                {items.map((it, i) => {
+                                    const active = i === highlightedIndex;
+                                    const isDir = it.kind === 'dir' || (it.kind === 'search' && it.data.is_dir);
+                                    const name = it.kind === 'search' ? it.data.name : it.name;
+                                    const key = it.kind === 'search'
+                                        ? `s:${it.data.is_dir ? 'd' : 'f'}:${it.data.path}`
+                                        : `${it.kind === 'dir' ? 'd' : 'f'}:${it.name}`;
+                                    return (
+                                        <div
+                                            key={key}
+                                            id={optionId(i)}
+                                            role="option"
+                                            aria-selected={active}
+                                            ref={(el) => { itemRefs.current[i] = el; }}
+                                            onClick={() => activate(i)}
+                                            onMouseEnter={() => setHighlightedIndex(i)}
+                                            className="text-[var(--text-primary)]"
+                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: active ? 'var(--bg-secondary)' : 'transparent', cursor: 'pointer', borderRadius: '6px', textAlign: 'left', width: '100%' }}
+                                        >
+                                            {isDir
+                                                ? <Folder size={18} className="text-[var(--gnosi-primary)]" />
+                                                : <FileIcon size={18} className="text-[var(--text-secondary)]" />}
+                                            {it.kind === 'search' ? (
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                                    <div className="text-[var(--text-tertiary)]" style={{ fontSize: '0.72rem', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {it.data.path}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                                            )}
+                                            {isDir && (
+                                                <ChevronRight size={14} className="text-[var(--text-tertiary)]" />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {isSearching && searchTruncated && (
+                                    <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '10px', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                                        Massa resultats — afina la cerca per veure'n més
                                     </div>
                                 )}
-                                {visibleDirectories.map((dir) => (
-                                    <button
-                                        key={`d:${dir}`}
-                                        onClick={() => browse(joinPath(currentPath, dir))}
-                                        className="text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] group"
-                                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '6px', textAlign: 'left' }}
-                                    >
-                                        <Folder size={18} className="text-[var(--gnosi-primary)]" />
-                                        <span style={{ flex: 1 }}>{dir}</span>
-                                        <ChevronRight size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]" />
-                                    </button>
-                                ))}
-                                {showFiles && visibleFiles.map((file) => (
-                                    <button
-                                        key={`f:${file}`}
-                                        onClick={() => handleSelectFile(file)}
-                                        className="text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
-                                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '6px', textAlign: 'left' }}
-                                    >
-                                        <FileIcon size={18} className="text-[var(--text-secondary)]" />
-                                        <span style={{ flex: 1 }}>{file}</span>
-                                    </button>
-                                ))}
                             </div>
                         )}
                     </div>
@@ -348,24 +476,32 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     {/* Footer */}
                     <div
                         className="bg-[var(--bg-secondary)] border-t border-[var(--border-primary)]"
-                        style={{ padding: '15px', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}
+                        style={{ padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexShrink: 0 }}
                     >
-                        <button
-                            onClick={onClose}
-                            className="text-[var(--text-primary)] border border-[var(--border-primary)] hover:bg-[var(--bg-primary)]"
-                            style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', cursor: 'pointer' }}
+                        <span
+                            className="text-[var(--text-tertiary)]"
+                            style={{ fontSize: '0.72rem', lineHeight: 1.4 }}
                         >
-                            Cancel·lar
-                        </button>
-                        {canPickFolder && (
+                            ↑↓ navega · ↵ obre · ⌫ amunt · ⇥ canvia secció
+                        </span>
+                        <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
                             <button
-                                onClick={handleSelectCurrentFolder}
-                                className="btn-gnosi btn-gnosi-primary"
-                                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                                onClick={onClose}
+                                className="text-[var(--text-primary)] border border-[var(--border-primary)] hover:bg-[var(--bg-primary)]"
+                                style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', cursor: 'pointer' }}
                             >
-                                Seleccionar aquesta carpeta
+                                Cancel·lar
                             </button>
-                        )}
+                            {canPickFolder && (
+                                <button
+                                    onClick={handleSelectCurrentFolder}
+                                    className="btn-gnosi btn-gnosi-primary"
+                                    style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                                >
+                                    Seleccionar aquesta carpeta
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
