@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 import asyncio
 import json
 import os
+import unicodedata
 import psutil
 from pathlib import Path
 from backend.data.management_db import get_mgmt_db
@@ -301,15 +302,34 @@ def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float 
     return data
 
 
+def _dedup_by_path(primary: list, secondary: list, limit: int) -> list:
+    """Fusiona dues llistes de resultats {name,path,is_dir} sense duplicats per
+    `path`, mantenint l'ordre (primary primer). Talla a `limit`."""
+    seen: set = set()
+    out: list = []
+    for item in list(primary) + list(secondary):
+        p = item.get("path")
+        if not p or p in seen:
+            continue
+        seen.add(p)
+        out.append(item)
+        if len(out) >= limit:
+            break
+    return out
+
+
 @router.post("/search", dependencies=[Depends(require_role("admin"))])
 async def search_filesystem(body: SearchRequest = Body(...)):
-    """Cerca per nom a tot el sistema (vault + home host).
+    """Cerca per nom a tot el sistema (Vault + Biblioteca + home host).
 
-    Estratègia en dues capes:
-      1. Spotlight via el host helper (`mdfind`) — ràpid, índex viu.
-      2. Fallback: `os.walk` recursiu dins del contenidor — lent però
-         sense dependències. Aplica caps PER root (nodes i resultats) i
-         corre en un thread per no bloquejar l'event loop.
+    Estratègia:
+      1. Índex de fitxers del Vault (`services/vault_file_index`) — en memòria,
+         ràpid i FIABLE (no depèn del helper ni de l'estat d'OneDrive). Cobreix
+         Vault + Biblioteca, les arrels CloudStorage que el helper sovint no veu.
+      2. host_open_helper (Spotlight) — afegeix la resta de HOME (Documents,
+         Downloads…) on el helper sí funciona. Es fusiona amb (1), dedup per ruta.
+      3. Fallback (NOMÉS si l'índex encara no està llest, p.ex. just a
+         l'arrencada): `os.walk` dins del contenidor, amb caps per root.
     """
     q = (body.query or "").strip().lower()
     if len(q) < 2:
@@ -317,10 +337,9 @@ async def search_filesystem(body: SearchRequest = Body(...)):
 
     limit = max(1, min(500, body.limit or 100))
 
-    # ── Capa 1: Spotlight via host helper ──
-    # `mdfind` no existeix dins del contenidor; el helper del host el
-    # delega. Els roots van en rutes HOST (les que indexa Spotlight). Si el
-    # helper no respon, `helper_data` és None i caiem al walk de sota.
+    # Helper (Spotlight) — ràpid, per a HOME/no-CloudStorage. Pot ser None (helper
+    # caigut) o tornar buit per al Vault (File Provider d'OneDrive ranci): per
+    # això NO ens hi refiem sols per al Vault; l'índex (sota) el cobreix.
     helper_roots = [
         p for p in (os.getenv("VAULT_HOST_PATH"), os.getenv("HOME_HOST_PATH"))
         if p
@@ -328,14 +347,30 @@ async def search_filesystem(body: SearchRequest = Body(...)):
     helper_data = await asyncio.to_thread(
         _search_via_host_helper, q, limit, helper_roots
     )
-    if helper_data is not None:
+    helper_results = helper_data.get("results", []) if helper_data else []
+
+    # ── Capa 1+2: índex del Vault (fiable) fusionat amb el helper (resta de HOME) ──
+    from backend.services import vault_file_index
+    if vault_file_index.is_ready():
+        index_results = await asyncio.to_thread(
+            vault_file_index.query, body.query or "", limit
+        )
+        merged = _dedup_by_path(index_results, helper_results, limit)
         return {
-            "results": helper_data.get("results", []),
-            "truncated": bool(helper_data.get("truncated")),
-            "engine": helper_data.get("engine", "spotlight"),
+            "results": merged,
+            "truncated": bool(helper_data and helper_data.get("truncated")) or len(merged) >= limit,
+            "engine": "index+spotlight",
         }
 
-    # ── Capa 2: fallback walk dins del contenidor ──
+    # Índex encara no llest (finestra curta a l'arrencada): comportament previ.
+    if helper_data is not None:
+        return {
+            "results": helper_results,
+            "truncated": bool(helper_data.get("truncated")),
+            "engine": "spotlight",
+        }
+
+    # ── Capa 3: fallback walk dins del contenidor ──
     vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
     home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
     vault_host = os.getenv("VAULT_HOST_PATH") or ""
@@ -423,6 +458,10 @@ async def search_filesystem(body: SearchRequest = Body(...)):
         })
         return len(results) >= limit
 
+    # Normalitza la query a NFC un cop: macOS desa noms en NFD, així una query
+    # "ética" (NFC, 1 codepoint) casa amb el nom de disc descompost (e + accent).
+    q_norm = unicodedata.normalize("NFC", q)
+
     def _walk_all() -> None:
         """Recorre els roots prioritaris omplint `results`.
 
@@ -459,7 +498,7 @@ async def search_filesystem(body: SearchRequest = Body(...)):
                         truncated = True
                         stop_root = True
                         break
-                    if q in name.lower():
+                    if q_norm in unicodedata.normalize("NFC", name).lower():
                         internal = native_os.path.join(current_dir, name)
                         if _record_hit(internal, name, is_dir):
                             truncated = True
