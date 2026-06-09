@@ -121,6 +121,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning(f"⚠️ Could not launch indexer warmup: {e}")
 
+    # 4b. Índex de noms de fitxers/carpetes del Vault per a la cerca del picker
+    #     ("Seleccionar fitxer o carpeta"). El host_open_helper (Spotlight) no
+    #     veu de forma fiable ~/Library/CloudStorage (OneDrive); aquest índex,
+    #     construït en segon pla des del muntatge /vault del contenidor, fa la
+    #     cerca ràpida i fiable independentment del helper. Vegeu
+    #     services/vault_file_index.py.
+    try:
+        from backend.services.vault_file_index import kickoff_file_index_rebuild
+        kickoff_file_index_rebuild()
+    except Exception as e:
+        log.warning(f"⚠️ Could not launch vault file-index: {e}")
+
     # 5. Repair invariant: every table in the registry must own at least
     #    one main view. Tables created before the auto-create logic landed
     #    (or whose only view was deleted before the delete-protection was
