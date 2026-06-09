@@ -19,14 +19,29 @@ class MastodonClient:
 
     def __init__(self):
         self.instance = os.getenv("TEMENOS_MASTODON_INSTANCE", "https://mastodon.social")
-        self.bearer = os.getenv("TEMENOS_MASTODON_BEARER", "")
-        self.handle = os.getenv("TEMENOS_MASTODON_HANDLE", "")
-        self.headers = {
-            "Authorization": f"Bearer {self.bearer}",
-            "Content-Type": "application/json"
-        }
+
+    # Tokens llegits de l'entorn DE FORMA DINÀMICA (no a l'arrencada). El singleton
+    # es crea a import-time, abans que load_env propagui .env_shared/keychain a
+    # os.environ; capturar-los al __init__ deixava el client buit segons l'ordre
+    # de càrrega i després d'un restart (is_configured=False i feeds en mode
+    # "setup" tot i tenir els tokens). Com a properties, el client sempre
+    # reflecteix l'entorn actual.
+    @property
+    def bearer(self) -> str:
+        return os.getenv("TEMENOS_MASTODON_BEARER", "")
+
+    @property
+    def handle(self) -> str:
+        return os.getenv("TEMENOS_MASTODON_HANDLE", "")
+
+    @property
+    def headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.bearer}", "Content-Type": "application/json"}
+
+    @property
+    def auth_headers(self) -> dict:
         # Headers SENSE Content-Type json per a pujades multipart (media).
-        self.auth_headers = {"Authorization": f"Bearer {self.bearer}"}
+        return {"Authorization": f"Bearer {self.bearer}"}
 
     def is_configured(self) -> bool:
         """True si hi ha token per publicar/llegir."""
@@ -238,11 +253,18 @@ class BlueskyClient:
     char_limit = 300
 
     def __init__(self):
-        self.handle = os.getenv("TEMENOS_BLUESKY_HANDLE", "")
-        self.app_password = os.getenv("TEMENOS_BLUESKY_APP_PASSWORD", "")
         self.base_url = "https://bsky.social/xrpc"
         self.access_token = None
         self.did = None
+
+    # Tokens llegits dinàmicament de l'entorn (vegeu la nota a MastodonClient).
+    @property
+    def handle(self) -> str:
+        return os.getenv("TEMENOS_BLUESKY_HANDLE", "")
+
+    @property
+    def app_password(self) -> str:
+        return os.getenv("TEMENOS_BLUESKY_APP_PASSWORD", "")
 
     def is_configured(self) -> bool:
         """True si hi ha handle + app password per autenticar."""
