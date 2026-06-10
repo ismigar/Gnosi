@@ -156,6 +156,36 @@ registre creuat.
 - Dins Docker `get_p("VAULT")` és `/vault` però el picker dona rutes del host:
   per detectar "dins el vault" cal provar també `VAULT_HOST_PATH`.
 
+## Fase 3 (2026-06-10) — Materialització de Biblioteca (503 «warmup pending»)
+
+Els PDFs de Biblioteca *online-only* (dataless) tornaven **503 permanent**:
+`OneDriveProvider.materialize()` només sabia traduir paths sota `/vault`
+(`relative_to(container_root)` → `VAULT_HOST_PATH/rel`); els de Biblioteca
+(mount **identitat**: mateixa ruta host ↔ contenidor) llançaven `ValueError`
+→ `return False` **silenciós a nivell DEBUG** → mai es cridava el daemon.
+Era el pas (b) del TODO de `_THUMB_ROOTS_MAP`: el pas (a) — allowlist
+multi-root al daemon — es va fer el 2026-05-18 i el comentari «el daemon la
+rebutjaria com out_of_scope» havia quedat desfasat.
+
+**Fix**: `identity_roots` al provider (env `BIBLIOTECA_HOST_PATH` +
+`HOME_HOST_PATH`): un path fora de `/vault` però sota un mount identitat es
+passa **tal qual** al daemon (la seva allowlist és l'autoritat). Mateixa
+extensió a `_container_to_host_path` (thumbs). El log del path no traduïble
+puja a WARNING (l'abort silenciós va costar setmanes de diagnòstic).
+
+### Context que el diagnòstic va deixar clar
+
+- **El pin «Always keep on this device» NO es conserva**: `fileproviderctl
+  evaluate` mostrava `isKeepDownloaded=0` a la carpeta Biblioteca i a TOTS
+  els ítems tot i que l'usuari l'havia activat (~22-05). La BD del File
+  Provider (on viu el pin) es recrea gairebé a cada update setmanal
+  d'OneDrive (database history: 05-23 ×3, 05-31 ×8, 06-06 ×3…). No fiar-se'n:
+  amb aquest fix, Gnosi es re-materialitza a demanda encara que el pin caigui.
+- Llegir un fitxer dataless DINS Docker no dispara la baixada (el bind mount
+  VirtioFS no passa pel File Provider): errno 35. Només el daemon al host pot.
+- El daemon corre via LoginItem (no pel LaunchAgent, que està
+  `.disabled-by-loginitem`) amb stdout/stderr a /dev/null: cap observabilitat.
+
 ## Històric
 
 - **2026-06-03 — Diagnòstic inicial**: l'usuari reporta enllaços trencats a la

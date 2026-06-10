@@ -7750,12 +7750,13 @@ _THUMB_DAEMON_URL = os.environ.get(
     "http://host.docker.internal:5009/thumb",
 )
 _THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
-# Només els roots que viuen DINS de /vault tenen translation host↔container i
-# entren a l'allowlist del daemon (VAULT_HOST_PATH). `biblioteca` queda fora
-# perquè és germana del vault i el daemon la rebutjaria com out_of_scope.
-# Si en el futur es vol estendre, cal: (a) afegir BIBLIOTECA_HOST_PATH al
-# daemon i acceptar múltiples roots a la validació, (b) ampliar
-# `_container_to_host_path` per traduir paths de Biblioteca.
+# Roots exposats a thumbs. Tots viuen dins de /vault; `biblioteca` no hi és
+# perquè cap consumidor del frontend demana thumbs de Biblioteca (els PDFs
+# dels camps `files` es mostren amb icona). Si mai cal, n'hi ha prou amb
+# afegir `"biblioteca": ("BIBLIOTECA", None)` aquí: la resta de la cadena ja
+# ho suporta — el daemon accepta múltiples roots (allowlist OneDrive-UNED,
+# 2026-05-18) i `_container_to_host_path` passa tal qual els mounts
+# identitat com Biblioteca o HOME (2026-06-10).
 _THUMB_ROOTS_MAP = {
     "images": ("IMAGES", "Images"),
     "raw": ("VAULT", None),
@@ -7811,13 +7812,21 @@ def _resolve_thumb_source(rel_url: str) -> Path:
 
 def _container_to_host_path(container_path: Path) -> Optional[str]:
     """Tradueix /vault/X → VAULT_HOST_PATH/X. Necessari perquè el daemon
-    treballa amb paths del host (qlmanage hi viu)."""
+    treballa amb paths del host (qlmanage hi viu). Els mounts identitat
+    (Biblioteca, HOME — mateixa ruta host ↔ contenidor) es passen tal qual."""
     vault_host = os.environ.get("VAULT_HOST_PATH")
     if not vault_host:
         return None
     try:
         rel = container_path.relative_to("/vault")
     except ValueError:
+        resolved = container_path.resolve()  # col·lapsa `..` i symlinks
+        for env_key in ("BIBLIOTECA_HOST_PATH", "HOME_HOST_PATH"):
+            root = os.environ.get(env_key)
+            if not root or not root.rstrip("/"):
+                continue
+            if str(resolved).startswith(str(Path(root).resolve()) + os.sep):
+                return str(resolved)
         return None
     return str(Path(vault_host) / rel)
 
