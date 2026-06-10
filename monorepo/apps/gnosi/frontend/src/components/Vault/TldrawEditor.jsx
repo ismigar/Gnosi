@@ -9,7 +9,7 @@ import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Loader2, Eye, ExternalLink, Copy } from 'lucide-react';
+import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle } from 'lucide-react';
 
 // ──────────────── Page Actions Panel ────────────────
 function PageActionsPanel({ pageId, pageTitle, onClose }) {
@@ -23,7 +23,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
             const res = await axios.get(`/api/vault/pages/${pageId}`);
             const data = res.data;
             setPreview(data.content || 'Sense contingut');
-        } catch (err) {
+        } catch {
             toast.error('Error carregant contingut');
         } finally {
             setLoading(false);
@@ -96,45 +96,80 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
 // ──────────────── TldrawEditor Component ────────────────
 export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess }) {
     const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
-    const [isLoading, setIsLoading] = useState(true);
+    // 'loading' | 'ready' | 'error' | 'incompatible' — el desat (autosave i
+    // Ctrl+S) NOMÉS és possible a 'ready'. Si la càrrega falla o el snapshot
+    // no s'aplica, desar significaria sobreescriure el dibuix real amb un
+    // llenç buit (vegeu directiva tldraw_save_integrity.md).
+    const [loadState, setLoadState] = useState(drawingId ? 'loading' : 'ready');
+    const [retryTick, setRetryTick] = useState(0);
     const editorRef = useRef(null);
     const wrapperRef = useRef(null);
     const autosaveTimerRef = useRef(null);
     const [selectedPage, setSelectedPage] = useState(null);
 
+    // Reset síncron si canvia el dibuix sense remuntar (patró React
+    // "adjusting state when props change"): cap render no pot veure 'ready'
+    // amb l'estat del dibuix anterior — l'autosave quedaria armat amb un
+    // store que encara té el contingut antic. (El consumidor normal posa
+    // key={drawingId} i remunta, però això no ho podem garantir des d'aquí.)
+    const [loadedDrawingId, setLoadedDrawingId] = useState(drawingId);
+    if (loadedDrawingId !== drawingId) {
+        setLoadedDrawingId(drawingId);
+        setLoadState(drawingId ? 'loading' : 'ready');
+    }
+
     // Carregar dibuix existent
     useEffect(() => {
-        if (!drawingId) { setIsLoading(false); return; }
+        if (!drawingId) return; // sense id no hi ha persistència (estat 'ready' inicial)
 
         const controller = new AbortController();
         axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
             .then(res => {
                 if (controller.signal.aborted) return;
                 const data = res.data;
-                if (data && typeof data === 'object') {
-                    try {
-                        loadSnapshot(store, data);
-                    } catch (e) {
-                        console.error("Error carregant dibuix:", e);
-                    }
+                // loadSnapshot NO valida el format: amb un objecte sense claus
+                // store/document/session no fa res (no-op silenciós) — és el cas
+                // dels dibuixos legacy .excalidraw.json. Validem abans de cridar-lo.
+                const isPlainObject = data && typeof data === 'object' && !Array.isArray(data);
+                // {} és el data inicial amb què el dashboard crea un dibuix nou
+                const isEmptyInitial = isPlainObject && Object.keys(data).length === 0;
+                const isTldrawSnapshot = isPlainObject &&
+                    ('store' in data || 'document' in data || 'session' in data);
+
+                if (!isEmptyInitial && !isTldrawSnapshot) {
+                    console.error(`Dibuix ${drawingId} amb format no compatible amb tldraw (legacy .excalidraw?)`);
+                    setLoadState('incompatible');
+                    return;
+                }
+                try {
+                    if (isTldrawSnapshot) loadSnapshot(store, data);
+                    setLoadState('ready');
+                } catch (e) {
+                    console.error("Error aplicant el snapshot del dibuix:", e);
+                    setLoadState('incompatible');
                 }
             })
             .catch((err) => {
                 if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
-                // El dibuix no existeix yet → pissarra buida
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setIsLoading(false);
+                if (err?.response?.status === 404) {
+                    // El dibuix no existeix encara → pissarra buida nova (es pot desar)
+                    setLoadState('ready');
+                } else {
+                    // 500, xarxa, fitxer online-only de OneDrive... el dibuix
+                    // existeix però no l'hem pogut llegir: bloquegem el desat.
+                    console.error("Error carregant dibuix:", err);
+                    setLoadState('error');
+                }
             });
 
         return () => {
             controller.abort();
         };
-    }, [drawingId, store]);
+    }, [drawingId, store, retryTick]);
 
     // Guardar dibuix (auto-save)
     const handleSave = useCallback(async () => {
-        if (!drawingId) return;
+        if (!drawingId || loadState !== 'ready') return;
         try {
             const snapshot = getSnapshot(store);
             await axios.put(`/api/vault/drawings/${drawingId}`, {
@@ -146,12 +181,14 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
         } catch (err) {
             console.error("Error al desar el dibuix:", err);
         }
-    }, [drawingId, store, title, onSaveSuccess]);
+    }, [drawingId, store, title, onSaveSuccess, loadState]);
 
     // Autosave automàtic cada 1 segon si hi ha canvis (igual que BlockEditor)
     useEffect(() => {
-        if (!drawingId) return;
+        if (!drawingId || loadState !== 'ready') return;
 
+        // Només canvis de document fets per l'usuari: càmera i selecció són
+        // scope 'session' i no han de programar cap PUT.
         const unsub = store.listen(() => {
             if (autosaveTimerRef.current) {
                 clearTimeout(autosaveTimerRef.current);
@@ -159,7 +196,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
             autosaveTimerRef.current = setTimeout(() => {
                 handleSave();
             }, 1000);
-        });
+        }, { scope: 'document', source: 'user' });
 
         return () => {
             unsub();
@@ -167,7 +204,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                 clearTimeout(autosaveTimerRef.current);
             }
         };
-    }, [drawingId, store, handleSave]);
+    }, [drawingId, store, handleSave, loadState]);
 
     // Desar amb Ctrl+S / Cmd+S
     useEffect(() => {
@@ -210,7 +247,9 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
         });
 
         return () => unsub();
-    }, [editorRef.current, isLoading]);
+        // Depèn de loadState: quan passa a 'ready' es munta <Tldraw> i onMount
+        // (efecte del fill, s'executa abans que aquest) ja ha omplert editorRef.
+    }, [loadState]);
 
     // Registrar els handlers de drag & drop amb fase de captura
     useEffect(() => {
@@ -305,7 +344,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                 ref={wrapperRef}
                 className="flex-1 relative"
             >
-                {isLoading ? (
+                {loadState === 'loading' ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-white">
                         <Loader2 size={32} className="animate-spin text-indigo-500" />
                     </div>
@@ -316,6 +355,34 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                         inferDarkMode
                         onMount={(editor) => { editorRef.current = editor; }}
                     />
+                )}
+
+                {/* Càrrega fallida o snapshot inaplicable: bloquegem el llenç
+                    perquè cap edició (ni l'autosave) sobreescrigui el fitxer real */}
+                {(loadState === 'error' || loadState === 'incompatible') && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
+                        <div className="max-w-md mx-4 p-5 bg-white rounded-xl shadow-xl border border-amber-300 text-center">
+                            <AlertTriangle size={28} className="mx-auto mb-3 text-amber-500" />
+                            <p className="text-sm font-semibold text-slate-700 mb-1">
+                                {loadState === 'error'
+                                    ? 'No s\'ha pogut carregar el dibuix'
+                                    : 'Format de dibuix no compatible'}
+                            </p>
+                            <p className="text-xs text-slate-500 mb-4">
+                                {loadState === 'error'
+                                    ? 'El desat està desactivat per no sobreescriure el dibuix original amb un llenç buit.'
+                                    : 'Aquest dibuix té un format antic (Excalidraw) o desconegut. El desat està desactivat per protegir el fitxer original.'}
+                            </p>
+                            {loadState === 'error' && (
+                                <button
+                                    onClick={() => { setLoadState('loading'); setRetryTick(t => t + 1); }}
+                                    className="px-4 py-2 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+                                >
+                                    Torna-ho a provar
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 )}
 
                 {/* Panel d'accions per a pàgines seleccionades */}

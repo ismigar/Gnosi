@@ -11257,10 +11257,39 @@ async def get_drawing(drawing_id: str):
         raise HTTPException(status_code=500, detail="Error reading target file")
 
 
+def _backup_drawing_version(drawing_id: str, file_path: Path) -> None:
+    """Copia el .tldraw.json actual a .history/{id}/{ts}.tldraw.json abans de
+    sobreescriure'l. Última línia de defensa contra clients que desen un llenç
+    buit després d'una càrrega fallida (directiva tldraw_save_integrity.md).
+    Mateix cooldown de 10 min que `_create_page_version`: també evita que un
+    client trencat que desa en bucle clobberi el backup bo amb versions buides.
+    """
+    if not file_path.exists():
+        return
+    history_base = get_p("VAULT") / ".history" / drawing_id
+    history_base.mkdir(parents=True, exist_ok=True)
+
+    COOLDOWN = 600
+    versions = sorted(history_base.glob("*.tldraw.json"))
+    if versions:
+        try:
+            if time.time() - versions[-1].stat().st_mtime < COOLDOWN:
+                return
+        except Exception:
+            pass
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    version_path = history_base / f"{timestamp}.tldraw.json"
+    try:
+        shutil.copy2(file_path, version_path)
+        log.info(f"Drawing version created: {version_path}")
+    except Exception as e:
+        log.warning(f"Could not create drawing version for {drawing_id}: {e}")
+
+
 @router.put("/drawings/{drawing_id}", dependencies=[Depends(require_role("editor"))])
 async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
     """Saves or updates a Tldraw drawing."""
-    get_p("DIBUIXOS").mkdir(parents=True, exist_ok=True)
     file_path = get_p("DIBUIXOS") / f"{drawing_id}.tldraw.json"
 
     # Save title and data together
@@ -11270,8 +11299,15 @@ async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
         "metadata": request.metadata or {},
     }
 
-    try:
+    def _write() -> None:
+        # IO del vault (OneDrive pot haver de materialitzar fitxers
+        # online-only) fora de l'event loop — vegeu async_event_loop_vault_io.md
+        get_p("DIBUIXOS").mkdir(parents=True, exist_ok=True)
+        _backup_drawing_version(drawing_id, file_path)
         safe_write_json(file_path, payload, indent=2, ensure_ascii=False)
+
+    try:
+        await asyncio.to_thread(_write)
         return {"status": "success", "id": drawing_id}
     except Exception as e:
         log.error(f"Error saving drawing {drawing_id}: {e}")

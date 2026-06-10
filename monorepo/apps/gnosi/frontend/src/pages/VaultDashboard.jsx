@@ -3240,6 +3240,7 @@ export default function VaultDashboard() {
                         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
                             {activeTabId ? (
                                 <TldrawEditor
+                                    key={activeTabId}
                                     drawingId={activeTabId}
                                     title={tabs.find(t => t.id === activeTabId)?.title}
                                     onClose={() => {

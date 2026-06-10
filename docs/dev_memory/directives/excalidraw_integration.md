@@ -54,6 +54,7 @@ Integrar Excalidraw com a eina de dibuix nativa dins del vault de Gnosi.
 | Date | Error Detected | Root Cause | Solution/Patch Applied |
 | --- | --- | --- | --- |
 | 28/02 | Proposta inicial | N/A | Decisió d'usar sistema propi vs plugins Obsidian. |
+| 2026-06-10 | Autosave de TldrawEditor sobreescrivia dibuixos reals (i eclipsava els `.excalidraw.json` legacy) quan la càrrega fallava | Error de GET tractat com a "dibuix nou" + `loadSnapshot` no-op silenciós | Vegeu directiva `tldraw_save_integrity.md` |
 
 ## 7. Examples of Use
 
