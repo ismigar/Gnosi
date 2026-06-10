@@ -69,7 +69,7 @@ const GNOSI_TO_ZOTERO_LOCALE = {
     en: 'en-US',
 };
 
-export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = false, kind: kindProp }) {
+export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp }) {
     const { t, i18n } = useTranslation();
     const iframeRef = useRef(null);
     // Idioma per al visor Zotero. El recalculem quan l'usuari canvia la
@@ -381,7 +381,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, embedded = fal
     const toolbar = (
         <div className="flex items-center gap-2 px-3 py-2 shrink-0"
              style={{ background: '#3c3f41', borderBottom: '1px solid #222' }}>
-            {!embedded && onClose && (
+            {onClose && (
                 <button onClick={onClose}
                     title={t('pdf.back', { defaultValue: 'Enrere' })}
                     className="w-8 h-8 flex items-center justify-center rounded text-white/80 hover:bg-white/10">
@@ -521,7 +521,6 @@ export function ZoteroReaderPage() {
             src={rawSrc}
             kind={kindParam}
             onClose={() => navigate(-1)}
-            embedded={false}
         />
     );
 }
