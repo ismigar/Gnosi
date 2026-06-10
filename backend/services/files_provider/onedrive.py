@@ -44,6 +44,23 @@ class OneDriveProvider(FilesProvider):
         )
         self.vault_host_path = vault_host_path or os.environ.get("VAULT_HOST_PATH")
         self.container_root = Path(container_root)
+        # Roots muntats IDENTITAT al contenidor (mateixa ruta host ↔
+        # contenidor, veure docker-compose): els seus paths no necessiten
+        # traducció — es passen tal qual al daemon, que valida contra la
+        # seva pròpia allowlist (multi-root des del 2026-05-18). Biblioteca
+        # és el cas principal (PDFs dels Recursos); HOME cobreix adjunts
+        # `~/...` fora del vault (p. ex. Documents/).
+        # Es descarta "/" (un env mal configurat convertiria TOT el sistema
+        # de fitxers en identity root; el daemon ho rebutjaria igualment,
+        # però no hi deleguem la validació). `resolve()` als roots perquè la
+        # comparació amb el candidat (també resolt) sigui consistent si hi
+        # ha symlinks pel camí.
+        self.identity_roots = [
+            Path(p).resolve() for p in (
+                os.environ.get("BIBLIOTECA_HOST_PATH"),
+                os.environ.get("HOME_HOST_PATH"),
+            ) if p and p.rstrip("/")
+        ]
 
         # Serialitzem warmups: OneDrive baixa més de pressa quan no rep
         # peticions concurrents, i evitem que un sol client (50 thumbs
@@ -62,6 +79,13 @@ class OneDriveProvider(FilesProvider):
         if self._semaphore is None:
             self._semaphore = asyncio.Semaphore(self._max_concurrent_warmups)
         return self._semaphore
+
+    @staticmethod
+    def _is_under(path: Path, root: Path) -> bool:
+        try:
+            return path.is_relative_to(root)
+        except AttributeError:  # Python < 3.9
+            return str(path).startswith(str(root) + os.sep) or path == root
 
     def is_online_only(
         self,
@@ -88,13 +112,26 @@ class OneDriveProvider(FilesProvider):
             return False
         try:
             rel = container_path.relative_to(self.container_root)
+            host_path = str(Path(self.vault_host_path) / rel)
         except ValueError:
-            log.debug(
-                "Path fora de %s, no es pot warmup: %s",
-                self.container_root, container_path,
-            )
-            return False
-        host_path = str(Path(self.vault_host_path) / rel)
+            # Fora de /vault: pot ser un mount identitat (Biblioteca, HOME),
+            # on la ruta del contenidor JA és la ruta del host. Abans aquest
+            # branch retornava False en silenci (DEBUG) i els PDFs de
+            # Biblioteca quedaven en 503 "warmup pending" indefinidament.
+            # `resolve()` col·lapsa `..` i symlinks ABANS del check: sense
+            # això, un `<root>/../x` passaria el prefix textual (el daemon
+            # re-valida amb resolve()+allowlist, però no deleguem la
+            # normalització).
+            resolved = container_path.resolve()
+            if not any(self._is_under(resolved, root) for root in self.identity_roots):
+                log.warning(
+                    "☁️ Path fora de %s i de cap mount identitat, "
+                    "no es pot warmup: %s",
+                    self.container_root, container_path,
+                )
+                return False
+            rel = resolved.name
+            host_path = str(resolved)
 
         inflight = self._inflight.get(host_path)
         if inflight is not None:
@@ -134,4 +171,12 @@ class OneDriveProvider(FilesProvider):
                     fut.set_result(False)
                     return False
         finally:
+            # Si el task propietari és CANCEL·LAT (p. ex. l'asyncio.wait_for
+            # de bulk_warm_previews, o un shutdown), CancelledError és
+            # BaseException i NO passa per l'except d'amunt: el Future
+            # quedaria orfe i els waiters coalescits (`await inflight`)
+            # penjarien per sempre. set_result(False), no cancel(): cancel·lar
+            # propagaria CancelledError a waiters innocents.
+            if not fut.done():
+                fut.set_result(False)
             self._inflight.pop(host_path, None)
