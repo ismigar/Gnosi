@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import "@blocknote/mantine/style.css";
@@ -17,8 +17,22 @@ async function uploadFileToVault(file) {
 
 export default function MailBlockEditor({ initialContent, onChange, editorRef, minHeight = "200px", onAttachFile, autoFocus = false, prependEmptyLines = 0 }) {
     const { effectiveTheme } = useTheme();
+    // Ref perquè l'uploadFile (capturat una sola vegada per useCreateBlockNote)
+    // sempre vegi l'onAttachFile vigent.
+    const onAttachFileRef = useRef(onAttachFile);
+    useEffect(() => { onAttachFileRef.current = onAttachFile; }, [onAttachFile]);
     const editor = useCreateBlockNote({
-        uploadFile: uploadFileToVault,
+        uploadFile: async (file) => {
+            // Camins interns de BlockNote (menú slash «File», etc.): un
+            // no-imatge pujat al vault acabaria com a enllaç trencat per al
+            // destinatari → desviar-lo als adjunts reals i avortar la inserció.
+            if (!file.type.startsWith('image/') && onAttachFileRef.current) {
+                onAttachFileRef.current(file);
+                toast(`Adjuntat: ${file.name}`, { icon: '📎' });
+                throw new Error('Fitxer desviat als adjunts');
+            }
+            return uploadFileToVault(file);
+        },
     });
     const lastContentRef = useRef(initialContent);
 
@@ -61,11 +75,10 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
         return () => clearTimeout(t);
     }, [autoFocus, editor]);
 
-    const handleDrop = useCallback(async (e) => {
-        if (!e.dataTransfer.types.includes('Files')) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const files = Array.from(e.dataTransfer.files);
+    // Imatges → bloc inline (el backend les converteix a cid: en enviar);
+    // qualsevol altre fitxer → adjunt real (mai enllaç al vault, que arriba
+    // trencat al destinatari).
+    const insertFiles = useCallback(async (files) => {
         for (const file of files) {
             if (file.type.startsWith('image/')) {
                 try {
@@ -79,11 +92,33 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
                 } catch {
                     toast.error('Error inserint imatge');
                 }
-            } else {
-                onAttachFile?.(file);
+            } else if (onAttachFile) {
+                onAttachFile(file);
+                toast(`Adjuntat: ${file.name}`, { icon: '📎' });
             }
         }
     }, [editor, onAttachFile]);
+
+    const handleDrop = useCallback((e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        insertFiles(Array.from(e.dataTransfer.files));
+    }, [insertFiles]);
+
+    // En fase de captura, abans que BlockNote: el seu uploadFile pujaria
+    // qualsevol fitxer enganxat al vault. Si el clipboard porta text/html
+    // (contingut ric de Word/web amb imatge renderitzada), es deixa passar
+    // perquè BlockNote enganxi l'html: les imatges remotes sí que arriben.
+    const handlePasteCapture = useCallback((e) => {
+        if (!onAttachFile) return;
+        const cd = e.clipboardData;
+        if (!cd?.files?.length) return;
+        if (Array.from(cd.types || []).includes('text/html')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        insertFiles(Array.from(cd.files));
+    }, [insertFiles, onAttachFile]);
 
     const handleDragOver = useCallback((e) => {
         if (e.dataTransfer.types.includes('Files')) e.preventDefault();
@@ -129,6 +164,7 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
             style={{ minHeight }}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
+            onPasteCapture={handlePasteCapture}
         >
             <BlockNoteView
                 editor={editor}

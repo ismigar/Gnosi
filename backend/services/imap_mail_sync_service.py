@@ -1195,6 +1195,7 @@ def imap_smtp_send(
     attachments: list = None,
     from_email: str = None,
     from_name: str = None,
+    inline_images: list = None,
 ) -> bool:
     """Send a message via SMTP using an IMAP account's SMTP config.
 
@@ -1204,12 +1205,9 @@ def imap_smtp_send(
     """
     import smtplib
     import ssl
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.base import MIMEBase
-    from email import encoders
     from email.utils import formataddr
     from backend.services.integration_manager import integration_manager
+    from backend.services.mail_inline_images import build_mail_content
 
     # Resol defaults (Google → smtp.gmail.com, etc.)
     account = integration_manager.resolve_imap_defaults(account)
@@ -1228,19 +1226,7 @@ def imap_smtp_send(
         log.error("[SMTP] smtp_host no configurat")
         return False
 
-    content_type = "html" if body.strip().startswith("<") else "plain"
-    if attachments:
-        msg = MIMEMultipart("mixed")
-        msg.attach(MIMEText(body, content_type, "utf-8"))
-        for att in attachments:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(att["data"])
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f'attachment; filename="{att["filename"]}"')
-            part.add_header("Content-Type", att.get("content_type", "application/octet-stream"))
-            msg.attach(part)
-    else:
-        msg = MIMEText(body, content_type, "utf-8")
+    msg = build_mail_content(body, attachments=attachments, inline_images=inline_images)
 
     msg["From"] = from_header
     msg["To"] = to

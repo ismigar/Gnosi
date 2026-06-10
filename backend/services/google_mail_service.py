@@ -1,11 +1,10 @@
 import logging
 import base64
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+
+from backend.services.mail_inline_images import build_mail_content
 
 log = logging.getLogger(__name__)
 
@@ -144,6 +143,7 @@ def send_reply(
     bcc_recipients: str = None,
     subject: str = None,
     attachments: list = None,
+    inline_images: list = None,
 ):
     """Sends a reply or forward to an existing thread, with optional attachments."""
     service = get_gmail_service(email)
@@ -158,12 +158,7 @@ def send_reply(
             (h["value"] for h in headers if h["name"].lower() == "subject"), ""
         )
 
-        if attachments:
-            msg = MIMEMultipart("mixed")
-        else:
-            content_type = "html" if body.strip().startswith("<") else "plain"
-            msg = MIMEMultipart("mixed")
-            msg.attach(MIMEText(body, content_type))
+        msg = build_mail_content(body, attachments=attachments, inline_images=inline_images)
 
         msg["In-Reply-To"] = last_msg["id"]
         msg["References"] = last_msg["id"]
@@ -190,18 +185,6 @@ def send_reply(
             if not orig_subject.lower().startswith("re:")
             else orig_subject
         )
-
-        if attachments:
-            content_type = "html" if body.strip().startswith("<") else "plain"
-            msg.attach(MIMEText(body, content_type))
-            for att in attachments:
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(att["data"])
-                encoders.encode_base64(part)
-                filename = att.get("filename", "attachment")
-                part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
-                part.add_header("Content-Type", att.get("content_type", "application/octet-stream"))
-                msg.attach(part)
 
         raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         service.users().messages().send(
@@ -309,13 +292,14 @@ def send_new_message_with_attachments(
     cc: str = None,
     bcc: str = None,
     attachments: list = None,
+    inline_images: list = None,
 ):
-    """Sends a new email with optional file attachments."""
+    """Sends a new email with optional file attachments and inline images."""
     service = get_gmail_service(email)
     if not service:
         return False
     try:
-        msg = MIMEMultipart("mixed")
+        msg = build_mail_content(body, attachments=attachments, inline_images=inline_images)
         msg["To"] = to
         msg["From"] = email
         msg["Subject"] = subject
@@ -323,18 +307,6 @@ def send_new_message_with_attachments(
             msg["Cc"] = cc
         if bcc:
             msg["Bcc"] = bcc
-
-        content_type = "html" if body.strip().startswith("<") else "plain"
-        msg.attach(MIMEText(body, content_type))
-
-        for att in (attachments or []):
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(att["data"])
-            encoders.encode_base64(part)
-            filename = att.get("filename", "attachment")
-            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
-            part.add_header("Content-Type", att.get("content_type", "application/octet-stream"))
-            msg.attach(part)
 
         raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         service.users().messages().send(userId="me", body={"raw": raw_message}).execute()
