@@ -2,7 +2,7 @@ import { useRef, useState, useMemo } from 'react';
 import { FileText, X, Plus, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FilesystemPickerModal } from '../FilesystemPickerModal';
-import { filenameFromTarget, interpolateNamePattern } from '../../lib/fileResource';
+import { filenameFromTarget, interpolateNamePattern, fileTargetKey } from '../../lib/fileResource';
 
 const STORAGE_LABELS = {
     assets:     'Assets',
@@ -46,13 +46,37 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
         return list.map(v => String(v ?? '')).filter(v => v.trim() !== '');
     }, [value]);
 
+    // Valor vigent per a les emissions: una pujada llarga no ha d'aixafar
+    // canvis fets mentrestant (stale closure sobre `entries`).
+    const entriesRef = useRef(entries);
+    entriesRef.current = entries;
+
     // Emet mantenint compatibilitat: buit → '', un de sol → string, ≥2 → array.
     const emit = (next) => {
         const clean = next.map(v => String(v ?? '')).filter(v => v.trim() !== '');
         onChange(clean.length === 0 ? '' : (clean.length === 1 ? clean[0] : clean));
     };
-    const appendValue = (raw) => emit([...entries, raw]);
-    const removeAt = (idx) => emit(entries.filter((_, i) => i !== idx));
+    // Afegeix DEDUPLICANT amb la clau canònica (unifica file://, ruta absoluta,
+    // ~/ i URL servida del mateix fitxer): repetir un enllaç no duplica entrades.
+    const appendValues = (raws) => {
+        const current = entriesRef.current;
+        const seen = new Set(current.map(fileTargetKey));
+        const adds = [];
+        for (const raw of raws) {
+            const text = String(raw ?? '').trim();
+            if (!text) continue;
+            const key = fileTargetKey(text);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            adds.push(text);
+        }
+        if (adds.length === 0) {
+            setError(t('files.duplicate', 'Aquest fitxer ja és a la llista.'));
+            return;
+        }
+        emit([...current, ...adds]);
+    };
+    const removeAt = (idx) => emit(entriesRef.current.filter((_, i) => i !== idx));
 
     const resolvedName = namePattern ? interpolateNamePattern(namePattern, rowMetadata) : '';
     const nameQuery = resolvedName ? `&target_name=${encodeURIComponent(resolvedName)}` : '';
@@ -72,7 +96,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                     { method: 'POST', body: formData },
                 );
                 if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
-                appendValue((await res.json()).path);
+                appendValues([(await res.json()).path]);
             } else {
                 setLoading(true); setError('');
                 const formData = new FormData();
@@ -83,7 +107,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 );
                 if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
                 const data = await res.json();
-                appendValue(data.url || data.path);
+                appendValues([data.url || data.path]);
             }
         } catch (e) {
             setError(e.message);
@@ -120,7 +144,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 const data = await res.json();
                 newRaws.push(data.url || data.path);
             }
-            emit([...entries, ...newRaws]);
+            appendValues(newRaws);
         } catch (e) {
             setError(e.message);
         } finally {
@@ -139,7 +163,10 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 body: JSON.stringify({ file_path: path, target_name: resolvedName }),
             });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error enllaçant fitxer');
-            appendValue((await res.json()).path);
+            // `url` porta la forma PORTABLE (biblioteca/raw/~) quan existeix;
+            // `path` (ruta absoluta del host) queda com a últim recurs.
+            const data = await res.json();
+            appendValues([data.url || data.path]);
         } catch (e) {
             setError(e.message);
         } finally {
