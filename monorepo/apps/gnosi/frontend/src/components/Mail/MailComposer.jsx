@@ -31,7 +31,7 @@ function AttachmentBadge({ file, onRemove }) {
 // ─── MailComposer ─────────────────────────────────────────────────────────────
 export default function MailComposer({
     account, accounts = [], onClose, onSent, onDraftSaved,
-    mode = null, replyToMessageId = null,
+    mode = null, replyToMessageId = null, sourceFolder = '',
     initialTo = '', initialCc = '', initialSubject = '', quotedHtml = '',
     initialBody = '', _draftId = null,
 }) {
@@ -60,7 +60,11 @@ export default function MailComposer({
         const sigBlock = signatureHtml
             ? `<div style="margin-bottom:0.5rem">${signatureHtml}</div><hr style="border:none;border-top:1px solid #ccc;margin:0.5rem 0">`
             : '';
-        return `${sigBlock}<blockquote style="border-left:3px solid #6366f1;padding-left:0.75rem;color:#888;margin-top:1rem">${quotedHtml}</blockquote>`;
+        // Citat SENSE <blockquote>: BlockNote el converteix en un bloc de
+        // contingut inline i DESCARTA les imatges (i taules) del missatge
+        // citat. El header From/Date/Subject + <hr> del quotedHtml ja fan de
+        // divisor (estil Outlook).
+        return `${sigBlock}${quotedHtml}`;
     }, [quotedHtml, signatureHtml]);
     const [attachments, setAttachments] = useState([]);
     const [sending, setSending] = useState(false);
@@ -195,8 +199,11 @@ export default function MailComposer({
 
             let res;
             if (mode && replyToMessageId) {
+                // folder: el backend resol els cid: del citat contra el
+                // missatge original (per IMAP cal saber-ne la carpeta).
+                const folderQuery = sourceFolder ? `&folder=${encodeURIComponent(sourceFolder)}` : '';
                 res = await fetch(
-                    `/api/mail/messages/${replyToMessageId}/reply?email=${encodeURIComponent(smtpEmail)}`,
+                    `/api/mail/messages/${replyToMessageId}/reply?email=${encodeURIComponent(smtpEmail)}${folderQuery}`,
                     { method: 'POST', body: formData }
                 );
             } else {

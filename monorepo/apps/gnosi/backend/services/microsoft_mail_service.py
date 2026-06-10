@@ -257,6 +257,44 @@ def microsoft_get_message(email: str, message_id: str) -> Optional[dict]:
     return parsed
 
 
+def microsoft_get_inline_parts(email: str, message_id: str, wanted_cids: set) -> dict:
+    """Recupera per Content-ID els adjunts inline d'un missatge via Graph.
+
+    Args:
+        wanted_cids: Content-IDs buscats (amb o sense ``<>``).
+
+    Returns:
+        Dict cid (sense ``<>``) → {filename, content_type, data}. Buit si el
+        missatge o els adjunts no es poden recuperar (mai llança).
+    """
+    import base64
+
+    wanted = {c.strip("<>") for c in wanted_cids if c}
+    if not wanted:
+        return {}
+    data = _authed_get(email, f"/me/messages/{message_id}/attachments")
+    if not data:
+        return {}
+    parts = {}
+    for att in data.get("value", []):
+        cid = (att.get("contentId") or "").strip("<>")
+        content_bytes = att.get("contentBytes")
+        if not cid or cid not in wanted or cid in parts or not content_bytes:
+            continue
+        try:
+            raw = base64.b64decode(content_bytes)
+        except Exception:
+            log.warning(f"[Microsoft] contentBytes invàlid per al cid {cid} de {message_id}")
+            continue
+        if raw:
+            parts[cid] = {
+                "filename": att.get("name") or "image",
+                "content_type": att.get("contentType") or "application/octet-stream",
+                "data": raw,
+            }
+    return parts
+
+
 def microsoft_get_counts(email: str) -> dict:
     data = _authed_get(email, "/me/mailFolders", params={"$top": 20})
     if not data:

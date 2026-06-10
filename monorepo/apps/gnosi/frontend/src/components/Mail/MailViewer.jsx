@@ -659,9 +659,19 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
     const buildQuotedHtml = (data) => {
         const header = `<strong>${t('mail.from_label')}:</strong> ${data.sender || ''} &nbsp;|&nbsp; <strong>${t('mail.date_label')}:</strong> ${data.date || ''} &nbsp;|&nbsp; <strong>${t('mail.subject_label')}:</strong> ${data.subject || ''}`;
-        const content = data.body_html
+        let content = data.body_html
             ? sanitizeHtml(data.body_html)
             : (data.body_text || '').replace(/\n/g, '<br>');
+        // Les imatges inline del missatge citat (src="cid:...") es reescriuen
+        // a la URL de l'API (com fa MailBody a l'iframe): BlockNote descarta
+        // els src cid: (la imatge desapareixeria de la resposta), mentre que
+        // la URL /cid/ es mostra al composer i, en enviar, el backend la
+        // converteix en part inline pròpia (vegeu mail_inline_images_cid.md).
+        const msgEmail = data.account || account?.email || '';
+        if (data.body_html && data.id && msgEmail) {
+            content = content.replace(/src=(["'])cid:([^"']+)\1/gi, (_, q, cid) =>
+                `src=${q}/api/mail/messages/${data.id}/cid/${encodeURIComponent(cid)}?email=${encodeURIComponent(msgEmail)}&folder=${encodeURIComponent(data.imap_folder || 'INBOX')}${q}`);
+        }
         return `<div style="font-size:12px;margin-bottom:6px;opacity:0.7">${header}</div><hr style="opacity:0.2;margin:6px 0">${content}`;
     };
 
@@ -670,6 +680,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         onCompose?.({
             mode: 'reply',
             replyToMessageId: mailData.id,
+            sourceFolder: mailData.imap_folder || '',
             initialTo: mailData.sender || '',
             initialSubject: `Re: ${mailData.subject || ''}`,
             quotedHtml: buildQuotedHtml(mailData),
@@ -681,6 +692,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         onCompose?.({
             mode: 'reply_all',
             replyToMessageId: mailData.id,
+            sourceFolder: mailData.imap_folder || '',
             initialTo: mailData.sender || '',
             initialCc: mailData.recipient || '',
             initialSubject: `Re: ${mailData.subject || ''}`,
@@ -693,6 +705,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         onCompose?.({
             mode: 'forward',
             replyToMessageId: mailData.id,
+            sourceFolder: mailData.imap_folder || '',
             initialTo: '',
             initialSubject: `Fwd: ${mailData.subject || ''}`,
             quotedHtml: buildQuotedHtml(mailData),

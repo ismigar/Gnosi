@@ -85,9 +85,9 @@ substitueixen les referències per **adjunts inline amb Content-ID** (`cid:`).
   Gnosi). La conversió només passa a `/send` i `/reply`. Un draft sincronitzat
   a Gmail i enviat des de la UI de Gmail seguiria trencat — limitació
   coneguda, fora d'abast.
-- **`cid:` aliens**: el `quotedHtml` d'un reply pot portar `cid:` del missatge
-  original (sense part inline corresponent al nou correu) — problema
-  preexistent, fora d'abast d'aquesta directiva.
+- **`cid:` aliens**: el `quotedHtml` d'un reply porta `cid:` del missatge
+  original (sense part inline corresponent al nou correu) — cobert per
+  l'extensió «Citat amb imatges inline» (vegeu secció pròpia més avall).
 - **Charset**: el builder força `utf-8` al `MIMEText` (l'IMAP ja ho feia;
   Gmail confiava en l'autodetecció de Python).
 
@@ -106,6 +106,84 @@ substitueixen les referències per **adjunts inline amb Content-ID** (`cid:`).
 5. **Enviament real**: correu a un mateix amb imatge enganxada i revisar el
    MIME rebut. ATENCIÓ: només possible al Mac que té `secrets/integrations.json`
    (no sincronitza entre màquines — vegeu memòria d'integracions buides).
+
+## Extensió: citat amb imatges inline en reply/forward (2026-06-10)
+
+### Problema
+
+En respondre/reenviar un correu que tenia imatges inline (`cid:`), el
+`quotedHtml` (construït per `MailViewer.buildQuotedHtml` a partir del
+`body_html` sanititzat) conservava els `src="cid:xxx"` del missatge ORIGINAL.
+Al correu nou aquests cid no tenen part MIME → el destinatari rebia el citat
+amb les imatges trencades. La reescriptura cid → URL de l'endpoint `/cid/`
+només s'aplicava a la vista (iframe de MailBody), no al citat.
+
+### Descobriment clau (canvia el disseny)
+
+**BlockNote (0.51) DESCARTA els `<img src="cid:...">`** en fer
+`tryParseHTMLToBlocks` → la imatge citada ni tan sols arribava al backend:
+desapareixia de la resposta en silenci. I **el contingut no-inline dins d'un
+`<blockquote>` també es perd** (el bloc quote només admet contingut inline:
+ni imatges ni taules). Conseqüències:
+
+1. No n'hi ha prou amb resoldre `cid:` residuals al backend: el cos que envia
+   el composer ja no els porta. Cal que el citat referenciï les imatges d'una
+   manera que BlockNote conservi.
+2. El composer ja NO embolcalla el citat amb `<blockquote>` (estil Outlook:
+   capçalera From/Date/Subject + `<hr>` com a divisor). Si es reintrodueix,
+   les imatges i taules del citat es tornaran a perdre.
+
+### Decisió de disseny
+
+- `buildQuotedHtml` reescriu `src="cid:X"` → URL **autocontinguda** de
+  l'endpoint existent `/api/mail/messages/{id}/cid/{X}?email=..&folder=..`
+  (la mateixa que usa l'iframe del viewer). Beneficis: BlockNote la conserva,
+  el composer MOSTRA la imatge citada, i la URL porta tot el context
+  (missatge, cid, compte, carpeta) — també funciona per a drafts represos
+  que s'envien per `/send` sense cap context del missatge original.
+- En enviar (`/send` i `/reply`), el backend detecta aquests `src` de
+  `/api/mail/.../cid/`, recupera els bytes del missatge original (un sol
+  fetch per missatge: IMAP raw / Gmail API / Microsoft Graph), els adjunta
+  com a parts inline pròpies amb Content-ID nou i reescriu el cos. Mateix
+  collector que serveix l'endpoint `/cid/` (que de retruc ara cobreix
+  Microsoft, abans no).
+- Fallback: els `src="cid:X"` crus que arribin igualment (cossos generats
+  fora del viewer) es resolen contra el missatge que es respon — només a
+  `/reply`, on hi ha `source_message_id`; el composer hi envia també la
+  carpeta IMAP d'origen (`folder=`).
+
+### Restriccions / Edge cases
+
+- **Mai bloquejar l'enviament**: referència irrecuperable (missatge esborrat,
+  compte caigut, cid inexistent) → es deixa el `src` intacte + warning. La
+  resta d'imatges del citat s'envien bé igualment.
+- **L'email/folder de la URL manen** sobre els del reply: el missatge citat
+  pot pertànyer a un altre compte o carpeta (p. ex. respondre des d'un àlies).
+- **Agrupació**: N imatges del mateix missatge citat = 1 sol fetch (IMAP
+  sobretot: el RAW sencer ja porta totes les parts).
+- **Microsoft**: Graph retorna els adjunts amb `contentBytes` només per a
+  `fileAttachment`; els `referenceAttachment` (OneDrive) no porten bytes i es
+  deixen intactes.
+- **Seguretat**: el body el controla el client, però les URLs `/cid/` només
+  resolen comptes del workspace (mateix nivell d'accés que el GET `/cid/`).
+
+### Pla de test
+
+1. **Unitat**: `docker exec gnosi_backend python -m pytest
+   backend/tests/test_mail_reply_cid.py -v` — helpers purs (find/rewrite de
+   cid crus i d'URLs `/cid/`), extracció de parts d'un MIME cru, orquestració
+   amb collector mockejat (URL, cru, parcial, no trobat, error de transport,
+   agrupació) i mapping Graph.
+2. **E2E** (`e2e/tests/e2e/mail-reply-quoted-cid.spec.ts`, tot `/api/mail`
+   mockejat): obrir missatge amb cid → Respon → el composer mostra la imatge
+   citada (URL `/cid/`) → enviar → el POST `/reply` porta la URL al body i
+   `folder=` a la query. És l'spec que va destapar els dos descobriments de
+   BlockNote (sense ell, el fix backend-only semblava correcte i era inútil).
+3. **Smoke sense comptes**: POST `/reply` amb body amb `cid:` o URL `/cid/` i
+   compte inexistent → warnings «queden intactes» + 500 controlat del
+   transport (la conversió s'executa abans de resoldre el compte).
+4. **Pendent (Mac amb comptes)**: respondre un correu real amb imatge inline
+   i revisar el MIME rebut (cada `cid:` amb la seva part, cap URL `/api/`).
 
 ## Aprenentatges de la implementació (2026-06-10)
 
@@ -133,5 +211,10 @@ substitueixen les referències per **adjunts inline amb Content-ID** (`cid:`).
   cos sense URLs locals, utf-8 intacte, asset de prova netejat.
 - Build frontend: net (només l'avís preexistent de mida de chunks).
 - Playwright: imatge → bloc inline; PDF → badge d'adjunt sense enllaç al cos.
-- **Pendents** (necessiten el Mac amb comptes): pla de test #5 (enviament
-  real a un mateix per Gmail/IMAP/Microsoft i revisió del MIME rebut).
+- Extensió del citat (branca `claude/mail-quoted-cid`): 23/23 unitat dins
+  Docker (els 14 d'inline images segueixen verds), E2E del reply verd,
+  smokes de `/reply` (cid cru i URL `/cid/`) amb warnings correctes, build
+  net, eslint sense errors nous (els 13 avisos són preexistents).
+- **Pendents** (necessiten el Mac amb comptes): enviament real a un mateix
+  per Gmail/IMAP/Microsoft i revisió del MIME rebut — tant del cas composer
+  (pla #5 original) com d'un reply amb imatge citada (extensió).
