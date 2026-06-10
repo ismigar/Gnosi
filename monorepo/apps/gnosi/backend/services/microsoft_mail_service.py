@@ -274,9 +274,35 @@ def microsoft_get_counts(email: str) -> dict:
     return counts
 
 
+def _graph_attachments(attachments: list = None, inline_images: list = None) -> list:
+    """Mapeja adjunts {filename, content_type, data} i imatges inline
+    {…, content_id} al format fileAttachment de Microsoft Graph."""
+    import base64
+
+    out = []
+    for att in (attachments or []):
+        out.append({
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            "name": att.get("filename") or "attachment",
+            "contentType": att.get("content_type") or "application/octet-stream",
+            "contentBytes": base64.b64encode(att["data"]).decode(),
+        })
+    for img in (inline_images or []):
+        out.append({
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            "name": img.get("filename") or "image",
+            "contentType": img.get("content_type") or "application/octet-stream",
+            "contentBytes": base64.b64encode(img["data"]).decode(),
+            "contentId": img["content_id"],
+            "isInline": True,
+        })
+    return out
+
+
 def microsoft_send_message(
     email: str, to: str, subject: str, body: str,
     cc: str = None, bcc: str = None,
+    attachments: list = None, inline_images: list = None,
 ) -> bool:
     def _addr(s):
         return [{"emailAddress": {"address": a.strip()}} for a in s.split(",") if a.strip()]
@@ -294,6 +320,9 @@ def microsoft_send_message(
         payload["message"]["ccRecipients"] = _addr(cc)
     if bcc:
         payload["message"]["bccRecipients"] = _addr(bcc)
+    graph_atts = _graph_attachments(attachments, inline_images)
+    if graph_atts:
+        payload["message"]["attachments"] = graph_atts
 
     return _authed_post(email, "/me/sendMail", payload)
 
@@ -301,9 +330,13 @@ def microsoft_send_message(
 def microsoft_reply_message(
     email: str, message_id: str, body: str,
     to: str = None, cc: str = None, bcc: str = None,
+    attachments: list = None, inline_images: list = None,
 ) -> bool:
     is_html = body.strip().startswith("<")
     payload = {"comment": body, "message": {"body": {"contentType": "HTML" if is_html else "Text", "content": body}}}
+    graph_atts = _graph_attachments(attachments, inline_images)
+    if graph_atts:
+        payload["message"]["attachments"] = graph_atts
     return _authed_post(email, f"/me/messages/{message_id}/reply", payload)
 
 

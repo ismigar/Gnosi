@@ -33,6 +33,7 @@ from backend.services.google_mail_service import (
     get_thread_details,
 )
 from backend.services.imap_mail_sync_service import imap_sync_service
+from backend.services.mail_inline_images import extract_vault_inline_images
 from backend.services.vault_mail_sync_service import sync_service
 from backend.services.workspace_service import get_workspace_context
 from backend.services.context_vars import get_active_vault_path
@@ -1082,6 +1083,11 @@ async def send_mail(
             }
         )
 
+    # Les imatges enganxades al compositor apunten a /api/vault/assets/ (URL
+    # que només resol dins del Gnosi local): es converteixen a adjunts inline
+    # amb Content-ID perquè el destinatari les vegi.
+    body, inline_images = extract_vault_inline_images(body)
+
     # Resolve the SMTP account (handles aliases: email may be the alias, smtp_email is the parent)
     from backend.services.integration_manager import integration_manager
     smtp_email = email
@@ -1094,7 +1100,11 @@ async def send_mail(
 
     if _is_microsoft_account(smtp_email):
         from backend.services.microsoft_mail_service import microsoft_send_message
-        success = microsoft_send_message(smtp_email, to, subject, body, cc, bcc)
+        success = microsoft_send_message(
+            smtp_email, to, subject, body, cc, bcc,
+            attachments=attachment_data or None,
+            inline_images=inline_images or None,
+        )
     elif _is_imap_account(smtp_email):
         from backend.services.imap_mail_sync_service import imap_smtp_send
         imap_acc = acc or integration_manager.get_mail_account(smtp_email) or {}
@@ -1102,10 +1112,12 @@ async def send_mail(
             imap_acc, to, subject, body, cc, bcc, attachment_data or None,
             from_email=from_email or email,
             from_name=from_name or imap_acc.get("display_name"),
+            inline_images=inline_images or None,
         )
-    elif attachment_data:
+    elif attachment_data or inline_images:
         success = send_new_message_with_attachments(
-            smtp_email, to, subject, body, cc, bcc, attachment_data
+            smtp_email, to, subject, body, cc, bcc, attachment_data,
+            inline_images=inline_images or None,
         )
     else:
         success = send_new_message(smtp_email, to, subject, body, cc, bcc)
@@ -1307,9 +1319,16 @@ async def reply_message(
         data = await att.read()
         att_list.append({"filename": att.filename, "data": data, "content_type": att.content_type})
 
+    # Mateixa conversió que a /send: imatges del vault → adjunts inline CID.
+    body, inline_images = extract_vault_inline_images(body)
+
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_reply_message
-        success = microsoft_reply_message(email, message_id, body, to, cc, bcc)
+        success = microsoft_reply_message(
+            email, message_id, body, to, cc, bcc,
+            attachments=att_list or None,
+            inline_images=inline_images or None,
+        )
     else:
         success = send_reply(
             email=email,
@@ -1319,6 +1338,7 @@ async def reply_message(
             cc_recipients=cc,
             bcc_recipients=bcc,
             attachments=att_list if att_list else None,
+            inline_images=inline_images or None,
         )
     if success:
         return {"status": "success"}
