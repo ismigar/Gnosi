@@ -26,11 +26,16 @@ test.describe('Contacts', () => {
 
   test('contacts page shows list or empty state', async ({ page }) => {
     await page.goto('/contacts', { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 
     const main = page.locator('#root');
     await expect(main).toBeVisible();
-    const text = (await main.textContent()) ?? '';
-    expect(text.length, 'contacts page should render content').toBeGreaterThan(50);
+    // expect.poll: mateix motiu que a vault.spec.ts — el check d'un sol tret
+    // queia dins la finestra de «Carregant…» quan Vite va saturat.
+    await expect
+      .poll(async () => ((await main.textContent()) ?? '').length, {
+        message: 'contacts page should render content',
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(50);
   });
 });

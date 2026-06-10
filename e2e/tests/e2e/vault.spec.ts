@@ -30,12 +30,18 @@ test.describe('Vault', () => {
 
   test('vault sidebar tree renders (or shows empty state)', async ({ page }) => {
     await page.goto('/vault', { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 
     const main = page.locator('#root');
     await expect(main).toBeVisible();
 
-    const hasContent = await main.evaluate((el) => (el.textContent ?? '').length > 50);
-    expect(hasContent, 'vault should render some content (tree or empty state)').toBe(true);
+    // expect.poll (no one-shot evaluate): amb 2 workers el transform de Vite
+    // dev pot trigar >10s a servir tot el graf de mòduls i el check d'un sol
+    // tret veia encara el «Carregant…» — fals positiu vist el 2026-06-10.
+    await expect
+      .poll(async () => ((await main.textContent()) ?? '').length, {
+        message: 'vault should render some content (tree or empty state)',
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(50);
   });
 });
