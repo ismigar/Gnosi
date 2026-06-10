@@ -33,7 +33,15 @@ from backend.services.google_mail_service import (
     get_thread_details,
 )
 from backend.services.imap_mail_sync_service import imap_sync_service
-from backend.services.mail_inline_images import extract_vault_inline_images
+from backend.services.mail_inline_images import (
+    extract_inline_parts_from_mime,
+    extract_vault_inline_images,
+    find_cid_srcs,
+    find_mail_cid_refs,
+    new_content_id,
+    rewrite_cid_srcs,
+    rewrite_mail_cid_srcs,
+)
 from backend.services.vault_mail_sync_service import sync_service
 from backend.services.workspace_service import get_workspace_context
 from backend.services.context_vars import get_active_vault_path
@@ -1087,6 +1095,9 @@ async def send_mail(
     # que només resol dins del Gnosi local): es converteixen a adjunts inline
     # amb Content-ID perquè el destinatari les vegi.
     body, inline_images = extract_vault_inline_images(body)
+    # Drafts represos d'un reply/forward porten les imatges citades com a
+    # URL /api/mail/.../cid/ (autocontinguda) — també es tornen parts inline.
+    body = await _embed_quoted_cid_images(email, body, inline_images)
 
     # Resolve the SMTP account (handles aliases: email may be the alias, smtp_email is the parent)
     from backend.services.integration_manager import integration_manager
@@ -1308,6 +1319,7 @@ async def snooze_message(message_id: str, payload: dict = Body(...)):
 async def reply_message(
     message_id: str,
     email: str = Query(...),
+    folder: str = Query("INBOX"),
     body: str = Form(...),
     to: Optional[str] = Form(default=None),
     cc: Optional[str] = Form(default=None),
@@ -1321,6 +1333,13 @@ async def reply_message(
 
     # Mateixa conversió que a /send: imatges del vault → adjunts inline CID.
     body, inline_images = extract_vault_inline_images(body)
+    # El citat d'un reply/forward referencia les imatges inline del missatge
+    # original (URL /cid/ o cid: cru); cal incrustar-les com a parts pròpies
+    # perquè el destinatari no les rebi trencades.
+    body = await _embed_quoted_cid_images(
+        email, body, inline_images,
+        source_message_id=message_id, source_folder=folder,
+    )
 
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_reply_message
@@ -1594,6 +1613,143 @@ async def get_attachment(
         _imap_pool_release(email)
 
 
+async def _collect_original_inline_parts(
+    email: str, message_id: str, wanted_cids: set, folder: str = "INBOX"
+):
+    """Recupera per Content-ID les parts inline d'un missatge existent.
+
+    Mateixa selecció de proveïdor que get_attachment: IMAP-eligible (inclou
+    Google amb refresh_token) → fetch RAW + walk; Google sense refresh_token →
+    Gmail API; Microsoft → Graph; desconegut → IMAP (comportament històric).
+
+    Returns:
+        Dict cid (sense ``<>``) → {filename, content_type, data}; ``None`` si
+        el missatge no s'ha pogut recuperar. Les excepcions del transport
+        pugen al caller (el pool IMAP queda invalidat i alliberat).
+    """
+    from backend.services.integration_manager import integration_manager
+
+    wanted = {c.strip("<>") for c in wanted_cids if c}
+    if not wanted:
+        return {}
+    acc = integration_manager.get_mail_account(email)
+
+    if not integration_manager.is_imap_account(acc):
+        if integration_manager.is_google_account(acc):
+            # Gmail API: missatge sencer per al mapping CID → attachmentId.
+            from backend.services.hybrid_mail_service import gmail_get_message
+            mail = await asyncio.to_thread(gmail_get_message, email, message_id)
+            if not mail:
+                return None
+            parts = {}
+            for img in (mail.get("inline_images") or []):
+                img_cid = (img.get("cid") or "").strip("<>")
+                if not img_cid or img_cid not in wanted or img_cid in parts:
+                    continue
+                data, _ = await _gmail_get_attachment_bytes(email, message_id, img["attachment_id"])
+                if data:
+                    parts[img_cid] = {
+                        "filename": img.get("filename") or "image",
+                        "content_type": img.get("content_type") or "image/png",
+                        "data": data,
+                    }
+            return parts
+        if _is_microsoft_account(email):
+            from backend.services.microsoft_mail_service import microsoft_get_inline_parts
+            return await asyncio.to_thread(microsoft_get_inline_parts, email, message_id, wanted)
+
+    # IMAP path
+    from backend.services.hybrid_mail_service import _imap_pool_release, _imap_pool_invalidate
+    raw_bytes, imap = await _imap_fetch_raw(email, message_id, folder)
+    if not raw_bytes:
+        if imap:
+            _imap_pool_release(email)
+        return None
+    try:
+        return extract_inline_parts_from_mime(raw_bytes, wanted)
+    except Exception:
+        _imap_pool_invalidate(email)
+        raise
+    finally:
+        _imap_pool_release(email)
+
+
+async def _embed_quoted_cid_images(
+    email: str,
+    body: str,
+    inline_images: list,
+    source_message_id: Optional[str] = None,
+    source_folder: str = "INBOX",
+) -> str:
+    """Incrusta com a parts pròpies les imatges citades d'un missatge rebut.
+
+    El quotedHtml d'un reply/forward referencia les imatges inline del correu
+    citat com a ``src="/api/mail/messages/{id}/cid/{cid}?email=..&folder=.."``
+    (URL autocontinguda que el composer pot mostrar; també arriba així des
+    d'un draft reprès via /send) o, en cossos generats fora del viewer, com a
+    ``src="cid:..."`` cru — aquest fallback necessita ``source_message_id``.
+    Al missatge sortint cap de les dues formes té part MIME ni resol fora de
+    Gnosi: es recuperen els bytes de l'original, s'afegeixen a
+    ``inline_images`` (in place) amb un Content-ID nou i es reescriu el cos.
+    Les referències irrecuperables es deixen intactes i mai es bloqueja
+    l'enviament.
+    """
+    api_refs = find_mail_cid_refs(body)
+    own_cids = {img["content_id"].strip("<>") for img in inline_images}
+    residual = (
+        {c for c in find_cid_srcs(body) if c.strip("<>") not in own_cids}
+        if source_message_id else set()
+    )
+    if not api_refs and not residual:
+        return body
+
+    # Un sol fetch per missatge d'origen (l'email/folder de la URL manen:
+    # el missatge citat pot ser d'un altre compte/carpeta que el d'enviament).
+    groups: dict = {}
+    for ref in api_refs:
+        key = (ref["email"] or email, ref["message_id"], ref["folder"] or source_folder)
+        groups.setdefault(key, set()).add(ref["cid"])
+    if residual:
+        key = (email, source_message_id, source_folder)
+        groups.setdefault(key, set()).update(residual)
+
+    parts_by_key: dict = {}
+    for (src_email, src_mid, src_folder), cids in groups.items():
+        try:
+            parts = await _collect_original_inline_parts(src_email, src_mid, cids, src_folder)
+        except Exception as e:
+            log.warning(f"Imatges citades de {src_mid}: error recuperant-les, es deixen intactes: {e}")
+            parts = {}
+        if parts is None:
+            log.warning(f"Imatges citades de {src_mid}: missatge original no trobat, queden intactes")
+            parts = {}
+        parts_by_key[(src_email, src_mid, src_folder)] = parts
+
+    def _attach(key, cid):
+        part = parts_by_key[key].get(cid.strip("<>"))
+        if not part:
+            log.warning(f"Imatge citada sense part a l'original {key[1]}: {cid!r}")
+            return None
+        new_cid = new_content_id()
+        inline_images.append({**part, "content_id": new_cid})
+        return new_cid
+
+    url_mapping = {}
+    for ref in api_refs:
+        key = (ref["email"] or email, ref["message_id"], ref["folder"] or source_folder)
+        new_cid = _attach(key, ref["cid"])
+        if new_cid:
+            url_mapping[ref["url"]] = new_cid
+    cid_mapping = {}
+    for old_cid in residual:
+        new_cid = _attach((email, source_message_id, source_folder), old_cid)
+        if new_cid:
+            cid_mapping[old_cid] = new_cid
+
+    body = rewrite_mail_cid_srcs(body, url_mapping)
+    return rewrite_cid_srcs(body, cid_mapping)
+
+
 @router.get("/messages/{message_id}/cid/{cid:path}")
 async def get_cid_image(
     message_id: str,
@@ -1601,61 +1757,22 @@ async def get_cid_image(
     email: str = Query(...),
     folder: str = Query("INBOX"),
 ):
-    """Serves an inline CID image — works for Gmail and IMAP."""
+    """Serves an inline CID image — works for Gmail, IMAP and Microsoft."""
     from fastapi.responses import Response
-    from backend.services.integration_manager import integration_manager
-
-    acc = integration_manager.get_mail_account(email)
-
-    # IMAP-eligible (inclou Google amb refresh_token) → IMAP path.
-    # Gmail API només per comptes Google sense refresh_token (cas degradat).
-    if integration_manager.is_imap_account(acc):
-        pass  # IMAP path
-    elif integration_manager.is_google_account(acc):
-        # For Gmail, fetch full message to find CID→attachmentId mapping
-        from backend.services.hybrid_mail_service import gmail_get_message
-        mail = await asyncio.to_thread(gmail_get_message, email, message_id)
-        if not mail:
-            raise HTTPException(status_code=404, detail="Missatge no trobat")
-        cid_clean = cid.strip("<>")
-        match = next((img for img in (mail.get("inline_images") or [])
-                      if img["cid"].strip("<>") == cid_clean), None)
-        if not match:
-            raise HTTPException(status_code=404, detail="Imatge CID no trobada")
-        data, _ = await _gmail_get_attachment_bytes(email, message_id, match["attachment_id"])
-        if not data:
-            raise HTTPException(status_code=404, detail="Imatge no disponible")
-        return Response(content=data, media_type=match.get("content_type", "image/png"))
-
-    # IMAP path
-    import email as email_lib
-    from backend.services.hybrid_mail_service import _imap_pool_release, _imap_pool_invalidate
-    raw_bytes, imap = await _imap_fetch_raw(email, message_id, folder)
-    if not raw_bytes:
-        if imap:
-            _imap_pool_release(email)
-        raise HTTPException(status_code=404, detail="Missatge no trobat")
 
     try:
-        msg = email_lib.message_from_bytes(raw_bytes)
-        cid_clean = cid.strip("<>")
-        for part in msg.walk():
-            part_cid = part.get("Content-ID", "").strip("<>")
-            if part_cid == cid_clean or part_cid == cid:
-                payload = part.get_payload(decode=True)
-                if payload:
-                    return Response(content=payload, media_type=part.get_content_type() or "image/png")
-        raise HTTPException(status_code=404, detail="Imatge CID no trobada")
-    except HTTPException:
-        raise
+        parts = await _collect_original_inline_parts(email, message_id, {cid}, folder)
     except Exception as e:
-        _imap_pool_invalidate(email)
         raise HTTPException(
             status_code=500,
             detail=safe_error_detail(e, "GET /messages CID image"),
         )
-    finally:
-        _imap_pool_release(email)
+    if parts is None:
+        raise HTTPException(status_code=404, detail="Missatge no trobat")
+    part = parts.get(cid.strip("<>"))
+    if not part:
+        raise HTTPException(status_code=404, detail="Imatge CID no trobada")
+    return Response(content=part["data"], media_type=part.get("content_type") or "image/png")
 
 
 @router.patch("/accounts/{email:path}/enabled")
