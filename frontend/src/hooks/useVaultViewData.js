@@ -50,6 +50,19 @@ export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, 
                     ? (b.title || '')
                     : String((b.metadata || {})[sort.field] ?? '');
 
+                // Els valors buits van SEMPRE al final, independentment de la
+                // direcció (com a Notion). Sense això, ordenar asc per una
+                // columna poc poblada (p. ex. un camp `files` com "Adjunts")
+                // fa surar totes les files buides al capdamunt i amaga les que
+                // tenen contingut al fons de la llista (que la virtualització
+                // ni arriba a carregar) → semblava que "no es veien els adjunts".
+                const aEmpty = aVal.trim() === '';
+                const bEmpty = bVal.trim() === '';
+                if (aEmpty || bEmpty) {
+                    if (aEmpty && bEmpty) continue; // tots dos buits → camp següent
+                    return aEmpty ? 1 : -1;
+                }
+
                 const aNum = parseFloat(aVal);
                 const bNum = parseFloat(bVal);
                 const isNumeric = !isNaN(aNum) && !isNaN(bNum);
