@@ -5,6 +5,7 @@ except ImportError:
     Image = None
 
 import os
+import re
 import json
 import time
 import pickle
@@ -17,6 +18,7 @@ from typing import List, Optional, Dict, Any, Iterator, Tuple
 from datetime import datetime
 from fastapi import UploadFile, HTTPException
 from backend.services.context_vars import get_active_vault_path
+from backend.utils.safe_io import safe_write_bytes, sanitize_path_segment
 
 log = logging.getLogger(__name__)
 
@@ -836,22 +838,49 @@ class MediaService:
         return nodes
 
     def upload_media(self, file: UploadFile, album: str = "General") -> Dict[str, Any]:
-        """Puja un fitxer i el guarda a la carpeta de l'àlbum corresponent."""
+        """Puja un fitxer i el guarda a la carpeta de l'àlbum corresponent.
+
+        `album` pot ser jeràrquic ("Viatges/2024": l'arbre de la UI navega
+        subcarpetes), així que es saneja segment a segment i es conté el
+        destí dins d'Images/. Veure la directiva media_upload_path_safety.
+        """
         m_dir = self.media_dir
-        target_dir = m_dir / album
+
+        # Segments "." / ".." són sempre traversal (la UI no els genera mai):
+        # rebuig sorollós en comptes de sanejar-los en silenci.
+        segments: List[str] = []
+        for seg in re.split(r"[\\/]+", album or ""):
+            seg = seg.strip()
+            if not seg:
+                continue
+            if set(seg) <= {"."}:
+                raise HTTPException(status_code=400, detail="Nom d'àlbum invàlid")
+            segments.append(sanitize_path_segment(seg, "General"))
+        if not segments:
+            segments = ["General"]
+        target_dir = m_dir.joinpath(*segments)
+
+        # Contenció post-resolució: tanca també symlinks dins Images que
+        # apuntin fora. Es comprova ABANS de crear cap directori.
+        try:
+            target_dir.resolve().relative_to(m_dir.resolve())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Nom d'àlbum invàlid")
         target_dir.mkdir(parents=True, exist_ok=True)
-        
+
         content = file.file.read()
-        filename = file.filename
+        fallback_name = f"upload-{hashlib.sha256(content).hexdigest()[:8]}"
+        filename = sanitize_path_segment(file.filename or "", fallback_name)
         target_path = target_dir / filename
-        
+
         if target_path.exists():
             file_hash = hashlib.sha256(content).hexdigest()[:8]
             filename = f"{file_hash}_{filename}"
             target_path = target_dir / filename
-            
-        with open(target_path, "wb") as f:
-            f.write(content)
+
+        # Atòmic (tmp + rename): un upload interromput mai deixa un fitxer
+        # truncat que OneDrive pugui replicar a mitges.
+        safe_write_bytes(target_path, content)
 
         # Invalidar caches afectats: el directori de l'àlbum i el del root
         # (que també conté el fitxer recursivament).
