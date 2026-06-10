@@ -125,6 +125,14 @@ export default function VaultDashboard() {
     const [redoStack, setRedoStack] = useState([]);
     const undoRef = useRef(null);
     const redoRef = useRef(null);
+    // Miralls de la vista activa per a handlers que viuen en effects amb
+    // deps `[]` (p. ex. `handleOpenPdf`): llegir l'estat directament hi
+    // seria stale. Els usem per recordar D'ON s'obre un document i poder
+    // tornar-hi en tancar-lo.
+    const activeTableIdRef = useRef(null);
+    const activeTabIdRef = useRef(null);
+    const activeViewIdRef = useRef(null);
+    const viewModeRef = useRef('editor');
     const TABLE_TAB_PREFIX = 'table:';
     // Prefix estable per identificar una pestanya PDF/EPUB/snapshot. Reusa
     // la pestanya quan l'usuari clica el mateix document dues vegades.
@@ -1253,9 +1261,24 @@ export default function VaultDashboard() {
             // reader Zotero. El camp `kind` controla quin viewer concret
             // s'inicialitza dins l'iframe.
             const id = `${PDF_TAB_PREFIX}${src}`;
+            // Recordem D'ON s'obre el document perquè el botó "Enrere" del
+            // visor (i tancar la pestanya) hi puguin tornar. Sense això,
+            // obrir un PDF des d'una taula la feia desaparèixer sense camí
+            // de retorn ("no puc tornar enrere"). Llegim els miralls (refs)
+            // perquè aquest handler viu en un effect amb deps `[]`.
+            const origin = {
+                tableId: activeTableIdRef.current,
+                tabId: activeTabIdRef.current,
+                viewId: activeViewIdRef.current,
+            };
             setTabs(prev => {
-                if (prev.some(t => t.id === id)) return prev;
-                return [...prev, { id, title: title || 'document', isPdf: true, src, kind: kind || 'pdf' }];
+                // Si la pestanya ja existeix (reobrir el mateix document),
+                // REFRESQUEM l'origen al lloc real d'on s'acaba de reobrir;
+                // si no, "Enrere" tornaria al primer lloc on es va obrir.
+                if (prev.some(t => t.id === id)) {
+                    return prev.map(t => (t.id === id ? { ...t, origin } : t));
+                }
+                return [...prev, { id, title: title || 'document', isPdf: true, src, kind: kind || 'pdf', origin }];
             });
             setActiveTabId(id);
             setViewMode('editor');
@@ -1477,12 +1500,38 @@ export default function VaultDashboard() {
 
     const handleTabClose = useCallback((tabId) => {
         setTabs(prevTabs => {
+            const closingTab = prevTabs.find(t => t.id === tabId);
             const remainingTabs = prevTabs.filter(t => t.id !== tabId);
-            
+
             setSplitTabIds(prevSplit => {
                 const remainingSplitTabIds = prevSplit.filter(id => id !== tabId);
-                
+
                 if (activeTabId === tabId) {
+                    // Si tanquem un document (PDF/EPUB) que recorda d'on es va
+                    // obrir, hi tornem en comptes del fallback genèric "última
+                    // pestanya" — és el "tornar enrere" que esperava l'usuari.
+                    const origin = closingTab?.origin;
+                    if (origin && (origin.tableId || origin.tabId)) {
+                        if (origin.tabId && remainingTabs.some(tab => tab.id === origin.tabId)) {
+                            const ot = remainingTabs.find(tab => tab.id === origin.tabId);
+                            setActiveTabId(origin.tabId);
+                            setActiveTableId(ot?.isTable ? getTableIdFromTab(ot) : null);
+                            setViewMode(ot?.isDrawing ? 'drawing' : 'editor');
+                            return remainingSplitTabIds.filter(id => id !== origin.tabId);
+                        }
+                        if (origin.tableId) {
+                            // handleTableSelect fixa activeTableId/viewMode i
+                            // posa activeTabId=null per ell mateix. fromHistory=true:
+                            // tornar enrere no ha d'afegir una entrada nova a
+                            // l'historial (la URL ja és la de la taula d'origen).
+                            handleTableSelect(origin.tableId, origin.viewId || null, true);
+                            // Anem a vista de taula inline, que NO renderitza
+                            // panells de split: netegem splitTabIds per no
+                            // deixar-los orfes (invisibles fins que es torni a
+                            // un editor).
+                            return [];
+                        }
+                    }
                     const promotedPaneId = remainingSplitTabIds.find(id => remainingTabs.some(tab => tab.id === id)) || null;
                     const fallbackTabId = remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].id : null;
                     const nextActiveTabId = promotedPaneId || fallbackTabId;
@@ -2256,6 +2305,11 @@ export default function VaultDashboard() {
     // Mantenir refs actualitzades (evita closures obsoletes al listener de Cmd+Z)
     useEffect(() => { undoRef.current = undoLastOperation; }, [undoLastOperation]);
     useEffect(() => { redoRef.current = redoLastOperation; }, [redoLastOperation]);
+    // Mantenim els miralls de la vista activa al dia (vegeu refs a dalt).
+    useEffect(() => { activeTableIdRef.current = activeTableId; }, [activeTableId]);
+    useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
+    useEffect(() => { activeViewIdRef.current = activeViewId; }, [activeViewId]);
+    useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
 
     const handleDuplicatePage = useCallback(async (pageId) => {
         try {
@@ -2718,7 +2772,9 @@ export default function VaultDashboard() {
                     src={tab.src}
                     title={tab.title}
                     kind={tab.kind || 'pdf'}
-                    embedded
+                    // Botó "Enrere" del visor → tanca el document i torna a
+                    // d'on es va obrir (handleTabClose honora `tab.origin`).
+                    onClose={() => handleTabClose(tab.id)}
                 />
             );
         }
