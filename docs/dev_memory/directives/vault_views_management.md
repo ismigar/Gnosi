@@ -51,3 +51,21 @@ Before considering a view complete, verify:
   - **Fer:** `if (!registry.tables?.some(t => t.id === tableId)) return;` abans de
     seleccionar, perquè esquema + vista inicial es resolguin en una sola passada
     amb dades completes.
+
+- **Ordenar per una columna poc poblada amaga les files amb contingut
+  ("no es veuen els adjunts").** La vista principal de Recursos tenia
+  `sort = { field: "Adjunts", direction: "asc" }`. Com que `''` < qualsevol
+  ruta a `localeCompare`, les ~115 files amb Adjunts buit suraven al capdamunt i
+  les 178 amb fitxers quedaven a les posicions 116–293, que la virtualització
+  (batch de 50) ni arribava a carregar → semblava que els adjunts no es
+  renderitzaven (de fet el renderitzat era correcte).
+  - **Causa:** el comparador de `useVaultViewData` aplicava la direcció (`asc`/
+    `desc`) també als valors buits, en comptes de fixar-los sempre al final.
+  - **Fer:** els buits van SEMPRE al final, independentment de `direction` (com a
+    Notion). Generalitza a TOTS els camps el que ja es feia per a dates:
+    `const aEmpty = aVal.trim() === ''; if (aEmpty || bEmpty) { if (aEmpty && bEmpty) continue; return aEmpty ? 1 : -1; }`
+    abans de la comparació numèrica/locale.
+  - **Diagnòstic:** quan "falta" contingut a una taula, comprova primer
+    `activeView.sort` (via fiber: `memoizedProps.activeView`) abans de sospitar
+    del renderitzat; el comptador "N registres" segueix dient el total perquè el
+    sort no filtra, només reordena.
