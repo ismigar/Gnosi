@@ -10,8 +10,6 @@ import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils
 import { ConfirmModal } from '../ConfirmModal';
 import { useTranslation } from 'react-i18next';
 
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
 // ID immutable per a properties: 'fld_' + 8 hex chars. Es persisteix al
 // schema de la taula i es manté entre renames del nom de camp.
 const generateFieldId = () => {
@@ -875,7 +873,25 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     // explícitament després, respectem la seva decisió. A més, si encara no
     // hi ha cap camp `button` amb acció `translate_row`, n'afegim un perquè
     // l'usuari tingui immediatament un disparador visible a la taula.
+    // Confirmació centrada (ConfirmModal estàndard del projecte) en DESACTIVAR
+    // un toggle amb conseqüències. Abans s'usava window.confirm; ara fem servir
+    // el modal del mig de la pantalla, coherent amb la resta de la UI.
+    const [toggleConfirm, setToggleConfirm] = useState({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
+    const closeToggleConfirm = () => setToggleConfirm((s) => ({ ...s, isOpen: false }));
+    const requestDisableConfirm = ({ title, message, confirmText, onConfirm }) => {
+        setToggleConfirm({ isOpen: true, title, message, confirmText, onConfirm });
+    };
+
     const handleToggleTranslation = (next) => {
+        if (!next && enableTranslation && fields.some((f) => f.translatable)) {
+            requestDisableConfirm({
+                title: t('schema.translation_disable_title', 'Desactivar traducció'),
+                message: t('schema.translation_disable_confirm', "Vols desactivar la traducció d'aquesta taula? Les traduccions ja creades es conserven, però la taula deixarà de ser traduïble."),
+                confirmText: t('schema.disable', 'Desactivar'),
+                onConfirm: () => setEnableTranslation(false),
+            });
+            return;
+        }
         setEnableTranslation(next);
         if (next && !enableSubitems) {
             setEnableSubitems(true);
@@ -913,6 +929,18 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     };
 
     const handleToggleDrupalSync = (next) => {
+        // En desactivar, demana confirmació (modal centrat) si hi ha un mapeig
+        // configurat: així un clic accidental (amb autosave actiu) no deixa la
+        // taula sense sincronitzar sense avís. El mapeig es conserva al backend.
+        if (!next && enableDrupalSync && Object.keys(drupalFieldMapping || {}).length > 0) {
+            requestDisableConfirm({
+                title: t('schema.drupal_sync_disable_title', 'Desactivar sincronització amb Drupal'),
+                message: t('schema.drupal_sync_disable_confirm', 'Vols desactivar la sincronització amb Drupal? El mapeig de camps es conservarà per si la tornes a activar.'),
+                confirmText: t('schema.disable', 'Desactivar'),
+                onConfirm: () => setEnableDrupalSync(false),
+            });
+            return;
+        }
         setEnableDrupalSync(next);
         if (next) addDrupalColumns();
     };
@@ -936,7 +964,23 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         });
     };
 
+    // Retira la columna `system` de XXSS de l'esquema. Mateix criteri de
+    // detecció que l'estat inicial (system + nom xxss/social), perquè en
+    // reobrir el modal el toggle no torni a derivar-se com a actiu.
+    const removeSocialPublishColumns = () => {
+        setFields((prev) => prev.filter((f) => !(f.system && /xxss|social/i.test(f.name || ''))));
+    };
+
     const handleToggleSocialPublish = (next) => {
+        if (!next && enableSocialPublish) {
+            requestDisableConfirm({
+                title: t('schema.social_disable_title', 'Desactivar publicació a XXSS'),
+                message: t('schema.social_publish_disable_confirm', { col: SOCIAL_PUBLISH_COL, defaultValue: "Vols desactivar la publicació a XXSS? S'eliminarà la columna «{{col}}» de l'esquema i la taula deixarà de ser publicable a les xarxes socials." }),
+                confirmText: t('schema.disable', 'Desactivar'),
+                onConfirm: () => { setEnableSocialPublish(false); removeSocialPublishColumns(); },
+            });
+            return;
+        }
         setEnableSocialPublish(next);
         if (next) addSocialPublishColumns();
     };
@@ -1506,6 +1550,17 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             title={t('schema.confirm_remove_field_title', 'Eliminar propietat')}
             message={t('schema.confirm_remove_field_message', { name: confirmRemoveField.name, defaultValue: 'Segur que vols eliminar la propietat «{{name}}»? Aquesta acció no es pot desfer.' })}
             confirmText={t('schema.confirm_remove_field_confirm', 'Eliminar')}
+            isDestructive={true}
+        />
+
+        <ConfirmModal
+            isOpen={toggleConfirm.isOpen}
+            onClose={closeToggleConfirm}
+            onConfirm={async () => { await toggleConfirm.onConfirm?.(); closeToggleConfirm(); }}
+            title={toggleConfirm.title}
+            message={toggleConfirm.message}
+            confirmText={toggleConfirm.confirmText || t('schema.disable', 'Desactivar')}
+            cancelText={t('common.cancel', 'Cancel·lar')}
             isDestructive={true}
         />
         </>
