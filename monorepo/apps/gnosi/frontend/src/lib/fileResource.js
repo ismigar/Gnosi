@@ -156,6 +156,31 @@ export function servedUrlToVaultPath(url) {
     return v.startsWith(prefix) ? v.slice(prefix.length) : v;
 }
 
+/**
+ * Parseja autors llegats en TEXT PLA a objectes {nom, cognom1, cognom2}.
+ * Convencions: "Nom Cognom1 Cognom2" (ordre directe) o "Cognoms, Nom"
+ * (invertit). Diversos autors separats per ";" o "&" — mai per coma sola
+ * (la coma marca l'ordre invertit) ni per " y/i/and " (trencaria cognoms
+ * compostos com "Ortega y Gasset").
+ */
+export function parseAuthorsString(text) {
+    return String(text || '')
+        .split(/\s*[;&]\s*/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map((chunk) => {
+            const inverted = chunk.match(/^([^,]+),\s*(.+)$/);
+            if (inverted) {
+                const toks = inverted[1].trim().split(/\s+/);
+                return { nom: inverted[2].trim(), cognom1: toks[0] || '', cognom2: toks.slice(1).join(' ') };
+            }
+            const toks = chunk.split(/\s+/);
+            if (toks.length === 1) return { nom: '', cognom1: toks[0], cognom2: '' };
+            if (toks.length === 2) return { nom: toks[0], cognom1: toks[1], cognom2: '' };
+            return { nom: toks[0], cognom1: toks[1], cognom2: toks.slice(2).join(' ') };
+        });
+}
+
 // Formata un autor {nom, cognom1, cognom2} segons l'accessor del token del patró:
 //   .cognom → "Cognom1 Cognom2"; .nom → "Nom"; cap/altre → "Nom Cognom1 Cognom2".
 function formatAuthorToken(a, accessor) {
@@ -197,6 +222,20 @@ export function interpolateNamePattern(pattern, meta = {}) {
         // Camp autoria: array d'objectes {nom, cognom1, cognom2} → format per accessor.
         if (Array.isArray(v) && v.some(a => a && typeof a === 'object' && ('cognom1' in a || 'cognom2' in a || 'nom' in a))) {
             return v.map(a => formatAuthorToken(a, (accessor || '').trim())).filter(Boolean).join(', ');
+        }
+        // Autoria llegada en STRING ("Ismael García Fernández"): si el patró
+        // demana un accessor d'autor ({Authors.cognom1}), parseja el text en
+        // lloc d'ignorar l'accessor — abans això produïa fitxers amb el nom
+        // complet, divergint del patró i dels fitxers ja existents.
+        const acc = (accessor || '').trim();
+        if (acc && ['nom', 'cognom', 'cognoms', 'cognom1', 'cognom2'].includes(acc)) {
+            const chunks = Array.isArray(v) ? v : [v];
+            if (chunks.length && chunks.every(x => typeof x === 'string')) {
+                const authors = chunks.flatMap(x => parseAuthorsString(x));
+                if (authors.length) {
+                    return authors.map(a => formatAuthorToken(a, acc)).filter(Boolean).join(', ');
+                }
+            }
         }
         const s = Array.isArray(v) ? v.join(', ') : String(v);
         return s.trim();
@@ -241,6 +280,41 @@ export function parseFileEntries(value) {
         }
     }
     return out;
+}
+
+/**
+ * Clau canònica d'una entrada d'un camp `files` per a DEDUPLICACIÓ: el mateix
+ * fitxer expressat com `file://` URL-encoded, ruta absoluta (de qualsevol de
+ * les dues Macs), `~/<rel>` o URL servida (`/api/vault/biblioteca|raw|assets/`)
+ * ha de donar la MATEIXA clau. No toca el disc: només normalitza el text.
+ * Fitxers realment diferents (p. ex. noms distints dins Biblioteca) donen
+ * claus distintes.
+ */
+export function fileTargetKey(value) {
+    let s = String(value || '').trim();
+    if (!s) return '';
+    const md = s.match(/\[[^\]]*\]\(([^)]+)\)/);
+    if (md) s = md[1].trim();
+    if (/^file:\/\//i.test(s)) {
+        s = s.replace(/^file:\/\//i, '');
+        try { s = decodeURIComponent(s); } catch { /* es queda tal qual */ }
+    }
+    s = s.split('?')[0].split('#')[0].replace(/\\/g, '/');
+    const served = s.match(/^\/api\/vault\/(biblioteca|raw|assets)\/(.+)$/);
+    if (served) {
+        let rel = served[2];
+        try { rel = decodeURIComponent(rel); } catch { /* es queda tal qual */ }
+        const root = served[1] === 'raw' ? 'vault' : served[1];
+        if (served[1] === 'assets') return `assets/${rel.toLowerCase()}`;
+        return `${root}/${rel.toLowerCase()}`;
+    }
+    // Treu el HOME concret: /Users/<usuari>/x i ~/x → /x (les dues Macs
+    // comparteixen l'estructura sota el home).
+    s = s.replace(/^~\//, '/').replace(/^\/Users\/[^/]+\//, '/');
+    // Unifica qualsevol referència a Biblioteca amb la forma servida.
+    const bib = s.match(/(?:^|\/)Biblioteca\/(.+)$/);
+    if (bib) return `biblioteca/${bib[1].toLowerCase()}`;
+    return s.toLowerCase();
 }
 
 async function copyPathToClipboard(target, t) {

@@ -5,7 +5,7 @@ import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
-import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue } from '../../lib/fileResource';
+import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey } from '../../lib/fileResource';
 import { sortKey } from '../../utils/vaultFilters';
 import { InsertContentModal } from './InsertContentModal';
 
@@ -3066,6 +3066,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             )}
 
             <InsertContentModal
+                // key per FILA: reobrir el modal sobre una altra fila REMUNTA la
+                // instància (estat i promeses en curs moren amb el seu context).
+                // Sense això, una pujada llarga iniciada en una fila sobreviu a
+                // tancar/reobrir i qualsevol lectura de props "actuals" pot
+                // inserir el resultat a la fila equivocada (vist 2026-06-09:
+                // adjunt d'«El camí de tornada» escrit a «Un viaje inexperado»).
+                key={mediaPickerCell?.rowId || 'closed'}
                 open={Boolean(mediaPickerCell)}
                 tableId={mediaPickerCell?.tableId || ''}
                 fileField={mediaPickerCell?.fileField || null}
@@ -3087,13 +3094,25 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         return;
                     }
                     // Multi-fitxer (camp `files`): afegeix TOTES les URLs d'una sola
-                    // vegada (evita la cursa d'afegir-les una a una via N onInsert).
+                    // vegada (evita la cursa d'afegir-les una a una via N onInsert),
+                    // DEDUPLICANT amb la clau canònica (file:// ≡ absoluta ≡ ~/ ≡
+                    // servida): repetir un enllaç/pujada no duplica entrades.
                     if (Array.isArray(result?.urls) && result.urls.length && getFieldType(schema, field) === 'files') {
                         const note = safeNotes.find(n => n.id === rowId);
                         const existing = note?.metadata?.[originalMetaKey];
                         const arr = (Array.isArray(existing) ? existing : (existing ? [existing] : []))
                             .map(v => String(v ?? '')).filter(v => v.trim() !== '');
-                        const adds = result.urls.map(u => urlToVaultPath(u || '')).filter(Boolean);
+                        const seen = new Set(arr.map(fileTargetKey));
+                        const adds = [];
+                        for (const u of result.urls) {
+                            const vp = urlToVaultPath(u || '');
+                            if (!vp) continue;
+                            const key = fileTargetKey(vp);
+                            if (seen.has(key)) continue;
+                            seen.add(key);
+                            adds.push(vp);
+                        }
+                        if (!adds.length) { setMediaPickerCell(null); return; }
                         const next = [...arr, ...adds];
                         handleCellSave(rowId, field, next.length === 1 ? next[0] : next, originalMetaKey);
                         setMediaPickerCell(null);
@@ -3108,6 +3127,12 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         const existing = note?.metadata?.[originalMetaKey];
                         const arr = (Array.isArray(existing) ? existing : (existing ? [existing] : []))
                             .map(v => String(v ?? '')).filter(v => v.trim() !== '');
+                        // Mateix fitxer ja present (en qualsevol format) → no dupliquis.
+                        const newKey = fileTargetKey(newPath);
+                        if (arr.some(v => fileTargetKey(v) === newKey)) {
+                            setMediaPickerCell(null);
+                            return;
+                        }
                         const next = [...arr, newPath];
                         value = next.length === 1 ? next[0] : next;
                     } else if (newPath) {

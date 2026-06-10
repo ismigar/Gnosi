@@ -62,6 +62,11 @@ Si no retorna res, el contenidor té el codi antic i cal reconstruir.
 - `docker-compose up -d backend` sense `build` previ **reutilitza la imatge cacheada** — els canvis segueixen sense aplicar-se.
 - Si el canvi afecta dependències Python (`requirements.txt`), cal afegir `--no-cache`: `docker-compose build --no-cache backend`.
 - El frontend SÍ usa hot-reload via volum, per tant `restart` o `up -d` sense `build` és suficient per al frontend **per canvis de codi**, però **no per a dependències noves** (vegeu la regla següent).
+- **Guions de `pipeline/sandbox/` executats al HOST**: el `python3` del sistema
+  (els dos Macs) NO té `requests` ni cap paquet de tercers → escriure'ls NOMÉS
+  amb stdlib (`urllib.request` per a HTTP) o executar-los dins del contenidor
+  (`docker exec gnosi_backend python ...`). Vist 2026-06-10 amb
+  `repair_adjunts_portables.py` (ModuleNotFoundError: requests).
 
 ---
 

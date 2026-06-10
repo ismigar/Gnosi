@@ -8008,8 +8008,11 @@ async def register_local_file(body: dict):
     if not file_path:
         raise HTTPException(status_code=400, detail="file_path is mandatory")
 
-    p = Path(file_path)
-    if not p.exists() or not p.is_file():
+    # Accepta tots els formats desats (file://, ~/, ruta de l'altra Mac…) i
+    # re-arrela a la màquina actual: el visor de PDF rep el valor del camp tal
+    # com es va desar, potser en una Mac amb un altre nom d'usuari.
+    p = _resolve_stored_file_target(file_path)
+    if p is None or not p.is_file():
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
 
     abs_path = str(p.resolve())
@@ -8263,8 +8266,10 @@ async def link_existing_file(body: dict):
     if not file_path:
         raise HTTPException(status_code=400, detail="file_path is mandatory")
 
-    p = Path(file_path)
-    if not p.exists():
+    # Accepta també formats vells (file://, ~/, ruta de l'ALTRA Mac): un valor
+    # desat antic re-enllaçat ha de resoldre's a la ruta local d'aquesta màquina.
+    p = _resolve_stored_file_target(file_path)
+    if p is None:
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
     if not p.is_file():
         raise HTTPException(status_code=400, detail="Path is not a file")
@@ -8299,9 +8304,39 @@ async def link_existing_file(body: dict):
                     f"{p} → {desired} ({e}); s'enllaça amb el nom original."
                 )
 
+    # Valor PORTABLE per desar al camp (independent del nom d'usuari del Mac;
+    # vegeu attachment_link_portability.md, fase 2). El frontend desa
+    # `data.url || data.path`: si podem expressar el fitxer de forma
+    # re-arrelable, la posem a `url`; si no (fora del HOME), queda la ruta
+    # absoluta com a últim recurs.
+    portable: Optional[str] = None
+    try:
+        rel = p.relative_to(get_p("BIBLIOTECA"))
+        portable = f"/api/vault/biblioteca/{str(rel).replace(os.sep, '/')}"
+    except Exception:
+        pass
+    if portable is None:
+        vault_roots = [get_p("VAULT")]
+        vhp = (os.environ.get("VAULT_HOST_PATH") or "").strip()
+        if vhp:
+            vault_roots.append(Path(vhp))
+        for vroot in vault_roots:
+            try:
+                rel = p.relative_to(vroot)
+                portable = f"/api/vault/raw/{str(rel).replace(os.sep, '/')}"
+                break
+            except ValueError:
+                continue
+    if portable is None:
+        try:
+            rel = p.relative_to(_host_home_path())
+            portable = f"~/{str(rel).replace(os.sep, '/')}"
+        except ValueError:
+            portable = None
+
     return {
         "path": str(p),
-        "url": None,
+        "url": portable,
         "storage": "absolute",
         "name": p.name,
         "size": p.stat().st_size,
@@ -8351,6 +8386,9 @@ async def delete_physical_file(body: dict):
         # Nous adjunts de biblioteca (portables): re-arrelats a l'arrel actual.
         # Va abans del catch-all "/" perquè aquesta forma també comença per "/".
         host_path = get_p("BIBLIOTECA") / urllib.parse.unquote(target[len("/api/vault/biblioteca/"):])
+    elif target == "~" or target.startswith("~/"):
+        # Valor portable `~/<rel>`: HOME del host, mai del contenidor.
+        host_path = Path(_expand_host_tilde(target))
     elif target.startswith("/"):
         host_path = Path(target)
     else:
@@ -8358,6 +8396,15 @@ async def delete_physical_file(body: dict):
 
     # --- Fitxer sota HOME → Paperera del Mac via host helper (recuperable) ---
     if host_path is not None:
+        # Portabilitat: si el valor desat ve de l'altra Mac (HOME aliè) i no
+        # existeix tal qual, re-arrela'l abans del check de contenció.
+        try:
+            if not host_path.exists():
+                rerooted = _reroot_attachment_under_current_host(str(host_path))
+                if rerooted is not None:
+                    host_path = rerooted
+        except OSError:
+            pass
         try:
             resolved = host_path.expanduser().resolve()
         except OSError:
@@ -10191,7 +10238,8 @@ def _extract_attachment_paths(attachments: object) -> List[str]:
         if item.startswith("file://"):
             item = urllib.parse.unquote(item[7:])
 
-        expanded = str(Path(item).expanduser())
+        # `~` sempre contra el HOME del HOST (dins Docker, expanduser → /root).
+        expanded = str(Path(_expand_host_tilde(item)).expanduser())
         candidates.append(expanded)
 
     return candidates
@@ -10203,7 +10251,13 @@ def _pick_existing_path(
     candidates: List[str] = []
 
     if isinstance(file_path, str) and file_path.strip():
-        candidates.append(str(Path(file_path.strip()).expanduser()))
+        fp = file_path.strip()
+        # Mateixa neteja que _extract_attachment_paths: si el valor desat és un
+        # file:// URL-encoded, treu l'esquema i decodifica ABANS de Path-ificar
+        # (Path col·lapsaria "//"→"/" i el re-arrelador ja no el reconeixeria).
+        if fp.lower().startswith("file://"):
+            fp = urllib.parse.unquote(fp[7:])
+        candidates.append(str(Path(_expand_host_tilde(fp)).expanduser()))
 
     candidates.extend(_extract_attachment_paths(attachments))
 
@@ -10304,6 +10358,35 @@ async def open_resource(payload: OpenResourceRequest):
         )
 
 
+def _host_home_path() -> Path:
+    """HOME del HOST (no del contenidor). Dins Docker el HOME del procés és
+    /root, així que `Path.expanduser()` NO serveix per resoldre valors `~/...`.
+    Ordre: HOME_HOST_PATH (docker-compose) → home derivat de BIBLIOTECA
+    (/Users/<actual>/Library/...) → home del procés (entorn local sense Docker).
+    """
+    env_home = (os.environ.get("HOME_HOST_PATH") or "").strip()
+    if env_home:
+        return Path(env_home)
+    try:
+        b = get_p("BIBLIOTECA")
+        if len(b.parts) >= 3 and b.parts[1] == "Users":
+            return Path(b.parts[0]) / b.parts[1] / b.parts[2]
+    except Exception:
+        pass
+    return Path.home()
+
+
+def _expand_host_tilde(value: str) -> str:
+    """Expandeix un valor `~`/`~/<rel>` contra el HOME del HOST (mai del
+    contenidor). Qualsevol altra forma es retorna intacta."""
+    s = str(value or "").strip()
+    if s == "~":
+        return str(_host_home_path())
+    if s.startswith("~/"):
+        return str(_host_home_path() / s[2:])
+    return s
+
+
 def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     """Re-arrela un path/URI d'adjunt sota les arrels d'AQUESTA màquina, perquè
     els enllaços desats en una altra Mac (un altre usuari macOS) segueixin
@@ -10336,6 +10419,11 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     if s.lower().startswith("file://"):
         rest = s[7:]
         s = urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
+    # Forma portable `~/<rel>`: determinada completament pel HOME del host
+    # (les altres estratègies no hi aporten res).
+    if s == "~" or s.startswith("~/"):
+        cand = Path(_expand_host_tilde(s))
+        return cand if cand.exists() else None
     try:
         biblioteca_root = get_p("BIBLIOTECA")
     except Exception:
@@ -10382,6 +10470,42 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     return None
 
 
+def _resolve_stored_file_target(raw: str) -> Optional[Path]:
+    """Resol el VALOR DESAT d'un camp de fitxers a una ruta local d'AQUESTA
+    màquina, acceptant tots els formats històrics i nous: `file://`
+    (URL-encoded o no), `~/<rel>` (HOME del host), ruta absoluta (d'aquesta o
+    de l'altra Mac) i `/api/vault/biblioteca/<rel>`.
+
+    Si el valor no existeix tal qual, re-arrela amb
+    `_reroot_attachment_under_current_host`. Retorna None si cap candidat
+    existeix. Mai escriu res (resolució en runtime, vegeu
+    `attachment_link_portability.md`).
+    """
+    s = str(raw or "").strip()
+    if not s:
+        return None
+    direct = s
+    if direct.lower().startswith("file://"):
+        rest = direct[7:]
+        direct = urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
+    direct = _expand_host_tilde(direct)
+    if not direct.startswith("/api/"):
+        try:
+            p = Path(direct)
+            if p.exists():
+                return p
+        except OSError:
+            pass
+    rerooted = _reroot_attachment_under_current_host(s)
+    if rerooted is not None:
+        try:
+            if rerooted.exists():
+                return rerooted
+        except OSError:
+            pass
+    return None
+
+
 @router.post("/open-local-path", dependencies=[Depends(require_role("editor"))])
 async def open_local_path(payload: dict = Body(...)):
     """
@@ -10405,9 +10529,9 @@ async def open_local_path(payload: dict = Body(...)):
     else:
         target = raw
 
-    # Expandeix ~ i resol simbòlicament
+    # Expandeix ~ (contra el HOME del HOST, no del contenidor) i resol
     try:
-        path = Path(target).expanduser()
+        path = Path(_expand_host_tilde(target)).expanduser()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid path")
 
