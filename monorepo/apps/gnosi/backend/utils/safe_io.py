@@ -134,6 +134,27 @@ def sanitize_filename_component(value: str) -> str:
     return cleaned
 
 
+def sanitize_path_segment(value: str, fallback: str) -> str:
+    """Return `value` cleaned for use as ONE path segment (àlbum, fitxer).
+
+    A diferència de `sanitize_filename_component`, conserva els espais
+    interiors (noms humans d'àlbum/fitxer), col·lapsats a un de sol. Els
+    separadors de ruta es converteixen en espai i només sobreviuen lletres,
+    dígits, `_`, `-`, `.` i espai. Si el resultat queda buit O compost només
+    de punts (`.`/`..`, traversal), retorna `fallback`.
+
+    Veure docs/dev_memory/directives/media_upload_path_safety.md: aquest
+    sanejador NO és l'única defensa contra traversal — el caller ha de
+    contenir igualment el destí final dins la seva arrel.
+    """
+    cleaned = re.sub(r"[\\/]+", " ", str(value or "")).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = re.sub(r"[^\w\-. ]", "", cleaned, flags=re.UNICODE).strip()
+    if not cleaned or set(cleaned) <= {"."}:
+        return fallback
+    return cleaned[:120]
+
+
 def file_mtime_ns(path: PathLike) -> Optional[int]:
     """Return the file's mtime in nanoseconds, or None if it doesn't exist."""
     try:

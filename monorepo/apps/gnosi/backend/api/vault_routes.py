@@ -55,6 +55,7 @@ from backend.utils.safe_io import (
     safe_write_bytes,
     file_etag,
     file_mtime_ns,
+    sanitize_path_segment,
 )
 from backend.utils.errors import safe_error_detail
 import asyncio
@@ -1314,13 +1315,10 @@ def _normalize_schema_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
 
 
-def _sanitize_asset_segment(value: str, fallback: str) -> str:
-    cleaned = re.sub(r"[\\/]+", " ", str(value or "")).strip()
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    cleaned = re.sub(r"[^\w\-. ]", "", cleaned, flags=re.UNICODE).strip()
-    if not cleaned:
-        return fallback
-    return cleaned[:120]
+# Mogut a backend/utils/safe_io.py (sanitize_path_segment) perquè
+# media_service també el necessita i no pot importar de la capa api
+# sense crear un cicle. Àlies per mantenir els punts de crida existents.
+_sanitize_asset_segment = sanitize_path_segment
 
 
 def _sanitize_filename_base(title: str) -> str:
