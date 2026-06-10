@@ -3712,8 +3712,13 @@ export default function VaultDashboard() {
                                         properties: newProperties,
                                         translation_enabled: !!viewConfig.enableTranslation,
                                         drupal_sync_enabled: !!viewConfig.enableDrupalSync,
-                                        drupal_bundle: viewConfig.enableDrupalSync ? (viewConfig.drupalBundle || '') : '',
-                                        drupal_field_mapping: viewConfig.enableDrupalSync ? (viewConfig.drupalFieldMapping || {}) : {},
+                                        // Conservem bundle i mapping encara que la
+                                        // sincronització estigui desactivada: desactivar
+                                        // no ha de destruir el mapeig (es recupera si es
+                                        // reactiva). Abans s'enviava '' / {} i un autosave
+                                        // amb el toggle off esborrava tot el mapeig.
+                                        drupal_bundle: viewConfig.drupalBundle || '',
+                                        drupal_field_mapping: viewConfig.drupalFieldMapping || {},
                                     });
                                     setSchema(newSchemaObj);
 
