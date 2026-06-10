@@ -51,6 +51,11 @@ d'escriure en aquests noms.
   El cognom per a la clau surt del primer autor: `cognom1` (estructurat) o
   `family` del primer parse (string). Reaprofitar `_parse_authors_to_csl`.
 - **Sense any:** usar `nd` (`cognomnd`).
+- **L'any pot arribar com a float** (`2017.0`, p.ex. via JSON/pandas): no fer
+  `int(str(year))` directament → `ValueError` → el fallback `_ck_norm` treu el
+  punt i surt `murphy20170`. Usar `int(float(str(year)))` (i capturar també
+  `OverflowError` per strings tipus `"inf"`); els no numèrics (`"c. 1850"`)
+  segueixen caient al fallback `_ck_norm` com sempre.
 - **Sense autor:** usar primera paraula significativa del títol; si res, `ref`.
 - **Eliminar camp d'esquema NO neteja els .md** (només la UI; els valors queden
   com a propietats òrfenes). Netejar dades requereix migració idempotent + backup.
@@ -73,3 +78,4 @@ d'escriure en aquests noms.
 | Data | Aprenentatge | Solució |
 |---|---|---|
 | 2026-05-25 | El sync Zotero ja era mort però el lookup no posava Citation Key → referències importades no citables. | P0: generació automàtica de clau a totes les vies d'alta. |
+| 2026-06-10 | `generate_citation_key(..., 2017.0)` → `murphy20170`: `int("2017.0")` peta i el fallback `_ck_norm` esborra el punt. | Normalitzar amb `int(float(str(year)))` + capturar `OverflowError`; cobert per `test_year_as_string_or_float`. |

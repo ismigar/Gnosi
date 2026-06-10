@@ -4478,8 +4478,8 @@ def generate_citation_key(authors: Any, year: Any, title: str = "",
         fam = _ck_norm(_title_token(title)) or "ref"
     yr = ""
     try:
-        yr = str(int(str(year))) if year not in (None, "", "null") else ""
-    except (TypeError, ValueError):
+        yr = str(int(float(str(year)))) if year not in (None, "", "null") else ""
+    except (TypeError, ValueError, OverflowError):
         yr = _ck_norm(str(year)) if year else ""
     base = f"{fam}{yr or 'nd'}"
     existing = existing or set()
