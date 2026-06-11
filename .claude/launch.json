@@ -6,6 +6,15 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8765", "--directory", "monorepo/apps/gnosi/frontend/dist"],
       "port": 8765
+    },
+    {
+      "name": "gnosi-dist-preview",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd monorepo/apps/gnosi/frontend && VITE_DEV_HTTPS=false npx vite preview --port 5199 --strictPort"
+      ],
+      "port": 5199
     }
   ]
 }
