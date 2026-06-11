@@ -329,6 +329,11 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             {drupalFields.map((df) => (
                                 <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
                             ))}
+                            {/* Fallback: si Drupal no respon (p. ex. 436), mostra igualment
+                                el valor guardat perquè el mapping no sembli perdut. */}
+                            {drupalFieldMapping[field.id] && !drupalFields.some((df) => df.field_name === drupalFieldMapping[field.id]) && (
+                                <option value={drupalFieldMapping[field.id]}>{drupalFieldMapping[field.id]}</option>
+                            )}
                         </select>
                     </div>
                 )}
@@ -1309,6 +1314,30 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
+    // Fix scroll (Mac+Chrome): els <select>/<input>/<textarea> natius absorbeixen
+    // el wheel quan el cursor hi és a sobre i el cos del modal no scrolleja. Com
+    // que aquest modal és ple de controls (camps + mapping de Drupal), redirigim
+    // el wheel al cos scrollable. Mateix patró que GlobalSettingsModal.
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e) => {
+            if (e.ctrlKey || e.metaKey) return; // respecta pinch/zoom
+            const t = e.target;
+            const main = scrollRef.current;
+            if (!t || !t.closest || !main || !main.contains(t)) return;
+            const tag = t.tagName;
+            if (tag !== 'SELECT' && tag !== 'INPUT' && tag !== 'TEXTAREA') return;
+            // textarea amb scroll propi: deixa que el gestioni ella mateixa
+            if (tag === 'TEXTAREA' && t.scrollHeight > t.clientHeight + 1) return;
+            if (main.scrollHeight > main.clientHeight) {
+                main.scrollTop += e.deltaY;
+                e.preventDefault();
+            }
+        };
+        document.addEventListener('wheel', handler, { passive: false, capture: true });
+        return () => document.removeEventListener('wheel', handler, { capture: true });
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     return (
@@ -1447,6 +1476,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                             {drupalContentTypes.map((ct) => (
                                                 <option key={ct.machine} value={ct.machine}>{ct.label} ({ct.machine})</option>
                                             ))}
+                                            {/* Fallback: si Drupal no respon, mostra el bundle guardat
+                                                perquè no sembli que s'ha perdut la configuració. */}
+                                            {drupalBundle && !drupalContentTypes.some((ct) => ct.machine === drupalBundle) && (
+                                                <option value={drupalBundle}>{drupalBundle}</option>
+                                            )}
                                         </select>
                                     </div>
 
@@ -1474,6 +1508,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                                         {drupalFields.map((df) => (
                                                             <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
                                                         ))}
+                                                        {/* Fallback: valor guardat tot i que Drupal no respongui. */}
+                                                        {drupalFieldMapping['__body__'] && !drupalFields.some((df) => df.field_name === drupalFieldMapping['__body__']) && (
+                                                            <option value={drupalFieldMapping['__body__']}>{drupalFieldMapping['__body__']}</option>
+                                                        )}
                                                     </select>
                                                 </div>
                                                 <div className="px-3 py-2 text-[11px] text-[var(--text-secondary)]/60">

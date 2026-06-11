@@ -135,11 +135,24 @@ async def list_content_types() -> list[dict]:
     return out
 
 
+def _label_from_machine(name: str) -> str:
+    """Etiqueta llegible a partir del machine name d'un camp (``field_editorial`` →
+    ``Editorial``). Fallback quan no tenim el ``label`` real de ``field_config``."""
+    base = re.sub(r"^field_", "", name or "").replace("_", " ").strip()
+    return (base[:1].upper() + base[1:]) if base else (name or "")
+
+
 async def list_fields(bundle: str) -> list[dict]:
     """Camps d'un bundle: ``[{field_name, label, field_type}]``.
 
     Inclou el camp base ``title`` (no apareix a ``field_config``) i recorre la
     paginació per si de cas. Filtra per bundle també al client per robustesa.
+
+    Fallback: si el JSON:API del lloc no exposa l'entitat de config
+    ``field_config`` (algunes instàncies no ho fan → 0 camps), descobrim els
+    camps llegint un node real del bundle (els ``field_*`` d'attributes i
+    relationships). Perdem el ``field_type``/``label`` exactes (els inferim),
+    però permet veure i editar el mapping a la UI.
     """
     fields: list[dict] = [
         {"field_name": "title", "label": "Títol", "field_type": "string"},
@@ -177,6 +190,42 @@ async def list_fields(bundle: str) -> list[dict]:
                     "target_bundles": target_bundles,
                 })
             url = (doc.get("links", {}).get("next") or {}).get("href")
+
+        # Fallback via node real quan `field_config` no ha exposat cap camp.
+        if len(fields) == 1:  # només el `title` base
+            try:
+                rn = await c.get(f"/jsonapi/node/{bundle}?page[limit]=1")
+                if rn.status_code < 400:
+                    data = (rn.json() or {}).get("data") or []
+                    node = data[0] if data else {}
+                    attrs = node.get("attributes") or {}
+                    rels = node.get("relationships") or {}
+                    # `body` és un camp de text editable habitual
+                    if "body" in attrs and "body" not in seen:
+                        seen.add("body")
+                        fields.append({"field_name": "body", "label": "Body",
+                                       "field_type": "text_with_summary", "target_bundles": []})
+                    for k in attrs:
+                        if k.startswith("field_") and k not in seen:
+                            seen.add(k)
+                            fields.append({"field_name": k, "label": _label_from_machine(k),
+                                           "field_type": "string", "target_bundles": []})
+                    for k, rel in rels.items():
+                        if not k.startswith("field_") or k in seen:
+                            continue
+                        seen.add(k)
+                        rd = rel.get("data")
+                        items = rd if isinstance(rd, list) else ([rd] if rd else [])
+                        target_bundles = []
+                        for it in items:
+                            t = (it or {}).get("type") or ""  # p. ex. "taxonomy_term--tags"
+                            if "--" in t:
+                                target_bundles.append(t.split("--", 1)[1])
+                        fields.append({"field_name": k, "label": _label_from_machine(k),
+                                       "field_type": "entity_reference",
+                                       "target_bundles": list(dict.fromkeys(target_bundles))})
+            except Exception as exc:  # millor esforç: si falla, ens quedem amb `title`
+                log.warning("drupal: fallback de descoberta via node per %r ha fallat: %s", bundle, exc)
     return fields
 
 
