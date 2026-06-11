@@ -191,16 +191,33 @@ async def list_fields(bundle: str) -> list[dict]:
                 })
             url = (doc.get("links", {}).get("next") or {}).get("href")
 
-        # Fallback via node real quan `field_config` no ha exposat cap camp.
+        # Fallback via nodes reals quan `field_config` no ha exposat cap camp.
+        # Demanem uns quants nodes (no només un): el bundle/vocabulari destí d'un
+        # camp de referència només es pot inferir d'un node que TINGUI el camp
+        # emplenat, i un sol node pot tenir-lo buit (cas de `field_tags`).
         if len(fields) == 1:  # només el `title` base
             try:
-                rn = await c.get(f"/jsonapi/node/{bundle}?page[limit]=1")
+                rn = await c.get(f"/jsonapi/node/{bundle}?page[limit]=50")
                 if rn.status_code < 400:
-                    data = (rn.json() or {}).get("data") or []
-                    node = data[0] if data else {}
-                    attrs = node.get("attributes") or {}
-                    rels = node.get("relationships") or {}
-                    # `body` és un camp de text editable habitual
+                    nodes = (rn.json() or {}).get("data") or []
+                    # Acumula els bundles destí de cada camp de referència a partir
+                    # de TOTS els nodes que el tinguin emplenat.
+                    ref_targets: dict = {}
+                    for n in nodes:
+                        for k, rel in (n.get("relationships") or {}).items():
+                            if not k.startswith("field_"):
+                                continue
+                            rd = (rel or {}).get("data")
+                            items = rd if isinstance(rd, list) else ([rd] if rd else [])
+                            for it in items:
+                                t = (it or {}).get("type") or ""  # "taxonomy_term--<vocab>"
+                                if "--" in t:
+                                    ref_targets.setdefault(k, set()).add(t.split("--", 1)[1])
+                    # El primer node ja exposa TOTS els camps del bundle (encara que
+                    # buits): l'usem per a la llista de noms.
+                    base = nodes[0] if nodes else {}
+                    attrs = base.get("attributes") or {}
+                    rels = base.get("relationships") or {}
                     if "body" in attrs and "body" not in seen:
                         seen.add("body")
                         fields.append({"field_name": "body", "label": "Body",
@@ -210,20 +227,13 @@ async def list_fields(bundle: str) -> list[dict]:
                             seen.add(k)
                             fields.append({"field_name": k, "label": _label_from_machine(k),
                                            "field_type": "string", "target_bundles": []})
-                    for k, rel in rels.items():
+                    for k in rels:
                         if not k.startswith("field_") or k in seen:
                             continue
                         seen.add(k)
-                        rd = rel.get("data")
-                        items = rd if isinstance(rd, list) else ([rd] if rd else [])
-                        target_bundles = []
-                        for it in items:
-                            t = (it or {}).get("type") or ""  # p. ex. "taxonomy_term--tags"
-                            if "--" in t:
-                                target_bundles.append(t.split("--", 1)[1])
                         fields.append({"field_name": k, "label": _label_from_machine(k),
                                        "field_type": "entity_reference",
-                                       "target_bundles": list(dict.fromkeys(target_bundles))})
+                                       "target_bundles": sorted(ref_targets.get(k, set()))})
             except Exception as exc:  # millor esforç: si falla, ens quedem amb `title`
                 log.warning("drupal: fallback de descoberta via node per %r ha fallat: %s", bundle, exc)
     return fields
