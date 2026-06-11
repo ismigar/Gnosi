@@ -22,11 +22,16 @@ Els camps de tipus **relation** (noms canònics amb prefix `📀`) guarden al `.
 - **PyYAML ja fa l'encomillat**: un valor que comença per `[` surt quotejat automàticament amb `yaml.dump`; no fer post-processat manual.
 - **El parser de rescat** (`_parse_frontmatter_fallback`) ignora llistes per disseny → en mode rescat les relacions no hi són, com sempre.
 - **Consumidors de YAML cru** (scripts de pipeline que no passen per `parse_frontmatter`): han d'extreure l'id de l'àlies amb el mateix patró (`[[...|id]]` exacte) abans d'usar-lo.
-- **Neteja del cos**: només s'eliminen seccions el títol de les quals coincideix amb un camp relació de l'esquema (sense `📀`) i el contingut és exclusivament bullets-wikilink o línies buides; si hi ha res més, es deixa i es reporta.
+- **Neteja del cos**: només s'eliminen seccions el títol de les quals coincideix amb un camp relació de l'esquema (sense `📀`) i el contingut és exclusivament bullets-wikilink o línies buides; si hi ha res més, es deixa i es reporta. El bloc es captura fins al **següent heading (o EOF)**: si conté qualsevol altra cosa, la secció es conserva SENCERA (heading inclòs) — mai deixar text orfe sense el seu heading (lliçó: la primera versió capturava només bullets consecutius i hauria orfanat el text posterior).
+- **`--limit` del script de migració**: limita només les files processades; el mapa id→títol es construeix SEMPRE sencer (les relacions creuen taules i fitxers).
 - L'únic generador històric de les seccions del cos era `pipeline/legacy/import/notion/notion_to_gnosi_full_import.py` (línia ~952); si es reactiva mai, ha d'escriure el format nou i NO seccions al cos.
 
 ## Migració
 Script idempotent `pipeline/sandbox/migrate_relation_wikilinks.py`: (1) primera passada construeix id→títol de totes les files de BD; (2) decora els camps `📀` de cada fila; (3) elimina les seccions llegades del cos segons la regla d'exactitud; `--dry-run` per defecte, còpia de seguretat dels fitxers canviats abans d'aplicar, informe final de comptes. OneDrive: la lectura des del host hidrata fitxers online-only (lent però segur).
+
+**Estat: APLICADA el 2026-06-11 22:46** — 942 fitxers reescrits (decoració del frontmatter + neteja de seccions). Backup a `pipeline/sandbox/backups/relation_migration_20260611_224609/`; com que `sandbox/` és gitignored, el backup i el script només viuen al Mac on es va executar. Re-executar és segur: el dry-run del 2026-06-12 va donar 0 canvis pendents, 0 seccions llegades restants sota `BD/`, i l'API serveix ids nets (strip viu verificat).
+
+**Romanent conegut (NO és cap error)**: 1.297 ítems de relació (487 ids distints) queden com a id nu perquè són **relacions penjades de l'import de Notion**: ids mai remapejats (patró `…268e5-2714-80…`), sense fila destí ni sota `BD/` ni a l'app (API 404). Camps més afectats: `📀 Tasca` (215), `📀 Recursos` (189), `📀 Tasques` (188), `📀 Font` (185), `📀 Projecte` (133), `📀 Enllaçat per` (123). No hi ha títol possible a decorar. Purgar aquests ids de les llistes és una decisió INDEPENDENT (esborra referències, encara que penjades) i demana revisió explícita de l'usuari.
 
 ## QA
 - pytest del round-trip (strip/decorate, fallbacks, camps no-relació intactes).
