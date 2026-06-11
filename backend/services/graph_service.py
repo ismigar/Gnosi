@@ -9,6 +9,7 @@ from pathlib import Path
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from backend.config.app_config import load_params
+from backend.services.relation_links import strip_relation_wikilinks
 
 try:
     import igraph as ig  # type: ignore
@@ -147,6 +148,10 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
         body = content[match.end():]
         try:
             metadata = yaml.safe_load(yaml_content) or {}
+            # Camps de relació decorats ('[[Títol|id]]') → ids nets, com fa
+            # el parse_frontmatter de vault_routes. Sense això, les arestes
+            # de relació del graf compararien wikilinks amb ids.
+            metadata = strip_relation_wikilinks(metadata)
             return metadata, body
         except Exception as e:
             location = f" in {file_path}" if file_path else ""

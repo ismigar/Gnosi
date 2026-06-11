@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional, Set, Tuple
 from simpleeval import SimpleEval, NameNotDefined
 
 from backend.services.path_resolver import path_resolver
+from backend.services.relation_links import strip_relation_wikilinks
 
 log = logging.getLogger(__name__)
 
@@ -750,7 +751,9 @@ class RuleEngine:
         match = re.match(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
         if match:
             try:
-                return yaml.safe_load(match.group(1)) or {}
+                # Lookups/rollups segueixen camps 📀 d'altres files: cal
+                # despullar '[[Títol|id]]' → id, com fa parse_frontmatter.
+                return strip_relation_wikilinks(yaml.safe_load(match.group(1)) or {})
             except Exception:
                 return {}
         return {}

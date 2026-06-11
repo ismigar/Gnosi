@@ -64,6 +64,12 @@ from backend.services.workspace_service import get_workspace_context, require_ro
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 
 from backend.services.context_vars import get_active_vault_path
+from backend.services.relation_links import (
+    RELATION_WIKILINK_RE,
+    TITLE_ONLY_WIKILINK_RE,
+    decorate_relation_wikilinks,
+    strip_relation_wikilinks,
+)
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.media_service import media_service
 from backend.services.files_provider import get_files_provider
@@ -1033,6 +1039,7 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
         try:
             metadata = yaml.safe_load(yaml_content) or {}
             metadata = apply_sidecar_to(metadata, file_path)
+            metadata = strip_relation_wikilinks(metadata)
             return metadata, body
         except yaml.YAMLError as e:
             fallback_metadata = _parse_frontmatter_fallback(yaml_content)
@@ -1042,6 +1049,7 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
                     f"Malformed YAML frontmatter{location}; applying rescue parsing"
                 )
                 fallback_metadata = apply_sidecar_to(fallback_metadata, file_path)
+                fallback_metadata = strip_relation_wikilinks(fallback_metadata)
                 return fallback_metadata, body
             location = f" in {file_path}" if file_path else ""
             # malformed YAML is annoying but not fatal; debug instead of error
@@ -1120,6 +1128,41 @@ def generate_frontmatter(metadata: dict) -> str:
     return f"---\n{yaml_str}---\n"
 
 
+def _link_index_title_for(page_id: str) -> Optional[str]:
+    """Títol ACTUAL d'una pàgina segons l'índex d'enllaços, si està calent.
+
+    No construeix mai l'índex (una desada no s'ha de bloquejar per un escaneig
+    del vault): amb l'índex fred retorna None i la decoració de relacions
+    degrada a id nu. Vegeu relation_wikilinks_frontmatter.md.
+    """
+    pid = str(page_id or "").strip()
+    if not pid or not _link_index_built:
+        return None
+    with _link_index_lock:
+        meta = _page_meta_by_id.get(pid) or {}
+    title = str(meta.get("title") or "").strip()
+    return title or None
+
+
+def _link_index_unique_id_for_title(title: str) -> Optional[str]:
+    """Resol un títol a l'id de pàgina NOMÉS si el match és únic.
+
+    S'usa per canonicalitzar `[[Títol]]` deixat per una edició manual (p. ex.
+    Obsidian) en un camp de relació. O(n) sobre l'índex en memòria, però
+    només s'invoca per a ítems sense àlies — el camí normal no hi passa.
+    """
+    wanted = str(title or "").strip().lower()
+    if not wanted or not _link_index_built:
+        return None
+    with _link_index_lock:
+        matches = [
+            pid
+            for pid, meta in _page_meta_by_id.items()
+            if str((meta or {}).get("title") or "").strip().lower() == wanted
+        ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
     """Escriu una pàgina .md amb separació frontmatter / sidecar.
 
@@ -1191,6 +1234,7 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
                 f"disc; assignat id nou {_new_id} per no corrompre. Investigar el caller."
             )
 
+    _table = None
     try:
         _tid = get_table_id(metadata)
         if _tid:
@@ -1199,6 +1243,22 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
                 metadata, _ = to_storage_names(metadata, _table)
     except Exception as e:  # defensiu: una fallada de resolució no ha de bloquejar l'escriptura
         log.debug(f"to_storage_names ha fallat per {file_path}: {e}")
+    try:
+        _relation_keys = None
+        if _table:
+            _relation_keys = {
+                p.get("name")
+                for p in (_table.get("properties") or [])
+                if p.get("type") == "relation" and p.get("name")
+            }
+        metadata = decorate_relation_wikilinks(
+            metadata,
+            relation_keys=_relation_keys,
+            id_to_title=_link_index_title_for,
+            title_to_id=_link_index_unique_id_for_title,
+        )
+    except Exception as e:  # defensiu: mai bloquejar una desada per la decoració
+        log.debug(f"decoració de relacions ha fallat per {file_path}: {e}")
     fm_meta = persist_sidecar_from(metadata, file_path)
     if not fm_meta:
         frontmatter = "---\n---\n"
@@ -9105,6 +9165,18 @@ def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
             return
         text = str(value).strip()
         if not text:
+            return
+        # Valors de relació decorats ('[[Títol|id]]'): indexar id i títol,
+        # no la cadena literal (defensa per a callers que no despullen).
+        m = RELATION_WIKILINK_RE.match(text)
+        if m:
+            _add(m.group("rid"))
+            if m.group("title"):
+                _add(m.group("title"))
+            return
+        m = TITLE_ONLY_WIKILINK_RE.match(text)
+        if m:
+            _add(m.group("title"))
             return
         norm = _normalize_ref_for_index(text)
         if norm:
