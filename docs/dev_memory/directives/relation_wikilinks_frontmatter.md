@@ -31,7 +31,13 @@ Script idempotent `pipeline/sandbox/migrate_relation_wikilinks.py`: (1) primera 
 
 **Estat: APLICADA el 2026-06-11 22:46** — 942 fitxers reescrits (decoració del frontmatter + neteja de seccions). Backup a `pipeline/sandbox/backups/relation_migration_20260611_224609/`; com que `sandbox/` és gitignored, el backup i el script només viuen al Mac on es va executar. Re-executar és segur: el dry-run del 2026-06-12 va donar 0 canvis pendents, 0 seccions llegades restants sota `BD/`, i l'API serveix ids nets (strip viu verificat).
 
-**Romanent conegut (NO és cap error)**: 1.297 ítems de relació (487 ids distints) queden com a id nu perquè són **relacions penjades de l'import de Notion**: ids mai remapejats (patró `…268e5-2714-80…`), sense fila destí ni sota `BD/` ni a l'app (API 404). Camps més afectats: `📀 Tasca` (215), `📀 Recursos` (189), `📀 Tasques` (188), `📀 Font` (185), `📀 Projecte` (133), `📀 Enllaçat per` (123). No hi ha títol possible a decorar. Purgar aquests ids de les llistes és una decisió INDEPENDENT (esborra referències, encara que penjades) i demana revisió explícita de l'usuari.
+**Romanent PURGAT el 2026-06-12 00:19** (decisió aprovada per l'usuari): els 1.297 ítems de relació penjats de l'import de Notion (487 ids distints sense fila destí) es van eliminar de les llistes `📀` amb `pipeline/sandbox/purge_dangling_relations.py`. Resultat: 406 fitxers reescrits, 623 llistes queden `[]`, 186 escalars buidats a `''`, **0 ítems amb títol tocats** (els wikilinks decorats vius queden intactes). Backup a `pipeline/sandbox/backups/relation_purge_20260612_001930/` (amb `purged_ids.txt`) i informes JSON a `pipeline/sandbox/reports/` — com el de migració, només al Mac on es va executar (sandbox gitignored). Re-executar és segur: el dry-run posterior dona 0 canvis. QA: API d'una fila purgada serveix només ids vius; taula i pàgina a la UI sense cap uuid cru (xips amb títol o «Vacío»).
+
+Restriccions apreses del script de purga:
+- **Criteri de purga = re-verificació EN EL MOMENT d'executar**, mai una llista antiga: id sense fila local sota `BD/` **i** `GET /api/vault/pages/<id>` → 404 ara mateix; qualsevol altra resposta (200, 5xx, timeout) conserva l'ítem.
+- **Sanity check obligatori abans de verificar res**: un id viu conegut ha de donar 200 i un id sintètic 404; si no, avortar sense tocar res. Protegeix del mode «vault dataless» (incident del warmup daemon), en què el backend respon 404 per a TOT i una purga cega esborraria relacions vives.
+- El patró `…268e5-2714-80…` era anecdòtic: només 99 dels 487 ids morts el contenien (la resta són uuid v4 normals). No filtrar mai per patró; el patró només serveix per llistar candidats «atípics» a l'informe del dry-run.
+- Ids no-uuid possibles (stems llegats) → URL-encodar el path segment a la crida API (`quote(rid, safe='')`).
 
 ## QA
 - pytest del round-trip (strip/decorate, fallbacks, camps no-relació intactes).
