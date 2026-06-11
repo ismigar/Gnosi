@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gnosi-dist-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "monorepo/apps/gnosi/frontend/dist"],
+      "port": 8765
+    }
+  ]
+}
