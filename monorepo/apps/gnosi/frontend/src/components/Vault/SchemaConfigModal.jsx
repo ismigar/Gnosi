@@ -1314,6 +1314,46 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
+    // Scroll amb teclat encara que el focus hagi marxat del cos scrollable. El
+    // navegador només scrolla l'ancestre scrollable de l'element ENFOCAT: el
+    // focus inicial a scrollRef cobreix l'obertura, però un clic a la
+    // capçalera, al marc del modal o al backdrop deixa el focus al <body>
+    // (verificat amb clics reals) i llavors les fletxes no van enlloc, perquè
+    // el document té overflow hidden. Aquests keydown NO bombollegen per
+    // modalRef (el body no n'és descendent): cal escoltar a document. Es
+    // deixen estar els controls de formulari (les fletxes hi tenen semàntica
+    // pròpia) i tot el que ja és DINS del cos scrollable (allà el scroll
+    // natiu funciona, i dnd-kit hi gestiona les seves tecles). L'espai
+    // s'omet expressament: activa botons i el drag de teclat de dnd-kit.
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e) => {
+            if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+            const main = scrollRef.current;
+            if (!main) return;
+            const t = e.target;
+            const focusAlBody = t === document.body || t === document.documentElement;
+            const dinsDelModal = t instanceof Element && modalRef.current?.contains(t);
+            if (!focusAlBody && !dinsDelModal) return; // p.ex. un ConfirmModal niat per sobre
+            if (dinsDelModal && main.contains(t)) return; // el scroll natiu ja respon
+            if (dinsDelModal && t.closest('input, textarea, select, [contenteditable="true"]')) return;
+            const pagina = main.clientHeight * 0.9;
+            const salts = { ArrowDown: 48, ArrowUp: -48, PageDown: pagina, PageUp: -pagina };
+            if (e.key in salts) {
+                main.scrollBy({ top: salts[e.key] });
+            } else if (e.key === 'Home') {
+                main.scrollTo({ top: 0 });
+            } else if (e.key === 'End') {
+                main.scrollTo({ top: main.scrollHeight });
+            } else {
+                return;
+            }
+            e.preventDefault();
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    }, [isOpen]);
+
     // Fix scroll (Mac+Chrome): els <select>/<input>/<textarea> natius absorbeixen
     // el wheel quan el cursor hi és a sobre i el cos del modal no scrolleja. Com
     // que aquest modal és ple de controls (camps + mapping de Drupal), redirigim
