@@ -32,6 +32,7 @@
   --bg-tertiary: #f3f4f6;
   --text-primary: #111827;
   --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
   --border-primary: #e5e7eb;
   --gnosi-blue: #3b82f6;
   
@@ -99,6 +100,7 @@
   --bg-tertiary: #27272a;
   --text-primary: #f4f4f5;
   --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
   --border-primary: #27272a;
 
   /* Sidebar Dark */
@@ -207,7 +209,9 @@ body {
     font-weight: 600;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar — colors del tema perquè el thumb contrasti en clar i en
+   fosc (abans era #27272a fix: quasi invisible sobre fons fosc). L'amplada es
+   manté a 8px per no moure el layout. */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -218,12 +222,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--text-tertiary);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--text-secondary);
 }
 
 /* Utility for hiding scrollbars (after global rules to ensure override) */
@@ -257,9 +261,20 @@ body {
 .gnosi-modal-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
-.gnosi-modal-scroll {
-  scrollbar-width: auto; /* Firefox: barra estàndard (no thin) */
-  scrollbar-color: var(--text-tertiary) var(--bg-secondary);
+
+/* Firefox: scrollbars amb colors del tema via la propietat estàndard.
+   Va dins d'un @supports només-Firefox expressament: scrollbar-color és
+   heretada i, a Chrome ≥121, qualsevol valor diferent d'auto fa que el
+   navegador IGNORI els estils ::-webkit-scrollbar (es perdrien els 8px
+   globals i el thumb ample de .gnosi-modal-scroll). */
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-color: var(--text-tertiary) transparent;
+  }
+  .gnosi-modal-scroll {
+    scrollbar-width: auto; /* barra estàndard (no thin), més fàcil d'agafar */
+    scrollbar-color: var(--text-tertiary) var(--bg-secondary);
+  }
 }
 
 /* Close Button Unification */
