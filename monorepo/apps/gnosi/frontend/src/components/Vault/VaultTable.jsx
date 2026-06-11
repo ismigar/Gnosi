@@ -1980,6 +1980,18 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     useEffect(() => {
         const onKey = (e) => {
+            // No segrestar tecles que no són per a la graella. Sense aquests
+            // guards, amb una cel·la activa i un modal obert a sobre, cada
+            // fletxa movia el cursor sota el modal i el preventDefault matava
+            // el scroll natiu del modal; i una lletra o ⌫ amb focus al <body>
+            // editava o buidava cel·les invisiblement (pèrdua de dades).
+            if (e.defaultPrevented) return; // ja gestionada aigües amunt (p.ex. scroll del modal)
+            if (document.body.classList.contains('gnosi-modal-open')) return;
+            const t = e.target;
+            // Tecles originades fora de la taula (focus dins d'un modal, el
+            // sidebar…): no són nostres. El <body> sí (la navegació normal de
+            // cel·les no deixa el focus dins del contenidor: files virtuals).
+            if (t instanceof Element && t !== document.body && tableContainerRef.current && !tableContainerRef.current.contains(t)) return;
             const cell = activeCellRef.current;
             if (!cell || editingCellRef.current) return;
             const el = document.activeElement;

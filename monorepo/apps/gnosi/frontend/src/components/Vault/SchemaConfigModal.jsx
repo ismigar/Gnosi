@@ -1314,6 +1314,18 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
+    // Bandera global mentre el modal és obert: VaultTable la mira per
+    // desactivar la navegació de cel·les de la graella. Sense això, amb una
+    // cel·la activa, el handler de la graella (a window) es quedava CADA
+    // fletxa (movia el cursor sota el modal i el preventDefault matava el
+    // scroll natiu del cos) i, amb focus al <body>, una lletra o ⌫ editava o
+    // buidava cel·les a cegues sota el modal.
+    useEffect(() => {
+        if (!isOpen) return;
+        document.body.classList.add('gnosi-modal-open');
+        return () => document.body.classList.remove('gnosi-modal-open');
+    }, [isOpen]);
+
     // Scroll amb teclat sempre viu dins del modal. El navegador només scrolla
     // l'ancestre scrollable de l'element ENFOCAT, i aquí el focus es perd
     // contínuament: un clic a la capçalera/marc/backdrop el deixa al <body>
@@ -1329,7 +1341,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     //  - nanses de dnd-kit ([aria-roledescription]): no es toca res, que el
     //    drag amb teclat (Espai + fletxes) és seu — per això l'espai tampoc
     //    no es gestiona enlloc (activa botons);
-    //  - resta d'elements dins del cos scrollable: scroll natiu (no dupliquem);
+    //  - resta (cos scrollable inclòs): scrollem NOSALTRES amb preventDefault.
+    //    No deleguem mai al scroll natiu: verificat en viu que, fins i tot amb
+    //    el focus al cos i l'event net de preventDefault, Chrome no scrollava
+    //    (i amb el nostre preventDefault, mai no hi pot haver scroll doble);
     //  - focus en un altre overlay (ConfirmModal niat): no es toca res.
     useEffect(() => {
         if (!isOpen) return;
@@ -1342,6 +1357,13 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             const focusAlBody = t === document.body || t === document.documentElement;
             const dinsDelModal = t instanceof Element && modalRef.current?.contains(t);
             if (!focusAlBody && !dinsDelModal) return;
+            // Esc amb focus al <body> (clic a la cromada): el listener d'Esc de
+            // modalRef no veu aquests events (no hi bombollegen). Pels de dins
+            // del modal no passem mai d'aquí: aquell listener fa stopPropagation.
+            if (e.key === 'Escape' && focusAlBody) {
+                onClose();
+                return;
+            }
             if (dinsDelModal && t.closest('[aria-roledescription]')) return; // nansa dnd-kit
             let nomesVerticals = false;
             const control = dinsDelModal ? t.closest('select, textarea, input, [contenteditable="true"]') : null;
@@ -1349,8 +1371,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 const esInputDeText = control.tagName === 'INPUT' && !FLETXES_DEL_CONTROL.has(control.type);
                 if (!esInputDeText) return;
                 nomesVerticals = true; // Home/End queden per al caret
-            } else if (dinsDelModal && main.contains(t)) {
-                return; // element normal dins del cos: el scroll natiu ja respon
             }
             const pagina = main.clientHeight * 0.9;
             const salts = { ArrowDown: 48, ArrowUp: -48, PageDown: pagina, PageUp: -pagina };
@@ -1367,6 +1387,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         };
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     // Fix scroll (Mac+Chrome): els <select>/<input>/<textarea> natius absorbeixen
