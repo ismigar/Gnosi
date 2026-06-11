@@ -1314,36 +1314,51 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
-    // Scroll amb teclat encara que el focus hagi marxat del cos scrollable. El
-    // navegador només scrolla l'ancestre scrollable de l'element ENFOCAT: el
-    // focus inicial a scrollRef cobreix l'obertura, però un clic a la
-    // capçalera, al marc del modal o al backdrop deixa el focus al <body>
-    // (verificat amb clics reals) i llavors les fletxes no van enlloc, perquè
-    // el document té overflow hidden. Aquests keydown NO bombollegen per
-    // modalRef (el body no n'és descendent): cal escoltar a document. Es
-    // deixen estar els controls de formulari (les fletxes hi tenen semàntica
-    // pròpia) i tot el que ja és DINS del cos scrollable (allà el scroll
-    // natiu funciona, i dnd-kit hi gestiona les seves tecles). L'espai
-    // s'omet expressament: activa botons i el drag de teclat de dnd-kit.
+    // Scroll amb teclat sempre viu dins del modal. El navegador només scrolla
+    // l'ancestre scrollable de l'element ENFOCAT, i aquí el focus es perd
+    // contínuament: un clic a la capçalera/marc/backdrop el deixa al <body>
+    // (i aquells keydown ni bombollegen per modalRef: per això el listener va
+    // a document), i un clic "a dins" gairebé sempre cau en un camp, que es
+    // queda el focus. Política segons on és el focus:
+    //  - body o cromada del modal: totes les tecles de scroll, també Home/End;
+    //  - inputs de text (el gruix del modal): fletxes i Re/Av Pàg scrollegen
+    //    (amb preventDefault el caret no es mou), però Home/End i les tecles
+    //    amb Maj (selecció) queden per al caret; els tipus d'input on les
+    //    fletxes SÍ fan feina (number, date, radio…) no es toquen;
+    //  - select, textarea i contenteditable: no es toca res (semàntica pròpia);
+    //  - nanses de dnd-kit ([aria-roledescription]): no es toca res, que el
+    //    drag amb teclat (Espai + fletxes) és seu — per això l'espai tampoc
+    //    no es gestiona enlloc (activa botons);
+    //  - resta d'elements dins del cos scrollable: scroll natiu (no dupliquem);
+    //  - focus en un altre overlay (ConfirmModal niat): no es toca res.
     useEffect(() => {
         if (!isOpen) return;
+        const FLETXES_DEL_CONTROL = new Set(['number', 'range', 'date', 'time', 'datetime-local', 'month', 'week', 'radio']);
         const handler = (e) => {
-            if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
             const main = scrollRef.current;
             if (!main) return;
             const t = e.target;
             const focusAlBody = t === document.body || t === document.documentElement;
             const dinsDelModal = t instanceof Element && modalRef.current?.contains(t);
-            if (!focusAlBody && !dinsDelModal) return; // p.ex. un ConfirmModal niat per sobre
-            if (dinsDelModal && main.contains(t)) return; // el scroll natiu ja respon
-            if (dinsDelModal && t.closest('input, textarea, select, [contenteditable="true"]')) return;
+            if (!focusAlBody && !dinsDelModal) return;
+            if (dinsDelModal && t.closest('[aria-roledescription]')) return; // nansa dnd-kit
+            let nomesVerticals = false;
+            const control = dinsDelModal ? t.closest('select, textarea, input, [contenteditable="true"]') : null;
+            if (control) {
+                const esInputDeText = control.tagName === 'INPUT' && !FLETXES_DEL_CONTROL.has(control.type);
+                if (!esInputDeText) return;
+                nomesVerticals = true; // Home/End queden per al caret
+            } else if (dinsDelModal && main.contains(t)) {
+                return; // element normal dins del cos: el scroll natiu ja respon
+            }
             const pagina = main.clientHeight * 0.9;
             const salts = { ArrowDown: 48, ArrowUp: -48, PageDown: pagina, PageUp: -pagina };
             if (e.key in salts) {
                 main.scrollBy({ top: salts[e.key] });
-            } else if (e.key === 'Home') {
+            } else if (e.key === 'Home' && !nomesVerticals) {
                 main.scrollTo({ top: 0 });
-            } else if (e.key === 'End') {
+            } else if (e.key === 'End' && !nomesVerticals) {
                 main.scrollTo({ top: main.scrollHeight });
             } else {
                 return;
