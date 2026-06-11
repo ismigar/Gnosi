@@ -1358,7 +1358,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     </button>
                 </div>
 
-                <div ref={scrollRef} tabIndex={-1} className="p-6 overflow-y-auto flex-1 bg-[var(--bg-primary)] outline-none">
+                <div ref={scrollRef} tabIndex={-1} className="gnosi-modal-scroll p-6 overflow-y-auto flex-1 bg-[var(--bg-primary)] outline-none">
                     <div className="bg-[var(--bg-secondary)] p-4 rounded-lg border border-[var(--border-primary)] shadow-sm mb-6 space-y-4">
                         <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                             <Layers size={16} className="text-[var(--gnosi-primary)]" />
