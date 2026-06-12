@@ -7,6 +7,13 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
+import {
+    OPTION_COLOR_PALETTE,
+    normalizeOption,
+    normalizeOptions,
+    optionColorHex,
+    seedOptionsForFeature,
+} from './optionCatalogUtils';
 import { ConfirmModal } from '../ConfirmModal';
 import { useTranslation } from 'react-i18next';
 
@@ -55,13 +62,15 @@ const BUTTON_ACTIONS = [
 const OPTION_FIELD_TYPES = new Set(['select', 'multi_select', 'status']);
 
 // Una fila d'opció dins de l'OptionsEditor. El rename es confirma onBlur/Enter
-// (no a cada tecla) perquè la cadena segueixi sent un id estable per al drag —
+// (no a cada tecla) perquè el nom segueixi sent un id estable per al drag —
 // així no apareixen ids duplicats transitoris mentre s'escriu.
-function SortableOptionRow({ option, onRename, onRemove }) {
+function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, onRename, onRemove, onSetColor, onSetGroup, onSetDefault }) {
     const { t } = useTranslation();
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: option });
-    const [draft, setDraft] = useState(option);
-    useEffect(() => { setDraft(option); }, [option]);
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: option.name });
+    // La fila es remunta per key={option.name} quan l'opció es renombra, així
+    // que el draft no necessita cap efecte de sincronització.
+    const [draft, setDraft] = useState(option.name);
+    const [paletteOpen, setPaletteOpen] = useState(false);
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -72,19 +81,41 @@ function SortableOptionRow({ option, onRename, onRemove }) {
 
     const commit = () => {
         const next = draft.trim();
-        if (!next || next === option) { setDraft(option); return; }
-        onRename(option, next);
+        if (!next || next === option.name) { setDraft(option.name); return; }
+        onRename(option.name, next);
     };
 
     return (
         <div
             ref={setNodeRef}
             style={style}
-            className={`flex items-center gap-2 rounded-lg border bg-[var(--bg-primary)] px-2 py-1 transition-colors ${isDragging ? 'border-[var(--gnosi-primary)] shadow-md' : 'border-[var(--border-primary)]'}`}
+            className={`relative flex items-center gap-2 rounded-lg border bg-[var(--bg-primary)] px-2 py-1 transition-colors ${isDragging ? 'border-[var(--gnosi-primary)] shadow-md' : 'border-[var(--border-primary)]'}`}
         >
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]">
                 <GripVertical size={14} />
             </div>
+            {/* Color de l'opció: punt clicable que obre la paleta. */}
+            <button
+                type="button"
+                onClick={() => setPaletteOpen((v) => !v)}
+                className="shrink-0 w-4 h-4 rounded-full border border-black/10 hover:scale-110 transition-transform"
+                style={{ backgroundColor: optionColorHex(option.color) }}
+                title={t('schema.option_color', "Color de l'opció")}
+            />
+            {paletteOpen && (
+                <div className="absolute left-8 top-7 z-50 flex gap-1 p-1.5 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg">
+                    {OPTION_COLOR_PALETTE.map((c) => (
+                        <button
+                            key={c}
+                            type="button"
+                            onClick={() => { onSetColor(option.name, c); setPaletteOpen(false); }}
+                            className={`w-4 h-4 rounded-full border ${option.color === c ? 'ring-2 ring-[var(--gnosi-primary)] ring-offset-1' : 'border-black/10'}`}
+                            style={{ backgroundColor: optionColorHex(c) }}
+                            title={c}
+                        />
+                    ))}
+                </div>
+            )}
             <input
                 type="text"
                 value={draft}
@@ -92,13 +123,40 @@ function SortableOptionRow({ option, onRename, onRemove }) {
                 onBlur={commit}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') { e.preventDefault(); commit(); e.currentTarget.blur(); }
-                    if (e.key === 'Escape') { e.stopPropagation(); setDraft(option); e.currentTarget.blur(); }
+                    if (e.key === 'Escape') { e.stopPropagation(); setDraft(option.name); e.currentTarget.blur(); }
                 }}
                 className="flex-1 min-w-0 bg-transparent text-sm text-[var(--text-primary)] outline-none border-none focus:ring-0"
             />
+            {typeof usageCount === 'number' && (
+                <span
+                    className="shrink-0 text-[10px] tabular-nums text-[var(--text-tertiary)]/70"
+                    title={t('schema.option_usage', { count: usageCount, defaultValue: '{{count}} registres usen aquesta opció' })}
+                >
+                    {usageCount}
+                </span>
+            )}
+            {fieldType === 'status' && (
+                <select
+                    value={option.group || ''}
+                    onChange={(e) => onSetGroup(option.name, e.target.value)}
+                    className="shrink-0 text-[10px] border border-[var(--border-primary)] rounded px-1 py-0.5 bg-[var(--bg-secondary)] text-[var(--text-secondary)] outline-none"
+                    title={t('schema.option_group', 'Grup')}
+                >
+                    <option value="">{t('schema.option_group_none', '— grup —')}</option>
+                    {groups.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+            )}
             <button
                 type="button"
-                onClick={() => onRemove(option)}
+                onClick={() => onSetDefault(isDefault ? '' : option.name)}
+                className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border transition-colors ${isDefault ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'border-transparent text-[var(--text-tertiary)]/50 hover:text-[var(--text-secondary)]'}`}
+                title={t('schema.option_default_hint', "Opció per defecte en crear un registre")}
+            >
+                {t('schema.option_default', 'defecte')}
+            </button>
+            <button
+                type="button"
+                onClick={() => onRemove(option.name)}
                 className="btn-gnosi-danger !p-1"
                 title={t('common.delete', 'Elimina')}
             >
@@ -108,45 +166,210 @@ function SortableOptionRow({ option, onRename, onRemove }) {
     );
 }
 
+// Diàleg d'eliminació d'una opció amb dues sortides: buidar els valors o
+// REASSIGNAR-los a una altra opció (estil Notion). Sempre amb confirmació
+// (mai destructiu a la primera pulsació) i portal a body, fora del modalRef
+// del pare, perquè l'Esc no tanqui tota la configuració.
+function RemoveOptionDialog({ state, options, onCancel, onConfirm }) {
+    const { t } = useTranslation();
+    // El pare remunta el diàleg per key a cada obertura: useState arrenca net.
+    const [reassignTo, setReassignTo] = useState('');
+    if (!state.isOpen) return null;
+    const others = options.filter((o) => o.name !== state.value);
+    return createPortal(
+        <div
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel(); } }}
+        >
+            <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl w-full max-w-md p-5 animate-in zoom-in-95 duration-150">
+                <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">
+                    {t('schema.confirm_remove_option_title', 'Eliminar opció')}
+                </h3>
+                <p className="text-sm text-[var(--text-secondary)] mb-3">
+                    {typeof state.usageCount === 'number' && state.usageCount > 0
+                        ? t('schema.remove_option_in_use', { name: state.value, count: state.usageCount, defaultValue: "L'opció «{{name}}» l'usen {{count}} registres. Què en fem, dels seus valors?" })
+                        : t('schema.remove_option_unused', { name: state.value, defaultValue: "Segur que vols eliminar l'opció «{{name}}»?" })}
+                </p>
+                {state.protectedReason && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
+                        {state.protectedReason}
+                    </p>
+                )}
+                {others.length > 0 && (
+                    <label className="flex items-center gap-2 mb-4 text-sm text-[var(--text-secondary)]">
+                        {t('schema.remove_option_reassign', 'Reassignar a')}
+                        <select
+                            value={reassignTo}
+                            onChange={(e) => setReassignTo(e.target.value)}
+                            className="flex-1 text-sm border border-[var(--border-primary)] rounded-md px-2 py-1 bg-[var(--bg-secondary)] text-[var(--text-primary)] outline-none"
+                        >
+                            <option value="">{t('schema.remove_option_clear', '— buidar els valors —')}</option>
+                            {others.map((o) => <option key={o.name} value={o.name}>{o.name}</option>)}
+                        </select>
+                    </label>
+                )}
+                <div className="flex justify-end gap-2">
+                    <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors">
+                        {t('common.cancel', 'Cancel·lar')}
+                    </button>
+                    <button type="button" onClick={() => onConfirm(reassignTo || null)} className="btn-gnosi-danger px-3 py-1.5 text-sm rounded-md">
+                        {t('schema.confirm_remove_option_confirm', 'Eliminar')}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
+// Estats que les action_rules escriuen o comproven: en eliminar-los, la UI
+// avisa (el motor els recrearia sol si una regla els necessita — §4.1.5).
+const RULE_PROTECTED_OPTIONS = new Set([
+    'Esborrany', 'Traduït', 'Publicat a Drupal', 'Publicat a XXSS',
+]);
+
 // Editor del catàleg d'opcions d'un camp select/multi_select/status. Afegir,
-// reanomenar, eliminar i reordenar (drag). Viu en un DndContext propi, niat
-// dins del de camps; cada draggable té el seu grip, així no es solapen.
-function OptionsEditor({ options = [], onChange }) {
+// reanomenar (amb reescriptura eager de les files al servidor), eliminar amb
+// buidat o reassignació, reordenar (drag), color per opció, grup (status) i
+// opció per defecte. Viu en un DndContext propi, niat dins del de camps.
+function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }) {
     const { t } = useTranslation();
     const [newOption, setNewOption] = useState('');
-    const [confirmRemove, setConfirmRemove] = useState({ isOpen: false, value: null });
+    const [usage, setUsage] = useState(null); // {nom: recompte} o null mentre carrega
+    const [confirmRemove, setConfirmRemove] = useState({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
+    // Amb catàleg compartit (config.catalog_ref), les opcions VIUEN al registry
+    // arrel i s'editen allà (totes les taules enllaçades les veuen). Sense, són
+    // locals del camp. Renombrar/eliminar arreu només està suportat per a
+    // catàlegs locals (la reescriptura de files és per-taula).
+    const isShared = Boolean(catalogRef);
+    const richOptions = normalizeOptions(isShared ? (sharedCatalogs[catalogRef] || []) : options);
+    const names = richOptions.map((o) => o.name);
+    const applyChange = (next) => {
+        if (isShared) optionTools?.updateSharedCatalog?.(catalogRef, next);
+        else onChange(next);
+    };
+
+    // Comptador d'ús per opció (servidor). Només si el camp ja existeix al
+    // registry (fieldId persistit); per a camps nous no hi ha res a comptar.
+    useEffect(() => {
+        let cancelled = false;
+        if (!optionTools?.fetchUsage || !fieldId) return undefined;
+        optionTools.fetchUsage(fieldId)
+            .then((counts) => { if (!cancelled) setUsage(counts || {}); })
+            .catch(() => { if (!cancelled) setUsage(null); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fieldId]);
 
     const addOption = () => {
         const v = newOption.trim();
-        if (!v || options.includes(v)) { setNewOption(''); return; }
-        onChange([...options, v]);
+        if (!v || names.includes(v)) { setNewOption(''); return; }
+        applyChange([...richOptions, normalizeOption(v)]);
         setNewOption('');
     };
 
     const renameOption = (oldVal, newVal) => {
-        if (options.includes(newVal)) return; // silenciós: no duplicar
-        onChange(options.map((o) => (o === oldVal ? newVal : o)));
+        if (names.includes(newVal)) return; // silenciós: no duplicar
+        if (isShared) {
+            // La reescriptura de files per a catàlegs compartits (multi-taula)
+            // encara no està suportada: renombrar deixaria valors orfes.
+            toast.error(t('schema.shared_catalog_rename_unsupported', 'Renombrar opcions d\'un catàleg compartit encara no està suportat.'));
+            return;
+        }
+        onChange(richOptions.map((o) => (o.name === oldVal ? { ...o, name: newVal } : o)));
+        if (defaultOption === oldVal) onDefaultOptionChange?.(newVal);
+        // Reescriptura eager dels .md afectats (els valors es guarden per nom):
+        // UNA crida al servidor, mai N PATCHes des del client.
+        optionTools?.renameEverywhere?.(fieldId, oldVal, newVal, usage?.[oldVal] ?? null);
+        if (usage && usage[oldVal] !== undefined) {
+            setUsage((u) => {
+                const next = { ...u };
+                next[newVal] = (next[newVal] || 0) + next[oldVal];
+                delete next[oldVal];
+                return next;
+            });
+        }
+    };
+
+    const setColor = (name, color) => {
+        applyChange(richOptions.map((o) => (o.name === name ? { ...o, color } : o)));
+    };
+
+    const setGroup = (name, group) => {
+        applyChange(richOptions.map((o) => {
+            if (o.name !== name) return o;
+            const next = { ...o };
+            if (group) next.group = group; else delete next.group;
+            return next;
+        }));
     };
 
     // Eliminar una opció la treu de TOTS els registres que la facin servir (no
-    // només del catàleg), per això demanem confirmació abans d'esborrar
-    // (accessibilitat: evita pèrdues de dades per clics accidentals).
-    const requestRemoveOption = (val) => setConfirmRemove({ isOpen: true, value: val });
-    const executeRemoveOption = () => {
-        if (confirmRemove.value !== null) onChange(options.filter((o) => o !== confirmRemove.value));
-        setConfirmRemove({ isOpen: false, value: null });
+    // només del catàleg) o els reassigna a una altra opció. Sempre amb
+    // confirmació (accessibilitat: mai destructiu a la primera pulsació).
+    const requestRemoveOption = (val) => {
+        if (isShared) {
+            toast.error(t('schema.shared_catalog_remove_unsupported', 'Eliminar opcions d\'un catàleg compartit encara no està suportat.'));
+            return;
+        }
+        setConfirmRemove({
+            isOpen: true,
+            value: val,
+            usageCount: usage ? (usage[val] || 0) : null,
+            protectedReason: RULE_PROTECTED_OPTIONS.has(val)
+                ? t('schema.remove_option_rule_warning', "Aquesta opció l'usen les regles d'acció (traduir/publicar); si una regla la necessita, es recrearà sola.")
+                : '',
+        });
+    };
+    const executeRemoveOption = (reassignTo) => {
+        const val = confirmRemove.value;
+        setConfirmRemove({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
+        if (val === null) return;
+        onChange(richOptions.filter((o) => o.name !== val));
+        if (defaultOption === val) onDefaultOptionChange?.('');
+        optionTools?.removeEverywhere?.(fieldId, val, reassignTo);
+        if (usage) {
+            setUsage((u) => {
+                const next = { ...u };
+                if (reassignTo && next[val]) next[reassignTo] = (next[reassignTo] || 0) + next[val];
+                delete next[val];
+                return next;
+            });
+        }
     };
 
     const handleDragEnd = ({ active, over }) => {
         if (active && over && active.id !== over.id) {
-            const oldIndex = options.indexOf(active.id);
-            const newIndex = options.indexOf(over.id);
-            if (oldIndex !== -1 && newIndex !== -1) onChange(arrayMove(options, oldIndex, newIndex));
+            const oldIndex = names.indexOf(active.id);
+            const newIndex = names.indexOf(over.id);
+            if (oldIndex !== -1 && newIndex !== -1) applyChange(arrayMove(richOptions, oldIndex, newIndex));
         }
+    };
+
+    // Vincular el camp a un catàleg compartit (o desvincular-lo). En
+    // desvincular, les opcions del catàleg es COPIEN com a locals perquè el
+    // camp no es quedi sense catàleg.
+    const handleCatalogLink = (value) => {
+        if (!onLinkCatalog) return;
+        if (value === '__create__') {
+            const name = window.prompt(t('schema.shared_catalog_new_prompt', 'Nom del nou catàleg compartit:'));
+            const clean = (name || '').trim();
+            if (!clean) return;
+            optionTools?.updateSharedCatalog?.(clean, richOptions);
+            onLinkCatalog(clean);
+            return;
+        }
+        if (!value && isShared) {
+            onChange(richOptions); // còpia local del catàleg compartit
+            onLinkCatalog('');
+            return;
+        }
+        if (value) onLinkCatalog(value);
     };
 
     return (
@@ -155,17 +378,29 @@ function OptionsEditor({ options = [], onChange }) {
             <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 flex items-center gap-1.5">
                     <Tag size={12} /> {t('schema.options_label', 'Opcions')}
+                    {catalogRef && (
+                        <span className="normal-case tracking-normal font-medium text-[var(--text-tertiary)]">
+                            · {t('schema.options_shared_catalog', { name: catalogRef, defaultValue: 'catàleg compartit «{{name}}»' })}
+                        </span>
+                    )}
                 </label>
-                {options.length > 0 ? (
+                {richOptions.length > 0 ? (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={options} strategy={verticalListSortingStrategy}>
+                        <SortableContext items={names} strategy={verticalListSortingStrategy}>
                             <div className="space-y-1.5">
-                                {options.map((opt) => (
+                                {richOptions.map((opt) => (
                                     <SortableOptionRow
-                                        key={opt}
+                                        key={opt.name}
                                         option={opt}
+                                        fieldType={fieldType}
+                                        groups={groups}
+                                        usageCount={usage ? (usage[opt.name] || 0) : undefined}
+                                        isDefault={defaultOption === opt.name}
                                         onRename={renameOption}
                                         onRemove={requestRemoveOption}
+                                        onSetColor={setColor}
+                                        onSetGroup={setGroup}
+                                        onSetDefault={(name) => onDefaultOptionChange?.(name)}
                                     />
                                 ))}
                             </div>
@@ -191,32 +426,47 @@ function OptionsEditor({ options = [], onChange }) {
                     <button
                         type="button"
                         onClick={addOption}
-                        disabled={!newOption.trim() || options.includes(newOption.trim())}
+                        disabled={!newOption.trim() || names.includes(newOption.trim())}
                         className="btn-gnosi btn-gnosi-primary !text-xs !py-1.5 !px-3 flex items-center gap-1 disabled:opacity-40"
                     >
                         <Plus size={14} /> {t('common.add', 'Afegir')}
                     </button>
                 </div>
+                {onLinkCatalog && (
+                    <div className="flex items-center gap-2 pt-1">
+                        <Link2 size={12} className="text-[var(--text-tertiary)]/60" />
+                        <label className="text-[10px] text-[var(--text-tertiary)]/80">
+                            {t('schema.shared_catalog_label', 'Catàleg')}
+                        </label>
+                        <select
+                            value={catalogRef || ''}
+                            onChange={(e) => handleCatalogLink(e.target.value)}
+                            className="text-[11px] border border-[var(--border-primary)] rounded px-1.5 py-0.5 bg-[var(--bg-secondary)] text-[var(--text-secondary)] outline-none"
+                            title={t('schema.shared_catalog_hint', 'Comparteix la mateixa llista d\'opcions entre taules: editar-la en un lloc l\'actualitza pertot.')}
+                        >
+                            <option value="">{t('schema.shared_catalog_own', 'Propi del camp')}</option>
+                            {Object.keys(sharedCatalogs).sort().map((name) => (
+                                <option key={name} value={name}>{name}</option>
+                            ))}
+                            <option value="__create__">{t('schema.shared_catalog_create', '+ Convertir en catàleg compartit…')}</option>
+                        </select>
+                    </div>
+                )}
             </div>
         </div>
-        {createPortal(
-            <ConfirmModal
-                isOpen={confirmRemove.isOpen}
-                onClose={() => setConfirmRemove({ isOpen: false, value: null })}
-                onConfirm={executeRemoveOption}
-                title={t('schema.confirm_remove_option_title', 'Eliminar opció')}
-                message={t('schema.confirm_remove_option_message', { name: confirmRemove.value, defaultValue: "Segur que vols eliminar l'opció «{{name}}»? S'eliminarà de tots els registres que la facin servir. Aquesta acció no es pot desfer." })}
-                confirmText={t('schema.confirm_remove_option_confirm', 'Eliminar')}
-                isDestructive={true}
-            />,
-            document.body
-        )}
+        <RemoveOptionDialog
+            key={confirmRemove.value ?? 'closed'}
+            state={confirmRemove}
+            options={richOptions}
+            onCancel={() => setConfirmRemove({ isOpen: false, value: null, usageCount: null, protectedReason: '' })}
+            onConfirm={executeRemoveOption}
+        />
         </>
     );
 }
 
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {} }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -690,6 +940,15 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 <OptionsEditor
                     options={field.options || []}
                     onChange={(opts) => handleUpdateField(idx, 'options', opts)}
+                    fieldType={field.type}
+                    groups={Array.isArray(field.rawConfig?.option_groups) && field.rawConfig.option_groups.length > 0 ? field.rawConfig.option_groups : ['Inicial', 'En curs', 'Final']}
+                    defaultOption={field.defaultOption || ''}
+                    onDefaultOptionChange={(name) => handleUpdateField(idx, 'defaultOption', name)}
+                    optionTools={optionTools}
+                    fieldId={field.id || ''}
+                    catalogRef={field.catalogRef || ''}
+                    sharedCatalogs={optionTools?.sharedCatalogs || {}}
+                    onLinkCatalog={(name) => handleUpdateField(idx, 'catalogRef', name)}
                 />
             )}
 
@@ -721,6 +980,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
     const [virtualComputers, setVirtualComputers] = useState([]);
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
     const [enableTranslation, setEnableTranslation] = useState(initialEnableTranslation);
+    // Catàlegs compartits d'opcions ({nom: [{name,color,group}…]}).
+    const [sharedCatalogs, setSharedCatalogs] = useState({});
     // Sincronització amb Drupal (config de taula; es persisteix al registre).
     const [enableDrupalSync, setEnableDrupalSync] = useState(initialEnableDrupalSync);
     const [drupalBundle, setDrupalBundle] = useState(initialDrupalBundle || '');
@@ -790,7 +1051,14 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                     button_action: cfg.button_action || '',
                     button_label: cfg.button_label || '',
                     format: (cfg.format && typeof cfg.format === 'object') ? cfg.format : {},
-                    options: Array.isArray(cfg.options) ? cfg.options : [],
+                    // Catàleg ric: normalitza strings llegats a {name,color,group}.
+                    options: normalizeOptions(cfg.options),
+                    defaultOption: cfg.default_option || '',
+                    catalogRef: cfg.catalog_ref || '',
+                    // Config CRU del registry: buildPayload hi arrenca per fer
+                    // round-trip de claus que la UI no gestiona (role,
+                    // option_groups…) — sense això, cada desat les esborrava.
+                    rawConfig: cfg,
                     visible: initialVisibleProperties ? initialVisibleProperties.includes(name) : true
                 };
             });
@@ -813,6 +1081,17 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 }
             };
             fetchTables();
+
+            // Catàlegs compartits d'opcions (registry arrel `option_catalogs`).
+            const fetchSharedCatalogs = async () => {
+                try {
+                    const response = await axios.get('/api/vault/option-catalogs');
+                    setSharedCatalogs(response.data?.catalogs || {});
+                } catch (err) {
+                    console.error('Error carregant catàlegs compartits:', err);
+                }
+            };
+            fetchSharedCatalogs();
 
             // Load virtual computers catalogue for "type: virtual" properties
             const fetchVirtualComputers = async () => {
@@ -887,6 +1166,70 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         setToggleConfirm({ isOpen: true, title, message, confirmText, onConfirm });
     };
 
+    // Eines de servidor per a l'editor d'opcions. Sense tableId (taula encara
+    // no persistida al registry) queden desactivades i tot el CRUD és local.
+    const optionTools = {
+        sharedCatalogs,
+        fetchUsage: tableId ? async (fieldId) => {
+            const res = await axios.get(`/api/vault/tables/${tableId}/options/usage`, { params: { field_id: fieldId } });
+            return res.data?.counts || {};
+        } : null,
+        renameEverywhere: tableId ? async (fieldId, oldVal, newVal) => {
+            if (!fieldId) return;
+            try {
+                const res = await axios.post(`/api/vault/tables/${tableId}/options/rename`, { field_id: fieldId, old: oldVal, new: newVal });
+                const n = res.data?.files_changed ?? 0;
+                if (n > 0) toast.success(t('schema.option_renamed', { count: n, defaultValue: '{{count}} registres actualitzats' }));
+            } catch (err) {
+                toast.error(err.response?.data?.detail || t('schema.option_rename_error', "No s'ha pogut renombrar l'opció als registres"));
+            }
+        } : null,
+        removeEverywhere: tableId ? async (fieldId, value, reassignTo) => {
+            if (!fieldId) return;
+            try {
+                const res = await axios.post(`/api/vault/tables/${tableId}/options/remove`, { field_id: fieldId, value, reassign_to: reassignTo || undefined });
+                const n = res.data?.files_changed ?? 0;
+                if (n > 0) toast.success(t('schema.option_removed_rows', { count: n, defaultValue: '{{count}} registres actualitzats' }));
+            } catch (err) {
+                toast.error(err.response?.data?.detail || t('schema.option_remove_error', "No s'ha pogut eliminar l'opció dels registres"));
+            }
+        } : null,
+        updateSharedCatalog: async (name, options) => {
+            try {
+                const res = await axios.put(`/api/vault/option-catalogs/${encodeURIComponent(name)}`, { options });
+                setSharedCatalogs((prev) => ({ ...prev, [name]: res.data?.options || options }));
+            } catch (err) {
+                toast.error(err.response?.data?.detail || t('schema.shared_catalog_save_error', "No s'ha pogut desar el catàleg compartit"));
+            }
+        },
+    };
+
+    // Seed-on-enable (mirall de ensure_status_seed del backend, per a UX
+    // immediata): en activar Traduir/Drupal/XXSS, el camp amb rol `status`
+    // rep les opcions base i la de la funcionalitat. El servidor ho torna a
+    // garantir en desar — això només estalvia esperar l'autosave+refetch.
+    const seedStatusOptions = (feature) => {
+        setFields((prev) => {
+            const isStatusField = (f) =>
+                OPTION_FIELD_TYPES.has(f.type) && f.type !== 'multi_select' && (
+                    f.rawConfig?.role === 'status' ||
+                    ['estat', 'estado', 'status', 'state'].includes(String(f.name || '').trim().toLowerCase())
+                );
+            const idx = prev.findIndex(isStatusField);
+            if (idx === -1) return prev;
+            const f = prev[idx];
+            if (f.catalogRef) return prev;
+            const current = normalizeOptions(f.options);
+            const have = new Set(current.map((o) => o.name));
+            const additions = [...seedOptionsForFeature('base'), ...seedOptionsForFeature(feature)]
+                .filter((o) => !have.has(o.name));
+            if (additions.length === 0) return prev;
+            const next = [...prev];
+            next[idx] = { ...f, options: [...current, ...additions] };
+            return next;
+        });
+    };
+
     const handleToggleTranslation = (next) => {
         if (!next && enableTranslation && fields.some((f) => f.translatable)) {
             requestDisableConfirm({
@@ -903,6 +1246,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         }
         if (next) {
             addTranslateButton();
+            seedStatusOptions('translation');
         }
     };
 
@@ -947,7 +1291,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             return;
         }
         setEnableDrupalSync(next);
-        if (next) addDrupalColumns();
+        if (next) {
+            addDrupalColumns();
+            seedStatusOptions('drupal');
+        }
     };
 
     // Columna `system` que marca la taula com a publicable a XXSS. La seva
@@ -987,7 +1334,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             return;
         }
         setEnableSocialPublish(next);
-        if (next) addSocialPublishColumns();
+        if (next) {
+            addSocialPublishColumns();
+            seedStatusOptions('social');
+        }
     };
 
     // Vincula les files existents amb nodes de Drupal pel títol (backfill de
@@ -1099,6 +1449,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         if (key === 'type' && !TRANSLATABLE_FIELD_TYPES.has(value)) {
             newFields[index].translatable = false;
         }
+        if (key === 'type' && value === 'status' && normalizeOptions(newFields[index].options).length === 0) {
+            // Un camp `status` nounat arrenca amb el catàleg base (decisió §9.1).
+            newFields[index].options = seedOptionsForFeature('base');
+        }
         setFields(newFields);
     };
 
@@ -1144,6 +1498,17 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         return null;
     };
 
+    // Claus de config que la UI gestiona explícitament: buildPayload les
+    // esborra del config cru abans de re-escriure-les des de l'estat local.
+    // La resta (role, option_groups, …) fan round-trip intactes.
+    const MANAGED_CONFIG_KEYS = [
+        'id', 'system', 'formula', 'compute', 'relationField', 'targetProperty',
+        'aggregation', 'limit', 'fallbackValue', 'defaultFormula',
+        'relation_database_id', 'cardinality', 'file_mode', 'storage_folder',
+        'name_pattern', 'button_action', 'button_label', 'format', 'options',
+        'translatable', 'default_option', 'catalog_ref',
+    ];
+
     // Construeix el schema serialitzable que s'envia al backend a partir de
     // l'estat local. Pres directament del bloc anterior de `handleSave`.
     const buildPayload = () => {
@@ -1152,7 +1517,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
         fields.forEach(f => {
             const cleanName = f.name.trim();
             newSchemaObj[cleanName] = f.type;
-            const config = {};
+            // Round-trip del config del registry: les claus que la UI no
+            // gestiona (role, option_groups…) es conserven tal qual.
+            const config = { ...(f.rawConfig || {}) };
+            for (const k of MANAGED_CONFIG_KEYS) delete config[k];
             // Persisteix el field_id immutable: és la clau estable per a
             // referenciar el camp en notes, vistes, filtres i seccions.
             // No es regenera mai un cop assignat.
@@ -1215,16 +1583,24 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             if ((f.type === 'date' || f.type === 'datetime') && f.format?.dateFormat) {
                 config.format = { ...(config.format || {}), dateFormat: f.format.dateFormat };
             }
-            // Catàleg d'opcions per a select/multi_select/status. Només el
-            // persistim si en queda alguna (netejant buits i duplicats); si
-            // la llista queda buida, no escrivim la clau perquè el camp pugui
-            // continuar derivant opcions dels valors existents.
-            if (f.type === 'select' || f.type === 'multi_select' || f.type === 'status') {
-                const cleaned = (Array.isArray(f.options) ? f.options : [])
-                    .map((o) => String(o).trim())
-                    .filter((o, i, arr) => o && arr.indexOf(o) === i);
-                if (cleaned.length > 0) {
-                    config.options = cleaned;
+            // Catàleg d'opcions per a select/multi_select/status, en format
+            // ric {name,color,group}. Amb `catalog_ref` (catàleg compartit)
+            // les opcions viuen al registry arrel i NO es persisteixen al
+            // camp. Si la llista queda buida, no escrivim la clau perquè el
+            // camp pugui continuar derivant opcions dels valors existents.
+            if (OPTION_FIELD_TYPES.has(f.type)) {
+                const catalogRef = String(f.catalogRef || '').trim();
+                if (catalogRef) {
+                    config.catalog_ref = catalogRef;
+                } else {
+                    const cleaned = normalizeOptions(f.options);
+                    if (cleaned.length > 0) {
+                        config.options = cleaned;
+                    }
+                }
+                const def = String(f.defaultOption || '').trim();
+                if (def && (catalogRef || normalizeOptions(f.options).some((o) => o.name === def))) {
+                    config.default_option = def;
                 }
             }
             // Només persistim `translatable: true` quan el camp està marcat
@@ -1640,6 +2016,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                                         drupalFields={drupalFields}
                                         drupalFieldMapping={drupalFieldMapping}
                                         setDrupalFieldMapping={setDrupalFieldMapping}
+                                        optionTools={optionTools}
                                     />
                                 ))}
                             </div>

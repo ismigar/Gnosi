@@ -9,7 +9,7 @@ import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, bui
 import { sortKey } from '../../utils/vaultFilters';
 import { InsertContentModal } from './InsertContentModal';
 
-const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave, onCreate, onDeleteOption }) => {
+const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
     const [localValues, setLocalValues] = useState(value);
     const [search, setSearch] = useState('');
     const containerRef = useRef(null);
@@ -79,7 +79,12 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave, o
                             className="flex items-center justify-between gap-2 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)] cursor-pointer group"
                             onMouseDown={e => { e.preventDefault(); toggle(opt); }}
                         >
-                            <span className="truncate">{idToTitle[opt] || opt}</span>
+                            <span className="flex items-center gap-1.5 truncate">
+                                {optionColors[opt] && (
+                                    <span className="shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: optionChipStyle(optionColors[opt])?.color }} />
+                                )}
+                                {idToTitle[opt] || opt}
+                            </span>
                             {onDeleteOption && (
                                 <span
                                     role="button"
@@ -110,7 +115,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, onSave, o
 // Substitueix el <select> natiu per poder cercar, crear i eliminar opcions
 // (estil Notion). Navegable amb teclat (↑↓/Enter/Esc) compartint un sol
 // highlightedIndex amb el hover —vegeu el patró canònic a MultiSelectPills.
-const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, onSave, onCreate, onDeleteOption }) => {
+const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
     const [search, setSearch] = useState('');
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const containerRef = useRef(null);
@@ -178,7 +183,12 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, onSave, 
                             onMouseDown={e => { e.preventDefault(); onSave(opt); }}
                             className={`flex items-center justify-between gap-2 px-2 py-1 text-xs cursor-pointer group ${isHighlighted ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-secondary)]'} ${value === opt ? 'font-semibold' : ''}`}
                         >
-                            <span className="truncate">{idToTitle[opt] || opt}</span>
+                            <span className="flex items-center gap-1.5 truncate">
+                                {optionColors[opt] && (
+                                    <span className="shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: optionChipStyle(optionColors[opt])?.color }} />
+                                )}
+                                {idToTitle[opt] || opt}
+                            </span>
                             {onDeleteOption && (
                                 <span
                                     role="button"
@@ -216,6 +226,8 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef } from './schemaUtils';
+import { normalizeOptions, optionChipStyle, checkActionRequires } from './optionCatalogUtils';
 import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, normalizeSorts } from './schemaUtils';
 import {
     isComputedType,
@@ -288,7 +300,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange }) {
+export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null }) {
     const { t, i18n } = useTranslation();
     // Defaults globals de format (moneda/número/data) — override per camp via config.format.
     const localeSettings = useLocaleSettings();
@@ -1327,9 +1339,45 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         }
     }, [newRowTitle, safeNotes, activeView, onUpdateView, schema, resolveNoteTableId]);
 
-    const getAvailableOptions = (field, type) => {
+    // Catàlegs compartits d'opcions (registry arrel): un camp amb
+    // config.catalog_ref hi resol la seva llista. Es carreguen un cop.
+    const [sharedOptionCatalogs, setSharedOptionCatalogs] = useState({});
+    useEffect(() => {
+        const needsCatalogs = getSchemaFieldNames(schema)
+            .some((name) => getFieldConfig(schema, name)?.catalog_ref);
+        if (!needsCatalogs) return undefined;
+        let cancelled = false;
+        axios.get('/api/vault/option-catalogs')
+            .then((res) => { if (!cancelled) setSharedOptionCatalogs(res.data?.catalogs || {}); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [schema]);
+
+    // Catàleg ric d'un camp ({name,color,group}…), o [] si el camp deriva les
+    // opcions dels valors (sense catàleg explícit).
+    const getCatalogOptions = (field) => {
         const config = getFieldConfig(schema, field);
-        if (config?.options && config.options.length > 0) return config.options;
+        if (config?.catalog_ref) {
+            return normalizeOptions(sharedOptionCatalogs[config.catalog_ref] || []);
+        }
+        if (Array.isArray(config?.options) && config.options.length > 0) {
+            return normalizeOptions(config.options);
+        }
+        return [];
+    };
+
+    // Mapa nom → color per pintar els xips. Només per a opcions de catàleg
+    // explícit: les derivades mantenen l'estil neutre del tema.
+    const getOptionColorMap = (field) => {
+        const map = {};
+        for (const o of getCatalogOptions(field)) map[o.name] = o.color;
+        return map;
+    };
+
+    const getAvailableOptions = (field, type) => {
+        const catalog = getCatalogOptions(field);
+        if (catalog.length > 0) return catalog.map((o) => o.name);
         const values = safeNotes
             .map(n => {
                 const originalMetaKey = n.metadata ? (Object.keys(n.metadata).find(k => normalizeKey(k) === (aliasMap[normalizeKey(field)] ? normalizeKey(aliasMap[normalizeKey(field)]) : normalizeKey(field))) || field) : field;
@@ -1368,61 +1416,52 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         onUpdateFieldOptions(tableId, fieldId, nextOptions);
     };
 
-    // Eliminació d'una opció estil Notion: la treu del valor de TOTES les files
-    // que la tenen i, si el camp té catàleg explícit, també d'allà. Per a camps
-    // derivats (sense config.options) n'hi ha prou de buidar-la de les files:
-    // l'opció desapareix sola del desplegable en recalcular-se els valors.
-    // Aplica un patch optimista perquè el canvi es vegi a l'instant a la taula.
+    // Eliminació d'una opció estil Notion: la treu del catàleg I del valor de
+    // TOTES les files que la tenen. La reescriptura la fa UNA crida al
+    // servidor (mai N PATCHes des del client: esgoten el pool de BD i amaguen
+    // errors parcials — feedback_bulk_ops_server_side). El patch optimista fa
+    // que el canvi es vegi a l'instant a la taula.
     const removeOptionEverywhere = async (field, type, optionValue) => {
-        // 1. Catàleg explícit (si n'hi ha): treu-la de config.options.
-        const cfg = getFieldConfig(schema, field) || {};
-        const hasExplicit = Array.isArray(cfg.options) && cfg.options.length > 0;
-        if (hasExplicit) {
-            updateFieldOptions(field, cfg.options.filter(o => o !== optionValue));
-        }
+        const tableId = activeView?.table_id || (safeNotes.length > 0 ? resolveNoteTableId(safeNotes[0]) : null);
+        const fieldId = getFieldConfig(schema, field)?.id;
 
-        // 2. Files: treu el valor de totes les que el tenen.
-        const updates = [];
-        for (const n of safeNotes) {
-            const key = getMetaKey(n, field);
-            const v = n.metadata?.[key];
-            if (type === 'multi_select') {
-                const arr = Array.isArray(v)
-                    ? v
-                    : (typeof v === 'string' && v ? v.split(',').map(s => s.trim()).filter(Boolean) : []);
-                if (arr.includes(optionValue)) {
-                    updates.push({ id: n.id, key, newValue: arr.filter(x => x !== optionValue) });
-                }
-            } else if (v === optionValue) {
-                updates.push({ id: n.id, key, newValue: '' });
-            }
-        }
-
-        // Si cap fila la usa i el camp és derivat, no cal fer res més: en tancar
-        // l'editor i refrescar, el valor ja no hi serà.
-        if (updates.length === 0) {
-            if (!hasExplicit && onCellSaved) onCellSaved();
-            return;
-        }
-
-        // Patch optimista: la taula reflecteix la baixa abans que respongui el backend.
+        // Patch optimista sobre les files visibles que usen el valor.
         setOptimisticPatches(prev => {
             const next = new Map(prev);
-            for (const u of updates) {
-                const existing = next.get(u.id) || {};
-                next.set(u.id, { ...existing, [u.key]: u.newValue });
+            for (const n of safeNotes) {
+                const key = getMetaKey(n, field);
+                const v = n.metadata?.[key];
+                if (type === 'multi_select') {
+                    const arr = Array.isArray(v)
+                        ? v
+                        : (typeof v === 'string' && v ? v.split(',').map(s => s.trim()).filter(Boolean) : []);
+                    if (arr.includes(optionValue)) {
+                        const existing = next.get(n.id) || {};
+                        next.set(n.id, { ...existing, [key]: arr.filter(x => x !== optionValue) });
+                    }
+                } else if (v === optionValue) {
+                    const existing = next.get(n.id) || {};
+                    next.set(n.id, { ...existing, [key]: '' });
+                }
             }
             return next;
         });
 
         try {
-            await Promise.all(updates.map(u =>
-                fetch(`/api/vault/pages/${u.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ metadata: { [u.key]: u.newValue } }),
-                }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
-            ));
+            if (tableId && fieldId) {
+                await axios.post(`/api/vault/tables/${tableId}/options/remove`, {
+                    field_id: fieldId,
+                    value: optionValue,
+                });
+            } else {
+                // Sense taula/field id resolubles (p. ex. vista de carpeta
+                // llegada) no hi ha endpoint per-taula: només treu l'opció del
+                // catàleg local si n'hi ha.
+                const cfg = getFieldConfig(schema, field) || {};
+                if (Array.isArray(cfg.options) && cfg.options.length > 0) {
+                    updateFieldOptions(field, normalizeOptions(cfg.options).filter(o => o.name !== optionValue));
+                }
+            }
             if (onCellSaved) onCellSaved();
         } catch (err) {
             notifyError('remove-option-everywhere', err, t('table.remove_option_error', "Error eliminant l'opció dels registres"));
@@ -2113,17 +2152,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         if (isEditing) {
             if (type === 'status' || type === 'select') {
                 const options = getAvailableOptions(field, type);
+                // `status` és catàleg ESTRICTE (com Notion): ni crear opcions
+                // inline des de la cel·la ni eliminar-les — es gestionen des
+                // de l'editor d'opcions del modal de Camps. Els camps amb
+                // catàleg compartit (catalog_ref) també: s'edita al catàleg.
+                const isStrict = type === 'status' || Boolean(getFieldConfig(schema, field)?.catalog_ref);
                 return (
                     <InlineSelectPicker
                         value={value || ''}
                         options={options}
                         idToTitle={idToTitle}
+                        optionColors={getOptionColorMap(field)}
                         onSave={(val) => handleCellSave(noteId, field, val, originalMetaKey)}
-                        onCreate={onUpdateFieldOptions ? (val) => {
+                        onCreate={(!isStrict && onUpdateFieldOptions) ? (val) => {
                             updateFieldOptions(field, [...options, val]);
                             handleCellSave(noteId, field, val, originalMetaKey);
                         } : undefined}
-                        onDeleteOption={onUpdateFieldOptions ? (val) => removeOptionEverywhere(field, type, val) : undefined}
+                        onDeleteOption={(!isStrict && onUpdateFieldOptions) ? (val) => removeOptionEverywhere(field, type, val) : undefined}
                     />
                 );
             }
@@ -2139,12 +2184,14 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     options = getAvailableOptions(field, type);
                 }
                 const currentValues = Array.isArray(value) ? value : (value ? String(value).split(',').map(s => s.trim()).filter(Boolean) : []);
-                const canManageOptions = type === 'multi_select' && Boolean(onUpdateFieldOptions);
+                const canManageOptions = type === 'multi_select' && Boolean(onUpdateFieldOptions)
+                    && !getFieldConfig(schema, field)?.catalog_ref;
                 return (
                     <InlinePillsPicker
                         value={currentValues}
                         options={options}
                         idToTitle={displayMap}
+                        optionColors={type === 'multi_select' ? getOptionColorMap(field) : {}}
                         onSave={(vals) => handleCellSave(noteId, field, vals, originalMetaKey)}
                         onCreate={canManageOptions ? (val) => updateFieldOptions(field, [...options, val]) : undefined}
                         onDeleteOption={canManageOptions ? (val) => removeOptionEverywhere(field, 'multi_select', val) : undefined}
@@ -2279,26 +2326,42 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                 );
             }
             case 'status':
-            case 'select':
+            case 'select': {
+                // Color de catàleg (si l'opció en té): xip pintat; si no,
+                // l'estil neutre del tema de sempre.
+                const chipStyle = optionChipStyle(getOptionColorMap(field)[value]);
                 return (
                     <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-primary)]">
+                        <span
+                            className={`px-2 py-0.5 rounded-md text-xs font-semibold border ${chipStyle ? '' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border-[var(--border-primary)]'}`}
+                            style={chipStyle || undefined}
+                        >
                             {value}
                         </span>
                         {isManual && <Unlock size={10} className="text-amber-500 opacity-60" title={t('table.manual_value')} />}
                     </div>
                 );
+            }
             case 'multi_select':
             case 'relation': {
                 const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim()).filter(Boolean);
                 const displayMap = type === 'relation' ? getRelationContext(field).displayMap : idToTitle;
+                const colorMap = type === 'multi_select' ? getOptionColorMap(field) : {};
                 return (
                     <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-1 py-0.5">
-                        {items.map((it, idx) => (
-                            <span key={idx} className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] whitespace-nowrap border border-[var(--gnosi-primary)]/20" title={it}>
-                                {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '...' : it)}
-                            </span>
-                        ))}
+                        {items.map((it, idx) => {
+                            const chipStyle = optionChipStyle(colorMap[it]);
+                            return (
+                                <span
+                                    key={idx}
+                                    className={`px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap border ${chipStyle ? '' : 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border-[var(--gnosi-primary)]/20'}`}
+                                    style={chipStyle || undefined}
+                                    title={it}
+                                >
+                                    {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '...' : it)}
+                                </span>
+                            );
+                        })}
                     </div>
                 );
             }
@@ -2512,58 +2575,77 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     <span className="row-action-tooltip">{t('table.open_parallel')}<kbd>⌥P</kbd></span>
                                 </button>
                             )}
-                            {isTranslatableTable && !isListView && !note.metadata?.translation_lang && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        // Reutilitza el mateix flux que el camp `button`:
-                                        // obre TranslateLanguagesModal en mode fila (subitems).
-                                        setPendingAction({
-                                            noteId: note.id,
-                                            fieldConfig: { button_action: 'translate_row' },
-                                            action: 'translate_row',
-                                        });
-                                    }}
-                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors opacity-0 group-hover/row:opacity-100"
-                                    title={t('table.translate_row', 'Traduir')}
-                                >
-                                    <Languages size={14} />
-                                    <span className="row-action-tooltip">{t('table.translate_row', 'Traduir')}</span>
-                                </button>
-                            )}
-                            {isDrupalSyncTable && !isListView && !note.metadata?.translation_lang && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPendingAction({
-                                            noteId: note.id,
-                                            fieldConfig: { button_action: 'sync_drupal' },
-                                            action: 'sync_drupal',
-                                        });
-                                    }}
-                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors opacity-0 group-hover/row:opacity-100"
-                                    title={note.metadata?.drupal_uuid ? t('table.sync_drupal_update', 'Actualitzar a Drupal') : t('table.sync_drupal', 'Sincronitzar amb Drupal')}
-                                >
-                                    <Globe size={14} className={note.metadata?.drupal_uuid ? 'text-[var(--gnosi-primary)]' : ''} />
-                                    <span className="row-action-tooltip">{note.metadata?.drupal_uuid ? t('table.sync_drupal_update', 'Actualitzar a Drupal') : t('table.sync_drupal', 'Sincronitzar amb Drupal')}</span>
-                                </button>
-                            )}
-                            {isSocialPublishTable && !isListView && !note.metadata?.translation_lang && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPendingAction({
-                                            noteId: note.id,
-                                            action: 'publish_social',
-                                        });
-                                    }}
-                                    className="relative p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors opacity-0 group-hover/row:opacity-100"
-                                    title={t('table.publish_social', 'Publicar a XXSS')}
-                                >
-                                    <Send size={14} />
-                                    <span className="row-action-tooltip">{t('table.publish_social', 'Publicar a XXSS')}</span>
-                                </button>
-                            )}
+                            {isTranslatableTable && !isListView && !note.metadata?.translation_lang && (() => {
+                                // Salvaguarda d'action_rules: botó VISIBLE però
+                                // desactivat amb el motiu (p. ex. esborranys),
+                                // en lloc d'amagar-lo. El backend revalida (409).
+                                const gate = checkActionRequires(schema, note.metadata || {}, 'translate_row', actionRules);
+                                return (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!gate.ok) return;
+                                            // Reutilitza el mateix flux que el camp `button`:
+                                            // obre TranslateLanguagesModal en mode fila (subitems).
+                                            setPendingAction({
+                                                noteId: note.id,
+                                                fieldConfig: { button_action: 'translate_row' },
+                                                action: 'translate_row',
+                                            });
+                                        }}
+                                        disabled={!gate.ok}
+                                        className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+                                        title={gate.ok ? t('table.translate_row', 'Traduir') : gate.reason}
+                                    >
+                                        <Languages size={14} />
+                                        <span className="row-action-tooltip">{gate.ok ? t('table.translate_row', 'Traduir') : gate.reason}</span>
+                                    </button>
+                                );
+                            })()}
+                            {isDrupalSyncTable && !isListView && !note.metadata?.translation_lang && (() => {
+                                const gate = checkActionRequires(schema, note.metadata || {}, 'sync_drupal', actionRules);
+                                const label = note.metadata?.drupal_uuid ? t('table.sync_drupal_update', 'Actualitzar a Drupal') : t('table.sync_drupal', 'Sincronitzar amb Drupal');
+                                return (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!gate.ok) return;
+                                            setPendingAction({
+                                                noteId: note.id,
+                                                fieldConfig: { button_action: 'sync_drupal' },
+                                                action: 'sync_drupal',
+                                            });
+                                        }}
+                                        disabled={!gate.ok}
+                                        className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+                                        title={gate.ok ? label : gate.reason}
+                                    >
+                                        <Globe size={14} className={note.metadata?.drupal_uuid && gate.ok ? 'text-[var(--gnosi-primary)]' : ''} />
+                                        <span className="row-action-tooltip">{gate.ok ? label : gate.reason}</span>
+                                    </button>
+                                );
+                            })()}
+                            {isSocialPublishTable && !isListView && !note.metadata?.translation_lang && (() => {
+                                const gate = checkActionRequires(schema, note.metadata || {}, 'publish_social', actionRules);
+                                return (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!gate.ok) return;
+                                            setPendingAction({
+                                                noteId: note.id,
+                                                action: 'publish_social',
+                                            });
+                                        }}
+                                        disabled={!gate.ok}
+                                        className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+                                        title={gate.ok ? t('table.publish_social', 'Publicar a XXSS') : gate.reason}
+                                    >
+                                        <Send size={14} />
+                                        <span className="row-action-tooltip">{gate.ok ? t('table.publish_social', 'Publicar a XXSS') : gate.reason}</span>
+                                    </button>
+                                );
+                            })()}
                             {!isListView && onDeletePage && (
                                 <button
                                     onClick={(e) => {

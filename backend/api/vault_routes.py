@@ -93,6 +93,8 @@ from backend.services.translation_helpers import (
     translate_image_field,
 )
 from backend.services import translation_index
+from backend.services import action_rules as action_rules_service
+from backend.services import option_catalogs as option_catalogs_service
 
 
 def _table_by_id(table_id: str) -> Optional[dict]:
@@ -3329,6 +3331,24 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     _table_for_meta = _table_by_id(get_table_id(metadata))
     if _table_for_meta:
         metadata, _ = to_storage_names(metadata, _table_for_meta)
+        # Opció per defecte (config.default_option) dels camps d'opcions: en
+        # crear un registre amb el camp buit, s'aplica el valor per defecte
+        # del catàleg (p. ex. Estat → «Esborrany»). Mai trepitja un valor que
+        # arribi a la petició.
+        for _prop in _table_for_meta.get("properties") or []:
+            if _prop.get("type") not in option_catalogs_service.OPTION_TYPES:
+                continue
+            _default = str(
+                option_catalogs_service.get_prop_config(_prop).get("default_option") or ""
+            ).strip()
+            if not _default:
+                continue
+            if action_rules_service.read_prop_value(metadata, _prop) in (None, "", []):
+                _dkey = action_rules_service.effect_write_key(metadata, _prop)
+                if _dkey:
+                    metadata[_dkey] = (
+                        [_default] if _prop.get("type") == "multi_select" else _default
+                    )
     metadata["id"] = page_id
     metadata["title"] = request.title
     if request.parent_id:
@@ -10762,6 +10782,19 @@ async def create_table(table: dict = Body(...)):
     )
     if existing_idx is not None:
         old_table = registry["tables"][existing_idx]
+        # Preserva els `aliases` per property: el desat del modal reconstrueix
+        # les properties des de l'esquema pla (que no els transporta) i, sense
+        # això, cada desat esborrava els àlies de renoms anteriors — i les
+        # files velles deixaven de resoldre els seus valors.
+        _old_props_by_id = {
+            p.get("id"): p
+            for p in (old_table.get("properties") or [])
+            if p.get("id")
+        }
+        for _p in table.get("properties") or []:
+            _old_p = _old_props_by_id.get(_p.get("id"))
+            if _old_p and _old_p.get("aliases") and not _p.get("aliases"):
+                _p["aliases"] = list(_old_p["aliases"])
         # Detect removed properties to delete their assets folders
         old_asset_props = {
             str(p.get("name") or "").strip()
@@ -10791,6 +10824,15 @@ async def create_table(table: dict = Body(...)):
 
     _ensure_asset_dirs_for_table_entry(table, registry)
     _ensure_table_vault_folder(table, registry)
+
+    # Seed-on-enable (directiva vault_option_catalogs_action_rules §3.3):
+    # cada desat de taula normalitza els catàlegs d'opcions (format ric,
+    # ubicació única), assigna rols semàntics per nom i garanteix els estats
+    # que les funcionalitats actives requereixen («Esborrany»/«Revisat» base;
+    # «Traduït», «Publicat a Drupal», «Publicat a XXSS» segons toggles) i els
+    # blocs d'action_rules corresponents. Idempotent.
+    option_catalogs_service.ensure_table_seeds(table)
+    action_rules_service.ensure_action_rules(table)
 
     # Product invariant: every table must always own at least one main
     # view. Without this, a freshly-created table renders as a blank
@@ -11042,8 +11084,22 @@ async def patch_table_property(table_id: str, field_id: str, data: dict = Body(.
         existing = target_prop.get("config") or {}
         if not isinstance(existing, dict):
             existing = {}
+        prior_options = option_catalogs_service.get_prop_options(target_prop)
         existing.update(data["config"])
         target_prop["config"] = existing
+        # Catàleg d'opcions: canonicalitza (format ric {name,color,group} i
+        # ubicació única a config.options) també quan l'escriu el PATCH inline
+        # de la cel·la. Si arriben noms plans, es conserven color/grup que
+        # l'opció ja tenia al catàleg (no es re-deriven).
+        if "options" in data["config"] and target_prop.get("type") in option_catalogs_service.OPTION_TYPES:
+            prior_by_name = {o["name"]: o for o in prior_options}
+            merged = [
+                prior_by_name.get(o, o) if isinstance(o, str) else o
+                for o in (existing.get("options") or [])
+            ]
+            option_catalogs_service.set_prop_options(
+                target_prop, option_catalogs_service.normalize_options(merged)
+            )
 
     save_registry(registry)
     return {
@@ -11051,6 +11107,271 @@ async def patch_table_property(table_id: str, field_id: str, data: dict = Body(.
         "table_id": table_id,
         "property": target_prop,
     }
+
+
+# --- Catàlegs d'opcions: ús, renombrar i eliminar arreu ---------------------
+# Operacions massives SEMPRE al servidor (1 endpoint, N escriptures atòmiques
+# de fitxer), mai N peticions PATCH des del client (esgoten el pool i amaguen
+# errors parcials — vegeu feedback_bulk_ops_server_side).
+
+
+def _find_table_and_prop(registry: dict, table_id: str, field_ref: str) -> tuple:
+    """(taula, property) per id de taula i id o nom de camp; 404 si no hi són."""
+    table = next(
+        (t for t in registry.get("tables", []) if t.get("id") == table_id), None
+    )
+    if not table:
+        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
+    prop = next(
+        (
+            p
+            for p in table.get("properties") or []
+            if p.get("id") == field_ref or (p.get("name") or "").strip() == field_ref
+        ),
+        None,
+    )
+    if not prop:
+        raise HTTPException(
+            status_code=404, detail=f"Property {field_ref} not found in table"
+        )
+    return table, prop
+
+
+def _option_value_keys(prop: dict) -> list:
+    """Claus candidates del frontmatter per al valor d'aquest camp."""
+    keys = []
+    if prop.get("id"):
+        keys.append(prop["id"])
+    if prop.get("name"):
+        keys.append(prop["name"])
+    keys.extend(a for a in (prop.get("aliases") or []) if a)
+    return keys
+
+
+async def _rewrite_option_in_rows(
+    table: dict, prop: dict, old: str, new: Optional[str]
+) -> int:
+    """Reescriu el valor `old` d'una opció a TOTES les files de la taula:
+    `new` (renombrar/reassignar) o buidar (None). Escriptura directa amb
+    `save_page_md` (atòmica per fitxer, sense rule engine ni etags, com el
+    flag d'obsolescència) + refresc quirúrgic del cache. Retorna el nombre de
+    fitxers modificats."""
+    rows = await asyncio.to_thread(_get_pages_for_table, table.get("id"))
+    keys = _option_value_keys(prop)
+    is_multi = prop.get("type") == "multi_select"
+    changed = 0
+    for r in rows:
+        fp = await asyncio.to_thread(find_page_path, r.id)
+        if not fp or not fp.exists():
+            continue
+        await _materialize_if_online_only(fp, f"option-rewrite/{r.id}")
+        try:
+            raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
+            md, page_body = parse_frontmatter(raw, fp)
+        except Exception as exc:
+            log.warning(f"option-rewrite: no s'ha pogut llegir {r.id}: {exc}")
+            continue
+        modified = False
+        for k in keys:
+            if k not in md:
+                continue
+            v = md[k]
+            if is_multi:
+                arr = v if isinstance(v, list) else (
+                    [s.strip() for s in str(v).split(",") if s.strip()] if v else []
+                )
+                arr = [str(x) for x in arr]
+                if old not in arr:
+                    continue
+                out = []
+                for x in arr:
+                    repl = new if x == old else x
+                    if repl and repl not in out:
+                        out.append(repl)
+                md[k] = out
+                modified = True
+            elif str(v) == old:
+                md[k] = new or ""
+                modified = True
+        if not modified:
+            continue
+        try:
+            await asyncio.to_thread(save_page_md, fp, md, page_body)
+            changed += 1
+        except Exception as exc:
+            log.warning(f"option-rewrite: no s'ha pogut escriure {r.id}: {exc}")
+            continue
+        # Refresc quirúrgic del cache (mateix patró que el flag stale).
+        try:
+            from backend.services.context_vars import get_active_vault_path
+            v_path = get_active_vault_path()
+            if v_path:
+                v_str = str(v_path)
+                stat_result = fp.stat()
+                new_entry = _build_cache_entry_from_memory(fp, stat_result, md, page_body)
+                with _page_index_lock:
+                    _page_index_entries.setdefault(v_str, {})[str(fp)] = new_entry
+                    _page_id_to_path.setdefault(v_str, {})[md.get("id") or r.id] = str(fp)
+                    _bump_page_index_version(v_str)
+        except Exception as exc:
+            log.debug(f"option-rewrite: cache update failed for {r.id}: {exc}")
+    if changed:
+        _pages_cache_invalidate_all()
+    return changed
+
+
+@router.get("/tables/{table_id}/options/usage")
+async def table_option_usage(table_id: str, field_id: str):
+    """Comptador d'ús per opció (quantes files usen cada valor) — alimenta
+    l'editor d'opcions del SchemaConfigModal."""
+    registry = load_registry()
+    table, prop = _find_table_and_prop(registry, table_id, field_id)
+    rows = await asyncio.to_thread(_get_pages_for_table, table_id)
+    counts: Dict[str, int] = {}
+    is_multi = prop.get("type") == "multi_select"
+    for r in rows:
+        v = action_rules_service.read_prop_value(r.metadata or {}, prop)
+        if v in (None, "", []):
+            continue
+        values = (
+            [str(x).strip() for x in v]
+            if isinstance(v, list)
+            else ([s.strip() for s in str(v).split(",")] if is_multi else [str(v).strip()])
+        )
+        for val in values:
+            if val:
+                counts[val] = counts.get(val, 0) + 1
+    return {"field": prop.get("name"), "counts": counts, "total_rows": len(rows)}
+
+
+@router.post(
+    "/tables/{table_id}/options/rename",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def rename_table_option(table_id: str, payload: dict = Body(...)):
+    """Renombra una opció al catàleg I a totes les files que la usen (els
+    valors es persisteixen per nom → reescriptura eager dels .md afectats).
+
+    Body: ``{field_id, old, new}``. Retorna el recompte de fitxers tocats.
+    """
+    field_ref = (payload.get("field_id") or payload.get("field") or "").strip()
+    old = str(payload.get("old") or "").strip()
+    new = str(payload.get("new") or "").strip()
+    if not field_ref or not old or not new:
+        raise HTTPException(status_code=400, detail="field_id, old i new són obligatoris")
+    if old == new:
+        return {"status": "ok", "files_changed": 0}
+    registry = load_registry()
+    table, prop = _find_table_and_prop(registry, table_id, field_ref)
+    cfg = option_catalogs_service.get_prop_config(prop)
+    if not str(cfg.get("catalog_ref") or "").strip():
+        options = option_catalogs_service.get_prop_options(prop)
+        names = {o["name"] for o in options}
+        renamed = []
+        for o in options:
+            if o["name"] == old:
+                if new in names:
+                    continue  # fusió: l'opció destí ja existeix
+                o = {**o, "name": new}
+            renamed.append(o)
+        option_catalogs_service.set_prop_options(prop, renamed)
+        if str(cfg.get("default_option") or "") == old:
+            cfg["default_option"] = new
+        save_registry(registry)
+    files_changed = await _rewrite_option_in_rows(table, prop, old, new)
+    return {"status": "ok", "files_changed": files_changed}
+
+
+@router.post(
+    "/tables/{table_id}/options/remove",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def remove_table_option(table_id: str, payload: dict = Body(...)):
+    """Elimina una opció del catàleg i de TOTES les files que la usen, buidant
+    el valor o REASSIGNANT-lo a una altra opció (estil Notion).
+
+    Body: ``{field_id, value, reassign_to?}``. Retorna fitxers tocats.
+    """
+    field_ref = (payload.get("field_id") or payload.get("field") or "").strip()
+    value = str(payload.get("value") or "").strip()
+    reassign_to = str(payload.get("reassign_to") or "").strip() or None
+    if not field_ref or not value:
+        raise HTTPException(status_code=400, detail="field_id i value són obligatoris")
+    if reassign_to == value:
+        raise HTTPException(status_code=400, detail="No es pot reassignar a la mateixa opció")
+    registry = load_registry()
+    table, prop = _find_table_and_prop(registry, table_id, field_ref)
+    cfg = option_catalogs_service.get_prop_config(prop)
+    if not str(cfg.get("catalog_ref") or "").strip():
+        options = [
+            o
+            for o in option_catalogs_service.get_prop_options(prop)
+            if o["name"] != value
+        ]
+        option_catalogs_service.set_prop_options(prop, options)
+        if str(cfg.get("default_option") or "") == value:
+            cfg.pop("default_option", None)
+        save_registry(registry)
+    files_changed = await _rewrite_option_in_rows(table, prop, value, reassign_to)
+    return {"status": "ok", "files_changed": files_changed}
+
+
+# --- Catàlegs compartits amb nom (registry arrel `option_catalogs`) ---------
+# Diverses taules comparteixen la mateixa llista (p. ex. tags) referenciant-la
+# amb `config.catalog_ref`; editar el catàleg en un lloc actualitza pertot.
+
+
+@router.get("/option-catalogs")
+async def list_option_catalogs():
+    registry = load_registry()
+    cats = registry.get("option_catalogs") or {}
+    return {
+        "catalogs": {
+            name: option_catalogs_service.normalize_options(opts)
+            for name, opts in cats.items()
+            if isinstance(opts, list)
+        }
+    }
+
+
+@router.put(
+    "/option-catalogs/{name}", dependencies=[Depends(require_role("editor"))]
+)
+async def put_option_catalog(name: str, payload: dict = Body(...)):
+    """Crea o substitueix un catàleg compartit. Body: ``{options: [...]}``."""
+    clean = (name or "").strip()
+    if not clean:
+        raise HTTPException(status_code=400, detail="Catalog name is required")
+    options = option_catalogs_service.normalize_options(payload.get("options"))
+    registry = load_registry()
+    registry.setdefault("option_catalogs", {})[clean] = options
+    save_registry(registry)
+    return {"status": "ok", "name": clean, "options": options}
+
+
+@router.delete(
+    "/option-catalogs/{name}", dependencies=[Depends(require_role("editor"))]
+)
+async def delete_option_catalog(name: str):
+    """Esborra un catàleg compartit. 409 si algun camp encara el referencia."""
+    registry = load_registry()
+    cats = registry.get("option_catalogs") or {}
+    if name not in cats:
+        raise HTTPException(status_code=404, detail="Catalog not found")
+    referenced_by = [
+        f"{t.get('name')}/{p.get('name')}"
+        for t in registry.get("tables", [])
+        for p in t.get("properties") or []
+        if str(option_catalogs_service.get_prop_config(p).get("catalog_ref") or "") == name
+    ]
+    if referenced_by:
+        raise HTTPException(
+            status_code=409,
+            detail=f"El catàleg l'usen: {', '.join(referenced_by)}",
+        )
+    cats.pop(name, None)
+    save_registry(registry)
+    return {"status": "ok"}
 
 
 @router.get("/views")
@@ -11706,7 +12027,74 @@ async def _recover_translations_from_disk(
     return out
 
 
-def _set_translation_stale_on_disk(page_id: str, file_path: Path) -> bool:
+def _ensure_status_options_persisted(table_id: str, values: list) -> None:
+    """Best-effort: garanteix al registry DE DISC que el camp d'estat té les
+    opcions `values` (directiva §4.1.5: una regla mai falla per catàleg
+    incomplet). Es crida quan un efecte d'action_rules ha hagut de crear una
+    opció sobre la còpia en memòria de la taula — torna a aplicar el canvi
+    sobre una càrrega fresca i la persisteix."""
+    try:
+        reg = load_registry()
+        table = next(
+            (t for t in reg.get("tables", []) if t.get("id") == table_id), None
+        )
+        if not table:
+            return
+        prop = option_catalogs_service.find_role_prop(
+            table, option_catalogs_service.ROLE_STATUS
+        )
+        if not prop:
+            return
+        wanted = [(str(v), "") for v in values if str(v or "").strip()]
+        if wanted and option_catalogs_service.ensure_options_exist(prop, wanted):
+            save_registry(reg)
+    except Exception as exc:
+        log.warning(
+            f"action_rules: no s'ha pogut persistir el catàleg ampliat de {table_id}: {exc}"
+        )
+
+
+def _write_metadata_key_on_disk(page_id: str, file_path: Path, key: str, value) -> bool:
+    """Escriu UNA clau de metadata directament al fitxer (sense passar pel
+    PATCH: ni rule engine, ni etags, ni re-resolució per id — tenim el path).
+    Idempotent: si el valor ja hi és, no escriu. Refresca el cache com fa el
+    flag d'obsolescència. Usat pels efectes d'action_rules sobre l'original."""
+    try:
+        raw = file_path.read_text(encoding="utf-8")
+        md, body = parse_frontmatter(raw, file_path)
+    except Exception as exc:
+        log.warning(f"status-effect read failed for {page_id}: {exc}")
+        return False
+    if md.get(key) == value:
+        return False
+    md[key] = value
+    try:
+        save_page_md(file_path, md, body)
+    except Exception as exc:
+        log.warning(f"status-effect write failed for {page_id}: {exc}")
+        return False
+    try:
+        from backend.services.context_vars import get_active_vault_path
+        v_path = get_active_vault_path()
+        if v_path:
+            v_str = str(v_path)
+            stat_result = file_path.stat()
+            new_entry = _build_cache_entry_from_memory(file_path, stat_result, md, body)
+            with _page_index_lock:
+                _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
+                _page_id_to_path.setdefault(v_str, {})[md.get("id") or page_id] = str(file_path)
+                _bump_page_index_version(v_str)
+        _pages_cache_invalidate_all()
+    except Exception as exc:
+        log.debug(f"status-effect cache update failed for {page_id}: {exc}")
+    return True
+
+
+def _set_translation_stale_on_disk(
+    page_id: str,
+    file_path: Path,
+    stale_status: Optional[tuple] = None,
+) -> bool:
     """Flag a single translation page as stale on disk. Idempotent.
 
     Returns True only when it actually wrote (flag flipped). Writes the minimal
@@ -11714,6 +12102,10 @@ def _set_translation_stale_on_disk(page_id: str, file_path: Path) -> bool:
     never re-enters the rule engine, etag checks, or this very propagation. The
     "already stale → no write" short-circuit is what keeps autosave from
     triggering a write storm.
+
+    ``stale_status``: `(property, valor)` opcional de la regla `on_stale` de
+    la taula — en marcar stale, l'Estat de la traducció torna (p. ex.) a
+    «Esborrany» en la mateixa escriptura.
     """
     try:
         raw = file_path.read_text(encoding="utf-8")
@@ -11724,6 +12116,11 @@ def _set_translation_stale_on_disk(page_id: str, file_path: Path) -> bool:
     if md.get("translation_stale") is True:
         return False  # already flagged → no redundant write
     md["translation_stale"] = True
+    if stale_status:
+        _prop, _value = stale_status
+        _key = action_rules_service.effect_write_key(md, _prop)
+        if _key:
+            md[_key] = _value
     try:
         save_page_md(file_path, md, body)
     except Exception as exc:
@@ -11776,7 +12173,15 @@ def _propagate_translation_staleness(
         table = _table_by_id(get_table_id(new_md))
         if table and table.get("translation_enabled"):
             props = [p for p in (table.get("properties") or []) if p.get("translatable") is True]
-            keys = [(p.get("id") or p.get("name")) for p in props]
+            # Claus per ID i per NOM (i àlies): el frontmatter persisteix per
+            # nom (vault_persist_by_name), però algunes files velles guarden
+            # per id. Comparar només per id no detectava MAI els canvis de les
+            # files per-nom i les traduccions no es marcaven obsoletes.
+            keys = []
+            for p in props:
+                for k in (p.get("id"), p.get("name"), *(p.get("aliases") or [])):
+                    if k:
+                        keys.append(k)
             title_matters = any(
                 (p.get("name") == "title" or p.get("type") == "title") for p in props
             )
@@ -11795,6 +12200,15 @@ def _propagate_translation_staleness(
         translations = find_translations_of(canonical_id, _get_pages_snapshot())
         if not translations:
             return
+        # Regla on_stale (action_rules): a més del flag, l'Estat de cada
+        # traducció obsoleta torna a «Esborrany» (= pendent de revisió).
+        stale_status = None
+        if table:
+            _sprop, _svalue, _schanged = action_rules_service.on_stale_effect(table)
+            if _sprop and _svalue is not None:
+                stale_status = (_sprop, _svalue)
+                if _schanged:
+                    _ensure_status_options_persisted(table.get("id"), [_svalue])
         flagged = 0
         for _lang, page in translations.items():
             pid = getattr(page, "id", None)
@@ -11807,7 +12221,7 @@ def _propagate_translation_staleness(
             fp = Path(ppath) if ppath else find_page_path(pid)
             if not fp or not fp.exists():
                 continue
-            if _set_translation_stale_on_disk(pid, fp):
+            if _set_translation_stale_on_disk(pid, fp, stale_status=stale_status):
                 flagged += 1
         if flagged:
             log.info(f"Flagged {flagged} translation(s) of {canonical_id} as stale.")
@@ -11856,6 +12270,15 @@ async def _do_translate_row(
             status_code=400,
             detail="No translatable fields configured on this table.",
         )
+
+    # Salvaguarda d'action_rules (p. ex. «no es pot traduir un esborrany»):
+    # el frontend ja mostra el botó desactivat amb el motiu, però el backend
+    # revalida sempre (mai confiar només en el client). 409 amb el motiu.
+    _ok, _reason = action_rules_service.check_requires(
+        table, action_rules_service.ACTION_TRANSLATE, metadata
+    )
+    if not _ok:
+        raise HTTPException(status_code=409, detail=_reason)
 
     def _read_meta(prop: dict):
         # El camp títol es desa sota la clau canònica `title`. La clau amb el
@@ -12051,6 +12474,20 @@ async def _do_translate_row(
         if lang_key and lang_value is not None:
             sub_metadata[lang_key] = lang_value
 
+        # Efecte d'action_rules sobre la traducció creada O actualitzada:
+        # Estat «Esborrany» (= pendent de revisió humana; la salvaguarda de
+        # publicar bloqueja així traduccions no revisades). S'escriu com el
+        # camp idioma: via sub_metadata, que el create/patch fusiona.
+        _eprop, _evalue, _echanged = action_rules_service.status_effect(
+            table, action_rules_service.ACTION_TRANSLATE, "created"
+        )
+        if _eprop and _evalue is not None:
+            _ekey = _eprop.get("id") or _eprop.get("name")
+            if _ekey:
+                sub_metadata[_ekey] = _evalue
+            if _echanged:
+                _ensure_status_options_persisted(table_id, [_evalue])
+
         # Traduir el cos markdown de l'original (si n'hi ha i el segmentador
         # està disponible). El resultat és el `content` del subitem.
         translated_body = ""
@@ -12128,6 +12565,24 @@ async def _do_translate_row(
         except Exception as exc:
             log.error(f"translate_row: failed creating subitem for {lang}: {exc}")
             skipped.append({"lang": lang, "reason": f"create failed: {exc}"})
+
+    # Efecte d'action_rules sobre l'ORIGINAL: Estat «Traduït» quan almenys una
+    # traducció s'ha creat o actualitzat. Escriptura DIRECTA al path que ja
+    # tenim (com el flag d'obsolescència): sense re-resolució per id (l'índex
+    # pot estar a mig refrescar just després de crear la filla) ni rule
+    # engine. No re-marca les filles com a stale (no toca camps traduïbles).
+    if created or updated:
+        _sprop, _svalue, _schanged = action_rules_service.status_effect(
+            table, action_rules_service.ACTION_TRANSLATE, "source"
+        )
+        if _sprop and _svalue is not None:
+            if _schanged:
+                _ensure_status_options_persisted(table_id, [_svalue])
+            _skey = action_rules_service.effect_write_key(metadata, _sprop)
+            if _skey:
+                await asyncio.to_thread(
+                    _write_metadata_key_on_disk, item_id, file_path, _skey, _svalue
+                )
 
     return {
         "item_id": item_id,
@@ -12835,6 +13290,13 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
         raise HTTPException(status_code=400, detail="Row is not part of a table")
     if not table.get("drupal_sync_enabled"):
         raise HTTPException(status_code=400, detail="Drupal sync is not enabled on this table")
+    # Salvaguarda d'action_rules («no es pot sincronitzar un esborrany»): el
+    # backend revalida sempre el que el frontend ja mostra com a botó desactivat.
+    _ok, _reason = action_rules_service.check_requires(
+        table, action_rules_service.ACTION_SYNC_DRUPAL, metadata
+    )
+    if not _ok:
+        raise HTTPException(status_code=409, detail=_reason)
     bundle = (table.get("drupal_bundle") or "").strip()
     mapping = table.get("drupal_field_mapping") or {}
     if not bundle or not mapping:
@@ -13019,6 +13481,15 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
 
     # --- Escriu identitat a la fila (columnes visibles + metadata oculta) ---
     meta_update = _drupal_identity_meta(table, drupal_uuid, nid, url)
+    # Efecte d'action_rules en èxit: Estat → «Publicat a Drupal» (decisió §9.3
+    # de la directiva). Viatja en el mateix patch que la identitat.
+    _eprop, _evalue, _echanged = action_rules_service.status_effect(
+        table, action_rules_service.ACTION_SYNC_DRUPAL, "source"
+    )
+    if _eprop and _evalue is not None:
+        if _echanged:
+            _ensure_status_options_persisted(table_id, [_evalue])
+        meta_update[action_rules_service.effect_write_key(metadata, _eprop)] = _evalue
     # Desa la signatura de mèdia/tags per a la detecció de canvi del proper sync,
     # EXCLOENT els camps que han fallat (skipped) perquè es reintentin i no quedin
     # marcats com a sincronitzats sense haver-se pujat realment.

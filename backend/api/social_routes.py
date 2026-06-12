@@ -414,6 +414,78 @@ async def compose_posts(request: ComposeRequest):
     return {"proposals": proposals, "source_lang": source_lang, "provider": provider}
 
 
+async def _load_source_row(source_page_id: str):
+    """(taula, metadata) de la fila d'origen del Vault, o (None, None).
+
+    Lazy import de vault_routes per evitar el cicle social↔vault (mateix
+    patró que social_store)."""
+    sid = (source_page_id or "").strip()
+    if not sid:
+        return None, None
+    from backend.api import vault_routes as vr
+
+    fp = await asyncio.to_thread(vr.find_page_path, sid)
+    if not fp or not fp.exists():
+        return None, None
+    raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
+    metadata, _body = vr.parse_frontmatter(raw, fp)
+    table = vr._table_by_id(vr.get_table_id(metadata))
+    return table, metadata
+
+
+async def _check_publish_requires(source_page_id: str) -> None:
+    """Salvaguarda d'action_rules («no es pot publicar un esborrany») sobre la
+    fila d'origen. 409 amb el motiu; si la fila no es pot resoldre, passa
+    (publicacions sense origen del Vault no es bloquegen)."""
+    try:
+        from backend.services import action_rules as ars
+
+        table, metadata = await _load_source_row(source_page_id)
+        if not table:
+            return
+        ok, reason = ars.check_requires(table, ars.ACTION_PUBLISH_SOCIAL, metadata)
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.debug(f"publish_social: requires check saltat per a {source_page_id}: {e}")
+        return
+    if not ok:
+        raise HTTPException(status_code=409, detail=reason)
+
+
+async def _apply_publish_effect_to_source(
+    source_page_id: str, background_tasks: BackgroundTasks
+) -> None:
+    """Efecte d'action_rules en èxit: la fila d'ORIGEN del Vault passa a
+    «Publicat a XXSS» (decisió §9.3 de la directiva de catàlegs d'opcions)."""
+    try:
+        from backend.api import vault_routes as vr
+        from backend.services import action_rules as ars
+
+        table, metadata = await _load_source_row(source_page_id)
+        if not table:
+            return
+        prop, value, changed = ars.status_effect(
+            table, ars.ACTION_PUBLISH_SOCIAL, "source"
+        )
+        if not prop or value is None:
+            return
+        if changed:
+            vr._ensure_status_options_persisted(table.get("id"), [value])
+        if ars.read_prop_value(metadata, prop) == value:
+            return
+        key = ars.effect_write_key(metadata, prop)
+        await vr.patch_page(
+            source_page_id,
+            vr.PagePatchRequest(metadata={key: value}),
+            background_tasks,
+        )
+    except Exception as e:
+        log.warning(
+            f"publish_social: no s'ha pogut actualitzar l'Estat de l'origen {source_page_id}: {e}"
+        )
+
+
 async def _do_publish(
     posts: Dict[str, dict],
     *,
@@ -471,6 +543,10 @@ async def _do_publish(
                 rid, status=final, results=results, published_at=now,
                 background_tasks=background_tasks,
             )
+    # Efecte sobre la fila d'origen NOMÉS amb èxit complet: una publicació
+    # parcial (alguna xarxa ha fallat) no ha de marcar la fila com publicada.
+    if final == social_store.STATUS_PUBLISHED and source_page_id:
+        await _apply_publish_effect_to_source(source_page_id, background_tasks)
     return rid, final, results
 
 
@@ -479,6 +555,7 @@ async def publish_posts(request: PublishRequest, background_tasks: BackgroundTas
     """Publica un missatge (potencialment diferent) per xarxa i desa el registre."""
     if not request.posts:
         raise HTTPException(status_code=400, detail="Cap publicació a enviar.")
+    await _check_publish_requires(request.source_page_id or "")
     posts = {net: {"text": p.text, "media": p.media} for net, p in request.posts.items()}
     rid, final, results = await _do_publish(
         posts,
@@ -509,6 +586,7 @@ async def schedule_post(request: SchedulePublishRequest, background_tasks: Backg
         raise HTTPException(status_code=400, detail="L'hora programada ha de ser futura.")
     if not request.posts:
         raise HTTPException(status_code=400, detail="Cap publicació a programar.")
+    await _check_publish_requires(request.source_page_id or "")
 
     networks = list(request.posts.keys())
     proposals = {net: {"text": p.text} for net, p in request.posts.items()}
@@ -580,7 +658,11 @@ async def process_scheduled_posts(background_tasks: BackgroundTasks):
             rid, status=social_store.STATUS_PUBLISHING, background_tasks=background_tasks,
         )
         _, final, results = await _do_publish(
-            posts, save_record=True, record_id=rid, background_tasks=background_tasks,
+            posts, save_record=True, record_id=rid,
+            # Origen desat al registre: en publicar la programada, l'efecte
+            # d'Estat arriba igualment a la fila del Vault.
+            source_page_id=rec.get(social_store.COL_ORIGIN) or "",
+            background_tasks=background_tasks,
         )
         processed.append({"id": rid, "status": final, "results": results})
     return {"processed": len(processed), "details": processed}
