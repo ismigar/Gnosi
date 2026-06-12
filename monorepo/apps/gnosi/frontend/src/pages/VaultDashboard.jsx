@@ -2926,6 +2926,7 @@ export default function VaultDashboard() {
                                     onUpdateView={handleUpdateView}
                                     isListView={cv.type === 'list'}
                                     isEmbedded={false}
+                                    actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
                                     onDeletePage={handleDeletePage}
                                     onDeleteSelected={handleDeleteSelected}
                                     onOpenParallel={handleOpenParallel}
@@ -3149,6 +3150,7 @@ export default function VaultDashboard() {
                                 onUpdateView={handleUpdateView}
                                 isListView={cv.type === 'list'}
                                 isEmbedded={true}
+                                actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
                                 onDeletePage={handleDeletePage}
                                 onDeleteSelected={handleDeleteSelected}
                                 onOpenParallel={handleOpenParallel}
@@ -3500,6 +3502,7 @@ export default function VaultDashboard() {
                                             activeView={cv}
                                             onUpdateView={handleUpdateView}
                                             isListView={cv.type === 'list'}
+                                            actionRules={registry.tables?.find(x => x.id === activeTableId)?.action_rules}
                                             onDeletePage={handleDeletePage}
                                             onDeleteSelected={handleDeleteSelected}
                                             onOpenParallel={handleOpenParallel}

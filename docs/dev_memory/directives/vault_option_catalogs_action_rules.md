@@ -1,6 +1,6 @@
 # Directiva: Catàlegs d'opcions (Idioma/Estat/Tags) i regles d'acció
 
-> **Estat:** PROPOSTA — pendent de validació d'Ismael (2026-06-12)
+> **Estat:** IMPLEMENTADA (fases 1–3, 2026-06-12) — pendent d'executar la migració del registry després del merge (§5). L'editor de regles a la UI (fase 3 opcional) queda per fer. Decisions d'Ismael a §9; lliçons d'implementació a §6 bis.
 > **Origen:** Idioma, Estat i Tags són (multi)select genèrics. Es vol: valors predeterminats gestionables (afegir/eliminar/renombrar opcions) i que les accions (traduir, publicar a XXSS, Drupal) respectin i actualitzin l'Estat — traduir → original «Traduït» + traducció «A revisar»; si està en esborrany, botó Traduir desactivat amb el motiu visible.
 
 ## 1. Objectiu i abast
@@ -40,6 +40,7 @@ Tres potes, incrementals:
 - `config.options` accepta DOS formats: string llegat («CA») i objecte `{name, color?, group?}`. Normalitzador a la lectura (string → `{name}`) als dos costats (backend i frontend); escriptura sempre en format nou. Un registry vell ha de seguir carregant sense migrar.
 - Extres per a `status`: `config.option_groups` (per defecte: Inicial · En curs · Final) i `config.default_option` (s'aplica en crear un registre si el camp arriba buit).
 - `status` és **catàleg estricte**: sense creació inline d'opcions des de la cel·la (com Notion). `select`/`multi_select` mantenen la creació inline actual.
+- **Catàlegs compartits amb nom** (decisió §9.2): bloc `option_catalogs` a l'arrel del registry — `{ "tags-generals": [ {name, color}, … ] }` — i als camps `config.catalog_ref: "tags-generals"` en comptes de `config.options`. Diverses taules referencien la mateixa llista sense reescriure-la; editar el catàleg en un lloc actualitza pertot. Un camp té `options` locals O `catalog_ref`, mai els dos; el normalitzador resol la referència a la lectura. La gestió (crear catàleg compartit, «convertir opcions locals en catàleg compartit») viu a l'editor d'opcions.
 
 ### 3.2 Rols semàntics
 
@@ -59,18 +60,23 @@ Bloc nou `table.action_rules`, **separat** de `table.automations`. Frontera: les
     ],
     "effects": {
       "source":  [ { "role": "status", "set": "Traduït" } ],
-      "created": [ { "role": "status", "set": "A revisar" } ]
+      "created": [ { "role": "status", "set": "Esborrany" } ]
     },
-    "on_stale": [ { "target": "translations", "role": "status", "set": "A revisar" } ]
+    "on_stale": [ { "target": "translations", "role": "status", "set": "Esborrany" } ]
   },
-  "sync_drupal":    { "requires": [ { "role": "status", "not_in": ["Esborrany"], "reason": "No es pot sincronitzar un esborrany" } ] },
+  "sync_drupal":    { "requires": [ { "role": "status", "not_in": ["Esborrany"], "reason": "No es pot sincronitzar un esborrany" } ],
+                      "effects":  { "source": [ { "role": "status", "set": "Publicat a Drupal" } ] } },
   "publish_social": { "requires": [ { "role": "status", "not_in": ["Esborrany"], "reason": "No es pot publicar un esborrany" } ],
-                      "effects":  { "source": [ { "role": "status", "set": "Publicat" } ] } }
+                      "effects":  { "source": [ { "role": "status", "set": "Publicat a XXSS" } ] } }
 }
 ```
 
 - Valors per **nom d'opció** (coherent amb la persistència per nom del vault); per a `status` també s'admet `in_group` / `not_in_group`.
-- **Seed per defecte** del bloc `translate_row` quan una taula esdevé traduïble (en marcar el primer camp `translatable`). Editable a mà al registry; editor a la UI queda per a la fase 3.
+- **Seed-on-enable** (decisió §9, esmena d'Ismael): activar una funcionalitat a la configuració de camps afegeix *en aquell moment* les opcions corresponents al catàleg del camp amb rol `status` (si n'hi ha) **i** fa el seed del bloc d'action_rules corresponent:
+  - Marcar el primer camp `translatable` → opció «Traduït» (grup En curs) + bloc `translate_row`.
+  - Activar el sync amb Drupal → opció «Publicat a Drupal» (grup Final) + bloc `sync_drupal`.
+  - Activar la publicació a XXSS → opció «Publicat a XXSS» (grup Final) + bloc `publish_social`.
+  Els blocs són editables a mà al registry; editor a la UI queda per a la fase 3.
 
 ## 4. Comportament
 
@@ -78,8 +84,8 @@ Bloc nou `table.action_rules`, **separat** de `table.automations`. Frontera: les
 
 1. **Frontend**: el botó Traduir passa de «amagat» a **visible però desactivat** quan `requires` falla, amb tooltip = `reason`. L'avaluació es fa al client amb l'schema + metadata que ja té (utilitat mirall de la del backend, com ja passa amb la detecció d'idioma).
 2. **Backend**: els endpoints `/skills/translate-row|rows|page` revaliden `requires` (mai confiar només en el client) → 409 amb `{reason}`. En bulk: les files bloquejades se salten amb motiu per fila a la resposta; el lot no avorta.
-3. **Efectes en èxit**: original → Estat «Traduït»; cada traducció creada O actualitzada → Estat «A revisar» (+ Idioma destí, que ja s'assigna avui).
-4. **Obsolescència**: quan l'original canvia i es marca `translation_stale` a les filles (mecanisme existent, `_propagate_translation_staleness`), la regla `on_stale` també les torna a «A revisar». Activable per regla; default ON.
+3. **Efectes en èxit**: original → Estat «Traduït»; cada traducció creada O actualitzada → Estat «Esborrany» (+ Idioma destí, que ja s'assigna avui). «Esborrany» fa de «pendent de revisió»: la salvaguarda de publicar bloqueja automàticament traduccions no revisades; quan Ismael la revisa, la passa a «Revisat».
+4. **Obsolescència**: quan l'original canvia i es marca `translation_stale` a les filles (mecanisme existent, `_propagate_translation_staleness`), la regla `on_stale` també les torna a «Esborrany». Default ON (decisió §9.4).
 5. **Robustesa**: si l'opció que una regla ha d'escriure no és al catàleg, el motor la **crea** (amb color automàtic) i ho deixa al log — una regla mai pot fallar per catàleg incomplet.
 
 ### 4.2 Gestió d'opcions (CRUD complet)
@@ -90,35 +96,76 @@ Bloc nou `table.action_rules`, **separat** de `table.automations`. Frontera: les
 
 ### 4.3 Publicar XXSS / Drupal (fase 3)
 
-Mateixa mecànica: `requires` (p. ex. no esborrany, o `in_group: Final` per publicar) + efecte opcional source → «Publicat». La taula «Publicacions Socials» conserva intacte el seu cicle de vida propi (esborrany → programada → publicada…).
+Mateixa mecànica: `requires` (no esborrany) + efecte source → «Publicat a Drupal» / «Publicat a XXSS» (decisió §9.3). En ser el camp Estat de valor únic, l'última acció mana (publicar a Drupal i després a XXSS deixa «Publicat a XXSS»); el rastre complet queda igualment a `drupal_uuid`/metadata social. La taula «Publicacions Socials» conserva intacte el seu cicle de vida propi (esborrany → programada → publicada…).
 
-## 5. Migració (script idempotent a pipeline/sandbox)
+## 5. Migració (script idempotent)
 
-`migrate_option_catalogs.py` — dry-run per defecte, `--apply` per executar:
+`pipeline/scripts/migrate_option_catalogs.py` (mateixa casa que
+`migrate_sidecar_metadata.py`) — dry-run per defecte, `--apply` per executar.
+EXECUTAR-LA NOMÉS després del merge (§6: el normalitzador de lectura ha
+d'arribar al mateix commit que la primera escriptura en format ric) i amb el
+backend acabat de reiniciar després (cache de 30 s del registry):
 
 1. Backup datat del registry al costat de l'original.
 2. Per cada taula: camps de tipus opció **sense** `config.options` → deriva el catàleg dels valors existents (ordenat per freqüència) i l'escriu en format nou amb colors automàtics.
-3. Camps anomenats Idioma/Estat/Tags (i sinònims): assigna `config.role`; «Estat» → `type: status` + grups per defecte + garanteix que «Esborrany», «Traduït» i «A revisar» existeixen si la taula és traduïble.
-4. Seed de `action_rules.translate_row` a les taules traduïbles.
+3. Camps anomenats Idioma/Estat/Tags (i sinònims): assigna `config.role`; «Estat» → `type: status` + grups per defecte + garanteix el catàleg seed (§9.1): «Esborrany» i «Revisat» sempre; «Traduït» si la taula és traduïble; «Publicat a Drupal» / «Publicat a XXSS» si té el sync/publicació actius.
+4. Seed de `action_rules` (translate_row/sync_drupal/publish_social) segons les funcionalitats actives de cada taula.
 5. **No toca cap frontmatter** (els valors són noms i no canvien) → reversible revertint el type/config al registry.
 
 ## 6. Restriccions / Edge Cases
 
 - **No fer `restart` per canvis .py** → cal rebuild del backend (vegeu `environment_integrity.md`).
 - **Renombrar/eliminar opcions reescriu N fitxers .md** al vault (OneDrive): sempre via backend (escriptures atòmiques existents). Recordar l'incident post-migració (eco de OneDrive reinjectant còpies velles amb ids duplicats hores després): no encadenar-ho amb altres migracions massives el mateix dia.
-- **No esborrar silenciosament opcions que usen les regles**: si «Traduït»/«A revisar» desapareixen del catàleg, el motor les recrea (4.1.5), però la UI ha d'avisar en eliminar-les («aquesta opció l'usa la regla translate_row»).
+- **No esborrar silenciosament opcions que usen les regles**: si «Traduït»/«Publicat a Drupal»/«Publicat a XXSS» (o «Esborrany», que usen els `requires`) desapareixen del catàleg, el motor les recrea (4.1.5), però la UI ha d'avisar en eliminar-les («aquesta opció l'usa la regla translate_row»).
 - **No duplicar motors**: action_rules NO és un trigger nou d'automations; conviuen amb frontera clara. Si més endavant es vol unificar, automations podria guanyar un trigger `action`, però no en aquesta fase.
 - Les **traduccions** (files amb `translation_lang`) segueixen sense botó Traduir (comportament actual; es manté).
 - **Registry compartit entre Macs** (OneDrive): el normalitzador de lectura ha d'arribar al mateix commit que la primera escriptura en format nou. Risc residual: l'altre Mac sense `git pull` llegint un registry ja escrit en format nou → degradació suau exigida (ignorar atributs desconeguts, mai crash).
 - **`status` estricte vs valors històrics** fora de catàleg: la migració incorpora TOTS els valors existents al catàleg (no es perd res); la neteja la fa després l'usuari amb eliminar+reassignar.
+
+## 6 bis. Lliçons d'implementació (2026-06-12)
+
+- **No re-resoldre una pàgina per id just després d'un create**: l'efecte
+  d'Estat sobre l'original (translate_row) feia `patch_page(item_id)` després
+  de crear la filla i l'índex de pàgines podia estar a mig refrescar → 404 i
+  la lògica anti-fantasmes bloquejava el rescan. Solució: escriure DIRECTE al
+  `file_path` que el flux ja té (`_write_metadata_key_on_disk`, mateix patró
+  que el flag d'obsolescència).
+- **Bug preexistent corregit**: `_propagate_translation_staleness` comparava
+  els camps traduïbles només per `id` (`fld_*`), però el frontmatter
+  persisteix per NOM → mai detectava canvis i les traduccions no es marcaven
+  obsoletes. Ara compara per id + nom + àlies.
+- **Heurístic de rol restringit per tipus**: un camp «Estat» de tipus `text`
+  (el cicle de vida propi de «Publicacions Socials») NO és un camp d'estat
+  semàntic — el dry-run de la migració li estava fent seed. El fallback per
+  nom només aplica a select/status (status, language) i multi_select (tags);
+  el rol explícit `config.role` no té restricció.
+- **Catàlegs compartits: renombrar/eliminar no suportat encara** — la
+  reescriptura de files és per-taula i un catàleg compartit pot abastar-ne
+  diverses; l'editor ho refusa amb un toast. Afegir opcions, colors i
+  reordenar sí que funcionen (PUT del catàleg).
+- **`buildPayload` fa round-trip del config**: el modal reconstruïa el config
+  des de zero i hauria esborrat `role`/`option_groups`/`catalog_ref` (i
+  qualsevol clau futura) a cada desat. Ara arrenca del config cru i només
+  reescriu les claus que la UI gestiona. El backend, a més, preserva els
+  `aliases` per property a l'upsert (es perdien a cada desat del modal).
+- **El modal fa un autosave en obrir-se** (preexistent, no introduït aquí):
+  el flag `skipNextAutosaveRef` es consumeix un render abans d'hora. És
+  idempotent i, després del merge, té l'efecte col·lateral benigne de
+  normalitzar el catàleg de la taula al format ric al primer obrir.
+- **E2E aïllat al contenidor**: TestClient SENSE context manager (no dispara
+  el lifespan → ni scheduler ni MCP) + `DIGITAL_BRAIN_VAULT_PATH=/tmp/testvault`
+  + `GNOSI_LOCAL_DATA=/tmp/testdata`. MAI reutilitzar `/tmp/testdata` entre
+  execucions amb el vault recreat: el cache d'índex persistit queda enverinat
+  (entrades amb ids vells als mateixos paths) i `find_page_path` torna fals
+  negatius. Vegeu `backend/tests/test_e2e_option_catalogs.py`.
 
 ## 7. QA (gates, segons protocol)
 
 1. Build frontend net + rebuild backend sense errors.
 2. E2E (API amb `X-User-ID: ismael-legacy`):
    - Registre «Esborrany» → botó Traduir desactivat amb tooltip; POST directe a `/skills/translate-row` → 409 amb motiu.
-   - Registre «Redactat» → traduir a EN → original «Traduït»; filla nova «A revisar» amb Idioma EN.
-   - Editar el cos de l'original → filla marcada stale i Estat torna a «A revisar».
+   - Registre «Revisat» → traduir a EN → original «Traduït»; filla nova «Esborrany» amb Idioma EN.
+   - Editar el cos de l'original → filla marcada stale i Estat torna a «Esborrany».
    - Eliminar una opció en ús amb reassignació → recompte correcte i cap .md amb el valor vell.
    - Registry llegat (options com a strings) carrega i es mostra igual que abans.
 3. Captures: botó desactivat amb tooltip + editor d'opcions amb colors/grups/ús.
@@ -131,9 +178,9 @@ Mateixa mecànica: `requires` (p. ex. no esborrany, o `in_group: Final` per publ
 | 2 | Rols semàntics + motor `action_rules` + integració a Traduir (disabled+tooltip, 409, efectes, bulk per fila, on_stale) | `translation_helpers`, `vault_routes`, `VaultTable`, `TranslateLanguagesModal` |
 | 3 | Estendre a publicar XXSS i Drupal + (opcional) editor de regles a la UI | `social_routes`, sync Drupal, `SchemaConfigModal` |
 
-## 9. Decisions obertes (cal validació d'Ismael)
+## 9. Decisions preses (Ismael, 2026-06-12)
 
-1. **Catàleg seed d'Estat** — proposta: Esborrany (Inicial) · Redactat (En curs) · Traduït (En curs) · A revisar (En curs) · Publicat (Final). Noms exactes? A totes les taules traduïbles o només Articles?
-2. **Tags**: multi_select enriquit (recomanat) o tipus propi `tags`?
-3. **Efecte de publicar**: source → «Publicat» per defecte a XXSS i/o Drupal, o només manual?
-4. **on_stale → «A revisar»**: default ON?
+1. **Catàleg seed d'Estat**: «Esborrany» (Inicial) · «Revisat» (En curs) sempre, a tot camp amb rol status; «Traduït» (En curs) s'hi afegeix a les taules traduïbles; «Publicat a Drupal» / «Publicat a XXSS» (Final) a les que tenen la funcionalitat activa. No existeixen «Redactat» ni «A revisar»: una traducció nova o obsoleta cau a «Esborrany» (= pendent de revisió) i «Revisat» és l'estat que posa Ismael en revisar-la.
+2. **Tags**: multi_select enriquit + **catàlegs compartits amb nom** (`option_catalogs` al registry + `config.catalog_ref` al camp), perquè diverses taules comparteixin la mateixa llista sense reescriure-la per taula (§3.1).
+3. **Efecte de publicar**: source → «Publicat a Drupal» (sync Drupal) i «Publicat a XXSS» (publicació social), automàtic en èxit (§4.3).
+4. **on_stale**: default ON; el destí és «Esborrany» (adaptació del mecanisme aprovat al catàleg nou).
