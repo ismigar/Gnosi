@@ -508,6 +508,58 @@ class UnconfiguredPublisher:
         )
 
 
+class TelegramClient:
+    """Client per publicar a Telegram via Bot API (sense OAuth).
+
+    Config a l'entorn (lectura dinàmica, com Mastodon/Bluesky):
+      TELEGRAM_BOT_TOKEN  — token del bot creat amb @BotFather
+      TELEGRAM_CHAT_ID    — id del xat/canal destí (@elmeucanal o -100123...)
+    """
+
+    network = "telegram"
+    char_limit = 4096  # límit de missatge de text; amb media, el caption és 1024
+
+    @property
+    def bot_token(self) -> str:
+        return os.getenv("TELEGRAM_BOT_TOKEN", "")
+
+    @property
+    def chat_id(self) -> str:
+        return os.getenv("TELEGRAM_CHAT_ID", "")
+
+    @property
+    def base_url(self) -> str:
+        return f"https://api.telegram.org/bot{self.bot_token}"
+
+    def is_configured(self) -> bool:
+        return bool(self.bot_token and self.chat_id)
+
+    async def publish(self, text: str, media: Optional[list] = None) -> Dict:
+        """Publica un missatge (amb foto opcional). Retorna {url, id}."""
+        if not self.is_configured():
+            raise Exception("Telegram no configurat (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID).")
+        async with httpx.AsyncClient() as client:
+            if media:
+                item = media[0]
+                path = item[0] if isinstance(item, (list, tuple)) else item
+                with open(path, "rb") as fh:
+                    files = {"photo": (os.path.basename(str(path)), fh.read())}
+                    data = {"chat_id": self.chat_id, "caption": text[:1024]}
+                    resp = await client.post(f"{self.base_url}/sendPhoto", data=data, files=files, timeout=60.0)
+            else:
+                resp = await client.post(
+                    f"{self.base_url}/sendMessage",
+                    json={"chat_id": self.chat_id, "text": text},
+                    timeout=15.0,
+                )
+            resp.raise_for_status()
+            result = (resp.json() or {}).get("result", {})
+            msg_id = result.get("message_id")
+            uname = (result.get("chat") or {}).get("username")
+            url = f"https://t.me/{uname}/{msg_id}" if (uname and msg_id) else None
+            return {"url": url, "id": str(msg_id) if msg_id else None}
+
+
 # Singleton instances
 mastodon_client = MastodonClient()
 bluesky_client = BlueskyClient()
@@ -515,6 +567,7 @@ linkedin_client = UnconfiguredPublisher("linkedin", 3000)
 facebook_client = UnconfiguredPublisher("facebook", 63206)
 instagram_client = UnconfiguredPublisher("instagram", 2200)
 x_client = UnconfiguredPublisher("x", 280)
+telegram_client = TelegramClient()
 
 # Registry uniforme network → client. Tots exposen la mateixa interfície:
 #   .network (str), .char_limit (int), .is_configured() -> bool,
@@ -527,4 +580,5 @@ SOCIAL_PUBLISHERS: Dict[str, Any] = {
     "facebook": facebook_client,
     "instagram": instagram_client,
     "x": x_client,
+    "telegram": telegram_client,
 }
