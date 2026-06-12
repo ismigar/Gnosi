@@ -289,6 +289,33 @@ export function getSchemaFieldEntries(schema = {}) {
     return getSchemaFieldNames(schema).map(name => [name, getFieldType(schema, name)]);
 }
 
+/**
+ * Normalitza el camp `sort` d'una vista a un array d'ordres.
+ *
+ * Les vistes guarden `sort` en dues formes històriques: un únic objecte
+ * { field, direction } (vistes per defecte del backend i del frontend) o un
+ * array [{ id, field, direction }] (multi-ordenació del ViewConfigModal).
+ * Tots els consumidors (ViewConfigModal, VaultTable i, indirectament,
+ * useVaultViewData) treballen amb arrays i fan `sorts.map(...)`/iteren amb
+ * `for...of`, així que normalitzem sempre l'entrada per no petar ni perdre
+ * l'ordre quan arriba en forma d'objecte. Descarta entrades sense `field` i
+ * assigna `direction: 'asc'` per defecte.
+ *
+ * @param {Object|Array|null|undefined} raw  valor cru de `view.sort`
+ * @returns {Array<{id: string, field: string, direction: string}>}
+ */
+export function normalizeSorts(raw) {
+    if (Array.isArray(raw)) {
+        return raw
+            .filter(s => s && s.field)
+            .map((s, i) => ({ id: s.id ?? `sort-${i}`, field: s.field, direction: s.direction || 'asc' }));
+    }
+    if (raw && typeof raw === 'object' && raw.field) {
+        return [{ id: raw.id ?? 'sort-0', field: raw.field, direction: raw.direction || 'asc' }];
+    }
+    return [];
+}
+
 
 /**
  * Determina si una pàgina s'ha de considerar una cita del calendari.

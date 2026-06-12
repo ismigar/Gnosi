@@ -4,24 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { VIEW_TYPES } from './viewConstants';
-import { getSchemaFieldNames } from './schemaUtils';
-
-// Les vistes guarden `sort` en dues formes històriques: un únic objecte
-// { field, direction } (vistes per defecte del backend i del frontend) o un
-// array [{ id, field, direction }] (multi-ordenació). Aquest modal treballa
-// sempre amb un array i fa `sorts.map(...)`, així que normalitzem l'entrada
-// per no petar quan arriba en forma d'objecte (clicar la pestanya "Ordenació").
-function normalizeSorts(raw) {
-    if (Array.isArray(raw)) {
-        return raw
-            .filter(s => s && s.field)
-            .map((s, i) => ({ id: s.id ?? `sort-${i}`, field: s.field, direction: s.direction || 'asc' }));
-    }
-    if (raw && typeof raw === 'object' && raw.field) {
-        return [{ id: raw.id ?? 'sort-0', field: raw.field, direction: raw.direction || 'asc' }];
-    }
-    return [];
-}
+import { getSchemaFieldNames, normalizeSorts } from './schemaUtils';
 
 export function ViewConfigModal({
     isOpen,

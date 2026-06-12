@@ -216,7 +216,7 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
-import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, normalizeSorts } from './schemaUtils';
 import {
     isComputedType,
     isPasteableType,
@@ -490,11 +490,26 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     }, [addingSubitemFor]);
 
     // ---- UNIFIED DATA LOGIC (FILTERS, SORT, SEARCH) ----
-    const activeSort = activeView?.sort || { field: "last_modified", direction: "desc" };
+    // `sort` pot venir en dues formes històriques: un únic objecte
+    // { field, direction } o un array [{ id, field, direction }] (multi-ordenació
+    // del ViewConfigModal). Normalitzem sempre a array perquè la taula ordeni
+    // igual que Galeria/Kanban/Timeline; sense això, un ordre desat des del modal
+    // (array) es perdia (`activeSort.field` era undefined → sort buit).
+    const normalizedSorts = normalizeSorts(activeView?.sort);
+    // Sense cap ordre configurat (vista nova): per defecte, més recent primer.
+    // Un array buit explícit (l'usuari ha tret tots els ordres) es respecta com
+    // a "sense ordre".
+    const effectiveSorts = normalizedSorts.length > 0
+        ? normalizedSorts
+        : (activeView?.sort ? [] : [{ field: "last_modified", direction: "desc" }]);
+    // L'ordre primari governa la fletxa asc/desc de la capçalera i el toggle.
+    const activeSort = effectiveSorts[0] || {};
+    // Signatura estable (multi-camp) per reinicialitzar el cursor quan canvia l'ordre.
+    const sortSignature = effectiveSorts.map(s => `${s.field}:${s.direction}`).join(',');
 
     const viewConfig = {
         filters: activeView?.filters || [],
-        sort: activeSort.field ? [activeSort] : [],
+        sort: effectiveSorts,
         search: searchTerm
     };
 
@@ -642,13 +657,16 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
     const handleSort = (field) => {
         if (!activeView || !onUpdateView) return;
-        const isCurrentField = activeView.sort?.field === field;
-        const currentDirection = activeView.sort?.direction;
+        // Llegim l'ordre primari normalitzat (l'`sort` pot ser objecte o array).
+        const primary = normalizeSorts(activeView.sort)[0];
+        const isCurrentField = primary?.field === field;
         let newDirection = 'asc';
         if (isCurrentField) {
-            newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+            newDirection = primary.direction === 'asc' ? 'desc' : 'asc';
         }
-        const updatedView = { ...activeView, sort: { field, direction: newDirection } };
+        // Clicar una capçalera estableix aquest camp com a ÚNIC ordre (estil
+        // Notion/Airtable) i el desa en forma d'array, igual que el modal.
+        const updatedView = { ...activeView, sort: [{ field, direction: newDirection }] };
         onUpdateView(updatedView);
     };
 
@@ -770,13 +788,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // l'usuari (activeCell NO és dependència).
     const initializedViewRef = useRef(null);
     useEffect(() => {
-        const viewKey = `${activeView?.id}|${searchTerm}|${activeView?.sort?.field}|${activeView?.sort?.direction}`;
+        const viewKey = `${activeView?.id}|${searchTerm}|${sortSignature}`;
         if (initializedViewRef.current === viewKey) return;
         if (navRows.length === 0 || gridColumns.length === 0) return; // espera les dades
         initializedViewRef.current = viewKey;
         setAnchorCell(null);
         setActiveCell({ rowId: navRows[0].id, field: gridColumns[0].key });
-    }, [activeView?.id, searchTerm, activeView?.sort?.field, activeView?.sort?.direction, navRows, gridColumns]);
+    }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns]);
 
     // Resizing Handlers
     const handleMouseDown = useCallback((e, colKey) => {
