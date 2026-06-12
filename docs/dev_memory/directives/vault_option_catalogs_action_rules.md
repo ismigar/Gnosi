@@ -152,6 +152,12 @@ backend acabat de reiniciar després (cache de 30 s del registry):
   el flag `skipNextAutosaveRef` es consumeix un render abans d'hora. És
   idempotent i, després del merge, té l'efecte col·lateral benigne de
   normalitzar el catàleg de la taula al format ric al primer obrir.
+- **Les files d'una taula viuen a `BD/<nom de la BD>/<folder>`**, no a
+  `<vault>/<folder>`: la primera versió de la migració mirava l'arrel i no
+  derivava CAP valor existent (ho va destapar el smoke test en viu: Articles
+  tenia 34 files «Publicat» fora del catàleg). La incorporació de valors ara
+  és un merge idempotent (afegeix els que falten, mai en treu) i es pot
+  re-executar amb seguretat després de cada correcció.
 - **E2E aïllat al contenidor**: TestClient SENSE context manager (no dispara
   el lifespan → ni scheduler ni MCP) + `DIGITAL_BRAIN_VAULT_PATH=/tmp/testvault`
   + `GNOSI_LOCAL_DATA=/tmp/testdata`. MAI reutilitzar `/tmp/testdata` entre

@@ -4,9 +4,10 @@ Aplica el model de la directiva `vault_option_catalogs_action_rules.md` a un
 registry existent:
 
   1. Backup datat del registry al costat de l'original (només amb --apply).
-  2. Camps select/multi_select/status SENSE catàleg → deriva les opcions dels
-     valors existents a les files (.md de la carpeta de la taula), ordenades
-     per freqüència, i les escriu en format ric {name, color, group?}.
+  2. Incorpora al catàleg de cada camp select/multi_select/status TOTS els
+     valors existents a les files (.md de la carpeta real de la taula, sota
+     BD/<base de dades>/<folder>), ordenats per freqüència — no es perd cap
+     valor; la neteja es fa després des de la UI amb eliminar+reassignar.
   3. Normalitza els catàlegs existents (strings → format ric, ubicació única
      a config.options) — via option_catalogs.normalize_table_options.
   4. Assigna rols semàntics per nom (Idioma → language, Estat → status,
@@ -103,25 +104,63 @@ def collect_field_values(folder: Path, prop: dict) -> Counter:
     return counts
 
 
-def derive_missing_catalogs(table: dict, vault_root: Path) -> list:
-    """Pas 2: catàlegs derivats dels valors per als camps que no en tenen."""
-    derived = []
-    folder = vault_root / str(table.get("folder") or "")
+def resolve_table_folder(table: dict, registry: dict, vault_root: Path) -> Path:
+    """Carpeta REAL de les files d'una taula.
+
+    Les taules viuen sota ``<vault>/BD/<nom de la base de dades>/<folder>``
+    (vegeu _ensure_table_vault_folder al backend), NO a ``<vault>/<folder>``.
+    Es prova per nom de BD, per id de BD i, com a últim recurs llegat,
+    l'arrel del vault. La primera versió d'aquest script mirava només
+    l'arrel → no derivava CAP valor (vegeu §6 bis de la directiva).
+    """
+    folder = str(table.get("folder") or "")
+    db = next(
+        (
+            d
+            for d in registry.get("databases", [])
+            if str(d.get("id")) == str(table.get("database_id"))
+        ),
+        None,
+    )
+    candidates = []
+    if db:
+        if db.get("name"):
+            candidates.append(vault_root / "BD" / str(db["name"]) / folder)
+        if db.get("id"):
+            candidates.append(vault_root / "BD" / str(db["id"]) / folder)
+    candidates.append(vault_root / folder)
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return candidates[0] if candidates else vault_root / folder
+
+
+def merge_values_into_catalogs(table: dict, registry: dict, vault_root: Path) -> list:
+    """Pas 2: incorpora al catàleg TOTS els valors existents a les files
+    (directiva §6: no es perd res; la neteja la fa després l'usuari amb
+    eliminar+reassignar). Idempotent: només afegeix els que falten, al final
+    del catàleg i ordenats per freqüència; mai en treu ni reordena."""
+    merged = []
+    folder = resolve_table_folder(table, registry, vault_root)
     for prop in table.get("properties") or []:
         if prop.get("type") not in oc.OPTION_TYPES:
             continue
         cfg = oc.get_prop_config(prop)
         if str(cfg.get("catalog_ref") or "").strip():
             continue
-        if oc.get_prop_options(prop):
-            continue
         counts = collect_field_values(folder, prop)
         if not counts:
             continue
-        options = [name for name, _n in counts.most_common()]
-        oc.set_prop_options(prop, oc.normalize_options(options))
-        derived.append((prop.get("name"), len(options)))
-    return derived
+        existing = oc.get_prop_options(prop)
+        have = {o["name"] for o in existing}
+        missing = [name for name, _n in counts.most_common() if name not in have]
+        if not missing:
+            continue
+        oc.set_prop_options(
+            prop, oc.normalize_options(existing + missing)
+        )
+        merged.append((prop.get("name"), missing))
+    return merged
 
 
 def promote_status_type(table: dict) -> bool:
@@ -144,9 +183,12 @@ def migrate(registry_path: Path, apply: bool) -> int:
         name = table.get("name") or table.get("id")
         report = []
 
-        derived = derive_missing_catalogs(table, vault_root)
-        for field_name, n in derived:
-            report.append(f"catàleg derivat de valors per a «{field_name}» ({n} opcions)")
+        merged = merge_values_into_catalogs(table, registry, vault_root)
+        for field_name, missing in merged:
+            shown = ", ".join(missing[:8]) + ("…" if len(missing) > 8 else "")
+            report.append(
+                f"valors existents incorporats al catàleg de «{field_name}» ({len(missing)}): {shown}"
+            )
 
         if oc.normalize_table_options(table):
             report.append("catàlegs normalitzats a format ric")
