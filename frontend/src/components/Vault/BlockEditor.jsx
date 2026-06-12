@@ -3762,7 +3762,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 setSaveStatus={setSaveStatus}
                                 metadataRef={metadataRef}
                                 isEditable={isEditable}
-                                onOpenPageViewModal={contextValue.openPageViewModalFromContext}
+                                onOpenPageViewModal={contextValue.onOpenPageViewModal}
                             />
                         )}
                     </ErrorBoundary>
