@@ -74,8 +74,31 @@ def _save_registry(registry: dict, registry_path: Path) -> None:
     safe_write_json(registry_path, registry, indent=2, ensure_ascii=False)
 
 
+def _page_exists_on_disk(page_id: str) -> bool:
+    """Comprova que la pàgina existeix al vault.
+
+    Delega a `find_page_path` perquè usa comparació canònica d'ids
+    (insensible a guionets i majúscules: una frontmatter amb
+    `id: df3614865ff34a1490055d9b7b456492` casa amb una URL amb
+    `df361486-5ff3-4a14-9005-5d9b7b456492`, i a l'inrevés).
+    """
+    try:
+        from backend.api.vault_routes import find_page_path
+        return find_page_path(page_id) is not None
+    except Exception as e:
+        log.warning(f"_page_exists_on_disk error: {e}")
+        return False
+
+
 def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
-    """Crida sync_page_view del pipeline/sandbox per actualitzar el .md."""
+    """Sincronitza les seccions del .md (taula plana per a Obsidian).
+
+    `sync_sections` viu a `pipeline/sandbox/` (gitignored): a la imatge de
+    producció el directori és buit, l'import falla i retornem False. Això
+    és OK perquè el bloc `gnosi-view` el renderitza el frontend des del
+    registry — la taula plana és un best-effort per a clients markdown
+    externs (Obsidian) i no és necessària per veure la vista a l'app.
+    """
     try:
         sandbox = Path(__file__).parents[2] / "pipeline" / "sandbox"
         if str(sandbox) not in sys.path:
@@ -83,7 +106,7 @@ def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
         from sync_sections import sync_page_view  # type: ignore
         return sync_page_view(page_id, registry, vault_path)
     except Exception as e:
-        log.warning(f"sync_page_view error: {e}")
+        log.debug(f"sync_page_view no disponible: {e}")
         return False
 
 
@@ -161,6 +184,18 @@ async def upsert_page_view(page_id: str, view: ViewSection):
                     ),
                 )
 
+        # La pàgina ha d'existir al disc abans de tocar el registry. Usem
+        # `find_page_path` (comparació canònica) en lloc d'un scan limitat
+        # a `.Dashboards`: pàgines en qualsevol carpeta del vault (BD/, Arees/,
+        # …) també han de validar-se.
+        if not _page_exists_on_disk(page_id):
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Pàgina {page_id} no trobada al disc. La vista no s'ha creat."
+                ),
+            )
+
         # Inicialitza `pages` si no existeix
         if "pages" not in registry:
             registry["pages"] = {}
@@ -184,39 +219,10 @@ async def upsert_page_view(page_id: str, view: ViewSection):
 
         _save_registry(registry, registry_path)
 
-        # Sync el .md
+        # Best-effort: sincronitza la taula plana al .md per a Obsidian.
+        # En producció (sense `pipeline/sandbox/`) retorna False — el block
+        # `gnosi-view` el renderitza el frontend, no fa falta per a l'app.
         synced = _sync_page(page_id, registry, vault_path)
-
-        # Si el sync no ha modificat res però la vista és nova, és que el .md
-        # de la pàgina no s'ha trobat (page_id sense fitxer al disc).
-        if not synced and action == "created":
-            from pathlib import Path as _P
-            found = False
-            try:
-                dw = vault_path / ".Dashboards"
-                if dw.exists():
-                    for f in dw.iterdir():
-                        if f.suffix == ".md":
-                            try:
-                                txt = f.read_text(encoding="utf-8", errors="replace")
-                                if f"id: {page_id}" in txt:
-                                    found = True
-                                    break
-                            except Exception:
-                                pass
-            except Exception:
-                pass
-            if not found:
-                # Revertim la vista afegida per no deixar lixo al registry.
-                if existing_idx is None:
-                    sections.pop()
-                    _save_registry(registry, registry_path)
-                raise HTTPException(
-                    status_code=404,
-                    detail=(
-                        f"Pàgina {page_id} no trobada al disc. La vista no s'ha creat."
-                    ),
-                )
 
         return {
             "ok": True,
