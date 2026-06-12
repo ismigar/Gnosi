@@ -6,8 +6,123 @@ import { createPortal } from 'react-dom';
 import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { isCalendarPage, isAppContent } from './schemaUtils';
 import { sortKey } from '../../utils/vaultFilters';
+
+const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) => {
+    const { t } = useTranslation();
+    const modalRef = useRef(null);
+    const inputRef = useRef(null);
+    const [value, setValue] = useState(defaultValue || '');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setValue(defaultValue || '');
+            setIsSubmitting(false);
+            const id = setTimeout(() => {
+                inputRef.current?.focus();
+                inputRef.current?.select();
+            }, 30);
+            return () => clearTimeout(id);
+        }
+    }, [isOpen, defaultValue]);
+
+    const submit = async () => {
+        const trimmed = value.trim();
+        if (!trimmed || isSubmitting) return;
+        if (trimmed === (defaultValue || '')) { onClose(); return; }
+        try {
+            setIsSubmitting(true);
+            await onConfirm(trimmed);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    useModalKeyboard({
+        isOpen,
+        onClose: () => { if (!isSubmitting) onClose(); },
+        onConfirm: submit,
+        confirmDisabled: isSubmitting || !value.trim(),
+        containerRef: modalRef,
+        trapFocus: true,
+    });
+
+    if (!isOpen) return null;
+
+    const title = type === 'database'
+        ? t('sidebar.rename_db_title', 'Reanomenar base de dades')
+        : t('sidebar.rename_table_title', 'Reanomenar taula');
+    const label = type === 'database'
+        ? t('sidebar.prompt_new_name_db', 'Nou nom per a la base de dades')
+        : t('sidebar.prompt_new_name_table', 'Nou nom per a la taula');
+
+    return createPortal(
+        <div
+            className="fixed inset-0 flex items-center justify-center"
+            style={{ zIndex: 99999 }}
+            onClick={() => { if (!isSubmitting) onClose(); }}
+            role="dialog"
+            aria-modal="true"
+        >
+            <div className="absolute inset-0 bg-[var(--bg-primary)]/40 backdrop-blur-sm transition-opacity" />
+            <div
+                ref={modalRef}
+                onClick={(e) => e.stopPropagation()}
+                className="relative bg-[var(--bg-primary)] rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 p-6 border border-[var(--border-primary)]"
+            >
+                <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 rounded-full flex-shrink-0 bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]">
+                        <Edit2 size={20} />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                        className="gnosi-close-btn"
+                        aria-label={t('common.cancel', 'Cancel·la')}
+                    >
+                        <span aria-hidden>×</span>
+                    </button>
+                </div>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">{title}</h3>
+                <label className="block text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2">
+                    {label}
+                </label>
+                <input
+                    ref={inputRef}
+                    data-autofocus="true"
+                    type="text"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-blue)]/30 mb-6"
+                />
+                <div className="flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                        className="px-4 py-2 font-medium text-[var(--text-secondary)] border border-[var(--border-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors focus:ring-2 focus:ring-[var(--border-primary)] outline-none"
+                    >
+                        {t('common.cancel', 'Cancel·la')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={isSubmitting || !value.trim()}
+                        className="px-4 py-2 font-medium rounded-lg text-white shadow-sm transition-colors focus:ring-2 focus:ring-offset-1 outline-none bg-[var(--gnosi-blue)] hover:opacity-90 focus:ring-[var(--gnosi-blue)]/50 disabled:opacity-50"
+                    >
+                        {isSubmitting ? '...' : t('common.save', 'Desar')}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement, indented = false }) => (
     <button
@@ -542,6 +657,7 @@ export const VaultSidebar = ({
     const [expandedDatabases, setExpandedDatabases] = useState({});
     const [menuState, setMenuState] = useState(null);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: '', id: '', name: '' });
+    const [renameModal, setRenameModal] = useState({ isOpen: false, type: '', id: '', name: '' });
     const [visibleWikiCount, setVisibleWikiCount] = useState(WIKI_BATCH_SIZE);
     const [visibleDatabasesCount, setVisibleDatabasesCount] = useState(DATABASES_BATCH_SIZE);
     const [visibleTablesByDb, setVisibleTablesByDb] = useState({});
@@ -1262,7 +1378,7 @@ export const VaultSidebar = ({
                                     className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                                 >
                                     <Plus size={14} className="text-[var(--text-secondary)]/60" />
-                                    <span>{t('sidebar.open_in_new_tab')}</span>
+                                    <span>{t('sidebar.open_new_tab')}</span>
                                 </button>
                             )}
                             {onOpenTableParallel && (
@@ -1282,11 +1398,7 @@ export const VaultSidebar = ({
                     )}
                     <button
                         onClick={() => {
-                            const newName = prompt(t('sidebar.prompt_new_name_type', { type: menuState.type === 'database' ? 'Database' : 'Table' }), menuState.name);
-                            if (newName && newName !== menuState.name) {
-                                if (menuState.type === 'database') onRenameDatabase(menuState.id, newName);
-                                else onRenameTable(menuState.id, newName);
-                            }
+                            setRenameModal({ isOpen: true, type: menuState.type, id: menuState.id, name: menuState.name });
                             setMenuState(null);
                         }}
                         className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
@@ -1331,6 +1443,17 @@ export const VaultSidebar = ({
                     isDestructive={true}
                 />
             )}
+            <RenamePromptModal
+                isOpen={renameModal.isOpen}
+                type={renameModal.type}
+                defaultValue={renameModal.name}
+                onClose={() => setRenameModal({ isOpen: false, type: '', id: '', name: '' })}
+                onConfirm={async (newName) => {
+                    if (renameModal.type === 'database') await onRenameDatabase(renameModal.id, newName);
+                    else await onRenameTable(renameModal.id, newName);
+                    setRenameModal({ isOpen: false, type: '', id: '', name: '' });
+                }}
+            />
         </div>
     );
 };

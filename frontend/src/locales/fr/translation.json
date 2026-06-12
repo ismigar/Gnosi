@@ -431,7 +431,11 @@
     "nav_dashboard": "Tableau de bord",
     "dashboards": "Tableaux de bord",
     "no_dashboard_pages": "Aucun tableau de bord",
-    "nav_settings": "Paramètres"
+    "nav_settings": "Paramètres",
+    "rename_db_title": "Renommer la base de données",
+    "rename_table_title": "Renommer la table",
+    "prompt_new_name_db": "Nouveau nom pour la base de données",
+    "prompt_new_name_table": "Nouveau nom pour la table"
   },
   "shell": {
     "translate_record": "Traduire l'enregistrement"
