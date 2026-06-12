@@ -39,6 +39,11 @@ Restriccions apreses del script de purga:
 - El patró `…268e5-2714-80…` era anecdòtic: només 99 dels 487 ids morts el contenien (la resta són uuid v4 normals). No filtrar mai per patró; el patró només serveix per llistar candidats «atípics» a l'informe del dry-run.
 - Ids no-uuid possibles (stems llegats) → URL-encodar el path segment a la crida API (`quote(rid, safe='')`).
 
+**Incident post-migració (2026-06-12): fòssils sincronitzats de l'altre Mac.** Hores després d'aplicar la migració, OneDrive va dipositar fitxers en format antic creats a l'altre Mac (firma: birth local recent amb mtime molt anterior), creant **3 parelles de fitxers amb el MATEIX `id` intern** (A vueltas con la religión i Argumentación, teoría de la a Recursos; 📍 Filosofia i espiritualitat a Tasques). Perill: amb dos fitxers pel mateix id, el backend n'indexa un d'arbitrari. Verificat camp a camp que els rancis no tenien cap dada única (només el títol antic i 7 ids penjats amb 404) → moguts a quarantena local `pipeline/sandbox/backups/quarantena_duplicats_20260612/` (fora de OneDrive; l'esborrat es propaga a l'altre Mac). Després: 0 ids duplicats sota `BD/` i dry-run a tot zeros. Lliçons:
+- Després d'una migració massiva del vault, **repassar el dry-run l'endemà** i **escanejar ids duplicats** (agrupar fitxers per `id:` del frontmatter): OneDrive pot reinjectar fitxers vells amb hores de retard.
+- El fitxer bo es reconeix pel **contingut** (frontmatter decorat, cos net) i perquè és el que l'API serveix per a aquell id — mai pel nom de fitxer.
+- Abans d'usar Gnosi a l'altre Mac: git pull + reiniciar el backend (el codi pre-migració no fa strip i pot tornar a escriure formats antics o crear duplicats).
+
 ## QA
 - pytest del round-trip (strip/decorate, fallbacks, camps no-relació intactes).
 - Navegador: la taula mostra títols a les columnes de relació; editar una relació desa `[[Títol|id]]` al `.md` i el cos no canvia.
