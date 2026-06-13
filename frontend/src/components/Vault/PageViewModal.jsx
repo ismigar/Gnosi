@@ -32,6 +32,87 @@ const TABS = [
     { id: 'general', icon: SlidersHorizontal, label: 'General' },
 ];
 
+/**
+ * Selector cercable per al valor d'un filtre de RELACIÓ. En lloc d'un text
+ * lliure (propens a errades com "thiis"), ofereix un desplegable amb:
+ *  - "Aquesta pàgina" (valor especial `this` = id de la pàgina on s'incrusta),
+ *  - els títols dels registres de la taula relacionada (valor = id),
+ *  amb un cercador per filtrar i navegació amb teclat (↑↓/Enter/Esc).
+ */
+function RelationValuePicker({ value, onChange, options, loading, thisLabel, placeholder }) {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const [highlighted, setHighlighted] = useState(0);
+    const boxRef = useRef(null);
+
+    const allOptions = useMemo(
+        () => [{ value: 'this', label: thisLabel }, ...(options || [])],
+        [options, thisLabel],
+    );
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return allOptions;
+        return allOptions.filter(o => String(o.label || '').toLowerCase().includes(q));
+    }, [allOptions, query]);
+
+    const current = allOptions.find(o => o.value === value);
+    const display = current ? current.label : (value || '');
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', onDoc);
+        return () => document.removeEventListener('mousedown', onDoc);
+    }, [open]);
+
+    const pick = (opt) => { onChange(opt.value); setOpen(false); setQuery(''); };
+
+    return (
+        <div ref={boxRef} className="relative w-40">
+            <button
+                type="button"
+                onClick={() => { setOpen(o => !o); setHighlighted(0); }}
+                className="w-full text-left truncate text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--gnosi-primary)]"
+                title={display}
+            >
+                {display || <span className="text-[var(--text-tertiary)]">{placeholder || 'Tria…'}</span>}
+            </button>
+            {open && (
+                <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg">
+                    <input
+                        autoFocus
+                        value={query}
+                        onChange={e => { setQuery(e.target.value); setHighlighted(0); }}
+                        onKeyDown={e => {
+                            if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, filtered.length - 1)); }
+                            else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
+                            else if (e.key === 'Enter') { e.preventDefault(); if (filtered[highlighted]) pick(filtered[highlighted]); }
+                            else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+                        }}
+                        placeholder="Cerca…"
+                        className="w-full text-xs border-b border-[var(--border-primary)] px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] sticky top-0"
+                    />
+                    {loading && <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">Carregant…</div>}
+                    {!loading && filtered.map((o, i) => (
+                        <div
+                            key={o.value}
+                            onMouseEnter={() => setHighlighted(i)}
+                            onMouseDown={e => { e.preventDefault(); pick(o); }}
+                            className={`px-2 py-1.5 text-xs cursor-pointer truncate ${i === highlighted ? 'bg-[var(--gnosi-primary)]/15 text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'} ${o.value === value ? 'font-semibold' : ''}`}
+                            title={o.label}
+                        >
+                            {o.value === 'this' ? `📍 ${o.label}` : o.label}
+                        </div>
+                    ))}
+                    {!loading && filtered.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">Cap resultat</div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null }) {
     const { t } = useTranslation();
 
@@ -90,10 +171,42 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         };
         const props = (selectedTable?.properties || [])
             .filter(p => !isTitleField(p))
-            .map(p => ({ name: p.name, type: p.type }));
+            .map(p => ({ name: p.name, type: p.type, relation_database_id: p.relation_database_id }));
         props.unshift({ name: 'title', type: 'title' });
         return props;
     }, [selectedTable]);
+
+    const fieldMeta = useMemo(() => {
+        const m = {};
+        tableFields.forEach(f => { m[f.name] = f; });
+        return m;
+    }, [tableFields]);
+
+    // Cau de registres de taules relacionades per als desplegables de filtre
+    // de relació: { [tableId]: [{ value: id, label: títol }] }. `undefined` =
+    // encara no carregat (mostrem "Carregant…").
+    const [relationCache, setRelationCache] = useState({});
+    useEffect(() => {
+        if (!isOpen) return;
+        const targets = new Set();
+        filters.forEach(f => {
+            const meta = fieldMeta[f.field];
+            if (meta?.type === 'relation' && meta.relation_database_id) targets.add(meta.relation_database_id);
+        });
+        targets.forEach(async (tid) => {
+            if (relationCache[tid] !== undefined) return;
+            try {
+                const rows = await apiFetch(`/api/vault/pages/by-table/${encodeURIComponent(tid)}`);
+                const opts = (Array.isArray(rows) ? rows : [])
+                    .filter(r => !r.metadata?.is_template)
+                    .map(r => ({ value: r.id, label: r.title || '(sense títol)' }))
+                    .sort((a, b) => a.label.localeCompare(b.label));
+                setRelationCache(prev => ({ ...prev, [tid]: opts }));
+            } catch {
+                setRelationCache(prev => ({ ...prev, [tid]: [] }));
+            }
+        });
+    }, [isOpen, filters, fieldMeta, apiFetch, relationCache]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -322,7 +435,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     };
 
     const updateFilter = (idx, patch) => {
-        setFilters(prev => prev.map((f, i) => (i === idx ? { ...f, ...patch } : f)));
+        setFilters(prev => prev.map((f, i) => {
+            if (i !== idx) return f;
+            // Si canvia el camp, el valor anterior pot no tenir sentit pel nou
+            // tipus (p. ex. un id de relació en un camp de text); el reiniciem.
+            const next = { ...f, ...patch };
+            if (patch.field !== undefined && patch.field !== f.field) next.value = '';
+            return next;
+        }));
     };
 
     const removeFilter = (idx) => {
@@ -756,6 +876,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 <div className="space-y-2">
                                     {filters.map((f, idx) => {
                                         const noValue = ['is_empty', 'is_not_empty'].includes(f.operator);
+                                        const meta = fieldMeta[f.field];
+                                        const isRelation = meta?.type === 'relation' && !!meta.relation_database_id;
+                                        const relOpts = isRelation ? relationCache[meta.relation_database_id] : null;
                                         return (
                                             <div key={idx} className="flex gap-2 items-center">
                                                 <select
@@ -776,13 +899,24 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         <option key={op.value} value={op.value}>{op.label}</option>
                                                     ))}
                                                 </select>
-                                                <input
-                                                    className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40"
-                                                    value={f.value || ''}
-                                                    onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                    placeholder={noValue ? '—' : 'this o valor'}
-                                                    disabled={noValue}
-                                                />
+                                                {isRelation && !noValue ? (
+                                                    <RelationValuePicker
+                                                        value={f.value || ''}
+                                                        onChange={v => updateFilter(idx, { value: v })}
+                                                        options={relOpts || []}
+                                                        loading={relOpts === undefined}
+                                                        thisLabel={t('view.filter_this', { defaultValue: 'Aquesta pàgina' })}
+                                                        placeholder={t('view.filter_pick', { defaultValue: 'Tria…' })}
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40"
+                                                        value={f.value || ''}
+                                                        onChange={e => updateFilter(idx, { value: e.target.value })}
+                                                        placeholder={noValue ? '—' : 'this o valor'}
+                                                        disabled={noValue}
+                                                    />
+                                                )}
                                                 <button
                                                     onClick={() => removeFilter(idx)}
                                                     className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
