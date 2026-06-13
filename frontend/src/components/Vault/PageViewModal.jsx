@@ -72,14 +72,26 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     );
 
     const tableFields = useMemo(() => {
-        const props = (selectedTable?.properties || []).map(p => ({ name: p.name, type: p.type }));
-        // Només afegim el `title` canònic si no existeix CAP propietat que ja
-        // representi el títol (`title`/`Títol`/`Title` en qualsevol idioma).
-        const hasTitle = props.some(p => {
+        // Una columna de títol de l'esquema (la propietat de tipus `title`
+        // d'una taula importada de Notion, p. ex. "Nom"/"Título", o un camp
+        // literalment anomenat title/títol/titulo/titre) ÉS el títol de la
+        // pàgina. El sistema ja l'exposa com a camp canònic `title`, que el
+        // render llegeix de `r.title`. La detecció anterior, basada només en
+        // noms sense accent, no reconeixia `Título` (amb í) ni les columnes
+        // de tipus `title` amb un altre nom (`Nom`), i acabava mostrant DUES
+        // columnes de títol; a més, la columna amb nom propi ni tan sols es
+        // renderitzava (el seu valor no és a `metadata`, sinó a `title`).
+        // Per això excloem totes les columnes de títol de l'esquema i deixem
+        // un únic `title` canònic.
+        const isTitleField = (p) => {
+            if (String(p.type || '').trim().toLowerCase() === 'title') return true;
             const n = String(p.name || '').trim().toLowerCase();
-            return n === 'title' || n === 'títol' || n === 'titulo' || n === 'titre';
-        });
-        if (!hasTitle) props.unshift({ name: 'title', type: 'text' });
+            return n === 'title' || n === 'títol' || n === 'titulo' || n === 'título' || n === 'titre';
+        };
+        const props = (selectedTable?.properties || [])
+            .filter(p => !isTitleField(p))
+            .map(p => ({ name: p.name, type: p.type }));
+        props.unshift({ name: 'title', type: 'title' });
         return props;
     }, [selectedTable]);
 
