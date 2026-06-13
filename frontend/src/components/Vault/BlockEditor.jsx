@@ -927,6 +927,7 @@ export function EditorInner({
     setSaveStatus,
     metadataRef,
     onOpenPageViewModal,
+    applyViewSectionRef,
     isEditable = true,
 }) {
     const { t } = useTranslation();
@@ -1910,6 +1911,35 @@ export function EditorInner({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- metadataRef is a ref; noteFilename is captured via handleSave closure
     }, [editor, isParsing, handleSave]);
 
+    // Punt d'entrada que el PageViewModal (renderitzat fora d'EditorInner)
+    // crida després de desar la vista. Si `editingBlock` és present, actualitza
+    // el bloc existent (mode editar); altrament insereix un `gnosi_view` nou
+    // després del cursor (mode inserir). Declarat ABANS del return primerenc
+    // per editorReady per no violar les Rules of Hooks.
+    const applyViewSection = useCallback((sectionData, editingBlock) => {
+        if (!editor || !sectionData) return;
+        const props = {
+            view_id: String(sectionData.view_id || ''),
+            heading: String(sectionData.heading || ''),
+            heading_level: String(sectionData.heading_level || 1),
+        };
+        try {
+            if (editingBlock?.id) {
+                editor.updateBlock(editingBlock.id, { type: 'gnosi_view', props });
+                return;
+            }
+            const anchor = editor.getTextCursorPosition().block;
+            editor.insertBlocks(
+                [{ type: 'gnosi_view', props }],
+                anchor,
+                'after',
+            );
+        } catch (err) {
+            console.warn('applyViewSection: no s\'ha pogut aplicar el bloc gnosi_view', err);
+        }
+    }, [editor]);
+    if (applyViewSectionRef) applyViewSectionRef.current = applyViewSection;
+
     if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> {t('editor.loading_editor')}</div>;
 
     // Detecta si una cadena és una URL "encastable": YouTube, Vimeo o PDF
@@ -2647,6 +2677,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isPageViewModalOpen, setIsPageViewModalOpen] = useState(false);
     const [pageViewPreselectedTable, setPageViewPreselectedTable] = useState('');
     const [pageViewEditingBlock, setPageViewEditingBlock] = useState(null);
+    // L'editor BlockNote viu dins d'EditorInner. Aquesta ref permet que el
+    // PageViewModal (renderitzat aquí, fora d'EditorInner) demani inserir o
+    // actualitzar el bloc `gnosi_view` un cop l'usuari ha desat la vista.
+    const applyViewSectionRef = useRef(null);
     const [isAddingProp, setIsAddingProp] = useState(false);
     const [newPropName, setNewPropName] = useState("");
     const [incomingLinks, setIncomingLinks] = useState([]);
@@ -3763,6 +3797,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 metadataRef={metadataRef}
                                 isEditable={isEditable}
                                 onOpenPageViewModal={contextValue.onOpenPageViewModal}
+                                applyViewSectionRef={applyViewSectionRef}
                             />
                         )}
                     </ErrorBoundary>
@@ -3771,11 +3806,18 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             <PageHistory pageId={noteFilename} open={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} onRestore={() => window.location.reload()} />
             <PageViewModal
                 isOpen={isPageViewModalOpen}
-                onClose={(changed) => {
+                onClose={(changed, sectionData) => {
                     setIsPageViewModalOpen(false);
+                    // Captura editingBlock abans de buidar-lo perquè
+                    // applyViewSectionRef pugui distingir insert vs update.
+                    const editing = pageViewEditingBlock;
                     setPageViewPreselectedTable('');
                     setPageViewEditingBlock(null);
-                    if (changed) onRefreshNotes?.();
+                    if (!changed) return;
+                    if (sectionData) {
+                        applyViewSectionRef.current?.(sectionData, editing);
+                    }
+                    onRefreshNotes?.();
                 }}
                 pageId={noteFilename}
                 allTables={allTables}
