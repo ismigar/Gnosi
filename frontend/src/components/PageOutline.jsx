@@ -78,14 +78,40 @@ export default function PageOutline() {
             if (!hasScrollableAncestor(el, container)) return; // viu en una zona fixa: saltar-hi no fa res
             const text = headingText(el);
             if (!text) return;
-            if (!el.id) el.id = slugify(text, i);
-            el.style.scrollMarginTop = `${SCROLL_MARGIN}px`;
-            collected.push({ id: el.id, text, level: Number(el.tagName[1]) });
-            nodes.push(el);
+            // Id SINTÈTIC: NO l'escrivim al DOM ni hi toquem `style`. Els
+            // headings viuen dins l'editor ProseMirror, que gestiona el seu
+            // propi DOM i REVERTEIX qualsevol `id`/`style` afegit de fora;
+            // aquella reversió disparava el MutationObserver de sota → re-scan
+            // → re-escriptura → bucle infinit (títols i pàgina parpellejant).
+            // Guardem la referència viva a `nodesRef` i usem l'id sintètic
+            // només a l'estat. El `scroll-margin-top` es posa per CSS (vegeu
+            // l'efecte d'injecció d'estil).
+            const id = slugify(text, i);
+            collected.push({ id, text, level: Number(el.tagName[1]) });
+            nodes.push({ id, el, text });
         });
         nodesRef.current = nodes;
-        setHeadings(collected);
+        // Evita re-renders inútils (i que l'efecte de scroll-spy es re-subscrigui
+        // en bucle) quan el conjunt de títols no ha canviat realment.
+        setHeadings((prev) => (
+            prev.length === collected.length
+            && prev.every((h, i) => h.id === collected[i].id && h.level === collected[i].level)
+                ? prev
+                : collected
+        ));
     }, [enabled]);
+
+    // `scroll-margin-top` per als títols del contingut via CSS global (una sola
+    // vegada), en comptes d'escriure `el.style` a cada heading —que toca el DOM
+    // de ProseMirror i provoca el bucle de reversió/re-scan.
+    useEffect(() => {
+        const STYLE_ID = 'page-outline-scroll-margin';
+        if (document.getElementById(STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.textContent = `${CONTENT_SELECTOR} h1, ${CONTENT_SELECTOR} h2, ${CONTENT_SELECTOR} h3 { scroll-margin-top: ${SCROLL_MARGIN}px; }`;
+        document.head.appendChild(style);
+    }, []);
 
     // Re-escaneja en canviar de ruta (amb reintents pel contingut que carrega async)
     // i quan el DOM del contingut canvia (dashboards dinàmics).
@@ -120,8 +146,8 @@ export default function PageOutline() {
             const nodes = nodesRef.current;
             if (nodes.length === 0) return;
             let current = nodes[0].id;
-            for (const el of nodes) {
-                if (el.getBoundingClientRect().top - ACTIVE_OFFSET <= 1) current = el.id;
+            for (const n of nodes) {
+                if (n.el.getBoundingClientRect().top - ACTIVE_OFFSET <= 1) current = n.id;
                 else break;
             }
             setActiveId(current);
@@ -162,11 +188,11 @@ export default function PageOutline() {
 
     const goTo = (id) => {
         // 1) Prova la referència viva del darrer scan (la més fiable).
-        let el = nodesRef.current.find((n) => n.id === id && n.isConnected);
-        // 2) Fallback per id (per si el node és el mateix però la ref s'ha perdut).
-        if (!el) el = document.getElementById(id);
-        // 3) Si el node original ha estat reemplaçat (p. ex. re-render de BlockNote/ProseMirror),
-        //    re-cerca per text al container actual i salta-hi.
+        const entry = nodesRef.current.find((n) => n.id === id && n.el.isConnected);
+        let el = entry?.el || null;
+        // 2) Si el node original ha estat reemplaçat (p. ex. re-render de BlockNote/ProseMirror),
+        //    re-cerca per text al container actual i salta-hi. (Ja no escrivim
+        //    `id` al DOM, així que no hi ha fallback per getElementById.)
         if (!el || !el.isConnected) {
             const item = headings.find((h) => h.id === id);
             const container = document.querySelector(CONTENT_SELECTOR);
@@ -175,7 +201,9 @@ export default function PageOutline() {
                     .find((h) => h.isConnected && headingText(h) === item.text);
             }
         }
-        if (el && el.isConnected) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // `behavior: 'smooth'` no desplaça en aquests contenidors de scroll
+        // niats (flex amb overflow); el salt instantani sí que és fiable.
+        if (el && el.isConnected) el.scrollIntoView({ block: 'start' });
         setActiveId(id);
     };
 
