@@ -1916,6 +1916,10 @@ export function EditorInner({
     // el bloc existent (mode editar); altrament insereix un `gnosi_view` nou
     // després del cursor (mode inserir). Declarat ABANS del return primerenc
     // per editorReady per no violar les Rules of Hooks.
+    // Bloc on tenia el cursor l'usuari quan ha obert el modal de vista. El
+    // capturem en obrir-lo (el modal roba el focus, així que `getTextCursorPosition`
+    // ja no és fiable quan es desa) per inserir la vista AL CURSOR i no al final.
+    const pageViewAnchorRef = useRef(null);
     const applyViewSection = useCallback((sectionData, editingBlock) => {
         if (!editor || !sectionData) return;
         const props = {
@@ -1928,7 +1932,11 @@ export function EditorInner({
                 editor.updateBlock(editingBlock.id, { type: 'gnosi_view', props });
                 return;
             }
-            const anchor = editor.getTextCursorPosition().block;
+            // Anchor capturat en obrir el modal; si ja no existeix (bloc esborrat)
+            // o no n'hi ha, caiem a la posició actual del cursor.
+            const anchorId = pageViewAnchorRef.current;
+            let anchor = (anchorId && editor.getBlock?.(anchorId)) || null;
+            if (!anchor) anchor = editor.getTextCursorPosition().block;
             editor.insertBlocks(
                 [{ type: 'gnosi_view', props }],
                 anchor,
@@ -1936,6 +1944,8 @@ export function EditorInner({
             );
         } catch (err) {
             console.warn('applyViewSection: no s\'ha pogut aplicar el bloc gnosi_view', err);
+        } finally {
+            pageViewAnchorRef.current = null;
         }
     }, [editor]);
     if (applyViewSectionRef) applyViewSectionRef.current = applyViewSection;
@@ -2257,7 +2267,7 @@ export function EditorInner({
                         if (!editor) return [];
                         // El bloc "Fitxer" per defecte és redundant amb "/+" (Insereix contingut).
                         const defaultItems = getDefaultReactSlashMenuItems(editor).filter((item) => item.key !== 'file');
-                        const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { onOpenPageViewModal?.(tableId); } }).map(item => ({
+                        const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { try { pageViewAnchorRef.current = editor.getTextCursorPosition().block?.id || null; } catch { pageViewAnchorRef.current = null; } onOpenPageViewModal?.(tableId); } }).map(item => ({
                             title: item.title,
                             onItemClick: item.onItemClick,
                             aliases: item.aliases,
