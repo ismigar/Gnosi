@@ -429,6 +429,28 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         );
     };
 
+    // Mou una columna visible amunt/avall per controlar l'ordre d'aparició.
+    const moveProperty = (idx, dir) => {
+        setVisibleProperties(prev => {
+            const arr = [...prev];
+            const j = idx + dir;
+            if (j < 0 || j >= arr.length) return prev;
+            [arr[idx], arr[j]] = [arr[j], arr[idx]];
+            return arr;
+        });
+    };
+
+    // Etiqueta visible d'un camp: el `title` canònic es tradueix ("Títol") i
+    // la resta es mostren amb la primera lletra en majúscula (els noms amb
+    // emoji/accents inicials es conserven intactes).
+    const capitalizeFirst = (s) => {
+        const str = String(s || '');
+        return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+    };
+    const fieldLabel = (name) => (
+        name === 'title' ? t('view.column_title', { defaultValue: 'Títol' }) : capitalizeFirst(name)
+    );
+
     const addFilter = () => {
         const firstField = tableFields[0]?.name || 'title';
         setFilters(prev => [...prev, { field: firstField, operator: 'equals', value: '' }]);
@@ -832,22 +854,83 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     Selecciona primer una taula a la pestanya General.
                                 </p>
                             ) : (
-                                <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
-                                    {tableFields.map(f => (
-                                        <label
-                                            key={f.name}
-                                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)] cursor-pointer"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={visibleProperties.includes(f.name)}
-                                                onChange={() => toggleProperty(f.name)}
-                                                className="rounded border-[var(--border-primary)]"
-                                            />
-                                            <span className="text-sm text-[var(--text-primary)] flex-1">{f.name}</span>
-                                            <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
-                                        </label>
-                                    ))}
+                                <div className="space-y-3 max-h-[44vh] overflow-y-auto">
+                                    {(() => {
+                                        const selected = visibleProperties
+                                            .map(n => fieldMeta[n])
+                                            .filter(Boolean);
+                                        const available = tableFields.filter(f => !visibleProperties.includes(f.name));
+                                        return (
+                                            <>
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
+                                                        Columnes visibles (ordre)
+                                                    </p>
+                                                    {selected.length === 0 ? (
+                                                        <p className="text-xs text-[var(--text-tertiary)] italic px-2 py-1">Cap columna. Tria'n una a sota.</p>
+                                                    ) : selected.map((f, idx) => (
+                                                        <div
+                                                            key={f.name}
+                                                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)]"
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => moveProperty(idx, -1)}
+                                                                    disabled={idx === 0}
+                                                                    className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] disabled:opacity-25 leading-none"
+                                                                    title="Amunt"
+                                                                >
+                                                                    <ArrowUp size={12} />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => moveProperty(idx, 1)}
+                                                                    disabled={idx === selected.length - 1}
+                                                                    className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] disabled:opacity-25 leading-none"
+                                                                    title="Avall"
+                                                                >
+                                                                    <ArrowDown size={12} />
+                                                                </button>
+                                                            </div>
+                                                            <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
+                                                            <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleProperty(f.name)}
+                                                                className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
+                                                                title="Treure"
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {available.length > 0 && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
+                                                            Disponibles
+                                                        </p>
+                                                        {available.map(f => (
+                                                            <label
+                                                                key={f.name}
+                                                                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)] cursor-pointer"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={false}
+                                                                    onChange={() => toggleProperty(f.name)}
+                                                                    className="rounded border-[var(--border-primary)]"
+                                                                />
+                                                                <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
+                                                                <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </div>
@@ -887,7 +970,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     onChange={e => updateFilter(idx, { field: e.target.value })}
                                                 >
                                                     {tableFields.map(tf => (
-                                                        <option key={tf.name} value={tf.name}>{tf.name}</option>
+                                                        <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
                                                     ))}
                                                 </select>
                                                 <select
@@ -964,7 +1047,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 onChange={e => updateSort(idx, { field: e.target.value })}
                                             >
                                                 {tableFields.map(tf => (
-                                                    <option key={tf.name} value={tf.name}>{tf.name}</option>
+                                                    <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
                                                 ))}
                                             </select>
                                             <select
