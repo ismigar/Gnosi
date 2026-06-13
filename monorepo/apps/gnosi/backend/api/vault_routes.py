@@ -2313,9 +2313,20 @@ def _read_frontmatter_partial(file_path: Path):
                     elif content_line != "":
                         # If we find non-empty text before ---, it's not a valid frontmatter
                         break
-                    
-                    # Safety break: frontmatter usually at the very top
-                    if len(lines) > 200:
+
+                    # Safety break per a fitxers amb un `---` d'obertura que no
+                    # tanca mai (frontmatter malmès): evitem llegir-los sencers.
+                    # El límit ha de ser prou alt per cobrir frontmatters
+                    # legítimament grans —una pàgina amb moltes relacions Notion
+                    # (📀 …) pot tenir centenars de línies de YAML abans del
+                    # `---` de tancament (p. ex. una Àrea amb 229 línies)—; amb
+                    # un límit massa baix el tancament queda fora de l'abast,
+                    # el frontmatter es llegeix sense tancar i `parse_frontmatter`
+                    # torna {} → l'id cau al nom del fitxer i tots els wikilinks
+                    # per UUID que hi apunten passen a fer 404 silenciosament.
+                    # Fora del frontmatter ja sortim a la primera línia de text,
+                    # així que aquest límit només afecta el cas de frontmatter.
+                    if len(lines) > 2000:
                         break
                         
             content = "".join(lines)
