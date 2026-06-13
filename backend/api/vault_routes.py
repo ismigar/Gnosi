@@ -2377,6 +2377,29 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
             # una entry amb metadata buida que sobreescriuria una de bona.
             if not metadata and not body:
                 parse_failed = True
+            # ENDURIMENT (anti id→nom): si la lectura parcial NO ha donat un id
+            # vàlid —ja sigui perquè ha tornat buit, o `({}, cos)` amb un
+            # frontmatter que no tanca dins el límit de línies—, reintentem amb
+            # el text SENCER i el parser complet (amb rescat de YAML tolerant)
+            # abans de caure al `file_path.stem`. Sense això, la pàgina
+            # s'indexaria amb un id invàlid (el nom) i tots els wikilinks/
+            # relacions per UUID que hi apunten fallarien en silenci. Per a
+            # fitxers online-only d'OneDrive el read complet també falla
+            # (Errno 35) i conservem el fallback al stem (no empitjora).
+            # Les pàgines legítimes sense `id` (system/readme) tornen sense id
+            # del read complet també → cap canvi, cap cost rellevant.
+            if not str((metadata or {}).get("id") or "").strip():
+                try:
+                    full_md, full_body = parse_frontmatter(
+                        file_path.read_text(encoding="utf-8", errors="ignore"), file_path
+                    )
+                    if full_md and str(full_md.get("id") or "").strip():
+                        metadata, body = full_md, full_body
+                        parse_failed = False
+                except OSError:
+                    pass
+                except Exception as e:
+                    log.warning(f"Full-read fallback failed for {file_path.name}: {e}")
             metadata = _process_metadata_paths(metadata)
             # Support Catalan 'data' as 'date' alias
             if "data" in metadata and "date" not in metadata:
