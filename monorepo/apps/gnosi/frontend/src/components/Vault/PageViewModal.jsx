@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { VIEW_TYPES } from './viewConstants';
@@ -43,7 +44,12 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [highlighted, setHighlighted] = useState(0);
+    // Posició fixa del panell: el desplegable es renderitza en un PORTAL a
+    // <body> per no quedar tallat pel `overflow-y-auto` del cos del modal
+    // (abans només es veia el cercador i la llista quedava amagada).
+    const [rect, setRect] = useState(null);
     const boxRef = useRef(null);
+    const panelRef = useRef(null);
 
     const allOptions = useMemo(
         () => [{ value: 'this', label: thisLabel }, ...(options || [])],
@@ -58,11 +64,32 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
     const current = allOptions.find(o => o.value === value);
     const display = current ? current.label : (value || '');
 
+    const openPanel = () => {
+        const r = boxRef.current?.getBoundingClientRect();
+        if (r) setRect({ left: r.left, top: r.bottom + 4, width: r.width });
+        setQuery('');
+        setHighlighted(0);
+        setOpen(true);
+    };
+
     useEffect(() => {
         if (!open) return undefined;
-        const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false); };
+        const onDoc = (e) => {
+            if (boxRef.current?.contains(e.target)) return;
+            if (panelRef.current?.contains(e.target)) return;
+            setOpen(false);
+        };
+        // El panell té posició fixa calculada en obrir; si l'usuari fa scroll
+        // (p. ex. dins el modal) o redimensiona, el tanquem per no desalinear.
+        const onMove = () => setOpen(false);
         document.addEventListener('mousedown', onDoc);
-        return () => document.removeEventListener('mousedown', onDoc);
+        window.addEventListener('resize', onMove);
+        window.addEventListener('scroll', onMove, true);
+        return () => {
+            document.removeEventListener('mousedown', onDoc);
+            window.removeEventListener('resize', onMove);
+            window.removeEventListener('scroll', onMove, true);
+        };
     }, [open]);
 
     const pick = (opt) => { onChange(opt.value); setOpen(false); setQuery(''); };
@@ -71,14 +98,18 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
         <div ref={boxRef} className="relative w-40">
             <button
                 type="button"
-                onClick={() => { setOpen(o => !o); setHighlighted(0); }}
+                onClick={() => (open ? setOpen(false) : openPanel())}
                 className="w-full text-left truncate text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--gnosi-primary)]"
                 title={display}
             >
                 {display || <span className="text-[var(--text-tertiary)]">{placeholder || 'Tria…'}</span>}
             </button>
-            {open && (
-                <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg">
+            {open && rect && createPortal(
+                <div
+                    ref={panelRef}
+                    style={{ position: 'fixed', top: rect.top, left: rect.left, width: Math.max(rect.width, 220), zIndex: 300 }}
+                    className="max-h-60 overflow-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"
+                >
                     <input
                         autoFocus
                         value={query}
@@ -107,7 +138,8 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
                     {!loading && filtered.length === 0 && (
                         <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">Cap resultat</div>
                     )}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
