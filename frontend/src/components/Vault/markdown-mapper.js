@@ -332,12 +332,39 @@ const convertToWikilinks = (content) => {
     return next;
 };
 
+// Aplica `convertToWikilinks` a totes les cel·les d'una taula nativa de
+// BlockNote. El contingut d'una taula no és un array inline sinó un objecte
+// `tableContent` amb `rows[].cells[]`, on cada cel·la pot ser directament
+// l'array inline (format natiu) o un objecte `{ content: [...] }`.
+const convertTableContentWikilinks = (tableContent) => ({
+    ...tableContent,
+    rows: (tableContent.rows || []).map(row => ({
+        ...row,
+        cells: Array.isArray(row.cells)
+            ? row.cells.map(cell => (
+                Array.isArray(cell)
+                    ? convertToWikilinks(cell)
+                    : (cell && Array.isArray(cell.content)
+                        ? { ...cell, content: convertToWikilinks(cell.content) }
+                        : cell)
+            ))
+            : row.cells,
+    })),
+});
+
 const processBlocksForWikilinks = (blocks) => {
     if (!blocks || !Array.isArray(blocks)) return blocks;
     return blocks.map(block => {
         const newBlock = { ...block };
         if (newBlock.content) {
-            newBlock.content = convertToWikilinks(newBlock.content);
+            // Les taules natives porten el contingut a `content.rows[].cells`;
+            // `convertToWikilinks` només sap tractar arrays inline, així que
+            // sense aquest cas els `[[…]]` dins de cel·les quedaven en cru.
+            if (newBlock.content.type === 'tableContent' && Array.isArray(newBlock.content.rows)) {
+                newBlock.content = convertTableContentWikilinks(newBlock.content);
+            } else {
+                newBlock.content = convertToWikilinks(newBlock.content);
+            }
         }
         if (newBlock.children) {
             newBlock.children = processBlocksForWikilinks(newBlock.children);
