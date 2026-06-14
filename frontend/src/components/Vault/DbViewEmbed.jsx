@@ -65,8 +65,16 @@ const ScrollBox = ({ children }) => (
 // scroller intern + columna `title` sticky) gestioni l'scroll horitzontal i
 // vertical. Si embolcalléssim la taula en una caixa amb `overflow-x-auto`,
 // l'scroll horitzontal el faria la caixa i la columna sticky no quedaria fixa.
+//
+// `isolate` (isolation: isolate) crea un context d'apilament que CONFINA els
+// z-index interns de la VaultTable (les cel·les sticky usen z-20/z-30/z-40).
+// Sense això, com que ni la caixa ni el scroller creen context d'apilament,
+// aquests z-index pugen fins a l'arrel de l'embed i tapen els desplegables de
+// la barra de pestanyes (la columna sticky del títol, z-40, pintava per sobre
+// del menú "+"/"…"). Amb `isolate`, la taula participa com un sol bloc i els
+// menús (a la barra, positioned) queden sempre per sobre.
 const TableBox = ({ children }) => (
-    <div className="my-2 w-full max-w-full min-w-0 h-[60vh] overflow-hidden rounded-lg border border-[var(--border-primary)] flex flex-col">
+    <div className="my-2 w-full max-w-full min-w-0 h-[60vh] overflow-hidden rounded-lg border border-[var(--border-primary)] flex flex-col isolate">
         {children}
     </div>
 );
