@@ -1838,7 +1838,9 @@ export function DbViewEmbed({ block }) {
         filters: [],
         sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
         visibleProperties: columns,
-        is_main: false,
+        // Reflecteix el senyal real: si la pestanya activa és la vista PRINCIPAL,
+        // la taula mostra tot l'esquema viu; si no, respecta visibleProperties.
+        is_main: !!(effectiveView?.is_main || effectiveView?.is_default),
     }), [effectiveView, viewType, columns]);
 
     if (loading) {

@@ -684,13 +684,24 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // Strip schema by removing title to put it at the beginning and filtering by visibility
     const dynamicColumns = useMemo(() => {
         const titleFieldName = Object.entries(schema || {}).find(([, t]) => t === 'title')?.[0];
-        const forceAllProperties = isMainView(activeView, [activeView].filter(Boolean));
+        // Només la vista PRINCIPAL ignora `visibleProperties` i mostra tot
+        // l'esquema viu (perquè reflecteixi camps nous a l'instant). La resta de
+        // vistes respecten els seus camps configurats. Passem `[]` (no
+        // `[activeView]`): amb una llista d'un sol element, isMainView cau al
+        // fallback "primera vista = principal" i marcaria QUALSEVOL vista com a
+        // principal; amb llista buida usa el senyal propi de la vista
+        // (is_main / id 'default' / nom canònic), que és el correcte aquí.
+        const forceAllProperties = isMainView(activeView, []);
         const baseFields = (!forceAllProperties && activeView?.visibleProperties)
             ? activeView.visibleProperties.map(key => [key, getFieldType(schema, key)]).filter(([key, type]) => key && type)
             : getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title');
         
-        // Ensure the field used as title is not duplicated
-        return baseFields.filter(([key]) => key !== titleFieldName);
+        // El títol ja es pinta com a columna fixa: cap entrada de
+        // `visibleProperties` ha de tornar-lo a mostrar com a columna de dades.
+        // L'excloem pel nom real del camp (titleFieldName), per la referència
+        // canònica/legacy 'title' (que getFieldType resol a 'text' perquè
+        // l'esquema no en té la clau) i per qualsevol camp de tipus 'title'.
+        return baseFields.filter(([key, type]) => key !== titleFieldName && key !== 'title' && type !== 'title');
     }, [activeView, schema]);
 
     // La columna "Idioma" és visible a la vista actual? Si ho és, el badge
