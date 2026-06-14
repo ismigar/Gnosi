@@ -16,6 +16,8 @@ export function ViewConfigModal({
     initialGalleryPreview,
     initialFilters,
     initialSorts,
+    initialResultSnapshot,
+    initialResultSnapshotLimit,
     initialTab,
     onSave,
 }) {
@@ -62,6 +64,8 @@ export function ViewConfigModal({
     const [galleryPreview, setGalleryPreview] = useState(initialGalleryPreview || 'none');
     const [filters, setFilters] = useState([]);
     const [sorts, setSorts] = useState([]);
+    const [resultSnapshot, setResultSnapshot] = useState(true);
+    const [resultSnapshotLimit, setResultSnapshotLimit] = useState(500);
     const [currentViewType, setCurrentViewType] = useState(viewType || 'table');
     const allFields = schema ? getSchemaFieldNames(schema) : [];
     const initializedRef = useRef(false);
@@ -83,9 +87,13 @@ export function ViewConfigModal({
         setGalleryPreview(initialGalleryPreview || 'none');
         setFilters(initialFilters || []);
         setSorts(normalizeSorts(initialSorts));
+        setResultSnapshot(initialResultSnapshot !== false);
+        setResultSnapshotLimit(
+            Number.isFinite(Number(initialResultSnapshotLimit)) ? Number(initialResultSnapshotLimit) : 500
+        );
         setCurrentViewType(viewType || 'table');
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, initialTab, initialVisibleProperties, initialCardSize, initialGalleryPreview, initialFilters, initialSorts, viewType]);
+    }, [isOpen, initialTab, initialVisibleProperties, initialCardSize, initialGalleryPreview, initialFilters, initialSorts, initialResultSnapshot, initialResultSnapshotLimit, viewType]);
 
     // Autosave silenciós (debounce 600ms). Errors via toast; sense
     // indicadors visuals — la convenció de l'app és que els modals no
@@ -106,6 +114,8 @@ export function ViewConfigModal({
                     filters,
                     sort: sorts,
                     type: currentViewType,
+                    resultSnapshot,
+                    resultSnapshotLimit,
                 });
             } catch (err) {
                 console.error(err);
@@ -114,7 +124,7 @@ export function ViewConfigModal({
         }, 600);
         return () => clearTimeout(handle);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, visibleProperties, cardSize, galleryPreview, filters, sorts, currentViewType]);
+    }, [isOpen, visibleProperties, cardSize, galleryPreview, filters, sorts, resultSnapshot, resultSnapshotLimit, currentViewType]);
 
     // Modal de configuració amb autosave i sense botó "Desa" (els canvis es
     // persisteixen sols): NOMÉS Esc + focus-trap, sense onConfirm. Veure
@@ -362,6 +372,62 @@ export function ViewConfigModal({
                                     </p>
                                 </div>
                             )}
+
+                            <div className="h-px bg-[var(--border-primary)]" />
+
+                            {/* Portabilitat: snapshot de wikilinks al markdown (per a
+                                Obsidian/Drupal/lectors plans). Aplica a tots els tipus. */}
+                            <div>
+                                <label className="block text-xs font-bold text-[var(--text-secondary)]/60 mb-3 uppercase tracking-wider">
+                                    {t('view_config.portability', 'Portabilitat')}
+                                </label>
+                                <div
+                                    className="flex items-start justify-between gap-3 py-2 px-3 rounded-lg hover:bg-[var(--bg-secondary)] cursor-pointer"
+                                    onClick={() => setResultSnapshot(v => !v)}
+                                >
+                                    <div className="min-w-0">
+                                        <div className="text-sm text-[var(--text-primary)]">
+                                            {t('view_config.result_snapshot', 'Desa els enllaços de resultats al markdown')}
+                                        </div>
+                                        <div className="text-xs text-[var(--text-secondary)]/60 mt-0.5">
+                                            {t('view_config.result_snapshot_hint', 'Escriu una llista [[Títol|id]] de les pàgines que la vista retorna, perquè Obsidian i altres lectors hi puguin navegar.')}
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={resultSnapshot}
+                                        onClick={(e) => { e.stopPropagation(); setResultSnapshot(v => !v); }}
+                                        className={`shrink-0 mt-0.5 relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${resultSnapshot ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--bg-tertiary)] border border-[var(--border-primary)]'}`}
+                                    >
+                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${resultSnapshot ? 'translate-x-4' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                                {resultSnapshot && (
+                                    <div className="flex items-center justify-between gap-3 py-2 px-3 mt-1 animate-in fade-in duration-150">
+                                        <label htmlFor="result-snapshot-limit" className="text-sm text-[var(--text-secondary)]">
+                                            {t('view_config.result_snapshot_limit', 'Màxim d\'enllaços')}
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                id="result-snapshot-limit"
+                                                type="number"
+                                                min="0"
+                                                step="50"
+                                                value={resultSnapshotLimit}
+                                                onChange={(e) => {
+                                                    const n = parseInt(e.target.value, 10);
+                                                    setResultSnapshotLimit(Number.isFinite(n) && n >= 0 ? n : 0);
+                                                }}
+                                                className="w-24 text-sm border border-[var(--border-primary)] rounded-md px-2 py-1 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none text-right"
+                                            />
+                                            <span className="text-xs text-[var(--text-secondary)]/60 whitespace-nowrap">
+                                                {t('view_config.result_snapshot_unlimited', '0 = sense límit')}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

@@ -3549,6 +3549,8 @@ export default function VaultDashboard() {
                         initialGalleryPreview={viewToConfigure.galleryPreview}
                         initialFilters={viewToConfigure.filters}
                         initialSorts={viewToConfigure.sort}
+                        initialResultSnapshot={viewToConfigure.resultSnapshot}
+                        initialResultSnapshotLimit={viewToConfigure.resultSnapshotLimit}
                         initialTab={viewConfigTab}
                         onSave={async (config) => {
                             // Autosave continu: no tanquem el modal a cada

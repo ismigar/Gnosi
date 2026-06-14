@@ -179,3 +179,50 @@ def test_truncation_marker_when_over_cap():
     assert "<!-- gnosi-view:result-truncated 3 -->" in out
     # i el strip també neteja el bloc truncat
     assert "gnosi-view:result" not in strip_view_snapshots(out)
+
+
+# --- config_for: activació i límit per vista --------------------------------
+def test_config_disabled_writes_no_block():
+    body = f"# A\n\n{_fence()}\n# B\n"
+    out = inject_view_snapshots(
+        body, _resolver([A, B]), _id_to_title, PAGE,
+        config_for=lambda vid: {"enabled": False, "limit": 500},
+    )
+    assert "gnosi-view:result" not in out
+    assert out == body
+
+
+def test_config_disabled_skips_resolution():
+    called = {"n": 0}
+
+    def resolver(vid, host):
+        called["n"] += 1
+        return [A]
+
+    inject_view_snapshots(
+        _fence(), resolver, _id_to_title, PAGE,
+        config_for=lambda vid: {"enabled": False},
+    )
+    assert called["n"] == 0  # vista desactivada → ni es resol
+
+
+def test_config_per_view_limit_overrides_default():
+    body = _fence()
+    ids = [f"id-{i}" for i in range(6)]
+    out = inject_view_snapshots(
+        body, _resolver(ids), lambda r: f"T{r}", PAGE, max_items=500,
+        config_for=lambda vid: {"enabled": True, "limit": 3},
+    )
+    assert out.count("- [[") == 3
+    assert "<!-- gnosi-view:result-truncated 3 -->" in out
+
+
+def test_config_limit_zero_means_unlimited():
+    body = _fence()
+    ids = [f"id-{i}" for i in range(4)]
+    out = inject_view_snapshots(
+        body, _resolver(ids), lambda r: f"T{r}", PAGE, max_items=2,
+        config_for=lambda vid: {"enabled": True, "limit": 0},
+    )
+    assert out.count("- [[") == 4  # límit 0 → sense truncament malgrat max_items=2
+    assert "truncated" not in out

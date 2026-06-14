@@ -71,6 +71,7 @@ from backend.services.relation_links import (
     strip_relation_wikilinks,
 )
 from backend.services.view_snapshot import (
+    DEFAULT_MAX_ITEMS as _VIEW_SNAPSHOT_DEFAULT_LIMIT,
     inject_view_snapshots,
     resolve_row_ids,
     strip_view_snapshots,
@@ -1210,6 +1211,27 @@ def _resolve_view_row_ids(view_id: str, host_page_id: Optional[str]) -> List[str
         return []
 
 
+def _view_snapshot_config(view_id: str) -> dict:
+    """Config PER VISTA del snapshot de wikilinks (camps del registry):
+    `resultSnapshot` (bool, def. True) activa/desactiva la llista; i
+    `resultSnapshotLimit` (int, def. 500; 0 = sense límit) l'acota. Defensiu:
+    davant qualsevol error, valors per defecte (activat, 500)."""
+    try:
+        registry = load_registry()
+        views = registry.get("views", []) if isinstance(registry, dict) else []
+        view = next((v for v in views if str(v.get("id")) == str(view_id)), None) or {}
+        enabled = view.get("resultSnapshot", True)
+        if isinstance(enabled, str):
+            enabled = enabled.strip().lower() not in ("false", "0", "no", "")
+        try:
+            limit = int(view.get("resultSnapshotLimit", _VIEW_SNAPSHOT_DEFAULT_LIMIT))
+        except (TypeError, ValueError):
+            limit = _VIEW_SNAPSHOT_DEFAULT_LIMIT
+        return {"enabled": bool(enabled), "limit": limit}
+    except Exception:
+        return {"enabled": True, "limit": _VIEW_SNAPSHOT_DEFAULT_LIMIT}
+
+
 def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
     """Escriu una pàgina .md amb separació frontmatter / sidecar.
 
@@ -1326,6 +1348,7 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             resolve_ids=_resolve_view_row_ids,
             id_to_title=_link_index_title_for,
             host_page_id=metadata.get("id"),
+            config_for=_view_snapshot_config,
         )
     except Exception as e:  # defensiu: mai bloquejar una desada pel snapshot
         log.debug(f"snapshot de vista ha fallat per {file_path}: {e}")
