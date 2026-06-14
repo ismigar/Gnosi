@@ -6,6 +6,8 @@ import remarkGfm from 'remark-gfm';
 import { sortKey } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { WikilinkInline } from './WikilinkInline';
+import { VaultTable } from './VaultTable';
+import { buildSchemaFromTableProperties } from './schemaUtils';
 
 // Substitueix `[[target]]`, `[[target|alias]]`, `[[target#section]]` i
 // `[[target#section|alias]]` per un link markdown amb un sentinel a l'href.
@@ -1614,6 +1616,29 @@ export function DbViewEmbed({ block }) {
         if (onOpenPageViewModal && tableId) onOpenPageViewModal(tableId, block);
     }, [onOpenPageViewModal, tableId, block]);
 
+    // --- FASE 1: taula completa EDITABLE dins l'embed reutilitzant VaultTable ---
+    // DEFINITS ABANS dels returns primerencs (loading/error) per no violar les
+    // Rules of Hooks. La taula i l'esquema surten del registry del context.
+    const table = (ctx.registry?.tables || ctx.allTables || []).find(t => String(t.id) === String(tableId)) || null;
+    const embeddedSchema = useMemo(
+        () => buildSchemaFromTableProperties(table?.properties || []),
+        [table],
+    );
+    // La secció embeguda → model de "vista" que espera VaultTable. Els filtres
+    // (incloent `this` → pageId) i l'ordenació JA s'apliquen a `rows`, així que
+    // no els tornem a passar com a filtres (VaultTable no sap resoldre `this`);
+    // l'edició de filtres/ordenació es delega al modal de configuració de
+    // l'embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
+    const embeddedView = useMemo(() => ({
+        id: view?.view_id || 'embedded',
+        name: view?.heading || 'Vista',
+        type: viewType === 'list' ? 'list' : 'table',
+        filters: [],
+        sort: (view?.sorts && view.sorts.length) ? view.sorts : (view?.sort ? [view.sort] : []),
+        visibleProperties: columns,
+        is_main: false,
+    }), [view, viewType, columns]);
+
     if (loading) {
         return (
             <div className="my-4 p-4 flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
@@ -1634,16 +1659,64 @@ export function DbViewEmbed({ block }) {
 
     const commonProps = { rows, columns, view, onOpenPage, onCreate: tableId ? handleCreate : null, blockId: block?.id };
 
+    const renderEditableTable = () => (
+        <div className="my-2 max-h-[60vh] overflow-auto rounded-lg border border-[var(--border-primary)]">
+            <VaultTable
+                notes={rows}
+                templates={templates}
+                schema={embeddedSchema}
+                idToTitle={ctx.idToTitle || {}}
+                allNotes={allRows}
+                activeView={embeddedView}
+                isEmbedded={true}
+                isListView={viewType === 'list'}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onNoteSelect={(id) => onOpenPage?.(id)}
+                onOpenParallel={ctx.onOpenParallel}
+                onCreateRecord={(templateId) => {
+                    const tpl = templates.find(t => t.id === templateId) || null;
+                    handleCreate({}, tpl);
+                }}
+                onDeletePage={(id, title) => { ctx.onDeletePage?.(id, title); setTimeout(reload, 400); }}
+                onDeleteSelected={(ids) => {
+                    Promise.allSettled([...ids].map(id => axios.delete(`/api/vault/pages/${encodeURIComponent(id)}`)))
+                        .then(() => reload());
+                }}
+                onCellSaved={() => reload()}
+                onTranslated={() => reload()}
+                onUpdateFieldOptions={ctx.onAddSchemaOption}
+                onEditSchema={(type) => {
+                    if (type === 'filters' || type === 'sorts') handleOpenConfig();
+                    else if (ctx.onEditSchema && table) ctx.onEditSchema(table);
+                }}
+                onUpdateView={async (nextView) => {
+                    if (!view || !pageId) return;
+                    const sorts = Array.isArray(nextView?.sort)
+                        ? nextView.sort
+                        : (nextView?.sort ? [nextView.sort] : []);
+                    const next = await patchSectionConfig(pageId, view, {
+                        visible_properties: nextView?.visibleProperties || columns,
+                        sorts,
+                        sort: sorts[0] || null,
+                    });
+                    setView(next);
+                }}
+                actionRules={table?.action_rules}
+            />
+        </div>
+    );
+
     const renderBody = () => {
         switch (viewType) {
-            case 'list': return <ListRender {...commonProps} />;
+            case 'list': return renderEditableTable();
             case 'feed': return <FeedRender {...commonProps} />;
             case 'gallery': return <GalleryRender {...commonProps} />;
             case 'board': return <BoardRender {...commonProps} onMove={handleMove} onChangeGroupBy={handleChangeGroupBy} />;
             case 'calendar': return <CalendarRender {...commonProps} />;
             case 'timeline': return <TimelineRender {...commonProps} />;
             case 'graph': return <GraphRender {...commonProps} />;
-            default: return <TableRender {...commonProps} />;
+            default: return renderEditableTable();
         }
     };
 
