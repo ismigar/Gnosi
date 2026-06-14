@@ -1493,13 +1493,23 @@ export function DbViewEmbed({ block }) {
     const [reloadKey, setReloadKey] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
-    const [addMenuOpen, setAddMenuOpen] = useState(false); // menú de tipus en afegir vista
-    const [tabMenuFor, setTabMenuFor] = useState(null);     // id de la vista amb el menú (amagar/eliminar) obert
-    // Vistes amagades NOMÉS en aquest bloc (no s'eliminen del registry). Clau
-    // estable per bloc: pageId + view_id de la secció.
-    const [hiddenViewIds, setHiddenViewIds] = useState(() => {
-        try { return new Set(JSON.parse(localStorage.getItem(`gnosi_embed_hidden_${pageId}_${viewId}`) || '[]')); } catch { return new Set(); }
+    const [addMenuOpen, setAddMenuOpen] = useState(false); // menú d'afegir vista (tipus / existents)
+    const [tabMenuFor, setTabMenuFor] = useState(null);     // id de la vista amb el menú (treure/eliminar) obert
+    const [menuUp, setMenuUp] = useState(false);            // obrir el desplegable cap amunt si no cap a sota
+    // Decideix la direcció del desplegable segons l'espai sota el disparador.
+    const decideMenuDir = (e) => {
+        try { const r = e.currentTarget.getBoundingClientRect(); setMenuUp(window.innerHeight - r.bottom < 300); } catch { setMenuUp(false); }
+    };
+    // Vistes FIXADES com a pestanyes EN AQUEST bloc, a part de la vista de la
+    // secció (àncora, sempre present). Per defecte cap: el bloc mostra només la
+    // vista que s'ha inserit/triat, no totes les de la taula. Clau estable per
+    // bloc: pageId + view_id de la secció.
+    const [pinnedViewIds, setPinnedViewIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]')); } catch { return new Set(); }
     });
+    const persistPinned = (set) => {
+        try { localStorage.setItem(`gnosi_embed_pinned_${pageId}_${viewId}`, JSON.stringify([...set])); } catch { /* noop */ }
+    };
 
     const reload = useCallback(() => {
         _byTableCache.delete(view?.source_table_id || view?.table_id);
@@ -1699,6 +1709,11 @@ export function DbViewEmbed({ block }) {
         } catch { /* conserva l'estat actual */ }
     }, [tableId]);
 
+    const pinView = useCallback((id) => {
+        if (!id || id === viewId) return;
+        setPinnedViewIds(prev => { const next = new Set(prev); next.add(id); persistPinned(next); return next; });
+    }, [viewId, pageId]);
+
     const handleAddView = useCallback(async (type = 'table') => {
         if (!tableId) return;
         const name = window.prompt?.('Nom de la nova vista:', 'Nova vista');
@@ -1708,9 +1723,17 @@ export function DbViewEmbed({ block }) {
                 table_id: tableId, name, type, filters: [], sorts: [], visibleProperties: columns || ['title'],
             });
             await refetchTableViews();
-            if (res.data?.id) setActiveViewId(res.data.id);
+            if (res.data?.id) { pinView(res.data.id); setActiveViewId(res.data.id); }
         } catch (e) { console.warn('add view failed', e); }
-    }, [tableId, columns, refetchTableViews]);
+    }, [tableId, columns, refetchTableViews, pinView]);
+
+    // Afegeix a aquest bloc una vista que JA existeix a la taula (la fixa com a
+    // pestanya). No crea res nou.
+    const handleAddExistingView = useCallback((v) => {
+        if (!v?.id) return;
+        pinView(v.id);
+        setActiveViewId(v.id);
+    }, [pinView]);
 
     const handleDeleteView = useCallback(async (v) => {
         if (!v?.id) return;
@@ -1723,15 +1746,11 @@ export function DbViewEmbed({ block }) {
         } catch (e) { console.warn('delete view failed', e); }
     }, [tableViews, activeViewId, view, refetchTableViews]);
 
-    // Amaga la vista NOMÉS en aquest bloc (no l'elimina del registry). No es
-    // pot amagar la vista de la secció del bloc (és l'àncora).
-    const handleHideView = useCallback((v) => {
+    // Treu la vista d'aquest bloc (la "desfixa"); NO l'elimina del registry.
+    // La vista de la secció (àncora) no es pot treure.
+    const handleUnpinView = useCallback((v) => {
         if (!v?.id || v.id === viewId) return;
-        setHiddenViewIds(prev => {
-            const next = new Set(prev); next.add(v.id);
-            try { localStorage.setItem(`gnosi_embed_hidden_${pageId}_${viewId}`, JSON.stringify([...next])); } catch { /* noop */ }
-            return next;
-        });
+        setPinnedViewIds(prev => { const next = new Set(prev); next.delete(v.id); persistPinned(next); return next; });
         if (activeViewId === v.id) setActiveViewId(viewId);
     }, [viewId, pageId, activeViewId]);
 
@@ -1895,15 +1914,19 @@ export function DbViewEmbed({ block }) {
                     setShowSearch={setShowSearch}
                 />
             </div>
-            {/* FASE 3: pestanyes de vistes de la taula (excloent les amagades
-                en aquest bloc; la vista de la secció no es pot amagar) */}
+            {/* Pestanyes de vistes D'AQUEST bloc: la vista de la secció (àncora)
+                + les que s'hi han fixat explícitament. No es mostren totes les
+                vistes de la taula. La barra fa `flex-wrap` (no `overflow`) per
+                no retallar els desplegables de la × i del +. */}
             {(() => {
-                const visibleTabs = tableViews.filter(v => v.id === viewId || !hiddenViewIds.has(v.id));
-                return visibleTabs.length > 0 && (
-                <div className="flex items-center gap-0.5 border-b border-[var(--border-primary)] mb-2 overflow-x-auto">
+                const visibleTabs = tableViews.filter(v => v.id === viewId || pinnedViewIds.has(v.id));
+                const unpinnedExisting = tableViews.filter(v => v.id !== viewId && !pinnedViewIds.has(v.id));
+                if (visibleTabs.length === 0) return null;
+                return (
+                <div className="flex flex-wrap items-center gap-0.5 border-b border-[var(--border-primary)] mb-2">
                     {visibleTabs.map(v => {
                         const isActive = v.id === activeViewId;
-                        const isAnchor = v.id === viewId; // vista de la secció (no amagable)
+                        const isAnchor = v.id === viewId; // vista de la secció (no es pot treure)
                         return (
                             <div
                                 key={v.id}
@@ -1918,7 +1941,7 @@ export function DbViewEmbed({ block }) {
                                 <span>{v.name || v.heading || 'Vista'}</span>
                                 {!isAnchor && (
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); setTabMenuFor(m => m === v.id ? null : v.id); }}
+                                        onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
                                         className="opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                                         title="Opcions de la vista"
                                     >
@@ -1928,12 +1951,12 @@ export function DbViewEmbed({ block }) {
                                 {tabMenuFor === v.id && (
                                     <>
                                         <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); }} />
-                                        <div className="absolute z-20 left-0 top-full mt-1 w-52 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-[var(--text-primary)] font-normal">
+                                        <div className={`absolute z-20 left-0 ${menuUp ? 'bottom-full mb-1' : 'top-full mt-1'} w-56 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-[var(--text-primary)] font-normal`}>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleHideView(v); }}
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleUnpinView(v); }}
                                                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
-                                                Amagar en aquesta pàgina
+                                                Treure d'aquesta pàgina
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDeleteView(v); }}
@@ -1949,7 +1972,7 @@ export function DbViewEmbed({ block }) {
                     })}
                     <div className="relative">
                         <button
-                            onClick={() => setAddMenuOpen(o => !o)}
+                            onClick={(e) => { decideMenuDir(e); setAddMenuOpen(o => !o); }}
                             className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
                             title="Afegir vista"
                         >
@@ -1958,7 +1981,8 @@ export function DbViewEmbed({ block }) {
                         {addMenuOpen && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setAddMenuOpen(false)} />
-                                <div className="absolute z-20 left-0 mt-1 w-40 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1">
+                                <div className={`absolute z-20 left-0 ${menuUp ? 'bottom-full mb-1' : 'top-full mt-1'} w-56 max-h-72 overflow-y-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1`}>
+                                    <div className="px-3 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Nova vista</div>
                                     {VIEW_TYPES.filter(vt => vt.id !== 'graph').map(vt => {
                                         const Icon = vt.icon;
                                         return (
@@ -1972,6 +1996,21 @@ export function DbViewEmbed({ block }) {
                                             </button>
                                         );
                                     })}
+                                    {unpinnedExisting.length > 0 && (
+                                        <>
+                                            <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] border-t border-[var(--border-primary)] mt-1">Afegir existent</div>
+                                            {unpinnedExisting.map(v => (
+                                                <button
+                                                    key={v.id}
+                                                    onClick={() => { setAddMenuOpen(false); handleAddExistingView(v); }}
+                                                    className="w-full px-2.5 py-1.5 text-xs text-left text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] truncate"
+                                                    title={v.name || v.heading || 'Vista'}
+                                                >
+                                                    {v.name || v.heading || 'Vista'}
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
                                 </div>
                             </>
                         )}
