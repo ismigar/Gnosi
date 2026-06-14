@@ -977,6 +977,24 @@ button:hover > .row-action-tooltip {
     border-radius: 0 !important;
 }
 
+/* La VaultTable embeguda viu dins de `.ProseMirror`, on el CSS de taules de
+   BlockNote (@blocknote/core) es filtra sobre la nostra `<table>` i trenca la
+   columna fixa (sticky) del títol:
+     - força `position: relative` sobre cada `td`/`th` → anul·la el `sticky`,
+     - força `overflow: hidden` sobre la `<table>` → la taula esdevé el seu
+       propi context de scroll i la sticky deixa d'ancorar-se al scroller
+       intern de la VaultTable.
+   Restaurem el comportament de la taula completa (que funciona perquè no és
+   filla de l'editor) reafirmant sticky a les cel·les marcades i tornant la
+   taula a overflow visible. Selector limitat a l'embed gnosi_view. */
+.bn-block-content[data-content-type="gnosi_view"] th.sticky,
+.bn-block-content[data-content-type="gnosi_view"] td.sticky {
+    position: sticky !important;
+}
+.bn-block-content[data-content-type="gnosi_view"] table {
+    overflow: visible !important;
+}
+
 /* Separació entre paràgrafs dins del cos de cada feed item, exceptuant
    els ítems d'una llista (els quals porten la seva pròpia interlinia
    compacta). */
