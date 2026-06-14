@@ -16,6 +16,13 @@ import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import './CalendarStyles.css';
 
+// Referències estables per als valors per defecte de props (objecte/array).
+// Si s'usen literals als paràmetres (`= []`, `= {}`, `= new Set()`), es recreen
+// a CADA render; com que alguns són dependències d'un useEffect que crida
+// setEvents, això provoca un bucle infinit de setState ("Maximum update depth").
+const EMPTY_ARRAY = [];
+const EMPTY_OBJECT = {};
+
 // Utilitat per crear colors pastís i manejar variables CSS
 const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
     const finalColor = color || 'var(--gnosi-primary)';
@@ -54,7 +61,7 @@ const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
 export const DigitalBrainCalendar = ({
     allNotes,
     searchQuery = '',
-    selectedCalendars = new Set(),
+    selectedCalendars = null,
     selectedEventId,
     onNoteSelect,
     onEventEdit,
@@ -63,40 +70,17 @@ export const DigitalBrainCalendar = ({
     onTitleChange,
     onDatesSet,
     onRefresh,
-    calendarConfigs = [],
-    colorMap = {},
+    calendarConfigs = EMPTY_ARRAY,
+    colorMap = EMPTY_OBJECT,
     onDateClick,
     onSelection,
     onDeleteSelected,
     onDeletePage,
 }) => {
     const { i18n } = useTranslation();
-    const [events, setEvents] = useState([]);
     const [hoveredEvent, setHoveredEvent] = useState(null);
     const [theme, setTheme] = useState(localStorage.getItem('db-theme') || 'light');
-    const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(events);
     const lastEventClickTimeRef = useRef(0);
-
-    const allEventIds = useMemo(
-        () => [...new Set(events.map((event) => event.id))],
-        [events]
-    );
-
-    const handleBulkDelete = useCallback(() => {
-        if (selectedIds.size === 0) return;
-        if (onDeleteSelected) {
-            onDeleteSelected(new Set(selectedIds));
-            clearSelection();
-            return;
-        }
-        if (onDeletePage) {
-            selectedIds.forEach((id) => {
-                const note = allNotes.find((n) => n.id === id);
-                if (note) onDeletePage(id, note.title);
-            });
-            clearSelection();
-        }
-    }, [selectedIds, onDeleteSelected, onDeletePage, allNotes, clearSelection]);
 
     useEffect(() => {
         const handleTheme = () => setTheme(localStorage.getItem('db-theme') || 'light');
@@ -104,7 +88,7 @@ export const DigitalBrainCalendar = ({
         return () => window.removeEventListener('db-theme-changed', handleTheme);
     }, []);
 
-    useEffect(() => {
+    const events = useMemo(() => {
         const calendarEvents = [];
 
         // El colorMap ja ens ve per prop de forma consolidada.
@@ -125,7 +109,8 @@ export const DigitalBrainCalendar = ({
                 if (cfg) eventSource = cfg.source;
             }
 
-            if (!selectedCalendars.has(eventSource)) return;
+            // Sense filtre de calendaris (p.ex. vista de taula embeguda) → mostra-ho tot.
+            if (selectedCalendars && !selectedCalendars.has(eventSource)) return;
 
             const noteTitle = title || metadata.title || 'Sense Títol';
 
@@ -208,8 +193,37 @@ export const DigitalBrainCalendar = ({
             }
         });
 
-        setEvents(calendarEvents);
-    }, [allNotes, searchQuery, selectedCalendars, calendarConfigs, theme]);
+        return calendarEvents;
+        // Derivem els events directament de les props (sense useState + useEffect +
+        // setEvents). Així mai disparem un setState durant el render: el bucle de
+        // "Maximum update depth exceeded" és impossible encara que alguna prop tingui
+        // identitat inestable a cada render (cas de la vista calendar embeguda).
+        // `theme` es manté a les deps per recalcular en canviar de tema (com feia
+        // l'efecte original); no s'usa dins el cos però força el recompute.
+    }, [allNotes, searchQuery, selectedCalendars, calendarConfigs, colorMap, theme]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(events);
+
+    const allEventIds = useMemo(
+        () => [...new Set(events.map((event) => event.id))],
+        [events]
+    );
+
+    const handleBulkDelete = useCallback(() => {
+        if (selectedIds.size === 0) return;
+        if (onDeleteSelected) {
+            onDeleteSelected(new Set(selectedIds));
+            clearSelection();
+            return;
+        }
+        if (onDeletePage) {
+            selectedIds.forEach((id) => {
+                const note = allNotes.find((n) => n.id === id);
+                if (note) onDeletePage(id, note.title);
+            });
+            clearSelection();
+        }
+    }, [selectedIds, onDeleteSelected, onDeletePage, allNotes, clearSelection]);
 
     const handleEventMouseEnter = useCallback((info) => {
         const { event, jsEvent } = info;
