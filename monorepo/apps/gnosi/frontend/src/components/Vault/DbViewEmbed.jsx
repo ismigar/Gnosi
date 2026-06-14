@@ -7,6 +7,11 @@ import { sortKey } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { WikilinkInline } from './WikilinkInline';
 import { VaultTable } from './VaultTable';
+import { VaultKanban } from './VaultKanban';
+import { VaultGallery } from './VaultGallery';
+import { VaultTimeline } from './VaultTimeline';
+import { VaultFeed } from './VaultFeed';
+import { DigitalBrainCalendar } from './DigitalBrainCalendar';
 import { buildSchemaFromTableProperties } from './schemaUtils';
 
 // Substitueix `[[target]]`, `[[target|alias]]`, `[[target#section]]` i
@@ -45,6 +50,15 @@ const wikilinkUrlTransform = (url) => (
     typeof url === 'string' && url.startsWith(WIKILINK_HREF_SENTINEL)
         ? url
         : defaultUrlTransform(url)
+);
+
+// Contenidor amb scroll per encabir els components de vista complets (que
+// assumeixen alçada) dins del flux del document de l'embed. A nivell de mòdul
+// per no recrear el tipus de component a cada render (evitaria remounts).
+const ScrollBox = ({ children }) => (
+    <div className="my-2 max-h-[70vh] min-h-[8rem] overflow-auto rounded-lg border border-[var(--border-primary)]">
+        {children}
+    </div>
 );
 
 /* -------------------------------------------------------------------------- */
@@ -1659,62 +1673,99 @@ export function DbViewEmbed({ block }) {
 
     const commonProps = { rows, columns, view, onOpenPage, onCreate: tableId ? handleCreate : null, blockId: block?.id };
 
+    // Adaptadors de callbacks compartits per TOTS els components de vista reals
+    // (taula/llista/kanban/galeria/timeline/feed/calendari).
+    const onEditSchemaAdapter = (type) => {
+        if (type === 'filters' || type === 'sorts') handleOpenConfig();
+        else if (ctx.onEditSchema && table) ctx.onEditSchema(table);
+    };
+    const onCreateRecordAdapter = (templateId) => {
+        const tpl = templates.find(t => t.id === templateId) || null;
+        handleCreate({}, tpl);
+    };
+    const onDeletePageAdapter = (id, title) => { ctx.onDeletePage?.(id, title); setTimeout(reload, 400); };
+    const onDeleteSelectedAdapter = (ids) => {
+        Promise.allSettled([...ids].map(id => axios.delete(`/api/vault/pages/${encodeURIComponent(id)}`)))
+            .then(() => reload());
+    };
+    const onUpdateViewAdapter = async (nextView) => {
+        if (!view || !pageId) return;
+        const sorts = Array.isArray(nextView?.sort) ? nextView.sort : (nextView?.sort ? [nextView.sort] : []);
+        const next = await patchSectionConfig(pageId, view, {
+            visible_properties: nextView?.visibleProperties || columns,
+            sorts,
+            sort: sorts[0] || null,
+            group_by: nextView?.group_by ?? view?.group_by,
+        });
+        setView(next);
+    };
+    const onUpdateNoteAdapter = async (id, patch) => {
+        await patchPageMetadata(id, patch?.metadata || patch || {});
+        reload();
+    };
+    // Props comunes als components rics que comparteixen la mateixa signatura.
+    const sharedViewProps = {
+        notes: rows,
+        schema: embeddedSchema,
+        idToTitle: ctx.idToTitle || {},
+        allNotes: allRows,
+        activeView: embeddedView,
+        searchTerm,
+        onSearchChange: setSearchTerm,
+        onNoteSelect: (id) => onOpenPage?.(id),
+        onCreateRecord: onCreateRecordAdapter,
+        onDeletePage: onDeletePageAdapter,
+        onDeleteSelected: onDeleteSelectedAdapter,
+        onEditSchema: onEditSchemaAdapter,
+        onUpdateView: onUpdateViewAdapter,
+    };
     const renderEditableTable = () => (
-        <div className="my-2 max-h-[60vh] overflow-auto rounded-lg border border-[var(--border-primary)]">
+        <ScrollBox>
             <VaultTable
-                notes={rows}
+                {...sharedViewProps}
                 templates={templates}
-                schema={embeddedSchema}
-                idToTitle={ctx.idToTitle || {}}
-                allNotes={allRows}
-                activeView={embeddedView}
                 isEmbedded={true}
                 isListView={viewType === 'list'}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                onNoteSelect={(id) => onOpenPage?.(id)}
                 onOpenParallel={ctx.onOpenParallel}
-                onCreateRecord={(templateId) => {
-                    const tpl = templates.find(t => t.id === templateId) || null;
-                    handleCreate({}, tpl);
-                }}
-                onDeletePage={(id, title) => { ctx.onDeletePage?.(id, title); setTimeout(reload, 400); }}
-                onDeleteSelected={(ids) => {
-                    Promise.allSettled([...ids].map(id => axios.delete(`/api/vault/pages/${encodeURIComponent(id)}`)))
-                        .then(() => reload());
-                }}
                 onCellSaved={() => reload()}
                 onTranslated={() => reload()}
                 onUpdateFieldOptions={ctx.onAddSchemaOption}
-                onEditSchema={(type) => {
-                    if (type === 'filters' || type === 'sorts') handleOpenConfig();
-                    else if (ctx.onEditSchema && table) ctx.onEditSchema(table);
-                }}
-                onUpdateView={async (nextView) => {
-                    if (!view || !pageId) return;
-                    const sorts = Array.isArray(nextView?.sort)
-                        ? nextView.sort
-                        : (nextView?.sort ? [nextView.sort] : []);
-                    const next = await patchSectionConfig(pageId, view, {
-                        visible_properties: nextView?.visibleProperties || columns,
-                        sorts,
-                        sort: sorts[0] || null,
-                    });
-                    setView(next);
-                }}
                 actionRules={table?.action_rules}
             />
-        </div>
+        </ScrollBox>
     );
 
     const renderBody = () => {
         switch (viewType) {
             case 'list': return renderEditableTable();
-            case 'feed': return <FeedRender {...commonProps} />;
-            case 'gallery': return <GalleryRender {...commonProps} />;
-            case 'board': return <BoardRender {...commonProps} onMove={handleMove} onChangeGroupBy={handleChangeGroupBy} />;
-            case 'calendar': return <CalendarRender {...commonProps} />;
-            case 'timeline': return <TimelineRender {...commonProps} />;
+            case 'feed': return (
+                <ScrollBox>
+                    <VaultFeed
+                        notes={rows}
+                        schema={embeddedSchema}
+                        idToTitle={ctx.idToTitle || {}}
+                        allNotes={allRows}
+                        searchTerm={searchTerm}
+                        onSearchChange={setSearchTerm}
+                        onNoteSelect={(id) => onOpenPage?.(id)}
+                        onDeletePage={onDeletePageAdapter}
+                        onDeleteSelected={onDeleteSelectedAdapter}
+                    />
+                </ScrollBox>
+            );
+            case 'gallery': return <ScrollBox><VaultGallery {...sharedViewProps} /></ScrollBox>;
+            case 'board': return <ScrollBox><VaultKanban {...sharedViewProps} isEmbedded={true} /></ScrollBox>;
+            case 'timeline': return <ScrollBox><VaultTimeline {...sharedViewProps} onUpdateNote={onUpdateNoteAdapter} /></ScrollBox>;
+            case 'calendar': return (
+                <ScrollBox>
+                    <DigitalBrainCalendar
+                        allNotes={rows}
+                        onNoteSelect={(id) => onOpenPage?.(id)}
+                        onDeletePage={onDeletePageAdapter}
+                        onDeleteSelected={onDeleteSelectedAdapter}
+                    />
+                </ScrollBox>
+            );
             case 'graph': return <GraphRender {...commonProps} />;
             default: return renderEditableTable();
         }
