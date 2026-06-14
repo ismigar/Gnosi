@@ -52,7 +52,10 @@ const wikilinkUrlTransform = (url) => (
 // assumeixen alçada) dins del flux del document de l'embed. A nivell de mòdul
 // per no recrear el tipus de component a cada render (evitaria remounts).
 const ScrollBox = ({ children }) => (
-    <div className="my-2 max-h-[70vh] min-h-[8rem] overflow-auto rounded-lg border border-[var(--border-primary)]">
+    // `w-full max-w-full min-w-0` clava l'amplada a la del contenidor de
+    // l'editor (no a la del contingut); `overflow-x-auto` fa que la taula
+    // ampla faci scroll DINS de la caixa i no desbordi la pàgina/editor.
+    <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto rounded-lg border border-[var(--border-primary)]">
         {children}
     </div>
 );
@@ -1491,6 +1494,12 @@ export function DbViewEmbed({ block }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [addMenuOpen, setAddMenuOpen] = useState(false); // menú de tipus en afegir vista
+    const [tabMenuFor, setTabMenuFor] = useState(null);     // id de la vista amb el menú (amagar/eliminar) obert
+    // Vistes amagades NOMÉS en aquest bloc (no s'eliminen del registry). Clau
+    // estable per bloc: pageId + view_id de la secció.
+    const [hiddenViewIds, setHiddenViewIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem(`gnosi_embed_hidden_${pageId}_${viewId}`) || '[]')); } catch { return new Set(); }
+    });
 
     const reload = useCallback(() => {
         _byTableCache.delete(view?.source_table_id || view?.table_id);
@@ -1706,13 +1715,25 @@ export function DbViewEmbed({ block }) {
     const handleDeleteView = useCallback(async (v) => {
         if (!v?.id) return;
         if (tableViews.length <= 1) { window.alert?.('No es pot eliminar l\'única vista.'); return; }
-        if (!window.confirm?.(`Eliminar la vista "${v.name || v.heading || ''}"?`)) return;
+        if (!window.confirm?.(`Eliminar la vista "${v.name || v.heading || ''}" a TOT arreu? Desapareixerà de totes les pàgines.`)) return;
         try {
             await axios.delete(`/api/vault/views/${encodeURIComponent(v.id)}`);
             await refetchTableViews();
             if (activeViewId === v.id) setActiveViewId(view?.view_id || '');
         } catch (e) { console.warn('delete view failed', e); }
     }, [tableViews, activeViewId, view, refetchTableViews]);
+
+    // Amaga la vista NOMÉS en aquest bloc (no l'elimina del registry). No es
+    // pot amagar la vista de la secció del bloc (és l'àncora).
+    const handleHideView = useCallback((v) => {
+        if (!v?.id || v.id === viewId) return;
+        setHiddenViewIds(prev => {
+            const next = new Set(prev); next.add(v.id);
+            try { localStorage.setItem(`gnosi_embed_hidden_${pageId}_${viewId}`, JSON.stringify([...next])); } catch { /* noop */ }
+            return next;
+        });
+        if (activeViewId === v.id) setActiveViewId(viewId);
+    }, [viewId, pageId, activeViewId]);
 
     const handleRenameView = useCallback(async (v) => {
         if (!v?.id) return;
@@ -1853,7 +1874,10 @@ export function DbViewEmbed({ block }) {
     };
 
     return (
-        <div className="my-4">
+        // `min-w-0 w-full`: el contenidor del bloc (.bn-block-content) és flex;
+        // sense `min-w-0` aquest div no encongeix sota l'amplada del contingut
+        // (taula ampla) i desborda l'editor amb scroll horitzontal a la pàgina.
+        <div className="my-4 min-w-0 w-full">
             <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-baseline gap-2 min-w-0">
                     {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}
@@ -1871,15 +1895,19 @@ export function DbViewEmbed({ block }) {
                     setShowSearch={setShowSearch}
                 />
             </div>
-            {/* FASE 3: pestanyes de vistes de la taula */}
-            {tableViews.length > 0 && (
+            {/* FASE 3: pestanyes de vistes de la taula (excloent les amagades
+                en aquest bloc; la vista de la secció no es pot amagar) */}
+            {(() => {
+                const visibleTabs = tableViews.filter(v => v.id === viewId || !hiddenViewIds.has(v.id));
+                return visibleTabs.length > 0 && (
                 <div className="flex items-center gap-0.5 border-b border-[var(--border-primary)] mb-2 overflow-x-auto">
-                    {tableViews.map(v => {
+                    {visibleTabs.map(v => {
                         const isActive = v.id === activeViewId;
+                        const isAnchor = v.id === viewId; // vista de la secció (no amagable)
                         return (
                             <div
                                 key={v.id}
-                                className={`group flex items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap border-b-2 cursor-pointer ${isActive ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] font-semibold' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                                className={`group relative flex items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap border-b-2 cursor-pointer ${isActive ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] font-semibold' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
                                 onClick={() => {
                                     setActiveViewId(v.id);
                                     try { localStorage.setItem(`gnosi_embed_view_${pageId}_${viewId}`, v.id); } catch { /* noop */ }
@@ -1888,14 +1916,33 @@ export function DbViewEmbed({ block }) {
                                 title="Clic per canviar · doble clic per renombrar"
                             >
                                 <span>{v.name || v.heading || 'Vista'}</span>
-                                {tableViews.length > 1 && (
+                                {!isAnchor && (
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteView(v); }}
-                                        className="opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-red-500"
-                                        title="Eliminar vista"
+                                        onClick={(e) => { e.stopPropagation(); setTabMenuFor(m => m === v.id ? null : v.id); }}
+                                        className="opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                                        title="Opcions de la vista"
                                     >
                                         <X size={11} />
                                     </button>
+                                )}
+                                {tabMenuFor === v.id && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); }} />
+                                        <div className="absolute z-20 left-0 top-full mt-1 w-52 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-[var(--text-primary)] font-normal">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleHideView(v); }}
+                                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                            >
+                                                Amagar en aquesta pàgina
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDeleteView(v); }}
+                                                className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-[var(--bg-tertiary)]"
+                                            >
+                                                Eliminar a tot arreu…
+                                            </button>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         );
@@ -1930,7 +1977,8 @@ export function DbViewEmbed({ block }) {
                         )}
                     </div>
                 </div>
-            )}
+                );
+            })()}
             {renderBody()}
         </div>
     );
