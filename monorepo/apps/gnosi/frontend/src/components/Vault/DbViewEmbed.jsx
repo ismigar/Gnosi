@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate } from 'lucide-react';
+import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sortKey } from '../../utils/vaultFilters';
@@ -56,6 +56,17 @@ const ScrollBox = ({ children }) => (
     // l'editor (no a la del contingut); `overflow-x-auto` fa que la taula
     // ampla faci scroll DINS de la caixa i no desbordi la pàgina/editor.
     <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto rounded-lg border border-[var(--border-primary)]">
+        {children}
+    </div>
+);
+
+// Contenidor per a la TAULA/llista: NO fa scroll propi (overflow-hidden) i és
+// flex-col amb alçada acotada perquè la pròpia VaultTable (que té el seu
+// scroller intern + columna `title` sticky) gestioni l'scroll horitzontal i
+// vertical. Si embolcalléssim la taula en una caixa amb `overflow-x-auto`,
+// l'scroll horitzontal el faria la caixa i la columna sticky no quedaria fixa.
+const TableBox = ({ children }) => (
+    <div className="my-2 w-full max-w-full min-w-0 h-[60vh] overflow-hidden rounded-lg border border-[var(--border-primary)] flex flex-col">
         {children}
     </div>
 );
@@ -1764,6 +1775,41 @@ export function DbViewEmbed({ block }) {
         } catch (e) { console.warn('rename view failed', e); }
     }, [refetchTableViews]);
 
+    // Configura una vista CONCRETA (la del menú "...", no necessàriament l'activa).
+    // Mateixa lògica que handleOpenConfig però parametritzada per `v`: si és la
+    // vista de la secció, obre el bloc tal qual; si no, passa un editingBlock
+    // sintètic amb el seu view_id (en desar, re-ancora la secció a aquesta vista).
+    const handleConfigureView = useCallback((v) => {
+        if (!onOpenPageViewModal || !tableId) return;
+        const sectionVid = block?.props?.view_id || '';
+        if (!v?.id || v.id === sectionVid) {
+            onOpenPageViewModal(tableId, block);
+        } else {
+            onOpenPageViewModal(tableId, {
+                id: block?.id,
+                props: { view_id: v.id, heading: headingProp || '', heading_level: headingLevelProp || 1 },
+            });
+        }
+    }, [onOpenPageViewModal, tableId, block, headingProp, headingLevelProp]);
+
+    // Duplica una vista al registry (nova vista amb els mateixos filtres/ordre/
+    // columnes) i la fixa com a pestanya d'aquest bloc.
+    const handleDuplicateView = useCallback(async (v) => {
+        if (!v?.id || !tableId) return;
+        try {
+            const res = await axios.post('/api/vault/views', {
+                table_id: tableId,
+                name: `${v.name || v.heading || 'Vista'} (còpia)`,
+                type: v.type || 'table',
+                filters: v.filters || [],
+                sorts: v.sorts || (v.sort ? [v.sort] : []),
+                visibleProperties: v.visibleProperties || columns || ['title'],
+            });
+            await refetchTableViews();
+            if (res.data?.id) { pinView(res.data.id); setActiveViewId(res.data.id); }
+        } catch (e) { console.warn('duplicate view failed', e); }
+    }, [tableId, columns, refetchTableViews, pinView]);
+
     // --- FASE 1: taula completa EDITABLE dins l'embed reutilitzant VaultTable ---
     // DEFINITS ABANS dels returns primerencs (loading/error) per no violar les
     // Rules of Hooks. La taula i l'esquema surten del registry del context.
@@ -1873,9 +1919,12 @@ export function DbViewEmbed({ block }) {
         // El `graph` no té component editable equivalent → render bespoke.
         if (viewType === 'graph') return <GraphRender {...commonProps} />;
         // La resta de tipus es deleguen al cos compartit (VaultViewBody), el
-        // mateix que fa servir la taula completa.
+        // mateix que fa servir la taula completa. La taula/llista usen un
+        // contenidor que la deixa fer l'scroll intern (columna sticky); la
+        // resta, una caixa amb scroll propi.
+        const Box = (viewType === 'table' || viewType === 'list') ? TableBox : ScrollBox;
         return (
-            <ScrollBox>
+            <Box>
                 <VaultViewBody
                     type={viewType}
                     {...sharedViewProps}
@@ -1888,7 +1937,7 @@ export function DbViewEmbed({ block }) {
                     onUpdateNote={onUpdateNoteAdapter}
                     actionRules={table?.action_rules}
                 />
-            </ScrollBox>
+            </Box>
         );
     };
 
@@ -1923,7 +1972,7 @@ export function DbViewEmbed({ block }) {
                 const unpinnedExisting = tableViews.filter(v => v.id !== viewId && !pinnedViewIds.has(v.id));
                 if (visibleTabs.length === 0) return null;
                 return (
-                <div className="flex flex-wrap items-center gap-0.5 border-b border-[var(--border-primary)] mb-2">
+                <div className="relative z-30 flex flex-wrap items-center gap-0.5 border-b border-[var(--border-primary)] mb-2">
                     {visibleTabs.map(v => {
                         const isActive = v.id === activeViewId;
                         const isAnchor = v.id === viewId; // vista de la secció (no es pot treure)
@@ -1939,31 +1988,57 @@ export function DbViewEmbed({ block }) {
                                 title="Clic per canviar · doble clic per renombrar"
                             >
                                 <span>{v.name || v.heading || 'Vista'}</span>
-                                {!isAnchor && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
-                                        className="opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                                        title="Opcions de la vista"
-                                    >
-                                        <X size={11} />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
+                                    className={`${tabMenuFor === v.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} text-[var(--text-tertiary)] hover:text-[var(--text-primary)]`}
+                                    title="Opcions de la vista"
+                                >
+                                    <MoreHorizontal size={13} />
+                                </button>
                                 {tabMenuFor === v.id && (
                                     <>
-                                        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); }} />
-                                        <div className={`absolute z-20 left-0 ${menuUp ? 'bottom-full mb-1' : 'top-full mt-1'} w-56 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-[var(--text-primary)] font-normal`}>
+                                        <div className="fixed inset-0 z-[55]" onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); }} />
+                                        <div className={`absolute z-[60] left-0 ${menuUp ? "bottom-full mb-1" : "top-full mt-1"} w-56 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-[var(--text-primary)] font-normal`}>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleUnpinView(v); }}
-                                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleConfigureView(v); }}
+                                                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
-                                                Treure d'aquesta pàgina
+                                                <Settings size={13} className="text-[var(--text-tertiary)]" />
+                                                Configurar
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDeleteView(v); }}
-                                                className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-[var(--bg-tertiary)]"
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleRenameView(v); }}
+                                                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
-                                                Eliminar a tot arreu…
+                                                <Edit2 size={13} className="text-[var(--text-tertiary)]" />
+                                                Reanomenar
                                             </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDuplicateView(v); }}
+                                                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                            >
+                                                <Copy size={13} className="text-[var(--text-tertiary)]" />
+                                                Duplicar
+                                            </button>
+                                            {!isAnchor && (
+                                                <>
+                                                    <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleUnpinView(v); }}
+                                                        className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                                    >
+                                                        <X size={13} className="text-[var(--text-tertiary)]" />
+                                                        Treure d'aquesta pàgina
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDeleteView(v); }}
+                                                        className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs text-red-500 hover:bg-[var(--bg-tertiary)]"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                        Eliminar a tot arreu…
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </>
                                 )}
@@ -1980,8 +2055,8 @@ export function DbViewEmbed({ block }) {
                         </button>
                         {addMenuOpen && (
                             <>
-                                <div className="fixed inset-0 z-10" onClick={() => setAddMenuOpen(false)} />
-                                <div className={`absolute z-20 left-0 ${menuUp ? 'bottom-full mb-1' : 'top-full mt-1'} w-56 max-h-72 overflow-y-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1`}>
+                                <div className="fixed inset-0 z-[55]" onClick={() => setAddMenuOpen(false)} />
+                                <div className={`absolute z-[60] left-0 ${menuUp ? "bottom-full mb-1" : "top-full mt-1"} w-56 max-h-72 overflow-y-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1`}>
                                     <div className="px-3 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Nova vista</div>
                                     {VIEW_TYPES.filter(vt => vt.id !== 'graph').map(vt => {
                                         const Icon = vt.icon;
