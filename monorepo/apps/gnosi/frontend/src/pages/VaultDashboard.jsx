@@ -9,8 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { VaultShell } from '../components/Vault/VaultShell';
 import { VaultSidebar } from '../components/Vault/VaultSidebar';
 import { VaultTabs } from '../components/Vault/VaultTabs';
-import { VaultTable } from '../components/Vault/VaultTable';
-import { VaultKanban } from '../components/Vault/VaultKanban';
+import { VaultViewBody } from '../components/Vault/VaultViewBody';
 import { BlockEditor } from '../components/Vault/BlockEditor';
 import { inFlightSaves } from '../components/Vault/editorState';
 import { SchemaConfigModal } from '../components/Vault/SchemaConfigModal';
@@ -19,10 +18,6 @@ import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
 import { MetadataLookupModal } from '../components/Vault/MetadataLookupModal';
 import { RecentModal } from '../components/Vault/RecentModal';
 import { TranslateLanguagesModal } from '../components/Vault/TranslateLanguagesModal';
-import { DigitalBrainCalendar } from '../components/Vault/DigitalBrainCalendar';
-import { VaultGallery } from '../components/Vault/VaultGallery';
-import { VaultTimeline } from '../components/Vault/VaultTimeline';
-import { VaultFeed } from '../components/Vault/VaultFeed';
 import { VaultDocumentTabs } from '../components/Vault/VaultDocumentTabs';
 import { ZoteroReaderTab } from '../components/Vault/ZoteroReaderTab';
 import { VaultViewsHeader } from '../components/Vault/VaultViewsHeader';
@@ -2843,34 +2838,7 @@ export default function VaultDashboard() {
                     />
                     <div className="flex-1 overflow-hidden flex flex-col">
                         {(() => {
-                            if (cv.type === 'board') {
-                                return (
-                                    <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]">
-                                        <VaultKanban
-                                            notes={paneNotes}
-                                            onNoteSelect={loadPage}
-                                            isEmbedded={false}
-                                            activeView={cv}
-                                            onUpdateView={handleUpdateView}
-                                            onDeletePage={handleDeletePage}
-                                            onDeleteSelected={handleDeleteSelected}
-                                            onEditSchema={(type) => {
-                                                setActiveTableId(tableId);
-                                                if (type === 'filters' || type === 'sorts') {
-                                                    setViewToConfigure(cv);
-                                                    setViewConfigTab(type);
-                                                    setIsViewConfigOpen(true);
-                                                } else {
-                                                    setIsSchemaModalOpen(true);
-                                                }
-                                            }}
-                                            searchTerm={searchTerm}
-                                            onSearchChange={setSearchTerm}
-                                        />
-                                    </div>
-                                );
-                            }
-
+                            // El `graph` no té component editable equivalent → es manté a part.
                             if (cv.type === 'graph') {
                                 return (
                                     <VaultGraph
@@ -2883,73 +2851,55 @@ export default function VaultDashboard() {
                                 );
                             }
 
-                            if (cv.type === 'gallery') {
-                                return (
-                                    <div className="p-0 h-full overflow-hidden w-full">
-                                        <VaultGallery
-                                            notes={paneNotes}
-                                            onNoteSelect={loadPage}
-                                            schema={paneSchema}
-                                            idToTitle={globalIndex}
-                                            allNotes={pages}
-                                            activeView={cv}
-                                            onUpdateView={handleUpdateView}
-                                            onDeletePage={handleDeletePage}
-                                            onDeleteSelected={handleDeleteSelected}
-                                            onEditSchema={(type) => {
-                                                setActiveTableId(tableId);
-                                                if (type === 'filters' || type === 'sorts') {
-                                                    setViewToConfigure(cv);
-                                                    setViewConfigTab(type);
-                                                    setIsViewConfigOpen(true);
-                                                } else {
-                                                    setIsSchemaModalOpen(true);
-                                                }
-                                            }}
-                                            onCreateRecord={(tplId) => handleAddNewNote(tableId, tplId)}
-                                            searchTerm={searchTerm}
-                                            onSearchChange={setSearchTerm}
-                                        />
-                                    </div>
-                                );
-                            }
+                            const onEditSchema = (type) => {
+                                setActiveTableId(tableId);
+                                if (type === 'filters' || type === 'sorts') {
+                                    setViewToConfigure(cv);
+                                    setViewConfigTab(type);
+                                    setIsViewConfigOpen(true);
+                                } else {
+                                    setIsSchemaModalOpen(true);
+                                }
+                            };
 
-                            return (
-                                <VaultTable
+                            const body = (
+                                <VaultViewBody
+                                    type={cv.type}
                                     notes={paneNotes}
                                     templates={paneTemplates}
-                                    onNoteSelect={loadPage}
                                     schema={paneSchema}
                                     idToTitle={globalIndex}
                                     allNotes={pages}
                                     activeView={cv}
-                                    onUpdateView={handleUpdateView}
-                                    isListView={cv.type === 'list'}
                                     isEmbedded={false}
+                                    searchTerm={searchTerm}
                                     actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
+                                    onNoteSelect={loadPage}
+                                    onSearchChange={setSearchTerm}
+                                    onUpdateView={handleUpdateView}
                                     onDeletePage={handleDeletePage}
                                     onDeleteSelected={handleDeleteSelected}
+                                    onEditSchema={onEditSchema}
                                     onOpenParallel={handleOpenParallel}
                                     onUpdateFieldOptions={handleAddSchemaOption}
-                                    onEditSchema={(type) => {
-                                        setActiveTableId(tableId);
-                                        if (type === 'filters' || type === 'sorts') {
-                                            setViewToConfigure(cv);
-                                            setViewConfigTab(type);
-                                            setIsViewConfigOpen(true);
-                                        } else {
-                                            setIsSchemaModalOpen(true);
-                                        }
-                                    }}
+                                    onUpdateNote={handleUpdateNote}
                                     onCellSaved={async () => {
                                         await fetchPagesByTable(tableId);
                                     }}
                                     onTranslated={(data) => refreshTableAfterTranslate(tableId, data)}
                                     onCreateRecord={(templateId = null) => handleAddNewNote(tableId, templateId)}
-                                    searchTerm={searchTerm}
-                                    onSearchChange={setSearchTerm}
                                 />
                             );
+
+                            const wrapperClass = {
+                                board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
+                                calendar: 'p-6 h-full',
+                                gallery: 'p-0 h-full overflow-hidden w-full',
+                                timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]',
+                                feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                            }[cv.type];
+
+                            return wrapperClass ? <div className={wrapperClass}>{body}</div> : body;
                         })()}
                     </div>
                 </div>
@@ -3054,126 +3004,68 @@ export default function VaultDashboard() {
                 />
                 <div className="flex-1 overflow-hidden flex flex-col">
                     {(() => {
-                        if (cv.type === 'board') {
-                            return (
-                                <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]">
-                                    <VaultKanban
-                                        notes={paneNotes}
-                                        onNoteSelect={loadPage}
-                                        isEmbedded={true}
-                                        activeView={cv}
-                                        onUpdateView={handleUpdateView}
-                                        onDeletePage={handleDeletePage}
-                                        onDeleteSelected={handleDeleteSelected}
-                                        onEditSchema={(type) => {
-                                            setActiveTableId(tableId);
-                                            if (type === 'filters' || type === 'sorts') {
-                                                setViewToConfigure(cv);
-                                                setViewConfigTab(type);
-                                                setIsViewConfigOpen(true);
-                                            } else {
-                                                setIsSchemaModalOpen(true);
-                                            }
-                                        }}
-                                        searchTerm={searchTerm}
-                                        onSearchChange={setSearchTerm}
-                                    />
-                                </div>
-                            );
-                        }
-
+                        // El `graph` no té component editable equivalent → es manté a part.
                         if (cv.type === 'graph') {
-                        return (
-                            <VaultGraph
-                                tableId={tableId}
-                                view={cv}
-                                searchTerm={searchTerm}
-                                isDarkMode={document.documentElement.classList.contains('dark')}
-                                onNodeClick={(nodeId) => loadPage(nodeId)}
-                            />
-                        );
-                    }
-
-                    if (cv.type === 'gallery') {
                             return (
-                                <div className="p-0 h-full overflow-hidden w-full">
-                                    <VaultGallery
-                                        notes={paneNotes}
-                                        onNoteSelect={loadPage}
-                                        schema={paneSchema}
-                                        idToTitle={globalIndex}
-                                        allNotes={pages}
-                                        activeView={cv}
-                                        onUpdateView={handleUpdateView}
-                                        onDeletePage={handleDeletePage}
-                                        onDeleteSelected={handleDeleteSelected}
-                                        onEditSchema={(type) => {
-                                            setActiveTableId(tableId);
-                                            if (type === 'filters' || type === 'sorts') {
-                                                setViewToConfigure(cv);
-                                                setViewConfigTab(type);
-                                                setIsViewConfigOpen(true);
-                                            } else {
-                                                setIsSchemaModalOpen(true);
-                                            }
-                                        }}
-                                        onCreateRecord={(tplId) => handleAddNewNote(tableId, tplId)}
-                                        onCreateTemplate={() => {
-                                            setPromptModal({
-                                                isOpen: true,
-                                                defaultTitle: t('common.new_template'),
-                                                parentId: null,
-                                                isDatabase: false,
-                                                isDrawing: false,
-                                                isView: false,
-                                                isTemplate: true,
-                                                inputValue: t('common.new_template'),
-                                                isLoading: false
-                                            });
-                                        }}
-                                        searchTerm={searchTerm}
-                                        onSearchChange={setSearchTerm}
-                                    />
-                                </div>
+                                <VaultGraph
+                                    tableId={tableId}
+                                    view={cv}
+                                    searchTerm={searchTerm}
+                                    isDarkMode={document.documentElement.classList.contains('dark')}
+                                    onNodeClick={(nodeId) => loadPage(nodeId)}
+                                />
                             );
                         }
 
-                        return (
-                            <VaultTable
+                        const onEditSchema = (type) => {
+                            setActiveTableId(tableId);
+                            if (type === 'filters' || type === 'sorts') {
+                                setViewToConfigure(cv);
+                                setViewConfigTab(type);
+                                setIsViewConfigOpen(true);
+                            } else {
+                                setIsSchemaModalOpen(true);
+                            }
+                        };
+
+                        const body = (
+                            <VaultViewBody
+                                type={cv.type}
                                 notes={paneNotes}
                                 templates={paneTemplates}
-                                onNoteSelect={loadPage}
                                 schema={paneSchema}
                                 idToTitle={globalIndex}
                                 allNotes={pages}
                                 activeView={cv}
-                                onUpdateView={handleUpdateView}
-                                isListView={cv.type === 'list'}
                                 isEmbedded={true}
+                                searchTerm={searchTerm}
                                 actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
+                                onNoteSelect={loadPage}
+                                onSearchChange={setSearchTerm}
+                                onUpdateView={handleUpdateView}
                                 onDeletePage={handleDeletePage}
                                 onDeleteSelected={handleDeleteSelected}
+                                onEditSchema={onEditSchema}
                                 onOpenParallel={handleOpenParallel}
                                 onUpdateFieldOptions={handleAddSchemaOption}
-                                onEditSchema={(type) => {
-                                    setActiveTableId(tableId);
-                                    if (type === 'filters' || type === 'sorts') {
-                                        setViewToConfigure(cv);
-                                        setViewConfigTab(type);
-                                        setIsViewConfigOpen(true);
-                                    } else {
-                                        setIsSchemaModalOpen(true);
-                                    }
-                                }}
+                                onUpdateNote={handleUpdateNote}
                                 onCellSaved={async () => {
                                     await fetchPagesByTable(tableId);
                                 }}
                                 onTranslated={(data) => refreshTableAfterTranslate(tableId, data)}
                                 onCreateRecord={(templateId) => handleAddNewNote(tableId, templateId)}
-                                searchTerm={searchTerm}
-                                onSearchChange={setSearchTerm}
                             />
                         );
+
+                        const wrapperClass = {
+                            board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
+                            calendar: 'p-6 h-full',
+                            gallery: 'p-0 h-full overflow-hidden w-full',
+                            timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]',
+                            feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                        }[cv.type];
+
+                        return wrapperClass ? <div className={wrapperClass}>{body}</div> : body;
                     })()}
                 </div>
             </div>
@@ -3373,149 +3265,37 @@ export default function VaultDashboard() {
                                     const displayViews = getTableViews(activeTableId);
                                     const cv = displayViews.find(v => v.id === activeViewId) || displayViews[0] || { id: 'default', name: MAIN_VIEW_NAME, type: 'table', sort: { field: 'last_modified', direction: 'desc' }, is_main: true };
 
-                                    if (cv.type === 'board') {
-                                        return (
-                                            <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]">
-                                                <VaultKanban
-                                                    notes={tableNotes}
-                                                    onNoteSelect={loadPage}
-                                                    isEmbedded={false}
-                                                    activeView={cv}
-                                                    onUpdateView={handleUpdateView}
-                                                    onDeletePage={handleDeletePage}
-                                                    onDeleteSelected={handleDeleteSelected}
-                                                    onEditSchema={(type) => {
-                                                        if (type === 'filters' || type === 'sorts') {
-                                                            setViewToConfigure(cv);
-                                                            setViewConfigTab(type);
-                                                            setIsViewConfigOpen(true);
-                                                        } else {
-                                                            setIsSchemaModalOpen(true);
-                                                        }
-                                                    }}
-                                                    searchTerm={searchTerm}
-                                                    onSearchChange={setSearchTerm}
-                                                />
-                                            </div>
-                                        );
-                                    }
+                                    const onEditSchema = (type) => {
+                                        if (type === 'filters' || type === 'sorts') {
+                                            setViewToConfigure(cv);
+                                            setViewConfigTab(type);
+                                            setIsViewConfigOpen(true);
+                                        } else {
+                                            setIsSchemaModalOpen(true);
+                                        }
+                                    };
 
-                                    if (cv.type === 'calendar') {
-                                        return (
-                                            <div className="p-6 h-full">
-                                                <DigitalBrainCalendar
-                                                    allNotes={tableNotes}
-                                                    onNoteSelect={loadPage}
-                                                    onDeletePage={handleDeletePage}
-                                                    onDeleteSelected={handleDeleteSelected}
-                                                />
-                                            </div>
-                                        );
-                                    }
-
-                                    if (cv.type === 'gallery') {
-                                        return (
-                                            <div className="p-0 h-full overflow-hidden w-full">
-                                                <VaultGallery
-                                                    notes={tableNotes}
-                                                    onNoteSelect={loadPage}
-                                                    schema={schema}
-                                                    idToTitle={globalIndex}
-                                                    allNotes={pages}
-                                                    activeView={cv}
-                                                    onUpdateView={handleUpdateView}
-                                                    onDeletePage={handleDeletePage}
-                                                    onDeleteSelected={handleDeleteSelected}
-                                                    onEditSchema={(type) => {
-                                                        if (type === 'filters' || type === 'sorts') {
-                                                            setViewToConfigure(cv);
-                                                            setViewConfigTab(type);
-                                                            setIsViewConfigOpen(true);
-                                                        } else {
-                                                            setIsSchemaModalOpen(true);
-                                                        }
-                                                    }}
-                                                    onCreateRecord={(tplId) => handleAddNewNote(activeTableId, tplId)}
-                                                    searchTerm={searchTerm}
-                                                    onSearchChange={setSearchTerm}
-                                                />
-                                            </div>
-                                        );
-                                    }
-
-                                    if (cv.type === 'timeline') {
-                                        return (
-                                            <div className="p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]">
-                                                <VaultTimeline
-                                                    notes={tableNotes}
-                                                    onNoteSelect={loadPage}
-                                                    onUpdateNote={handleUpdateNote}
-                                                    schema={schema}
-                                                    idToTitle={globalIndex}
-                                                    activeView={cv}
-                                                    onUpdateView={handleUpdateView}
-                                                    onDeletePage={handleDeletePage}
-                                                    onDeleteSelected={handleDeleteSelected}
-                                                    onEditSchema={(type) => {
-                                                        if (type === 'filters' || type === 'sorts') {
-                                                            setViewToConfigure(cv);
-                                                            setViewConfigTab(type);
-                                                            setIsViewConfigOpen(true);
-                                                        } else {
-                                                            setIsSchemaModalOpen(true);
-                                                        }
-                                                    }}
-                                                    searchTerm={searchTerm}
-                                                    onSearchChange={setSearchTerm}
-                                                />
-                                            </div>
-                                        );
-                                    }
-
-                                    if (cv.type === 'feed') {
-                                        return (
-                                            <div className="p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]">
-                                                <VaultFeed
-                                                    notes={tableNotes}
-                                                    onNoteSelect={loadPage}
-                                                    schema={schema}
-                                                    idToTitle={globalIndex}
-                                                    allNotes={pages}
-                                                    onDeletePage={handleDeletePage}
-                                                    onDeleteSelected={handleDeleteSelected}
-                                                    searchTerm={searchTerm}
-                                                    onSearchChange={setSearchTerm}
-                                                />
-                                            </div>
-                                        );
-                                    }
-
-                                    // Table or list
-                                    return (
-                                        <VaultTable
+                                    const body = (
+                                        <VaultViewBody
+                                            type={cv.type}
                                             notes={tableNotes}
                                             templates={tableTemplates}
-                                            onNoteSelect={loadPage}
                                             schema={schema}
                                             idToTitle={globalIndex}
                                             allNotes={pages}
                                             activeView={cv}
-                                            onUpdateView={handleUpdateView}
-                                            isListView={cv.type === 'list'}
+                                            isEmbedded={false}
+                                            searchTerm={searchTerm}
                                             actionRules={registry.tables?.find(x => x.id === activeTableId)?.action_rules}
+                                            onNoteSelect={loadPage}
+                                            onSearchChange={setSearchTerm}
+                                            onUpdateView={handleUpdateView}
                                             onDeletePage={handleDeletePage}
                                             onDeleteSelected={handleDeleteSelected}
+                                            onEditSchema={onEditSchema}
                                             onOpenParallel={handleOpenParallel}
                                             onUpdateFieldOptions={handleAddSchemaOption}
-                                            onEditSchema={(type) => {
-                                                if (type === 'filters' || type === 'sorts') {
-                                                    setViewToConfigure(cv);
-                                                    setViewConfigTab(type);
-                                                    setIsViewConfigOpen(true);
-                                                } else {
-                                                    setIsSchemaModalOpen(true);
-                                                }
-                                            }}
+                                            onUpdateNote={handleUpdateNote}
                                             onCellSaved={async () => {
                                                 if (activeTableId) {
                                                     await fetchPagesByTable(activeTableId);
@@ -3524,6 +3304,7 @@ export default function VaultDashboard() {
                                                 }
                                             }}
                                             onTranslated={(data) => refreshTableAfterTranslate(activeTableId, data)}
+                                            onCreateRecord={(templateId) => handleAddNewNote(activeTableId, templateId)}
                                             onCreateTemplate={() => {
                                                 setPromptModal({
                                                     isOpen: true,
@@ -3539,11 +3320,20 @@ export default function VaultDashboard() {
                                             }}
                                             onDuplicateTemplate={handleDuplicateTemplate}
                                             onSetDefaultTemplate={handleSetDefaultTemplate}
-                                            onCreateRecord={(templateId) => handleAddNewNote(activeTableId, templateId)}
-                                            searchTerm={searchTerm}
-                                            onSearchChange={setSearchTerm}
                                         />
                                     );
+
+                                    // Embolcalls per-tipus (alçada/scroll/padding/fons);
+                                    // table/list no en porta. El cos és sempre VaultViewBody.
+                                    const wrapperClass = {
+                                        board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                                        calendar: 'p-6 h-full',
+                                        gallery: 'p-0 h-full overflow-hidden w-full',
+                                        timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]',
+                                        feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                                    }[cv.type];
+
+                                    return wrapperClass ? <div className={wrapperClass}>{body}</div> : body;
                                 })()}
                             </div>
                         </div>
