@@ -70,6 +70,11 @@ from backend.services.relation_links import (
     decorate_relation_wikilinks,
     strip_relation_wikilinks,
 )
+from backend.services.view_snapshot import (
+    inject_view_snapshots,
+    resolve_row_ids,
+    strip_view_snapshots,
+)
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.media_service import media_service
 from backend.services.files_provider import get_files_provider
@@ -1038,6 +1043,10 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     if match:
         yaml_content = match.group(1)
         body = content[match.end() :]
+        # Frontera de LECTURA del snapshot de vista: l'editor i el domini mai
+        # veuen la llista de wikilinks derivada (s'escriu en desar). Anàleg a
+        # strip_relation_wikilinks per al frontmatter.
+        body = strip_view_snapshots(body)
         try:
             metadata = yaml.safe_load(yaml_content) or {}
             metadata = apply_sidecar_to(metadata, file_path)
@@ -1165,6 +1174,42 @@ def _link_index_unique_id_for_title(title: str) -> Optional[str]:
     return matches[0] if len(matches) == 1 else None
 
 
+def _resolve_view_row_ids(view_id: str, host_page_id: Optional[str]) -> List[str]:
+    """Ids de pàgina (ordenats) que la vista `view_id` retorna — per al snapshot
+    de wikilinks del cos (`inject_view_snapshots`).
+
+    Replica el càlcul del frontend (DbViewEmbed): pren les pàgines de la taula
+    de la vista, n'exclou els templates, normalitza la metadata a noms de
+    RESPOSTA (com fa `/pages/by-table`, perquè els filtres hi casin) i aplica
+    filtres + ordre amb `this` → pàgina amfitriona. Defensiu: torna `[]` si no
+    es pot resoldre (mai bloqueja una desada)."""
+    vid = str(view_id or "").strip()
+    if not vid:
+        return []
+    try:
+        registry = load_registry()
+        views = registry.get("views", []) if isinstance(registry, dict) else []
+        view = next((v for v in views if str(v.get("id")) == vid), None)
+        if not view:
+            return []
+        table_id = view.get("table_id")
+        if not table_id:
+            return []
+        pages = _get_pages_for_table(table_id)
+        table_obj = _table_by_id(table_id)
+        rows: List[dict] = []
+        for p in pages:
+            meta = p.metadata or {}
+            if meta.get("is_template"):
+                continue
+            resp_meta = to_response_names(dict(meta), table_obj) if table_obj else dict(meta)
+            rows.append({"id": p.id, "title": p.title, "metadata": resp_meta})
+        return resolve_row_ids(rows, view, host_page_id)
+    except Exception as e:
+        log.debug(f"_resolve_view_row_ids({vid}) ha fallat: {e}")
+        return []
+
+
 def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
     """Escriu una pàgina .md amb separació frontmatter / sidecar.
 
@@ -1270,6 +1315,20 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             width=4096,
         )
         frontmatter = f"---\n{yaml_str}---\n"
+    # Frontera d'ESCRIPTURA del snapshot de vista: després de cada fence
+    # ```gnosi-view``` escriu la llista [[Títol|id]] de les pàgines que la vista
+    # retorna (portabilitat: Obsidian/Drupal/lectors plans). Autocuratiu i
+    # idempotent; defensiu (mai bloqueja una desada). Mirall de la decoració de
+    # relacions, però al cos en lloc del frontmatter.
+    try:
+        body = inject_view_snapshots(
+            body,
+            resolve_ids=_resolve_view_row_ids,
+            id_to_title=_link_index_title_for,
+            host_page_id=metadata.get("id"),
+        )
+    except Exception as e:  # defensiu: mai bloquejar una desada pel snapshot
+        log.debug(f"snapshot de vista ha fallat per {file_path}: {e}")
     safe_write_text(file_path, f"{frontmatter}\n{(body or '').lstrip()}")
 
 
@@ -1481,6 +1540,10 @@ def _read_dashboard_file(file_path: Path) -> tuple[dict, str]:
         body = "{}"
     elif not isinstance(body, str):
         body = json.dumps(body, ensure_ascii=False, indent=2)
+    else:
+        # No-op si el contingut és JSON de BlockNote; treu el snapshot de vista
+        # si el dashboard es desa com a markdown amb fences.
+        body = strip_view_snapshots(body)
 
     return metadata, body
 
