@@ -6,12 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { sortKey } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { WikilinkInline } from './WikilinkInline';
-import { VaultTable } from './VaultTable';
-import { VaultKanban } from './VaultKanban';
-import { VaultGallery } from './VaultGallery';
-import { VaultTimeline } from './VaultTimeline';
-import { VaultFeed } from './VaultFeed';
-import { DigitalBrainCalendar } from './DigitalBrainCalendar';
+import { VaultViewBody } from './VaultViewBody';
 import { buildSchemaFromTableProperties } from './schemaUtils';
 import { VIEW_TYPES } from './viewConstants';
 
@@ -1834,56 +1829,27 @@ export function DbViewEmbed({ block }) {
         onEditSchema: onEditSchemaAdapter,
         onUpdateView: onUpdateViewAdapter,
     };
-    const renderEditableTable = () => (
-        <ScrollBox>
-            <VaultTable
-                {...sharedViewProps}
-                templates={templates}
-                isEmbedded={true}
-                isListView={viewType === 'list'}
-                onOpenParallel={ctx.onOpenParallel}
-                onCellSaved={() => reload()}
-                onTranslated={() => reload()}
-                onUpdateFieldOptions={ctx.onAddSchemaOption}
-                actionRules={table?.action_rules}
-            />
-        </ScrollBox>
-    );
-
     const renderBody = () => {
-        switch (viewType) {
-            case 'list': return renderEditableTable();
-            case 'feed': return (
-                <ScrollBox>
-                    <VaultFeed
-                        notes={rows}
-                        schema={embeddedSchema}
-                        idToTitle={ctx.idToTitle || {}}
-                        allNotes={allRows}
-                        searchTerm={searchTerm}
-                        onSearchChange={setSearchTerm}
-                        onNoteSelect={(id) => onOpenPage?.(id)}
-                        onDeletePage={onDeletePageAdapter}
-                        onDeleteSelected={onDeleteSelectedAdapter}
-                    />
-                </ScrollBox>
-            );
-            case 'gallery': return <ScrollBox><VaultGallery {...sharedViewProps} /></ScrollBox>;
-            case 'board': return <ScrollBox><VaultKanban {...sharedViewProps} isEmbedded={true} /></ScrollBox>;
-            case 'timeline': return <ScrollBox><VaultTimeline {...sharedViewProps} onUpdateNote={onUpdateNoteAdapter} /></ScrollBox>;
-            case 'calendar': return (
-                <ScrollBox>
-                    <DigitalBrainCalendar
-                        allNotes={rows}
-                        onNoteSelect={(id) => onOpenPage?.(id)}
-                        onDeletePage={onDeletePageAdapter}
-                        onDeleteSelected={onDeleteSelectedAdapter}
-                    />
-                </ScrollBox>
-            );
-            case 'graph': return <GraphRender {...commonProps} />;
-            default: return renderEditableTable();
-        }
+        // El `graph` no té component editable equivalent → render bespoke.
+        if (viewType === 'graph') return <GraphRender {...commonProps} />;
+        // La resta de tipus es deleguen al cos compartit (VaultViewBody), el
+        // mateix que fa servir la taula completa.
+        return (
+            <ScrollBox>
+                <VaultViewBody
+                    type={viewType}
+                    {...sharedViewProps}
+                    templates={templates}
+                    isEmbedded={true}
+                    onOpenParallel={ctx.onOpenParallel}
+                    onCellSaved={() => reload()}
+                    onTranslated={() => reload()}
+                    onUpdateFieldOptions={ctx.onAddSchemaOption}
+                    onUpdateNote={onUpdateNoteAdapter}
+                    actionRules={table?.action_rules}
+                />
+            </ScrollBox>
+        );
     };
 
     return (
