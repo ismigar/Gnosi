@@ -704,6 +704,18 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return baseFields.filter(([key, type]) => key !== titleFieldName && key !== 'title' && type !== 'title');
     }, [activeView, schema]);
 
+    // La columna "Modificació" (last_modified) són metadades, no un camp de
+    // l'esquema. Es mostra a la vista PRINCIPAL (que ensenya tot) o si la vista
+    // la configura explícitament a `visibleProperties`; una vista amb camps
+    // configurats que no la inclou NO la mostra. Sense `visibleProperties`
+    // (vista sense config) es conserva el comportament previ: mostrar-la.
+    const showModifiedColumn = useMemo(() => {
+        if (isMainView(activeView, [])) return true;
+        const vp = activeView?.visibleProperties;
+        if (!vp) return true;
+        return vp.some(k => k === 'last_modified' || k === 'modified' || k === 'last_edited_time');
+    }, [activeView]);
+
     // La columna "Idioma" és visible a la vista actual? Si ho és, el badge
     // d'idioma del costat del títol mostra el mateix valor que la cel·la →
     // redundant. L'amaguem, però conservem l'avís "stale" (que la columna no
@@ -2830,13 +2842,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         );
                     })}
 
-                    <td
-                        style={{ width: columnWidths['last_modified'] || 150, maxWidth: columnWidths['last_modified'] || 150 }}
-                        className={`py-2.5 px-4 text-[var(--text-tertiary)] flex items-center gap-1.5 overflow-hidden truncate align-top ${isListView ? '' : 'border-l border-[var(--border-primary)]'}`}
-                    >
-                        <Clock size={14} className="shrink-0" />
-                        <span className="truncate">{new Date(note.last_modified).toLocaleDateString(i18n.language)}</span>
-                    </td>
+                    {showModifiedColumn && (
+                        <td
+                            style={{ width: columnWidths['last_modified'] || 150, maxWidth: columnWidths['last_modified'] || 150 }}
+                            className={`py-2.5 px-4 text-[var(--text-tertiary)] flex items-center gap-1.5 overflow-hidden truncate align-top ${isListView ? '' : 'border-l border-[var(--border-primary)]'}`}
+                        >
+                            <Clock size={14} className="shrink-0" />
+                            <span className="truncate">{new Date(note.last_modified).toLocaleDateString(i18n.language)}</span>
+                        </td>
+                    )}
             </tr>
         );
     };
@@ -2889,7 +2903,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             {dynamicColumns.map(([key]) => (
                 <td key={key} style={{ width: columnWidths[key] || 180 }} className="py-1.5 px-4" />
             ))}
-            <td style={{ width: columnWidths['last_modified'] || 150 }} className="py-1.5 px-4 border-l border-[var(--border-primary)]" />
+            {showModifiedColumn && (
+                <td style={{ width: columnWidths['last_modified'] || 150 }} className="py-1.5 px-4 border-l border-[var(--border-primary)]" />
+            )}
         </tr>
     );
 
@@ -2969,21 +2985,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                             />
                                         </th>
                                     ))}
-                                    <th
-                                        style={{ width: columnWidths['last_modified'] || 150 }}
-                                        className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-l border-[var(--border-primary)] text-[var(--text-secondary)]"
-                                    >
-                                        <div className="flex items-center justify-between cursor-pointer overflow-hidden" onClick={() => handleSort('last_modified')}>
-                                            <span className="truncate">{t('table.modification')}</span>
-                                            {activeSort.field === 'last_modified' && (
-                                                activeSort.direction === 'asc' ? <ArrowUp size={14} className="text-indigo-500 shrink-0" /> : <ArrowDown size={14} className="text-indigo-500 shrink-0" />
-                                            )}
-                                        </div>
-                                        <div
-                                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--gnosi-primary)]/40 opacity-0 group-hover/table:opacity-100 z-30 transition-opacity"
-                                            onMouseDown={(e) => handleMouseDown(e, 'last_modified')}
-                                        />
-                                    </th>
+                                    {showModifiedColumn && (
+                                        <th
+                                            style={{ width: columnWidths['last_modified'] || 150 }}
+                                            className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-l border-[var(--border-primary)] text-[var(--text-secondary)]"
+                                        >
+                                            <div className="flex items-center justify-between cursor-pointer overflow-hidden" onClick={() => handleSort('last_modified')}>
+                                                <span className="truncate">{t('table.modification')}</span>
+                                                {activeSort.field === 'last_modified' && (
+                                                    activeSort.direction === 'asc' ? <ArrowUp size={14} className="text-indigo-500 shrink-0" /> : <ArrowDown size={14} className="text-indigo-500 shrink-0" />
+                                                )}
+                                            </div>
+                                            <div
+                                                className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--gnosi-primary)]/40 opacity-0 group-hover/table:opacity-100 z-30 transition-opacity"
+                                                onMouseDown={(e) => handleMouseDown(e, 'last_modified')}
+                                            />
+                                        </th>
+                                    )}
                                 </tr>
                             </thead>
                         )}
@@ -3046,7 +3064,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                     {dynamicColumns.map(([key]) => (
                                         <td key={key} style={{ width: columnWidths[key] || 180 }} className="py-1 px-4 text-[var(--text-primary)]" />
                                     ))}
-                                    <td style={{ width: columnWidths['last_modified'] || 150 }} className="py-1 px-4 border-l border-[var(--border-primary)] text-[var(--text-secondary)]" />
+                                    {showModifiedColumn && (
+                                        <td style={{ width: columnWidths['last_modified'] || 150 }} className="py-1 px-4 border-l border-[var(--border-primary)] text-[var(--text-secondary)]" />
+                                    )}
                                 </tr>
                             )}
                         </tbody>
@@ -3100,23 +3120,25 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                             </div>
                                         </td>
                                     ))}
-                                    <td className="py-2 px-4 border-l border-[var(--border-primary)]">
-                                        <div className="flex flex-col">
-                                            <select
-                                                className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer hover:text-indigo-600"
-                                                value={aggregations['last_modified'] || 'none'}
-                                                onChange={(e) => setAggregations({ ...aggregations, last_modified: e.target.value })}
-                                            >
-                                                <option value="none">({t('table.none')})</option>
-                                                <option value="count">Count</option>
-                                                <option value="earliest">{t('table.earliest')}</option>
-                                                <option value="latest">{t('table.latest')}</option>
-                                            </select>
-                                            {aggregations['last_modified'] && aggregations['last_modified'] !== 'none' && (
-                                                <span className="text-[var(--text-primary)] font-bold">{calculateAggregation('last_modified', 'date')}</span>
-                                            )}
-                                        </div>
-                                    </td>
+                                    {showModifiedColumn && (
+                                        <td className="py-2 px-4 border-l border-[var(--border-primary)]">
+                                            <div className="flex flex-col">
+                                                <select
+                                                    className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer hover:text-indigo-600"
+                                                    value={aggregations['last_modified'] || 'none'}
+                                                    onChange={(e) => setAggregations({ ...aggregations, last_modified: e.target.value })}
+                                                >
+                                                    <option value="none">({t('table.none')})</option>
+                                                    <option value="count">Count</option>
+                                                    <option value="earliest">{t('table.earliest')}</option>
+                                                    <option value="latest">{t('table.latest')}</option>
+                                                </select>
+                                                {aggregations['last_modified'] && aggregations['last_modified'] !== 'none' && (
+                                                    <span className="text-[var(--text-primary)] font-bold">{calculateAggregation('last_modified', 'date')}</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             </tfoot>
                         )}
