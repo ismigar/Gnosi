@@ -1562,7 +1562,15 @@ export function DbViewEmbed({ block }) {
                     };
                     const merged = tv.some(v => v.id === section.view_id) ? tv : [sectionAsView, ...tv];
                     setTableViews(merged);
-                    setActiveViewId(prev => prev || section.view_id);
+                    // Recorda l'última pestanya seleccionada si encara existeix;
+                    // si no, cau a la vista de la secció del bloc. La clau ha de
+                    // ser ESTABLE entre recàrregues: `block.id` el regenera
+                    // BlockNote a cada càrrega, però `pageId`+`view_id` de la
+                    // secció es persisteixen al fence markdown.
+                    let saved = '';
+                    try { saved = localStorage.getItem(`gnosi_embed_view_${pageId}_${viewId}`) || ''; } catch { /* noop */ }
+                    const def = (saved && merged.some(v => v.id === saved)) ? saved : section.view_id;
+                    setActiveViewId(prev => prev || def);
                     setLoading(false);
                 }
             } catch (e) {
@@ -1892,7 +1900,10 @@ export function DbViewEmbed({ block }) {
                             <div
                                 key={v.id}
                                 className={`group flex items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap border-b-2 cursor-pointer ${isActive ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] font-semibold' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-                                onClick={() => setActiveViewId(v.id)}
+                                onClick={() => {
+                                    setActiveViewId(v.id);
+                                    try { localStorage.setItem(`gnosi_embed_view_${pageId}_${viewId}`, v.id); } catch { /* noop */ }
+                                }}
                                 onDoubleClick={() => handleRenameView(v)}
                                 title="Clic per canviar · doble clic per renombrar"
                             >
