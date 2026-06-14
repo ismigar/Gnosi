@@ -1478,9 +1478,13 @@ export function DbViewEmbed({ block }) {
     const headingProp = block?.props?.heading || '';
     const headingLevelProp = Number(block?.props?.heading_level) || 0;
 
-    const [view, setView] = useState(null);
-    const [allRows, setAllRows] = useState([]);   // tots els registres no-template
-    const [templates, setTemplates] = useState([]); // plantilles separades
+    const [view, setView] = useState(null);          // la SECCIÓ embeguda (àncora: taula + `this`)
+    const [rawRecords, setRawRecords] = useState([]); // registres no-template SENSE filtrar
+    const [templates, setTemplates] = useState([]);  // plantilles separades
+    // FASE 3: pestanyes de vistes. Llista de vistes de la taula (registry.views)
+    // i quina és l'activa. Per defecte, la vista de la secció del bloc.
+    const [tableViews, setTableViews] = useState([]);
+    const [activeViewId, setActiveViewId] = useState('');
     const [loading, setLoading] = useState(() => Boolean(pageId && viewId));
     const [error, setError] = useState(() => {
         if (!pageId) return 'Sense pàgina activa per resoldre la vista.';
@@ -1510,7 +1514,7 @@ export function DbViewEmbed({ block }) {
                 if (!section) {
                     if (!cancelled) {
                         setView(null);
-                        setAllRows([]);
+                        setRawRecords([]);
                         setTemplates([]);
                         setError(`Vista "${viewId.slice(0, 8)}..." no trobada al registry.`);
                         setLoading(false);
@@ -1521,7 +1525,7 @@ export function DbViewEmbed({ block }) {
 
                 const tableId = section.source_table_id || section.table_id;
                 if (!tableId) {
-                    if (!cancelled) { setAllRows([]); setTemplates([]); setLoading(false); }
+                    if (!cancelled) { setRawRecords([]); setTemplates([]); setLoading(false); }
                     return;
                 }
 
@@ -1539,24 +1543,30 @@ export function DbViewEmbed({ block }) {
                 const tpls = all.filter(p => p.metadata?.is_template === true);
                 const records = all.filter(p => !p.metadata?.is_template);
 
-                const filters = (section.filters && section.filters.length > 0)
-                    ? section.filters
-                    : (section.filter ? [section.filter] : []);
-                const filtered = records.filter(r => filters.every(f => applyFilter(r.metadata || {}, pageId, f)));
-                const sorts = (section.sorts && section.sorts.length > 0)
-                    ? section.sorts
-                    : (section.sort ? [section.sort] : []);
-                const sorted = multiKeySort(filtered, sorts);
-
                 if (!cancelled) {
-                    setAllRows(sorted);
+                    setRawRecords(records);
                     setTemplates(tpls);
+                    // Vistes de la taula (per a les pestanyes). El registry pot ser
+                    // ranci; garantim que la vista de la secció hi sigui sempre.
+                    const tv = (ctx.registry?.views || []).filter(v => String(v.table_id) === String(tableId));
+                    const sectionAsView = {
+                        id: section.view_id,
+                        name: section.heading || 'Vista',
+                        type: section.view_type || 'table',
+                        table_id: tableId,
+                        filters: section.filters || [],
+                        sorts: section.sorts || (section.sort ? [section.sort] : []),
+                        visibleProperties: section.visible_properties || section.columns || ['title'],
+                    };
+                    const merged = tv.some(v => v.id === section.view_id) ? tv : [sectionAsView, ...tv];
+                    setTableViews(merged);
+                    setActiveViewId(prev => prev || section.view_id);
                     setLoading(false);
                 }
             } catch (e) {
                 if (!cancelled) {
                     setError(e?.response?.data?.detail || e?.message || 'Error carregant la vista');
-                    setAllRows([]);
+                    setRawRecords([]);
                     setTemplates([]);
                     setLoading(false);
                 }
@@ -1566,16 +1576,38 @@ export function DbViewEmbed({ block }) {
         return () => { cancelled = true; };
     }, [viewId, pageId, headingProp, reloadKey]);
 
+    const tableId = view?.source_table_id || view?.table_id;
+
+    // La vista EFECTIVA = la pestanya activa (de la taula) o, en defecte, la
+    // secció del bloc. D'ella surten columnes, tipus, filtres i ordenació.
+    const effectiveView = useMemo(() => {
+        const fromTab = tableViews.find(v => v.id === activeViewId);
+        return fromTab || view || null;
+    }, [tableViews, activeViewId, view]);
+
     const columns = useMemo(
-        () => view?.visible_properties || view?.columns || ['title'],
-        [view],
+        () => effectiveView?.visibleProperties || effectiveView?.visible_properties || effectiveView?.columns || ['title'],
+        [effectiveView],
     );
-    const rawType = String(view?.view_type || view?.type || 'table').toLowerCase();
+    const rawType = String(effectiveView?.view_type || effectiveView?.type || 'table').toLowerCase();
     const viewType = rawType === 'db_view' ? 'table' : rawType;
+    // El títol/heading el porta la secció del bloc (no canvia amb la pestanya).
     const displayHeading = headingProp || view?.heading;
     const displayLevel = headingLevelProp || view?.heading_level || 1;
 
-    const tableId = view?.source_table_id || view?.table_id;
+    // Files derivades: registres en cru filtrats per la vista efectiva (amb el
+    // valor `this` → pageId) i ordenats. Reacciona en canviar de pestanya
+    // sense refetch (mateixa taula).
+    const allRows = useMemo(() => {
+        const filters = (effectiveView?.filters && effectiveView.filters.length > 0)
+            ? effectiveView.filters
+            : (effectiveView?.filter ? [effectiveView.filter] : []);
+        const filtered = rawRecords.filter(r => filters.every(f => applyFilter(r.metadata || {}, pageId, f)));
+        const sorts = (effectiveView?.sorts && effectiveView.sorts.length > 0)
+            ? effectiveView.sorts
+            : (effectiveView?.sort ? [effectiveView.sort] : []);
+        return multiKeySort(filtered, sorts);
+    }, [rawRecords, effectiveView, pageId]);
 
     // Cerca local sobre el conjunt de registres. Cerca al títol i a la
     // representació textual de cada columna visible.
@@ -1630,6 +1662,49 @@ export function DbViewEmbed({ block }) {
         if (onOpenPageViewModal && tableId) onOpenPageViewModal(tableId, block);
     }, [onOpenPageViewModal, tableId, block]);
 
+    // --- FASE 3: CRUD de les pestanyes de vistes (registry.views) ---
+    const refetchTableViews = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/vault/views');
+            const all = Array.isArray(res.data) ? res.data : (res.data?.views || []);
+            setTableViews(all.filter(v => String(v.table_id) === String(tableId)));
+        } catch { /* conserva l'estat actual */ }
+    }, [tableId]);
+
+    const handleAddView = useCallback(async (type = 'table') => {
+        if (!tableId) return;
+        const name = window.prompt?.('Nom de la nova vista:', 'Nova vista');
+        if (!name) return;
+        try {
+            const res = await axios.post('/api/vault/views', {
+                table_id: tableId, name, type, filters: [], sorts: [], visibleProperties: columns || ['title'],
+            });
+            await refetchTableViews();
+            if (res.data?.id) setActiveViewId(res.data.id);
+        } catch (e) { console.warn('add view failed', e); }
+    }, [tableId, columns, refetchTableViews]);
+
+    const handleDeleteView = useCallback(async (v) => {
+        if (!v?.id) return;
+        if (tableViews.length <= 1) { window.alert?.('No es pot eliminar l\'única vista.'); return; }
+        if (!window.confirm?.(`Eliminar la vista "${v.name || v.heading || ''}"?`)) return;
+        try {
+            await axios.delete(`/api/vault/views/${encodeURIComponent(v.id)}`);
+            await refetchTableViews();
+            if (activeViewId === v.id) setActiveViewId(view?.view_id || '');
+        } catch (e) { console.warn('delete view failed', e); }
+    }, [tableViews, activeViewId, view, refetchTableViews]);
+
+    const handleRenameView = useCallback(async (v) => {
+        if (!v?.id) return;
+        const name = window.prompt?.('Nou nom de la vista:', v.name || v.heading || '');
+        if (!name || name === (v.name || v.heading)) return;
+        try {
+            await axios.put(`/api/vault/views/${encodeURIComponent(v.id)}`, { ...v, name });
+            await refetchTableViews();
+        } catch (e) { console.warn('rename view failed', e); }
+    }, [refetchTableViews]);
+
     // --- FASE 1: taula completa EDITABLE dins l'embed reutilitzant VaultTable ---
     // DEFINITS ABANS dels returns primerencs (loading/error) per no violar les
     // Rules of Hooks. La taula i l'esquema surten del registry del context.
@@ -1644,14 +1719,14 @@ export function DbViewEmbed({ block }) {
     // l'edició de filtres/ordenació es delega al modal de configuració de
     // l'embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
     const embeddedView = useMemo(() => ({
-        id: view?.view_id || 'embedded',
-        name: view?.heading || 'Vista',
+        id: effectiveView?.id || effectiveView?.view_id || 'embedded',
+        name: effectiveView?.name || effectiveView?.heading || 'Vista',
         type: viewType === 'list' ? 'list' : 'table',
         filters: [],
-        sort: (view?.sorts && view.sorts.length) ? view.sorts : (view?.sort ? [view.sort] : []),
+        sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
         visibleProperties: columns,
         is_main: false,
-    }), [view, viewType, columns]);
+    }), [effectiveView, viewType, columns]);
 
     if (loading) {
         return (
@@ -1689,15 +1764,31 @@ export function DbViewEmbed({ block }) {
             .then(() => reload());
     };
     const onUpdateViewAdapter = async (nextView) => {
-        if (!view || !pageId) return;
+        if (!pageId) return;
         const sorts = Array.isArray(nextView?.sort) ? nextView.sort : (nextView?.sort ? [nextView.sort] : []);
-        const next = await patchSectionConfig(pageId, view, {
-            visible_properties: nextView?.visibleProperties || columns,
-            sorts,
-            sort: sorts[0] || null,
-            group_by: nextView?.group_by ?? view?.group_by,
-        });
-        setView(next);
+        const isSection = !view ? false : (activeViewId === view.view_id);
+        if (isSection || !activeViewId) {
+            // La pestanya activa és la secció del bloc → patch a la secció.
+            const next = await patchSectionConfig(pageId, view, {
+                visible_properties: nextView?.visibleProperties || columns,
+                sorts,
+                sort: sorts[0] || null,
+                group_by: nextView?.group_by ?? view?.group_by,
+            });
+            setView(next);
+        } else {
+            // Pestanya d'una vista del registry → PUT directe a /api/vault/views.
+            const current = tableViews.find(v => v.id === activeViewId) || {};
+            try {
+                await axios.put(`/api/vault/views/${encodeURIComponent(activeViewId)}`, {
+                    ...current,
+                    visibleProperties: nextView?.visibleProperties || columns,
+                    sorts,
+                    sort: sorts[0] || null,
+                });
+                await refetchTableViews();
+            } catch (e) { console.warn('update view failed', e); }
+        }
     };
     const onUpdateNoteAdapter = async (id, patch) => {
         await patchPageMetadata(id, patch?.metadata || patch || {});
@@ -1790,6 +1881,41 @@ export function DbViewEmbed({ block }) {
                     setShowSearch={setShowSearch}
                 />
             </div>
+            {/* FASE 3: pestanyes de vistes de la taula */}
+            {tableViews.length > 0 && (
+                <div className="flex items-center gap-0.5 border-b border-[var(--border-primary)] mb-2 overflow-x-auto">
+                    {tableViews.map(v => {
+                        const isActive = v.id === activeViewId;
+                        return (
+                            <div
+                                key={v.id}
+                                className={`group flex items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap border-b-2 cursor-pointer ${isActive ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] font-semibold' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                                onClick={() => setActiveViewId(v.id)}
+                                onDoubleClick={() => handleRenameView(v)}
+                                title="Clic per canviar · doble clic per renombrar"
+                            >
+                                <span>{v.name || v.heading || 'Vista'}</span>
+                                {tableViews.length > 1 && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteView(v); }}
+                                        className="opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-red-500"
+                                        title="Eliminar vista"
+                                    >
+                                        <X size={11} />
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
+                    <button
+                        onClick={() => handleAddView('table')}
+                        className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
+                        title="Afegir vista"
+                    >
+                        <Plus size={13} />
+                    </button>
+                </div>
+            )}
             {renderBody()}
         </div>
     );
