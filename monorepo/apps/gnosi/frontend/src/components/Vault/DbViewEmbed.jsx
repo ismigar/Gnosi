@@ -1669,8 +1669,22 @@ export function DbViewEmbed({ block }) {
     }, [view, pageId]);
 
     const handleOpenConfig = useCallback(() => {
-        if (onOpenPageViewModal && tableId) onOpenPageViewModal(tableId, block);
-    }, [onOpenPageViewModal, tableId, block]);
+        if (!onOpenPageViewModal || !tableId) return;
+        const sectionVid = block?.props?.view_id || '';
+        if (!activeViewId || activeViewId === sectionVid) {
+            // La pestanya activa és la vista de la secció → config del bloc tal qual.
+            onOpenPageViewModal(tableId, block);
+        } else {
+            // Config de la vista de la pestanya ACTIVA: passem un editingBlock
+            // sintètic amb el seu view_id. En desar, PageViewModal actualitza
+            // aquesta vista i re-ancora la secció del bloc a ella (el bloc passa
+            // a mostrar la vista que has configurat).
+            onOpenPageViewModal(tableId, {
+                id: block?.id,
+                props: { view_id: activeViewId, heading: headingProp || '', heading_level: headingLevelProp || 1 },
+            });
+        }
+    }, [onOpenPageViewModal, tableId, block, activeViewId, headingProp, headingLevelProp]);
 
     // --- FASE 3: CRUD de les pestanyes de vistes (registry.views) ---
     const refetchTableViews = useCallback(async () => {
