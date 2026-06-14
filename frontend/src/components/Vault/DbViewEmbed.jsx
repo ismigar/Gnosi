@@ -13,6 +13,7 @@ import { VaultTimeline } from './VaultTimeline';
 import { VaultFeed } from './VaultFeed';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
 import { buildSchemaFromTableProperties } from './schemaUtils';
+import { VIEW_TYPES } from './viewConstants';
 
 // Substitueix `[[target]]`, `[[target|alias]]`, `[[target#section]]` i
 // `[[target#section|alias]]` per un link markdown amb un sentinel a l'href.
@@ -1494,6 +1495,7 @@ export function DbViewEmbed({ block }) {
     const [reloadKey, setReloadKey] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const [addMenuOpen, setAddMenuOpen] = useState(false); // menú de tipus en afegir vista
 
     const reload = useCallback(() => {
         _byTableCache.delete(view?.source_table_id || view?.table_id);
@@ -1907,13 +1909,35 @@ export function DbViewEmbed({ block }) {
                             </div>
                         );
                     })}
-                    <button
-                        onClick={() => handleAddView('table')}
-                        className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-                        title="Afegir vista"
-                    >
-                        <Plus size={13} />
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setAddMenuOpen(o => !o)}
+                            className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
+                            title="Afegir vista"
+                        >
+                            <Plus size={13} />
+                        </button>
+                        {addMenuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setAddMenuOpen(false)} />
+                                <div className="absolute z-20 left-0 mt-1 w-40 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1">
+                                    {VIEW_TYPES.filter(vt => vt.id !== 'graph').map(vt => {
+                                        const Icon = vt.icon;
+                                        return (
+                                            <button
+                                                key={vt.id}
+                                                onClick={() => { setAddMenuOpen(false); handleAddView(vt.id); }}
+                                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                                            >
+                                                {Icon && <Icon size={13} className="text-[var(--text-tertiary)]" />}
+                                                {vt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
             {renderBody()}
