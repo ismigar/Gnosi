@@ -994,6 +994,13 @@ button:hover > .row-action-tooltip {
 .bn-block-content[data-content-type="gnosi_view"] table {
     overflow: visible !important;
 }
+/* BlockNote força `vertical-align: top` a les cel·les de `.ProseMirror`, cosa
+   que descentra el checkbox de la capçalera (la taula completa, fora de
+   l'editor, usa el `middle` per defecte). Ho restaurem només a les capçaleres;
+   el cos manté l'alineació pròpia (`align-top`). */
+.bn-block-content[data-content-type="gnosi_view"] thead th {
+    vertical-align: middle !important;
+}
 
 /* Separació entre paràgrafs dins del cos de cada feed item, exceptuant
    els ítems d'una llista (els quals porten la seva pròpia interlinia
