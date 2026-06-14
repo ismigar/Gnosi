@@ -94,6 +94,7 @@ def inject_view_snapshots(
     id_to_title: Optional[Callable[[str], Optional[str]]] = None,
     host_page_id: Optional[str] = None,
     max_items: int = DEFAULT_MAX_ITEMS,
+    config_for: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
 ) -> Any:
     """Després de cada fence ```gnosi-view```, escriu la llista de wikilinks de
     les pàgines que la vista retorna. Idempotent i autocuratiu.
@@ -103,6 +104,11 @@ def inject_view_snapshots(
     - ``id_to_title`` resol l'id al títol ACTUAL (per al wikilink). Si no resol,
       ``_decorate_item`` degrada a id nu (mai bloqueja).
     - ``host_page_id`` substitueix el valor de filtre ``this``.
+    - ``config_for(view_id)`` (opcional) retorna la config PER VISTA del
+      snapshot: ``{"enabled": bool, "limit": int}``. Si ``enabled`` és fals, la
+      vista NO escriu llista (s'omet, ni tan sols es resol). ``limit`` (>0)
+      acota els ítems amb marca de truncament; ``0`` = sense límit. Si no es
+      passa, s'aplica ``max_items`` a totes.
 
     Mai llança: davant de qualsevol error torna el cos sense tocar (defensiu,
     com la decoració de relacions).
@@ -125,6 +131,19 @@ def inject_view_snapshots(
                 view_id = ""
             if not view_id:
                 continue
+            # Config per vista (activació + límit) ABANS de resoldre: una vista
+            # desactivada no paga la resolució.
+            enabled, limit = True, max_items
+            if config_for is not None:
+                try:
+                    cfg = config_for(view_id) or {}
+                    enabled = cfg.get("enabled", True)
+                    if cfg.get("limit") is not None:
+                        limit = cfg.get("limit")
+                except Exception:
+                    enabled, limit = True, max_items
+            if not enabled:
+                continue
             try:
                 ids = resolve_ids(view_id, host_page_id) or []
             except Exception:
@@ -132,9 +151,9 @@ def inject_view_snapshots(
             if not ids:
                 continue
             truncated = 0
-            if max_items and len(ids) > max_items:
-                truncated = len(ids) - max_items
-                ids = ids[:max_items]
+            if limit and limit > 0 and len(ids) > limit:
+                truncated = len(ids) - limit
+                ids = ids[:limit]
             items = [_decorate_item(rid, id_to_title, None) for rid in ids]
             items = [it for it in items if isinstance(it, str) and it.strip()]
             if not items:
