@@ -9,6 +9,7 @@ from backend.services.view_snapshot import (
     compact_view_fences,
     inject_view_snapshots,
     multi_key_sort,
+    rematerialize_md,
     resolve_row_ids,
     restore_view_fences,
     sort_key,
@@ -319,3 +320,46 @@ def test_table_block_is_stripped_on_read():
         resolve_table=_table_resolver(["Títol", "N"], [["[[A|id-a]]", "1"]]),
     )
     assert strip_view_snapshots(out) == body  # la taula també es treu en llegir
+
+
+# --- rematerialize_md: unitat de la tasca de materialització ----------------
+_DOC = (
+    "---\nid: p1\ntitle: Àrea X\n---\n\n"
+    "# Formació\n\n"
+    "```gnosi-view\n{\"view_id\":\"view-123\"}\n```\n\n"
+    "# Resta\n"
+)
+
+
+def test_rematerialize_materializes_then_is_idempotent():
+    tbl = _table_resolver(["Títol", "N"], [["[[A|id-a]]", "1"], ["[[B|id-b]]", "2"]])
+    once = rematerialize_md(_DOC, "p1", _resolver([A, B]), _id_to_title, None, tbl)
+    # frontmatter intacte; definició amagada; taula amb dades
+    assert once.startswith("---\nid: p1\ntitle: Àrea X\n---\n")
+    assert "gnosi-view:def" in once and "```gnosi-view" not in once
+    assert "| Títol | N |" in once
+    assert "# Formació" in once and "# Resta" in once
+    # re-materialitzar amb les MATEIXES dades → idèntic (no escriuria)
+    twice = rematerialize_md(once, "p1", _resolver([A, B]), _id_to_title, None, tbl)
+    assert twice == once
+
+
+def test_rematerialize_changes_when_data_changes():
+    tbl1 = _table_resolver(["Títol", "N"], [["[[A|id-a]]", "1"]])
+    tbl2 = _table_resolver(["Títol", "N"], [["[[A|id-a]]", "1"], ["[[B|id-b]]", "2"]])
+    once = rematerialize_md(_DOC, "p1", _resolver([A]), _id_to_title, None, tbl1)
+    updated = rematerialize_md(once, "p1", _resolver([A, B]), _id_to_title, None, tbl2)
+    assert updated != once
+    assert "id-b" in updated  # `|` va escapat a la cel·la: [[B\|id-b]]
+
+
+def test_rematerialize_noop_without_view():
+    raw = "---\nid: p1\n---\n\n# Sense vista\n\nText.\n"
+    assert rematerialize_md(raw, "p1", _resolver([A]), _id_to_title) == raw
+
+
+def test_rematerialize_handles_no_frontmatter():
+    raw = "# Sols cos\n\n" + _fence()
+    out = rematerialize_md(raw, None, _resolver([A]), _id_to_title)
+    assert "gnosi-view:def" in out
+    assert out.startswith("# Sols cos")

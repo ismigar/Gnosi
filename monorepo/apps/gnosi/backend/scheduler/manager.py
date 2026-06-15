@@ -92,6 +92,10 @@ class SchedulerManager:
             "description": "Publica les publicacions socials programades vençudes",
             "default_interval": 5,  # 5 minutes
         },
+        "materialize_view_snapshots": {
+            "description": "Materialitza els snapshots de vistes al markdown (migració portable)",
+            "default_interval": 1440,  # 24 hours
+        },
     }
 
     def __init__(self):
@@ -566,6 +570,8 @@ class SchedulerManager:
             return self._task_purge_trash()
         elif name == "publish_scheduled_social":
             return self._task_publish_scheduled_social()
+        elif name == "materialize_view_snapshots":
+            return self._task_materialize_view_snapshots()
 
         return {"error": f"Unknown task: {name}"}
 
@@ -578,6 +584,18 @@ class SchedulerManager:
         from backend.api.vault_routes import purge_expired_trash
 
         return purge_expired_trash()
+
+    def _task_materialize_view_snapshots(self) -> Dict[str, Any]:
+        """Materialitza els snapshots de vistes al markdown de tot el vault
+        perquè la migració sigui real (vistes = taules/llistes navegables sense
+        Gnosi). Reescriu només les pàgines amb snapshot endarrerit.
+
+        La lògica viu a `backend/api/vault_routes.py::refresh_view_snapshots`
+        perquè comparteix els helpers del snapshot.
+        """
+        from backend.api.vault_routes import refresh_view_snapshots
+
+        return refresh_view_snapshots()
 
     def _task_fetch_mail(self) -> Dict[str, Any]:
         """Sync mail from all configured accounts (Gmail + IMAP)."""

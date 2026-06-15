@@ -88,6 +88,42 @@ def compact_view_fences(body: Any) -> Any:
     return _FENCE_RE.sub(_repl, body)
 
 
+_FRONTMATTER_RE = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
+
+
+def rematerialize_md(
+    raw: Any,
+    host_page_id: Optional[str],
+    resolve_ids: Callable[[str, Optional[str]], Optional[List[str]]],
+    id_to_title: Optional[Callable[[str], Optional[str]]] = None,
+    config_for: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
+    resolve_table: Optional[Callable[[str, Optional[str]], Optional[Dict[str, Any]]]] = None,
+) -> Any:
+    """Regenera el snapshot de vista d'un document .md COMPLET (frontmatter +
+    cos) a partir de les dades ACTUALS. Deixa el frontmatter byte a byte i només
+    toca la regió del snapshot del cos. Retorna el .md nou — IDÈNTIC a l'entrada
+    si res no ha canviat (per no escriure en va). Pur: sense I/O. És la unitat
+    que fa servir la tasca de materialització del vault.
+    """
+    if not isinstance(raw, str) or "gnosi-view" not in raw:
+        return raw
+    m = _FRONTMATTER_RE.match(raw)
+    prefix = raw[:m.end()] if m else ""
+    body = raw[m.end():] if m else raw
+    new_body = restore_view_fences(body)
+    new_body = strip_view_snapshots(new_body)
+    new_body = inject_view_snapshots(
+        new_body,
+        resolve_ids,
+        id_to_title=id_to_title,
+        host_page_id=host_page_id,
+        config_for=config_for,
+        resolve_table=resolve_table,
+    )
+    new_body = compact_view_fences(new_body)
+    return prefix + new_body
+
+
 def restore_view_fences(body: Any) -> Any:
     """Frontera de LECTURA: `<!-- gnosi-view:def {json} -->` → ```gnosi-view {json}```,
     amb el mateix format que produeix l'editor (JSON indentat a 2 espais) perquè
