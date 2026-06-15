@@ -135,11 +135,17 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
     }
 
     if (block.type === "gnosi_view") {
-        const payload = {
-            view_id: String(block.props?.view_id || ''),
-            heading: String(block.props?.heading || ''),
-            heading_level: Number(block.props?.heading_level) || 1,
-        };
+        // `heading`/`heading_level` són opcionals i no tenen UI per definir-los:
+        // només s'inclouen si hi ha un títol real, per no embrutar la definició
+        // amb un `"heading":""` sense sentit. Els usuaris posen un `#` de
+        // markdown normal (portable) damunt del bloc. En llegir, promoteCustomFences
+        // ja els posa per defecte ('' i 1) quan no hi són.
+        const h = String(block.props?.heading || '').trim();
+        const payload = { view_id: String(block.props?.view_id || '') };
+        if (h) {
+            payload.heading = h;
+            payload.heading_level = Number(block.props?.heading_level) || 1;
+        }
         return `\`\`\`gnosi-view\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
     }
 
