@@ -162,6 +162,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // Llista ordenada de criteris d'ordenació; el primer element té prioritat
     // màxima (ex: ordena per `Estat` asc; en empat, per `Data` desc).
     const [sorts, setSorts] = useState([]);
+    // Snapshot de wikilinks de resultats al markdown (portabilitat). Viu a la
+    // vista del registry (resultSnapshot / resultSnapshotLimit); el backend
+    // l'honora en desar la pàgina. Default: activat, 500 (0 = sense límit).
+    const [resultSnapshot, setResultSnapshot] = useState(true);
+    const [resultSnapshotLimit, setResultSnapshotLimit] = useState(500);
     const [saveToTableViews, setSaveToTableViews] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -276,6 +281,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         setViewType(String(v.type || 'table'));
                         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
                         setFilters(Array.isArray(v.filters) ? v.filters : []);
+                        setResultSnapshot(v.resultSnapshot !== false);
+                        setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
                         if (Array.isArray(v.sorts) && v.sorts.length > 0) {
                             setSorts(v.sorts);
                         } else if (v.sort && v.sort.field) {
@@ -308,6 +315,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setFilters(Array.isArray(inline?.filters) ? inline.filters : []);
             setSorts(Array.isArray(inline?.sorts) ? inline.sorts : []);
             setVisibleProperties(Array.isArray(inline?.visibleProperties) && inline.visibleProperties.length ? inline.visibleProperties : ['title']);
+            setResultSnapshot(inline?.resultSnapshot !== false);
+            setResultSnapshotLimit(Number.isFinite(Number(inline?.resultSnapshotLimit)) ? Number(inline.resultSnapshotLimit) : 500);
             setExistingViews([]);
             return;
         }
@@ -321,6 +330,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setViewType('table');
         setFilters([]);
         setSorts([]);
+        setResultSnapshot(true);
+        setResultSnapshotLimit(500);
         setSaveToTableViews(true);
         setSelectedExistingViewId('');
         setExistingViews([]);
@@ -393,6 +404,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
         setViewType(v.type || 'table');
         setFilters(Array.isArray(v.filters) ? v.filters : []);
+        setResultSnapshot(v.resultSnapshot !== false);
+        setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
         // Compat: el registry pot tenir `sorts: [...]` (nou) o `sort: {...}` (llegacy)
         if (Array.isArray(v.sorts) && v.sorts.length > 0) {
             setSorts(v.sorts);
@@ -580,11 +593,15 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     filters: cleanFilters,
                     sorts: cleanSorts,
                     visibleProperties,
+                    resultSnapshot,
+                    resultSnapshotLimit,
                 });
                 const oldPropsJson = JSON.stringify({
                     filters: original?.filters || [],
                     sorts: original?.sorts || (original?.sort ? [original.sort] : []),
                     visibleProperties: original?.visibleProperties || ['title'],
+                    resultSnapshot: original?.resultSnapshot !== false,
+                    resultSnapshotLimit: Number.isFinite(Number(original?.resultSnapshotLimit)) ? Number(original.resultSnapshotLimit) : 500,
                 });
                 const modified = newPropsJson !== oldPropsJson;
 
@@ -601,6 +618,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         sort: sortConfig,
                         sorts: cleanSorts,
                         visibleProperties,
+                        resultSnapshot,
+                        resultSnapshotLimit,
                     };
                     await apiFetch('/api/vault/views', {
                         method: 'POST',
@@ -619,6 +638,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     sort: sortConfig,
                     sorts: cleanSorts,
                     visibleProperties,
+                    resultSnapshot,
+                    resultSnapshotLimit,
                     cardSize: 'medium',
                     galleryPreview: 'none',
                 };
@@ -873,6 +894,48 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     )}
                                 </div>
                             )}
+
+                            {/* Portabilitat: snapshot de wikilinks de resultats al
+                                markdown (Obsidian/Drupal/lectors plans). El valor
+                                viu a la vista; el backend l'honora en desar. */}
+                            <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={resultSnapshot}
+                                        onChange={e => setResultSnapshot(e.target.checked)}
+                                        className="mt-0.5 rounded border-[var(--border-primary)]"
+                                    />
+                                    <div>
+                                        <span className="text-sm text-[var(--text-primary)] block">
+                                            Desa els enllaços de resultats al markdown
+                                        </span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                                            Escriu una llista [[Títol|id]] de les pàgines que la vista retorna, perquè Obsidian i altres lectors hi puguin navegar.
+                                        </span>
+                                    </div>
+                                </label>
+                                {resultSnapshot && (
+                                    <div className="ml-6 flex items-center gap-2">
+                                        <label htmlFor="pvm-result-snapshot-limit" className="text-xs font-semibold text-[var(--text-secondary)]">
+                                            Màxim d'enllaços
+                                        </label>
+                                        <input
+                                            id="pvm-result-snapshot-limit"
+                                            type="number"
+                                            min="0"
+                                            step="50"
+                                            value={resultSnapshotLimit}
+                                            onChange={e => {
+                                                const n = parseInt(e.target.value, 10);
+                                                setResultSnapshotLimit(Number.isFinite(n) && n >= 0 ? n : 0);
+                                            }}
+                                            className="w-24 text-sm border border-[var(--border-primary)] rounded-lg px-2 py-1 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none text-right"
+                                        />
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">0 = sense límit</span>
+                                    </div>
+                                )}
+                            </div>
                         </>
                     )}
 
