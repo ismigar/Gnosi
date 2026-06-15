@@ -144,6 +144,30 @@ async def get_page_views(page_id: str):
         )
 
 
+def _find_section_upsert_index(sections, new_vid, heading):
+    """Índex de la secció a SUBSTITUIR en un upsert, o ``None`` per afegir-ne una
+    de nova.
+
+    Si la secció entrant té ``view_id``, s'aparella per ``view_id`` (identitat
+    estable del bloc): així dos embeds amb el mateix heading (p. ex. buit) però
+    view_id diferent NO col·lisionen. Si no en té (secció inline/llegada),
+    s'aparella per ``heading`` però NOMÉS amb seccions que tampoc tenen view_id
+    (per no trepitjar una secció ancorada a una vista del registry).
+    """
+    if new_vid:
+        return next(
+            (i for i, s in enumerate(sections) if s.get("view_id") == new_vid),
+            None,
+        )
+    return next(
+        (
+            i for i, s in enumerate(sections)
+            if not s.get("view_id") and s.get("heading") == heading
+        ),
+        None,
+    )
+
+
 @router.post("/pages/{page_id}/views", dependencies=[Depends(require_role("editor"))])
 async def upsert_page_view(page_id: str, view: ViewSection):
     """
@@ -204,11 +228,12 @@ async def upsert_page_view(page_id: str, view: ViewSection):
 
         sections: list = registry["pages"][page_id].setdefault("sections", [])
 
-        # Upsert: substitueix si ja existeix un heading igual
+        # Upsert: identifica la secció pel `view_id` (identitat ESTABLE del
+        # bloc), no pel heading — així múltiples embeds SENSE encapçalament a la
+        # mateixa pàgina NO col·lisionen. Vegeu `_find_section_upsert_index`.
         new_section = view.model_dump()
-        existing_idx = next(
-            (i for i, s in enumerate(sections) if s.get("heading") == view.heading),
-            None,
+        existing_idx = _find_section_upsert_index(
+            sections, new_section.get("view_id"), view.heading
         )
         if existing_idx is not None:
             sections[existing_idx] = new_section
