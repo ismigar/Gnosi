@@ -811,10 +811,24 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     j++;
                 }
 
+                // Dedenta el contingut intern abans de parsejar-lo: el
+                // serialitzador indenta els fills de :::column/:::column-list/
+                // :::toggle. Sense dedentar, una LLISTA indentada (4 espais) es
+                // parseja com a BLOC DE CODI (regla de CommonMark) i es veu com
+                // una caixa fosca. Treiem la indentació COMUNA (preserva el niat
+                // relatiu intern, p. ex. sub-llistes).
+                const _nonEmpty = innerLines.filter(l => l.trim().length > 0);
+                const _minIndent = _nonEmpty.length
+                    ? Math.min(..._nonEmpty.map(l => (l.match(/^ */)[0] || "").length))
+                    : 0;
+                const _innerDedented = _minIndent > 0
+                    ? innerLines.map(l => l.slice(_minIndent))
+                    : innerLines;
+
                 const block = {
                     type,
                     props: { backgroundColor: "default" },
-                    children: await parseRecursive(innerLines)
+                    children: await parseRecursive(_innerDedented)
                 };
 
                 // Per al tipus "column", cal afegir l'amplada segons l'esquema de @blocknote/xl-multi-column
