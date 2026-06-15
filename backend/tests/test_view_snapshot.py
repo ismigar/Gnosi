@@ -6,9 +6,11 @@ el frontend (DbViewEmbed).
 """
 from backend.services.view_snapshot import (
     apply_filter,
+    compact_view_fences,
     inject_view_snapshots,
     multi_key_sort,
     resolve_row_ids,
+    restore_view_fences,
     sort_key,
     strip_view_snapshots,
 )
@@ -226,3 +228,94 @@ def test_config_limit_zero_means_unlimited():
     )
     assert out.count("- [[") == 4  # límit 0 → sense truncament malgrat max_items=2
     assert "truncated" not in out
+
+
+# --- Definició: fence ↔ comentari (compact / restore) -----------------------
+def test_compact_fence_to_hidden_comment():
+    body = f"# Formació\n\n{_fence()}\n# Resta\n"
+    out = compact_view_fences(body)
+    assert "```gnosi-view" not in out  # el bloc de codi visible desapareix
+    assert '<!-- gnosi-view:def {"view_id":"view-123"' in out
+    assert "# Resta" in out
+
+
+def test_restore_comment_to_fence():
+    compacted = compact_view_fences(_fence())
+    restored = restore_view_fences(compacted)
+    assert "```gnosi-view" in restored
+    assert "gnosi-view:def" not in restored
+    assert '"view_id": "view-123"' in restored  # JSON re-indentat (2 espais)
+
+
+def test_compact_restore_roundtrip_is_identity():
+    body = f"# A\n\n{_fence()}\n# B\n"
+    assert restore_view_fences(compact_view_fences(body)) == body
+
+
+def test_compact_leaves_invalid_json_fence_intact():
+    body = "```gnosi-view\n{not valid json,,}\n```\n"
+    assert compact_view_fences(body) == body  # no es trenca la definició
+
+
+def test_disk_form_def_comment_then_result_after_inject_and_compact():
+    # Simula el desat real: inject (troba el fence) → compact (fence→comentari).
+    body = f"# Formació\n\n{_fence()}\n# Resta\n"
+    injected = inject_view_snapshots(body, _resolver([A, B]), _id_to_title, PAGE)
+    disk = compact_view_fences(injected)
+    assert "```gnosi-view" not in disk            # definició amagada
+    assert "gnosi-view:def" in disk               # … com a comentari
+    assert "- [[Alpha|id-a]]" in disk             # resultats visibles (navegables)
+    # I la lectura ho desfà tot: comentari→fence + treu resultats → cos original.
+    read_back = strip_view_snapshots(restore_view_fences(disk))
+    assert read_back == body
+
+
+# --- Taula markdown per a vistes table/list ---------------------------------
+def _table_resolver(headers, rows):
+    return lambda view_id, host: {"headers": headers, "rows": rows} if view_id == VID else None
+
+
+def test_table_snapshot_renders_markdown_table():
+    body = _fence()
+    headers = ["Títol", "Any", "Centre"]
+    rows = [["[[Curs A|id-a]]", "2022", "Escola X"], ["[[Curs B|id-b]]", "-", ""]]
+    out = inject_view_snapshots(
+        body, _resolver([A, B]), _id_to_title, PAGE,
+        resolve_table=_table_resolver(headers, rows),
+    )
+    assert "| Títol | Any | Centre |" in out
+    assert "| --- | --- | --- |" in out
+    # el `|` del wikilink amb àlies s'escapa per no trencar la cel·la
+    assert "| [[Curs A\\|id-a]] | 2022 | Escola X |" in out
+    assert "- [[" not in out  # taula, no llista
+
+
+def test_table_falls_back_to_list_for_non_table_views():
+    body = _fence()
+    out = inject_view_snapshots(
+        body, _resolver([A, B]), _id_to_title, PAGE,
+        resolve_table=lambda v, h: None,  # no és table/list
+    )
+    assert "- [[Alpha|id-a]]" in out
+    assert "| --- |" not in out
+
+
+def test_table_respects_limit_with_truncation():
+    body = _fence()
+    rows = [[f"[[R{i}|id-{i}]]", str(i)] for i in range(5)]
+    out = inject_view_snapshots(
+        body, _resolver(["x"]), _id_to_title, PAGE, max_items=2,
+        resolve_table=_table_resolver(["Títol", "N"], rows),
+    )
+    # 1 capçalera + 1 separador + 2 files de dades
+    assert out.count("\n|") == 4
+    assert "<!-- gnosi-view:result-truncated 3 -->" in out
+
+
+def test_table_block_is_stripped_on_read():
+    body = _fence()
+    out = inject_view_snapshots(
+        body, _resolver([A]), _id_to_title, PAGE,
+        resolve_table=_table_resolver(["Títol", "N"], [["[[A|id-a]]", "1"]]),
+    )
+    assert strip_view_snapshots(out) == body  # la taula també es treu en llegir

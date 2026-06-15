@@ -60,6 +60,51 @@ _FENCE_RE = re.compile(
 # DEIXA CONSTÀNCIA explícita (mai un tall silenciós).
 DEFAULT_MAX_ITEMS = 500
 
+# --- Definició de la vista: fence visible ↔ comentari HTML amagat -----------
+# A disc, la definició es guarda com un comentari HTML
+# (`<!-- gnosi-view:def {json} -->`) perquè Obsidian i els lectors plans
+# l'AMAGUIN (un bloc de codi ```gnosi-view``` es veuria sempre). L'editor de
+# Gnosi treballa SEMPRE amb el fence: el backend reconverteix comentari→fence en
+# llegir i fence→comentari en desar. Així el frontend no canvia i el round-trip
+# de l'editor és idèntic. JSON en una sola línia (el match s'atura a `-->`).
+_DEF_COMMENT_RE = re.compile(r"[ \t]*<!--\s*gnosi-view:def\s+(?P<json>.*?)\s*-->[ \t]*")
+
+
+def compact_view_fences(body: Any) -> Any:
+    """Frontera d'ESCRIPTURA: ```gnosi-view {json}``` → `<!-- gnosi-view:def {json} -->`.
+    Compacta el JSON en una línia. Si el JSON no és vàlid, deixa el fence intacte
+    (mai trencar la definició)."""
+    if not isinstance(body, str) or "```gnosi-view" not in body:
+        return body
+
+    def _repl(m):
+        try:
+            payload = json.loads(m.group("json"))
+        except Exception:
+            return m.group(0)
+        compact = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        return f"<!-- gnosi-view:def {compact} -->"
+
+    return _FENCE_RE.sub(_repl, body)
+
+
+def restore_view_fences(body: Any) -> Any:
+    """Frontera de LECTURA: `<!-- gnosi-view:def {json} -->` → ```gnosi-view {json}```,
+    amb el mateix format que produeix l'editor (JSON indentat a 2 espais) perquè
+    el round-trip sigui idèntic. Comentari amb JSON invàlid es deixa tal qual."""
+    if not isinstance(body, str) or "gnosi-view:def" not in body:
+        return body
+
+    def _repl(m):
+        try:
+            payload = json.loads((m.group("json") or "").strip())
+        except Exception:
+            return m.group(0)
+        pretty = json.dumps(payload, ensure_ascii=False, indent=2)
+        return f"```gnosi-view\n{pretty}\n```"
+
+    return _DEF_COMMENT_RE.sub(_repl, body)
+
 
 def strip_view_snapshots(body: Any) -> Any:
     """Treu TOTS els blocs snapshot del cos. Idempotent; no-op si no n'hi ha.
@@ -88,6 +133,29 @@ def _build_block(view_id: str, items: Sequence[str], truncated: int = 0) -> str:
     return "\n".join(lines)
 
 
+def _md_cell(value: Any) -> str:
+    """Escapa un valor per a una cel·la de taula markdown: `|`→`\\|` (preserva els
+    wikilinks amb àlies dins de taules — Obsidian entén `[[T\\|id]]`) i aplana
+    salts de línia."""
+    s = "" if value is None else str(value)
+    return (
+        s.replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", " ").strip()
+    )
+
+
+def _build_table_block(view_id: str, headers: Sequence[str], rows: Sequence[Sequence[Any]], truncated: int = 0) -> str:
+    open_tag = f"<!-- gnosi-view:result view_id={view_id} -->" if view_id else "<!-- gnosi-view:result -->"
+    lines = [open_tag]
+    lines.append("| " + " | ".join(_md_cell(h) for h in headers) + " |")
+    lines.append("| " + " | ".join("---" for _ in headers) + " |")
+    for row in rows:
+        lines.append("| " + " | ".join(_md_cell(c) for c in row) + " |")
+    if truncated > 0:
+        lines.append(f"<!-- gnosi-view:result-truncated {truncated} -->")
+    lines.append("<!-- /gnosi-view:result -->")
+    return "\n".join(lines)
+
+
 def inject_view_snapshots(
     body: Any,
     resolve_ids: Callable[[str, Optional[str]], Optional[List[str]]],
@@ -95,6 +163,7 @@ def inject_view_snapshots(
     host_page_id: Optional[str] = None,
     max_items: int = DEFAULT_MAX_ITEMS,
     config_for: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
+    resolve_table: Optional[Callable[[str, Optional[str]], Optional[Dict[str, Any]]]] = None,
 ) -> Any:
     """Després de cada fence ```gnosi-view```, escriu la llista de wikilinks de
     les pàgines que la vista retorna. Idempotent i autocuratiu.
@@ -144,21 +213,39 @@ def inject_view_snapshots(
                     enabled, limit = True, max_items
             if not enabled:
                 continue
-            try:
-                ids = resolve_ids(view_id, host_page_id) or []
-            except Exception:
-                ids = []
-            if not ids:
-                continue
-            truncated = 0
-            if limit and limit > 0 and len(ids) > limit:
-                truncated = len(ids) - limit
-                ids = ids[:limit]
-            items = [_decorate_item(rid, id_to_title, None) for rid in ids]
-            items = [it for it in items if isinstance(it, str) and it.strip()]
-            if not items:
-                continue
-            block = _build_block(view_id, items, truncated)
+            block = None
+            # 1) Vistes que el markdown sap representar (table/list): taula amb
+            #    les dades reals (capçaleres + cel·les), via resolve_table.
+            if resolve_table is not None:
+                try:
+                    tbl = resolve_table(view_id, host_page_id)
+                except Exception:
+                    tbl = None
+                if tbl and tbl.get("headers") and tbl.get("rows"):
+                    trows = list(tbl["rows"])
+                    truncated = 0
+                    if limit and limit > 0 and len(trows) > limit:
+                        truncated = len(trows) - limit
+                        trows = trows[:limit]
+                    if trows:
+                        block = _build_table_block(view_id, tbl["headers"], trows, truncated)
+            # 2) Fallback (qualsevol altre tipus): llista de wikilinks.
+            if block is None:
+                try:
+                    ids = resolve_ids(view_id, host_page_id) or []
+                except Exception:
+                    ids = []
+                if not ids:
+                    continue
+                truncated = 0
+                if limit and limit > 0 and len(ids) > limit:
+                    truncated = len(ids) - limit
+                    ids = ids[:limit]
+                items = [_decorate_item(rid, id_to_title, None) for rid in ids]
+                items = [it for it in items if isinstance(it, str) and it.strip()]
+                if not items:
+                    continue
+                block = _build_block(view_id, items, truncated)
             out.append(f"\n\n{block}")
         out.append(clean[last:])
         return "".join(out)
@@ -252,11 +339,20 @@ def resolve_row_ids(
 
     Els templates s'han d'haver exclòs abans (com fa el frontend amb
     ``is_template``)."""
+    return [str(r.get("id")) for r in resolve_rows(rows, view, host_page_id) if r.get("id")]
+
+
+def resolve_rows(
+    rows: List[Dict[str, Any]],
+    view: Dict[str, Any],
+    host_page_id: Optional[str],
+) -> List[Dict[str, Any]]:
+    """Com ``resolve_row_ids`` però retorna les FILES ordenades (``{id, title,
+    metadata}``), no només els ids — per a la taula markdown."""
     filters = view.get("filters") or ([view["filter"]] if view.get("filter") else [])
     filtered = [
         r for r in rows
         if all(apply_filter(r.get("metadata") or {}, host_page_id, f) for f in filters)
     ]
     sorts = view.get("sorts") or ([view["sort"]] if view.get("sort") else [])
-    ordered = multi_key_sort(filtered, sorts)
-    return [str(r.get("id")) for r in ordered if r.get("id")]
+    return multi_key_sort(filtered, sorts)

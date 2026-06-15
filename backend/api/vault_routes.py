@@ -72,10 +72,14 @@ from backend.services.relation_links import (
 )
 from backend.services.view_snapshot import (
     DEFAULT_MAX_ITEMS as _VIEW_SNAPSHOT_DEFAULT_LIMIT,
+    compact_view_fences,
     inject_view_snapshots,
     resolve_row_ids,
+    resolve_rows,
+    restore_view_fences,
     strip_view_snapshots,
 )
+from backend.services.relation_links import _decorate_item as _decorate_relation_item
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.media_service import media_service
 from backend.services.files_provider import get_files_provider
@@ -1044,9 +1048,10 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     if match:
         yaml_content = match.group(1)
         body = content[match.end() :]
-        # Frontera de LECTURA del snapshot de vista: l'editor i el domini mai
-        # veuen la llista de wikilinks derivada (s'escriu en desar). Anàleg a
-        # strip_relation_wikilinks per al frontmatter.
+        # Frontera de LECTURA del snapshot de vista: reconverteix la definició
+        # amagada (comentari → fence, perquè l'editor la vegi com sempre) i treu
+        # la llista/taula de resultats derivada. Anàleg a strip_relation_wikilinks.
+        body = restore_view_fences(body)
         body = strip_view_snapshots(body)
         try:
             metadata = yaml.safe_load(yaml_content) or {}
@@ -1175,40 +1180,101 @@ def _link_index_unique_id_for_title(title: str) -> Optional[str]:
     return matches[0] if len(matches) == 1 else None
 
 
-def _resolve_view_row_ids(view_id: str, host_page_id: Optional[str]) -> List[str]:
-    """Ids de pàgina (ordenats) que la vista `view_id` retorna — per al snapshot
-    de wikilinks del cos (`inject_view_snapshots`).
-
-    Replica el càlcul del frontend (DbViewEmbed): pren les pàgines de la taula
-    de la vista, n'exclou els templates, normalitza la metadata a noms de
-    RESPOSTA (com fa `/pages/by-table`, perquè els filtres hi casin) i aplica
-    filtres + ordre amb `this` → pàgina amfitriona. Defensiu: torna `[]` si no
-    es pot resoldre (mai bloqueja una desada)."""
+def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
+    """(view, files-candidates) de la vista `view_id`: les pàgines NO-template de
+    la seva taula, amb la metadata en noms de RESPOSTA (com `/pages/by-table`,
+    perquè els filtres hi casin). El filtre+ordre els aplica qui crida (via les
+    funcions pures `resolve_row_ids` / `resolve_rows`). Torna `(None, [])` si no
+    es pot resoldre."""
     vid = str(view_id or "").strip()
     if not vid:
-        return []
+        return None, []
+    registry = load_registry()
+    views = registry.get("views", []) if isinstance(registry, dict) else []
+    view = next((v for v in views if str(v.get("id")) == vid), None)
+    if not view:
+        return None, []
+    table_id = view.get("table_id")
+    if not table_id:
+        return view, []
+    pages = _get_pages_for_table(table_id)
+    table_obj = _table_by_id(table_id)
+    rows: List[dict] = []
+    for p in pages:
+        meta = p.metadata or {}
+        if meta.get("is_template"):
+            continue
+        resp_meta = to_response_names(dict(meta), table_obj) if table_obj else dict(meta)
+        rows.append({"id": p.id, "title": p.title, "metadata": resp_meta})
+    return view, rows
+
+
+def _resolve_view_row_ids(view_id: str, host_page_id: Optional[str]) -> List[str]:
+    """Ids de pàgina (ordenats) que la vista retorna — per al snapshot en LLISTA
+    de wikilinks (fallback per a vistes no-taula). Defensiu: `[]` si falla."""
     try:
-        registry = load_registry()
-        views = registry.get("views", []) if isinstance(registry, dict) else []
-        view = next((v for v in views if str(v.get("id")) == vid), None)
+        view, rows = _resolve_view_and_candidates(view_id, host_page_id)
         if not view:
             return []
-        table_id = view.get("table_id")
-        if not table_id:
-            return []
-        pages = _get_pages_for_table(table_id)
-        table_obj = _table_by_id(table_id)
-        rows: List[dict] = []
-        for p in pages:
-            meta = p.metadata or {}
-            if meta.get("is_template"):
-                continue
-            resp_meta = to_response_names(dict(meta), table_obj) if table_obj else dict(meta)
-            rows.append({"id": p.id, "title": p.title, "metadata": resp_meta})
         return resolve_row_ids(rows, view, host_page_id)
     except Exception as e:
-        log.debug(f"_resolve_view_row_ids({vid}) ha fallat: {e}")
+        log.debug(f"_resolve_view_row_ids({view_id}) ha fallat: {e}")
         return []
+
+
+def _format_snapshot_cell(value: Any, ftype: Optional[str]) -> str:
+    """Formata el valor d'una cel·la per a la taula markdown del snapshot.
+    Relacions → wikilinks `[[Títol|id]]`; llistes → coma; resta → text (acotat)."""
+    if value is None or value == "":
+        return ""
+    if ftype == "relation":
+        vals = value if isinstance(value, list) else [value]
+        return ", ".join(
+            _decorate_relation_item(str(v), _link_index_title_for, None)
+            for v in vals if v not in (None, "")
+        )
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value if v not in (None, ""))
+    if isinstance(value, dict):
+        return str(value.get("src") or value.get("title") or value.get("name") or "")
+    s = str(value)
+    return (s[:200] + "…") if len(s) > 200 else s
+
+
+def _resolve_view_table(view_id: str, host_page_id: Optional[str]) -> Optional[dict]:
+    """Per a vistes `table`/`list`: `{headers, rows}` amb les dades reals (títol
+    com a wikilink + columnes visibles). Torna `None` per a altres tipus (el
+    caller cau a la llista de wikilinks) o si no es pot resoldre."""
+    try:
+        view, rows = _resolve_view_and_candidates(view_id, host_page_id)
+        if not view:
+            return None
+        if str(view.get("type") or "table").lower() not in ("table", "list"):
+            return None
+        table_obj = _table_by_id(view.get("table_id")) if view.get("table_id") else None
+        props = (table_obj.get("properties") if table_obj else []) or []
+        title_field = next((p.get("name") for p in props if p.get("type") == "title"), None)
+        type_by_name = {p.get("name"): p.get("type") for p in props if p.get("name")}
+
+        def _is_title_ref(k):
+            return k == "title" or (title_field and k == title_field) or type_by_name.get(k) == "title"
+
+        vis = view.get("visibleProperties") or view.get("visible_properties") or ["title"]
+        non_title = [k for k in vis if not _is_title_ref(k)]
+        headers = [title_field or "Títol"] + non_title
+
+        ordered = resolve_rows(rows, view, host_page_id)
+        out_rows = []
+        for r in ordered:
+            cells = [_decorate_relation_item(str(r.get("id")), _link_index_title_for, None)]
+            meta = r.get("metadata") or {}
+            for k in non_title:
+                cells.append(_format_snapshot_cell(meta.get(k), type_by_name.get(k)))
+            out_rows.append(cells)
+        return {"headers": headers, "rows": out_rows}
+    except Exception as e:
+        log.debug(f"_resolve_view_table({view_id}) ha fallat: {e}")
+        return None
 
 
 def _view_snapshot_config(view_id: str) -> dict:
@@ -1349,7 +1415,12 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             id_to_title=_link_index_title_for,
             host_page_id=metadata.get("id"),
             config_for=_view_snapshot_config,
+            resolve_table=_resolve_view_table,
         )
+        # Amaga la definició de la vista: fence visible → comentari HTML (Obsidian
+        # i lectors plans no el mostren). Després d'injectar el snapshot, que
+        # encara necessita trobar el fence.
+        body = compact_view_fences(body)
     except Exception as e:  # defensiu: mai bloquejar una desada pel snapshot
         log.debug(f"snapshot de vista ha fallat per {file_path}: {e}")
     safe_write_text(file_path, f"{frontmatter}\n{(body or '').lstrip()}")
@@ -1564,8 +1635,9 @@ def _read_dashboard_file(file_path: Path) -> tuple[dict, str]:
     elif not isinstance(body, str):
         body = json.dumps(body, ensure_ascii=False, indent=2)
     else:
-        # No-op si el contingut és JSON de BlockNote; treu el snapshot de vista
-        # si el dashboard es desa com a markdown amb fences.
+        # No-op si el contingut és JSON de BlockNote; reconverteix la definició
+        # i treu el snapshot si el dashboard es desa com a markdown amb fences.
+        body = restore_view_fences(body)
         body = strip_view_snapshots(body)
 
     return metadata, body
