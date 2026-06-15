@@ -145,8 +145,16 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
     );
 }
 
-export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null }) {
+export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null, mode = 'embed', editingView = null, initialTab = null }) {
     const { t } = useTranslation();
+
+    // `mode='table'`: el MATEIX modal però configurant una vista de la taula
+    // (no un embed). S'amaguen les opcions pròpies de l'embed (taula origen ja
+    // fixada, vista existent, abast compartit/local, "desa a les vistes",
+    // encapçalament) i en desar s'actualitza/crea la vista del registry
+    // directament (sense secció ni bloc). `editingView` = vista a configurar
+    // (null = crear-ne una de nova).
+    const isTableMode = mode === 'table';
 
     // Ref al panell interior del modal: delimita el focus-trap del teclat.
     const panelRef = useRef(null);
@@ -247,6 +255,48 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
     useEffect(() => {
         if (!isOpen) return;
+        // Mode TAULA: configurem una vista del registry directament (no un
+        // embed). Pre-omplim des de `editingView` (o defaults si en creem una).
+        if (isTableMode) {
+            // 'appearance' del modal antic = pestanya 'general' aquí.
+            setActiveTab(initialTab && initialTab !== 'appearance' ? initialTab : 'general');
+            setError('');
+            setSaveToTableViews(false);
+            setEditScope('shared');
+            setViewUsage({ count: 0, pages: [] });
+            setSelectedExistingViewId('');
+            setSourceTableId(String(editingView?.table_id || preselectedTableId || ''));
+            if (editingView) {
+                setViewType(String(editingView.type || 'table'));
+                setViewName(String(editingView.name || ''));
+                setVisibleProperties(
+                    Array.isArray(editingView.visibleProperties) && editingView.visibleProperties.length
+                        ? editingView.visibleProperties
+                        : ['title']
+                );
+                setFilters(Array.isArray(editingView.filters) ? editingView.filters : []);
+                if (Array.isArray(editingView.sorts) && editingView.sorts.length) {
+                    setSorts(editingView.sorts);
+                } else if (editingView.sort && editingView.sort.field) {
+                    setSorts([{ field: editingView.sort.field, direction: editingView.sort.direction || 'asc' }]);
+                } else {
+                    setSorts([]);
+                }
+                setResultSnapshot(editingView.resultSnapshot !== false);
+                setResultSnapshotLimit(
+                    Number.isFinite(Number(editingView.resultSnapshotLimit)) ? Number(editingView.resultSnapshotLimit) : 500
+                );
+            } else {
+                setViewType('table');
+                setViewName('');
+                setVisibleProperties(['title']);
+                setFilters([]);
+                setSorts([]);
+                setResultSnapshot(true);
+                setResultSnapshotLimit(500);
+            }
+            return;
+        }
         // Mode EDITA: pre-omplim a partir dels props del block existent.
         // Si la secció té view_id, el carregarem al useEffect d'existing
         // views (selecció automàtica). Si no, parsegem `section` (config
@@ -338,7 +388,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setViewUsage({ count: 0, pages: [] });
         setEditScope('shared');
         setError('');
-    }, [isOpen, preselectedTableId, editingBlock]);
+    }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
 
     // Quan canvia la taula origen, carreguem les vistes ja guardades per
     // permetre triar-ne una en lloc de crear-la des de zero.
@@ -571,6 +621,47 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             // encara llegeixen un únic criteri.
             const sortConfig = cleanSorts[0] || null;
 
+            // Mode TAULA: desa la vista del registry directament (crea o
+            // actualitza), sense secció ni bloc. Retorna la vista desada al
+            // caller perquè refresqui el registry i la seleccioni.
+            if (isTableMode) {
+                const viewBody = {
+                    ...(editingView || {}),
+                    id: editingView?.id,
+                    table_id: sourceTableId,
+                    name: (viewName || editingView?.name || 'Vista').trim(),
+                    type: viewType,
+                    filters: cleanFilters,
+                    sort: sortConfig,
+                    sorts: cleanSorts,
+                    visibleProperties,
+                    resultSnapshot,
+                    resultSnapshotLimit,
+                };
+                let saved;
+                if (editingView?.id) {
+                    saved = await apiFetch(`/api/vault/views/${encodeURIComponent(editingView.id)}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(viewBody),
+                    });
+                } else {
+                    saved = await apiFetch('/api/vault/views', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(viewBody),
+                    });
+                }
+                // `saved` pot ser la vista creada (amb id nou) o un status; en
+                // qualsevol cas retornem el cos amb l'id resultant.
+                const savedView = {
+                    ...viewBody,
+                    id: editingView?.id || saved?.id || viewBody.id,
+                };
+                onClose(true, savedView);
+                return;
+            }
+
             // 'default' és la vista principal virtual (no persistida): la
             // tractem com si l'usuari hagués escollit "Crear nova vista" amb
             // saveToTableViews=true (això s'ha forçat al useEffect de
@@ -712,9 +803,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 <div className="px-5 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] rounded-t-xl shrink-0">
                     <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Eye size={16} className="text-[var(--gnosi-primary)]" />
-                        {editingBlock
-                            ? t('page_view.title_edit', 'Edita la vista de BD')
-                            : t('page_view.title', 'Afegir vista de BD')}
+                        {isTableMode
+                            ? (editingView?.id ? 'Configurar vista' : 'Nova vista')
+                            : (editingBlock
+                                ? t('page_view.title_edit', 'Edita la vista de BD')
+                                : t('page_view.title', 'Afegir vista de BD'))}
                     </h2>
                     <button onClick={() => onClose(false)} className="gnosi-close-btn">
                         <X size={16} />
@@ -747,19 +840,21 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 <div className="p-5 space-y-4 overflow-y-auto flex-1">
                     {activeTab === 'general' && (
                         <>
-                            <div>
-                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Taula origen</label>
-                                <select
-                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                                    value={sourceTableId}
-                                    onChange={e => setSourceTableId(e.target.value)}
-                                >
-                                    <option value="">— Selecciona taula —</option>
-                                    {allTables.map(tbl => (
-                                        <option key={tbl.id} value={tbl.id}>{tbl.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            {!isTableMode && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Taula origen</label>
+                                    <select
+                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        value={sourceTableId}
+                                        onChange={e => setSourceTableId(e.target.value)}
+                                    >
+                                        <option value="">— Selecciona taula —</option>
+                                        {allTables.map(tbl => (
+                                            <option key={tbl.id} value={tbl.id}>{tbl.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">Tipus de vista</label>
@@ -787,7 +882,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             </div>
 
-                            {sourceTableId && (
+                            {!isTableMode && sourceTableId && (
                                 <div>
                                     <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                                         Vista existent
@@ -866,7 +961,21 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             )}
 
-                            {!selectedExistingViewId && (
+                            {isTableMode && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                                        Nom de la vista
+                                    </label>
+                                    <input
+                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
+                                        value={viewName}
+                                        onChange={e => setViewName(e.target.value)}
+                                        placeholder="ex: Per àrea"
+                                    />
+                                </div>
+                            )}
+
+                            {!isTableMode && !selectedExistingViewId && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input
@@ -1206,7 +1315,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         disabled={saving}
                         className="btn-gnosi btn-gnosi-primary px-6"
                     >
-                        {saving ? 'Desant...' : (editingBlock ? 'Desar canvis' : 'Crear vista')}
+                        {saving ? 'Desant...' : (isTableMode ? (editingView?.id ? 'Desar canvis' : 'Crear vista') : (editingBlock ? 'Desar canvis' : 'Crear vista'))}
                     </button>
                 </div>
             </div>
