@@ -74,6 +74,7 @@ from backend.services.view_snapshot import (
     DEFAULT_MAX_ITEMS as _VIEW_SNAPSHOT_DEFAULT_LIMIT,
     compact_view_fences,
     inject_view_snapshots,
+    rematerialize_md,
     resolve_row_ids,
     resolve_rows,
     restore_view_fences,
@@ -1296,6 +1297,76 @@ def _view_snapshot_config(view_id: str) -> dict:
         return {"enabled": bool(enabled), "limit": limit}
     except Exception:
         return {"enabled": True, "limit": _VIEW_SNAPSHOT_DEFAULT_LIMIT}
+
+
+def refresh_view_snapshots(dry_run: bool = False) -> Dict[str, Any]:
+    """Materialitza el snapshot de TOTES les pàgines amb vista embeguda, perquè
+    el vault a disc estigui sempre a punt per migrar (cada vista = taula/llista
+    de markdown real + wikilinks navegables, llegibles sense Gnosi).
+
+    Recorre el vault, re-resol cada vista amb les dades ACTUALS i reescriu el
+    snapshot NOMÉS si ha canviat (toca exclusivament la regió del snapshot del
+    cos; el frontmatter es deixa byte a byte → cap mtime inútil a OneDrive).
+    `dry_run=True` només compta. Pensada per a la tasca programada
+    `materialize_view_snapshots`; defensiva (cap pàgina bloqueja la resta).
+    """
+    scanned = 0
+    changed = 0
+    errors = 0
+    changed_pages: List[str] = []
+    try:
+        docs = _iter_linkable_page_documents()
+    except Exception as e:
+        log.warning(f"refresh_view_snapshots: no s'ha pogut llistar el vault: {e}")
+        return {"ok": False, "error": str(e), "scanned": 0, "changed": 0, "errors": 1}
+
+    for file_path, metadata, _body, is_dashboard in docs:
+        if is_dashboard:
+            continue  # els dashboards es desen com a JSON; el snapshot és per a .md
+        try:
+            raw = file_path.read_text(encoding="utf-8")
+        except Exception:
+            errors += 1
+            continue
+        if "gnosi-view" not in raw:
+            continue
+        scanned += 1
+        try:
+            page_id = str(
+                metadata.get("id")
+                or _resolve_page_id_from_metadata(metadata, file_path)
+                or ""
+            )
+            new_raw = rematerialize_md(
+                raw,
+                page_id,
+                resolve_ids=_resolve_view_row_ids,
+                id_to_title=_link_index_title_for,
+                config_for=_view_snapshot_config,
+                resolve_table=_resolve_view_table,
+            )
+            if new_raw != raw:
+                changed += 1
+                if len(changed_pages) < 50:
+                    changed_pages.append(str(file_path))
+                if not dry_run:
+                    safe_write_text(file_path, new_raw)
+        except Exception as e:
+            errors += 1
+            log.warning(f"refresh_view_snapshots: error a {file_path.name}: {e}")
+
+    log.info(
+        f"refresh_view_snapshots: scanned={scanned} changed={changed} "
+        f"errors={errors} dry_run={dry_run}"
+    )
+    return {
+        "ok": True,
+        "dry_run": dry_run,
+        "scanned": scanned,
+        "changed": changed,
+        "errors": errors,
+        "changed_pages": changed_pages,
+    }
 
 
 def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
