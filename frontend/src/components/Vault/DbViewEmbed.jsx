@@ -1544,8 +1544,36 @@ export function DbViewEmbed({ block }) {
             try {
                 const viewsRes = await axios.get(`/api/pages/${encodeURIComponent(pageId)}/views`);
                 const sections = viewsRes.data?.sections || [];
-                const section = sections.find(s => s.view_id === viewId)
+                let section = sections.find(s => s.view_id === viewId)
                     || (headingProp ? sections.find(s => s.heading === headingProp) : null);
+                // Fallback: si aquest bloc no té secció registrada (p. ex. perquè
+                // l'upsert de seccions PER HEADING ha col·lisionat amb un altre
+                // embed sense heading a la mateixa pàgina), però la vista SÍ que
+                // existeix al registry, construïm la secció a partir de la vista.
+                // El `view_id` del fence és la font de veritat: així el bloc es
+                // renderitza encara que la secció de pàgina s'hagi perdut.
+                if (!section) {
+                    let regView = (ctx.registry?.views || []).find(v => String(v.id) === String(viewId));
+                    if (!regView) {
+                        try {
+                            const vr = await axios.get('/api/vault/views');
+                            const allViews = Array.isArray(vr.data) ? vr.data : (vr.data?.views || []);
+                            regView = allViews.find(v => String(v.id) === String(viewId));
+                        } catch { /* registry inaccessible: caurà a l'error de sota */ }
+                    }
+                    if (regView) {
+                        section = {
+                            view_id: regView.id,
+                            heading: headingProp || '',
+                            source_table_id: regView.table_id,
+                            view_type: regView.type || 'table',
+                            filters: regView.filters || [],
+                            sorts: regView.sorts || (regView.sort ? [regView.sort] : []),
+                            visible_properties: regView.visibleProperties || regView.visible_properties || ['title'],
+                        };
+                    }
+                }
+                if (cancelled) return;
                 if (!section) {
                     if (!cancelled) {
                         setView(null);
