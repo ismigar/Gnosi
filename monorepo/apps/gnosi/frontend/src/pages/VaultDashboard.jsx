@@ -13,7 +13,7 @@ import { VaultViewBody } from '../components/Vault/VaultViewBody';
 import { BlockEditor } from '../components/Vault/BlockEditor';
 import { inFlightSaves } from '../components/Vault/editorState';
 import { SchemaConfigModal } from '../components/Vault/SchemaConfigModal';
-import { ViewConfigModal } from '../components/Vault/ViewConfigModal';
+import { PageViewModal } from '../components/Vault/PageViewModal';
 import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
 import { MetadataLookupModal } from '../components/Vault/MetadataLookupModal';
 import { RecentModal } from '../components/Vault/RecentModal';
@@ -98,7 +98,6 @@ export default function VaultDashboard() {
     const [isViewConfigOpen, setIsViewConfigOpen] = useState(false);
     const [viewToConfigure, setViewToConfigure] = useState(null);
     const [viewConfigTab, setViewConfigTab] = useState('appearance');
-    const [pendingView, setPendingView] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const pageRequestInFlightRef = useRef(new Map());
     // AbortController for the *currently active* page navigation. When the
@@ -843,16 +842,6 @@ export default function VaultDashboard() {
         }
     };
 
-    const saveViews = async (updatedViews, databaseId) => {
-        try {
-            await axios.post(`/api/vault/views?folder=${databaseId}`, updatedViews);
-            setViews(updatedViews);
-        } catch (err) {
-            console.error(err);
-            toast.error(t('errors.save_view'));
-        }
-    };
-
     const handleUpdateView = async (updatedView) => {
         if (!updatedView || !updatedView.id) return;
         try {
@@ -1063,6 +1052,15 @@ export default function VaultDashboard() {
     }, [applySchemaDefaults, fetchPages, loadPage, t]);
 
 
+    // Adaptador estil `fetch` sobre axios per a PageViewModal (que espera
+    // `apiFetch(url, {method, headers, body}) -> JSON`).
+    const viewModalApiFetch = useCallback(async (url, opts = {}) => {
+        const method = (opts.method || 'GET').toUpperCase();
+        const data = opts.body ? JSON.parse(opts.body) : undefined;
+        const res = await axios({ url, method, data });
+        return res.data;
+    }, []);
+
     // callback invoked when user wants to configure an existing or new view
     const handleConfigureView = (view) => {
         setViewToConfigure(view);
@@ -1070,45 +1068,25 @@ export default function VaultDashboard() {
         // if view is an existing one, pendingView remains null
     };
 
-    const handleSaveViewConfig = async (config) => {
-        if (viewToConfigure) {
-            const updated = { ...viewToConfigure, ...config };
-            if (pendingView && pendingView.id === viewToConfigure.id) {
-                // this is a new view that needs to be created
-                // assign default visibleProperties if not set
-                if (!updated.visibleProperties) {
-                    updated.visibleProperties = getSchemaFieldNames(schema);
-                }
-                if (registry && registry.views) {
-                    await axios.post(`/api/vault/views`, updated);
-                    await fetchRegistry();
-                    setActiveViewId(updated.id);
-                } else if (activeTabId) {
-                    const updatedList = [...views, updated];
-                    await saveViews(updatedList, activeTabId);
-                    setActiveViewId(updated.id);
-                }
-                setPendingView(null);
-            } else {
-                // update existing view
-                await handleUpdateView(updated);
-            }
-        }
-    };
-
     const handleAddView = (type) => {
-        // open prompt to ask name, we will follow up with config
-        setPromptModal({
-            isOpen: true,
-            defaultTitle: `Nova Vista (${type})`,
-            parentId: null,
-            isDatabase: false,
-            isDrawing: false,
-            isView: true,
-            viewType: type,
-            inputValue: `Nova Vista`,
-            isLoading: false
-        });
+        // Les plantilles segueixen el flux del prompt (no són una vista).
+        if (type === 'template') {
+            setPromptModal({
+                isOpen: true,
+                defaultTitle: `Nova Vista (${type})`,
+                parentId: null,
+                isDatabase: false,
+                isDrawing: false,
+                isView: true,
+                viewType: type,
+                inputValue: `Nova Vista`,
+                isLoading: false
+            });
+            return;
+        }
+        // Vista normal: obre el MATEIX modal que l'embed, en mode taula (crear).
+        setViewToConfigure({ type, table_id: activeTableId });
+        setIsViewConfigOpen(true);
     };
 
     useEffect(() => {
@@ -1965,8 +1943,8 @@ export default function VaultDashboard() {
                     // default visibleProperties is derived later
                 };
 
-                // keep pending view in state and open config modal
-                setPendingView(newView);
+                // obre el modal de configuració amb la vista nova (id client);
+                // PageViewModal la persisteix en desar (PUT crea si no existeix).
                 setViewToConfigure(newView);
                 setIsViewConfigOpen(true);
             } else if (isDrawing) {
@@ -3539,23 +3517,27 @@ export default function VaultDashboard() {
             }
             {
                 isViewConfigOpen && viewToConfigure && (
-                    <ViewConfigModal
+                    // El MATEIX modal que per a l'embed (PageViewModal), en mode
+                    // "table": configura/crea una vista de la taula amb menys
+                    // opcions (sense taula origen, encapçalament, abast ni "desa
+                    // a les vistes"). `editingView` amb id → actualitza; sense
+                    // id (p. ex. {type}) → crea una vista nova.
+                    <PageViewModal
                         isOpen={isViewConfigOpen}
-                        onClose={() => { setIsViewConfigOpen(false); setViewToConfigure(null); setPendingView(null); }}
-                        schema={schema}
-                        initialVisibleProperties={viewToConfigure.visibleProperties}
-                        viewType={viewToConfigure.type}
-                        initialCardSize={viewToConfigure.cardSize}
-                        initialGalleryPreview={viewToConfigure.galleryPreview}
-                        initialFilters={viewToConfigure.filters}
-                        initialSorts={viewToConfigure.sort}
-                        initialResultSnapshot={viewToConfigure.resultSnapshot}
-                        initialResultSnapshotLimit={viewToConfigure.resultSnapshotLimit}
+                        mode="table"
+                        pageId={null}
+                        allTables={registry.tables}
+                        apiFetch={viewModalApiFetch}
+                        preselectedTableId={activeTableId}
+                        editingView={viewToConfigure}
                         initialTab={viewConfigTab}
-                        onSave={async (config) => {
-                            // Autosave continu: no tanquem el modal a cada
-                            // canvi. L'usuari el tanca amb X o Esc quan vol.
-                            await handleSaveViewConfig(config);
+                        onClose={(saved, savedView) => {
+                            setIsViewConfigOpen(false);
+                            setViewToConfigure(null);
+                            if (saved && savedView) {
+                                fetchRegistry();
+                                if (savedView.id) setActiveViewId(String(savedView.id));
+                            }
                         }}
                     />
                 )
