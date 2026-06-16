@@ -9,7 +9,7 @@ que no té sentit.
 ## Abast
 - Toca NOMÉS el control de **valor** (no la llista d'operadors).
 - Tipus amb control dedicat i **autocontingut** (sense dades extra):
-  - `checkbox` → desplegable **Sí (marcat) / No (sense marcar)** → emet `"true"`/`"false"`.
+  - `checkbox` → un **checkbox** (igual que el camp), amb etiqueta Marcat/Sense marcar → emet `"true"`/`"false"`. Default `'false'` (no buit) perquè la comparació booleana casi també els buits. (Un desplegable de 3 estats era una complicació innecessària.)
   - `number` → `<input type="number">`.
   - `date`/`datetime` → `<input type="date">` (o `datetime-local`).
   - `relation` → `RelationValuePicker` (ja existia).

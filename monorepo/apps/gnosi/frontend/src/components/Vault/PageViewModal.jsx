@@ -598,18 +598,26 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         name === 'title' ? t('view.column_title', { defaultValue: 'Títol' }) : capitalizeFirst(name)
     );
 
+    // Valor inicial d'un filtre segons el tipus del camp: els checkbox neixen
+    // amb un booleà concret ('false' = sense marcar) en lloc de buit, perquè la
+    // comparació booleana del motor casi també les files sense valor.
+    const defaultFilterValue = (fieldName) => (
+        fieldMeta[fieldName]?.type === 'checkbox' ? 'false' : ''
+    );
+
     const addFilter = () => {
         const firstField = tableFields[0]?.name || 'title';
-        setFilters(prev => [...prev, { field: firstField, operator: 'equals', value: '' }]);
+        setFilters(prev => [...prev, { field: firstField, operator: 'equals', value: defaultFilterValue(firstField) }]);
     };
 
     const updateFilter = (idx, patch) => {
         setFilters(prev => prev.map((f, i) => {
             if (i !== idx) return f;
             // Si canvia el camp, el valor anterior pot no tenir sentit pel nou
-            // tipus (p. ex. un id de relació en un camp de text); el reiniciem.
+            // tipus (p. ex. un id de relació en un camp de text); el reiniciem
+            // al valor per defecte del nou tipus.
             const next = { ...f, ...patch };
-            if (patch.field !== undefined && patch.field !== f.field) next.value = '';
+            if (patch.field !== undefined && patch.field !== f.field) next.value = defaultFilterValue(patch.field);
             return next;
         }));
     };
@@ -1387,8 +1395,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 </select>
                                                 {(() => {
                                                     // El control del valor casa amb el tipus del camp: un checkbox
-                                                    // ofereix Sí/No (no text lliure), un nombre un input numèric,
-                                                    // una data un selector de data i una relació el seu picker.
+                                                    // es filtra amb un checkbox (igual que el camp), un nombre amb
+                                                    // un input numèric, una data amb un selector de data i una
+                                                    // relació amb el seu picker.
                                                     const inputCls = 'text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40';
                                                     if (noValue) {
                                                         // is_empty / is_not_empty: no cal cap valor.
@@ -1408,16 +1417,20 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     }
                                                     const ftype = meta?.type;
                                                     if (ftype === 'checkbox') {
+                                                        // Mateix control que el camp: un checkbox. Marcat = filtra
+                                                        // pels registres marcats ('true'); sense marcar = pels no
+                                                        // marcats ('false', que el motor també casa amb els buits).
+                                                        const checked = f.value === 'true';
                                                         return (
-                                                            <select
-                                                                className={inputCls}
-                                                                value={f.value || ''}
-                                                                onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                            >
-                                                                <option value="">Tria…</option>
-                                                                <option value="true">Sí (marcat)</option>
-                                                                <option value="false">No (sense marcar)</option>
-                                                            </select>
+                                                            <label className={`${inputCls} flex items-center gap-2 cursor-pointer`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="accent-[var(--gnosi-primary)] cursor-pointer"
+                                                                    checked={checked}
+                                                                    onChange={e => updateFilter(idx, { value: e.target.checked ? 'true' : 'false' })}
+                                                                />
+                                                                <span className="text-[var(--text-secondary)]">{checked ? 'Marcat' : 'Sense marcar'}</span>
+                                                            </label>
                                                         );
                                                     }
                                                     if (ftype === 'number') {
