@@ -52,6 +52,7 @@ Variables d'entorn:
 import hashlib
 import json
 import logging
+import logging.handlers
 import os
 import shutil
 import subprocess
@@ -120,6 +121,26 @@ THUMB_INFLIGHT = {}  # hash → Event (coalesce concurrent requests)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("onedrive-warmup")
+
+# Log a fitxer propi, independent del context de llançament. Llançat com a
+# Login Item (.app AppleScript), stdout/stderr queden capturats pel `do shell
+# script` de l'applet i no arriben a cap fitxer; i no podem afegir redirecció
+# a l'applet sense recompilar-lo (recompilar invalida el seu Full Disk Access
+# a TCC). ONEDRIVE_WARMUP_LOG_FILE="" el desactiva.
+_LOG_FILE = os.environ.get(
+    "ONEDRIVE_WARMUP_LOG_FILE",
+    str(Path.home() / "Library" / "Logs" / "Gnosi" / "onedrive-warmup.err"),
+).strip()
+if _LOG_FILE:
+    try:
+        Path(_LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
+        _fh = logging.handlers.RotatingFileHandler(
+            _LOG_FILE, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
+        )
+        _fh.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
+        logging.getLogger().addHandler(_fh)
+    except OSError as exc:
+        log.warning("No puc obrir el log a fitxer %s: %s", _LOG_FILE, exc)
 
 
 def _materialize(path: Path) -> dict:
