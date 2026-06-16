@@ -299,6 +299,19 @@ def sort_key(value: Any) -> str:
     return _SORTKEY_LEAD_RE.sub("", str("" if value is None else value))
 
 
+_TRUTHY = {"true", "1", "yes", "si", "sí", "done", "checked", "completat"}
+
+
+def _as_bool(value: Any) -> bool:
+    """Paritat amb ``rule_engine._is_truthy_checkbox`` i el front (``asBool``):
+    camp absent/""/0/"false" = no marcat; ``True``/1/"yes"/"sí"… = marcat."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value or "").strip().lower() in _TRUTHY
+
+
 def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]) -> bool:
     """Port 1:1 de ``applyFilter`` (DbViewEmbed.jsx). ``value == 'this'`` →
     ``page_id``. Valors de metadata: llista → conjunt de strings; escalar →
@@ -322,6 +335,13 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         return len(arr) > 0
     if target is None:
         return True
+    # Valor booleà (checkbox: "true"/"false"): comparem per veritat, no per
+    # cadena, perquè un camp absent compti com a "no marcat" i casi amb "false"
+    # (i evitem el desajust str(True)=="True" vs "true").
+    if op in ("equals", "not_equals") and target.lower() in ("true", "false"):
+        want = target.lower() == "true"
+        cur = _as_bool(v)
+        return (cur == want) if op == "equals" else (cur != want)
     if op == "equals":
         return target in arr
     if op == "not_equals":

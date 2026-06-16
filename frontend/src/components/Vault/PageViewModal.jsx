@@ -1385,24 +1385,71 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         <option key={op.value} value={op.value}>{op.label}</option>
                                                     ))}
                                                 </select>
-                                                {isRelation && !noValue ? (
-                                                    <RelationValuePicker
-                                                        value={f.value || ''}
-                                                        onChange={v => updateFilter(idx, { value: v })}
-                                                        options={relOpts || []}
-                                                        loading={relOpts === undefined}
-                                                        thisLabel={t('view.filter_this', { defaultValue: 'Aquesta pàgina' })}
-                                                        placeholder={t('view.filter_pick', { defaultValue: 'Tria…' })}
-                                                    />
-                                                ) : (
-                                                    <input
-                                                        className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40"
-                                                        value={f.value || ''}
-                                                        onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                        placeholder={noValue ? '—' : 'this o valor'}
-                                                        disabled={noValue}
-                                                    />
-                                                )}
+                                                {(() => {
+                                                    // El control del valor casa amb el tipus del camp: un checkbox
+                                                    // ofereix Sí/No (no text lliure), un nombre un input numèric,
+                                                    // una data un selector de data i una relació el seu picker.
+                                                    const inputCls = 'text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40';
+                                                    if (noValue) {
+                                                        // is_empty / is_not_empty: no cal cap valor.
+                                                        return <input className={inputCls} value="" placeholder="—" disabled />;
+                                                    }
+                                                    if (isRelation) {
+                                                        return (
+                                                            <RelationValuePicker
+                                                                value={f.value || ''}
+                                                                onChange={v => updateFilter(idx, { value: v })}
+                                                                options={relOpts || []}
+                                                                loading={relOpts === undefined}
+                                                                thisLabel={t('view.filter_this', { defaultValue: 'Aquesta pàgina' })}
+                                                                placeholder={t('view.filter_pick', { defaultValue: 'Tria…' })}
+                                                            />
+                                                        );
+                                                    }
+                                                    const ftype = meta?.type;
+                                                    if (ftype === 'checkbox') {
+                                                        return (
+                                                            <select
+                                                                className={inputCls}
+                                                                value={f.value || ''}
+                                                                onChange={e => updateFilter(idx, { value: e.target.value })}
+                                                            >
+                                                                <option value="">Tria…</option>
+                                                                <option value="true">Sí (marcat)</option>
+                                                                <option value="false">No (sense marcar)</option>
+                                                            </select>
+                                                        );
+                                                    }
+                                                    if (ftype === 'number') {
+                                                        return (
+                                                            <input
+                                                                type="number"
+                                                                className={inputCls}
+                                                                value={f.value || ''}
+                                                                onChange={e => updateFilter(idx, { value: e.target.value })}
+                                                                placeholder="Valor"
+                                                            />
+                                                        );
+                                                    }
+                                                    if (ftype === 'date' || ftype === 'datetime') {
+                                                        return (
+                                                            <input
+                                                                type={ftype === 'datetime' ? 'datetime-local' : 'date'}
+                                                                className={inputCls}
+                                                                value={f.value || ''}
+                                                                onChange={e => updateFilter(idx, { value: e.target.value })}
+                                                            />
+                                                        );
+                                                    }
+                                                    return (
+                                                        <input
+                                                            className={inputCls}
+                                                            value={f.value || ''}
+                                                            onChange={e => updateFilter(idx, { value: e.target.value })}
+                                                            placeholder="this o valor"
+                                                        />
+                                                    );
+                                                })()}
                                                 <button
                                                     onClick={() => removeFilter(idx)}
                                                     className="text-[var(--text-tertiary)] hover:text-red-500 p-1"

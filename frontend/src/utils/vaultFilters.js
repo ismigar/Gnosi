@@ -3,6 +3,17 @@
  * Utilitats compartides de filtratge per al Vault i el Graf.
  */
 
+// Valors que un checkbox considera "marcat" (paritat amb el backend:
+// rule_engine._is_truthy_checkbox i view_snapshot._as_bool). Qualsevol altra
+// cosa —camp absent, "", "false", 0…— és "no marcat".
+const TRUTHY = new Set(['true', '1', 'yes', 'si', 'sí', 'done', 'checked', 'completat']);
+function asBool(x) {
+    if (x === true) return true;
+    if (x === false || x === null || x === undefined || x === '') return false;
+    if (typeof x === 'number') return x !== 0;
+    return TRUTHY.has(String(x).trim().toLowerCase());
+}
+
 /**
  * Aplica una llista de filtres a una pàgina/node.
  * 
@@ -23,8 +34,15 @@ export function matchesFilters(item, filters = []) {
         const filterVal = String(filter.value || '').toLowerCase();
 
         switch (filter.operator) {
-            case 'equals': return val === filterVal;
-            case 'not_equals': return val !== filterVal;
+            // Quan el valor del filtre és booleà (checkbox: "true"/"false"),
+            // comparem per veritat —no per cadena— perquè un camp sense valor
+            // compti com a "no marcat" i casi amb "false".
+            case 'equals':
+                if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) === (filterVal === 'true');
+                return val === filterVal;
+            case 'not_equals':
+                if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) !== (filterVal === 'true');
+                return val !== filterVal;
             case 'contains': return val.includes(filterVal);
             case 'not_contains': return !val.includes(filterVal);
             case 'is_empty': return !rawVal || rawVal === '';
