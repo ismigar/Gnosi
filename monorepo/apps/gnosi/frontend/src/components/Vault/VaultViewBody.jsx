@@ -98,6 +98,9 @@ export function VaultViewBody({
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
+                dateField={activeView?.dateField || ''}
+                endDateField={activeView?.endDateField || ''}
+                ignoreCalendarFilter
             />
         );
     }

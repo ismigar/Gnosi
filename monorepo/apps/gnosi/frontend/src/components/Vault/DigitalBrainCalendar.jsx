@@ -69,6 +69,12 @@ export const DigitalBrainCalendar = ({
     onSelection,
     onDeleteSelected,
     onDeletePage,
+    // Vista de BD del Vault: camp de data a usar com a inici (i fi opcional), i
+    // bypass del filtre per font — a la vista de taula no hi ha selector de
+    // calendaris, així que sense això el calendari sortiria buit.
+    dateField = '',
+    endDateField = '',
+    ignoreCalendarFilter = false,
 }) => {
     const { i18n } = useTranslation();
     const [events, setEvents] = useState([]);
@@ -125,7 +131,7 @@ export const DigitalBrainCalendar = ({
                 if (cfg) eventSource = cfg.source;
             }
 
-            if (!selectedCalendars.has(eventSource)) return;
+            if (!ignoreCalendarFilter && !selectedCalendars.has(eventSource)) return;
 
             const noteTitle = title || metadata.title || 'Sense Títol';
 
@@ -133,7 +139,14 @@ export const DigitalBrainCalendar = ({
                 return;
             }
 
-            const dateStr = metadata.date || metadata.data || metadata.start_time || metadata.due_date;
+            let dateStr = (dateField && metadata[dateField] != null && metadata[dateField] !== '')
+                ? metadata[dateField]
+                : (metadata.date || metadata.data || metadata.start_time || metadata.due_date);
+            // Un camp `period` desa "YYYY-MM-DD/YYYY-MM-DD" (inici i fi en un sol
+            // valor): el descomponem perquè FullCalendar no rebi mai el rang cru.
+            let periodEnd = null;
+            const _pm = String(dateStr || '').match(/^(\d{4}-\d{2}-\d{2})\/(\d{4}-\d{2}-\d{2})$/);
+            if (_pm) { dateStr = _pm[1]; periodEnd = _pm[2]; }
 
             if (dateStr) {
                 const isExternal = metadata.source !== undefined && metadata.source !== 'Gnosi' && metadata.source !== 'Gnosi Vault';
@@ -144,11 +157,13 @@ export const DigitalBrainCalendar = ({
                 const defaultColor = (eventSource === 'Gnosi' ? 'var(--gnosi-primary)' : 'var(--text-tertiary)');
                 const eventColor = configColor || metadata.color || defaultColor;
 
-                const endStr = metadata.end_date || metadata.end_time || null;
+                const endStr = (endDateField && metadata[endDateField] != null && metadata[endDateField] !== '')
+                    ? metadata[endDateField]
+                    : (periodEnd || metadata.end_date || metadata.end_time || null);
                 let eventObj = {
                     id: id,
                     title: noteTitle,
-                    start: metadata.date || metadata.data || metadata.start_time || metadata.due_date,
+                    start: dateStr,
                     end: endStr,
                     allDay: isAllDay,
                     color: eventColor,
@@ -195,7 +210,7 @@ export const DigitalBrainCalendar = ({
                         eventObj.allDay = isAllDay;
                     } else {
                         eventObj.start = dateStr;
-                        eventObj.end = metadata.end_date || metadata.end_time || null;
+                        eventObj.end = endStr;
                         eventObj.allDay = isAllDay;
                     }
                 } else {

@@ -93,6 +93,33 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
+    // Mode de previsualització de la targeta (camp `galleryPreview` de la vista):
+    //   cover      → àrea superior amb la portada de la pàgina + propietats
+    //   content    → àrea superior amb un fragment del text + propietats
+    //   properties → sense àrea superior; títol + propietats (targeta compacta)
+    //   none       → targeta mínima: només títol i icona
+    const galleryPreview = activeView.galleryPreview || 'cover';
+    const showCoverArea = galleryPreview === 'cover' || galleryPreview === 'content';
+    const showContentPreview = galleryPreview === 'content';
+    const showProperties = galleryPreview !== 'none';
+
+    // Fragment de text per al mode "content". Tolerant amb la forma del registre
+    // (excerpt/body_md/content o una descripció a metadata); neteja frontmatter,
+    // imatges/enllaços i marques markdown bàsiques per a una previsualització neta.
+    const getExcerpt = (note) => {
+        const raw = note.excerpt || note.body_md || note.content
+            || note.metadata?.description || note.metadata?.summary || '';
+        if (!raw) return '';
+        return String(raw)
+            .replace(/^---[\s\S]*?---/, '')
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/[#>*_`~]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 240);
+    };
+
     const getRelationDisplayMap = (field) => {
         const config = getFieldConfig(schema, field);
         const relatedTableId = config?.relation_database_id;
@@ -215,11 +242,12 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     <div className={`grid ${getGridClass()} gap-6`}>
                         {sortedAndFilteredNotes.map((note, noteIndex) => {
                             const hasCover = !!note.metadata?.cover;
+                            const excerpt = showContentPreview ? getExcerpt(note) : '';
                             return (
                                 <div
                                     key={`${note.id || 'note'}-${noteIndex}`}
                                     onClick={() => { if (selectedIds.size > 0) { toggleSelect(note.id, {}); } else { onNoteSelect(note.id); } }}
-                                    className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${getCardHeightClass()} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+                                    className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${showCoverArea ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
                                 >
                                     {/* Checkbox de selecció (cantonada superior esquerra) */}
                                     <label
@@ -233,38 +261,57 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                             className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
                                         />
                                     </label>
-                                    {/* Cover Area */}
-                                    <div className={`${getCoverHeightClass()} relative shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]`}>
-                                        {hasCover ? (
-                                            (() => {
-                                                let coverUrl = note.metadata.cover;
-                                                if (coverUrl.startsWith('Assets/')) {
-                                                    coverUrl = `/api/vault/assets/${coverUrl.substring(7)}`;
-                                                }
-                                                return (
-                                                    <div
-                                                        className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-                                                        style={{ backgroundImage: `url(${coverUrl})` }}
-                                                    />
-                                                );
-                                            })()
-                                        ) : (
-                                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />
-                                        )}
+                                    {/* Àrea superior: portada (mode cover) o fragment de text
+                                        (mode content). S'oculta als modes properties/none. */}
+                                    {showCoverArea && (
+                                        <div className={`${getCoverHeightClass()} relative shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]`}>
+                                            {showContentPreview ? (
+                                                <div className="absolute inset-0 p-3 overflow-hidden bg-gradient-to-br from-[var(--bg-tertiary)]/40 to-transparent">
+                                                    {excerpt ? (
+                                                        <p className="text-[11px] leading-snug text-[var(--text-secondary)] line-clamp-5">{excerpt}</p>
+                                                    ) : (
+                                                        <div className="h-full flex items-center justify-center text-[var(--text-tertiary)] opacity-50">
+                                                            <FileText size={20} strokeWidth={1.5} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : hasCover ? (
+                                                (() => {
+                                                    let coverUrl = note.metadata.cover;
+                                                    if (coverUrl.startsWith('Assets/')) {
+                                                        coverUrl = `/api/vault/assets/${coverUrl.substring(7)}`;
+                                                    }
+                                                    return (
+                                                        <div
+                                                            className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+                                                            style={{ backgroundImage: `url(${coverUrl})` }}
+                                                        />
+                                                    );
+                                                })()
+                                            ) : (
+                                                <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />
+                                            )}
 
-                                        {/* Icon overlapping the cover */}
-                                        <div className="absolute -bottom-5 left-4 w-10 h-10 bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)] flex items-center justify-center z-10 group-hover:scale-110 transition-transform overflow-hidden">
-                                            <IconRenderer icon={note.metadata?.icon} size={24} />
+                                            {/* Icon overlapping the cover */}
+                                            <div className="absolute -bottom-5 left-4 w-10 h-10 bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)] flex items-center justify-center z-10 group-hover:scale-110 transition-transform overflow-hidden">
+                                                <IconRenderer icon={note.metadata?.icon} size={24} />
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Content Area */}
-                                    <div className="p-4 pt-6 flex flex-col flex-1 min-h-0">
-                                        <h3 className="font-semibold text-[var(--text-primary)] text-sm mb-2 truncate group-hover:text-[var(--gnosi-primary)] transition-colors" title={note.title}>
-                                            {note.title || "Sense Títol"}
+                                    <div className={`p-4 flex flex-col flex-1 min-h-0 ${showCoverArea ? 'pt-6' : ''}`}>
+                                        <h3 className="font-semibold text-[var(--text-primary)] text-sm mb-2 truncate group-hover:text-[var(--gnosi-primary)] transition-colors flex items-center gap-2" title={note.title}>
+                                            {!showCoverArea && (
+                                                <span className="shrink-0 inline-flex items-center justify-center w-5 h-5">
+                                                    <IconRenderer icon={note.metadata?.icon} size={18} />
+                                                </span>
+                                            )}
+                                            <span className="truncate">{note.title || "Sense Títol"}</span>
                                         </h3>
 
                                         {/* Properties */}
+                                        {showProperties && (
                                         <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
                                             {dynamicColumns.map(([key, type], propIndex) => {
                                                 const normalizeKey = (k) => String(k).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
@@ -288,6 +335,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                                 );
                                             })}
                                         </div>
+                                        )}
                                     </div>
                                 </div>
                             );
