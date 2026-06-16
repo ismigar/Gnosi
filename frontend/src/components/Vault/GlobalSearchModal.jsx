@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, FileText, Hash, FolderClosed } from 'lucide-react';
 import { isCalendarPage } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { IconRenderer } from './IconRenderer';
 
 export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const [query, setQuery] = useState('');
@@ -128,7 +129,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                     >
                                         <div className="flex items-center gap-3">
                                             {note.metadata?.icon ? (
-                                                <span className="w-4 h-4 flex items-center justify-center text-sm">{note.metadata.icon}</span>
+                                                <IconRenderer icon={note.metadata.icon} size={16} className="shrink-0" />
                                             ) : (
                                                 getIcon(note.folder)
                                             )}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { IconRenderer } from './IconRenderer';
 
 // Cache de preview compartit entre instàncies. Evita refetch quan l'usuari
 // passa el ratolí repetidament pels mateixos wikilinks (timeline, backlinks).
@@ -153,7 +154,7 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                     <>
                         <div className="flex items-center gap-2 mb-2">
                             {data.icon ? (
-                                <span className="text-base leading-none">{data.icon}</span>
+                                <IconRenderer icon={data.icon} size={16} className="flex-shrink-0" />
                             ) : (
                                 <FileText size={14} className="text-slate-400 flex-shrink-0" />
                             )}

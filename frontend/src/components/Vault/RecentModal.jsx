@@ -3,6 +3,7 @@ import { Search, FileText, Hash, FolderClosed, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isCalendarPage } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { IconRenderer } from './IconRenderer';
 
 export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const { t, i18n } = useTranslation();
@@ -127,7 +128,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
                                     >
                                         <div className="flex items-center gap-3">
                                             {note.metadata?.icon ? (
-                                                <span className="w-4 h-4 flex items-center justify-center text-sm">{note.metadata.icon}</span>
+                                                <IconRenderer icon={note.metadata.icon} size={16} className="shrink-0" />
                                             ) : (
                                                 getIcon(note.folder)
                                             )}
