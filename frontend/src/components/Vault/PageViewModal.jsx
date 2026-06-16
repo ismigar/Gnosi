@@ -652,18 +652,23 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // Construeix l'objecte amb les opcions específiques del tipus de vista
     // actiu. Només inclou els camps que apliquen al tipus perquè una vista no
     // arrossegui config irrellevant (p. ex. cardSize en una taula).
-    const buildViewExtras = () => {
+    const buildViewExtras = (src) => {
+        // Sense `src` pren l'estat actual del modal; amb `src` (una vista
+        // existent) n'extreu els mateixos camps amb els mateixos defaults,
+        // tolerant camelCase (registry) i snake_case (secció embeguda). Així la
+        // detecció de canvis i el desat usen exactament la mateixa forma.
+        const s = src || { cardSize, galleryPreview, groupBy, dateField, endDateField };
         const extras = {};
         if (viewType === 'gallery') {
-            extras.cardSize = cardSize || 'medium';
-            extras.galleryPreview = galleryPreview || 'cover';
+            extras.cardSize = s.cardSize || 'medium';
+            extras.galleryPreview = s.galleryPreview || 'cover';
         } else if (viewType === 'board') {
-            extras.groupBy = groupBy || '';
+            extras.groupBy = s.groupBy || s.group_by || '';
         } else if (viewType === 'calendar') {
-            extras.dateField = dateField || '';
+            extras.dateField = s.dateField || s.date_field || '';
         } else if (viewType === 'timeline') {
-            extras.dateField = dateField || '';
-            extras.endDateField = endDateField || '';
+            extras.dateField = s.dateField || s.date_field || '';
+            extras.endDateField = s.endDateField || s.end_date_field || '';
         }
         return extras;
     };
@@ -766,6 +771,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     visibleProperties,
                     resultSnapshot,
                     resultSnapshotLimit,
+                    // Opcions per tipus (galeria: cardSize/galleryPreview; board:
+                    // groupBy; etc.). Sense incloure-les aquí, canviar NOMÉS la
+                    // previsualització o la mida de targeta no es detectava com a
+                    // modificació i mai s'aplicava la vista compartida al registry
+                    // (d'on el render llegeix galleryPreview) → el canvi es perdia.
+                    ...buildViewExtras(),
                 });
                 const oldPropsJson = JSON.stringify({
                     filters: original?.filters || [],
@@ -773,6 +784,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     visibleProperties: original?.visibleProperties || ['title'],
                     resultSnapshot: original?.resultSnapshot !== false,
                     resultSnapshotLimit: Number.isFinite(Number(original?.resultSnapshotLimit)) ? Number(original.resultSnapshotLimit) : 500,
+                    ...buildViewExtras(original || {}),
                 });
                 const modified = newPropsJson !== oldPropsJson;
 
