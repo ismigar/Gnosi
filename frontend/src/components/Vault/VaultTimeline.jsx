@@ -3,6 +3,7 @@ import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, ChevronLeft, 
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType } from './schemaUtils';
+import { parsePeriod } from './VaultDateProperty';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
@@ -49,11 +50,23 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     // Filtrem la propietat 'title' de l'esquema
     const dynamicColumns = getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title').slice(0, 3);
 
-    const datePropertyFound = useMemo(() =>
-        getSchemaFieldEntries(schema).find(([key, type]) => type === 'date')?.[0]
-        , [schema]);
+    const datePropertyFound = useMemo(() => {
+        // Prioritza el camp d'inici triat a la vista (`dateField`); si no n'hi
+        // ha, cau al primer camp temporal de l'esquema. Un `period` (rang
+        // inici→fi en un sol camp) també és vàlid com a eix d'inici.
+        if (activeView?.dateField && getSchemaFieldNames(schema).includes(activeView.dateField)) {
+            return activeView.dateField;
+        }
+        const entries = getSchemaFieldEntries(schema);
+        return entries.find(([, type]) => type === 'date')?.[0]
+            || entries.find(([, type]) => type === 'datetime' || type === 'period')?.[0];
+    }, [schema, activeView?.dateField]);
 
     const endPropertyFound = useMemo(() => {
+        // Prioritza el camp de fi triat a la vista (`endDateField`).
+        if (activeView?.endDateField && getSchemaFieldNames(schema).includes(activeView.endDateField)) {
+            return activeView.endDateField;
+        }
         const endKeys = ['due_date', 'end_date', 'data de venciment', 'venciment'];
         const dateLike = ['date', 'datetime', 'period'];
         // Només considerar el camp com a data de fi si està declarat com a data al
@@ -63,7 +76,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             if (!endKeys.includes(k.toLowerCase())) return false;
             return dateLike.includes(getFieldType(schema, k));
         });
-    }, [schema]);
+    }, [schema, activeView?.endDateField]);
 
     // Lògica de dades per al Gantt
     const { chartData, timeScale } = useMemo(() => {
@@ -81,12 +94,24 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 const targetKeyNorm = aliasMap[schemaKeyNorm] ? normalizeKey(aliasMap[schemaKeyNorm]) : schemaKeyNorm;
                 const metaKey = note.metadata ? Object.keys(note.metadata).find(k => normalizeKey(k) === targetKeyNorm) || datePropertyFound : datePropertyFound;
 
-                if (note.metadata?.[metaKey] && !isNaN(new Date(note.metadata[metaKey]).getTime())) {
-                    startDateStr = note.metadata[metaKey];
-                }
-
-                if (endPropertyFound && note.metadata?.[endPropertyFound]) {
-                    endDateStr = note.metadata[endPropertyFound];
+                const rawStart = note.metadata?.[metaKey];
+                if (getFieldType(schema, datePropertyFound) === 'period') {
+                    // Un `period` porta inici I fi en un sol valor ("inici/fi"):
+                    // el descomponem en comptes de passar-lo cru a new Date().
+                    const { start: ps, end: pe } = parsePeriod(rawStart);
+                    if (ps && !isNaN(new Date(ps).getTime())) startDateStr = ps;
+                    if (pe && !isNaN(new Date(pe).getTime())) endDateStr = pe;
+                } else {
+                    if (rawStart && !isNaN(new Date(rawStart).getTime())) {
+                        startDateStr = rawStart;
+                    }
+                    if (endPropertyFound && note.metadata?.[endPropertyFound]) {
+                        const rawEnd = note.metadata[endPropertyFound];
+                        // El camp de fi també podria ser un període: n'agafem el final.
+                        endDateStr = getFieldType(schema, endPropertyFound) === 'period'
+                            ? (parsePeriod(rawEnd).end || parsePeriod(rawEnd).start)
+                            : rawEnd;
+                    }
                 }
             }
 

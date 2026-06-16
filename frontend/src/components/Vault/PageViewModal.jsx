@@ -26,6 +26,26 @@ const FILTER_OPERATORS = [
     { value: 'less_than', label: 'menor que' },
 ];
 
+// --- Opcions de configuració específiques per tipus de vista ---
+// La GALERIA accepta una mida de targeta i un mode de previsualització; el
+// KANBAN un camp d'agrupació; CALENDARI/TIMELINE un (o dos) camps de data.
+// Els valors viuen a la vista (registry, dict lliure) i el render els honora.
+const CARD_SIZES = [
+    { value: 'small', label: 'Petita' },
+    { value: 'medium', label: 'Mitjana' },
+    { value: 'large', label: 'Gran' },
+];
+const GALLERY_PREVIEWS = [
+    { value: 'cover', label: 'Portada', hint: 'Imatge de portada de la pàgina i propietats.' },
+    { value: 'content', label: 'Contingut', hint: 'Un fragment del text de la pàgina i propietats.' },
+    { value: 'properties', label: 'Només propietats', hint: 'Sense imatge; títol i propietats.' },
+    { value: 'none', label: 'Només títol', hint: 'Targeta mínima: portada i títol, sense propietats.' },
+];
+// Tipus d'esquema vàlids per a cada control: agrupació de Kanban (camps amb un
+// conjunt acotat de valors) i eix temporal de calendari/timeline.
+const GROUP_FIELD_TYPES = new Set(['select', 'status', 'multi_select']);
+const DATE_FIELD_TYPES = new Set(['date', 'datetime', 'period']);
+
 const TABS = [
     { id: 'properties', icon: Eye, label: 'Camps' },
     { id: 'filters', icon: Filter, label: 'Filtres' },
@@ -175,6 +195,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // l'honora en desar la pàgina. Default: activat, 500 (0 = sense límit).
     const [resultSnapshot, setResultSnapshot] = useState(true);
     const [resultSnapshotLimit, setResultSnapshotLimit] = useState(500);
+    // Opcions específiques per tipus de vista (galeria/kanban/calendari/timeline).
+    // Es desen a la vista i el render les honora; les vistes que no són del
+    // tipus corresponent simplement les ignoren.
+    const [cardSize, setCardSize] = useState('medium');
+    const [galleryPreview, setGalleryPreview] = useState('cover');
+    const [groupBy, setGroupBy] = useState('');
+    const [dateField, setDateField] = useState('');
+    const [endDateField, setEndDateField] = useState('');
     const [saveToTableViews, setSaveToTableViews] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -253,6 +281,24 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
     }, [isOpen, filters, fieldMeta, apiFetch, relationCache]);
 
+    // Llegeix les opcions per-tipus d'una vista (registry o secció inline) als
+    // estats del modal, tolerant les dues convencions de nom (camelCase del
+    // registry i snake_case de la secció embeguda).
+    const applyTypeOptions = (v) => {
+        setCardSize(v?.cardSize || 'medium');
+        setGalleryPreview(v?.galleryPreview || 'cover');
+        setGroupBy(v?.groupBy || v?.group_by || '');
+        setDateField(v?.dateField || v?.date_field || '');
+        setEndDateField(v?.endDateField || v?.end_date_field || '');
+    };
+    const resetTypeOptions = () => {
+        setCardSize('medium');
+        setGalleryPreview('cover');
+        setGroupBy('');
+        setDateField('');
+        setEndDateField('');
+    };
+
     useEffect(() => {
         if (!isOpen) return;
         // Mode TAULA: configurem una vista del registry directament (no un
@@ -286,6 +332,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setResultSnapshotLimit(
                     Number.isFinite(Number(editingView.resultSnapshotLimit)) ? Number(editingView.resultSnapshotLimit) : 500
                 );
+                applyTypeOptions(editingView);
             } else {
                 setViewType('table');
                 setViewName('');
@@ -294,6 +341,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setSorts([]);
                 setResultSnapshot(true);
                 setResultSnapshotLimit(500);
+                resetTypeOptions();
             }
             return;
         }
@@ -333,6 +381,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         setFilters(Array.isArray(v.filters) ? v.filters : []);
                         setResultSnapshot(v.resultSnapshot !== false);
                         setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
+                        applyTypeOptions(v);
                         if (Array.isArray(v.sorts) && v.sorts.length > 0) {
                             setSorts(v.sorts);
                         } else if (v.sort && v.sort.field) {
@@ -367,6 +416,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setVisibleProperties(Array.isArray(inline?.visibleProperties) && inline.visibleProperties.length ? inline.visibleProperties : ['title']);
             setResultSnapshot(inline?.resultSnapshot !== false);
             setResultSnapshotLimit(Number.isFinite(Number(inline?.resultSnapshotLimit)) ? Number(inline.resultSnapshotLimit) : 500);
+            applyTypeOptions(inline);
             setExistingViews([]);
             return;
         }
@@ -387,6 +437,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setExistingViews([]);
         setViewUsage({ count: 0, pages: [] });
         setEditScope('shared');
+        resetTypeOptions();
         setError('');
     }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
 
@@ -456,6 +507,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setFilters(Array.isArray(v.filters) ? v.filters : []);
         setResultSnapshot(v.resultSnapshot !== false);
         setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
+        applyTypeOptions(v);
         // Compat: el registry pot tenir `sorts: [...]` (nou) o `sort: {...}` (llegacy)
         if (Array.isArray(v.sorts) && v.sorts.length > 0) {
             setSorts(v.sorts);
@@ -589,6 +641,25 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
     };
 
+    // Construeix l'objecte amb les opcions específiques del tipus de vista
+    // actiu. Només inclou els camps que apliquen al tipus perquè una vista no
+    // arrossegui config irrellevant (p. ex. cardSize en una taula).
+    const buildViewExtras = () => {
+        const extras = {};
+        if (viewType === 'gallery') {
+            extras.cardSize = cardSize || 'medium';
+            extras.galleryPreview = galleryPreview || 'cover';
+        } else if (viewType === 'board') {
+            extras.groupBy = groupBy || '';
+        } else if (viewType === 'calendar') {
+            extras.dateField = dateField || '';
+        } else if (viewType === 'timeline') {
+            extras.dateField = dateField || '';
+            extras.endDateField = endDateField || '';
+        }
+        return extras;
+    };
+
     const handleSave = async () => {
         if (!sourceTableId) {
             setError('Cal seleccionar una taula origen');
@@ -637,6 +708,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     visibleProperties,
                     resultSnapshot,
                     resultSnapshotLimit,
+                    ...buildViewExtras(),
                 };
                 let saved;
                 if (editingView?.id) {
@@ -711,6 +783,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         visibleProperties,
                         resultSnapshot,
                         resultSnapshotLimit,
+                        ...buildViewExtras(),
                     };
                     await apiFetch('/api/vault/views', {
                         method: 'POST',
@@ -731,8 +804,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     visibleProperties,
                     resultSnapshot,
                     resultSnapshotLimit,
-                    cardSize: 'medium',
-                    galleryPreview: 'none',
+                    ...buildViewExtras(),
                 };
                 const created = await apiFetch('/api/vault/views', {
                     method: 'POST',
@@ -756,6 +828,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 sorts: cleanSorts,
                 visible_properties: visibleProperties,
                 view_type: viewType,
+                ...buildViewExtras(),
                 // Llegacy: mantingut per a l'sync_sections que encara llegeix `columns`
                 columns: visibleProperties,
             };
@@ -788,6 +861,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setSaving(false);
         }
     };
+
+    // Camps de l'esquema aptes per a cada control per-tipus: agrupació de
+    // Kanban (camps amb valors acotats) i eix temporal de calendari/timeline.
+    const groupFieldOptions = tableFields.filter(f => GROUP_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    const dateFieldOptions = tableFields.filter(f => DATE_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
 
     // No tanquem amb click fora: amb tantes pestanyes és fàcil clicar
     // accidentalment l'overlay i perdre la config. Tancament només via X / Esc.
@@ -881,6 +959,127 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     })}
                                 </div>
                             </div>
+
+                            {/* Opcions específiques del tipus de vista triat: apareixen
+                                contextualment just sota el selector de tipus. */}
+                            {viewType === 'gallery' && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions de la galeria</p>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Mida de la targeta</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {CARD_SIZES.map(cs => (
+                                                <button
+                                                    key={cs.value}
+                                                    type="button"
+                                                    onClick={() => setCardSize(cs.value)}
+                                                    className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                        cardSize === cs.value
+                                                            ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                                            : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                                                    }`}
+                                                >
+                                                    {cs.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Previsualització de la targeta</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {GALLERY_PREVIEWS.map(gp => (
+                                                <button
+                                                    key={gp.value}
+                                                    type="button"
+                                                    onClick={() => setGalleryPreview(gp.value)}
+                                                    title={gp.hint}
+                                                    className={`text-left px-2.5 py-2 rounded-lg border transition-all ${
+                                                        galleryPreview === gp.value
+                                                            ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10'
+                                                            : 'border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]'
+                                                    }`}
+                                                >
+                                                    <span className={`block text-xs font-semibold ${galleryPreview === gp.value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>{gp.label}</span>
+                                                    <span className="block text-[10px] text-[var(--text-tertiary)] leading-tight mt-0.5">{gp.hint}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {viewType === 'board' && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions del kanban</p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">Agrupa per</label>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={groupBy}
+                                                onChange={e => setGroupBy(e.target.value)}
+                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                            >
+                                                <option value="">Automàtic (estat)</option>
+                                                {groupFieldOptions.map(f => (
+                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                ))}
+                                            </select>
+                                            {groupFieldOptions.length === 0 && (
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Cap camp de selecció/estat a la taula; s'agruparà automàticament.</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {(viewType === 'calendar' || viewType === 'timeline') && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{viewType === 'calendar' ? 'Opcions del calendari' : 'Opcions del timeline'}</p>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{viewType === 'timeline' ? "Data d'inici" : 'Camp de data'}</label>
+                                                <select
+                                                    value={dateField}
+                                                    onChange={e => setDateField(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="">Automàtic (primer camp de data)</option>
+                                                    {dateFieldOptions.map(f => (
+                                                        <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            {viewType === 'timeline' && (
+                                                fieldMeta[dateField]?.type === 'period' ? (
+                                                    <p className="text-[11px] text-[var(--text-tertiary)]">El camp de període ja defineix l'inici i el fi de cada barra.</p>
+                                                ) : (
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Data de fi (opcional)</label>
+                                                        <select
+                                                            value={endDateField}
+                                                            onChange={e => setEndDateField(e.target.value)}
+                                                            className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                        >
+                                                            <option value="">Cap (durada d'un dia)</option>
+                                                            {dateFieldOptions.map(f => (
+                                                                <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )
+                                            )}
+                                            {dateFieldOptions.length === 0 && (
+                                                <p className="text-[11px] text-[var(--text-tertiary)]">Cap camp de data a la taula; s'usarà la data de modificació.</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
 
                             {!isTableMode && sourceTableId && (
                                 <div>

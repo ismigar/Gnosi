@@ -1620,6 +1620,13 @@ export function DbViewEmbed({ block }) {
                         filters: section.filters || [],
                         sorts: section.sorts || (section.sort ? [section.sort] : []),
                         visibleProperties: section.visible_properties || section.columns || ['title'],
+                        // Opcions per tipus desades a la secció (ViewSection accepta
+                        // camps extra); les preservem perquè embeddedView les llegeixi.
+                        cardSize: section.cardSize,
+                        galleryPreview: section.galleryPreview,
+                        groupBy: section.groupBy || section.group_by,
+                        dateField: section.dateField || section.date_field,
+                        endDateField: section.endDateField || section.end_date_field,
                     };
                     const merged = tv.some(v => v.id === section.view_id) ? tv : [sectionAsView, ...tv];
                     setTableViews(merged);
@@ -1869,6 +1876,14 @@ export function DbViewEmbed({ block }) {
         // Reflecteix el senyal real: si la pestanya activa és la vista PRINCIPAL,
         // la taula mostra tot l'esquema viu; si no, respecta visibleProperties.
         is_main: !!(effectiveView?.is_main || effectiveView?.is_default),
+        // Opcions específiques per tipus (galeria/kanban/calendari/timeline). En
+        // incrustar es perdien; les propaguem des de la vista efectiva (registry
+        // o secció) perquè el render les honori igual que a la pàgina de taula.
+        cardSize: effectiveView?.cardSize,
+        galleryPreview: effectiveView?.galleryPreview,
+        groupBy: effectiveView?.groupBy || effectiveView?.group_by,
+        dateField: effectiveView?.dateField || effectiveView?.date_field,
+        endDateField: effectiveView?.endDateField || effectiveView?.end_date_field,
     }), [effectiveView, viewType, columns]);
 
     if (loading) {
