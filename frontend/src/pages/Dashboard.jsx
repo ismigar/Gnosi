@@ -7,6 +7,7 @@ import { useApi } from '../hooks/use-api';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import { useConfigChanged } from '../lib/configEvents';
+import { APP_VERSION } from '../lib/version';
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -667,7 +668,7 @@ function Dashboard() {
             <AppHeader icon={Gauge} title="Control Center">
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-2 py-1 rounded-md border border-[var(--border-primary)]">
-                        v1.2.4
+                        v{APP_VERSION}
                     </span>
                 </div>
             </AppHeader>
