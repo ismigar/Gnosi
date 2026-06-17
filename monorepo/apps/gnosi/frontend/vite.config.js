@@ -84,6 +84,17 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     base: env.VITE_BASE_PATH || "./",
+    // Versió de l'app injectada a la UI (mostrada al Control Center). Font
+    // única: frontend/package.json → vegeu src/lib/version.js i
+    // scripts/bump-version.sh. Es llegeix aquí (no a dalt) per recollir el
+    // valor més recent en cada (re)build sense memòria entre processos.
+    define: {
+      __APP_VERSION__: JSON.stringify(
+        JSON.parse(
+          fs.readFileSync(path.join(rootDir, "package.json"), "utf-8"),
+        ).version,
+      ),
+    },
     server: {
       host: true, // Ensure it listens on 0.0.0.0
       port: Number(frontendPort),
