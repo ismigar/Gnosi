@@ -778,10 +778,19 @@ footer {
   border-color: rgba(var(--gnosi-primary-rgb), 0.5);
 }
 .module-icon {
-  width: 76px;
-  height: 76px;
-  object-fit: contain;
-  margin-bottom: 14px;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 14px;
+  padding: 13px;
+  border-radius: 14px;
+  background: rgba(var(--gnosi-primary-rgb), 0.1);
+  stroke: var(--gnosi-primary-dark);
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  box-sizing: content-box;
+  display: block;
 }
 .module-card h3 { font-size: 16px; margin-bottom: 4px; }
 .module-card p { font-size: 13px; color: var(--muted); line-height: 1.4; }
