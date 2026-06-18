@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies if needed
+# Install system dependencies including Docker Client for MCP, plus pandoc
+# per al servei d'export (Markdown del Vault → .docx/.odt/.html/.tex amb
+# cites resoltes via --citeproc + CSL). pandoc inclou citeproc al binari
+# des de v2.11. Tamany: ~150MB; opcional eliminar si no es vol l'export.
+# ghostscript: compressió de PDFs abans de pujar-los a Drupal (_drupal_shrink_pdf).
+RUN apt-get update \
+    && apt-get install -y docker.io pandoc ghostscript \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# Expose port
+EXPOSE 5002
+
+# Command to run the application
+CMD ["uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "5002"]

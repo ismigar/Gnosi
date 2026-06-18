@@ -1,0 +1,1016 @@
+@import "tailwindcss";
+
+@source "../src";
+
+@theme {
+  --color-background: #000000;
+  --color-surface: #18181b;
+  --color-surfaceHighlight: #27272a;
+  --color-primary: #3b82f6;
+  --color-secondary: #71717a;
+  --color-accent: #8b5cf6;
+  --color-border: #27272a;
+
+  --font-sans: Inter, system-ui, sans-serif;
+
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --blur-xs: 2px;
+  --spacing-vault-header-top: 15px;
+}
+
+/* Custom variant for class-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Theme color variables - Light Mode (Default) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --border-primary: #e5e7eb;
+  --gnosi-blue: #3b82f6;
+  
+  /* Sidebar Light */
+  --sidebar-bg: #f8fafc;
+  --sidebar-border: #e2e8f0;
+  --sidebar-item-hover: rgba(0, 0, 0, 0.05);
+  --sidebar-item-active: rgba(59, 130, 246, 0.1);
+  --sidebar-item-active-text: #3b82f6;
+  --sidebar-text: #64748b;
+  
+  /* Settings Light */
+  --settings-bg: #ffffff;
+  --settings-header-bg: #f9fafb;
+  --settings-sidebar-bg: #f3f4f6;
+  --settings-border: #e5e7eb;
+  --settings-title: #111827;
+  --settings-sidebar-active: rgba(59, 130, 246, 0.1);
+  --settings-sidebar-active-text: #3b82f6;
+  --settings-input-bg: #ffffff;
+  --settings-btn-bg: #f3f4f6;
+
+  /* Home Page Light */
+  --home-bg: #f9fafb;
+  --home-card-bg: rgba(255, 255, 255, 0.8);
+  --home-card-border: rgba(0, 0, 0, 0.05);
+
+  /* Status Colors Light */
+  --status-success: #10b981;
+  --status-error: #ef4444;
+  --status-warning: #f59e0b;
+  --status-info: #3b82f6;
+  
+  /* Mail Components */
+  --reply-box-bg: #fbfcff;
+  --mail-row-selected: rgba(59, 130, 246, 0.05);
+  --mail-row-hover: rgba(249, 250, 251, 0.8);
+
+  /* Brand Colors */
+  --gnosi-primary: #3b82f6;
+  --gnosi-primary-rgb: 59, 130, 246;
+
+  color-scheme: light dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+
+  /* Z-Index Stack */
+  --z-sidebar: 50;
+  --z-overlay: 1000;
+  --z-modal: 10000;
+  --z-modal-dropdown: 10050;
+  --z-confirm-modal: 20000;
+  --z-toast: 50000;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark Mode Overrides */
+.dark {
+  --bg-primary: #000000;
+  --bg-secondary: #18181b;
+  --bg-tertiary: #27272a;
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --border-primary: #27272a;
+
+  /* Sidebar Dark */
+  --sidebar-bg: #000000;
+  --sidebar-border: #1c1c1f;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.05);
+  --sidebar-item-active: rgba(0, 102, 255, 0.15);
+  --sidebar-item-active-text: #3b82f6;
+  --sidebar-text: #939393;
+
+  /* Settings Dark */
+  --settings-bg: #000000;
+  --settings-header-bg: #1c1c1f;
+  --settings-sidebar-bg: #000000;
+  --settings-border: #27272a;
+  --settings-title: #f4f4f5;
+  --settings-sidebar-active: rgba(59, 130, 246, 0.1);
+  --settings-sidebar-active-text: #60a5fa;
+  --settings-input-bg: #000000;
+  --settings-btn-bg: #27272a;
+
+  /* Home Page Dark */
+  --home-bg: #000000;
+  --home-card-bg: rgba(255, 255, 255, 0.03);
+  --home-card-border: rgba(255, 255, 255, 0.05);
+
+  /* Status Colors Dark */
+  --status-success: #059669;
+  --status-error: #dc2626;
+  --status-warning: #d97706;
+  --status-info: #2563eb;
+
+  /* Mail Components Dark */
+  --reply-box-bg: #1c1c1f;
+  --mail-row-selected: rgba(59, 130, 246, 0.08);
+  --mail-row-hover: rgba(24, 24, 27, 0.8);
+
+  /* Brand Colors Dark Overrides (if any) */
+  --gnosi-primary: #3b82f6;
+  --gnosi-primary-rgb: 59, 130, 246;
+
+  /* AI Provider Specifics */
+  --provider-card-bg: rgba(255, 255, 255, 0.03);
+  --provider-card-border: rgba(255, 255, 255, 0.08);
+  --provider-card-hover: rgba(255, 255, 255, 0.06);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Settings Overlay & Centering */
+/* Estils de modal eliminats per evitar conflictes amb GlobalSettingsModal.css */
+
+.settings-theme-preview--light {
+    background-color: #ffffff !important;
+}
+
+.settings-theme-preview--dark {
+    background-color: #000000 !important;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Settings Sidebar Items */
+.settings-sidebar__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.9rem;
+    background: transparent;
+    color: var(--text-primary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.8;
+}
+
+.settings-sidebar__item:hover {
+    background: var(--sidebar-item-hover) !important;
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+.settings-sidebar__item.active {
+    background: var(--settings-sidebar-active) !important;
+    color: var(--settings-sidebar-active-text) !important;
+    opacity: 1;
+    font-weight: 600;
+}
+
+/* Custom Scrollbar — colors del tema perquè el thumb contrasti en clar i en
+   fosc (abans era #27272a fix: quasi invisible sobre fons fosc). L'amplada es
+   manté a 8px per no moure el layout. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Utility for hiding scrollbars (after global rules to ensure override) */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Scrollbar visible i agafable per a modals llargs. La global (8px, thumb
+   #27272a fix) és quasi invisible sobre fons fosc i massa fina per
+   arrossegar-la amb el punter; aquí usem variables del tema perquè contrasti
+   en clar i fosc, i un thumb més ample amb àrea de clic còmoda. */
+.gnosi-modal-scroll::-webkit-scrollbar {
+  width: 14px;
+}
+.gnosi-modal-scroll::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 7px;
+}
+.gnosi-modal-scroll::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border: 3px solid var(--bg-secondary); /* marc que aprima visualment el thumb mantenint l'àrea de clic */
+  border-radius: 7px;
+  min-height: 48px; /* sempre prou gran per agafar-lo, també en llistes llargues */
+}
+.gnosi-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Firefox: scrollbars amb colors del tema via la propietat estàndard.
+   Va dins d'un @supports només-Firefox expressament: scrollbar-color és
+   heretada i, a Chrome ≥121, qualsevol valor diferent d'auto fa que el
+   navegador IGNORI els estils ::-webkit-scrollbar (es perdrien els 8px
+   globals i el thumb ample de .gnosi-modal-scroll). */
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-color: var(--text-tertiary) transparent;
+  }
+  .gnosi-modal-scroll {
+    scrollbar-width: auto; /* barra estàndard (no thin), més fàcil d'agafar */
+    scrollbar-color: var(--text-tertiary) var(--bg-secondary);
+  }
+}
+
+/* Close Button Unification */
+.gnosi-close-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.gnosi-close-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transform: scale(1.05);
+    border-color: var(--gnosi-blue);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.gnosi-close-btn:active {
+    transform: scale(0.95);
+}
+
+.gnosi-close-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.5;
+}
+
+/* Glassmorphism */
+.glass-panel {
+  background: var(--home-card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--home-card-border);
+}
+
+.glass-card {
+  background: var(--home-card-bg);
+  opacity: 0.9;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--home-card-border);
+}
+
+/* AppSidebar - Reference Match */
+.app-sidebar {
+  width: 52px;
+  height: 100vh;
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0;
+  z-index: 50;
+  flex-shrink: 0;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.app-sidebar__header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 1.2rem;
+}
+
+.app-sidebar__logo-wrapper {
+  margin-bottom: 0;
+}
+
+.app-sidebar__logo {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #0066ff, #00d4ff);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-sidebar__logo:hover {
+  transform: scale(1.08) rotate(-5deg);
+  box-shadow: 0 8px 24px rgba(0, 102, 255, 0.5);
+}
+
+.app-sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  align-items: center;
+}
+
+.app-sidebar__item {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--sidebar-text);
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: none;
+}
+
+.app-sidebar__item:hover {
+  background-color: var(--sidebar-item-hover);
+  color: var(--text-primary);
+}
+
+.app-sidebar__item--active {
+  background-color: var(--sidebar-item-active);
+  color: var(--sidebar-item-active-text);
+}
+
+.app-sidebar__item:focus,
+.app-sidebar__item:focus-visible {
+  outline: none;
+}
+
+.app-sidebar__tooltip {
+  position: absolute;
+  left: 66px;
+  top: 50%;
+  transform: translateY(-50%) translateX(-10px);
+  background-color: #1a1a1c;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  border: 1px solid #2d2d30;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-sidebar__item:hover .app-sidebar__tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.app-sidebar__tooltip-kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.68rem;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.02em;
+}
+
+/* Tooltip botons d'acció de fila (obrir, eliminar…) */
+.row-action-tooltip {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  background: #1a1a1c;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  border: 1px solid #2d2d30;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.row-action-tooltip kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 0.65rem;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.02em;
+}
+
+button:hover > .row-action-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.app-sidebar__footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--sidebar-border);
+}
+
+.app-sidebar-mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-sidebar {
+    position: fixed;
+    left: -70px;
+  }
+  .app-sidebar--open {
+    left: 0;
+  }
+}
+/* Home Page Premium Styles */
+.home-page {
+  /* IMPORTANT: do NOT set `overflow-x: hidden` here.
+     CSS spec: when overflow-x and overflow-y have different values and one is
+     `hidden`, the browser converts the other from `visible` to `auto` —
+     producing an unwanted second vertical scrollbar inside this element.
+     Horizontal clipping for the decorative glows is therefore done at the
+     parent level (App.jsx → flex-1 overflow-x-hidden), which already has an
+     explicit vertical overflow value so the spec rule never triggers. */
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--home-bg);
+  color: var(--text-primary);
+  padding: 4rem 2rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.home-page__glow {
+  position: absolute;
+  width: 40vw;
+  height: 40vw;
+  filter: blur(120px);
+  opacity: 0.15;
+  z-index: 0;
+  border-radius: 50%;
+}
+
+.home-page__glow--1 {
+  top: -10%;
+  left: -10%;
+  background: #0066ff;
+}
+
+.home-page__glow--2 {
+  bottom: -10%;
+  right: -10%;
+  background: #7000ff;
+}
+
+.home-page__hero {
+  text-align: center;
+  margin-bottom: 4rem;
+  position: relative;
+  z-index: 1;
+}
+
+.home-page__title {
+  font-size: clamp(3rem, 8vw, 5rem);
+  font-weight: 800;
+  margin-bottom: 1rem;
+  background: linear-gradient(to bottom, #fff, #888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.home-page__subtitle {
+  font-size: 1.25rem;
+  color: #939393;
+  max-width: 600px;
+}
+
+.home-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1200px;
+  position: relative;
+  z-index: 1;
+}
+
+.home-card {
+  background: var(--home-card-bg);
+  border: 1px solid var(--home-card-border);
+  padding: 2rem;
+  border-radius: 20px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  backdrop-filter: blur(10px);
+}
+
+.home-card:hover {
+  transform: translateY(-8px);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.home-card__icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.home-card:hover .home-card__icon-wrap {
+  transform: scale(1.1);
+  background: white;
+  color: black;
+}
+
+.home-card__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.home-card__desc {
+  font-size: 0.9375rem;
+  color: #939393;
+  line-height: 1.5;
+}
+
+.home-card__arrow {
+  margin-top: auto;
+  font-size: 1.5rem;
+  opacity: 0.3;
+  transition: all 0.3s ease;
+}
+
+.home-card:hover .home-card__arrow {
+  opacity: 1;
+  transform: translateX(8px);
+}
+
+/* Specific Card Gradients (Subtle) */
+.home-card--graph:hover { border-color: rgba(0, 102, 255, 0.3); }
+.home-card--reader:hover { border-color: rgba(0, 212, 255, 0.3); }
+.home-card--dashboard:hover { border-color: rgba(112, 0, 255, 0.3); }
+.home-card--social:hover { border-color: rgba(255, 0, 112, 0.3); }
+
+/* Botons Estàndard Gnosi */
+.btn-gnosi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.25;
+}
+
+.btn-gnosi:active {
+  transform: scale(0.96);
+}
+
+.btn-gnosi-primary {
+  background-color: var(--gnosi-primary);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
+}
+
+.btn-gnosi-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(var(--gnosi-primary-rgb), 0.35);
+}
+
+.btn-gnosi-danger {
+  background-color: #ef4444;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn-gnosi-danger:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  line-height: 1.25;
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn-gnosi-primary7 {
+  background-color: var(--gnosi-primary);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
+}
+
+.btn-gnosi-primary7:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(var(--gnosi-primary-rgb), 0.35);
+}
+
+/* AI Settings Premium Styles */
+.ai-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.provider-card {
+  background: var(--provider-card-bg);
+  border: 1px solid var(--provider-card-border);
+  border-radius: 14px;
+  padding: 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider-card:hover {
+  background: var(--provider-card-hover);
+  border-color: rgba(var(--gnosi-primary-rgb), 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+}
+
+.provider-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.provider-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.provider-card__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.provider-card__name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-badge--env {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-badge--api {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-badge--custom {
+  background: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.status-badge--none {
+  background: rgba(113, 113, 122, 0.1);
+  color: #71717a;
+  border: 1px solid rgba(113, 113, 122, 0.2);
+}
+
+.provider-card__footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.provider-card__indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #71717a;
+}
+
+.provider-card__indicator--active {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+/* Styles added for Settings Modal Premium UI */
+.gnosi-input, .gnosi-select {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--settings-border);
+    background: var(--settings-input-bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.gnosi-input:focus, .gnosi-select:focus {
+    border-color: var(--gnosi-blue);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.gnosi-toggle {
+    width: 48px;
+    height: 26px;
+    background: var(--settings-border);
+    border-radius: 20px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gnosi-toggle.active {
+    background: var(--gnosi-blue);
+}
+
+.gnosi-toggle-handle {
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.gnosi-toggle.active .gnosi-toggle-handle {
+    left: 25px;
+}
+
+.segmented-control button {
+    font-family: inherit;
+}
+
+.animate-in {
+    animation: fadeInSlide 0.4s cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInSlide {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.spinner-small {
+    width: 18px;
+    height: 18px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.hover-scale:hover {
+    transform: scale(1.01) translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.account-row button.icon-btn {
+    opacity: 0.5;
+    transition: all 0.2s;
+}
+
+.account-row:hover button.icon-btn {
+    opacity: 1;
+}
+
+.btn-gnosi-secondary {
+    background: var(--settings-sidebar-bg);
+    border: 1px solid var(--settings-border);
+    color: var(--text-primary);
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-gnosi-secondary:hover {
+    background: var(--settings-border);
+}
+
+/* Embed gnosi_view: BlockNote pinta `outline: 4px solid rgb(100, 160, 255)`
+   sobre tots els fills de `.bn-block-content.ProseMirror-selectednode` (vegeu
+   @blocknote/core/src/editor/Block.css), generant un rectangle blau al
+   voltant del nostre embed sencer. Anul·lem outline a tots els fills i a
+   les variants amb node-view renderer. */
+.bn-block-content.ProseMirror-selectednode > .react-renderer.node-gnosi_view,
+.bn-block-content.ProseMirror-selectednode > .bn-react-node-view-renderer.node-gnosi_view,
+.ProseMirror-selectednode > .bn-block-content > .react-renderer.node-gnosi_view,
+.ProseMirror-selectednode > .bn-block-content > .bn-react-node-view-renderer.node-gnosi_view,
+.bn-block-content > .node-gnosi_view.ProseMirror-selectednode,
+.ProseMirror-selectednode.node-gnosi_view,
+.bn-react-node-view-renderer.node-gnosi_view.ProseMirror-selectednode,
+.node-gnosi_view.ProseMirror-selectednode,
+/* Cobertura completa: BlockNote aplica outline a `> *` (qualsevol fill
+   directe), però el primer fill del DbViewEmbed no porta classe
+   `.node-gnosi_view`. Aquí atrapem qualsevol fill directe del wrapper
+   identificat per `data-content-type="gnosi_view"`. */
+.bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode > *,
+.ProseMirror-selectednode > .bn-block-content[data-content-type="gnosi_view"] > * {
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+/* La VaultTable embeguda viu dins de `.ProseMirror`, on el CSS de taules de
+   BlockNote (@blocknote/core) es filtra sobre la nostra `<table>` i trenca la
+   columna fixa (sticky) del títol:
+     - força `position: relative` sobre cada `td`/`th` → anul·la el `sticky`,
+     - força `overflow: hidden` sobre la `<table>` → la taula esdevé el seu
+       propi context de scroll i la sticky deixa d'ancorar-se al scroller
+       intern de la VaultTable.
+   Restaurem el comportament de la taula completa (que funciona perquè no és
+   filla de l'editor) reafirmant sticky a les cel·les marcades i tornant la
+   taula a overflow visible. Selector limitat a l'embed gnosi_view. */
+.bn-block-content[data-content-type="gnosi_view"] th.sticky,
+.bn-block-content[data-content-type="gnosi_view"] td.sticky {
+    position: sticky !important;
+}
+.bn-block-content[data-content-type="gnosi_view"] table {
+    overflow: visible !important;
+}
+/* BlockNote força `vertical-align: top` a les cel·les de `.ProseMirror`, cosa
+   que descentra el checkbox de la capçalera (la taula completa, fora de
+   l'editor, usa el `middle` per defecte). Ho restaurem només a les capçaleres;
+   el cos manté l'alineació pròpia (`align-top`). */
+.bn-block-content[data-content-type="gnosi_view"] thead th {
+    vertical-align: middle !important;
+}
+
+/* Separació entre paràgrafs dins del cos de cada feed item, exceptuant
+   els ítems d'una llista (els quals porten la seva pròpia interlinia
+   compacta). */
+.feed-md > p,
+.feed-md > blockquote {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}
+.feed-md > p:first-child,
+.feed-md > blockquote:first-child { margin-top: 0; }
+.feed-md > p:last-child,
+.feed-md > blockquote:last-child { margin-bottom: 0; }

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gnosi.autoimprover</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/skills/auto_improver/main.py</string>
+    </array>
+    
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    
+    <key>Wake</key>
+    <true/>
+    
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <key>StandardOutPath</key>
+    <string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/.tmp/autoimprover.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/.tmp/autoimprover.error.log</string>
+</dict>
+</plist>
