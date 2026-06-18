@@ -158,10 +158,6 @@ jobs:
     needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    # El GITHUB_TOKEN és read-only per defecte; softprops/action-gh-release
-    # necessita escriure continguts per crear el release i generar-ne les notes.
-    permissions:
-      contents: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -173,18 +169,36 @@ jobs:
       - name: List artifacts
         run: ls -laR artifacts/
 
-      - name: Create Release
+      # Publiquem al repo PÚBLIC Gnosi (Projectes és privat) amb el SYNC_PAT,
+      # el mateix token que el sync fa servir per escriure a Gnosi. Per això no
+      # cal cap permís especial sobre el GITHUB_TOKEN d'aquest repo.
+      - name: Publica el release a Gnosi (públic, en draft)
         uses: softprops/action-gh-release@v3
         with:
+          repository: ismigar/Gnosi
+          token: ${{ secrets.SYNC_PAT }}
+          tag_name: ${{ github.ref_name }}
+          name: Gnosi ${{ github.ref_name }}
+          # Draft: els binaris arriben al repo públic però NO són visibles fins
+          # que premis "Publish" manualment a Gnosi → fer-ho públic és cosa teva.
           draft: true
-          # prerelease=true només si el tag porta sufix (v1.0.0-beta.1, -rc.2…);
-          # els tags nets (v0.2.0, v1.0.0) surten com a release normal.
+          # prerelease=true només si el tag porta sufix (v1.0.0-beta.1, -rc.2…).
           prerelease: ${{ contains(github.ref_name, '-') }}
-          generate_release_notes: true
+          # Les notes automàtiques no funcionen a Gnosi (història reescrita pel
+          # sync orphan+force); posem instruccions d'instal·lació, més útils.
+          body: |
+            ## Gnosi ${{ github.ref_name }}
+
+            Baixa el fitxer per al teu sistema:
+
+            - **macOS (Apple Silicon / M1+)** → `*-arm64.dmg`
+            - **macOS (Intel)** → `*-x64.dmg`
+            - **Windows** → `*-Setup.exe`
+            - **Linux** → `*-x86_64.AppImage` o `*-amd64.deb`
+
+            > Els binaris no estan signats. A macOS: botó dret sobre l'app → **Obrir**. A Windows: **Més informació → Executa igualment**.
           files: |
             artifacts/*.dmg
             artifacts/*.AppImage
             artifacts/*.deb
             artifacts/*Setup*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
