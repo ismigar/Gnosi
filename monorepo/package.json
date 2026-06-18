@@ -1,7 +1,7 @@
 {
     "name": "projectes-monorepo",
     "private": true,
-    "description": "Monorepo unificat per a serveis MCP, Gnosi i n8n",
+    "description": "Monorepo unificat per a serveis MCP i Gnosi",
     "workspaces": [
         "packages/*",
         "apps/*",
