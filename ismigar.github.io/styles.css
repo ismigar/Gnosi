@@ -1038,3 +1038,61 @@ footer {
   .modules-grid { grid-template-columns: repeat(2, 1fr); }
   .shot-body { height: 210px; }
 }
+
+/* --- Mockups fidels a l'app (tema fosc dins de finestra) --- */
+.shot.app .shot-bar { background: #1b1b24; border-bottom-color: #2a2a36; }
+.shot.app .shot-bar .shot-title { color: #9aa0ac; }
+.shot.app .shot-body { background: #0e0e14; padding: 0; display: flex; height: 280px; }
+
+/* Rail de mòduls (com l'AppSidebar) */
+.ui-rail { width: 46px; background: #15151d; border-right: 1px solid #24242f; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0; flex-shrink: 0; }
+.ui-rail .r-logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, #0066ff, #00d4ff); color: #fff; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; margin-bottom: 3px; }
+.ui-rail .r-ico { position: relative; display: flex; }
+.ui-rail .r-ico svg { width: 18px; height: 18px; stroke: #6b7280; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ui-rail .r-ico.on svg { stroke: #6aa3ff; }
+.ui-rail .r-ico.on::before { content: ""; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); width: 3px; height: 18px; border-radius: 2px; background: #3b82f6; }
+
+/* Sidebar de pàgines */
+.ui-side { width: 132px; background: #131319; border-right: 1px solid #24242f; padding: 13px 9px; flex-shrink: 0; }
+.ui-side .s-head { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: #636b78; margin: 12px 4px 7px; }
+.ui-side .s-head:first-child { margin-top: 0; }
+.ui-side .s-item { font-size: 11px; color: #aab0bc; padding: 5px 8px; border-radius: 6px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ui-side .s-item.active { background: rgba(59, 130, 246, 0.18); color: #eef2f8; }
+
+/* Editor */
+.ui-main { flex: 1; padding: 20px 22px; overflow: hidden; }
+.ui-main .e-title { font-size: 17px; font-weight: 700; color: #eef2f8; margin-bottom: 15px; font-family: system-ui, sans-serif; }
+.ui-main .e-line { height: 8px; border-radius: 4px; background: #23232e; margin-bottom: 10px; }
+.ui-main .e-line.w90 { width: 90%; } .ui-main .e-line.w80 { width: 80%; } .ui-main .e-line.w65 { width: 65%; } .ui-main .e-line.w55 { width: 55%; }
+.ui-main .e-tags { display: flex; gap: 6px; margin: 14px 0; flex-wrap: wrap; }
+.ui-main .wl { font-size: 10.5px; color: #8bb6ff; background: rgba(59, 130, 246, 0.16); border-radius: 5px; padding: 3px 8px; }
+.ui-main .e-quote { border-left: 2px solid #3b82f6; padding-left: 11px; margin-top: 15px; }
+.ui-main .e-quote .e-line { background: #2a2a38; margin-bottom: 8px; }
+
+/* Grafo fidel */
+.ui-graph { flex: 1; position: relative; background: radial-gradient(circle at 50% 45%, #17173140 0, #0b0b12 72%); overflow: hidden; }
+.ui-graph .gnode { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 12px rgba(59, 130, 246, 0.7); transform: translate(-50%, -50%); }
+.ui-graph .gnode.hub { width: 18px; height: 18px; background: #00d4ff; box-shadow: 0 0 18px rgba(0, 212, 255, 0.8); }
+.ui-graph .gedge { position: absolute; height: 1.5px; background: linear-gradient(90deg, rgba(106, 163, 255, 0.55), rgba(106, 163, 255, 0.08)); transform-origin: left center; }
+.ui-graph .glabel { position: absolute; font-size: 9px; color: #aeb4c0; white-space: nowrap; transform: translate(-50%, 0); }
+
+/* Calendari fidel */
+.ui-cal { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; }
+.ui-cal .c-head { font-size: 12px; color: #c4c9d2; font-weight: 600; margin-bottom: 10px; font-family: system-ui, sans-serif; }
+.ui-cal .c-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; gap: 4px; }
+.ui-cal .c-cell { background: #16161e; border-radius: 4px; position: relative; }
+.ui-cal .c-cell .cev { position: absolute; left: 3px; right: 3px; height: 5px; border-radius: 2px; }
+.ui-cal .cev.b { background: #3b82f6; top: 5px; } .ui-cal .cev.g { background: #34d399; top: 12px; } .ui-cal .cev.o { background: #fbbf24; top: 5px; }
+
+/* Xat IA fidel */
+.ui-chat { flex: 1; display: flex; flex-direction: column; padding: 16px; gap: 10px; }
+.ui-chat .cb { max-width: 80%; padding: 9px 13px; border-radius: 13px; font-size: 11.5px; line-height: 1.45; }
+.ui-chat .cb.u { align-self: flex-end; background: #3b82f6; color: #fff; border-bottom-right-radius: 4px; }
+.ui-chat .cb.a { align-self: flex-start; background: #1e1e28; color: #d6dae2; border-bottom-left-radius: 4px; }
+.ui-chat .cb .at { color: #8bb6ff; font-weight: 600; }
+.ui-chat .c-input { margin-top: auto; border: 1px solid #2a2a36; border-radius: 9px; padding: 9px 12px; font-size: 11px; color: #6b7280; background: #14141b; }
+
+@media (max-width: 768px) {
+  .shot.app .shot-body { height: 240px; }
+  .ui-side { width: 110px; }
+}
