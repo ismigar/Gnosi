@@ -1,7 +1,7 @@
 {
-  "name": "cervell-digital",
+  "name": "gnosi",
   "version": "0.1.0",
-  "description": "Cervell Digital - Gnosi Application",
+  "description": "Gnosi — local-first, open-source knowledge workspace",
   "homepage": "https://github.com/ismigar/Gnosi",
   "main": "main.js",
   "author": {
