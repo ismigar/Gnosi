@@ -2,6 +2,17 @@
 
 **Senior Developer & Systems Agent:** Maintain Gnosi's digital ecosystem with deterministic tools, documented practices, and learning memory.
 
+> ⚠️ **ARQUITECTURA ACTUALITZADA (2026-06-17): Gnosi corre NATIU, sense Docker.**
+> Backend (uvicorn `:5002`) i frontend (vite `:5173`) s'executen al host via LaunchAgents
+> `com.gnosi.backend` / `com.gnosi.frontend` (scripts a `~/.gnosi-local/run-*.sh`, venv
+> `~/.gnosi-local/venv`, dades `~/.gnosi-local/data`). Això elimina l'`EDEADLK` del vault
+> OneDrive: es llegeix natiu, com Obsidian. **Docker queda com a FALLBACK aturat** (agents
+> `boot`/`docker-watchdog` → `.plist.disabled`; restaurar: `docker compose start` + renombrar).
+> Gotcha Mac Intel: torch capat a 2.2.2 → deps ML fixades al venv (numpy 1.26 / transformers
+> 4.44 / sentence-transformers 3.0). Runbook complet a
+> `docs/dev_memory/directives/environment_integrity.md` (secció "PROJECTE: migrar Gnosi a NATIU")
+> i memòria `gnosi_native_migration_plan`. **Les mencions a Docker d'aquest fitxer són ara per al fallback.**
+
 ## The Central Loop
 1. **Consult/Create Directive:** Search `pipeline/skills/` → `docs/dev_memory/directives/` (especially `environment_integrity.md`) → create new directive (never code without a plan).
 2. **Execute:** Python scripts in `pipeline/sandbox/` strictly following the directive.
@@ -9,7 +20,7 @@
 
 ## Repo Structure (CRITICAL — read first)
 
-The Gnosi code lives at **`monorepo/apps/gnosi/...`**. This is the path Docker mounts (`docker inspect gnosi_backend`), the dev server reads, `build-release.yml` packages, and the public `Gnosi.git` sync (`sync.yml`) exports. When editing backend, frontend, mail, vault, reader, etc., always use `monorepo/apps/gnosi/...`.
+The Gnosi code lives at **`monorepo/apps/gnosi/...`**. This is the path the dev server reads, `build-release.yml` packages, the public `Gnosi.git` sync (`sync.yml`) exports (and Docker mounts when used). When editing backend, frontend, mail, vault, reader, etc., always use `monorepo/apps/gnosi/...`.
 
 A second `apps/gnosi/...` tree at the repo root used to exist as an obsolete mirror (last synced 2026-04-06 by a workflow that no longer exists); it was removed in `chore: remove apps/ mirror`. If you ever see it reappear, treat it as fossil — only `monorepo/apps/...` is authoritative.
 
@@ -20,7 +31,7 @@ A second `apps/gnosi/...` tree at the repo root used to exist as an obsolete mir
 | **Directives** | `docs/dev_memory/directives/` | Staging area: SOPs, logic, warnings—no code blocks |
 | **Construction** | `pipeline/sandbox/` | Idempotent Python scripts; use `.env_shared` for secrets |
 | **You** | Librarian | Link intention→execution. Delegate to Python. Keep memory updated |
-| **Docker** | Production | Always use Docker; avoid local services unless debugging fails |
+| **Runtime** | Natiu (recomanat) | Backend `uvicorn` :5002 + frontend `vite` :5173 (LaunchAgents `com.gnosi.backend`/`frontend`). Docker és **opcional** (self-host en servidor) |
 
 ## Self-Correction Protocol (CRITICAL)
 
@@ -50,7 +61,7 @@ Projects/
 ## QA Protocol (Mandatory)
 
 **Cannot ship without:**
-1. **Static Build:** `npm run build` (frontend) or `docker-compose up -d` (backend). Zero errors.
+1. **Static Build:** `npm run build` (frontend) o arrencar el backend amb `uvicorn` (natiu). Zero errors.
 2. **Browser Test:** Take screenshot/read DOM. Confirm UI loads and new elements work.
 3. **E2E Test:** Verify result matches spec. Run actual API/automation calls.
 4. **Stopping Rule:** If visual/build/E2E fails → return to Self-Correction. "Couldn't test it" = not done.
@@ -58,7 +69,7 @@ Projects/
 ## Essential Commands
 
 **Frontend:** `npm run dev | build | lint | test (Playwright)`  
-**Backend:** `docker-compose up -d | pytest | pytest --cov`  
+**Backend:** `uvicorn backend.server:app --reload | pytest | pytest --cov` (Docker opcional: `docker-compose up -d`)  
 **Packages:** `npm run build | npm test (Vitest)`
 
 ## Code Style Summary
@@ -69,5 +80,5 @@ Projects/
 ## Interaction
 - Be concise. Declare: "Reading directive for [X]..." or "Error detected. Repairing..."
 - **Spanish/Catalan only.** No English.
-- Use Docker first. Local only if Docker fails.
+- Natiu per defecte (uvicorn + vite via LaunchAgents). Docker és opcional (self-host en servidor).
 - Idempotent scripts. Environment: `.env_shared` (shared) + `.env` (local override).

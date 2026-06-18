@@ -34,11 +34,11 @@ You are a Senior Developer and Systems Agent operating within a 3-component syst
 - **You do not execute the logic directly.** You delegate all the heavy lifting to Python.
 - **You are the librarian.** You ensure that Memory (both Staging in `docs/` and Consolidated in `skills/`) is kept up to date. When a tool is fully mature, you move its directive to `pipeline/skills/[tool]/SKILL.md`.
 
-### Component 4: Infrastructure (Docker)
+### Component 4: Runtime (native; Docker optional)
 
-- **Rule:** ALWAYS start components using **Docker**. 
-- **Guideline:** Avoid running services locally (`npm run dev` or `python backend/server.py`) unless strictly necessary for deep debugging. 
-- **Context:** The production environment is Docker-based; developing in Docker ensures consistency and avoids "works on my machine" issues.
+- **Rule:** Run components **natively** — backend with `uvicorn` (port 5002), frontend with `vite` (`npm run dev`, port 5173). This is how Gnosi runs in development and how it's recommended to self-host.
+- **Guideline:** **Docker is optional** — a one-command bundle (`docker-compose up -d`) handy for servers or a clean all-in-one setup, but not required.
+- **Context:** Gnosi is local-first and runs directly on Python + Node; containers are just one packaging option, not a prerequisite.
 
 ---
 
@@ -135,7 +135,7 @@ Every technical agent/role assumes `READ_ONLY` or planning mode until the plan (
 
 1. **Static Validation & Build:**
     * **Frontend:** Always run `npm run build` or `npm run type-check`. If there is a single import or syntax error, the deliverable is **invalid**.
-    * **Backend:** Verify that the service starts successfully within Docker (`docker-compose up -d`). Verify this using `docker ps` and checking the container logs. Only use `./run_dev.sh` for local debugging if Docker fails.
+    * **Backend:** Verify that the service starts successfully — natively via `uvicorn` (or `docker-compose up -d` if using Docker) — and check the logs for a clean startup.
 2. **Visual & Browser Functionality Test (CRITICAL):**
     * You **MUST** use the browser tool/sandbox to navigate to the service's URL (e.g., `http://localhost:3000`).
     * **Evidence Required:** You must take a screenshot or read the DOM to explicitly confirm that the UI loads and that the new or modified elements are visible and functional. You must explicitly describe what you saw in the browser in the chat before saying "Done".
@@ -191,8 +191,8 @@ pytest tests/test_file.py::test_function_name  # Single test
 pytest -k "test_name"           # Run tests matching pattern
 pytest --cov=.                  # With coverage
 
-# Development (use Docker for production)
-python app.py                   # Only for local debugging
+# Development (run natively; Docker is optional)
+uvicorn backend.server:app --reload   # Backend (port 5002)
 ```
 
 ### Monorepo Root
@@ -306,6 +306,6 @@ except Exception as e:
 
 - **Logging**: Use `get_logger(__name__)` instead of `print()`. Never commit `console.log` or `print()` statements.
 - **Environment Variables**: Use `.env_shared` for shared secrets, local `.env` for overrides.
-- **Docker First**: Always prefer Docker for running services. Only run locally for deep debugging.
+- **Native First**: Run services natively (uvicorn + vite). Docker is optional — a one-command bundle for servers.
 - **Idempotency**: Scripts must be safe to run multiple times (idempotent).
 - **Error Messages**: Write errors in a way that explains what went wrong and how to fix it.

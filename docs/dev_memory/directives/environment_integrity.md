@@ -1,12 +1,14 @@
 # Environment Integrity Directive (Docker vs Local)
 
+> ⚠️ **ACTUALITZACIÓ 2026-06-17: Gnosi corre NATIU per defecte** (backend `uvicorn` :5002 + frontend `vite` :5173 via LaunchAgents). **Docker és ara OPCIONAL** (self-host en servidor). Les regles de "Docker priority" i tot el runbook de rebuild/volums de Docker d'aquest document apliquen **NOMÉS si fas servir Docker**; en el flux natiu per defecte, no. Runbook natiu a la secció "PROJECTE: migrar Gnosi a NATIU" més avall.
+
 ## Objective
 Prevent development environment fragmentation where multiple instances of the same service run simultaneously (e.g., Docker frontend on 5173 and Local frontend on 5174).
 
 ## Constraints
 1. **Port Lockdown**: The frontend MUST ALWAYS run on port `5173`. 
 2. **Anti-Ghosting**: If port `5173` is occupied by a Docker container, you MUST NOT start a local `npm run dev` that jumps to `5174`.
-3. **Priority**: Docker always has priority. Local services are only allowed if Docker is explicitly stopped for deep debugging.
+3. **Priority** *(només si uses Docker)*: no barregis Docker i natiu al mateix port. En el flux natiu per defecte (recomanat), el servei nadiu és l'únic a `5173`/`5002`.
 
 ## Technical Mechanisms
 - **Vite Strict Port**: `vite.config.js` must have `server.strictPort: true`.
@@ -298,3 +300,66 @@ curl -s localhost:5002/api/auth/google/health   # configured:true (client OAuth 
 
 ### Causa-Efecte (memoritzar)
 > Secrets a bind mount dins git → `git clean` esborra integrations.json → integration_manager `{}` → calendaris/mail de Google buits (però events del vault SÍ, i backend sa). Solució: SECRETS al volum nomenat `gnosi_local_data`, local per màquina, reconnectar un cop per Mac.
+
+---
+
+## Cas: warmup daemon VIU però els canvis de l'altre Mac no apareixen — 2026-06-16
+
+### Símptoma
+"El vault no s'actualitza amb els canvis de l'altra màquina (OneDrive)." Backend **healthy**, `RestartCount=0`, OneDrive corrent, **warmup daemon (5009) VIU**. Però `docker logs gnosi_backend -t --since 90s` s'omple de:
+- `Error in partial read of /vault/BD/.../X.md: [Errno 35] Resource deadlock avoided`
+- `No s'ha pogut llegir sidecar /vault/.gnosi/page_meta/<uuid>.json: [Errno 35] ...`
+
+### Causa
+Els canvis editats a l'altre Mac arriben per OneDrive com a **placeholders online-only** (`dataless`, `st_blocks==0`). El warmup daemon és **reactiu** (`GET /warmup?path=`), i els camins de lectura `partial read` (.md) i de **sidecars** `.gnosi/page_meta/*.json` **NO el criden** — només capturen l'`OSError` i continuen amb la còpia antiga. Resultat: el contingut nou no es llegeix mai. **Daemon viu ≠ fitxers hidratats.**
+
+### Cura immediata (materialitzar host + restart)
+1. Materialitzar des del HOST via daemon (fiable; `cat`/`read` directe fa *streaming* i NO baixa a disc) BD + page_meta:
+   - enumerar `st_blocks==0` a `$VAULT/BD` i `$VAULT/.gnosi/page_meta` (amb `stat -f '%b'`, NO `find -flags dataless`), i per cada un `GET http://localhost:5009/warmup?path=<host_path>` **amb reintents** (sota ràfega el daemon torna 500 transitori per saturació del File Provider; un a un funciona).
+2. `docker restart gnosi_backend` → reconstrueix índexs i persisteix la caché.
+3. Verificar: `docker logs -t --since 90s | grep -c deadlock` → 0; `curl -H "X-User-ID: ismael-legacy" localhost:5002/api/vault/pages` → 200 amb la pàgina canviada i `last_modified`/`size` frescos (coincidents amb `stat` del host).
+
+### Cura durable
+Fixar a OneDrive **"Mantener siempre en este dispositivo"** (sistema en es_ES) les carpetes `BD/` i `.gnosi/` (Finder → botó dret). BD només fa **18 MB** → cost negligible. Elimina els online-only d'arrel. És **per-dispositiu**: repetir a cada Mac. Sense pin, OneDrive torna a deixar online-only cada canvi sincronitzat i el problema recurreix.
+
+### Restriccions / Edge cases
+- La caché del page_index es desa amb nom **per-vault**: `vault_page_index_<hash>.json` (NO `vault_page_index.json` pelat) → no és cap bug si el nom base no existeix.
+- Alguns sidecars són **placeholders orfes** (esborrats al núvol/altre Mac): la lectura host **PENJA** (>6s) i el daemon torna **500 persistent** → runa de metadades; el backend els tolera (avisa i continua), no bloquegen.
+- Comprovar SEMPRE que el **registry actiu** `BD/vault_db_registry.json` i `.gnosi/params.yaml` estiguin materialitzats (`stat -f '%b'`>0) — si no, BD/dashboard buits o crash-loop a l'arrencada.
+- Runa de conflictes OneDrive a `.gnosi/`: `scheduler_config-MacBook Pro de Ismael (2)-N.json` (146 vistos) — netejable, no urgent.
+
+### Causa-Efecte (memoritzar)
+> Canvi a l'altre Mac → OneDrive el deixa online-only (`dataless`) aquí → camins partial-read/sidecar NO criden el daemon 5009 → EDEADLK → contingut vell. Cura: materialitzar BD+page_meta via daemon + `restart backend`; durable: pin "Mantener siempre en este dispositivo" a BD/ i .gnosi/.
+
+### ⚠️ Efecte secundari verificat (2026-06-17): reiniciar OneDrive PENJA Docker
+Reiniciar la pila del File Provider de OneDrive (`quit OneDrive` + `killall fileproviderd` + reobrir) — fet per intentar reclamar els ~53 GB orfes del magatzem `OneDriveStandaloneSuite/OneDrive - UNED.noindex` (107 GB; recurrència del duplicat de 103 GB; el disc estava al 98-99%) — **va tombar la VM de Docker** (socket `docker.sock` desaparegut, `com.docker.backend` viu però daemon mort). És el mateix patró d'estrès d'I/O del watchdog: OneDrive reconcilia a fons (vist **140% CPU**) just quan Docker re-munta el path via gRPC FUSE → penjada.
+- **Recuperació (≈4-5 min):** `pkill -9 -f com.docker` + `pkill -9 -f "Docker Desktop"` → `open -a Docker` → esperar ~90 s el daemon → els contenidors tornen sols (`restart: unless-stopped`). El backend triga després **uns minuts més** a servir perquè el walk de l'índex (78k fitxers del vault) va ofegat mentre OneDrive segueix a ~70-80% CPU; NO està penjat (CPU ~40%, `RestartCount=0`, 0 deadlocks) — només cal esperar que OneDrive baixi.
+- **Lliçó:** "reiniciar OneDrive" NO és una acció innòcua amb aquesta pila; planifica que Docker caurà i caldrà recuperar-lo, i fes-ho amb finestra. La reclamació dels 53 GB és **gradual** (OneDrive evicta en segon pla; no salta de cop). El watchdog `com.gnosi.docker-watchdog` també ho hauria recuperat sol en ≤3 min.
+
+---
+
+## PROJECTE: migrar Gnosi a NATIU (treure Docker) — pla + blocaire de disc (2026-06-17)
+
+### Per què
+L'`EDEADLK` i tot el ball de materialitzar/pin existeix NOMÉS perquè el backend llegeix el vault de OneDrive des de **dins de Docker** (gRPC-FUSE no dispara la hidratació on-demand del File Provider). Obsidian/Office no pateixen perquè llegeixen **natiu al host**. Solució d'arrel decidida amb Ismael: **córrer backend + frontend natius, sense Docker.** Llavors el vault es pot deixar online-only (estalvi de disc), mor el warmup daemon i mor el risc de penjada de Docker.
+
+### Reconeixement Phase 0 (fet 2026-06-17)
+- ✅ Homebrew (`/usr/local/bin/brew`, Mac Intel), Node v26 + npm 11, `mkcert` i **certs HTTPS ja existents** (`frontend/certs/localhost.pem` + `-key.pem`).
+- ⚠️ **Python 3.11 NO instal·lat** (sistema = 3.9.6) → `brew install python@3.11`.
+- ⚠️ Ollama (:11434, `AI_MODEL_URL`) NO escolta → l'IA local potser ja està morta (o s'usa API: anthropic/groq/openai a `requirements.txt`). No bloca la migració.
+- 🔴 **BLOCAIRE: disc 98% ple (~5,3 GB lliures).** L'entorn Python (torch via `sentence-transformers`) + `node_modules` (frontend pesat: tldraw/blocknote/fullcalendar) = ~3-4 GB, + baixada de models on-first-use 1-2 GB. Docker NO té res recuperable segur (16,9 GB d'imatges actives = el fallback; build cache 0). **No es pot instal·lar amb seguretat.** Cal alliberar ~10-15 GB primer: el reset de OneDrive (53 GB, **necessita sign-in de l'usuari**) o sacrificar el fallback Docker (no abans que el natiu funcioni).
+
+### Runbook (executar quan hi hagi ~15 GB lliures; principi: NO desmuntar Docker fins que el natiu passi QA)
+1. **Prereqs:** `brew install python@3.11`.
+2. **Dades:** copiar del volum `gnosi_local_data` (només 31 MB; `cache/` 29 MB es regenera) → carpeta host (p. ex. `monorepo/apps/gnosi/local_data/`). Crític: `secrets/` (tokens OAuth), `tool_registry.sqlite`, `system/`, `local_file_links.json`. `management.sqlite`/`checkpoints.sqlite` buits.
+3. **Backend natiu:** `python3.11 -m venv .venv && .venv/bin/pip install --no-cache-dir -r requirements.txt`. `.env` amb: `DIGITAL_BRAIN_VAULT_PATH=<ruta host del vault>` (NO `/vault`), data dir = carpeta nova, `TRANSLATION_SERVER_URL=http://localhost:1969` (o buit → degrada bé), `AI_MODEL_URL` a localhost, `PYTHONPATH=monorepo/apps/gnosi`. Aturar Docker (port 5002) i `.venv/bin/uvicorn backend.server:app --port 5002`. PROVA DE FOC: `/api/vault/pages` ha de llegir online-only **sense EDEADLK** (és el sentit de tot).
+4. **Frontend natiu:** `cd frontend && npm install && npm run dev` (5173 HTTPS, certs ja hi són). El guard `predev` bloca si el contenidor `gnosi_frontend` viu → cal Docker frontend aturat. Apuntar `VITE_BACKEND_*` a localhost:5002.
+5. **translation-server: ES DEIXA FORA** (Ismael no el té a l'altre Mac; només és captura web de referències via `/translate-url`, degrada bé). Docker 0%.
+6. **QA** funció per funció vs Docker (BD, dashboard, mail, calendari, cerca/cites, traducció es↔fr).
+7. **Decommission** (només si QA passa): reescriure `com.gnosi.boot` per arrencar serveis natius (LaunchAgent uvicorn + vite); **eliminar `com.gnosi.docker-watchdog` i `com.gnosi.onedrive-warmup`** (ja no calen); `docker compose down` (SENSE `-v`); recuperar 16,9 GB d'imatges + Docker.raw; actualitzar CLAUDE.md (fi de la doctrina "Docker first").
+
+### ✅ Mètode SEGUR per reiniciar OneDrive (sense penjar Docker) — 2026-06-17
+El `killall fileproviderd` és el que va tombar Docker (mata el mount que Docker re-munta). A més, va deixar el procés principal de OneDrive **espinejant 10 h al 113% CPU sense xarxa** (bucle local, no sync) i sense reclamar res. **Mètode correcte:** reiniciar NOMÉS l'app de OneDrive, deixant `fileproviderd` i la File Provider extension vius (així el mount es manté i Docker no pateix):
+1. `osascript -e 'tell application "OneDrive" to quit'`; si l'spinner no respon (no ho fa: ignora quit i SIGTERM), `kill -9 <PID exacte del procés .../MacOS/OneDrive>` — NO `killall fileproviderd`, NO matar `OneDrive File Provider.appex`.
+2. `open -a OneDrive`.
+3. Verificat: Docker es manté `healthy` tot el temps, l'spin desapareix (procés nou a ~45-70% fent reconcile REAL), i el disc **va alliberant** (4,7 → 7,9 GB en minuts; la instància nova evicta orfes de debò, l'encallada no). Si cal recuperar els 53 GB sencers, el reset complet del magatzem (tancar sessió + refer .noindex) segueix sent l'última opció, amb finestra.
