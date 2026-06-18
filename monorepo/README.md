@@ -72,12 +72,27 @@ docker-compose up -d --build
 
 This bundles the backend, frontend, and the Zotero translation-server together.
 
+## ⚙️ Configuration
+
+- **Vault path** — point Gnosi at your Markdown folder via `params.yaml` (or the relevant `VAULT` setting). Keep the vault out of the local-only data directory; never put the SQLite database on cloud-synced storage.
+- **Credentials** — API keys and integration tokens (mail, Google/Microsoft, AI providers) are managed from **Settings → Credentials** in the UI, and can also be provided via environment variables (`.env_shared` for shared values, `.env` for local overrides).
+
+### Personal vs. Organization mode
+
+Gnosi runs in one of two modes (`gnosi_mode`):
+
+- **`personal`** *(default)* — a single user, no login, zero auth overhead. Collaboration and workspace gating are off.
+- **`org`** — multi-user: login is required, requests are authenticated with a JWT session cookie, and workspace membership / roles are enforced. Real-time presence activates here.
+
 ## 📂 Repository layout
 
 ```
-apps/gnosi/      # The Gnosi app: FastAPI backend + React frontend + pipeline
-packages/        # Shared MCP servers and packages
-scripts/         # Repo tooling
+apps/gnosi/          # The Gnosi app
+├── backend/         # FastAPI: routes (api/), services, models, agent, scheduler
+├── frontend/        # React + Vite (BlockNote editor, Sigma.js graph)
+└── pipeline/        # Python skills/scripts (analysis, integrations, tools)
+packages/            # Shared MCP servers and packages
+scripts/             # Repo tooling
 ```
 
 ## 🤝 Contributing
