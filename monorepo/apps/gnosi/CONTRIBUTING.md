@@ -13,13 +13,14 @@ Gnosi is **free software under the AGPL-3.0-or-later**. By contributing, you agr
 
 ## Repository layout
 
-The authoritative code lives at **`monorepo/apps/gnosi/`**. That's what Docker mounts, what the release workflow packages, and what the public mirror is synced from. Always make changes there.
+The app lives at **`apps/gnosi/`** — backend, frontend, and pipeline. That's what the release workflow packages and what the desktop build bundles. Most changes happen there.
 
 ```
-monorepo/apps/gnosi/
+apps/gnosi/
 ├── backend/      # FastAPI app: api/ (routes), services/ (logic), models/, agent/, scheduler/
 ├── frontend/     # React + Vite SPA (BlockNote editor, Sigma.js graph)
 ├── pipeline/     # Python "skills" — analysis, integrations, idempotent scripts
+├── electron/     # Electron desktop wrapper (packaged installers)
 └── e2e/          # Playwright end-to-end tests (host-level project)
 ```
 
@@ -31,7 +32,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together and where
 
 - **Python 3.10+**
 - **Node.js** & **npm**
-- **Docker** (recommended — it bundles backend, frontend, and the Zotero translation-server)
+- **(Optional) Docker** — an all-in-one alternative that bundles backend, frontend, and the Zotero translation-server.
 
 ### First-time setup (fresh clone)
 
@@ -39,30 +40,17 @@ Build the bundled PDF/EPUB reader once (the build artifacts are not committed):
 
 ```bash
 git submodule update --init --recursive
-sh monorepo/apps/gnosi/sh/build-zotero-reader.sh
+sh apps/gnosi/sh/build-zotero-reader.sh
 ```
 
 Without this step, documents in the vault return 404 in the reader. Re-run it whenever you update the submodule.
 
-### Run with Docker (recommended)
-
-```bash
-cd monorepo/apps/gnosi
-docker-compose up -d --build
-```
-
-- Frontend → `http://localhost:5173`
-- Backend API → `http://localhost:5002` (health check at `/api/health`)
-- translation-server → internal only
-
-Stop everything with `docker-compose down`.
-
-### Run locally (alternative)
+### Run natively (recommended)
 
 **Backend** (FastAPI / uvicorn):
 
 ```bash
-cd monorepo/apps/gnosi
+cd apps/gnosi
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
@@ -71,12 +59,25 @@ uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
 **Frontend** (Vite dev server — proxies `/api` to the backend):
 
 ```bash
-cd monorepo/apps/gnosi/frontend
+cd apps/gnosi/frontend
 npm install
 npm run dev
 ```
 
 Then open `http://localhost:5173`.
+
+### Run with Docker (optional)
+
+```bash
+cd apps/gnosi
+docker-compose up -d --build
+```
+
+- Frontend → `http://localhost:5173`
+- Backend API → `http://localhost:5002` (health check at `/api/health`)
+- translation-server → internal only
+
+Stop everything with `docker-compose down`.
 
 ## Coding conventions
 
@@ -110,17 +111,17 @@ npm run build   # must complete with zero errors
 npm run lint    # fix lint issues before opening a PR
 ```
 
-**Backend** — run the test suite with pytest (inside Docker is fine):
+**Backend** — run the test suite with pytest (with your venv active):
 
 ```bash
-cd monorepo/apps/gnosi
+cd apps/gnosi
 pytest            # or: pytest --cov
 ```
 
 **End-to-end** — Playwright tests live in `e2e/` as a separate host-level project (the frontend container is Alpine/musl, which Playwright browsers don't support). First time:
 
 ```bash
-cd monorepo/apps/gnosi/e2e
+cd apps/gnosi/e2e
 npm install
 npx playwright install chromium
 ```

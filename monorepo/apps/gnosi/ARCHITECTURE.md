@@ -31,12 +31,13 @@ This document explains how Gnosi is put together so you can find your way around
 
 ## Repository layout & publishing
 
-The authoritative code lives at **`monorepo/apps/gnosi/`**. This is what Docker mounts, what the release workflow packages, and what the public mirror (`Gnosi.git`) is synced from via `.github/workflows/sync.yml` (which exports `monorepo/**`). Documentation meant for the public lives under `monorepo/apps/gnosi/` for this reason.
+In this public repository the app lives at **`apps/gnosi/`** — backend, frontend, pipeline, and the Electron desktop wrapper. It is mirrored from a development monorepo via `.github/workflows/sync.yml`, and it is what the release workflow packages into the desktop installers.
 
 ```
-monorepo/apps/gnosi/
+apps/gnosi/
 ├── backend/      FastAPI application
 ├── frontend/     React + Vite SPA
+├── electron/     Electron desktop wrapper (packaged installers)
 └── pipeline/     Python "skills" — analysis, integrations, idempotent scripts
 ```
 

@@ -35,6 +35,8 @@ The application lives in [`apps/gnosi/`](apps/gnosi/). See [ARCHITECTURE.md](app
 
 ## 🚀 Quick start
 
+> **Just want to use Gnosi?** Download the **desktop app** (macOS, Windows, Linux) from the [Releases](https://github.com/ismigar/Gnosi/releases) page — it bundles the backend, so there's nothing to set up. *(Beta; builds are currently unsigned.)* The steps below are for development and self-hosting.
+
 **Prerequisites:** Python 3.10+, Node.js & npm. *(Optional)* Docker, and [Ollama](https://ollama.com/) or any OpenAI-compatible API for local AI features.
 
 First-time setup builds the Zotero PDF/EPUB reader bundle once (build artifacts are not committed):
@@ -74,7 +76,7 @@ This bundles the backend, frontend, and the Zotero translation-server together.
 
 ## ⚙️ Configuration
 
-- **Vault path** — point Gnosi at your Markdown folder via `params.yaml` (or the relevant `VAULT` setting). Keep the vault out of the local-only data directory; never put the SQLite database on cloud-synced storage.
+- **Vault path** — copy `apps/gnosi/config/params.yaml.example` to `params.yaml` and set `paths.vault`, or point Gnosi at your folder via the `VAULT_HOST_PATH` / `DIGITAL_BRAIN_VAULT_PATH` environment variable. Keep the vault out of the local-only data directory; never put the SQLite database on cloud-synced storage.
 - **Credentials** — API keys and integration tokens (mail, Google/Microsoft, AI providers) are managed from **Settings → Credentials** in the UI, and can also be provided via environment variables (`.env_shared` for shared values, `.env` for local overrides).
 
 ### Personal vs. Organization mode
@@ -90,6 +92,7 @@ Gnosi runs in one of two modes (`gnosi_mode`):
 apps/gnosi/          # The Gnosi app
 ├── backend/         # FastAPI: routes (api/), services, models, agent, scheduler
 ├── frontend/        # React + Vite (BlockNote editor, Sigma.js graph)
+├── electron/        # Electron desktop wrapper (packaged installers)
 └── pipeline/        # Python skills/scripts (analysis, integrations, tools)
 packages/            # Shared MCP servers and packages
 scripts/             # Repo tooling
@@ -100,6 +103,8 @@ scripts/             # Repo tooling
 Contributions are welcome — see [CONTRIBUTING.md](apps/gnosi/CONTRIBUTING.md) for setup, conventions, and the review process.
 
 ## 📄 License
+
+Copyright © 2024-2026 Ismael García Fernández.
 
 Distributed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later). See [LICENSE](LICENSE) for the full text.
 
