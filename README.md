@@ -28,7 +28,7 @@ It is being prepared for use by cooperatives that want a shared, auditable, vend
 
 - **Backend** — Python **FastAPI** (served by `uvicorn`), with a SQLite "management" database for users/workspaces and an on-disk Markdown vault as the source of truth.
 - **Frontend** — **React + Vite** (BlockNote editor, Sigma.js graph).
-- **Reference capture** — a Zotero `translation-server` sidecar (Docker) powers web import.
+- **Reference capture** — a Zotero `translation-server` sidecar powers web import (run it natively or via Docker).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture and [CONTRIBUTING.md](CONTRIBUTING.md) to start hacking.
 
@@ -36,7 +36,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture and [CONTRIBUTING.md
 
 - **Python 3.10+**
 - **Node.js** & **npm**
-- **Docker** (recommended — it bundles the backend, frontend, and the Zotero translation-server)
+- **(Optional) Docker** — an alternative one-command setup that bundles the backend, frontend, and the Zotero translation-server.
 - **(Optional) Local AI** — [Ollama](https://ollama.com/) or any OpenAI-compatible API for semantic features.
 
 ## 🧱 First-time setup (fresh clone)
@@ -50,7 +50,34 @@ sh monorepo/apps/gnosi/sh/build-zotero-reader.sh
 
 The script clones the sub-submodules (pdf.js, epub.js), installs their deps, builds `build/web/`, and copies it to `frontend/public/zotero-reader/`. It takes ~2 minutes the first time. Without it, PDFs and other documents in the vault return 404 in the reader iframe. Re-run it whenever you update the submodule (`git submodule update --remote`).
 
-## 🐳 Run with Docker (recommended)
+## 🏃 Run natively (recommended)
+
+Gnosi is just a FastAPI backend plus a Vite frontend — run them directly, no containers required.
+
+**Backend** (FastAPI on `uvicorn`, port 5002):
+
+```bash
+cd monorepo/apps/gnosi
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
+```
+
+**Frontend** (Vite dev server, proxies `/api` to the backend, port 5173):
+
+```bash
+cd monorepo/apps/gnosi/frontend
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173`.
+
+> **Web reference capture** is powered by a Zotero `translation-server`. Run it on its own (e.g. via `npx @zotero/translation-server`, or the optional Docker setup below) and point the backend at it; everything else works without it.
+
+## 🐳 Run with Docker (optional)
+
+Prefer a single command, or deploying on a server? Docker bundles the backend, frontend, and the translation-server together:
 
 ```bash
 cd monorepo/apps/gnosi
@@ -64,27 +91,6 @@ This starts three services:
 - **translation-server** → internal only (used by the backend for web reference capture)
 
 Stop everything with `docker-compose down`.
-
-## 🏃 Run locally (alternative)
-
-**Backend** (FastAPI):
-
-```bash
-cd monorepo/apps/gnosi
-python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
-```
-
-**Frontend** (Vite dev server, proxies `/api` to the backend):
-
-```bash
-cd monorepo/apps/gnosi/frontend
-npm install
-npm run dev
-```
-
-Then open `http://localhost:5173`.
 
 ## ⚙️ Configuration
 
