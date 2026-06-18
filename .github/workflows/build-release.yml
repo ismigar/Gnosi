@@ -177,7 +177,9 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           draft: true
-          prerelease: false
+          # prerelease=true només si el tag porta sufix (v1.0.0-beta.1, -rc.2…);
+          # els tags nets (v0.2.0, v1.0.0) surten com a release normal.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
           files: |
             artifacts/*.dmg
