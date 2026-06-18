@@ -1,0 +1,459 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
+import { useTranslation } from 'react-i18next';
+import { X, Send, Loader2, RefreshCw, AlertTriangle, Sparkles, ArrowLeft } from 'lucide-react';
+import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+
+// Modal "Publicar a XXSS": tries xarxes → la IA proposa un text adaptat per
+// cada una (en el MATEIX idioma que l'original) → edites/regeneres → publiques o
+// programes. La publicació real i el registre a la taula "Publicacions Socials"
+// els fa el backend (/api/social/compose, /publish, /schedule).
+//
+// Es pot obrir des d'un registre del Vault (passant `noteId`: agafa títol i cos
+// de la pàgina) o en mode lliure (sense `noteId`: l'usuari escriu el contingut).
+export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetadata = {}, onPublished }) {
+    const { t } = useTranslation();
+    const containerRef = useRef(null);
+
+    const [networks, setNetworks] = useState([]);          // [{id,name,icon,configured,char_limit,...}]
+    const [selected, setSelected] = useState(new Set());
+    const [step, setStep] = useState('select');            // 'select' | 'compose'
+
+    const [sourceTitle, setSourceTitle] = useState('');
+    const [sourceContent, setSourceContent] = useState('');
+    const [hint, setHint] = useState('');
+
+    const [proposals, setProposals] = useState({});         // {net: {text,hashtags,char_count,over_limit,provider}}
+    const [drafts, setDrafts] = useState({});               // {net: text editat}
+    const [variationByNet, setVariationByNet] = useState({});
+    const [regeneratingNet, setRegeneratingNet] = useState(null);
+
+    const [composing, setComposing] = useState(false);
+    const [publishing, setPublishing] = useState(false);
+    const [scheduleOpen, setScheduleOpen] = useState(false);
+    const [scheduledAt, setScheduledAt] = useState('');
+
+    const busy = composing || publishing;
+
+    // Reinicialitza en obrir i carrega xarxes + contingut origen.
+    useEffect(() => {
+        if (!isOpen) return;
+        setStep('select');
+        setProposals({});
+        setDrafts({});
+        setVariationByNet({});
+        setScheduleOpen(false);
+        setScheduledAt('');
+        setHint('');
+
+        // Contingut origen: títol del registre com a punt de partida.
+        setSourceTitle(String(recordMetadata?.title || '').trim());
+        setSourceContent('');
+
+        (async () => {
+            try {
+                const res = await axios.get('/api/social/networks');
+                const list = (res.data || []).filter((n) => n.enabled !== false);
+                setNetworks(list);
+                // Preselecciona les configurades.
+                setSelected(new Set(list.filter((n) => n.configured).map((n) => n.id)));
+            } catch (err) {
+                console.error('Error carregant xarxes:', err);
+                toast.error(t('social.networks_error', 'No s\'han pogut carregar les xarxes.'));
+            }
+
+            // Si venim d'un registre, carreguem el cos de la pàgina per donar
+            // millor context a la IA. Si falla, derivem del metadata.
+            if (noteId) {
+                try {
+                    const res = await axios.get(`/api/vault/pages/${noteId}`);
+                    const d = res.data || {};
+                    setSourceTitle(String(d.title || d.metadata?.title || recordMetadata?.title || '').trim());
+                    setSourceContent(String(d.content || '').trim() || deriveContent(recordMetadata));
+                } catch (err) {
+                    setSourceContent(deriveContent(recordMetadata));
+                }
+            }
+        })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, noteId]);
+
+    const charLimitFor = (net) => networks.find((n) => n.id === net)?.char_limit || 280;
+    const iconFor = (net) => networks.find((n) => n.id === net)?.icon || '🌐';
+    const nameFor = (net) => networks.find((n) => n.id === net)?.name || net;
+
+    const selectedList = useMemo(() => [...selected], [selected]);
+    const overLimitNets = useMemo(
+        () => selectedList.filter((net) => (drafts[net] || '').length > charLimitFor(net)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [selectedList, drafts, networks],
+    );
+
+    const toggleNetwork = (id) => {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const handleGenerate = async () => {
+        if (selected.size === 0) {
+            toast.error(t('social.pick_network', 'Selecciona almenys una xarxa.'));
+            return;
+        }
+        if (!sourceContent.trim() && !sourceTitle.trim()) {
+            toast.error(t('social.need_content', 'Cal un contingut per generar les publicacions.'));
+            return;
+        }
+        setComposing(true);
+        try {
+            const res = await axios.post('/api/social/compose', {
+                networks: selectedList,
+                content: sourceContent,
+                title: sourceTitle,
+                source_page_id: noteId || null,
+                hint,
+            }, { timeout: 120000 });
+            const props = res.data?.proposals || {};
+            setProposals(props);
+            setDrafts(Object.fromEntries(Object.entries(props).map(([net, p]) => [net, p.text || ''])));
+            setStep('compose');
+        } catch (err) {
+            console.error('Error generant publicacions:', err);
+            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            toast.error(`${t('social.compose_error', 'Error generant les propostes')}: ${msg}`);
+        } finally {
+            setComposing(false);
+        }
+    };
+
+    const handleRegenerate = async (net) => {
+        const v = (variationByNet[net] || 0) + 1;
+        setRegeneratingNet(net);
+        try {
+            const res = await axios.post('/api/social/compose', {
+                networks: selectedList,
+                content: sourceContent,
+                title: sourceTitle,
+                source_page_id: noteId || null,
+                hint,
+                regenerate_only: [net],
+                variation: v,
+            }, { timeout: 120000 });
+            const p = res.data?.proposals?.[net];
+            if (p) {
+                setProposals((prev) => ({ ...prev, [net]: p }));
+                setDrafts((prev) => ({ ...prev, [net]: p.text || '' }));
+                setVariationByNet((prev) => ({ ...prev, [net]: v }));
+            }
+        } catch (err) {
+            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            toast.error(`${t('social.regen_error', 'Error regenerant')}: ${msg}`);
+        } finally {
+            setRegeneratingNet(null);
+        }
+    };
+
+    const buildPosts = () => {
+        const posts = {};
+        for (const net of selectedList) {
+            const text = (drafts[net] || '').trim();
+            if (text) posts[net] = { text };
+        }
+        return posts;
+    };
+
+    const handlePublish = async () => {
+        const posts = buildPosts();
+        if (Object.keys(posts).length === 0) {
+            toast.error(t('social.nothing_to_publish', 'No hi ha cap text per publicar.'));
+            return;
+        }
+        if (overLimitNets.length > 0) {
+            toast.error(t('social.over_limit', { nets: overLimitNets.map(nameFor).join(', '), defaultValue: 'Excedeix el límit a: {{nets}}.' }));
+            return;
+        }
+        setPublishing(true);
+        try {
+            const res = await axios.post('/api/social/publish', {
+                posts,
+                source_page_id: noteId || null,
+                source_title: sourceTitle,
+            }, { timeout: 120000 });
+            reportResults(res.data?.results || {});
+            if (onPublished) onPublished(res.data);
+            onClose();
+        } catch (err) {
+            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            toast.error(`${t('social.publish_error', 'Error publicant')}: ${msg}`);
+        } finally {
+            setPublishing(false);
+        }
+    };
+
+    const handleSchedule = async () => {
+        const posts = buildPosts();
+        if (Object.keys(posts).length === 0) {
+            toast.error(t('social.nothing_to_publish', 'No hi ha cap text per publicar.'));
+            return;
+        }
+        if (!scheduledAt || new Date(scheduledAt) <= new Date()) {
+            toast.error(t('social.schedule_future', 'Tria una data futura.'));
+            return;
+        }
+        if (overLimitNets.length > 0) {
+            toast.error(t('social.over_limit', { nets: overLimitNets.map(nameFor).join(', '), defaultValue: 'Excedeix el límit a: {{nets}}.' }));
+            return;
+        }
+        setPublishing(true);
+        try {
+            const res = await axios.post('/api/social/schedule', {
+                posts,
+                scheduled_time: new Date(scheduledAt).toISOString(),
+                source_page_id: noteId || null,
+                source_title: sourceTitle,
+            });
+            toast.success(t('social.scheduled_ok', 'Publicació programada.'));
+            if (onPublished) onPublished(res.data);
+            onClose();
+        } catch (err) {
+            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            toast.error(`${t('social.schedule_error', 'Error programant')}: ${msg}`);
+        } finally {
+            setPublishing(false);
+        }
+    };
+
+    const reportResults = (results) => {
+        const oks = Object.entries(results).filter(([, r]) => r.status === 'success').map(([n]) => nameFor(n));
+        const errs = Object.entries(results).filter(([, r]) => r.status === 'error').map(([n]) => nameFor(n));
+        if (oks.length && !errs.length) {
+            toast.success(t('social.published_ok', { nets: oks.join(', '), defaultValue: 'Publicat a: {{nets}}.' }));
+        } else if (oks.length && errs.length) {
+            toast.success(t('social.published_partial', { ok: oks.join(', '), err: errs.join(', '), defaultValue: 'Publicat a {{ok}}. Ha fallat a {{err}}.' }));
+        } else {
+            toast.error(t('social.published_none', { nets: errs.join(', '), defaultValue: 'No s\'ha pogut publicar a: {{nets}}.' }));
+        }
+    };
+
+    useModalKeyboard({ isOpen, onClose, containerRef });
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
+            onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}
+        >
+            <div
+                ref={containerRef}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col border border-[var(--border-primary)]"
+            >
+                <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
+                    <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                        <Send size={18} className="text-[var(--gnosi-primary)]" />
+                        {t('social.publish_title', 'Publicar a XXSS')}
+                    </h2>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar" disabled={busy}>
+                        <X />
+                    </button>
+                </div>
+
+                <div className="p-5 space-y-4 overflow-y-auto">
+                    {step === 'select' && (
+                        <>
+                            {!noteId && (
+                                <div className="space-y-2">
+                                    <input
+                                        type="text"
+                                        value={sourceTitle}
+                                        onChange={(e) => setSourceTitle(e.target.value)}
+                                        placeholder={t('social.source_title_ph', 'Títol o tema (opcional)')}
+                                        className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                    />
+                                    <textarea
+                                        value={sourceContent}
+                                        onChange={(e) => setSourceContent(e.target.value)}
+                                        rows={4}
+                                        placeholder={t('social.source_content_ph', 'Contingut que vols difondre…')}
+                                        className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] resize-y"
+                                    />
+                                </div>
+                            )}
+                            {noteId && (
+                                <p className="text-xs text-[var(--text-secondary)]/80">
+                                    {t('social.from_record', { title: sourceTitle || '—', defaultValue: 'Origen: «{{title}}». La IA en proposarà un text per xarxa en el mateix idioma.' })}
+                                </p>
+                            )}
+
+                            <div>
+                                <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">
+                                    {t('social.pick_networks', 'Xarxes on publicar')}
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {networks.map((n) => {
+                                        const on = selected.has(n.id);
+                                        const disabled = n.configured === false;
+                                        return (
+                                            <label
+                                                key={n.id}
+                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                                                    disabled
+                                                        ? 'opacity-50 cursor-not-allowed border-[var(--border-primary)]'
+                                                        : on
+                                                            ? 'bg-[var(--gnosi-primary)]/10 border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] font-semibold cursor-pointer'
+                                                            : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] cursor-pointer'
+                                                }`}
+                                                title={disabled ? t('social.not_configured', 'No configurada — connecta-la a Configuració') : ''}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={on}
+                                                    disabled={disabled || busy}
+                                                    onChange={() => toggleNetwork(n.id)}
+                                                    className="w-3.5 h-3.5"
+                                                />
+                                                <span>{n.icon}</span>
+                                                <span className="flex-1">{n.name}</span>
+                                                {disabled && <span className="text-[10px] uppercase text-[var(--text-tertiary)]">{t('social.off', 'off')}</span>}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <input
+                                type="text"
+                                value={hint}
+                                onChange={(e) => setHint(e.target.value)}
+                                placeholder={t('social.hint_ph', 'Instrucció per a la IA (opcional): to, èmfasi…')}
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                            />
+                        </>
+                    )}
+
+                    {step === 'compose' && (
+                        <div className="space-y-3">
+                            {selectedList.filter((net) => proposals[net] !== undefined).map((net) => {
+                                const limit = charLimitFor(net);
+                                const len = (drafts[net] || '').length;
+                                const over = len > limit;
+                                return (
+                                    <div key={net} className="rounded-lg border border-[var(--border-primary)] overflow-hidden">
+                                        <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-secondary)]">
+                                            <span className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+                                                <span>{iconFor(net)}</span> {nameFor(net)}
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[11px] tabular-nums ${over ? 'text-red-500 font-bold' : 'text-[var(--text-tertiary)]'}`}>
+                                                    {len}/{limit}
+                                                </span>
+                                                <button
+                                                    onClick={() => handleRegenerate(net)}
+                                                    disabled={regeneratingNet === net || busy}
+                                                    className="p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors disabled:opacity-50"
+                                                    title={t('social.regenerate', 'Regenerar')}
+                                                >
+                                                    {regeneratingNet === net
+                                                        ? <Loader2 size={14} className="animate-spin" />
+                                                        : <RefreshCw size={14} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <textarea
+                                            value={drafts[net] || ''}
+                                            onChange={(e) => setDrafts((prev) => ({ ...prev, [net]: e.target.value }))}
+                                            rows={4}
+                                            className={`w-full px-3 py-2 text-sm bg-[var(--bg-primary)] text-[var(--text-primary)] resize-y outline-none ${over ? 'border-t border-red-500/40' : ''}`}
+                                        />
+                                    </div>
+                                );
+                            })}
+
+                            {overLimitNets.length > 0 && (
+                                <p className="text-[11px] text-red-500 flex items-center gap-1">
+                                    <AlertTriangle size={12} />
+                                    {t('social.over_limit_hint', 'Algun text supera el límit. Escurça\'l abans de publicar.')}
+                                </p>
+                            )}
+
+                            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer">
+                                <input type="checkbox" checked={scheduleOpen} onChange={(e) => setScheduleOpen(e.target.checked)} disabled={busy} />
+                                {t('social.schedule_later', 'Programar per a més tard')}
+                            </label>
+                            {scheduleOpen && (
+                                <input
+                                    type="datetime-local"
+                                    value={scheduledAt}
+                                    onChange={(e) => setScheduledAt(e.target.value)}
+                                    disabled={busy}
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                />
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="px-5 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-2 shrink-0">
+                    {step === 'select' ? (
+                        <>
+                            <button
+                                onClick={onClose}
+                                disabled={busy}
+                                className="px-4 py-2 border border-[var(--border-primary)] rounded-md text-sm font-bold text-[var(--text-secondary)]/80 hover:bg-[var(--bg-primary)] transition-colors disabled:opacity-50"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                onClick={handleGenerate}
+                                disabled={busy || selected.size === 0}
+                                className="btn-gnosi btn-gnosi-primary px-5 flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {composing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                                {t('social.generate', 'Generar amb IA')}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => setStep('select')}
+                                disabled={busy}
+                                className="px-3 py-2 border border-[var(--border-primary)] rounded-md text-sm font-bold text-[var(--text-secondary)]/80 hover:bg-[var(--bg-primary)] transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                                <ArrowLeft size={14} /> {t('common.back', 'Enrere')}
+                            </button>
+                            <button
+                                onClick={scheduleOpen ? handleSchedule : handlePublish}
+                                disabled={busy || overLimitNets.length > 0}
+                                className="btn-gnosi btn-gnosi-primary px-5 flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                {scheduleOpen ? t('social.schedule_submit', 'Programar') : t('social.publish_submit', 'Publica ara')}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Deriva un contingut raonable del metadata d'un registre quan no podem llegir
+// el cos de la pàgina: títol + el camp de text més llarg.
+function deriveContent(meta) {
+    if (!meta || typeof meta !== 'object') return '';
+    const parts = [];
+    if (meta.title) parts.push(String(meta.title));
+    let longest = '';
+    for (const [k, v] of Object.entries(meta)) {
+        if (k === 'title') continue;
+        if (typeof v === 'string' && v.length > longest.length) longest = v;
+    }
+    if (longest) parts.push(longest);
+    return parts.join('\n\n').trim();
+}
+
+export default PublishSocialModal;

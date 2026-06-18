@@ -1,0 +1,125 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gnosi_backend
+    # Hot-reload en desenvolupament: el codi del backend es munta com a
+    # volum (`./backend:/app/backend`), però uvicorn sense `--reload`
+    # només llegeix el codi a l'arrencada. Després d'un `git pull` calia
+    # reiniciar el contenidor a mà o el procés seguia executant codi vell
+    # (això va provocar que el fix del PATCH de dashboards no tingués
+    # efecte fins a `docker restart`). Amb `--reload` + `--reload-dir`
+    # limitat a `/app/backend`, uvicorn detecta els canvis del codi font
+    # i es recarrega sol, sense vigilar `/vault` ni `/app/data` (que
+    # tenen milers de fitxers i saturarien el watcher).
+    command: uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload --reload-dir /app/backend
+    ports:
+      - "5002:5002"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Root del vault al host. Per defecte el OneDrive de l'autor, però
+      # overridable via VAULT_HOST_PATH al `.env` local → funciona amb un altre
+      # núvol (Dropbox/iCloud/Drive) o sense núvol (carpeta local). Dins el
+      # contenidor el vault SEMPRE és /vault, així que el codi és cloud-agnòstic.
+      - ${VAULT_HOST_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi}:/vault
+      # Biblioteca és germana del vault (fora de Gnosi) i conté els PDFs/adjunts
+      # dels Recursos. El backend hi escriu quan un camp `files` té
+      # storage_folder=biblioteca. El mount de $HOME és read-only, així que cal
+      # un mount rw específic. Es munta a la MATEIXA ruta del host perquè el path
+      # que es desa a la fitxa sigui directament la ruta del host (sense traducció
+      # contenidor↔host) i el visor/Finder el pugui obrir.
+      - ${BIBLIOTECA_HOST_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Biblioteca}:${BIBLIOTECA_HOST_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Biblioteca}:rw
+      # $HOME is read-only: the backend reads project files (analytics scans
+      # docs/dev_memory/directives, system /browse navigates user directories,
+      # scratch_sync imports modules) but does not need to write outside the
+      # vault, /app/backend and the named gnosi_local_data volume.
+      - ${HOME}:${HOME}:ro
+      # Only the agent mailbox archive needs write access (system_maintenance
+      # task purges old messages). Scoped explicitly so a process inside the
+      # container can't tamper with the rest of $HOME.
+      - ${REPO_ROOT:-$HOME/Projectes}/.antigravity:${REPO_ROOT:-$HOME/Projectes}/.antigravity:rw
+      - ${HOME}/.gnosi:/root/.gnosi:ro
+      - ./backend:/app/backend
+      # Credencials d'integracions (tokens Google, contrasenyes IMAP/SMTP)
+      # editades via UI han de persistir entre rebuilds del container. La
+      # resta de `pipeline/` queda a la imatge perquè és codi versionat;
+      # només els secrets es mantenen al host (gitignored a apps/gnosi/.gitignore).
+      - ./pipeline/private_skills/secrets:/app/pipeline/private_skills/secrets
+      # Local-only data (SQLite, caches, indices). NEVER point at cloud-synced
+      # storage — SQLite + cloud sync = corruption. See paths_config.py.
+      - gnosi_local_data:/app/data
+    # Rutes del host parametritzades: ${HOME} resol per màquina. Per usar un
+    # altre núvol o cap, defineix al `.env` local (gitignored, auto-carregat per
+    # compose) VAULT_HOST_PATH i BIBLIOTECA_HOST_PATH (i opcionalment
+    # GNOSI_FILES_PROVIDER=local|icloud|gdrive|nextcloud). ${REPO_ROOT} (arrel
+    # del repo, per al mount de .antigravity) per defecte és $HOME/Projectes; si
+    # el repo viu en una altra ubicació, defineix REPO_ROOT al mateix `.env`.
+    env_file:
+      - ../../../.env_shared # 1. Variables compartides
+      - .env # 2. Variables locals (sobreescriuen) — opcional: REPO_ROOT
+    environment:
+      - LOGGING_LEVEL=debug
+      - DIGITAL_BRAIN_VAULT_PATH=/vault
+      - VAULT_HOST_PATH=${VAULT_HOST_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi}
+      - BIBLIOTECA_HOST_PATH=${BIBLIOTECA_HOST_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Biblioteca}
+      - HOME_HOST_PATH=${HOME}
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      # Variables calculades dinàmicament o especials
+      - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
+      - TZ=Europe/Madrid
+      # Captura web de referències (Zotero translation-server, sidecar).
+      - TRANSLATION_SERVER_URL=http://translation-server:1969
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; urllib.request.urlopen('http://localhost:5002/api/health', timeout=3); sys.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: gnosi_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/frontend/node_modules
+    environment:
+      - VITE_BACKEND_HOST=backend
+      - VITE_BACKEND_PORT=5002
+      - CHOKIDAR_USEPOLLING=true
+      - TZ=Europe/Madrid
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Zotero translation-server: motor de captura web de referències (~700
+  # traductors específics per web + resolució per identificador). El backend
+  # l'utilitza via `POST /api/vault/translate-url` (xarxa interna de compose,
+  # nom de servei `translation-server`). No s'exposa al host: només l'usa el
+  # backend. Imatge oficial mantinguda per Zotero.
+  translation-server:
+    image: zotero/translation-server:latest
+    container_name: gnosi_translation_server
+    environment:
+      - TZ=Europe/Madrid
+    # Healthcheck: comprovem que el procés respon a TCP/HTTP, no que processi
+    # cap URL externa concreta. El POST original a example.com retornava 400
+    # (Zotero no té traductor per a aquesta pàgina) i wget marcava unhealthy
+    # malgrat el servei estar viu. Amb --spider + grep HTTP/ acceptem qualsevol
+    # status code (200, 404...) com a senyal de "procés escoltant".
+    healthcheck:
+      test: ["CMD-SHELL", "wget --server-response --spider --quiet --tries=1 --timeout=5 http://localhost:1969/ 2>&1 | grep -q 'HTTP/' || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  gnosi_local_data:
+    driver: local
