@@ -724,24 +724,42 @@ footer {
   align-items: center;
   gap: 10px;
 }
-.brand-mark {
+.brand-logo {
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  object-fit: contain;
-  box-shadow: 0 2px 8px rgba(34, 32, 28, 0.12);
+  background: linear-gradient(135deg, #0066ff, #00d4ff);
+  color: #fff;
+  font-weight: 800;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+  flex-shrink: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .brand .logo { font-size: 22px; }
 .footer-brand .brand { margin-bottom: 14px; }
-.footer-brand .brand-mark { width: 42px; height: 42px; }
+.footer-brand .brand-logo { width: 42px; height: 42px; font-size: 24px; }
 
 /* --- Hero: logo gran flotant --- */
 .hero-logo {
-  width: 100%;
-  max-width: 380px;
-  height: auto;
-  filter: drop-shadow(0 22px 45px rgba(34, 32, 28, 0.20));
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 44px;
+  background: linear-gradient(135deg, #0066ff, #00d4ff);
+  color: #fff;
+  font-weight: 800;
+  font-size: 130px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 22px 45px rgba(0, 102, 255, 0.35);
   animation: float 6s ease-in-out infinite;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @keyframes float {
   0%, 100% { transform: translateY(0); }
