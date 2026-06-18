@@ -8,10 +8,11 @@ venv/
 .env*.*
 
 # Data
-# Data
 backend/data/*.db
 backend/data/*.json
 backend/data/logs/
+# Dades locals del runtime NATIU (chroma, sqlite, index, cache) — mai al repo
+local_data/
 
 # Node
 node_modules/
