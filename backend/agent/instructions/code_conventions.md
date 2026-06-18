@@ -145,7 +145,7 @@ Types: feat, fix, docs, refactor, test, chore
 Examples:
 feat: add validation for generated tools
 fix: correct pagination error in Notion import connector
-docs: update n8n directive
+docs: update vault sync directive
 ```
 
 ---
