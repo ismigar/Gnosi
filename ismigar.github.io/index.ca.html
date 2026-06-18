@@ -3,22 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gnosi - El teu Segon Cervell Digital</title>
+    <title>Gnosi - El teu segon cervell digital, sobirà i open source</title>
     <meta
       name="description"
-      content="Gnosi és el teu segon cervell digital. Organitza coneixement, connecta idees i potencia la teva creativitat amb intel·ligència artificial."
+      content="Gnosi és un espai de treball local-first i open source: alternativa auto-allotjable a Notion i Obsidian. Notes, bases de dades, graf de coneixement, gestor de referències, correu, calendari i IA, sobre els teus propis arxius."
     />
     <link rel="stylesheet" href="styles.css" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <script>
+      (function() {
+        var lang = navigator.language || navigator.userLanguage || 'en';
+        var path = window.location.pathname;
+        var isDirect = !document.referrer || !document.referrer.includes('ismigar.github.io');
+        if (isDirect && (path.endsWith('index.html') || path === '/' || path.endsWith('/'))) {
+          if (lang.startsWith('ca')) {
+            window.location.replace('/index.ca.html');
+          } else if (!lang.startsWith('es')) {
+            window.location.replace('/index.en.html');
+          }
+        }
+      })();
+    </script>
   </head>
   <body>
     <nav class="navbar">
       <div class="nav-container">
-        <a href="#" class="logo">Gnosi</a>
+        <a href="#" class="brand">
+          <img src="assets/icon-512.png" alt="Logo de Gnosi" class="brand-mark" />
+          <span class="logo">Gnosi</span>
+        </a>
         <div class="nav-links">
-          <a href="#funcionalitats">Funcions</a>
-          <a href="#integracions">Integracions</a>
-          <a href="#comença">Començar</a>
+          <a href="#funcionalidades">Funcionalitats</a>
+          <a href="#ia">IA</a>
+          <a href="#instalacion">Instal·lació</a>
+          <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
         </div>
         <div class="lang-switch">
           <a href="/index.html">ES</a>
@@ -31,112 +49,282 @@
     <main>
       <section class="hero">
         <div class="hero-content">
-          <span class="badge">Codi Obert</span>
+          <span class="badge agpl">Open Source · AGPL-3.0</span>
           <h1>El teu segon cervell digital</h1>
           <p class="subtitle">
-            Gnosi connecta les teves notes, idees i coneixement en un graf visual intel·ligent. 
-            Descobreix connexions que no sabies que existien.
+            Gnosi és un espai de treball <strong>local-first</strong> i open source: l'alternativa
+            auto-allotjable a Notion i Obsidian. Les teves notes viuen com a Markdown portable, a
+            <strong>la teva</strong> màquina i sobre <strong>els teus</strong> arxius. Sense SaaS, sense lock-in.
           </p>
           <div class="hero-cta">
-            <a href="#comença" class="btn btn-primary">Prova ara</a>
-            <a href="#funcionalitats" class="btn btn-secondary">Saber més</a>
+            <a href="#instalacion" class="btn btn-primary">Instal·lar</a>
+            <a href="#funcionalidades" class="btn btn-secondary">Veure funcionalitats</a>
           </div>
         </div>
         <div class="hero-visual">
-          <div class="mockup-placeholder">
-            <div class="mockup-header">
-              <span class="dot red"></span>
-              <span class="dot yellow"></span>
-              <span class="dot green"></span>
-            </div>
-            <div class="mockup-content">
-              <div class="graph-preview">
-                <div class="node n1"></div>
-                <div class="node n2"></div>
-                <div class="node n3"></div>
-                <div class="node n4"></div>
-                <div class="node n5"></div>
-                <div class="node n6"></div>
-                <div class="edge e1"></div>
-                <div class="edge e2"></div>
-                <div class="edge e3"></div>
-                <div class="edge e4"></div>
-                <div class="edge e5"></div>
-              </div>
-            </div>
-          </div>
+          <img src="assets/logo-hero.png" alt="Gnosi — un cervell com a xarxa de coneixement" class="hero-logo" />
         </div>
       </section>
 
       <section class="problem">
         <div class="section-content">
-          <h2>Tens massa informació?</h2>
+          <h2>Massa informació, dispersa per tot arreu?</h2>
           <div class="problem-grid">
             <div class="problem-item">
               <div class="problem-icon">📚</div>
               <h3>Centenars de notes</h3>
-              <p>Articles guardats, notes de reunions, idees per a projectes... Perduts en carpetes.</p>
+              <p>Articles, lectures, cites de llibres, idees de projectes... perdudes en carpetes i apps diferents.</p>
             </div>
             <div class="problem-item">
               <div class="problem-icon">🔗</div>
               <h3>Sense connexions</h3>
-              <p>Idees relacionades en diferents apps, impossible trobar relacions entre elles.</p>
+              <p>Idees relacionades que mai es troben. Impossible veure el mapa complet del que saps.</p>
             </div>
             <div class="problem-item">
-              <div class="problem-icon">⏰</div>
-              <h3>Poc temps</h3>
-              <p>Reinventes la roda. No recordes que ja vas escriure sobre aquest tema fa mesos.</p>
+              <div class="problem-icon">🔒</div>
+              <h3>Dades captives</h3>
+              <p>El teu coneixement atrapat en servidors aliens, en formats propietaris que no controles.</p>
             </div>
           </div>
           <div class="solution">
-            <h3>Gnosi ho resol</h3>
-            <p>Un sistema que entén les teves notes i et mostra com es connecten.</p>
+            <h3>Gnosi ho reuneix tot</h3>
+            <p>Un únic espai que entén les teves notes, les connecta i les manté sempre teves.</p>
           </div>
         </div>
       </section>
 
-      <section id="funcionalitats" class="features">
+      <section class="modules">
         <div class="section-header">
-          <h2>Tot el que necessites</h2>
-          <p>Funcionalitats dissenyades per pensar millor</p>
+          <h2>Un espai, tots els teus mons</h2>
+          <p>Tot el que fas servir cada dia, integrat en una sola aplicació</p>
+        </div>
+        <div class="modules-grid">
+          <div class="module-card">
+            <img src="assets/icon-home.png" alt="" class="module-icon" />
+            <h3>Inici</h3>
+            <p>El teu panell i la teva agenda del dia</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-vault.png" alt="" class="module-icon" />
+            <h3>Vault</h3>
+            <p>Notes, bases de dades i graf</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-reader.png" alt="" class="module-icon" />
+            <h3>Lector</h3>
+            <p>PDF, EPUB i feeds RSS</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-mail.png" alt="" class="module-icon" />
+            <h3>Correu</h3>
+            <p>IMAP amb push en temps real</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-calendar.png" alt="" class="module-icon" />
+            <h3>Calendari</h3>
+            <p>Esdeveniments i contactes</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-social.png" alt="" class="module-icon" />
+            <h3>Social</h3>
+            <p>Publica a xarxes amb IA</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="funcionalidades" class="features">
+        <div class="section-header">
+          <h2>Tot el que necessites per pensar millor</h2>
+          <p>De la captura a la connexió, passant per la publicació</p>
         </div>
         <div class="features-grid">
+          <div class="feature-cat">Coneixement</div>
           <div class="feature-card">
-            <div class="feature-icon">🕸️</div>
-            <h3>Graf de Coneixement</h3>
-            <p>Visualitza les teves notes com un mapa interactiu. Cada idea és un node, cada connexió és un camí.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="11" width="12" height="3" rx="1"/><rect x="3" y="17" width="16" height="3" rx="1"/></svg></div>
+            <h3>Editor de blocs</h3>
+            <p>Editor WYSIWYG estil Notion sobre Markdown estàndard: comandes slash, columnes, callouts i blocs embed (PDF, vídeo, web).</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📝</div>
-            <h3>Editor de Blocs</h3>
-            <p>Crea contingut ric amb text, imatges, taules i enllaços. Com Notion, però teu.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="20"/></svg></div>
+            <h3>Bases de dades i vistes</h3>
+            <p>Converteix carpetes en taules amb camps tipats (estat, relació, data, imatge, autoria...) i vistes taula, galeria, kanban, calendari i timeline.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🤖</div>
-            <h3>Assistent IA</h3>
-            <p>Pregunta al teu segon cervell en llenguatge natural. Gnosy t'ajuda a connectar idees.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="12" cy="17" r="2.5"/><line x1="8" y1="7.5" x2="10.5" y2="15"/><line x1="16.5" y1="9" x2="13.5" y2="15.5"/><line x1="8.2" y1="6.6" x2="15.5" y2="6.9"/></svg></div>
+            <h3>Graf de coneixement</h3>
+            <p>Visualitza wikilinks i etiquetes com un mapa interactiu (Sigma.js), amb suggeriments de connexió assistits per IA.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📅</div>
-            <h3>Calendari Unificat</h3>
-            <p>Sincronitza esdeveniments de Google Calendar amb les teves notes. Tot en un sol lloc.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/><path d="M9 13l2 2 4-4"/></svg></div>
+            <h3>Markdown portable</h3>
+            <p>Tot es desa com a fitxers Markdown que pots llegir, copiar i versionar amb qualsevol eina. Paperera amb soft-delete. Zero lock-in.</p>
+          </div>
+
+          <div class="feature-cat">Investigació acadèmica</div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><line x1="4" y1="19" x2="17" y2="19"/><line x1="9" y1="8" x2="15" y2="8"/></svg></div>
+            <h3>Gestor de referències</h3>
+            <p>Motor de cites compatible amb Zotero (CSL/citeproc), importació per DOI/ISBN/arXiv/PMID, detecció de duplicats i bibliografies APA.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📧</div>
-            <h3>Email Intel·ligent</h3>
-            <p>Gestiona el teu correu des de Gnosi. Genera respostes amb IA i mantén el context.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 6c-2-1.5-5-1.5-8 0v12c3-1.5 6-1.5 8 0 2-1.5 5-1.5 8 0V6c-3-1.5-6-1.5-8 0z"/><line x1="12" y1="6" x2="12" y2="18"/></svg></div>
+            <h3>Lector PDF/EPUB</h3>
+            <p>Visor de documents integrat (motor de Zotero). Els teus subratllats i anotacions es converteixen en cites reutilitzables.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📤</div>
-            <h3>Xarxes Socials</h3>
-            <p>Publica i programa contingut a Mastodon i Bluesky des d'un sol lloc.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="1.5"/><path d="M5 11a8 8 0 0 1 8 8"/><path d="M5 5a14 14 0 0 1 14 14"/></svg></div>
+            <h3>Lector RSS</h3>
+            <p>Subscripcions RSS/POP3 amb OPML jeràrquic, extracció full-text, favicons i un disseny net a tres columnes.</p>
+          </div>
+
+          <div class="feature-cat">Comunicació i publicació</div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>
+            <h3>Correu i contactes</h3>
+            <p>Client IMAP/SMTP amb push en temps real (IMAP IDLE) i OAuth de Google i Microsoft. Contactes integrats.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></div>
+            <h3>Calendari</h3>
+            <p>Crea i edita esdeveniments a Google Calendar, amb autocompletat d'ubicació (OpenStreetMap), temps de desplaçament i convidats.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><line x1="8.2" y1="11" x2="15.6" y2="7"/><line x1="8.2" y1="13" x2="15.6" y2="17"/></svg></div>
+            <h3>Xarxes i Drupal</h3>
+            <p>Publica a Mastodon, Bluesky i Telegram amb ajuda d'IA, i sincronitza contingut amb Drupal en diversos idiomes.</p>
+          </div>
+
+          <div class="feature-cat">Arxius i cerca</div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-7 7"/></svg></div>
+            <h3>Media Center</h3>
+            <p>Arxiu fotogràfic navegable amb miniatures (via QuickLook) per a vídeo i PDF, i gestor de múltiples arrels.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18z"/></svg></div>
+            <h3>Multi-núvol</h3>
+            <p>Cloud-agnòstic: OneDrive, iCloud, Google Drive o NextCloud. Adjunts portables i rutes configurables.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="16" y1="16" x2="21" y2="21"/></svg></div>
+            <h3>Cerca fiable</h3>
+            <p>Índex d'arxius del vault al backend, independent del sincronitzador del núvol, amb suport de Spotlight.</p>
+          </div>
+
+          <div class="feature-cat">Equip <span style="text-transform:none;letter-spacing:0;color:var(--muted);font-weight:400">(opcional, en desenvolupament)</span></div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+            <h3>Comptes i workspaces <span class="tag-soon">Beta</span></h3>
+            <p>Autenticació JWT, espais de treball i permisos per rol (propietari / admin / editor / lector). Desactivat en mode personal.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><circle cx="17.5" cy="10" r="2.5"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M14.5 19a5 5 0 0 1 6.5-1.5"/></svg></div>
+            <h3>Col·laboració en temps real <span class="tag-soon">Aviat</span></h3>
+            <p>Presència en viu sobre la pàgina; el canal està dissenyat per a edició col·laborativa (CRDT) a la fase següent.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="ia" class="features">
+        <div class="ai-spotlight">
+          <div class="section-header">
+            <h2>Intel·ligència artificial, en els teus termes</h2>
+            <p>Potent quan la vols, privada per defecte</p>
+          </div>
+          <div class="ai-grid">
+            <div class="ai-item">
+              <span class="ai-emoji">🤖</span>
+              <h3>Agent conversacional</h3>
+              <p>Xateja amb el teu coneixement. Un agent amb LangGraph i eines via MCP que entén mencions <strong>@</strong> a les teves pàgines, taules i bases de dades.</p>
+            </div>
+            <div class="ai-item">
+              <span class="ai-emoji">🔒</span>
+              <h3>Local-first i multi-proveïdor</h3>
+              <p>Executa models locals amb Ollama (gratis, privat) o connecta OpenAI, Claude, Groq, Gemini... Les teves claus, les teves dades, amb fallback automàtic.</p>
+            </div>
+            <div class="ai-item">
+              <span class="ai-emoji">🌐</span>
+              <h3>Traducció integrada</h3>
+              <p>Tradueix files, pàgines senceres o en massa amb Softcatalà, OPUS-MT local i DeepL. Detecció d'idioma i protecció d'acrònims.</p>
+            </div>
+            <div class="ai-item">
+              <span class="ai-emoji">🕸️</span>
+              <h3>Connexions semàntiques</h3>
+              <p>Embeddings locals i memòria vectorial (ChromaDB) que suggereixen enllaços entre notes i enriqueixen el teu graf de coneixement.</p>
+            </div>
+          </div>
+          <div class="ai-providers">
+            <span>Ollama</span><span>OpenAI</span><span>Anthropic</span><span>Groq</span><span>Google Gemini</span><span>Mistral</span><span>DeepSeek</span><span>Cohere</span><span>OpenRouter</span><span>Perplexity</span><span>+ més</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="shots">
+        <div class="section-header">
+          <h2>Una experiència dissenyada per a tu</h2>
+          <p>Il·lustracions de la interfície</p>
+        </div>
+        <div class="shots-grid">
+          <div class="shot">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Vault — Editor</span></div>
+            <div class="shot-body">
+              <div class="mk-row title"></div>
+              <div class="mk-row w90"></div>
+              <div class="mk-row w70"></div>
+              <div class="mk-table">
+                <div class="mk-tr head"><span>Títol</span><span>Estat</span><span>Any</span></div>
+                <div class="mk-tr"><span>Referència A</span><span><i class="mk-chip">Llegit</i></span><span>2024</span></div>
+                <div class="mk-tr"><span>Referència B</span><span><i class="mk-chip">En curs</i></span><span>2025</span></div>
+                <div class="mk-tr"><span>Referència C</span><span><i class="mk-chip">Nou</i></span><span>2026</span></div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Editor de blocs</h3><p>Text ric i bases de dades a la mateixa pàgina</p></div>
+          </div>
+
+          <div class="shot dark">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Vault — Graf</span></div>
+            <div class="shot-body">
+              <div class="graph-preview">
+                <div class="node n1"></div><div class="node n2"></div><div class="node n3"></div>
+                <div class="node n4"></div><div class="node n5"></div><div class="node n6"></div>
+                <div class="edge e1"></div><div class="edge e2"></div><div class="edge e3"></div>
+                <div class="edge e4"></div><div class="edge e5"></div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Graf interactiu</h3><p>Descobreix connexions entre les teves idees</p></div>
+          </div>
+
+          <div class="shot">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Calendari</span></div>
+            <div class="shot-body">
+              <div class="mk-cal">
+                <div class="cell"></div><div class="cell"><i class="ev b"></i></div><div class="cell"></div><div class="cell"><i class="ev g"></i></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+                <div class="cell"><i class="ev o"></i></div><div class="cell"></div><div class="cell"><i class="ev b"></i><i class="ev g"></i></div><div class="cell"></div><div class="cell"><i class="ev b"></i></div><div class="cell"></div><div class="cell"></div>
+                <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"><i class="ev o"></i></div><div class="cell"></div><div class="cell"><i class="ev g"></i></div><div class="cell"></div>
+                <div class="cell"></div><div class="cell"><i class="ev b"></i></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Agenda unificada</h3><p>Esdeveniments de Google Calendar al costat de les teves notes</p></div>
+          </div>
+
+          <div class="shot">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Assistent IA</span></div>
+            <div class="shot-body">
+              <div class="mk-chat">
+                <div class="bubble user">Resumeix <span class="mention">@Projecte Tesi</span> i enllaça idees relacionades</div>
+                <div class="bubble bot">La teva nota <span class="mention">@Projecte Tesi</span> connecta amb 3 referències sobre epistemologia. Les enllaço al graf?</div>
+                <div class="bubble user">Sí, fes-ho</div>
+                <div class="mk-input">Escriu un missatge al teu segon cervell…</div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Pregunta en llenguatge natural</h3><p>Amb context real del teu vault</p></div>
           </div>
         </div>
       </section>
 
       <section class="how-it-works">
         <div class="section-header">
-          <h2>Tan senzill com 1, 2, 3</h2>
+          <h2>Tan simple com 1, 2, 3</h2>
           <p>Comença a construir el teu segon cervell en minuts</p>
         </div>
         <div class="steps">
@@ -144,7 +332,7 @@
             <div class="step-number">1</div>
             <div class="step-content">
               <h3>Crea</h3>
-              <p>Afegeix les teves notes, articles, cites de llibres. Gnosi importa des de Notion, Obsidian o arxius Markdown.</p>
+              <p>Afegeix notes, lectures i cites. Importa des de Notion, Obsidian o qualsevol carpeta de Markdown.</p>
             </div>
           </div>
           <div class="step-arrow">→</div>
@@ -152,7 +340,7 @@
             <div class="step-number">2</div>
             <div class="step-content">
               <h3>Connecta</h3>
-              <p>Enllaça les teves notes manualment o deixa que la IA suggereixi noves connexions basades en el contingut.</p>
+              <p>Enllaça notes amb wikilinks o deixa que la IA suggereixi connexions segons el contingut.</p>
             </div>
           </div>
           <div class="step-arrow">→</div>
@@ -160,75 +348,98 @@
             <div class="step-number">3</div>
             <div class="step-content">
               <h3>Explora</h3>
-              <p>Navega pel teu graf, filtra per temes, troba patrons. Descobreix coneixement ocult.</p>
+              <p>Navega pel teu graf, filtra per temes i redescobreix el que ja sabies.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="integracions" class="integrations">
+      <section id="instalacion" class="install">
+        <div class="section-header">
+          <h2>Instal·la Gnosi</h2>
+          <p>Tu decideixes on viu el teu coneixement</p>
+        </div>
+        <div class="install-grid">
+          <div class="install-card featured">
+            <div class="install-head"><span class="ic">🏃</span><h3>Self-host (natiu)</h3></div>
+            <span class="pill ok">Recomanat</span>
+            <p>Gnosi és un backend FastAPI + un frontend Vite. S'executen directament, sense contenidors.</p>
+            <div class="code-block"><span class="c"># 1 · Backend (FastAPI)</span>
+<span class="p">$</span> git clone https://github.com/ismigar/Gnosi.git
+<span class="p">$</span> cd Gnosi/apps/gnosi
+<span class="p">$</span> python3 -m venv .venv && source .venv/bin/activate
+<span class="p">$</span> pip install -r requirements.txt
+<span class="p">$</span> uvicorn backend.server:app --port 5002 --reload
+
+<span class="c"># 2 · Frontend (en una altra terminal)</span>
+<span class="p">$</span> cd Gnosi/apps/gnosi/frontend && npm install && npm run dev
+
+<span class="c"># 3 · Obre l'app</span>
+<span class="p">→</span> http://localhost:5173</div>
+            <p class="install-note">Opcional: <a href="https://ollama.com/" target="_blank" rel="noreferrer">Ollama</a> per a IA local. Guia completa al <a href="https://github.com/ismigar/Gnosi#readme" target="_blank" rel="noreferrer">README</a>.</p>
+          </div>
+
+          <div class="install-card">
+            <div class="install-head"><span class="ic">🐳</span><h3>Docker</h3></div>
+            <span class="pill soon">Opcional</span>
+            <p>Prefereixes un sol comandament o desplegar en un servidor? Docker agrupa backend, frontend i el translation-server de Zotero.</p>
+            <div class="code-block"><span class="p">$</span> cd Gnosi/apps/gnosi
+<span class="p">$</span> docker compose up -d --build
+<span class="p">→</span> http://localhost:5173</div>
+            <p class="install-note">Alternativa tot-en-un. No és necessària per fer servir Gnosi.</p>
+          </div>
+
+          <div class="install-card">
+            <div class="install-head"><span class="ic">💻</span><h3>App d'escriptori</h3></div>
+            <span class="pill soon">Properament</span>
+            <p>Instal·ladors natius per a macOS, Windows i Linux (Tauri), amb el backend inclòs. Sense terminal, com Obsidian.</p>
+            <ul>
+              <li>Un sol arxiu, doble clic i llest</li>
+              <li>Mode individual sense configuració</li>
+              <li>Publicat a GitHub Releases</li>
+            </ul>
+            <p class="install-note">En construcció. <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">Segueix el repo</a> per assabentar-te del llançament.</p>
+          </div>
+
+          <div class="install-card">
+            <div class="install-head"><span class="ic">📲</span><h3>App web (PWA)</h3></div>
+            <span class="pill ok">Disponible</span>
+            <p>Instal·la Gnosi com a aplicació des del navegador, amb la seva pròpia finestra i icona.</p>
+            <ul>
+              <li>Chrome/Edge: «Instal·lar»</li>
+              <li>Safari: «Afegir al Dock»</li>
+              <li>Sobre la teva instància self-host o local</li>
+            </ul>
+            <p class="install-note">Requereix una instància de Gnosi en marxa (self-host o desenvolupament local).</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="integraciones" class="integrations">
         <div class="section-header">
           <h2>Connecta tot el teu ecosistema</h2>
           <p>Gnosi s'integra amb les eines que ja fas servir</p>
         </div>
         <div class="integrations-grid">
-          <div class="integration-item">
-            <div class="integration-icon g"></div>
-            <span>Gmail</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon gc"></div>
-            <span>Google Calendar</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon notion"></div>
-            <span>Notion</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon mastodon"></div>
-            <span>Mastodon</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon bluesky"></div>
-            <span>Bluesky</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon zotero"></div>
-            <span>Zotero</span>
-          </div>
+          <div class="integration-item"><div class="integration-icon g"></div><span>Gmail</span></div>
+          <div class="integration-item"><div class="integration-icon gc"></div><span>Google Calendar</span></div>
+          <div class="integration-item"><div class="integration-icon notion"></div><span>Notion / Obsidian</span></div>
+          <div class="integration-item"><div class="integration-icon zotero"></div><span>Zotero</span></div>
+          <div class="integration-item"><div class="integration-icon mastodon"></div><span>Mastodon</span></div>
+          <div class="integration-item"><div class="integration-icon bluesky"></div><span>Bluesky</span></div>
         </div>
       </section>
 
-      <section class="mockups">
-        <div class="section-header">
-          <h2>Una experiència dissenyada per a tu</h2>
-        </div>
-        <div class="mockups-grid">
-          <div class="mockup-box vault">
-            <div class="mockup-label">Vault - Editor de Notes</div>
-          </div>
-          <div class="mockup-box graph">
-            <div class="mockup-label">Graf - Visualització</div>
-          </div>
-          <div class="mockup-box calendar">
-            <div class="mockup-label">Calendari</div>
-          </div>
-          <div class="mockup-box chat">
-            <div class="mockup-label">Assistent IA</div>
-          </div>
-        </div>
-      </section>
-
-      <section id="comença" class="cta">
+      <section id="comienza" class="cta">
         <div class="cta-content">
           <h2>Comença avui</h2>
-          <p>Construeix el teu segon cervell. Organitza el teu coneixement. Descobreix noves idees.</p>
+          <p>Construeix el teu segon cervell. Organitza el teu coneixement. I que segueixi sent teu.</p>
           <div class="cta-buttons">
             <a href="https://github.com/ismigar/Gnosi" class="btn btn-primary btn-large" target="_blank" rel="noreferrer">
-              GitHub
+              Veure a GitHub
             </a>
-            <a href="https://github.com/ismigar/Gnosi/blob/main/README.md" class="btn btn-secondary btn-large" target="_blank" rel="noreferrer">
-              Documentació
+            <a href="#instalacion" class="btn btn-secondary btn-large">
+              Com instal·lar
             </a>
           </div>
         </div>
@@ -238,14 +449,17 @@
     <footer>
       <div class="footer-content">
         <div class="footer-brand">
-          <span class="logo">Gnosi</span>
-          <p>El teu segon cervell digital. Codi obert i en desenvolupament.</p>
+          <span class="brand">
+            <img src="assets/icon-512.png" alt="Logo de Gnosi" class="brand-mark" />
+            <span class="logo">Gnosi</span>
+          </span>
+          <p>El teu segon cervell digital. Local-first, open source i sobirà.</p>
         </div>
         <div class="footer-links">
           <div class="footer-col">
             <h4>Projecte</h4>
             <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
-            <a href="https://github.com/ismigar/Gnosi/blob/main/README.md" target="_blank" rel="noreferrer">Documentació</a>
+            <a href="https://github.com/ismigar/Gnosi#readme" target="_blank" rel="noreferrer">Documentació</a>
             <a href="https://github.com/ismigar/Gnosi/issues" target="_blank" rel="noreferrer">Issues</a>
           </div>
           <div class="footer-col">
@@ -256,11 +470,12 @@
           <div class="footer-col">
             <h4>Legal</h4>
             <a href="/privacy.html">Política de privacitat</a>
+            <a href="https://github.com/ismigar/Gnosi/blob/main/LICENSE" target="_blank" rel="noreferrer">Llicència AGPL-3.0</a>
           </div>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>2024-2025 Ismael Garcia Fernandez. Projecte personal de codi obert.</p>
+        <p>© 2024-2026 Ismael Garcia Fernandez · Projecte de codi obert sota llicència AGPL-3.0.</p>
       </div>
     </footer>
   </body>

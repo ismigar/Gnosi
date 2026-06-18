@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gnosi - Tu Segundo Cerebro Digital</title>
+    <title>Gnosi - Tu segundo cerebro digital, soberano y open source</title>
     <meta
       name="description"
-      content="Gnosi es tu segundo cerebro digital. Organiza conocimiento, conecta ideas y potencia tu creatividad con inteligencia artificial."
+      content="Gnosi es un espacio de trabajo local-first y open source: alternativa self-hostable a Notion y Obsidian. Notas, bases de datos, grafo de conocimiento, gestor de referencias, correo, calendario e IA, sobre tus propios archivos."
     />
     <link rel="stylesheet" href="styles.css" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -28,11 +28,15 @@
   <body>
     <nav class="navbar">
       <div class="nav-container">
-        <a href="#" class="logo">Gnosi</a>
+        <a href="#" class="brand">
+          <img src="assets/icon-512.png" alt="Logo de Gnosi" class="brand-mark" />
+          <span class="logo">Gnosi</span>
+        </a>
         <div class="nav-links">
-          <a href="#funcionalidades">Funciones</a>
-          <a href="#integraciones">Integraciones</a>
-          <a href="#comienza">Comenzar</a>
+          <a href="#funcionalidades">Funcionalidades</a>
+          <a href="#ia">IA</a>
+          <a href="#instalacion">Instalación</a>
+          <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
         </div>
         <div class="lang-switch">
           <span class="active">ES</span>
@@ -45,105 +49,275 @@
     <main>
       <section class="hero">
         <div class="hero-content">
-          <span class="badge">Open Source</span>
+          <span class="badge agpl">Open Source · AGPL-3.0</span>
           <h1>Tu segundo cerebro digital</h1>
           <p class="subtitle">
-            Gnosi conecta tus notas, ideas y conocimiento en un grafo visual inteligente. 
-            Descubre conexiones que no sabías que existían.
+            Gnosi es un espacio de trabajo <strong>local-first</strong> y open source: la alternativa
+            self-hostable a Notion y Obsidian. Tus notas viven como Markdown portable, en
+            <strong>tu</strong> máquina y sobre <strong>tus</strong> archivos. Sin SaaS, sin lock-in.
           </p>
           <div class="hero-cta">
-            <a href="#comienza" class="btn btn-primary">Probar ahora</a>
-            <a href="#funcionalidades" class="btn btn-secondary">Saber más</a>
+            <a href="#instalacion" class="btn btn-primary">Instalar</a>
+            <a href="#funcionalidades" class="btn btn-secondary">Ver funcionalidades</a>
           </div>
         </div>
         <div class="hero-visual">
-          <div class="mockup-placeholder">
-            <div class="mockup-header">
-              <span class="dot red"></span>
-              <span class="dot yellow"></span>
-              <span class="dot green"></span>
-            </div>
-            <div class="mockup-content">
-              <div class="graph-preview">
-                <div class="node n1"></div>
-                <div class="node n2"></div>
-                <div class="node n3"></div>
-                <div class="node n4"></div>
-                <div class="node n5"></div>
-                <div class="node n6"></div>
-                <div class="edge e1"></div>
-                <div class="edge e2"></div>
-                <div class="edge e3"></div>
-                <div class="edge e4"></div>
-                <div class="edge e5"></div>
-              </div>
-            </div>
-          </div>
+          <img src="assets/logo-hero.png" alt="Gnosi — un cerebro como red de conocimiento" class="hero-logo" />
         </div>
       </section>
 
       <section class="problem">
         <div class="section-content">
-          <h2>¿Tienes demasiada información?</h2>
+          <h2>¿Demasiada información, dispersa por todas partes?</h2>
           <div class="problem-grid">
             <div class="problem-item">
               <div class="problem-icon">📚</div>
               <h3>Cientos de notas</h3>
-              <p>Artículos guardados, notas de reuniones, ideas para proyectos... Perdidos en carpetas.</p>
+              <p>Artículos, lecturas, citas de libros, ideas de proyectos... perdidos en carpetas y apps distintas.</p>
             </div>
             <div class="problem-item">
               <div class="problem-icon">🔗</div>
               <h3>Sin conexiones</h3>
-              <p>Ideas relacionadas en diferentes apps, imposible encontrar relaciones entre ellas.</p>
+              <p>Ideas relacionadas que nunca se encuentran. Imposible ver el mapa completo de lo que sabes.</p>
             </div>
             <div class="problem-item">
-              <div class="problem-icon">⏰</div>
-              <h3>Poco tiempo</h3>
-              <p>Reinventas la wheel. No recuerdas que ya escribiste sobre ese tema hace meses.</p>
+              <div class="problem-icon">🔒</div>
+              <h3>Datos cautivos</h3>
+              <p>Tu conocimiento atrapado en servidores ajenos, en formatos propietarios que no controlas.</p>
             </div>
           </div>
           <div class="solution">
-            <h3>Gnosi lo resuelve</h3>
-            <p>Un sistema que entiende tus notas y te muestra cómo se conectan.</p>
+            <h3>Gnosi lo reúne todo</h3>
+            <p>Un único espacio que entiende tus notas, las conecta y las mantiene siempre tuyas.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="modules">
+        <div class="section-header">
+          <h2>Un espacio, todos tus mundos</h2>
+          <p>Todo lo que usas a diario, integrado en una sola aplicación</p>
+        </div>
+        <div class="modules-grid">
+          <div class="module-card">
+            <img src="assets/icon-home.png" alt="" class="module-icon" />
+            <h3>Inicio</h3>
+            <p>Tu panel y tu agenda del día</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-vault.png" alt="" class="module-icon" />
+            <h3>Vault</h3>
+            <p>Notas, bases de datos y grafo</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-reader.png" alt="" class="module-icon" />
+            <h3>Lector</h3>
+            <p>PDF, EPUB y feeds RSS</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-mail.png" alt="" class="module-icon" />
+            <h3>Correo</h3>
+            <p>IMAP con push en tiempo real</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-calendar.png" alt="" class="module-icon" />
+            <h3>Calendario</h3>
+            <p>Eventos y contactos</p>
+          </div>
+          <div class="module-card">
+            <img src="assets/icon-social.png" alt="" class="module-icon" />
+            <h3>Social</h3>
+            <p>Publica en redes con IA</p>
           </div>
         </div>
       </section>
 
       <section id="funcionalidades" class="features">
         <div class="section-header">
-          <h2>Todo lo que necesitas</h2>
-          <p>Funcionalidades diseñadas para pensar mejor</p>
+          <h2>Todo lo que necesitas para pensar mejor</h2>
+          <p>De la captura a la conexión, pasando por la publicación</p>
         </div>
         <div class="features-grid">
+          <div class="feature-cat">Conocimiento</div>
           <div class="feature-card">
-            <div class="feature-icon">🕸️</div>
-            <h3>Grafo de Conocimiento</h3>
-            <p>Visualiza tus notas como un mapa interactivo. Cada idea es un nodo, cada conexión es un camino.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="11" width="12" height="3" rx="1"/><rect x="3" y="17" width="16" height="3" rx="1"/></svg></div>
+            <h3>Editor de bloques</h3>
+            <p>Editor WYSIWYG estilo Notion sobre Markdown estándar: comandos slash, columnas, callouts y bloques embed (PDF, vídeo, web).</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📝</div>
-            <h3>Editor de Bloques</h3>
-            <p>Crea contenido rico con texto, imágenes, tablas y enlaces. Como Notion, pero tuyo.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="20"/></svg></div>
+            <h3>Bases de datos y vistas</h3>
+            <p>Convierte carpetas en tablas con campos tipados (estado, relación, fecha, imagen, autoría...) y vistas tabla, galería, kanban, calendario y timeline.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🤖</div>
-            <h3>Asistente IA</h3>
-            <p>Pregunta a tu segundo cerebro en lenguaje natural. Gnosy te ayuda a conectar ideas.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="12" cy="17" r="2.5"/><line x1="8" y1="7.5" x2="10.5" y2="15"/><line x1="16.5" y1="9" x2="13.5" y2="15.5"/><line x1="8.2" y1="6.6" x2="15.5" y2="6.9"/></svg></div>
+            <h3>Grafo de conocimiento</h3>
+            <p>Visualiza wikilinks y etiquetas como un mapa interactivo (Sigma.js), con sugerencias de conexión asistidas por IA.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📅</div>
-            <h3>Calendario Unificado</h3>
-            <p>Sincroniza eventos de Google Calendar con tus notas. Todo en un solo lugar.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/><path d="M9 13l2 2 4-4"/></svg></div>
+            <h3>Markdown portable</h3>
+            <p>Todo se guarda como ficheros Markdown que puedes leer, copiar y versionar con cualquier herramienta. Papelera con soft-delete. Cero lock-in.</p>
+          </div>
+
+          <div class="feature-cat">Investigación académica</div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><line x1="4" y1="19" x2="17" y2="19"/><line x1="9" y1="8" x2="15" y2="8"/></svg></div>
+            <h3>Gestor de referencias</h3>
+            <p>Motor de citas compatible con Zotero (CSL/citeproc), importación por DOI/ISBN/arXiv/PMID, detección de duplicados y bibliografías APA.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📧</div>
-            <h3>Email Inteligente</h3>
-            <p>Gestiona tu correo desde Gnosi. Genera respuestas con IA y mantén el contexto.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 6c-2-1.5-5-1.5-8 0v12c3-1.5 6-1.5 8 0 2-1.5 5-1.5 8 0V6c-3-1.5-6-1.5-8 0z"/><line x1="12" y1="6" x2="12" y2="18"/></svg></div>
+            <h3>Lector PDF/EPUB</h3>
+            <p>Visor de documentos integrado (motor de Zotero). Tus subrayados y anotaciones se convierten en citas reutilizables.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📤</div>
-            <h3>Redes Sociales</h3>
-            <p>Publica y programa contenido en Mastodon y Bluesky desde un solo lugar.</p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="1.5"/><path d="M5 11a8 8 0 0 1 8 8"/><path d="M5 5a14 14 0 0 1 14 14"/></svg></div>
+            <h3>Lector RSS</h3>
+            <p>Suscripciones RSS/POP3 con OPML jerárquico, extracción full-text, favicons y un diseño limpio a tres columnas.</p>
+          </div>
+
+          <div class="feature-cat">Comunicación y publicación</div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>
+            <h3>Correo y contactos</h3>
+            <p>Cliente IMAP/SMTP con push en tiempo real (IMAP IDLE) y OAuth de Google y Microsoft. Contactos integrados.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></div>
+            <h3>Calendario</h3>
+            <p>Crea y edita eventos en Google Calendar, con autocompletado de ubicación (OpenStreetMap), tiempo de desplazamiento e invitados.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><line x1="8.2" y1="11" x2="15.6" y2="7"/><line x1="8.2" y1="13" x2="15.6" y2="17"/></svg></div>
+            <h3>Redes y Drupal</h3>
+            <p>Publica en Mastodon, Bluesky y Telegram con ayuda de IA, y sincroniza contenido con Drupal en varios idiomas.</p>
+          </div>
+
+          <div class="feature-cat">Archivos y búsqueda</div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-7 7"/></svg></div>
+            <h3>Media Center</h3>
+            <p>Archivo fotográfico navegable con miniaturas (vía QuickLook) para vídeo y PDF, y gestor de múltiples raíces.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18z"/></svg></div>
+            <h3>Multi-nube</h3>
+            <p>Cloud-agnóstico: OneDrive, iCloud, Google Drive o NextCloud. Adjuntos portables y rutas configurables.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="16" y1="16" x2="21" y2="21"/></svg></div>
+            <h3>Búsqueda fiable</h3>
+            <p>Índice de archivos del vault en el backend, independiente del sincronizador de la nube, con apoyo de Spotlight.</p>
+          </div>
+
+          <div class="feature-cat">Equipo <span style="text-transform:none;letter-spacing:0;color:var(--muted);font-weight:400">(opcional, en desarrollo)</span></div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+            <h3>Cuentas y workspaces <span class="tag-soon">Beta</span></h3>
+            <p>Autenticación JWT, espacios de trabajo y permisos por rol (propietario / admin / editor / lector). Desactivado en modo personal.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><circle cx="17.5" cy="10" r="2.5"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M14.5 19a5 5 0 0 1 6.5-1.5"/></svg></div>
+            <h3>Colaboración en tiempo real <span class="tag-soon">Pronto</span></h3>
+            <p>Presencia en vivo sobre la página; el canal está diseñado para edición colaborativa (CRDT) en la siguiente fase.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="ia" class="features">
+        <div class="ai-spotlight">
+          <div class="section-header">
+            <h2>Inteligencia artificial, en tus términos</h2>
+            <p>Potente cuando la quieres, privada por defecto</p>
+          </div>
+          <div class="ai-grid">
+            <div class="ai-item">
+              <span class="ai-emoji">🤖</span>
+              <h3>Agente conversacional</h3>
+              <p>Chatea con tu conocimiento. Un agente con LangGraph y herramientas vía MCP que entiende menciones <strong>@</strong> a tus páginas, tablas y bases de datos.</p>
+            </div>
+            <div class="ai-item">
+              <span class="ai-emoji">🔒</span>
+              <h3>Local-first y multi-proveedor</h3>
+              <p>Ejecuta modelos locales con Ollama (gratis, privado) o conecta OpenAI, Claude, Groq, Gemini... Tus claves, tus datos, con fallback automático.</p>
+            </div>
+            <div class="ai-item">
+              <span class="ai-emoji">🌐</span>
+              <h3>Traducción integrada</h3>
+              <p>Traduce filas, páginas enteras o en masa con Softcatalà, OPUS-MT local y DeepL. Detección de idioma y protección de acrónimos.</p>
+            </div>
+            <div class="ai-item">
+              <span class="ai-emoji">🕸️</span>
+              <h3>Conexiones semánticas</h3>
+              <p>Embeddings locales y memoria vectorial (ChromaDB) que sugieren enlaces entre notas y enriquecen tu grafo de conocimiento.</p>
+            </div>
+          </div>
+          <div class="ai-providers">
+            <span>Ollama</span><span>OpenAI</span><span>Anthropic</span><span>Groq</span><span>Google Gemini</span><span>Mistral</span><span>DeepSeek</span><span>Cohere</span><span>OpenRouter</span><span>Perplexity</span><span>+ más</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="shots">
+        <div class="section-header">
+          <h2>Una experiencia diseñada para ti</h2>
+          <p>Ilustraciones de la interfaz</p>
+        </div>
+        <div class="shots-grid">
+          <div class="shot">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Vault — Editor</span></div>
+            <div class="shot-body">
+              <div class="mk-row title"></div>
+              <div class="mk-row w90"></div>
+              <div class="mk-row w70"></div>
+              <div class="mk-table">
+                <div class="mk-tr head"><span>Título</span><span>Estado</span><span>Año</span></div>
+                <div class="mk-tr"><span>Referencia A</span><span><i class="mk-chip">Leído</i></span><span>2024</span></div>
+                <div class="mk-tr"><span>Referencia B</span><span><i class="mk-chip">En curso</i></span><span>2025</span></div>
+                <div class="mk-tr"><span>Referencia C</span><span><i class="mk-chip">Nuevo</i></span><span>2026</span></div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Editor de bloques</h3><p>Texto rico y bases de datos en la misma página</p></div>
+          </div>
+
+          <div class="shot dark">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Vault — Grafo</span></div>
+            <div class="shot-body">
+              <div class="graph-preview">
+                <div class="node n1"></div><div class="node n2"></div><div class="node n3"></div>
+                <div class="node n4"></div><div class="node n5"></div><div class="node n6"></div>
+                <div class="edge e1"></div><div class="edge e2"></div><div class="edge e3"></div>
+                <div class="edge e4"></div><div class="edge e5"></div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Grafo interactivo</h3><p>Descubre conexiones entre tus ideas</p></div>
+          </div>
+
+          <div class="shot">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Calendario</span></div>
+            <div class="shot-body">
+              <div class="mk-cal">
+                <div class="cell"></div><div class="cell"><i class="ev b"></i></div><div class="cell"></div><div class="cell"><i class="ev g"></i></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+                <div class="cell"><i class="ev o"></i></div><div class="cell"></div><div class="cell"><i class="ev b"></i><i class="ev g"></i></div><div class="cell"></div><div class="cell"><i class="ev b"></i></div><div class="cell"></div><div class="cell"></div>
+                <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"><i class="ev o"></i></div><div class="cell"></div><div class="cell"><i class="ev g"></i></div><div class="cell"></div>
+                <div class="cell"></div><div class="cell"><i class="ev b"></i></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Agenda unificada</h3><p>Eventos de Google Calendar junto a tus notas</p></div>
+          </div>
+
+          <div class="shot">
+            <div class="shot-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="shot-title">Asistente IA</span></div>
+            <div class="shot-body">
+              <div class="mk-chat">
+                <div class="bubble user">Resume <span class="mention">@Proyecto Tesis</span> y enlaza ideas relacionadas</div>
+                <div class="bubble bot">Tu nota <span class="mention">@Proyecto Tesis</span> conecta con 3 referencias sobre epistemología. ¿Las enlazo en el grafo?</div>
+                <div class="bubble user">Sí, hazlo</div>
+                <div class="mk-input">Escribe un mensaje a tu segundo cerebro…</div>
+              </div>
+            </div>
+            <div class="shot-cap"><h3>Pregunta en lenguaje natural</h3><p>Con contexto real de tu vault</p></div>
           </div>
         </div>
       </section>
@@ -158,7 +332,7 @@
             <div class="step-number">1</div>
             <div class="step-content">
               <h3>Crea</h3>
-              <p>Añade tus notas, artículos, citas de libros. Gnosi importa desde Notion, Obsidian o archivos Markdown.</p>
+              <p>Añade notas, lecturas y citas. Importa desde Notion, Obsidian o cualquier carpeta de Markdown.</p>
             </div>
           </div>
           <div class="step-arrow">→</div>
@@ -166,7 +340,7 @@
             <div class="step-number">2</div>
             <div class="step-content">
               <h3>Conecta</h3>
-              <p>Enlaza tus notas manualmente o deja que la IA sugiera nuevas conexiones basadas en el contenido.</p>
+              <p>Enlaza notas con wikilinks o deja que la IA sugiera conexiones según el contenido.</p>
             </div>
           </div>
           <div class="step-arrow">→</div>
@@ -174,8 +348,69 @@
             <div class="step-number">3</div>
             <div class="step-content">
               <h3>Explora</h3>
-              <p>Navega por tu grafo, filtra por temas, encuentra patrones. Descubre conocimiento oculto.</p>
+              <p>Navega por tu grafo, filtra por temas y redescubre lo que ya sabías.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="instalacion" class="install">
+        <div class="section-header">
+          <h2>Instala Gnosi</h2>
+          <p>Tú decides dónde vive tu conocimiento</p>
+        </div>
+        <div class="install-grid">
+          <div class="install-card featured">
+            <div class="install-head"><span class="ic">🏃</span><h3>Self-host (nativo)</h3></div>
+            <span class="pill ok">Recomendado</span>
+            <p>Gnosi es un backend FastAPI + un frontend Vite. Se ejecutan directamente, sin contenedores.</p>
+            <div class="code-block"><span class="c"># 1 · Backend (FastAPI)</span>
+<span class="p">$</span> git clone https://github.com/ismigar/Gnosi.git
+<span class="p">$</span> cd Gnosi/apps/gnosi
+<span class="p">$</span> python3 -m venv .venv && source .venv/bin/activate
+<span class="p">$</span> pip install -r requirements.txt
+<span class="p">$</span> uvicorn backend.server:app --port 5002 --reload
+
+<span class="c"># 2 · Frontend (en otra terminal)</span>
+<span class="p">$</span> cd Gnosi/apps/gnosi/frontend && npm install && npm run dev
+
+<span class="c"># 3 · Abre la app</span>
+<span class="p">→</span> http://localhost:5173</div>
+            <p class="install-note">Opcional: <a href="https://ollama.com/" target="_blank" rel="noreferrer">Ollama</a> para IA local. Guía completa en el <a href="https://github.com/ismigar/Gnosi#readme" target="_blank" rel="noreferrer">README</a>.</p>
+          </div>
+
+          <div class="install-card">
+            <div class="install-head"><span class="ic">🐳</span><h3>Docker</h3></div>
+            <span class="pill soon">Opcional</span>
+            <p>¿Prefieres un solo comando o desplegar en un servidor? Docker agrupa backend, frontend y el translation-server de Zotero.</p>
+            <div class="code-block"><span class="p">$</span> cd Gnosi/apps/gnosi
+<span class="p">$</span> docker compose up -d --build
+<span class="p">→</span> http://localhost:5173</div>
+            <p class="install-note">Alternativa todo-en-uno. No es necesaria para usar Gnosi.</p>
+          </div>
+
+          <div class="install-card">
+            <div class="install-head"><span class="ic">💻</span><h3>App de escritorio</h3></div>
+            <span class="pill soon">Próximamente</span>
+            <p>Instaladores nativos para macOS, Windows y Linux (Tauri), con el backend incluido. Sin terminal, como Obsidian.</p>
+            <ul>
+              <li>Un solo archivo, doble clic y listo</li>
+              <li>Modo individual sin configuración</li>
+              <li>Publicado en GitHub Releases</li>
+            </ul>
+            <p class="install-note">En construcción. <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">Sigue el repo</a> para enterarte del lanzamiento.</p>
+          </div>
+
+          <div class="install-card">
+            <div class="install-head"><span class="ic">📲</span><h3>App web (PWA)</h3></div>
+            <span class="pill ok">Disponible</span>
+            <p>Instala Gnosi como aplicación desde el navegador, con su propia ventana e icono.</p>
+            <ul>
+              <li>Chrome/Edge: «Instalar»</li>
+              <li>Safari: «Añadir al Dock»</li>
+              <li>Sobre tu instancia self-host o local</li>
+            </ul>
+            <p class="install-note">Requiere una instancia de Gnosi en marcha (self-host o desarrollo local).</p>
           </div>
         </div>
       </section>
@@ -186,63 +421,25 @@
           <p>Gnosi se integra con las herramientas que ya usas</p>
         </div>
         <div class="integrations-grid">
-          <div class="integration-item">
-            <div class="integration-icon g"></div>
-            <span>Gmail</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon gc"></div>
-            <span>Google Calendar</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon notion"></div>
-            <span>Notion</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon mastodon"></div>
-            <span>Mastodon</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon bluesky"></div>
-            <span>Bluesky</span>
-          </div>
-          <div class="integration-item">
-            <div class="integration-icon zotero"></div>
-            <span>Zotero</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="mockups">
-        <div class="section-header">
-          <h2>Una experiencia diseñada para ti</h2>
-        </div>
-        <div class="mockups-grid">
-          <div class="mockup-box vault">
-            <div class="mockup-label">Vault - Editor de Notas</div>
-          </div>
-          <div class="mockup-box graph">
-            <div class="mockup-label">Grafo - Visualización</div>
-          </div>
-          <div class="mockup-box calendar">
-            <div class="mockup-label">Calendario</div>
-          </div>
-          <div class="mockup-box chat">
-            <div class="mockup-label">Asistente IA</div>
-          </div>
+          <div class="integration-item"><div class="integration-icon g"></div><span>Gmail</span></div>
+          <div class="integration-item"><div class="integration-icon gc"></div><span>Google Calendar</span></div>
+          <div class="integration-item"><div class="integration-icon notion"></div><span>Notion / Obsidian</span></div>
+          <div class="integration-item"><div class="integration-icon zotero"></div><span>Zotero</span></div>
+          <div class="integration-item"><div class="integration-icon mastodon"></div><span>Mastodon</span></div>
+          <div class="integration-item"><div class="integration-icon bluesky"></div><span>Bluesky</span></div>
         </div>
       </section>
 
       <section id="comienza" class="cta">
         <div class="cta-content">
           <h2>Empieza hoy</h2>
-          <p>Construye tu segundo cerebro. Organiza tu conocimiento. Descubre nuevas ideas.</p>
+          <p>Construye tu segundo cerebro. Organiza tu conocimiento. Y que siga siendo tuyo.</p>
           <div class="cta-buttons">
             <a href="https://github.com/ismigar/Gnosi" class="btn btn-primary btn-large" target="_blank" rel="noreferrer">
-              GitHub
+              Ver en GitHub
             </a>
-            <a href="https://github.com/ismigar/Gnosi/blob/main/README.md" class="btn btn-secondary btn-large" target="_blank" rel="noreferrer">
-              Documentación
+            <a href="#instalacion" class="btn btn-secondary btn-large">
+              Cómo instalar
             </a>
           </div>
         </div>
@@ -252,14 +449,17 @@
     <footer>
       <div class="footer-content">
         <div class="footer-brand">
-          <span class="logo">Gnosi</span>
-          <p>Tu segundo cerebro digital. Open source y en desarrollo.</p>
+          <span class="brand">
+            <img src="assets/icon-512.png" alt="Logo de Gnosi" class="brand-mark" />
+            <span class="logo">Gnosi</span>
+          </span>
+          <p>Tu segundo cerebro digital. Local-first, open source y soberano.</p>
         </div>
         <div class="footer-links">
           <div class="footer-col">
             <h4>Proyecto</h4>
             <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
-            <a href="https://github.com/ismigar/Gnosi/blob/main/README.md" target="_blank" rel="noreferrer">Documentación</a>
+            <a href="https://github.com/ismigar/Gnosi#readme" target="_blank" rel="noreferrer">Documentación</a>
             <a href="https://github.com/ismigar/Gnosi/issues" target="_blank" rel="noreferrer">Issues</a>
           </div>
           <div class="footer-col">
@@ -269,12 +469,13 @@
           </div>
           <div class="footer-col">
             <h4>Legal</h4>
-            <a href="/privacy.html">Privacy Policy</a>
+            <a href="/privacy.html">Política de privacidad</a>
+            <a href="https://github.com/ismigar/Gnosi/blob/main/LICENSE" target="_blank" rel="noreferrer">Licencia AGPL-3.0</a>
           </div>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>2024-2025 Ismael Garcia Fernandez. Proyecto personal de código abierto.</p>
+        <p>© 2024-2026 Ismael Garcia Fernandez · Proyecto de código abierto bajo licencia AGPL-3.0.</p>
       </div>
     </footer>
   </body>
