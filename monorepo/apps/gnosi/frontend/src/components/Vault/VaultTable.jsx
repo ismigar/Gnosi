@@ -405,6 +405,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const startX = useRef(0);
     const startWidth = useRef(0);
 
+    // Reordenació de columnes per arrossegament (drag-to-reorder de la capçalera).
+    // La LÒGICA viu en refs (sempre actuals dins els handlers natius de DnD, sense
+    // staleness de closures); l'ESTAT només alimenta l'indicador visual (re-render).
+    const draggedColRef = useRef(null);     // key de la columna que s'arrossega
+    const dropAfterRef = useRef(false);     // drop a la dreta (true) o esquerra (false) de la destí
+    const [draggedColumn, setDraggedColumn] = useState(null);
+    const [dragOverColumn, setDragOverColumn] = useState(null);
+    const [dropAfter, setDropAfter] = useState(false);
+
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // { rowId, field, activeMetaKey }
     // ── Graella estil Notion/Excel ───────────────────────────────────────
@@ -801,6 +810,15 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return baseFields.filter(([key, type]) => key !== titleFieldName && key !== 'title' && type !== 'title');
     }, [activeView, schema]);
 
+    // Drag-to-reorder de columnes: només a vistes NO principals. La vista
+    // PRINCIPAL mostra deliberadament tots els camps en ordre d'esquema i el seu
+    // ordre no és personalitzable (l'invariant es reforça a VaultDashboard, que
+    // reescriu `visibleProperties` a l'ordre d'esquema en desar la principal); per
+    // això no l'oferim allà (un drag que es revertís en recarregar enganyaria).
+    // Cal `onUpdateView` per persistir; usem el mateix senyal d'isMainView que
+    // dynamicColumns (llista buida → senyal propi de la vista).
+    const canReorderColumns = !!onUpdateView && !!activeView && !isMainView(activeView, []);
+
     // La columna "Modificació" (last_modified) són metadades, no un camp de
     // l'esquema. Es mostra a la vista PRINCIPAL (que ensenya tot) o si la vista
     // la configura explícitament a `visibleProperties`; una vista amb camps
@@ -964,6 +982,75 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
             document.removeEventListener('mouseup', handleMouseUp);
         };
     }, [handleMouseMove, handleMouseUp]);
+
+    // ── Reordenació de columnes per arrossegament ───────────────────────
+    // Només les columnes de DADES (dynamicColumns) són arrossegables; el títol
+    // (sticky), el checkbox/accions i "Modificació" queden fixos. En deixar anar,
+    // reconstruïm l'ordre i el persistim a `activeView.visibleProperties` via
+    // `onUpdateView` (igual que handleSort desa `sort`); el pare (handleUpdateView)
+    // el desa tal qual a les vistes NO principals i dynamicColumns l'aplica.
+    // Aquests handlers només s'enganxen quan canReorderColumns és true (mai a la
+    // principal), però igualment fem early-return si no hi ha drag actiu.
+    const handleColumnDragStart = useCallback((e, key) => {
+        draggedColRef.current = key;
+        setDraggedColumn(key);
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            // Firefox només inicia el drag si hi ha algun payload.
+            try { e.dataTransfer.setData('text/plain', key); } catch { /* no-op */ }
+        }
+        document.body.style.cursor = 'grabbing';
+    }, []);
+
+    const clearColumnDrag = useCallback(() => {
+        draggedColRef.current = null;
+        setDraggedColumn(null);
+        setDragOverColumn(null);
+        document.body.style.cursor = '';
+    }, []);
+
+    const handleColumnDragOver = useCallback((e, key) => {
+        const dragged = draggedColRef.current;
+        if (!dragged || dragged === key) return;
+        e.preventDefault();                 // permet el drop
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        // Costat (esquerra/dreta) segons el punt mitjà de la columna destí:
+        // permet inserir abans o després, i així portar-la fins al final.
+        const rect = e.currentTarget.getBoundingClientRect();
+        const after = (e.clientX - rect.left) > rect.width / 2;
+        dropAfterRef.current = after;
+        // Només actualitza l'indicador si canvia (evita re-renders redundants).
+        setDragOverColumn(prev => (prev === key ? prev : key));
+        setDropAfter(prev => (prev === after ? prev : after));
+    }, []);
+
+    const handleColumnDrop = useCallback((e, targetKey) => {
+        e.preventDefault();
+        const dragged = draggedColRef.current;
+        const after = dropAfterRef.current;
+        clearColumnDrag();
+        if (!dragged || dragged === targetKey || !activeView || !onUpdateView) return;
+
+        // Reordenem sobre `visibleProperties` si existeix: així el camp títol i
+        // qualsevol altra entrada que no sigui columna de dades es queden al seu
+        // lloc (el títol es pinta a part, però el conservem on era — sovint primer
+        // per convenció). Si la vista no en té (cap config), materialitzem l'ordre
+        // visible actual a partir de dynamicColumns.
+        const hasVP = Array.isArray(activeView.visibleProperties) && activeView.visibleProperties.length > 0;
+        const base = hasVP ? activeView.visibleProperties : dynamicColumns.map(([k]) => k);
+        if (!base.includes(dragged) || !base.includes(targetKey)) return;
+
+        // Treu la columna arrossegada i reinsereix-la abans/després de la destí.
+        const without = base.filter(k => k !== dragged);
+        let insertAt = without.indexOf(targetKey);
+        if (after) insertAt += 1;
+        const newOrder = [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)];
+
+        // Sense canvi real → no desis (evita un PATCH inútil).
+        if (newOrder.length === base.length && newOrder.every((k, i) => k === base[i])) return;
+
+        onUpdateView({ ...activeView, visibleProperties: newOrder });
+    }, [dynamicColumns, activeView, onUpdateView, clearColumnDrag]);
 
     // ---- NORMALIZATION HELPERS ----
     const normalizeKey = (k) => String(k || '').toLowerCase().replace(/[^a-z0-9]/gi, '');
@@ -3101,9 +3188,24 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                         <th
                                             key={key}
                                             style={{ width: columnWidths[key] || 180 }}
-                                            className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-r border-[var(--border-primary)]"
+                                            onDragOver={canReorderColumns ? (e) => handleColumnDragOver(e, key) : undefined}
+                                            onDrop={canReorderColumns ? (e) => handleColumnDrop(e, key) : undefined}
+                                            className={`py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-r border-[var(--border-primary)] ${draggedColumn === key ? 'opacity-40' : ''}`}
                                         >
-                                            <div className="flex items-center gap-1.5 justify-between cursor-pointer overflow-hidden text-[var(--text-secondary)]" onClick={() => handleSort(key)}>
+                                            {/* Indicador de drop: línia vertical al costat on caurà la columna. */}
+                                            {dragOverColumn === key && draggedColumn && draggedColumn !== key && (
+                                                <div className={`pointer-events-none absolute top-0 bottom-0 ${dropAfter ? 'right-0' : 'left-0'} w-0.5 bg-[var(--gnosi-primary)] z-40`} />
+                                            )}
+                                            {/* Només aquest div és arrossegable: el tirador de resize (germà, fora
+                                                d'aquest subarbre) no inicia mai una reordenació de columnes. A la
+                                                vista principal canReorderColumns és false → sense drag (no persistiria). */}
+                                            <div
+                                                draggable={canReorderColumns}
+                                                onDragStart={canReorderColumns ? (e) => handleColumnDragStart(e, key) : undefined}
+                                                onDragEnd={canReorderColumns ? clearColumnDrag : undefined}
+                                                className={`flex items-center gap-1.5 justify-between overflow-hidden text-[var(--text-secondary)] ${canReorderColumns ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                                                onClick={() => handleSort(key)}
+                                            >
                                                 <div className="flex items-center gap-1.5 truncate">
                                                     {type === 'checkbox' && <CheckSquare size={14} className="text-[var(--text-tertiary)] shrink-0" />}
                                                     {type === 'date' && <Calendar size={14} className="text-[var(--text-tertiary)] shrink-0" />}
