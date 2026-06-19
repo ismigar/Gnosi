@@ -19,6 +19,11 @@ export DIGITAL_BRAIN_VAULT_PATH="$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi"
 export VAULT_HOST_PATH="$DIGITAL_BRAIN_VAULT_PATH"
 export BIBLIOTECA_HOST_PATH="$HOME/Library/CloudStorage/OneDrive-UNED/Biblioteca"
 export HOME_HOST_PATH="$HOME"
+# Materialització de fitxers online-only d'OneDrive: en NATIU el backend hi té
+# accés directe, així que els materialitza llegint-los (baixada on-access de
+# macOS), sense el daemon HTTP (que només calia sota Docker i requeriria Full
+# Disk Access propi). Vegeu services/files_provider/onedrive.py.
+export ONEDRIVE_WARMUP_MODE="direct"
 export GNOSI_LOCAL_DATA="$BASE/local_data"
 export PYTHONPATH="$BASE"
 export AI_MODEL_URL="${AI_MODEL_URL:-http://localhost:11434/v1/chat/completions}"

@@ -7,6 +7,7 @@ import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
 import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
+import { useTitlePreview } from './useTitlePreview';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
     const [localValues, setLocalValues] = useState(value);
@@ -432,6 +433,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     anchorCellRef.current = anchorCell;
     const editingCellRef = useRef(null);
     editingCellRef.current = editingCell;
+    // Previsualització del contingut en passar el ratolí (o Espai/Quick Look)
+    // pel títol d'un registre. Un sol card per a tota la taula; el listener
+    // global de teclat l'invoca via `titlePreviewRef` (sense recrear-se).
+    const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
+    const titlePreviewRef = useRef(null);
+    titlePreviewRef.current = titlePreview;
     const [mediaPickerCell, setMediaPickerCell] = useState(null); // { rowId, field, originalMetaKey, tableId }
     // Confirmació en eliminar un fitxer d'un camp `files`:
     // { rowId, field, originalMetaKey, idx, arr, target, fileName }
@@ -2008,6 +2015,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         if (!note) return;
         // El títol s'edita inline al seu propi <td> (no via renderCellContent).
         if (cell.field === 'title') {
+            titlePreviewRef.current?.close(); // no tapar l'input amb el pop-up
             setEditInitial(initialChar);
             setEditingCell({ rowId: note.id, field: 'title', originalMetaKey: 'title' });
             return;
@@ -2152,7 +2160,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 case 'Enter': e.preventDefault(); beginEditActiveRef.current(null); break;
                 case ' ':
                     e.preventDefault(); // evita scroll de la pàgina mentre navegues per cel·les
-                    if (getFieldType(schemaRef.current, cell.field) === 'checkbox') beginEditActiveRef.current(null);
+                    if (getFieldType(schemaRef.current, cell.field) === 'checkbox') { beginEditActiveRef.current(null); break; }
+                    // Quick Look: Espai sobre la cel·la del títol obre/tanca el
+                    // pop-up de previsualització, ancorat a la cel·la activa.
+                    if (cell.field === 'title') {
+                        const tp = titlePreviewRef.current;
+                        if (tp?.active && tp.active.pageId === cell.rowId && tp.active.viaKeyboard) {
+                            tp.close();
+                        } else {
+                            const el = tableContainerRef.current?.querySelector(`[data-title-cell="${CSS.escape(cell.rowId)}"]`);
+                            if (el) tp?.openForKeyboard(cell.rowId, el.getBoundingClientRect());
+                        }
+                    }
                     break;
                 case 'Escape': setActiveCell(null); setAnchorCell(null); break;
                 case 'Backspace':
@@ -2565,6 +2584,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         // cel·les de metadades). El títol viu a note.title → originalMetaKey
         // 'title' i camí d'escriptura propi (saveTitle).
         const openTitleEditor = () => {
+            titlePreviewRef.current?.close(); // no tapar l'input amb el pop-up
             setEditInitial(null);
             setActiveCell({ rowId: note.id, field: 'title' });
             setAnchorCell(null);
@@ -2719,6 +2739,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     </td>
 
                     <td
+                        data-title-cell={note.id}
                         style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
                         className={`${rowPadClass} px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top
                             ${titleSel.inRange && !titleSel.isActive ? 'bg-[var(--gnosi-primary)]/10' : isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
@@ -2789,7 +2810,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     className="flex-1 min-w-0 px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] font-medium"
                                 />
                             ) : (
-                                <span className="truncate flex-1">{note.title}</span>
+                                <span className="truncate flex-1" {...titlePreview.getTitleProps(note.id)}>{note.title}</span>
                             )}
 
                             {enableSubitems && hasChildren && !isExpanded && (
@@ -3447,6 +3468,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     </div>
                 </div>
             )}
+
+            {titlePreview.preview}
         </div>
     );
 };

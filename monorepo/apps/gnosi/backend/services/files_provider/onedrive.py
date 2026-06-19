@@ -37,6 +37,15 @@ class OneDriveProvider(FilesProvider):
             "ONEDRIVE_WARMUP_URL",
             "http://host.docker.internal:5009/warmup",
         )
+        # Mode de materialització:
+        #   "daemon" (default) → crida el daemon HTTP del host (cas Docker, on
+        #                        el backend NO té accés directe al File Provider).
+        #   "direct"           → llegeix el fitxer directament; a macOS, accedir
+        #                        a un placeholder dataless en dispara la baixada
+        #                        on-access. És el mode per al runtime NATIU, on el
+        #                        backend SÍ té accés al vault i el daemon de
+        #                        `host.docker.internal` no és accessible (ni cal).
+        self.warmup_mode = os.environ.get("ONEDRIVE_WARMUP_MODE", "daemon").strip().lower()
         self.warmup_timeout_s = (
             warmup_timeout_s
             if warmup_timeout_s is not None
@@ -103,10 +112,37 @@ class OneDriveProvider(FilesProvider):
         # st_blocks (p. ex. alguns FUSE) no volem disparar warmup.
         return getattr(stat_result, "st_blocks", 1) == 0
 
+    async def _materialize_direct(self, container_path: Path) -> bool:
+        """Materialitza llegint el fitxer directament: a macOS, accedir a un
+        placeholder dataless del File Provider en dispara la baixada on-access.
+        Mode per al runtime NATIU (el backend té accés directe al vault, a
+        diferència de Docker). Evita el daemon HTTP i el seu Full Disk Access."""
+        def _read() -> bool:
+            import time as _t
+            for attempt in range(6):
+                try:
+                    with open(container_path, "rb") as f:
+                        f.read(65536)  # tocar-lo n'hi ha prou: macOS baixa tot el fitxer
+                    return True
+                except OSError as e:
+                    # 35 EAGAIN / 11 EDEADLK: baixada en curs → backoff i reintenta.
+                    if e.errno in (35, 11) and attempt < 5:
+                        _t.sleep(0.3 * (2 ** attempt))
+                        continue
+                    log.warning("☁️ Materialització directa fallida per %s: %r", container_path, e)
+                    return False
+            return False
+        ok = await asyncio.to_thread(_read)
+        if ok:
+            log.info("☁️→💾 Materialitzat (directe) %s", container_path.name)
+        return ok
+
     async def materialize(self, container_path: Path) -> bool:
-        """Crida al daemon del host (`sh/onedrive_warmup_daemon.py`) per
-        forçar la baixada del fitxer. Retorna True si el daemon respon
-        `materialized`."""
+        """Materialitza un fitxer online-only. En mode "direct" (natiu) el
+        llegeix directament; en mode "daemon" (Docker) crida el daemon del host
+        (`sh/onedrive_warmup_daemon.py`). Retorna True si s'ha materialitzat."""
+        if self.warmup_mode == "direct":
+            return await self._materialize_direct(container_path)
         if not self.vault_host_path:
             log.debug("VAULT_HOST_PATH no configurat: warmup desactivat")
             return False
