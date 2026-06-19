@@ -76,6 +76,8 @@
     "confirm_delete_records_msg": "¿Estás seguro de que quieres eliminar {{count}} registro{{plural}}? Esta acción no se puede deshacer.",
     "confirm_delete_view": "Eliminar Vista",
     "confirm_delete_view_msg": "¿Estás seguro de que quieres eliminar la vista \"{{name}}\"? Esta acción no se puede deshacer.",
+    "confirm_delete_template": "Eliminar plantilla",
+    "confirm_delete_template_msg": "¿Estás seguro de que quieres eliminar la plantilla \"{{title}}\"? Se moverá a la papelera.",
     "rename_view": "Renombrar Vista: {{name}}",
     "prompt_new_name": "¿Cuál es el nuevo nombre?",
     "prompt_name": "¿Qué nombre quieres darle?",

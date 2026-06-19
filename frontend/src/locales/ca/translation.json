@@ -77,6 +77,8 @@
     "confirm_delete_records_msg": "Estàs segur que vols eliminar {{count}} registre{{plural}}? Aquesta acció no es pot desfer.",
     "confirm_delete_view": "Eliminar Vista",
     "confirm_delete_view_msg": "Estàs segur que vols eliminar la vista \"{{name}}\"? Aquesta acció no es pot desfer.",
+    "confirm_delete_template": "Eliminar plantilla",
+    "confirm_delete_template_msg": "Estàs segur que vols eliminar la plantilla \"{{title}}\"? Es mourà a la paperera.",
     "rename_view": "Reanomenar Vista: {{name}}",
     "prompt_new_name": "Quin és el nou nom?",
     "prompt_name": "Quin nom vols donar-li?",

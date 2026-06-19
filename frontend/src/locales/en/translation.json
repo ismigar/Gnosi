@@ -153,6 +153,8 @@
     "confirm_delete_records_msg": "Are you sure you want to delete {{count}} record{{plural}}? This action cannot be undone.",
     "confirm_delete_view": "Delete View",
     "confirm_delete_view_msg": "Are you sure you want to delete the view \"{{name}}\"? This action cannot be undone.",
+    "confirm_delete_template": "Delete template",
+    "confirm_delete_template_msg": "Are you sure you want to delete the template \"{{title}}\"? It will be moved to the trash.",
     "rename_view": "Rename View: {{name}}",
     "prompt_new_name": "What is the new name?",
     "prompt_name": "What name do you want to give it?",
