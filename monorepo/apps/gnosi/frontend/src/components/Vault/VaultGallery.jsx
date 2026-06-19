@@ -99,9 +99,12 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     //   properties → sense àrea superior; títol + propietats (targeta compacta)
     //   none       → targeta mínima: només títol i icona
     const galleryPreview = activeView.galleryPreview || 'cover';
-    const showCoverArea = galleryPreview === 'cover' || galleryPreview === 'content';
+    // 'content' ja NO puja a una àrea superior tipus portada: es renderitza com a
+    // targeta-document (títol a dalt + el text de la pàgina omplint el que càpiga).
+    const showCoverArea = galleryPreview === 'cover';
     const showContentPreview = galleryPreview === 'content';
-    const showProperties = galleryPreview !== 'none';
+    // En mode 'content' la targeta l'omple el text de la pàgina, no les propietats.
+    const showProperties = galleryPreview === 'cover' || galleryPreview === 'properties';
 
     // Camp d'on treure la portada de cada targeta. Buit = portada de la pàgina
     // (`metadata.cover`, comportament clàssic). Si s'especifica un camp, n'extraiem
@@ -132,9 +135,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
             .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
             .replace(/[#>*_`~]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 240);
+            .replace(/[ \t]+/g, ' ')        // espais/tabs → 1 (preserva salts de línia)
+            .replace(/\n{2,}/g, '\n')       // línies en blanc múltiples → una de sola
+            .split('\n').map(s => s.trim()).filter(Boolean).join('\n')
+            .slice(0, 600);                 // prou text per omplir targetes grans
     };
 
     const getRelationDisplayMap = (field) => {
@@ -265,7 +269,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                 <div
                                     key={`${note.id || 'note'}-${noteIndex}`}
                                     onClick={() => { if (selectedIds.size > 0) { toggleSelect(note.id, {}); } else { onNoteSelect(note.id); } }}
-                                    className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${showCoverArea ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+                                    className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${(showCoverArea || showContentPreview) ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
                                 >
                                     {/* Checkbox de selecció (cantonada superior esquerra) */}
                                     <label
@@ -279,21 +283,11 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                             className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
                                         />
                                     </label>
-                                    {/* Àrea superior: portada (mode cover) o fragment de text
-                                        (mode content). S'oculta als modes properties/none. */}
+                                    {/* Àrea superior: només mode 'cover' (portada de la pàgina).
+                                        El mode 'content' es renderitza dins el cos, sota el títol. */}
                                     {showCoverArea && (
                                         <div className={`${getCoverHeightClass()} relative shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]`}>
-                                            {showContentPreview ? (
-                                                <div className="absolute inset-0 p-3 overflow-hidden bg-gradient-to-br from-[var(--bg-tertiary)]/40 to-transparent">
-                                                    {excerpt ? (
-                                                        <p className="text-[11px] leading-snug text-[var(--text-secondary)] line-clamp-5">{excerpt}</p>
-                                                    ) : (
-                                                        <div className="h-full flex items-center justify-center text-[var(--text-tertiary)] opacity-50">
-                                                            <FileText size={20} strokeWidth={1.5} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : hasCover ? (
+                                            {hasCover ? (
                                                 <div
                                                     className={`absolute inset-0 ${coverFitClass} bg-center bg-no-repeat`}
                                                     style={{ backgroundImage: `url(${coverUrl})` }}
@@ -302,7 +296,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                                 <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />
                                             )}
 
-                                            {/* Icon overlapping the cover */}
+                                            {/* Icona superposada a la portada */}
                                             <div className="absolute -bottom-5 left-4 w-10 h-10 bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)] flex items-center justify-center z-10 group-hover:scale-110 transition-transform overflow-hidden">
                                                 <IconRenderer icon={note.metadata?.icon} size={24} />
                                             </div>
@@ -319,6 +313,23 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                             )}
                                             <span className="truncate">{note.title || "Sense Títol"}</span>
                                         </h3>
+
+                                        {/* Previsualització del contingut (mode 'content'): el que
+                                            càpiga del text de la pàgina, sota el títol, amb fade final. */}
+                                        {showContentPreview && (
+                                            <div className="relative flex-1 min-h-0 overflow-hidden">
+                                                {excerpt ? (
+                                                    <p className="text-xs leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">{excerpt}</p>
+                                                ) : (
+                                                    <div className="h-full flex items-center justify-center text-[var(--text-tertiary)] opacity-40">
+                                                        <FileText size={24} strokeWidth={1.5} />
+                                                    </div>
+                                                )}
+                                                {excerpt && (
+                                                    <div className="pointer-events-none absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* Properties */}
                                         {showProperties && (
