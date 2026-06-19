@@ -43,11 +43,6 @@ export function VaultViewBody({
     onUpdateFieldOptions,
     onUpdateNote,
     onSearchChange,
-    // Gestió de plantilles (només la fa servir la taula completa; l'embed no
-    // les passa). Pass-through a VaultTable.
-    onCreateTemplate,
-    onDuplicateTemplate,
-    onSetDefaultTemplate,
 }) {
     const t = String(type || 'table').toLowerCase();
 
@@ -128,9 +123,6 @@ export function VaultViewBody({
             onCellSaved={onCellSaved}
             onTranslated={onTranslated}
             onUpdateFieldOptions={onUpdateFieldOptions}
-            onCreateTemplate={onCreateTemplate}
-            onDuplicateTemplate={onDuplicateTemplate}
-            onSetDefaultTemplate={onSetDefaultTemplate}
             actionRules={actionRules}
         />
     );
