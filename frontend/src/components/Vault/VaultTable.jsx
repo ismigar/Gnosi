@@ -226,7 +226,7 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
-import { normalizeOptions, optionChipStyle, checkActionRequires } from './optionCatalogUtils';
+import { normalizeOptions, optionChipStyle, optionColorHex, checkActionRequires } from './optionCatalogUtils';
 import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, normalizeSorts } from './schemaUtils';
 import {
     isComputedType,
@@ -396,6 +396,10 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const rowHeight = activeView?.rowHeight || 'normal';
     const rowPadClass = rowHeight === 'compact' ? 'py-1' : (rowHeight === 'tall' ? 'py-4' : 'py-2.5');
 
+    // Agrupació de files (activeView.groupBy): nom d'un camp de l'esquema
+    // (select/status/multi_select). Buit = sense agrupar (taula plana actual).
+    const groupByField = activeView?.groupBy || '';
+
     // Refs for drag state
     const resizingCol = useRef(null);
     const startX = useRef(0);
@@ -436,6 +440,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     const searchTerm = searchTermProp !== undefined ? searchTermProp : internalSearchTerm;
     const setSearchTerm = onSearchChange || setInternalSearchTerm;
     const [expandedRows, setExpandedRows] = useState(new Set()); // IDs of expanded rows
+    const [collapsedGroups, setCollapsedGroups] = useState(() => new Set()); // claus de grup col·lapsades (agrupació)
     const [newSubitemTitle, setNewSubitemTitle] = useState(''); // title for the new inline subitem
     const [addingSubitemFor, setAddingSubitemFor] = useState(null); // parent ID for adding a subitem
     const [openingResourceId, setOpeningResourceId] = useState(null);
@@ -632,10 +637,36 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // `display: block`.
     const tableContainerRef = useRef(null);
 
+    // Metadades del camp d'agrupació (ordre i color de les opcions, com el
+    // kanban): si el camp té opcions definides a l'esquema, els grups segueixen
+    // el seu ORDRE i n'hereten el COLOR. `fieldId` és la reserva per llegir el
+    // valor quan la metadata es clava per id en lloc de per nom.
+    const groupMeta = useMemo(() => {
+        if (!groupByField) return null;
+        const cfg = getFieldConfig(schema, groupByField);
+        const options = (cfg && Array.isArray(cfg.options)) ? normalizeOptions(cfg.options) : [];
+        const colorMap = {};
+        options.forEach(o => { colorMap[o.name] = o.color; });
+        return { fieldId: cfg?.id || null, optionOrder: options.map(o => o.name), colorMap };
+    }, [groupByField, schema]);
+
+    // Col·lapse/expansió d'un grup (estat local). Es reinicia en canviar de
+    // vista o de camp d'agrupació, on les claus de grup deixen de tenir sentit.
+    const toggleGroup = useCallback((groupKey) => {
+        setCollapsedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupKey)) next.delete(groupKey); else next.add(groupKey);
+            return next;
+        });
+    }, []);
+    useEffect(() => { setCollapsedGroups(new Set()); }, [activeView?.id, groupByField]);
+
     // Llista plana de descriptors. Cada entrada → 1 `<tr>` virtual.
     const rowDescriptors = useMemo(() => {
         const list = [];
-        for (const note of visibleRootNotes) {
+        // Afegeix una fila root i, si està desplegada, els seus subitems + el
+        // formulari de nou subitem. Reutilitzat per la via plana i l'agrupada.
+        const pushNoteRows = (note) => {
             list.push({ kind: 'row', note, isChild: false, depth: 0 });
             if (expandedRows.has(note.id)) {
                 const children = childrenMap[note.id] || [];
@@ -646,9 +677,65 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     list.push({ kind: 'new-subitem', parentNote: note, depth: 1 });
                 }
             }
+        };
+
+        // Sense agrupació: comportament previ (tram d'infinite-load + virtualització).
+        if (!groupByField || !groupMeta) {
+            for (const note of visibleRootNotes) pushNoteRows(note);
+            return list;
+        }
+
+        // Amb agrupació: agrupem TOTES les files ordenades/filtrades (no només el
+        // tram d'infinite-load) perquè els comptadors i el conjunt de grups
+        // siguin exactes; la virtualització ja limita el cost al viewport. El
+        // valor del grup es llegeix pel nom del camp o, com a reserva, per l'id
+        // (getMetaKey viu més avall i no és accessible aquí; aquesta resolució
+        // cobreix els dos formats reals de metadata).
+        const EMPTY = ' empty';
+        const readVal = (note) => {
+            const m = note?.metadata || {};
+            if (Object.prototype.hasOwnProperty.call(m, groupByField)) return m[groupByField];
+            if (groupMeta.fieldId && Object.prototype.hasOwnProperty.call(m, groupMeta.fieldId)) return m[groupMeta.fieldId];
+            return undefined;
+        };
+        const groups = new Map(); // gid -> { key, label, notes: [] }
+        for (const note of sortedNotes) {
+            const raw = readVal(note);
+            let name;
+            if (Array.isArray(raw)) name = raw.length ? String(raw[0]).trim() : '';
+            else name = (raw === null || raw === undefined) ? '' : String(raw).trim();
+            const gid = name === '' ? EMPTY : name;
+            let g = groups.get(gid);
+            if (!g) { g = { key: gid, label: gid === EMPTY ? 'Sense valor' : name, notes: [] }; groups.set(gid, g); }
+            g.notes.push(note);
+        }
+        // Ordre: opcions de l'esquema (en el seu ordre) → valors no catalogats
+        // (ordre d'aparició, sort estable) → grup buit sempre al final.
+        const order = groupMeta.optionOrder;
+        const ordered = Array.from(groups.values()).sort((a, b) => {
+            if (a.key === EMPTY) return 1;
+            if (b.key === EMPTY) return -1;
+            const ia = order.indexOf(a.key);
+            const ib = order.indexOf(b.key);
+            if (ia !== -1 && ib !== -1) return ia - ib;
+            if (ia !== -1) return -1;
+            if (ib !== -1) return 1;
+            return 0;
+        });
+        for (const g of ordered) {
+            const colorName = g.key === EMPTY ? null : groupMeta.colorMap[g.label];
+            list.push({
+                kind: 'group-header',
+                groupKey: g.key,
+                label: g.label,
+                count: g.notes.length,
+                colorHex: colorName ? optionColorHex(colorName) : null,
+            });
+            if (collapsedGroups.has(g.key)) continue; // grup col·lapsat → no rows
+            for (const note of g.notes) pushNoteRows(note);
         }
         return list;
-    }, [visibleRootNotes, expandedRows, childrenMap, addingSubitemFor]);
+    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, collapsedGroups]);
 
     const rowVirtualizer = useVirtualizer({
         count: rowDescriptors.length,
@@ -2924,6 +3011,40 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         </tr>
     );
 
+    // Capçalera de grup (agrupació de files): un `<tr>` virtual amb una sola
+    // cel·la `colSpan` que abasta tota la taula. El contingut (chevron +
+    // punt de color + nom + comptador) va dins un `<div sticky left-0>` perquè
+    // es mantingui visible en fer scroll horitzontal, com la columna de títol.
+    const renderGroupHeader = (d, virtualItem) => {
+        const collapsed = collapsedGroups.has(d.groupKey);
+        return (
+            <tr
+                key={`group-${d.groupKey}-${virtualItem.index}`}
+                data-index={virtualItem.index}
+                ref={rowVirtualizer.measureElement}
+                className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]"
+            >
+                <td colSpan={dynamicColumns.length + 3} className="p-0 bg-[var(--bg-secondary)]">
+                    <div className="sticky left-0 z-10 inline-flex items-center w-max max-w-[calc(100vw-2rem)]">
+                        <button
+                            type="button"
+                            onClick={() => toggleGroup(d.groupKey)}
+                            className="flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-tertiary)] transition-colors w-full"
+                            title={collapsed ? t('common.expand', 'Desplega') : t('common.collapse', 'Replega')}
+                        >
+                            {collapsed
+                                ? <ChevronRight size={15} className="text-[var(--text-tertiary)] shrink-0" />
+                                : <ChevronDown size={15} className="text-[var(--text-tertiary)] shrink-0" />}
+                            {d.colorHex && <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.colorHex }} />}
+                            <span className="text-xs font-bold text-[var(--text-primary)] truncate">{d.label}</span>
+                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)] bg-[var(--bg-primary)] px-1.5 py-0.5 rounded-full border border-[var(--border-primary)]/60 shrink-0">{d.count}</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        );
+    };
+
     return (
         <div className={`w-full h-full overflow-hidden ${isEmbedded ? '' : 'bg-[var(--bg-primary)]'}`}>
             <div className="w-full h-full flex flex-col">
@@ -3032,6 +3153,9 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                                 if (!d) return null;
                                 if (d.kind === 'row') {
                                     return renderRow(d.note, d.isChild, d.depth, `${vi.index}`, vi);
+                                }
+                                if (d.kind === 'group-header') {
+                                    return renderGroupHeader(d, vi);
                                 }
                                 if (d.kind === 'new-subitem') {
                                     return renderNewSubitemRow(d.parentNote, d.depth, vi);
@@ -3165,7 +3289,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                         </div>
                     )}
 
-                    {sortedNotes.length > visibleRowsCount && (
+                    {!groupByField && sortedNotes.length > visibleRowsCount && (
                         <InfiniteLoadSentinel
                             visibleCount={visibleRowsCount}
                             total={sortedNotes.length}
