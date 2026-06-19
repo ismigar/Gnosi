@@ -5,6 +5,7 @@ import { VaultGallery } from './VaultGallery';
 import { VaultTimeline } from './VaultTimeline';
 import { VaultFeed } from './VaultFeed';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
+import { useVaultViewData } from '../../hooks/useVaultViewData';
 
 /**
  * VaultViewBody — render compartit del COS d'una vista de BD segons el seu
@@ -67,6 +68,16 @@ export function VaultViewBody({
         onUpdateView,
     };
 
+    // Notes filtrades/ordenades segons la vista. El calendari rep `allNotes` i no
+    // aplica ell mateix els filtres de la vista, així que els hi apliquem aquí amb
+    // el mateix motor que la resta de vistes (abans els ignorava per complet).
+    const { sortedPages: viewFilteredNotes } = useVaultViewData({
+        pages: notes,
+        schema,
+        view: { filters: activeView?.filters || [], sorts: activeView?.sort || { field: 'last_modified', direction: 'desc' }, search: searchTerm },
+        searchTerm,
+    });
+
     if (t === 'board') {
         return <VaultKanban {...common} isEmbedded={isEmbedded} />;
     }
@@ -83,6 +94,7 @@ export function VaultViewBody({
                 schema={schema}
                 idToTitle={idToTitle}
                 allNotes={allNotes}
+                activeView={activeView}
                 searchTerm={searchTerm}
                 onSearchChange={onSearchChange}
                 onNoteSelect={onNoteSelect}
@@ -94,12 +106,13 @@ export function VaultViewBody({
     if (t === 'calendar') {
         return (
             <DigitalBrainCalendar
-                allNotes={notes}
+                allNotes={viewFilteredNotes}
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
                 dateField={activeView?.dateField || ''}
                 endDateField={activeView?.endDateField || ''}
+                initialView={activeView?.calendarView || 'dayGridMonth'}
                 ignoreCalendarFilter
             />
         );

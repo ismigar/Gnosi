@@ -2687,6 +2687,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isPageViewModalOpen, setIsPageViewModalOpen] = useState(false);
     const [pageViewPreselectedTable, setPageViewPreselectedTable] = useState('');
     const [pageViewEditingBlock, setPageViewEditingBlock] = useState(null);
+    // S'incrementa cada cop que es desa la config d'una vista de BD. Es propaga
+    // via VaultEditorContext perquè cada DbViewEmbed re-llegeixi la seva secció
+    // (cardSize/galleryPreview/groupBy/…) en viu, sense haver de recarregar:
+    // editar només la mida no canvia el view_id/heading del bloc, així que el
+    // seu useEffect de càrrega no es redisparava i el canvi no es veia (#bug).
+    const [viewSectionNonce, setViewSectionNonce] = useState(0);
     // L'editor BlockNote viu dins d'EditorInner. Aquesta ref permet que el
     // PageViewModal (renderitzat aquí, fora d'EditorInner) demani inserir o
     // actualitzar el bloc `gnosi_view` un cop l'usuari ha desat la vista.
@@ -2725,7 +2731,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setIsPageViewModalOpen(true);
     }, []);
 
-    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] }, pageId: noteFilename, onOpenPageViewModal: openPageViewModalFromContext }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry, noteFilename, openPageViewModalFromContext]);
+    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] }, pageId: noteFilename, onOpenPageViewModal: openPageViewModalFromContext, viewSectionNonce }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry, noteFilename, openPageViewModalFromContext, viewSectionNonce]);
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
     const _doSaveMetadata = useCallback(async (currentMetadata, removeKeys = null) => {
@@ -3827,6 +3833,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     if (sectionData) {
                         applyViewSectionRef.current?.(sectionData, editing);
                     }
+                    // Demana als DbViewEmbed de la pàgina que re-llegeixin la
+                    // secció acabada de desar (mida de targeta, previsualització,
+                    // agrupació…). Sense això, editar la mida d'una galeria
+                    // incrustada no tenia cap efecte fins a recarregar.
+                    setViewSectionNonce(n => n + 1);
                     onRefreshNotes?.();
                 }}
                 pageId={noteFilename}

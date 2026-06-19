@@ -1,12 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { Columns, FileText, Tag, Clock } from 'lucide-react';
+import { Columns, FileText, Clock, Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
+import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
+import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
+import { isMainView } from './viewConstants';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
-export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, schema = {}, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
+export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
@@ -45,8 +48,67 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
     // Definir columna d'agrupament
     const groupBy = activeView?.groupBy || 'status';
 
-    // Definir columnes fixes per defecte (basat en el que s'ofereix al BlockEditor)
-    const predefinedStatuses = groupBy === 'status' ? ['Idea', 'Brollador', 'Zettel', 'Tancat'] : [];
+    // Propietats visibles a les targetes (mateix criteri que la galeria): la
+    // vista principal mostra tots els camps; una vista amb selecció, els seus
+    // `visibleProperties` (o els 3 primers per defecte). Abans el kanban
+    // ignorava `visibleProperties` i només pintava tags + data de modificació.
+    const cardProperties = isMainView(activeView, [activeView].filter(Boolean))
+        ? getSchemaFieldNames(schema)
+        : (activeView?.visibleProperties || getSchemaFieldNames(schema).slice(0, 3));
+    const cardColumns = cardProperties
+        .map(prop => [prop, getFieldType(schema, prop)])
+        .filter(([key, type]) => type && type !== 'title');
+
+    const normalizeKey = (k) => String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/gi, '');
+    const getCardVal = (note, key) => {
+        let val = note.metadata?.[key];
+        if (val === undefined || val === null || val === '') {
+            const keyNorm = normalizeKey(key);
+            const metaKey = Object.keys(note.metadata || {}).find(k => normalizeKey(k) === keyNorm);
+            if (metaKey) val = note.metadata[metaKey];
+        }
+        return val;
+    };
+    const renderCardValue = (value, type) => {
+        switch (type) {
+            case 'checkbox':
+                return <CheckSquare size={13} className={value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />;
+            case 'date':
+                return <span className="inline-flex items-center gap-1"><Calendar size={11} />{(() => { try { return new Date(value).toLocaleDateString(); } catch { return String(value); } })()}</span>;
+            case 'status':
+            case 'select':
+                return <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-secondary)]">{value}</span>;
+            case 'multi_select':
+            case 'relation': {
+                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim()).filter(Boolean);
+                return (
+                    <span className="inline-flex flex-wrap gap-1">
+                        {items.slice(0, 4).map((it, i) => (
+                            <span key={i} className="px-1.5 py-0.5 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]">{idToTitle[it] || (String(it).length > 16 ? String(it).slice(0, 8) + '…' : it)}</span>
+                        ))}
+                        {items.length > 4 && <span className="text-[var(--text-tertiary)]">+{items.length - 4}</span>}
+                    </span>
+                );
+            }
+            case 'url':
+                return <span className="inline-flex items-center gap-1 text-[var(--gnosi-primary)]"><LinkIcon size={11} />URL</span>;
+            default:
+                return <span>{String(value)}</span>;
+        }
+    };
+
+    // Ordre i color de les columnes: si el camp d'agrupació té opcions definides
+    // a l'esquema (select/status), les columnes segueixen el seu ORDRE i n'hereten
+    // el COLOR (com Notion). Abans l'ordre era fix ('Idea/Brollador/…') i sense
+    // color. Fallback: els valors trobats als registres.
+    const groupConfig = getFieldConfig(schema, groupBy);
+    const groupOptions = Array.isArray(groupConfig?.options) ? normalizeOptions(groupConfig.options) : [];
+    const optionColorMap = {};
+    groupOptions.forEach(o => { optionColorMap[o.name] = o.color; });
+    const columnColor = (status) => (optionColorMap[status] ? optionColorHex(optionColorMap[status]) : null);
+    const predefinedStatuses = groupOptions.length > 0
+        ? groupOptions.map(o => o.name)
+        : (groupBy === 'status' ? ['Idea', 'Brollador', 'Zettel', 'Tancat'] : []);
 
     const customStatuses = new Set();
     sortedAndFilteredNotes.forEach(note => {
@@ -113,7 +175,8 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                     {allStatuses.map(status => (
                         <div key={status} className="w-80 flex flex-col bg-[var(--bg-tertiary)]/50 rounded-xl p-3 shadow-sm border border-[var(--border-primary)]">
                             <div className="flex justify-between items-center mb-4 px-1">
-                                <h3 className="font-bold text-[var(--text-secondary)] text-[10px] tracking-wider uppercase bg-[var(--bg-primary)] px-2.5 py-1 rounded-lg shadow-sm border border-[var(--border-primary)]">
+                                <h3 className="font-bold text-[var(--text-secondary)] text-[10px] tracking-wider uppercase bg-[var(--bg-primary)] px-2.5 py-1 rounded-lg shadow-sm border border-[var(--border-primary)] inline-flex items-center gap-1.5">
+                                    {columnColor(status) && <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: columnColor(status) }} />}
                                     {status}
                                 </h3>
                                 <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-primary)]/50">
@@ -144,10 +207,18 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                             <span>{note.title || "Sense Títol"}</span>
                                         </h4>
 
-                                        {note.metadata?.tags && (
-                                            <div className="flex items-center gap-1 mt-3 text-[10px] text-[var(--text-secondary)] overflow-hidden bg-[var(--bg-tertiary)]/50 px-1.5 py-0.5 rounded border border-[var(--border-primary)]/30 w-fit max-w-full">
-                                                <Tag size={12} className="shrink-0 text-[var(--gnosi-primary)]/60" />
-                                                <span className="truncate">{note.metadata.tags}</span>
+                                        {cardColumns.length > 0 && (
+                                            <div className="flex flex-col gap-1 mt-2 text-[10px]">
+                                                {cardColumns.map(([key, type], pi) => {
+                                                    const val = getCardVal(note, key);
+                                                    if (val === undefined || val === null || val === '') return null;
+                                                    return (
+                                                        <div key={`${key}-${pi}`} className="flex items-center gap-1.5 overflow-hidden min-h-[16px]">
+                                                            <span className="font-medium uppercase tracking-wider text-[var(--text-tertiary)] shrink-0 truncate max-w-[45%]">{key}</span>
+                                                            <div className="min-w-0 flex-1 truncate text-[var(--text-secondary)]">{renderCardValue(val, type)}</div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
 

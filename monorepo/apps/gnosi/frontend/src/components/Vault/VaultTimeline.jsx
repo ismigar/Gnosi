@@ -2,7 +2,8 @@ import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, ChevronLeft, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
-import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType } from './schemaUtils';
+import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig } from './schemaUtils';
+import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { parsePeriod } from './VaultDateProperty';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
@@ -10,6 +11,25 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 
 export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, idToTitle = {}, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     const scrollContainerRef = useRef(null);
+
+    // Color de cada barra segons un camp (activeView.colorField): usa el color de
+    // l'opció corresponent (paleta de l'esquema). Sense colorField, color únic.
+    const colorField = activeView?.colorField || '';
+    const barColorMap = (() => {
+        if (!colorField) return null;
+        const cfg = getFieldConfig(schema, colorField);
+        const opts = Array.isArray(cfg?.options) ? normalizeOptions(cfg.options) : [];
+        const m = {};
+        opts.forEach(o => { m[o.name] = optionColorHex(o.color); });
+        return m;
+    })();
+    const getBarColor = (note) => {
+        if (barColorMap) {
+            const v = note?.metadata?.[colorField];
+            if (v && barColorMap[v]) return barColorMap[v];
+        }
+        return 'var(--gnosi-primary)';
+    };
     const [zoomLevel, setZoomLevel] = useState('month'); // 'day', 'week', 'month'
     const [selectingPredecessorFor, setSelectingPredecessorFor] = useState(null);
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
@@ -464,11 +484,12 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
                                             <div
                                                 onClick={() => onNoteSelect(note.id)}
-                                                className="absolute h-6 rounded-md bg-[var(--gnosi-primary)] shadow-sm border border-[var(--gnosi-primary)]/50 hover:brightness-110 hover:scale-y-105 transition-all cursor-pointer flex items-center px-2 group/bar overflow-hidden"
+                                                className="absolute h-6 rounded-md border border-black/10 dark:border-white/10 shadow-sm hover:brightness-110 hover:scale-y-105 transition-all cursor-pointer flex items-center px-2 group/bar overflow-hidden"
                                                 style={{
                                                     left: `${startPos}%`,
                                                     width: `${width}%`,
-                                                    minWidth: '60px'
+                                                    minWidth: '60px',
+                                                    backgroundColor: getBarColor(note),
                                                 }}
                                             >
                                                 <div className="flex items-center gap-1 text-white min-w-0">

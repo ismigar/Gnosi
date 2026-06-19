@@ -1510,6 +1510,10 @@ export function DbViewEmbed({ block }) {
         return '';
     });
     const [reloadKey, setReloadKey] = useState(0);
+    // Últim `viewSectionNonce` (del context) que ja hem aplicat. Quan canvia vol
+    // dir que s'acaba de desar la config d'una vista: ctx.registry del client
+    // queda ranci i cal rellegir les vistes del backend (veure el `load`).
+    const lastSavedNonceRef = useRef(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [addMenuOpen, setAddMenuOpen] = useState(false); // menú d'afegir vista (tipus / existents)
@@ -1606,12 +1610,27 @@ export function DbViewEmbed({ block }) {
                 const tpls = all.filter(p => p.metadata?.is_template === true);
                 const records = all.filter(p => !p.metadata?.is_template);
 
+                // Vistes de la taula (per a les pestanyes i per al cardSize/
+                // galleryPreview que en deriva embeddedView). Solen sortir de
+                // ctx.registry, però just després de desar la config d'una vista
+                // (viewSectionNonce ha canviat) aquest queda ranci —el desat toca
+                // el backend, no ctx.registry—, així que rellegim les vistes
+                // fresques perquè el canvi (mida/preview…) es vegi en viu.
+                let registryViews = ctx.registry?.views || [];
+                if (ctx.viewSectionNonce !== lastSavedNonceRef.current) {
+                    lastSavedNonceRef.current = ctx.viewSectionNonce;
+                    try {
+                        const vr = await axios.get('/api/vault/views');
+                        const fresh = Array.isArray(vr.data) ? vr.data : vr.data?.views;
+                        if (Array.isArray(fresh)) registryViews = fresh;
+                    } catch { /* fallback: ctx.registry */ }
+                }
+
                 if (!cancelled) {
                     setRawRecords(records);
                     setTemplates(tpls);
-                    // Vistes de la taula (per a les pestanyes). El registry pot ser
-                    // ranci; garantim que la vista de la secció hi sigui sempre.
-                    const tv = (ctx.registry?.views || []).filter(v => String(v.table_id) === String(tableId));
+                    // Garantim que la vista de la secció hi sigui sempre.
+                    const tv = registryViews.filter(v => String(v.table_id) === String(tableId));
                     const sectionAsView = {
                         id: section.view_id,
                         name: section.heading || 'Vista',
@@ -1652,7 +1671,11 @@ export function DbViewEmbed({ block }) {
         };
         void load();
         return () => { cancelled = true; };
-    }, [viewId, pageId, headingProp, reloadKey]);
+        // `ctx.viewSectionNonce` s'incrementa quan es desa la config d'una vista
+        // (BlockEditor): re-disparem la càrrega per llegir la secció actualitzada
+        // (cardSize/galleryPreview/…), perquè editar només la mida no canvia
+        // viewId/headingProp i el useEffect no es redispararia altrament.
+    }, [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce]);
 
     const tableId = view?.source_table_id || view?.table_id;
 
