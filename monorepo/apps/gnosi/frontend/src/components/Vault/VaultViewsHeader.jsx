@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
-    Plus, Settings, Hash, Search, X, MoreHorizontal, 
-    Edit2, Copy, Trash2, LayoutTemplate, SlidersHorizontal, 
+    Plus, Settings, Hash, Search, X, MoreHorizontal,
+    Edit2, Copy, Trash2, Star, LayoutTemplate, SlidersHorizontal,
     ChevronDown, Filter, ArrowUpDown, Tag, Type, CheckSquare, 
     Calendar, Layers, FileImage, Columns, List, BarChart2,
     Globe, MapPin, AlignLeft, Lock
@@ -173,6 +174,10 @@ export function VaultViewsHeader({
     onCreateRecord,
     onCreateTemplate,
     onCreateFromSource,
+    onEditTemplate,
+    onDuplicateTemplate,
+    onSetDefaultTemplate,
+    onDeleteTemplate,
     searchTerm,
     setSearchTerm,
     templates = [],
@@ -184,6 +189,27 @@ export function VaultViewsHeader({
     const [showSearch, setShowSearch] = useState(false);
     const [isAddingView, setIsAddingView] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
+    // Submenú "..." d'una plantilla concreta dins del menú "+ Nou".
+    // Guarda { id, tpl, top, right } (coords fixes calculades del botó "...").
+    const [templateMenuFor, setTemplateMenuFor] = useState(null);
+    const hasTemplateActions = !!(onEditTemplate || onDuplicateTemplate || onSetDefaultTemplate || onDeleteTemplate);
+
+    const openTemplateMenu = (e, tpl) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        setTemplateMenuFor(prev => (prev?.id === tpl.id ? null : {
+            id: tpl.id,
+            tpl,
+            top: rect.bottom + 4,
+            right: Math.max(8, window.innerWidth - rect.right),
+        }));
+    };
+
+    const closeNewMenus = () => {
+        setTemplateMenuFor(null);
+        setShowNewMenu(false);
+    };
 
     // Compte de registres de la vista ACTIVA (no de tota la taula). Si la vista
     // té filtres, només els registres que els compleixen; si no en té, equival
@@ -214,9 +240,18 @@ export function VaultViewsHeader({
     const [showOverflow, setShowOverflow] = useState(false);
 
     useEffect(() => {
-        if (!showNewMenu) return undefined;
+        if (!showNewMenu) {
+            // En tancar-se el menú "+ Nou", el submenú d'accions també desapareix.
+            setTemplateMenuFor(null);
+            return undefined;
+        }
         const handler = (e) => {
-            if (newMenuRef.current && !newMenuRef.current.contains(e.target)) {
+            // El submenú d'accions de plantilla es teletransporta a <body> via
+            // createPortal (per escapar del containing block del menú, que té un
+            // `transform` residual de l'animació i trencaria el position:fixed).
+            // En quedar fora de newMenuRef, cal excloure'l aquí o un clic dins seu
+            // tancaria el menú "+ Nou" abans d'executar l'acció.
+            if (newMenuRef.current && !newMenuRef.current.contains(e.target) && !e.target.closest?.('[data-template-submenu]')) {
                 setShowNewMenu(false);
             }
         };
@@ -510,21 +545,93 @@ export function VaultViewsHeader({
                                     <>
                                         <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
                                         <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('views_header.templates_title')}</div>
-                                        {templates.map(tpl => (
-                                            <button
-                                                key={tpl.id}
-                                                onClick={() => { setShowNewMenu(false); onCreateRecord?.(tpl.id); }}
-                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left group"
-                                            >
-                                                <LayoutTemplate size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]" />
-                                                <span className="truncate">{tpl.title || t('common.untitled')}</span>
-                                                {tpl.metadata?.is_default_template && (
-                                                    <span className="ml-auto text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">{t('views_header.default_badge')}</span>
-                                                )}
-                                            </button>
-                                        ))}
+                                        {templates.map(tpl => {
+                                            const isDefault = !!tpl.metadata?.is_default_template;
+                                            return (
+                                                <div
+                                                    key={tpl.id}
+                                                    className="group/tpl flex items-stretch hover:bg-[var(--bg-tertiary)] transition-colors"
+                                                >
+                                                    <button
+                                                        onClick={() => { setShowNewMenu(false); onCreateRecord?.(tpl.id); }}
+                                                        className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] text-left"
+                                                    >
+                                                        <LayoutTemplate size={14} className="shrink-0 text-[var(--text-tertiary)] group-hover/tpl:text-[var(--gnosi-primary)]" />
+                                                        <span className="truncate">{tpl.title || t('common.untitled')}</span>
+                                                        {isDefault && (
+                                                            <span className="ml-auto shrink-0 text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">{t('views_header.default_badge')}</span>
+                                                        )}
+                                                    </button>
+                                                    {hasTemplateActions && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => openTemplateMenu(e, tpl)}
+                                                            title={t('table.options')}
+                                                            aria-label={t('table.options')}
+                                                            aria-haspopup="menu"
+                                                            className={`shrink-0 px-2 flex items-center hover:bg-[var(--bg-secondary)] transition-all ${templateMenuFor?.id === tpl.id ? 'opacity-100 text-[var(--text-primary)]' : 'opacity-0 group-hover/tpl:opacity-100 focus:opacity-100 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
+                                                        >
+                                                            <MoreHorizontal size={15} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </>
                                 )}
+
+                                {templateMenuFor && createPortal((
+                                    <div
+                                        role="menu"
+                                        data-template-submenu
+                                        className="fixed w-48 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1 animate-in fade-in zoom-in-95 duration-100"
+                                        style={{ top: `${templateMenuFor.top}px`, right: `${templateMenuFor.right}px` }}
+                                    >
+                                        {onEditTemplate && (
+                                            <button
+                                                role="menuitem"
+                                                onClick={() => { closeNewMenus(); onEditTemplate(templateMenuFor.tpl); }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                            >
+                                                <Edit2 size={13} className="text-[var(--text-tertiary)]" />
+                                                <span>{t('table.edit')}</span>
+                                            </button>
+                                        )}
+                                        {onDuplicateTemplate && (
+                                            <button
+                                                role="menuitem"
+                                                onClick={() => { closeNewMenus(); onDuplicateTemplate(templateMenuFor.tpl); }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                            >
+                                                <Copy size={13} className="text-[var(--text-tertiary)]" />
+                                                <span>{t('table.duplicate')}</span>
+                                            </button>
+                                        )}
+                                        {onSetDefaultTemplate && !templateMenuFor.tpl?.metadata?.is_default_template && (
+                                            <button
+                                                role="menuitem"
+                                                onClick={() => { closeNewMenus(); onSetDefaultTemplate(templateMenuFor.tpl); }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                            >
+                                                <Star size={13} className="text-[var(--text-tertiary)]" />
+                                                <span>{t('table.set_default')}</span>
+                                            </button>
+                                        )}
+                                        {onDeleteTemplate && (
+                                            <>
+                                                <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
+                                                <button
+                                                    role="menuitem"
+                                                    onClick={() => { closeNewMenus(); onDeleteTemplate(templateMenuFor.tpl); }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 transition-colors text-left"
+                                                >
+                                                    <Trash2 size={13} />
+                                                    <span>{t('table.delete')}</span>
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                ), document.body)}
                             </div>
                         )}
                     </div>

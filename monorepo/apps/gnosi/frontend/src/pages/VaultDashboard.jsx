@@ -68,6 +68,7 @@ export default function VaultDashboard() {
     const [loading, setLoading] = useState(true);
     const [isRegistryLoading, setIsRegistryLoading] = useState(true);
     const [viewToDelete, setViewToDelete] = useState(null);
+    const [templateToDelete, setTemplateToDelete] = useState(null);
     const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
     // For now we support "editor" for all pages.
@@ -2810,6 +2811,10 @@ export default function VaultDashboard() {
                                 isLoading: false
                             });
                         }}
+                        onEditTemplate={(tpl) => loadPage(tpl.id)}
+                        onDuplicateTemplate={handleDuplicateTemplate}
+                        onSetDefaultTemplate={handleSetDefaultTemplate}
+                        onDeleteTemplate={(tpl) => setTemplateToDelete(tpl)}
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
                         templates={paneTemplates}
@@ -2975,6 +2980,10 @@ export default function VaultDashboard() {
                     }}
                     onCreateRecord={(tplId) => handleAddNewNote(tableId, tplId)}
                     onCreateTemplate={() => handleAddView('template')}
+                    onEditTemplate={(tpl) => loadPage(tpl.id)}
+                    onDuplicateTemplate={handleDuplicateTemplate}
+                    onSetDefaultTemplate={handleSetDefaultTemplate}
+                    onDeleteTemplate={(tpl) => setTemplateToDelete(tpl)}
                     searchTerm={searchTerm}
                     setSearchTerm={setSearchTerm}
                     templates={paneTemplates}
@@ -3231,6 +3240,10 @@ export default function VaultDashboard() {
                                         }}
                                         onCreateRecord={(tplId) => handleAddNewNote(activeTableId, tplId)}
                                         onCreateTemplate={() => handleAddView('template')}
+                                        onEditTemplate={(tpl) => loadPage(tpl.id)}
+                                        onDuplicateTemplate={handleDuplicateTemplate}
+                                        onSetDefaultTemplate={handleSetDefaultTemplate}
+                                        onDeleteTemplate={(tpl) => setTemplateToDelete(tpl)}
                                         searchTerm={searchTerm}
                                         setSearchTerm={setSearchTerm}
                                         templates={tableTemplates}
@@ -3384,6 +3397,23 @@ export default function VaultDashboard() {
                         onConfirm={executeDeleteView}
                         title={t('common.confirm_delete_view')}
                         message={t('common.confirm_delete_view_msg', { name: viewToDelete.name })}
+                        confirmText={t('common.delete')}
+                        isDestructive={true}
+                    />
+                )
+            }
+
+            {
+                templateToDelete && (
+                    <ConfirmModal
+                        isOpen={!!templateToDelete}
+                        onClose={() => setTemplateToDelete(null)}
+                        onConfirm={async () => {
+                            await handleDeletePage(templateToDelete.id, templateToDelete.title);
+                            setTemplateToDelete(null);
+                        }}
+                        title={t('common.confirm_delete_template')}
+                        message={t('common.confirm_delete_template_msg', { title: templateToDelete.title || t('common.untitled') })}
                         confirmText={t('common.delete')}
                         isDestructive={true}
                     />
