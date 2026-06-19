@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, LayoutTemplate, Languages, Zap, Globe, Send } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
 import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey } from '../../lib/fileResource';
-import { sortKey } from '../../utils/vaultFilters';
 import { InsertContentModal } from './InsertContentModal';
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
@@ -299,7 +298,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onCreateTemplate, onDuplicateTemplate, onSetDefaultTemplate, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null }) {
     const { t, i18n } = useTranslation();
     // Defaults globals de format (moneda/número/data) — override per camp via config.format.
     const localeSettings = useLocaleSettings();
@@ -1096,16 +1095,6 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         return '';
     }, []);
 
-    useEffect(() => {
-        const handleOutsideDropdownListClose = () => { setDropdownOpenTpl(null); };
-        window.addEventListener('scroll', handleOutsideDropdownListClose, true);
-        window.addEventListener('click', handleOutsideDropdownListClose);
-        return () => {
-            window.removeEventListener('scroll', handleOutsideDropdownListClose, true);
-            window.removeEventListener('click', handleOutsideDropdownListClose);
-        };
-    }, []);
-
     const hasOpenableResource = useCallback((note) => {
         const metadata = note?.metadata || {};
         const zoteroUri = String(getMetadataValueByNormalizedKey(metadata, ['Zotero uri', 'zotero_uri', 'zotero uri'])).trim();
@@ -1113,150 +1102,6 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         const attachments = getMetadataValueByNormalizedKey(metadata, ['Adjunts', 'attachments', 'adjuntos']);
         return Boolean(zoteroUri || filePath || attachments);
     }, [getMetadataValueByNormalizedKey]);
-
-    const [dropdownOpenTpl, setDropdownOpenTpl] = useState(null);
-    const addMenuActions = useMemo(() => {
-        const actions = [];
-
-        if (onCreateRecord) {
-            actions.push({
-                key: 'new-record',
-                label: t('table.new_record'),
-                icon: Plus,
-                onClick: () => onCreateRecord(null)
-            });
-        }
-
-        const hasTemplates = Array.isArray(templates) && templates.length > 0 && onCreateRecord;
-        if (hasTemplates || onCreateTemplate) {
-            actions.push({ type: 'separator' });
-            actions.push({
-                type: 'section',
-                key: 'templates-section',
-                label: t('table.templates'),
-                icon: LayoutTemplate
-            });
-        }
-
-        if (hasTemplates) {
-            templates
-                .slice()
-                .sort((a, b) => {
-                    if (a.metadata?.is_default_template) return -1;
-                    if (b.metadata?.is_default_template) return 1;
-                    return sortKey(a?.title).localeCompare(sortKey(b?.title), 'ca', { sensitivity: 'base' });
-                })
-                .forEach((template) => {
-                    const isDefault = template.metadata?.is_default_template;
-                    actions.push({
-                        key: `tpl-${template.id}`,
-                        label: (
-                            <span className="flex items-center gap-2 relative w-full justify-between">
-                                <span className="flex items-center gap-1 truncate font-medium">
-                                    {template.title || t('common.untitled')}
-                                    {isDefault && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded uppercase tracking-wider ml-1">{t('table.default_label')}</span>}
-                                </span>
-                                <div className="relative group shrink-0">
-                                    <button
-                                        className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-colors"
-                                        onClick={e => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            if (dropdownOpenTpl && dropdownOpenTpl.id === template.id) {
-                                                setDropdownOpenTpl(null);
-                                            } else {
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                setDropdownOpenTpl({
-                                                    id: template.id,
-                                                    top: rect.bottom + window.scrollY,
-                                                    right: window.innerWidth - rect.right
-                                                });
-                                            }
-                                        }}
-                                        title={t('table.options')}
-                                    >
-                                        <span style={{fontSize: '18px'}}>...</span>
-                                    </button>
-                                    {/* The dropdown portal handles rendering instead of inline */}
-                                </div>
-                            </span>
-                        ),
-                        icon: LayoutTemplate,
-                        onClick: () => onCreateRecord(template.id)
-                    });
-                });
-        }
-
-        if (onCreateTemplate) {
-            actions.push({
-                key: 'new-template',
-                label: t('common.new_template'),
-                icon: LayoutTemplate,
-                onClick: onCreateTemplate
-            });
-        }
-
-        return actions;
-    }, [onCreateRecord, onCreateTemplate, templates, dropdownOpenTpl, onDeletePage, onNoteSelect, onDuplicateTemplate, onSetDefaultTemplate]);
-
-    // Render logic for the teleported dropdown menus to avoid overflow-hidden clipping
-    const dropdownPortal = dropdownOpenTpl ? (
-        <div 
-            className="fixed w-48 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded shadow-lg overflow-hidden flex flex-col"
-            style={{ 
-                zIndex: 99999, 
-                top: `${dropdownOpenTpl.top + 4}px`, 
-                right: `${dropdownOpenTpl.right}px` 
-            }}
-        >
-            <button
-                className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors"
-                onClick={e => {
-                    e.stopPropagation();
-                    const tplId = dropdownOpenTpl.id;
-                    setDropdownOpenTpl(null);
-                    onNoteSelect(tplId);
-                }}
-            >{t('table.edit')}</button>
-            
-            {onDuplicateTemplate && (
-                <button
-                    className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors"
-                    onClick={e => {
-                        e.stopPropagation();
-                        const tplId = dropdownOpenTpl.id;
-                        const template = templates.find(t => t.id === tplId);
-                        setDropdownOpenTpl(null);
-                        if(template) onDuplicateTemplate(template);
-                    }}
-                >{t('table.duplicate')}</button>
-            )}
-
-            {onSetDefaultTemplate && (
-                <button
-                    className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors border-b border-[var(--border-primary)]"
-                    onClick={e => {
-                        e.stopPropagation();
-                        const tplId = dropdownOpenTpl.id;
-                        const template = templates.find(t => t.id === tplId);
-                        setDropdownOpenTpl(null);
-                        if(template) onSetDefaultTemplate(template);
-                    }}
-                >{t('table.set_default')}</button>
-            )}
-
-            <button
-                className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-red-500/10 text-red-500 transition-colors"
-                onClick={e => {
-                    e.stopPropagation();
-                    const tplId = dropdownOpenTpl.id;
-                    const template = templates.find(t => t.id === tplId);
-                    setDropdownOpenTpl(null);
-                    if(template) onDeletePage(tplId, template.title);
-                }}
-            >{t('table.delete')}</button>
-        </div>
-    ) : null;
 
     const handleOpenExternalResource = useCallback(async (note) => {
         const metadata = note?.metadata || {};
@@ -3402,7 +3247,6 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     )}
                 </div>
             </div>
-            {dropdownPortal}
 
             {pendingAction && pendingAction.action === 'translate_row' && (
                 <TranslateLanguagesModal
