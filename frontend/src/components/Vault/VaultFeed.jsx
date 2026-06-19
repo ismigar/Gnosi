@@ -1,15 +1,23 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare } from 'lucide-react';
-import { getSchemaFieldEntries, getFieldConfig } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
+import { isMainView } from './viewConstants';
+import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], onDeleteSelected, onDeletePage, searchTerm = '' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
 
-    // Totes les propietats dinàmiques excepte el títol
-    const dynamicColumns = getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title');
+    // Propietats visibles (respecta la vista, com la galeria): la vista principal
+    // mostra tots els camps; una vista amb selecció, els seus `visibleProperties`.
+    const visibleProperties = isMainView(activeView, [activeView].filter(Boolean))
+        ? getSchemaFieldNames(schema)
+        : (activeView?.visibleProperties || getSchemaFieldNames(schema));
+    const dynamicColumns = visibleProperties
+        .map(prop => [prop, getFieldType(schema, prop)])
+        .filter(([key, type]) => type && type !== 'title');
 
     const getRelationDisplayMap = (field) => {
         const config = getFieldConfig(schema, field);
@@ -94,26 +102,14 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         }
     };
 
-    // Filtrem per terme de cerca si n'hi ha
-    const filteredNotes = useMemo(() => {
-        if (!searchTerm) return notes;
-        const term = searchTerm.toLowerCase();
-        return notes.filter(note => {
-            const titleMatch = (note.title || '').toLowerCase().includes(term);
-            const contentMatch = (note.content || '').toLowerCase().includes(term);
-            const metadataMatch = Object.values(note.metadata || {}).some(val =>
-                String(val).toLowerCase().includes(term)
-            );
-            return titleMatch || contentMatch || metadataMatch;
-        });
-    }, [notes, searchTerm]);
-
-    // Ordenem per la data d'última modificació, de més recent a més antiga
-    const sortedNotes = useMemo(() => {
-        return [...filteredNotes].sort((a, b) => {
-            return new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime();
-        });
-    }, [filteredNotes]);
+    // Filtres, ordre i cerca de la vista (mateix motor que taula/galeria). Abans
+    // el feed ignorava `activeView` i ordenava sempre per última modificació.
+    const viewConfig = {
+        filters: activeView?.filters || [],
+        sorts: activeView?.sort || { field: 'last_modified', direction: 'desc' },
+        search: searchTerm,
+    };
+    const { sortedPages: sortedNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
 

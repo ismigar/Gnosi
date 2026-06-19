@@ -200,9 +200,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // tipus corresponent simplement les ignoren.
     const [cardSize, setCardSize] = useState('medium');
     const [galleryPreview, setGalleryPreview] = useState('cover');
+    const [coverField, setCoverField] = useState('');
+    const [imageFit, setImageFit] = useState('contain');
     const [groupBy, setGroupBy] = useState('');
     const [dateField, setDateField] = useState('');
     const [endDateField, setEndDateField] = useState('');
+    const [calendarView, setCalendarView] = useState('dayGridMonth');
+    const [colorField, setColorField] = useState('');
+    const [rowHeight, setRowHeight] = useState('normal');
     const [saveToTableViews, setSaveToTableViews] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -287,16 +292,26 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const applyTypeOptions = (v) => {
         setCardSize(v?.cardSize || 'medium');
         setGalleryPreview(v?.galleryPreview || 'cover');
+        setCoverField(v?.coverField || v?.cover_field || '');
+        setImageFit(v?.imageFit || v?.image_fit || 'contain');
         setGroupBy(v?.groupBy || v?.group_by || '');
         setDateField(v?.dateField || v?.date_field || '');
         setEndDateField(v?.endDateField || v?.end_date_field || '');
+        setCalendarView(v?.calendarView || v?.calendar_view || 'dayGridMonth');
+        setColorField(v?.colorField || v?.color_field || '');
+        setRowHeight(v?.rowHeight || v?.row_height || 'normal');
     };
     const resetTypeOptions = () => {
         setCardSize('medium');
         setGalleryPreview('cover');
+        setCoverField('');
+        setImageFit('contain');
         setGroupBy('');
         setDateField('');
         setEndDateField('');
+        setCalendarView('dayGridMonth');
+        setColorField('');
+        setRowHeight('normal');
     };
 
     useEffect(() => {
@@ -657,18 +672,24 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // existent) n'extreu els mateixos camps amb els mateixos defaults,
         // tolerant camelCase (registry) i snake_case (secció embeguda). Així la
         // detecció de canvis i el desat usen exactament la mateixa forma.
-        const s = src || { cardSize, galleryPreview, groupBy, dateField, endDateField };
+        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, dateField, endDateField, calendarView, colorField, rowHeight };
         const extras = {};
         if (viewType === 'gallery') {
             extras.cardSize = s.cardSize || 'medium';
             extras.galleryPreview = s.galleryPreview || 'cover';
+            extras.coverField = s.coverField || s.cover_field || '';
+            extras.imageFit = s.imageFit || s.image_fit || 'contain';
         } else if (viewType === 'board') {
             extras.groupBy = s.groupBy || s.group_by || '';
         } else if (viewType === 'calendar') {
             extras.dateField = s.dateField || s.date_field || '';
+            extras.calendarView = s.calendarView || s.calendar_view || 'dayGridMonth';
         } else if (viewType === 'timeline') {
             extras.dateField = s.dateField || s.date_field || '';
             extras.endDateField = s.endDateField || s.end_date_field || '';
+            extras.colorField = s.colorField || s.color_field || '';
+        } else if (viewType === 'table' || viewType === 'list') {
+            extras.rowHeight = s.rowHeight || s.row_height || 'normal';
         }
         return extras;
     };
@@ -886,6 +907,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // Kanban (camps amb valors acotats) i eix temporal de calendari/timeline.
     const groupFieldOptions = tableFields.filter(f => GROUP_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
     const dateFieldOptions = tableFields.filter(f => DATE_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    // Camps aptes per a la portada de la galeria: adjunts/imatges/URL o camps amb
+    // nom d'imatge (la galeria n'extreu la src amb getImageSrc).
+    const coverFieldOptions = tableFields.filter(f => {
+        const ty = String(f.type || '').toLowerCase();
+        return ty === 'files' || ty === 'image' || ty === 'url' || /imatge|image|cover|portada|foto|photo|thumbnail|miniatura/i.test(f.name || '');
+    });
 
     // No tanquem amb click fora: amb tantes pestanyes és fàcil clicar
     // accidentalment l'overlay i perdre la config. Tancament només via X / Esc.
@@ -982,6 +1009,28 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
                             {/* Opcions específiques del tipus de vista triat: apareixen
                                 contextualment just sota el selector de tipus. */}
+                            {(viewType === 'table' || viewType === 'list') && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions de la taula</p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Alçada de fila</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[{ value: 'compact', label: 'Compacta' }, { value: 'normal', label: 'Normal' }, { value: 'tall', label: 'Alta' }].map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setRowHeight(opt.value)}
+                                                className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                    rowHeight === opt.value
+                                                        ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                                        : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                                                }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {viewType === 'gallery' && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
                                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions de la galeria</p>
@@ -1021,6 +1070,39 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 >
                                                     <span className={`block text-xs font-semibold ${galleryPreview === gp.value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>{gp.label}</span>
                                                     <span className="block text-[10px] text-[var(--text-tertiary)] leading-tight mt-0.5">{gp.hint}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Camp de portada</label>
+                                        <select
+                                            value={coverField}
+                                            onChange={e => setCoverField(e.target.value)}
+                                            className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="">Portada de la pàgina (per defecte)</option>
+                                            {coverFieldOptions.map(f => (
+                                                <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">D'on treure la imatge de cada targeta (només si la previsualització és "Portada").</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Ajust de la imatge</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[{ value: 'contain', label: 'Sencera' }, { value: 'cover', label: 'Omple' }].map(opt => (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() => setImageFit(opt.value)}
+                                                    className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                        imageFit === opt.value
+                                                            ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                                            : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                                                    }`}
+                                                >
+                                                    {opt.label}
                                                 </button>
                                             ))}
                                         </div>
@@ -1074,6 +1156,21 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     ))}
                                                 </select>
                                             </div>
+                                            {viewType === 'calendar' && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Vista inicial</label>
+                                                    <select
+                                                        value={calendarView}
+                                                        onChange={e => setCalendarView(e.target.value)}
+                                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                    >
+                                                        <option value="dayGridMonth">Mes</option>
+                                                        <option value="timeGridWeek">Setmana</option>
+                                                        <option value="timeGridDay">Dia</option>
+                                                        <option value="multiMonthYear">Any</option>
+                                                    </select>
+                                                </div>
+                                            )}
                                             {viewType === 'timeline' && (
                                                 fieldMeta[dateField]?.type === 'period' ? (
                                                     <p className="text-[11px] text-[var(--text-tertiary)]">El camp de període ja defineix l'inici i el fi de cada barra.</p>
@@ -1092,6 +1189,22 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         </select>
                                                     </div>
                                                 )
+                                            )}
+                                            {viewType === 'timeline' && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Color per</label>
+                                                    <select
+                                                        value={colorField}
+                                                        onChange={e => setColorField(e.target.value)}
+                                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                    >
+                                                        <option value="">Color únic (per defecte)</option>
+                                                        {groupFieldOptions.map(f => (
+                                                            <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Acoloreix cada barra segons el valor d'aquest camp (usa els colors de les seves opcions).</p>
+                                                </div>
                                             )}
                                             {dateFieldOptions.length === 0 && (
                                                 <p className="text-[11px] text-[var(--text-tertiary)]">Cap camp de data a la taula; s'usarà la data de modificació.</p>

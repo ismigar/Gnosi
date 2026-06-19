@@ -378,13 +378,23 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
     // l'usuari hi arribi.
     const ROWS_BATCH_SIZE = 50;
 
-    // State for column widths
-    const [columnWidths, setColumnWidths] = useState({
+    // State for column widths — inicialitzades des de la vista (persistents).
+    const [columnWidths, setColumnWidths] = useState(() => ({
         title: 250,
-        last_modified: 150
-    });
+        last_modified: 150,
+        ...(activeView?.columnWidths || {}),
+    }));
     const columnWidthsRef = useRef({});
     columnWidthsRef.current = columnWidths;
+    // En canviar de vista (cada vista té les seves amplades), re-sincronitza.
+    useEffect(() => {
+        setColumnWidths({ title: 250, last_modified: 150, ...(activeView?.columnWidths || {}) });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeView?.id]);
+
+    // Alçada de fila configurable (activeView.rowHeight): compacta/normal/alta.
+    const rowHeight = activeView?.rowHeight || 'normal';
+    const rowPadClass = rowHeight === 'compact' ? 'py-1' : (rowHeight === 'tall' ? 'py-4' : 'py-2.5');
 
     // Refs for drag state
     const resizingCol = useRef(null);
@@ -646,7 +656,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         // Una row aproxima 56 px. Amb descriptors plans no cal pujar
         // l'estimació per expansió: cada child és ja el seu propi virtual
         // item amb el seu propi estimateSize/measureElement.
-        estimateSize: () => 56,
+        estimateSize: () => (rowHeight === 'compact' ? 40 : rowHeight === 'tall' ? 76 : 56),
         // Mesura directa: cada virtual item és UN sol `<tr>`, no fa falta
         // DOM walking. Aquesta és precisament la millora que el patró
         // d'aplanament aporta sobre el de `Fragment` + walking.
@@ -851,8 +861,13 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
         if (resizingCol.current) {
             resizingCol.current = null;
             document.body.style.cursor = 'default';
+            // Persisteix les amplades a la vista perquè es conservin en recarregar
+            // o canviar de vista (abans eren només estat local i es perdien).
+            if (activeView && onUpdateView) {
+                onUpdateView({ ...activeView, columnWidths: { ...columnWidthsRef.current } });
+            }
         }
-    }, []);
+    }, [activeView, onUpdateView]);
 
     useEffect(() => {
         document.addEventListener('mousemove', handleMouseMove);
@@ -2686,7 +2701,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
 
                     <td
                         style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
-                        className={`py-2.5 px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top
+                        className={`${rowPadClass} px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top
                             ${titleSel.inRange && !titleSel.isActive ? 'bg-[var(--gnosi-primary)]/10' : isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
                             ${isListView ? 'group-hover:bg-[var(--bg-secondary)]' : 'border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]'}
                             ${titleSel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
@@ -2798,7 +2813,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                             <td
                                 key={key}
                                 style={{ width: columnWidths[key] || 180, maxWidth: columnWidths[key] || 180 }}
-                                className={`py-2.5 px-4 overflow-hidden truncate text-[var(--text-primary)] align-top ${sel.inRange ? 'bg-[var(--gnosi-primary)]/10' : 'hover:bg-[var(--bg-tertiary)]/50'} ${sel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
+                                className={`${rowPadClass} px-4 overflow-hidden truncate text-[var(--text-primary)] align-top ${sel.inRange ? 'bg-[var(--gnosi-primary)]/10' : 'hover:bg-[var(--bg-tertiary)]/50'} ${sel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
                                 tabIndex={isCheckbox ? 0 : undefined}
                                 onKeyDown={isCheckbox ? (e) => {
                                     if (e.key === ' ' || e.key === 'Enter') {
@@ -2845,7 +2860,7 @@ export function VaultTable({ notes, templates = [], onNoteSelect, schema = {}, i
                     {showModifiedColumn && (
                         <td
                             style={{ width: columnWidths['last_modified'] || 150, maxWidth: columnWidths['last_modified'] || 150 }}
-                            className={`py-2.5 px-4 text-[var(--text-tertiary)] flex items-center gap-1.5 overflow-hidden truncate align-top ${isListView ? '' : 'border-l border-[var(--border-primary)]'}`}
+                            className={`${rowPadClass} px-4 text-[var(--text-tertiary)] flex items-center gap-1.5 overflow-hidden truncate align-top ${isListView ? '' : 'border-l border-[var(--border-primary)]'}`}
                         >
                             <Clock size={14} className="shrink-0" />
                             <span className="truncate">{new Date(note.last_modified).toLocaleDateString(i18n.language)}</span>

@@ -103,6 +103,23 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     const showContentPreview = galleryPreview === 'content';
     const showProperties = galleryPreview !== 'none';
 
+    // Camp d'on treure la portada de cada targeta. Buit = portada de la pàgina
+    // (`metadata.cover`, comportament clàssic). Si s'especifica un camp, n'extraiem
+    // la imatge servible (getImageSrc + toAssetPreviewUrl).
+    const coverField = activeView.coverField || '';
+    const getCoverUrl = (note) => {
+        if (coverField) {
+            return toAssetPreviewUrl(getImageSrc(note.metadata?.[coverField])) || '';
+        }
+        const c = note.metadata?.cover;
+        if (typeof c === 'string' && c) {
+            return c.startsWith('Assets/') ? `/api/vault/assets/${c.substring(7)}` : c;
+        }
+        return '';
+    };
+    // Ajust de la imatge de portada: 'contain' (sencera, defecte) o 'cover' (omple).
+    const coverFitClass = (activeView.imageFit || 'contain') === 'cover' ? 'bg-cover' : 'bg-contain';
+
     // Fragment de text per al mode "content". Tolerant amb la forma del registre
     // (excerpt/body_md/content o una descripció a metadata); neteja frontmatter,
     // imatges/enllaços i marques markdown bàsiques per a una previsualització neta.
@@ -241,7 +258,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 <div className="max-w-[1400px] mx-auto">
                     <div className={`grid ${getGridClass()} gap-6`}>
                         {sortedAndFilteredNotes.map((note, noteIndex) => {
-                            const hasCover = !!note.metadata?.cover;
+                            const coverUrl = getCoverUrl(note);
+                            const hasCover = !!coverUrl;
                             const excerpt = showContentPreview ? getExcerpt(note) : '';
                             return (
                                 <div
@@ -276,18 +294,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                                     )}
                                                 </div>
                                             ) : hasCover ? (
-                                                (() => {
-                                                    let coverUrl = note.metadata.cover;
-                                                    if (coverUrl.startsWith('Assets/')) {
-                                                        coverUrl = `/api/vault/assets/${coverUrl.substring(7)}`;
-                                                    }
-                                                    return (
-                                                        <div
-                                                            className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-                                                            style={{ backgroundImage: `url(${coverUrl})` }}
-                                                        />
-                                                    );
-                                                })()
+                                                <div
+                                                    className={`absolute inset-0 ${coverFitClass} bg-center bg-no-repeat`}
+                                                    style={{ backgroundImage: `url(${coverUrl})` }}
+                                                />
                                             ) : (
                                                 <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />
                                             )}

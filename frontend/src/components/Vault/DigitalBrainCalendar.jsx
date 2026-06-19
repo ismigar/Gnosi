@@ -75,6 +75,10 @@ export const DigitalBrainCalendar = ({
     dateField = '',
     endDateField = '',
     ignoreCalendarFilter = false,
+    // Vista inicial de FullCalendar (configurable des de la vista de BD). Valors
+    // suportats pels plugins carregats: dayGridMonth | timeGridWeek |
+    // timeGridDay | multiMonthYear.
+    initialView = 'dayGridMonth',
 }) => {
     const { i18n } = useTranslation();
     const [events, setEvents] = useState([]);
@@ -437,7 +441,7 @@ export const DigitalBrainCalendar = ({
                 <FullCalendar
                     ref={calendarRef}
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, rrulePlugin, multiMonthPlugin]}
-                    initialView="dayGridMonth"
+                    initialView={initialView}
                     eventDisplay="block"
                     fixedWeekCount={false}
                     multiMonthMaxColumns={4}
