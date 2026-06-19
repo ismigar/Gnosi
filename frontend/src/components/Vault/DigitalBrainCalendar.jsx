@@ -15,6 +15,7 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import './CalendarStyles.css';
+import { useTitlePreview } from './useTitlePreview';
 
 // Utilitat per crear colors pastís i manejar variables CSS
 const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
@@ -86,6 +87,12 @@ export const DigitalBrainCalendar = ({
     const [theme, setTheme] = useState(localStorage.getItem('db-theme') || 'light');
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(events);
     const lastEventClickTimeRef = useRef(0);
+    // Previsualització del contingut en passar el ratolí per un event que sigui
+    // una pàgina del Vault (les cites externes mantenen el tooltip clàssic).
+    // Ref estable per als handlers de FullCalendar (definits amb deps []).
+    const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
+    const titlePreviewRef = useRef(null);
+    titlePreviewRef.current = titlePreview;
 
     const allEventIds = useMemo(
         () => [...new Set(events.map((event) => event.id))],
@@ -232,8 +239,16 @@ export const DigitalBrainCalendar = ({
 
     const handleEventMouseEnter = useCallback((info) => {
         const { event, jsEvent } = info;
-        const { metadata } = event.extendedProps;
-        
+        const { metadata, id, readonly } = event.extendedProps;
+
+        // Pàgines del Vault (amb id i editables): card de contingut amb scroll,
+        // com a la resta de vistes. Les cites externes (Google, readonly) o
+        // sense pàgina mantenen el tooltip informatiu clàssic.
+        if (id && !readonly) {
+            titlePreviewRef.current?.openHover(id, info.el.getBoundingClientRect());
+            return;
+        }
+
         setHoveredEvent({
             title: event.title,
             start: event.start,
@@ -251,6 +266,7 @@ export const DigitalBrainCalendar = ({
     }, []);
 
     const handleEventMouseLeave = useCallback(() => {
+        titlePreviewRef.current?.scheduleClose();
         setHoveredEvent(null);
     }, []);
 
@@ -866,6 +882,8 @@ export const DigitalBrainCalendar = ({
                     padding: 0 !important;
                 }
             `}</style>
+
+            {titlePreview.preview}
         </div>
     );
 };

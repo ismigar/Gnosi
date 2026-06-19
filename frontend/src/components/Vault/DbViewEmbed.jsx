@@ -1,52 +1,13 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
-import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { sortKey } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
-import { WikilinkInline } from './WikilinkInline';
+import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
+import { normalizeAssetUrl } from './vaultMarkdownUtils';
 import { VaultViewBody } from './VaultViewBody';
 import { buildSchemaFromTableProperties } from './schemaUtils';
 import { VIEW_TYPES } from './viewConstants';
-
-// Substitueix `[[target]]`, `[[target|alias]]`, `[[target#section]]` i
-// `[[target#section|alias]]` per un link markdown amb un sentinel a l'href.
-// El renderer de l'element `a` reconeix el sentinel i renderitza un
-// `WikilinkInline` real (mateix component que fa servir l'editor), de
-// manera que la cel·la del feed té wikilinks clicables com a la pàgina.
-// Sense això el ReactMarkdown deixa els claudàtors com a text pla.
-//
-// El sentinel NO pot dur `__` (markdown-it ho interpreta com a bold i
-// trenca la URL dins `](...)`) i ha de passar el `urlTransform` de
-// react-markdown: per defecte sanititza protocols desconeguts a `""`,
-// cosa que deixava `<a href="">` → clic obria una pestanya nova a
-// l'origin. Per això, a part del sentinel sense `__`, registrem un
-// `urlTransform` que el deixa passar intacte (vegeu `wikilinkUrlTransform`).
-const WIKILINK_HREF_SENTINEL = 'gnosi-wikilink:';
-const WIKILINK_RE = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
-const convertWikilinksToMd = (md) => {
-    if (!md || typeof md !== 'string') return md;
-    return md.replace(WIKILINK_RE, (_, target, section, alias) => {
-        const fullTarget = (target || '').trim() + (section ? `#${section.trim()}` : '');
-        const displayTitle = (alias || (section ? `${target}#${section}` : target) || '').trim();
-        // Evitem `[`/`]` al text del link i `(` `)` a l'href perquè no
-        // trenquin la sintaxi markdown del link.
-        const safeTitle = displayTitle.replace(/[\][]/g, '');
-        const safeHref = encodeURIComponent(fullTarget);
-        return `[${safeTitle}](${WIKILINK_HREF_SENTINEL}${safeHref})`;
-    });
-};
-
-// react-markdown sanititza per defecte qualsevol href amb un protocol que
-// no reconeix (el nostre `gnosi-wikilink:` inclòs) substituint-lo per `""`.
-// Aquest transform deixa passar el sentinel intacte i delega la resta al
-// comportament per defecte.
-const wikilinkUrlTransform = (url) => (
-    typeof url === 'string' && url.startsWith(WIKILINK_HREF_SENTINEL)
-        ? url
-        : defaultUrlTransform(url)
-);
 
 // Contenidor amb scroll per encabir els components de vista complets (que
 // assumeixen alçada) dins del flux del document de l'embed. A nivell de mòdul
@@ -168,15 +129,6 @@ function Heading({ level, children }) {
         : safeLevel === 2 ? 'text-xl font-bold mb-2'
         : 'text-lg font-semibold mb-2';
     return <Tag className={`${cls} text-[var(--text-primary)]`}>{children}</Tag>;
-}
-
-function normalizeAssetUrl(url) {
-    if (typeof url !== 'string') return '';
-    const v = url.trim();
-    if (!v) return '';
-    if (v.startsWith('http') || v.startsWith('/')) return v;
-    if (v.startsWith('Assets/')) return `/api/vault/assets/${v.substring(7)}`;
-    return `/api/vault/assets/${v}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -333,35 +285,6 @@ function ColumnPlusButton({ onClick }) {
             title="Crear a aquesta columna"
         >
             <Plus size={12} />
-        </button>
-    );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Imatges del feed (amb retry per OneDrive Errno 35 → 503)                  */
-/* -------------------------------------------------------------------------- */
-
-function RetryableImage({ src, title, onClick }) {
-    const [attempt, setAttempt] = useState(0);
-    const [hidden, setHidden] = useState(false);
-    if (hidden) return null;
-    return (
-        <button onClick={onClick} className="block w-full" title={title}>
-            <img
-                key={attempt}
-                src={src}
-                alt=""
-                loading="lazy"
-                className="w-full h-auto rounded-md border border-[var(--border-primary)]/40 bg-[var(--bg-secondary)]"
-                onError={() => {
-                    if (attempt < 3) {
-                        const delay = 500 * Math.pow(2, attempt);
-                        setTimeout(() => setAttempt(a => a + 1), delay);
-                    } else {
-                        setHidden(true);
-                    }
-                }}
-            />
         </button>
     );
 }
@@ -652,50 +575,11 @@ function FeedItem({ row, columns, dateCol, onOpenPage }) {
                             : undefined}
                     >
                         <div ref={bodyRef} className="text-sm text-[var(--text-secondary)] leading-relaxed feed-md">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                urlTransform={wikilinkUrlTransform}
-                                components={{
-                                    // Imatges inline: normalitzem la URL (Assets/...
-                                    // → /api/vault/assets/...) i fem servir
-                                    // RetryableImage perquè OneDrive a vegades
-                                    // retorna 503 fins que té el fitxer descarregat.
-                                    img: ({ src = '', alt = '' }) => {
-                                        const norm = normalizeAssetUrl(String(src || ''));
-                                        if (!norm) return null;
-                                        return <RetryableImage src={norm} title={alt || row.title || ''} onClick={() => onOpenPage?.(row.id)} />;
-                                    },
-                                    h1: (props) => <h1 className="font-bold text-2xl text-[var(--text-primary)] my-2" {...props} />,
-                                    h2: (props) => <h2 className="font-bold text-xl text-[var(--text-primary)] my-2" {...props} />,
-                                    h3: (props) => <h3 className="font-semibold text-lg text-[var(--text-primary)] my-2" {...props} />,
-                                    ul: (props) => <ul className="list-disc pl-5 my-2" {...props} />,
-                                    ol: (props) => <ol className="list-decimal pl-5 my-2" {...props} />,
-                                    blockquote: (props) => <blockquote className="pl-3 italic text-[var(--text-tertiary)] my-2" {...props} />,
-                                    // Si l'href porta el nostre sentinel de wikilink,
-                                    // renderitzem el component real (clicable, amb
-                                    // hover preview, context menu, etc.) en lloc d'un
-                                    // anchor opac. La preconversió de `[[…]]` a
-                                    // `[text](sentinel:target)` ja s'ha fet sobre
-                                    // `bodyMd` abans del parse.
-                                    a: ({ href = '', children, ...rest }) => {
-                                        if (typeof href === 'string' && href.startsWith(WIKILINK_HREF_SENTINEL)) {
-                                            let target;
-                                            try { target = decodeURIComponent(href.slice(WIKILINK_HREF_SENTINEL.length)); }
-                                            catch { target = href.slice(WIKILINK_HREF_SENTINEL.length); }
-                                            const text = React.Children.toArray(children)
-                                                .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
-                                                .join('') || target;
-                                            return <WikilinkInline title={text} target={target} />;
-                                        }
-                                        return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
-                                    },
-                                    code: ({ inline, ...props }) => inline
-                                        ? <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props} />
-                                        : <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props} />,
-                                }}
-                            >
-                                {convertWikilinksToMd(bodyMd)}
-                            </ReactMarkdown>
+                            <VaultMarkdown
+                                md={bodyMd}
+                                onActivate={() => onOpenPage?.(row.id)}
+                                imageTitle={row.title}
+                            />
                         </div>
                         {bodyOverflows && !bodyExpanded && (
                             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />

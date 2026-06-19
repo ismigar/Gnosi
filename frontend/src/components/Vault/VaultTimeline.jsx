@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
+import { useTitlePreview } from './useTitlePreview';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, ChevronLeft, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
@@ -10,6 +11,8 @@ import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
 export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, idToTitle = {}, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
+    // Previsualització del contingut en passar el ratolí pel títol (label) d'una fila.
+    const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const scrollContainerRef = useRef(null);
 
     // Color de cada barra segons un camp (activeView.colorField): usa el color de
@@ -438,7 +441,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                 <FileText size={14} className="text-[var(--text-tertiary)]" />
                                             </div>
                                             <div className="flex flex-col min-w-0 flex-1">
-                                                <span className="font-semibold text-[var(--text-primary)] text-xs truncate group-hover:text-[var(--gnosi-primary)] transition-colors">
+                                                <span className="font-semibold text-[var(--text-primary)] text-xs truncate group-hover:text-[var(--gnosi-primary)] transition-colors" {...titlePreview.getTitleProps(note.id)}>
                                                     {note.title || "Sense Títol"}
                                                 </span>
                                                 <div className="flex items-center gap-2">
@@ -536,6 +539,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     Cronograma interactiu amb dependències automàtiques.
                 </div>
             </div>
+
+            {titlePreview.preview}
         </div>
     );
 }

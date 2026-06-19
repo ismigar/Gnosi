@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useTitlePreview } from './useTitlePreview';
 import { Columns, FileText, Clock, Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
@@ -10,6 +11,8 @@ import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
 export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
+    // Previsualització del contingut en passar el ratolí pel títol d'una targeta.
+    const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
@@ -204,7 +207,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                         </label>
                                             <h4 className="font-semibold text-[var(--text-primary)] mb-2 group-hover:text-[var(--gnosi-primary)] transition-colors flex items-start gap-2 text-sm leading-snug">
                                             <FileText size={16} className="mt-0.5 text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]/70 shrink-0" />
-                                            <span>{note.title || "Sense Títol"}</span>
+                                            <span {...titlePreview.getTitleProps(note.id)}>{note.title || "Sense Títol"}</span>
                                         </h4>
 
                                         {cardColumns.length > 0 && (
@@ -238,6 +241,8 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                     ))}
                 </div>
             </div>
+
+            {titlePreview.preview}
         </div>
     );
 }

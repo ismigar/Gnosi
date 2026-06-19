@@ -1,0 +1,295 @@
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import axios from 'axios';
+import { FileText, ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { IconRenderer } from './IconRenderer';
+import { VaultMarkdown } from './VaultMarkdown';
+
+// Cache de previews COMPLETS (body_md). Separada de la de WikilinkHoverPreview
+// perquè el payload és molt més gran (cos sencer) → menys entrades i mateixa
+// invalidació via l'event DOM `gnosi:invalidatePreview`.
+const FULL_CACHE = new Map();
+const CACHE_MAX = 40;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function readCache(id) {
+    const entry = FULL_CACHE.get(id);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > CACHE_TTL_MS) {
+        FULL_CACHE.delete(id);
+        return null;
+    }
+    return entry.data;
+}
+
+function writeCache(id, data) {
+    if (FULL_CACHE.size >= CACHE_MAX) {
+        const firstKey = FULL_CACHE.keys().next().value;
+        if (firstKey) FULL_CACHE.delete(firstKey);
+    }
+    FULL_CACHE.set(id, { ts: Date.now(), data });
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('gnosi:invalidatePreview', (ev) => {
+        const id = ev?.detail?.pageId;
+        if (!id) FULL_CACHE.clear();
+        else FULL_CACHE.delete(id);
+    });
+}
+
+const PADDING = 8;
+const CARD_WIDTH = 420;
+
+// Camps de metadata que NO s'ensenyen com a propietats al preview sense cos
+// (interns o ja representats en altres llocs del card).
+const HIDDEN_META_KEYS = new Set([
+    'title', 'id', 'table_id', 'database_table_id', 'icon', 'cover',
+]);
+const WEB_URL_KEYS = ['drupal_url', 'Drupal URL', 'url', 'URL', 'enllaç', 'link'];
+
+function pickWebUrl(meta) {
+    if (!meta) return null;
+    for (const k of WEB_URL_KEYS) {
+        const v = meta[k];
+        if (typeof v === 'string' && /^https?:\/\//i.test(v)) return v;
+    }
+    return null;
+}
+
+function formatMetaValue(v) {
+    if (v == null) return '';
+    if (Array.isArray(v)) return v.map(formatMetaValue).filter(Boolean).join(', ');
+    if (typeof v === 'object') return String(v.src || v.title || v.alt || '');
+    // Wikilinks `[[text|id]]` / `[[text]]` → només el text visible.
+    return String(v).replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').trim();
+}
+
+// Propietats amb valor de la metadata, per al preview d'un registre sense cos.
+function visibleProps(meta) {
+    if (!meta || typeof meta !== 'object') return [];
+    return Object.entries(meta)
+        .filter(([k]) => !HIDDEN_META_KEYS.has(k)
+            && !k.startsWith('drupal_')   // ids/urls de sincronització Drupal
+            && !k.startsWith('📀')         // relacions: mostrarien uuids crus
+            && !k.endsWith('_manual')     // flags interns (p.ex. Imatge_manual)
+            && k !== 'Drupal URL' && k !== 'Drupal NID')
+        .map(([k, v]) => [k, formatMetaValue(v)])
+        .filter(([, v]) => v && v.length > 0)
+        .slice(0, 10);
+}
+
+/**
+ * Pop-up de previsualització del contingut SENCER d'una pàgina del Vault.
+ * Mostra cover (opcional), capçalera fixa (icona + títol) i el cos Markdown
+ * amb scroll. Pensat per a hover sobre el títol d'un registre i operable amb
+ * teclat (Quick Look): quan s'obre per teclat enfoca el cos perquè ↑↓ / Re Pàg
+ * / Av Pàg facin scroll natiu i Esc / Espai el tanquin.
+ *
+ * Props:
+ *  - pageId: id de la pàgina a previsualitzar.
+ *  - anchorRect: DOMRect de l'element que dispara el preview.
+ *  - viaKeyboard: obert amb teclat → enfoca el cos en muntar.
+ *  - onClose: tanca el card (Esc / Espai dins el card).
+ *  - onOpenPage: obre la pàgina sencera (clic a una imatge del cos).
+ *  - onMouseEnter / onMouseLeave: mantenen viu el card mentre el ratolí hi és.
+ */
+export const PageHoverCard = ({
+    pageId,
+    anchorRect,
+    viaKeyboard = false,
+    onClose,
+    onOpenPage,
+    onMouseEnter,
+    onMouseLeave,
+}) => {
+    const { t } = useTranslation();
+    const [data, setData] = useState(() => readCache(pageId));
+    const [loading, setLoading] = useState(!data);
+    const [error, setError] = useState(false);
+    const [pos, setPos] = useState(null);
+    const [meta, setMeta] = useState(null); // metadata per al preview sense cos (fetch lazy)
+    const cardRef = useRef(null);
+    const scrollRef = useRef(null);
+
+    useEffect(() => {
+        if (!pageId) return undefined;
+        const cached = readCache(pageId);
+        if (cached) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrating from cache on prop change
+            setData(cached);
+            setLoading(false);
+            setError(false);
+            return undefined;
+        }
+        let cancelled = false;
+        setData(null);
+        setMeta(null);
+        setLoading(true);
+        setError(false);
+        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}/preview?full=true`)
+            .then(res => {
+                if (cancelled) return;
+                writeCache(pageId, res.data);
+                setData(res.data);
+                setLoading(false);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setError(true);
+                setLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [pageId]);
+
+    // Si la pàgina no té cos, carreguem la metadata (lazy) per ensenyar les
+    // propietats del registre i l'enllaç a l'original en lloc de "Pàgina buida".
+    useEffect(() => {
+        if (!data || (data.body_md && String(data.body_md).trim())) return undefined;
+        let cancelled = false;
+        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}`)
+            .then(res => { if (!cancelled) setMeta(res.data?.metadata || {}); })
+            .catch(() => { if (!cancelled) setMeta({}); });
+        return () => { cancelled = true; };
+    }, [data, pageId]);
+
+    // Posicionament: a sota de l'àncora per defecte; si no hi cap, a sobre; si
+    // tampoc, ancorat a dalt amb padding (el scroll del cos fa la resta).
+    // useLayoutEffect per evitar el flash amb posició errònia.
+    useLayoutEffect(() => {
+        if (!anchorRect || !cardRef.current) return;
+        const rect = cardRef.current.getBoundingClientRect();
+        let top = anchorRect.bottom + PADDING;
+        let left = anchorRect.left;
+        if (top + rect.height > window.innerHeight - PADDING) {
+            const above = anchorRect.top - rect.height - PADDING;
+            top = above >= PADDING ? above : PADDING;
+        }
+        if (left + rect.width > window.innerWidth - PADDING) {
+            left = Math.max(PADDING, window.innerWidth - rect.width - PADDING);
+        }
+        if (left < PADDING) left = PADDING;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- compute position from anchor after layout
+        setPos({ top, left });
+    }, [anchorRect, data, loading, error]);
+
+    // Quick Look: en obrir per teclat enfoquem el cos perquè les fletxes facin
+    // scroll natiu. El card és un portal FORA del contenidor de la taula, així
+    // que el listener global de navegació de cel·les l'ignora (no segresta tecles).
+    useEffect(() => {
+        if (viaKeyboard && pos && scrollRef.current) {
+            scrollRef.current.focus({ preventScroll: true });
+        }
+    }, [viaKeyboard, pos]);
+
+    if (!anchorRect) return null;
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape' || e.key === ' ' || e.key === 'Spacebar') {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose?.();
+        }
+        // ↑↓ / Re Pàg / Av Pàg / Inici / Fi: deixem el scroll natiu del cos enfocat.
+    };
+
+    const card = (
+        <div
+            ref={cardRef}
+            role="dialog"
+            aria-label={data?.title || t('common.untitled', 'Sense títol')}
+            className="fixed z-[9999] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            style={pos
+                ? { top: pos.top, left: pos.left, width: CARD_WIDTH, maxWidth: 'calc(100vw - 16px)', maxHeight: 'min(520px, calc(100vh - 16px))', opacity: 1, pointerEvents: 'auto' }
+                : { top: -9999, left: -9999, width: CARD_WIDTH, opacity: 0, pointerEvents: 'none' }
+            }
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+            onKeyDown={handleKeyDown}
+        >
+            {!loading && !error && data?.cover && (
+                <div
+                    className="h-20 bg-cover bg-center shrink-0"
+                    style={{ backgroundImage: `url(${data.cover})` }}
+                />
+            )}
+            {!loading && !error && data && (
+                <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                    {data.icon ? (
+                        <IconRenderer icon={data.icon} size={18} className="flex-shrink-0" />
+                    ) : (
+                        <FileText size={15} className="text-slate-400 flex-shrink-0" />
+                    )}
+                    <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
+                        {data.title || t('common.untitled', 'Sense títol')}
+                    </h4>
+                </div>
+            )}
+            <div
+                ref={scrollRef}
+                tabIndex={-1}
+                className="overflow-y-auto overflow-x-hidden px-4 py-3 outline-none"
+            >
+                {loading && (
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <div className="w-3 h-3 border-2 border-slate-300 border-t-[var(--gnosi-primary)] rounded-full animate-spin" />
+                        <span>{t('common.loading', 'Carregant…')}</span>
+                    </div>
+                )}
+                {error && (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                        <FileText size={14} />
+                        <span>{t('wikilink.preview_error', "No s'ha pogut carregar la pàgina")}</span>
+                    </div>
+                )}
+                {!loading && !error && data && (
+                    (data.body_md && String(data.body_md).trim()) ? (
+                        <div className="text-sm text-[var(--text-secondary)] leading-relaxed feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto">
+                            <VaultMarkdown
+                                md={data.body_md}
+                                onActivate={() => onOpenPage?.(pageId)}
+                                imageTitle={data.title}
+                            />
+                        </div>
+                    ) : (
+                        <div className="text-xs space-y-2">
+                            {meta === null && (
+                                <span className="text-slate-400 italic">{t('common.loading', 'Carregant…')}</span>
+                            )}
+                            {meta !== null && visibleProps(meta).length > 0 && (
+                                <dl className="space-y-1.5">
+                                    {visibleProps(meta).map(([k, v]) => (
+                                        <div key={k} className="flex gap-2">
+                                            <dt className="shrink-0 min-w-[84px] max-w-[40%] truncate text-slate-400 dark:text-slate-500">{k}</dt>
+                                            <dd className="flex-1 text-slate-700 dark:text-slate-300 break-words [overflow-wrap:anywhere]">{v}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            )}
+                            {meta !== null && visibleProps(meta).length === 0 && !pickWebUrl(meta) && (
+                                <p className="text-slate-400 italic">{t('hovercard.no_content', 'Aquest registre no té contingut escrit.')}</p>
+                            )}
+                            {meta !== null && pickWebUrl(meta) && (
+                                <a
+                                    href={pickWebUrl(meta)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1 pt-1 text-[var(--gnosi-primary)] hover:underline"
+                                >
+                                    <ExternalLink size={12} />
+                                    {t('hovercard.view_on_web', "Veure l'original a la web")}
+                                </a>
+                            )}
+                        </div>
+                    )
+                )}
+            </div>
+        </div>
+    );
+
+    return typeof document !== 'undefined' ? createPortal(card, document.body) : null;
+};
+
+export default PageHoverCard;

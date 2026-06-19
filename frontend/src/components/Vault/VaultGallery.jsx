@@ -10,6 +10,7 @@ import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+import { useTitlePreview } from './useTitlePreview';
 
 export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
@@ -24,6 +25,9 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     };
 
     const { sortedPages: sortedAndFilteredNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
+
+    // Previsualització del contingut en passar el ratolí pel títol d'una targeta.
+    const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
 
     // ---- SELECCIÓ MÚLTIPLE ----
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedAndFilteredNotes);
@@ -311,7 +315,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                                     <IconRenderer icon={note.metadata?.icon} size={18} />
                                                 </span>
                                             )}
-                                            <span className="truncate">{note.title || "Sense Títol"}</span>
+                                            <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || "Sense Títol"}</span>
                                         </h3>
 
                                         {/* Previsualització del contingut (mode 'content'): el que
@@ -371,6 +375,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     )}
                 </div>
             </div>
+
+            {titlePreview.preview}
         </div>
     );
 }
