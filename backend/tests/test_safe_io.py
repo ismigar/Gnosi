@@ -48,7 +48,7 @@ def test_safe_write_text_overwrites_atomically(tmp_path: Path):
 
 def test_safe_write_json_roundtrip(tmp_path: Path):
     target = tmp_path / "registry.json"
-    payload = {"📀 Projectes": ["uuid1", "uuid2"], "Arxivar": False, "n": 42}
+    payload = {"Projectes": ["uuid1", "uuid2"], "Arxivar": False, "n": 42}
     safe_write_json(target, payload)
     loaded = json.loads(target.read_text())
     assert loaded == payload

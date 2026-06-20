@@ -11,7 +11,10 @@ from typing import Dict, Any, List, Optional, Set, Tuple
 from simpleeval import SimpleEval, NameNotDefined
 
 from backend.services.path_resolver import path_resolver
-from backend.services.relation_links import strip_relation_wikilinks
+from backend.services.relation_links import (
+    relation_keys_from_table,
+    strip_relation_wikilinks,
+)
 
 log = logging.getLogger(__name__)
 
@@ -751,9 +754,14 @@ class RuleEngine:
         match = re.match(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
         if match:
             try:
-                # Lookups/rollups segueixen camps 📀 d'altres files: cal
-                # despullar '[[Títol|id]]' → id, com fa parse_frontmatter.
-                return strip_relation_wikilinks(yaml.safe_load(match.group(1)) or {})
+                meta = yaml.safe_load(match.group(1)) or {}
+                # Lookups/rollups segueixen camps de relació d'altres files: cal
+                # despullar '[[Títol|id]]' → id. La detecció dels camps de
+                # relació és per ESQUEMA (no per cap prefix al nom).
+                tid = meta.get("table_id") or meta.get("database_table_id")
+                rel_keys = relation_keys_from_table(
+                    self._resolve_table_by_id(tid)) if tid else None
+                return strip_relation_wikilinks(meta, rel_keys or None)
             except Exception:
                 return {}
         return {}

@@ -1,18 +1,17 @@
 """Sincronització bidireccional de relacions — lògica pura.
 
 Quan una pàgina canvia un camp de relació (p.ex. una Àrea afegeix un recurs a
-`📀 Recursos`), el camp INVERS de la pàgina de l'altre costat (`📀 Àrees` al
-recurs) ha d'actualitzar-se, o les vistes incrustades —que filtren per l'invers—
-surten buides. El backend no ho feia (`PATCH` = `metadata.update`).
+`Recursos`), el camp INVERS de la pàgina de l'altre costat (`Àrees` al recurs)
+ha d'actualitzar-se, o les vistes incrustades —que filtren per l'invers— surten
+buides. El backend no ho feia (`PATCH` = `metadata.update`).
 
 Aquest mòdul NO toca el filesystem: només calcula QUÈ s'ha de propagar. El
 costat d'I/O (llegir/escriure les pàgines destí) viu a `vault_routes.py`.
 
 Aparellament directe↔invers: **per taula destí** (`relation_database_id`); no hi
 ha `related_property_id`. Es desa SEMPRE per nom de camp tal com viu al
-frontmatter. Atenció: la taula Àrees té els noms al registry SENSE prefix
-(`Recursos`) mentre el frontmatter/resposta porta `📀 Recursos` → cal
-**normalitzar** per casar la clau amb la property. Vegeu
+frontmatter. Es **normalitza** (minúscules, sense espais/prefixos decoratius)
+per casar la clau del frontmatter amb el nom de la property al registry. Vegeu
 docs/dev_memory/directives/vault_relation_inverse_sync.md
 
 Mòdul lleuger (re + typing): importable des de vault_routes i scripts sense
@@ -23,20 +22,14 @@ from __future__ import annotations
 import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-RELATION_KEY_PREFIX = "📀"
-
 # Ítem de relació al frontmatter: `[[Títol|id]]` (l'id viu a l'àlies) o id nu.
 _WIKILINK_RE = re.compile(r"^\s*\[\[[^\]\|]*\|\s*(?P<rid>[^\]\|]+?)\s*\]\]\s*$")
 
 
 def _norm(name: Any) -> str:
-    """Treu emojis/espais/prefixos inicials i passa a minúscules. Casa el nom
-    de l'esquema (`Recursos`) amb el de frontmatter (`📀 Recursos`)."""
+    """Normalitza un nom de camp: treu prefixos no alfanumèrics inicials i
+    espais, i passa a minúscules. Robust davant variacions de format."""
     return re.sub(r"^[^\w]+", "", str(name or ""), flags=re.UNICODE).strip().lower()
-
-
-def is_relation_key(key: Any) -> bool:
-    return isinstance(key, str) and key.startswith(RELATION_KEY_PREFIX)
 
 
 def to_ids(value: Any) -> List[str]:
@@ -108,8 +101,8 @@ def relation_changes(
     """
     old_meta = old_meta or {}
     new_meta = new_meta or {}
-    # Noms normalitzats dels camps de relació de l'esquema (nom + àlies): permet
-    # reconèixer un camp encara que el nom no dugui el prefix `📀` (renomenat).
+    # Noms normalitzats dels camps de relació de l'esquema (nom + àlies): la
+    # font única per reconèixer un camp de relació, sigui quin sigui el nom.
     rel_norms = set()
     for p in _relations(origin_table):
         rel_norms.add(_norm(p.get("name")))
@@ -117,7 +110,7 @@ def relation_changes(
             rel_norms.add(_norm(a))
     keys = {
         k for k in (*old_meta.keys(), *new_meta.keys())
-        if isinstance(k, str) and (is_relation_key(k) or _norm(k) in rel_norms)
+        if isinstance(k, str) and _norm(k) in rel_norms
     }
     out: List[Tuple[str, str, str]] = []
     for key in keys:

@@ -1041,9 +1041,9 @@ def ensure_default_registry_structure():
 
 def _relation_keys_for_metadata(metadata: dict) -> Optional[set]:
     """`relation_keys` de l'esquema de la taula de la pàgina, perquè `strip` /
-    `decorate` reconeguin els camps de relació encara que el nom no dugui el
-    prefix `📀` (columna renomenada). None si no es pot resoldre la taula
-    (→ `strip` cau al fallback del prefix). Barat: `_table_by_id` està cachejat."""
+    `decorate` reconeguin els camps de relació pel seu nom actual. None si no es
+    pot resoldre la taula (→ `strip` despulla per forma; `decorate` no actua).
+    Barat: `_table_by_id` està cachejat."""
     try:
         tid = get_table_id(metadata)
         if tid:
@@ -2570,7 +2570,7 @@ def _read_frontmatter_partial(file_path: Path):
                     # tanca mai (frontmatter malmès): evitem llegir-los sencers.
                     # El límit ha de ser prou alt per cobrir frontmatters
                     # legítimament grans —una pàgina amb moltes relacions Notion
-                    # (📀 …) pot tenir centenars de línies de YAML abans del
+                    # pot tenir centenars de línies de YAML abans del
                     # `---` de tancament (p. ex. una Àrea amb 229 línies)—; amb
                     # un límit massa baix el tancament queda fora de l'abast,
                     # el frontmatter es llegeix sense tancar i `parse_frontmatter`
@@ -9799,9 +9799,9 @@ def update_link_index_for_page(file_path: Path) -> None:
 
 def _inverse_relation_frontmatter_key(md: dict, inverse_name: str) -> str:
     """Clau REAL del frontmatter per al camp invers: reusa la que ja existeix
-    (per normalització, p.ex. `📀 Àrees` quan el registry diu `Àrees`) o, si no
-    n'hi ha cap, el nom del registry. Evita crear una clau duplicada que les
-    vistes (que filtren per `📀 Àrees`) no veurien."""
+    (per normalització, p.ex. una variant antiga del nom) o, si no n'hi ha cap,
+    el nom del registry. Evita crear una clau duplicada que les vistes no
+    veurien."""
     from backend.services.relation_sync import _norm
     if inverse_name in md:
         return inverse_name
