@@ -68,6 +68,7 @@ from backend.services.relation_links import (
     RELATION_WIKILINK_RE,
     TITLE_ONLY_WIKILINK_RE,
     decorate_relation_wikilinks,
+    relation_keys_from_table,
     strip_relation_wikilinks,
 )
 from backend.services.view_snapshot import (
@@ -1038,6 +1039,20 @@ def ensure_default_registry_structure():
 # init_vault() # Disabled: Now initialized dynamically per workspace via WorkspaceService
 
 
+def _relation_keys_for_metadata(metadata: dict) -> Optional[set]:
+    """`relation_keys` de l'esquema de la taula de la pàgina, perquè `strip` /
+    `decorate` reconeguin els camps de relació encara que el nom no dugui el
+    prefix `📀` (columna renomenada). None si no es pot resoldre la taula
+    (→ `strip` cau al fallback del prefix). Barat: `_table_by_id` està cachejat."""
+    try:
+        tid = get_table_id(metadata)
+        if tid:
+            return relation_keys_from_table(_table_by_id(tid)) or None
+    except Exception:
+        return None
+    return None
+
+
 def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_snapshots: bool = False):
     """Parses a markdown file to extract the YAML frontmatter and body.
 
@@ -1067,7 +1082,9 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_sna
         try:
             metadata = yaml.safe_load(yaml_content) or {}
             metadata = apply_sidecar_to(metadata, file_path)
-            metadata = strip_relation_wikilinks(metadata)
+            metadata = strip_relation_wikilinks(
+                metadata, _relation_keys_for_metadata(metadata)
+            )
             return metadata, body
         except yaml.YAMLError as e:
             fallback_metadata = _parse_frontmatter_fallback(yaml_content)
@@ -1077,7 +1094,9 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_sna
                     f"Malformed YAML frontmatter{location}; applying rescue parsing"
                 )
                 fallback_metadata = apply_sidecar_to(fallback_metadata, file_path)
-                fallback_metadata = strip_relation_wikilinks(fallback_metadata)
+                fallback_metadata = strip_relation_wikilinks(
+                    fallback_metadata, _relation_keys_for_metadata(fallback_metadata)
+                )
                 return fallback_metadata, body
             location = f" in {file_path}" if file_path else ""
             # malformed YAML is annoying but not fatal; debug instead of error
@@ -1460,13 +1479,7 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
     except Exception as e:  # defensiu: una fallada de resolució no ha de bloquejar l'escriptura
         log.debug(f"to_storage_names ha fallat per {file_path}: {e}")
     try:
-        _relation_keys = None
-        if _table:
-            _relation_keys = {
-                p.get("name")
-                for p in (_table.get("properties") or [])
-                if p.get("type") == "relation" and p.get("name")
-            }
+        _relation_keys = relation_keys_from_table(_table) or None
         metadata = decorate_relation_wikilinks(
             metadata,
             relation_keys=_relation_keys,
@@ -3667,6 +3680,9 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     log.info(f"Creating new page at: {file_path.absolute()}")
 
     try:
+        # Snapshot dels camps relació ABANS d'escriure (save_page_md decora
+        # in-place) per propagar la sincronització inversa (background, sota).
+        _rel_new_snapshot = dict(metadata)
         save_page_md(file_path, metadata, request.content)
         table_id = get_table_id(metadata)
         if table_id:
@@ -3708,6 +3724,14 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         _pages_cache_invalidate_all()
 
         background_tasks.add_task(update_link_index_for_page, file_path)
+
+        # Sincronització bidireccional: en crear una pàgina amb camps de relació,
+        # poblar el camp INVERS de les pàgines referenciades (old buit → tot són
+        # altes). Background i defensiu.
+        background_tasks.add_task(
+            _propagate_relation_inverse,
+            page_id, get_table_id(metadata), {}, _rel_new_snapshot,
+        )
 
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
@@ -6878,6 +6902,11 @@ async def patch_page(
         # deixar el recurs citable si encara no en tenia clau.
         metadata = _ensure_recursos_citation_key(metadata)
 
+        # Snapshot dels camps relació (ids nets) ABANS d'escriure: `save_page_md`
+        # decora in-place (id→[[Títol|id]]), així que el capturem ara per propagar
+        # la sincronització inversa a l'altre costat (background task, més avall).
+        _rel_new_snapshot = dict(metadata)
+
         def _write_now():
             save_page_md(file_path, metadata, content)
         await asyncio.to_thread(_write_now)
@@ -6978,6 +7007,14 @@ async def patch_page(
         background_tasks.add_task(
             _propagate_translation_staleness,
             page_id, original_metadata_snapshot, metadata, body, content,
+        )
+        # Sincronització bidireccional de relacions: propaga els canvis dels camps
+        # de relació al camp INVERS de les pàgines de l'altre costat (o les vistes
+        # incrustades, que filtren per l'invers, surten buides). Background.
+        background_tasks.add_task(
+            _propagate_relation_inverse,
+            page_id, get_table_id(metadata),
+            dict(original_metadata_snapshot), _rel_new_snapshot,
         )
 
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
@@ -9751,6 +9788,107 @@ def update_link_index_for_page(file_path: Path) -> None:
     # rebuild_backlinks recorre tots els outlinks i resol per id i per títol.
 
     _schedule_link_index_persist()
+
+
+# ---------------------------------------------------------------------------
+# Sincronització bidireccional de relacions (directe ↔ invers)
+# Quan una pàgina canvia un camp de relació, el camp INVERS de l'altre costat
+# s'actualitza, o les vistes incrustades (que filtren per l'invers) surten
+# buides. Vegeu docs/dev_memory/directives/vault_relation_inverse_sync.md
+# ---------------------------------------------------------------------------
+
+def _inverse_relation_frontmatter_key(md: dict, inverse_name: str) -> str:
+    """Clau REAL del frontmatter per al camp invers: reusa la que ja existeix
+    (per normalització, p.ex. `📀 Àrees` quan el registry diu `Àrees`) o, si no
+    n'hi ha cap, el nom del registry. Evita crear una clau duplicada que les
+    vistes (que filtren per `📀 Àrees`) no veurien."""
+    from backend.services.relation_sync import _norm
+    if inverse_name in md:
+        return inverse_name
+    nk = _norm(inverse_name)
+    for k in list(md.keys()):
+        if isinstance(k, str) and _norm(k) == nk:
+            return k
+    return inverse_name
+
+
+def _apply_inverse_relation_change(
+    target_id: str, inverse_name: str, host_id: str, op: str
+) -> bool:
+    """Afegeix/treu `host_id` al camp invers de la pàgina `target_id`. Escriu via
+    `save_page_md` (decora `id→[[Títol|id]]` i canonicalitza la clau). Idempotent:
+    no escriu si ja és a l'estat desitjat. Escriure directament (no via endpoint)
+    evita re-disparar la propagació → cap recursió. Retorna True si ha escrit."""
+    from backend.services.relation_sync import to_ids
+    fp = find_page_path(target_id)
+    if not fp or not fp.exists():
+        return False
+    raw = fp.read_text(encoding="utf-8")
+    md, body = parse_frontmatter(raw, fp)
+    key = _inverse_relation_frontmatter_key(md, inverse_name)
+    cur = to_ids(md.get(key))
+    if op == "add":
+        if host_id in cur:
+            return False
+        md[key] = cur + [host_id]
+    elif op == "remove":
+        if host_id not in cur:
+            return False
+        md[key] = [x for x in cur if x != host_id]
+    else:
+        return False
+    save_page_md(fp, md, body)
+    try:
+        update_link_index_for_page(fp)
+    except Exception as e:
+        log.debug(f"relation sync: link-index update failed for {target_id}: {e}")
+    try:
+        from backend.services.context_vars import get_active_vault_path
+        v_path = get_active_vault_path()
+        if v_path:
+            v_str = str(v_path)
+            entry = _build_page_cache_entry(fp, fp.stat())
+            with _page_index_lock:
+                _page_index_entries.setdefault(v_str, {})[str(fp)] = entry
+                eid = entry.get("id")
+                if eid:
+                    _page_id_to_path.setdefault(v_str, {})[eid] = str(fp)
+                _bump_page_index_version(v_str)
+    except Exception as e:
+        log.debug(f"relation sync: cache update failed for {target_id}: {e}")
+    return True
+
+
+def _propagate_relation_inverse(
+    page_id: str, table_id: Optional[str], old_meta: dict, new_meta: dict
+) -> None:
+    """Propaga els canvis dels camps de relació d'una pàgina al camp INVERS de
+    les pàgines de l'altre costat. Defensiu: mai bloqueja el caller ni propaga en
+    bucle. Pensat per córrer com a background task de PATCH/POST."""
+    try:
+        if not table_id:
+            return
+        from backend.services.relation_sync import relation_changes
+        origin = _table_by_id(table_id)
+        if not origin:
+            return
+        changes = relation_changes(old_meta, new_meta, origin, _table_by_id)
+        if not changes:
+            return
+        wrote = False
+        for target_id, inverse_name, op in changes:
+            if not target_id or target_id == page_id:
+                continue  # auto-referència defensiva
+            try:
+                wrote = _apply_inverse_relation_change(
+                    target_id, inverse_name, page_id, op
+                ) or wrote
+            except Exception as e:
+                log.debug(f"relation sync target {target_id} ({op}) failed: {e}")
+        if wrote:
+            _pages_cache_invalidate_all()
+    except Exception as e:
+        log.debug(f"relation inverse propagation failed for {page_id}: {e}")
 
 
 def remove_from_link_index(page_id: str) -> None:

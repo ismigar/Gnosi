@@ -34,8 +34,34 @@ TITLE_ONLY_WIKILINK_RE = re.compile(r"^\s*\[\[\s*(?P<title>[^\]\|]+?)\s*\]\]\s*$
 _UNSAFE_TITLE_RE = re.compile(r"[\[\]\|#^\r\n]")
 
 
-def is_relation_key(key: Any) -> bool:
-    return isinstance(key, str) and key.startswith(RELATION_KEY_PREFIX)
+def is_relation_key(key: Any, relation_keys: Optional[Set[str]] = None) -> bool:
+    """Una clau és de relació si és al conjunt ``relation_keys`` de l'esquema
+    (noms + àlies de les properties ``type=="relation"``) O, com a fallback
+    retrocompatible, si duu el prefix ``📀``. Així una columna renomenada sense
+    el `📀` (p.ex. ``Àrees``) se segueix reconeixent com a relació.
+    Vegeu docs/dev_memory/directives/vault_relation_inverse_sync.md"""
+    if not isinstance(key, str):
+        return False
+    if relation_keys and key in relation_keys:
+        return True
+    return key.startswith(RELATION_KEY_PREFIX)
+
+
+def relation_keys_from_table(table: Optional[dict]) -> Set[str]:
+    """Noms (i àlies) de les properties ``type=="relation"`` d'una taula del
+    registry. És la font de veritat per saber quins camps són relació
+    independentment del prefix `📀` (que pot no ser-hi després d'un rename)."""
+    keys: Set[str] = set()
+    if isinstance(table, dict):
+        for p in table.get("properties") or []:
+            if isinstance(p, dict) and p.get("type") == "relation":
+                name = p.get("name")
+                if isinstance(name, str) and name:
+                    keys.add(name)
+                for a in (p.get("aliases") or []):
+                    if isinstance(a, str) and a:
+                        keys.add(a)
+    return keys
 
 
 def strip_item(value: Any) -> Any:
@@ -47,17 +73,18 @@ def strip_item(value: Any) -> Any:
     return value
 
 
-def strip_relation_wikilinks(metadata: Any) -> Any:
-    """Frontmatter → domini: els camps 📀 tornen a ser ids nets.
+def strip_relation_wikilinks(metadata: Any, relation_keys: Optional[Set[str]] = None) -> Any:
+    """Frontmatter → domini: els camps de relació tornen a ser ids nets.
 
     És la frontera única de LECTURA: a partir d'aquí tota l'app (taula,
-    filtres, graf, automatitzacions, syncs) veu ids, mai wikilinks. Muta i
-    retorna ``metadata``.
+    filtres, graf, automatitzacions, syncs) veu ids, mai wikilinks. ``relation_keys``
+    (de l'esquema) permet reconèixer els camps encara que el nom no dugui el
+    prefix `📀` (columna renomenada). Muta i retorna ``metadata``.
     """
     if not isinstance(metadata, dict):
         return metadata
     for key in metadata:
-        if not is_relation_key(key):
+        if not is_relation_key(key, relation_keys):
             continue
         value = metadata[key]
         if isinstance(value, list):

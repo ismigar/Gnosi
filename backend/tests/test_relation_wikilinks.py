@@ -46,6 +46,34 @@ def test_strip_does_not_touch_non_relation_keys():
     assert out["Cita"] == wikilink
 
 
+def test_strip_recognizes_relation_by_schema_without_emoji():
+    """Columna renomenada sense `📀`: es reconeix com a relació via l'esquema."""
+    from backend.services.relation_links import relation_keys_from_table
+    rk = relation_keys_from_table(
+        {"properties": [{"type": "relation", "name": "Àrees", "aliases": ["📀 Àrees"]}]}
+    )
+    assert rk == {"Àrees", "📀 Àrees"}
+    md = {"Àrees": [f"[[Relacions|{RID}]]"]}
+    assert strip_relation_wikilinks(md, rk)["Àrees"] == [RID]
+
+
+def test_strip_schema_does_not_touch_text_field_with_wikilink():
+    """Un camp de text amb wikilink no es despulla encara que passem esquema."""
+    from backend.services.relation_links import relation_keys_from_table
+    rk = relation_keys_from_table(
+        {"properties": [{"type": "relation", "name": "Àrees"}]}
+    )
+    wl = f"[[Filosofia|{RID}]]"
+    assert strip_relation_wikilinks({"Cita": wl}, rk)["Cita"] == wl
+
+
+def test_strip_without_schema_keeps_retrocompat():
+    """Sense esquema: `📀 Camp` es despulla; `Camp` sense prefix, no."""
+    wl = f"[[X|{RID}]]"
+    assert strip_relation_wikilinks({"📀 Àrees": [wl]})["📀 Àrees"] == [RID]
+    assert strip_relation_wikilinks({"Àrees": [wl]})["Àrees"] == [wl]
+
+
 def test_strip_keeps_bare_ids_title_only_and_nonstrings():
     items = [RID, "[[Sense àlies]]", 7, None, {"k": 1}]
     md = {"📀 X": list(items)}
