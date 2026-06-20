@@ -159,6 +159,64 @@ def strip_view_snapshots(body: Any) -> Any:
     return cleaned
 
 
+# Render del snapshot per a la PREVISUALITZACIÓ: a diferència de
+# `strip_view_snapshots` (que el treu per a l'editor), aquí el DEIXEM visible
+# com a Markdown (taula/llista) i amaguem la definició. NO resol cap vista —
+# usa el contingut ja materialitzat a disc. Per al pop-up i el feed.
+_RESULT_RENDER_RE = re.compile(
+    r"[ \t]*<!--\s*gnosi-view:result\b[^>]*-->\n(?P<content>.*?)\n[ \t]*<!--\s*/gnosi-view:result\s*-->[ \t]*",
+    re.DOTALL,
+)
+_RESULT_TRUNC_RE = re.compile(r"\n?[ \t]*<!--\s*gnosi-view:result-truncated\s+\d+\s*-->[ \t]*")
+# Wikilink de snapshot `[[Títol\|id]]` (id a l'àlies, pipe escapat dins taules).
+# Per al preview el reduïm a `[[Títol]]`: el renderer del frontend tracta
+# l'àlies com a TEXT visible, així que sense això es veuria l'uuid.
+_SNAPSHOT_WIKILINK_RE = re.compile(r"\[\[([^\[\]|\\]+)\\?\|[^\[\]]+\]\]")
+
+
+def render_view_snapshots(body: Any) -> Any:
+    """Frontera de PREVISUALITZACIÓ: deixa visible el snapshot desat (la taula o
+    llista del bloc `:result`) com a Markdown i elimina la definició amagada
+    (`:def`). És el contrari de `strip_view_snapshots`. Per a vistes sense
+    snapshot a disc, la definició simplement desapareix (cap JSON cru)."""
+    if not isinstance(body, str) or "gnosi-view" not in body:
+        return body
+
+    def _show(m):
+        content = _RESULT_TRUNC_RE.sub("", m.group("content"))
+        content = _SNAPSHOT_WIKILINK_RE.sub(r"[[\1]]", content)
+        return content.strip("\n")
+
+    out = _RESULT_RENDER_RE.sub(_show, body)
+    out = _DEF_COMMENT_RE.sub("", out)
+    return out
+
+
+def flatten_view_columns(body: Any) -> Any:
+    """Aplana les directives de columnes (`:::column-list` / `:::column` / `:::`)
+    a contingut lineal per a la previsualització: treu els marcadors i
+    desindenta el contingut (4 espais) perquè headings i llistes no es vegin com
+    a blocs de codi. Pensat per al pop-up (no per a l'editor)."""
+    if not isinstance(body, str) or ":::" not in body:
+        return body
+    out: List[str] = []
+    in_cols = False
+    for line in body.split("\n"):
+        st = line.strip()
+        if st.startswith(":::column-list"):
+            in_cols = True
+            continue
+        if st.startswith(":::column") or st == ":::":
+            continue
+        # Una línia de contingut SENSE indentació tanca la regió de columnes.
+        if in_cols and line and not line[:1].isspace():
+            in_cols = False
+        if in_cols and line.startswith("    "):
+            line = line[4:]
+        out.append(line)
+    return "\n".join(out)
+
+
 def _build_block(view_id: str, items: Sequence[str], truncated: int = 0) -> str:
     open_tag = f"<!-- gnosi-view:result view_id={view_id} -->" if view_id else "<!-- gnosi-view:result -->"
     lines = [open_tag]
