@@ -79,6 +79,8 @@ from backend.services.view_snapshot import (
     resolve_rows,
     restore_view_fences,
     strip_view_snapshots,
+    render_view_snapshots,
+    flatten_view_columns,
 )
 from backend.services.relation_links import _decorate_item as _decorate_relation_item
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
@@ -1036,7 +1038,7 @@ def ensure_default_registry_structure():
 # init_vault() # Disabled: Now initialized dynamically per workspace via WorkspaceService
 
 
-def parse_frontmatter(content: str, file_path: Optional[Path] = None):
+def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_snapshots: bool = False):
     """Parses a markdown file to extract the YAML frontmatter and body.
 
     Si `file_path` permet derivar un vault root i la pàgina té `id`, també
@@ -1049,11 +1051,19 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
     if match:
         yaml_content = match.group(1)
         body = content[match.end() :]
-        # Frontera de LECTURA del snapshot de vista: reconverteix la definició
-        # amagada (comentari → fence, perquè l'editor la vegi com sempre) i treu
-        # la llista/taula de resultats derivada. Anàleg a strip_relation_wikilinks.
-        body = restore_view_fences(body)
-        body = strip_view_snapshots(body)
+        if render_snapshots:
+            # Frontera de PREVISUALITZACIÓ: deixa visible el snapshot desat
+            # (taula/llista del `:result`) i aplana les columnes, en lloc
+            # d'amagar-ho per a l'editor. Per al pop-up de preview i el feed.
+            body = render_view_snapshots(body)
+            body = flatten_view_columns(body)
+        else:
+            # Frontera de LECTURA del snapshot de vista: reconverteix la
+            # definició amagada (comentari → fence, perquè l'editor la vegi com
+            # sempre) i treu la llista/taula de resultats derivada. Anàleg a
+            # strip_relation_wikilinks.
+            body = restore_view_fences(body)
+            body = strip_view_snapshots(body)
         try:
             metadata = yaml.safe_load(yaml_content) or {}
             metadata = apply_sidecar_to(metadata, file_path)
@@ -6265,7 +6275,8 @@ async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any
 
     def _read_and_parse():
         if _is_dashboard_file_path(file_path):
-            return _read_dashboard_file(file_path)
+            md, body = _read_dashboard_file(file_path)
+            return md, body, body
         # Mateixos reintents que get_page (~4.55s total) com a xarxa de seguretat
         # per si el warmup proactiu d'amunt no ha estat suficient.
         last_error = None
@@ -6273,7 +6284,13 @@ async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any
         for attempt in range(len(delays) + 1):
             try:
                 raw_content = file_path.read_text(encoding="utf-8")
-                return parse_frontmatter(raw_content, file_path)
+                md, body = parse_frontmatter(raw_content, file_path)
+                # `body_full`: igual que `body` però amb els snapshots de vista
+                # renderitzats (taula/llista visible) i les columnes aplanades —
+                # per al `body_md` del preview (pop-up i feed). L'`excerpt` segueix
+                # sortint de `body` (sense snapshots) per al hover de wikilinks.
+                _, body_full = parse_frontmatter(raw_content, file_path, render_snapshots=True)
+                return md, body, body_full
             except OSError as e:
                 last_error = e
                 if e.errno == 35 and attempt < len(delays):
@@ -6282,9 +6299,9 @@ async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any
                 raise
         if last_error:
             raise last_error
-        return {}, ""
+        return {}, "", ""
 
-    metadata, body = await asyncio.to_thread(_read_and_parse)
+    metadata, body, body_full = await asyncio.to_thread(_read_and_parse)
     excerpt = _build_preview_excerpt(body)
     short = {
         "id": str(metadata.get("id") or page_id),
@@ -6295,8 +6312,8 @@ async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any
     }
     full_resp = {
         **short,
-        "body_md": body or "",
-        "images": _extract_images_from_body(body or ""),
+        "body_md": body_full or "",
+        "images": _extract_images_from_body(body_full or ""),
     }
     return short, full_resp, mtime
 
