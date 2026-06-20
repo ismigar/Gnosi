@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from '../lib/toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -113,7 +113,6 @@ export default function VaultDashboard() {
     // --- Personal Navigation History ---
     const [navigationHistory, setNavigationHistory] = useState([]);
     const [historyPointer, setHistoryPointer] = useState(-1);
-    const [isInternalNavigating, setIsInternalNavigating] = useState(false);
 
     // --- Action History (Undo/Redo) ---
     const [undoStack, setUndoStack] = useState([]);
@@ -236,8 +235,6 @@ export default function VaultDashboard() {
     };
 
     const pushToHistory = useCallback((entry) => {
-        if (isInternalNavigating) return;
-
         // React Router Navigation (URL Synchronization)
         if (entry.type === 'table') {
             const url = entry.subId ? `/vault/table/${entry.id}/view/${entry.subId}` : `/vault/table/${entry.id}`;
@@ -262,7 +259,7 @@ export default function VaultDashboard() {
             return [...next, { ...entry, from }];
         });
         setHistoryPointer(prev => prev + 1);
-    }, [historyPointer, isInternalNavigating, navigate]);
+    }, [historyPointer, navigate]);
 
     const getSchemaFromTableId = useCallback((tableId) => {
         if (!tableId) return {};
@@ -439,78 +436,44 @@ export default function VaultDashboard() {
         });
     }, [getSchemaFromTableId, pages]);
 
-    // Llegeix l'índex d'historial que React Router desa a `window.history.state`
-    // (camp `idx`). Sobreviu a una recàrrega (forma part de l'entrada
-    // d'historial) i només compta entrades gestionades per l'app: `idx > 0` vol
-    // dir que hi ha una pàgina anterior de Gnosi on tornar amb el back del
-    // navegador. Una entrada per URL externa o pestanya nova arrenca a `idx = 0`.
+    // ---- Navegació enrere/endavant: sobre l'historial REAL del navegador ----
+    // Tota navegació dins del Vault passa per `pushToHistory → navigate()`, així
+    // que l'historial del navegador és el registre complet. Conduïm les fletxes
+    // amb `navigate(-1)`/`navigate(1)` perquè es comportin EXACTAMENT com el
+    // navegador: URL, contingut i estat sempre sincronitzats. (Abans hi havia una
+    // pila interna per punter que canviava el contingut sense reescriure l'URL →
+    // desfasament; i la 1a navegació no activava "enrere" perquè l'inici no es
+    // registrava com a entrada.)
+    //
+    // React Router v7 desa la posició a `window.history.state.idx`: numèric,
+    // incrementa amb cada navegació SPA i sobreviu al reload. `idx > 0` = hi ha
+    // pàgina anterior de Gnosi (idx=0 = entrada fresca/externa, res on tornar).
     const getBrowserHistoryIndex = () => {
         if (typeof window === 'undefined') return 0;
         const idx = window.history.state?.idx;
         return typeof idx === 'number' ? idx : 0;
     };
 
-    // El back del navegador només s'usa com a alternativa quan la pila interna
-    // és buida (p. ex. hem entrat per URL directa o després d'un Cmd+R, que
-    // reinicia l'estat de React però no l'historial del navegador). Si la pila
-    // interna té entrades, no hi caiem mai: evita el desfasament entre URL i
-    // contingut (el back/forward intern no reescriu l'URL).
-    const canFallbackToBrowserBack = navigationHistory.length === 0 && getBrowserHistoryIndex() > 0;
-
-    // Índex d'historial del navegador en MUNTAR el component. Mentre la pila
-    // interna és buida, l'`idx` només es mou amb back/forward (POP): qualsevol
-    // navegació nova (push) ompliria `navigationHistory` i sortiria del mode
-    // fallback. Per tant aquest valor de muntatge és el màxim assolible en mode
-    // fallback → hi ha pàgina ENDAVANT si l'`idx` actual hi és per sota (p. ex.
-    // després de tirar enrere amb la fletxa). Es reinicia a cada càrrega/reload.
-    const maxBrowserHistoryIndexRef = useRef(null);
-    if (maxBrowserHistoryIndexRef.current === null) {
-        maxBrowserHistoryIndexRef.current = getBrowserHistoryIndex();
+    // Per saber si hi ha ENDAVANT cal el màxim assolit (el navegador no l'exposa).
+    // PUSH (navegació nova) trunca el forward → el màxim baixa a l'índex actual;
+    // POP/REPLACE (back/forward/reload) no abaixen mai el màxim.
+    const navigationType = useNavigationType();
+    const browserHistoryIndex = getBrowserHistoryIndex();
+    const maxBrowserHistoryIndexRef = useRef(browserHistoryIndex);
+    if (navigationType === 'PUSH') {
+        maxBrowserHistoryIndexRef.current = browserHistoryIndex;
+    } else if (browserHistoryIndex > maxBrowserHistoryIndexRef.current) {
+        maxBrowserHistoryIndexRef.current = browserHistoryIndex;
     }
-    const canFallbackToBrowserForward = navigationHistory.length === 0
-        && getBrowserHistoryIndex() < maxBrowserHistoryIndexRef.current;
 
-    const handleNavigationBack = () => {
-        if (historyPointer > 0) {
-            const prevEntry = navigationHistory[historyPointer - 1];
-            setIsInternalNavigating(true);
-            setHistoryPointer(prev => prev - 1);
+    const canGoBack = browserHistoryIndex > 0;
+    const canGoForward = browserHistoryIndex < maxBrowserHistoryIndexRef.current;
 
-            if (prevEntry.type === 'editor') {
-                loadPage(prevEntry.id, true);
-            } else if (prevEntry.type === 'table') {
-                handleTableSelect(prevEntry.id, null, true);
-            }
-
-            setTimeout(() => setIsInternalNavigating(false), 100);
-        } else if (canFallbackToBrowserBack) {
-            // Cau a l'historial del navegador (estil Obsidian/Notion). El canvi
-            // d'URL dispara l'efecte "Sincronitzar URL -> Estat Intern", que
-            // carrega la pàgina anterior amb fromHistory=true.
-            window.history.back();
-        }
-    };
-
-    const handleNavigationForward = () => {
-        if (historyPointer < navigationHistory.length - 1) {
-            const nextEntry = navigationHistory[historyPointer + 1];
-            setIsInternalNavigating(true);
-            setHistoryPointer(prev => prev + 1);
-
-            if (nextEntry.type === 'editor') {
-                loadPage(nextEntry.id, true);
-            } else if (nextEntry.type === 'table') {
-                handleTableSelect(nextEntry.id, null, true);
-            }
-
-            setTimeout(() => setIsInternalNavigating(false), 100);
-        } else if (canFallbackToBrowserForward) {
-            // Simètric al back: torna ENDAVANT per l'historial del navegador.
-            // El canvi d'URL dispara l'efecte de sincronització, que recarrega
-            // la pàgina amb fromHistory=true (sense tocar la pila interna).
-            window.history.forward();
-        }
-    };
+    // navigate(-1/+1) = back/forward del navegador: dispara `popstate` → l'efecte
+    // "Sincronitzar URL → Estat Intern" carrega la pàgina (o l'inici) amb
+    // fromHistory=true, sense crear entrades noves ni tocar la pila interna.
+    const handleNavigationBack = () => { if (canGoBack) navigate(-1); };
+    const handleNavigationForward = () => { if (canGoForward) navigate(1); };
     // --------------------------------------------
 
     // Track in-flight retry timers so we can cancel them on unmount —
@@ -1155,7 +1118,17 @@ export default function VaultDashboard() {
 
     // Sincronitzar URL -> Estat Intern
     useEffect(() => {
-        if (!nestedPath || !registry.tables) return;
+        if (!registry.tables) return;
+
+        // Arrel /vault (p. ex. back del navegador fins a l'inici): torna a la
+        // pantalla d'inici en comptes de deixar enganxat el contingut anterior.
+        // (setState fa bail-out si el valor no canvia → no provoca re-renders.)
+        if (!nestedPath) {
+            setActiveTabId(null);
+            setActiveTableId(null);
+            setViewMode('editor');
+            return;
+        }
 
         const parts = nestedPath.split('/');
         // Casos: table/:id, table/:id/view/:id, page/:id, drawing, view/:id
@@ -3112,8 +3085,8 @@ export default function VaultDashboard() {
             onSearch={() => setIsGlobalSearchOpen(true)}
             onBack={handleNavigationBack}
             onForward={handleNavigationForward}
-            canGoBack={historyPointer > 0 || canFallbackToBrowserBack}
-            canGoForward={historyPointer < navigationHistory.length - 1 || canFallbackToBrowserForward}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
             canOpenHistory={Boolean(currentOpenPage)}
             onOpenHistory={() => {
                 if (!currentOpenPage) return;
