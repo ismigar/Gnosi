@@ -652,7 +652,7 @@ export const GraphViewer = forwardRef(({
         });
         graphData.edges.forEach(e => {
             // Mostrem NOMÉS wikilinks reals [[...]] com fa Obsidian.
-            // Edges structural (parent_id) i relation (📀) distorsionen la topologia.
+            // Edges structural (parent_id) i relation distorsionen la topologia.
             if (e.kind !== 'link') return;
             const source = String(e.source);
             const target = String(e.target);

@@ -49,9 +49,9 @@ def test_sort_key_strips_leading_punct():
 
 # --- apply_filter (port de DbViewEmbed.applyFilter) -------------------------
 def test_filter_this_equals_on_relation_list():
-    f = {"field": "📀 Àrea", "operator": "equals", "value": "this"}
-    assert apply_filter({"📀 Àrea": [PAGE, "other"]}, PAGE, f) is True
-    assert apply_filter({"📀 Àrea": ["other"]}, PAGE, f) is False
+    f = {"field": "Àrea", "operator": "equals", "value": "this"}
+    assert apply_filter({"Àrea": [PAGE, "other"]}, PAGE, f) is True
+    assert apply_filter({"Àrea": ["other"]}, PAGE, f) is False
 
 
 def test_filter_is_empty_and_not_empty():
@@ -87,12 +87,12 @@ def test_sort_by_field_desc_and_default_title():
 # --- resolve_row_ids --------------------------------------------------------
 def test_resolve_filters_this_and_sorts():
     rows = [
-        {"id": A, "title": "Alpha", "metadata": {"📀 Àrea": [PAGE], "Any": "2022"}},
-        {"id": B, "title": "Bèta", "metadata": {"📀 Àrea": [PAGE], "Any": "2020"}},
-        {"id": C, "title": "Çedilla", "metadata": {"📀 Àrea": ["x"], "Any": "2030"}},
+        {"id": A, "title": "Alpha", "metadata": {"Àrea": [PAGE], "Any": "2022"}},
+        {"id": B, "title": "Bèta", "metadata": {"Àrea": [PAGE], "Any": "2020"}},
+        {"id": C, "title": "Çedilla", "metadata": {"Àrea": ["x"], "Any": "2030"}},
     ]
     view = {
-        "filters": [{"field": "📀 Àrea", "operator": "equals", "value": "this"}],
+        "filters": [{"field": "Àrea", "operator": "equals", "value": "this"}],
         "sorts": [{"field": "Any", "direction": "asc"}],
     }
     assert resolve_row_ids(rows, view, PAGE) == [B, A]  # C filtrat, ordre per Any asc

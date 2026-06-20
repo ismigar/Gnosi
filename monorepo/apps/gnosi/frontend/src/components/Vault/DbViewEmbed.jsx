@@ -44,10 +44,10 @@ const TableBox = ({ children }) => (
 /*  Utilitats de filtre / ordenació / format                                  */
 /* -------------------------------------------------------------------------- */
 
-// Nom de camp sense prefix decoratiu (emoji/espais), en minúscules: permet que
-// un filtre guardat amb el nom ANTIC d'una columna (p.ex. `📀 Àrees`) casi amb
-// la metadata canonicalitzada al nom NOU (`Àrees`) després de renomenar-la (el
-// `📀` passa a àlies). Mirall de `_normalize_field_key` (backend view_snapshot.py).
+// Nom de camp sense prefix decoratiu (símbols/espais), en minúscules: permet que
+// un filtre guardat amb una variant antiga del nom d'una columna casi amb la
+// metadata canonicalitzada al nom NOU (`Àrees`) després de renomenar-la. Mirall
+// de `_normalize_field_key` (backend view_snapshot.py).
 function normFieldKey(name) {
     return String(name ?? '').replace(/^[^\p{L}\p{N}_]+/u, '').trim().toLowerCase();
 }

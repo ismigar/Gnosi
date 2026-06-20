@@ -153,10 +153,9 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
         body = content[match.end():]
         try:
             metadata = yaml.safe_load(yaml_content) or {}
-            # Camps de relació decorats ('[[Títol|id]]') → ids nets, com fa
-            # el parse_frontmatter de vault_routes. Sense això, les arestes
-            # de relació del graf compararien wikilinks amb ids.
-            metadata = strip_relation_wikilinks(metadata)
+            # El despullat dels wikilinks de relació ('[[Títol|id]]' → id) es fa
+            # al caller amb l'ESQUEMA de la taula: aquí (funció lliure) no es
+            # coneix quins camps són de relació.
             return metadata, body
         except Exception as e:
             location = f" in {file_path}" if file_path else ""
@@ -662,6 +661,15 @@ class GraphService:
                     inferred_table_id = folder_to_table_id.get(table_folder)
                     inferred_db_id = inferred_db_id or folder_to_db_id.get(table_folder)
 
+            # Camps de relació → ids nets ('[[Títol|id]]' → id) segons l'ESQUEMA
+            # de la taula. Les arestes es creen a _add_structural_edges; aquí es
+            # neteja el metadata del node (sobre una còpia, mai el cache).
+            _rel_keys = relation_keys_from_table(
+                next((t for t in self.registry.get("tables", [])
+                      if t.get("id") == inferred_table_id), None))
+            if _rel_keys:
+                metadata = strip_relation_wikilinks(dict(metadata), _rel_keys)
+
             # Add to NetworkX
             G.add_node(id_to_use,
                        label=title,
@@ -781,8 +789,7 @@ class GraphService:
     def _add_structural_edges(self, G: nx.Graph, page_nodes: List[Dict[str, Any]]):
         # 1. Frontmatter relation detection (Already loaded in node attributes).
         # Reconeix els camps de relació per l'ESQUEMA (type=relation, nom+àlies),
-        # amb el prefix `📀` com a fallback — així una columna renomenada sense el
-        # `📀` segueix generant arestes. Vegeu vault_relation_inverse_sync.md
+        # sigui quin sigui el nom de la columna. Vegeu vault_relation_inverse_sync.md
         rel_keys_by_table = {
             t.get("id"): relation_keys_from_table(t)
             for t in self.registry.get("tables", [])
@@ -800,7 +807,7 @@ class GraphService:
 
             tid = metadata.get("table_id") or metadata.get("database_table_id")
             rel_keys = rel_keys_by_table.get(tid)
-            # Scan for relation fields (per esquema o prefix 📀)
+            # Scan for relation fields (per esquema)
             for key, value in metadata.items():
                 if is_relation_key(key, rel_keys):
                     targets = value if isinstance(value, list) else [value]

@@ -373,10 +373,10 @@ def _as_bool(value: Any) -> bool:
 def _normalize_field_key(name: Any) -> str:
     """Nom de camp sense prefix decoratiu (emoji/espais) i en minúscules.
 
-    Permet que un filtre guardat amb el nom ANTIC d'una columna (p.ex.
-    ``📀 Àrees``) casi amb la metadata canonicalitzada al nom NOU (``Àrees``)
-    després de renomenar la columna (el `📀` passa a àlies). Mateixa
-    normalització que ``relation_sync._norm``."""
+    Permet que un filtre guardat amb el nom ANTIC d'una columna (p.ex. amb un
+    prefix decoratiu) casi amb la metadata canonicalitzada al nom NOU
+    (``Àrees``) després de renomenar la columna. Mateixa normalització que
+    ``relation_sync._norm``."""
     return re.sub(r"^[^\w]+", "", str(name or ""), flags=re.UNICODE).strip().lower()
 
 

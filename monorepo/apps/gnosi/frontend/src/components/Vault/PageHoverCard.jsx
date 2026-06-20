@@ -67,7 +67,7 @@ function formatMetaValue(v) {
 }
 
 // Un valor "de relació" (uuid o wikilink amb àlies): serveix per ocultar camps
-// de relació encara que el nom no dugui el prefix `📀` (columna renomenada).
+// de relació pel seu valor, sigui quin sigui el nom de la columna.
 function looksLikeRelationValue(v) {
     const arr = Array.isArray(v) ? v : [v];
     return arr.length > 0 && arr.every(x => typeof x === 'string' && (
@@ -82,8 +82,7 @@ function visibleProps(meta) {
     return Object.entries(meta)
         .filter(([k, v]) => !HIDDEN_META_KEYS.has(k)
             && !k.startsWith('drupal_')   // ids/urls de sincronització Drupal
-            && !k.startsWith('📀')         // relacions: mostrarien uuids crus
-            && !looksLikeRelationValue(v) // relacions renomenades sense `📀`
+            && !looksLikeRelationValue(v) // relacions (uuid/wikilink): mostrarien uuids crus
             && !k.endsWith('_manual')     // flags interns (p.ex. Imatge_manual)
             && k !== 'Drupal URL' && k !== 'Drupal NID')
         .map(([k, v]) => [k, formatMetaValue(v)])

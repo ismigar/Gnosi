@@ -234,7 +234,7 @@ export function applyFilters(graph, filters) {
         graph.forEachEdge((edge, attrs, source, target) => {
             if (!visibleNodes.has(source) || !visibleNodes.has(target)) return;
 
-            // 'link' = wikilinks [[...]], 'relation' = 📀 frontmatter relations
+            // 'link' = wikilinks [[...]], 'relation' = relacions del frontmatter (per esquema)
             const isReal = attrs.kind === 'explicit' || attrs.kind === 'structural'
                 || attrs.kind === 'wikilink' || attrs.kind === 'link' || attrs.kind === 'relation';
             const sim = attrs.similarity !== undefined ? Number(attrs.similarity) : 0;
