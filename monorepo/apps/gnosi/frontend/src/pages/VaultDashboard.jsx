@@ -439,6 +439,24 @@ export default function VaultDashboard() {
         });
     }, [getSchemaFromTableId, pages]);
 
+    // Llegeix l'índex d'historial que React Router desa a `window.history.state`
+    // (camp `idx`). Sobreviu a una recàrrega (forma part de l'entrada
+    // d'historial) i només compta entrades gestionades per l'app: `idx > 0` vol
+    // dir que hi ha una pàgina anterior de Gnosi on tornar amb el back del
+    // navegador. Una entrada per URL externa o pestanya nova arrenca a `idx = 0`.
+    const getBrowserHistoryIndex = () => {
+        if (typeof window === 'undefined') return 0;
+        const idx = window.history.state?.idx;
+        return typeof idx === 'number' ? idx : 0;
+    };
+
+    // El back del navegador només s'usa com a alternativa quan la pila interna
+    // és buida (p. ex. hem entrat per URL directa o després d'un Cmd+R, que
+    // reinicia l'estat de React però no l'historial del navegador). Si la pila
+    // interna té entrades, no hi caiem mai: evita el desfasament entre URL i
+    // contingut (el back/forward intern no reescriu l'URL).
+    const canFallbackToBrowserBack = navigationHistory.length === 0 && getBrowserHistoryIndex() > 0;
+
     const handleNavigationBack = () => {
         if (historyPointer > 0) {
             const prevEntry = navigationHistory[historyPointer - 1];
@@ -452,6 +470,11 @@ export default function VaultDashboard() {
             }
 
             setTimeout(() => setIsInternalNavigating(false), 100);
+        } else if (canFallbackToBrowserBack) {
+            // Cau a l'historial del navegador (estil Obsidian/Notion). El canvi
+            // d'URL dispara l'efecte "Sincronitzar URL -> Estat Intern", que
+            // carrega la pàgina anterior amb fromHistory=true.
+            window.history.back();
         }
     };
 
@@ -3071,7 +3094,7 @@ export default function VaultDashboard() {
             onSearch={() => setIsGlobalSearchOpen(true)}
             onBack={handleNavigationBack}
             onForward={handleNavigationForward}
-            canGoBack={historyPointer > 0}
+            canGoBack={historyPointer > 0 || canFallbackToBrowserBack}
             canGoForward={historyPointer < navigationHistory.length - 1}
             canOpenHistory={Boolean(currentOpenPage)}
             onOpenHistory={() => {
