@@ -66,13 +66,24 @@ function formatMetaValue(v) {
     return String(v).replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').trim();
 }
 
+// Un valor "de relació" (uuid o wikilink amb àlies): serveix per ocultar camps
+// de relació encara que el nom no dugui el prefix `📀` (columna renomenada).
+function looksLikeRelationValue(v) {
+    const arr = Array.isArray(v) ? v : [v];
+    return arr.length > 0 && arr.every(x => typeof x === 'string' && (
+        /^\s*\[\[.+\|.+\]\]\s*$/.test(x) ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x.trim())
+    ));
+}
+
 // Propietats amb valor de la metadata, per al preview d'un registre sense cos.
 function visibleProps(meta) {
     if (!meta || typeof meta !== 'object') return [];
     return Object.entries(meta)
-        .filter(([k]) => !HIDDEN_META_KEYS.has(k)
+        .filter(([k, v]) => !HIDDEN_META_KEYS.has(k)
             && !k.startsWith('drupal_')   // ids/urls de sincronització Drupal
             && !k.startsWith('📀')         // relacions: mostrarien uuids crus
+            && !looksLikeRelationValue(v) // relacions renomenades sense `📀`
             && !k.endsWith('_manual')     // flags interns (p.ex. Imatge_manual)
             && k !== 'Drupal URL' && k !== 'Drupal NID')
         .map(([k, v]) => [k, formatMetaValue(v)])

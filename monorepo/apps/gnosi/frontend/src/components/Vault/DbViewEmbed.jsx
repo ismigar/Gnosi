@@ -44,12 +44,30 @@ const TableBox = ({ children }) => (
 /*  Utilitats de filtre / ordenació / format                                  */
 /* -------------------------------------------------------------------------- */
 
+// Nom de camp sense prefix decoratiu (emoji/espais), en minúscules: permet que
+// un filtre guardat amb el nom ANTIC d'una columna (p.ex. `📀 Àrees`) casi amb
+// la metadata canonicalitzada al nom NOU (`Àrees`) després de renomenar-la (el
+// `📀` passa a àlies). Mirall de `_normalize_field_key` (backend view_snapshot.py).
+function normFieldKey(name) {
+    return String(name ?? '').replace(/^[^\p{L}\p{N}_]+/u, '').trim().toLowerCase();
+}
+function metaValueForField(meta, field) {
+    if (!meta) return undefined;
+    if (field in meta) return meta[field];
+    const nf = normFieldKey(field);
+    if (!nf) return undefined;
+    for (const k of Object.keys(meta)) {
+        if (normFieldKey(k) === nf) return meta[k];
+    }
+    return undefined;
+}
+
 function applyFilter(meta, pageId, f) {
     if (!f?.field) return true;
     const op = (f.operator || 'equals').toLowerCase();
     const raw = f.value === 'this' ? pageId : f.value;
     const target = raw == null ? null : String(raw);
-    const v = meta?.[f.field];
+    const v = metaValueForField(meta, f.field);
     const arr = Array.isArray(v) ? v.map(String) : v == null || v === '' ? [] : [String(v)];
     if (op === 'is_empty') return arr.length === 0;
     if (op === 'is_not_empty') return arr.length > 0;

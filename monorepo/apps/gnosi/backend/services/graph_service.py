@@ -9,7 +9,12 @@ from pathlib import Path
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from backend.config.app_config import load_params
-from backend.services.relation_links import strip_relation_wikilinks
+from backend.services.relation_links import (
+    is_relation_key,
+    relation_keys_from_table,
+    strip_item,
+    strip_relation_wikilinks,
+)
 
 try:
     import igraph as ig  # type: ignore
@@ -774,23 +779,33 @@ class GraphService:
         return media_nodes
 
     def _add_structural_edges(self, G: nx.Graph, page_nodes: List[Dict[str, Any]]):
-        # 1. Frontmatter 📀 Link detection (Already loaded in node attributes)
+        # 1. Frontmatter relation detection (Already loaded in node attributes).
+        # Reconeix els camps de relació per l'ESQUEMA (type=relation, nom+àlies),
+        # amb el prefix `📀` com a fallback — així una columna renomenada sense el
+        # `📀` segueix generant arestes. Vegeu vault_relation_inverse_sync.md
+        rel_keys_by_table = {
+            t.get("id"): relation_keys_from_table(t)
+            for t in self.registry.get("tables", [])
+        }
         for node_id, attrs in G.nodes(data=True):
             if attrs.get("kind") in ["database", "table", "view"]:
                 continue
-                
+
             metadata = attrs.get("metadata", {})
-            
+
             # Vault structural parent
             parent_id = metadata.get("parent_id")
             if parent_id and G.has_node(parent_id):
                 G.add_edge(parent_id, node_id, kind="structural", color="#94a3b8", size=1)
-                
-            # Scan for 📀 fields (Relations)
+
+            tid = metadata.get("table_id") or metadata.get("database_table_id")
+            rel_keys = rel_keys_by_table.get(tid)
+            # Scan for relation fields (per esquema o prefix 📀)
             for key, value in metadata.items():
-                if "📀" in key:
+                if is_relation_key(key, rel_keys):
                     targets = value if isinstance(value, list) else [value]
-                    for t_id in targets:
+                    for t in targets:
+                        t_id = strip_item(t)  # `[[Títol|id]]` → id (o id tal qual)
                         if isinstance(t_id, str) and G.has_node(t_id):
                             G.add_edge(node_id, t_id, kind="relation", color="#6366f1", size=1.5)
 

@@ -370,17 +370,41 @@ def _as_bool(value: Any) -> bool:
     return str(value or "").strip().lower() in _TRUTHY
 
 
+def _normalize_field_key(name: Any) -> str:
+    """Nom de camp sense prefix decoratiu (emoji/espais) i en minúscules.
+
+    Permet que un filtre guardat amb el nom ANTIC d'una columna (p.ex.
+    ``📀 Àrees``) casi amb la metadata canonicalitzada al nom NOU (``Àrees``)
+    després de renomenar la columna (el `📀` passa a àlies). Mateixa
+    normalització que ``relation_sync._norm``."""
+    return re.sub(r"^[^\w]+", "", str(name or ""), flags=re.UNICODE).strip().lower()
+
+
+def _meta_value_for_field(meta: Dict[str, Any], field: str) -> Any:
+    """Valor de ``field`` a ``meta``, tolerant a renames de prefix: prova la clau
+    EXACTA i, si no hi és, casa per nom normalitzat (emoji↔sense). Així un filtre
+    no es trenca quan es renomena la columna a què apunta."""
+    if field in meta:
+        return meta[field]
+    nf = _normalize_field_key(field)
+    if nf:
+        for k, v in meta.items():
+            if _normalize_field_key(k) == nf:
+                return v
+    return None
+
+
 def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]) -> bool:
     """Port 1:1 de ``applyFilter`` (DbViewEmbed.jsx). ``value == 'this'`` →
     ``page_id``. Valors de metadata: llista → conjunt de strings; escalar →
-    [str]; buit/None → []."""
+    [str]; buit/None → []. El field es resol per nom O àlies (tolera renames)."""
     field = f.get("field") if isinstance(f, dict) else None
     if not field:
         return True
     op = str(f.get("operator") or "equals").lower()
     raw = page_id if f.get("value") == "this" else f.get("value")
     target = None if raw is None else str(raw)
-    v = (meta or {}).get(field)
+    v = _meta_value_for_field(meta or {}, field)
     if isinstance(v, list):
         arr = [str(x) for x in v]
     elif v is None or v == "":
