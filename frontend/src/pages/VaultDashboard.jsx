@@ -457,6 +457,19 @@ export default function VaultDashboard() {
     // contingut (el back/forward intern no reescriu l'URL).
     const canFallbackToBrowserBack = navigationHistory.length === 0 && getBrowserHistoryIndex() > 0;
 
+    // Índex d'historial del navegador en MUNTAR el component. Mentre la pila
+    // interna és buida, l'`idx` només es mou amb back/forward (POP): qualsevol
+    // navegació nova (push) ompliria `navigationHistory` i sortiria del mode
+    // fallback. Per tant aquest valor de muntatge és el màxim assolible en mode
+    // fallback → hi ha pàgina ENDAVANT si l'`idx` actual hi és per sota (p. ex.
+    // després de tirar enrere amb la fletxa). Es reinicia a cada càrrega/reload.
+    const maxBrowserHistoryIndexRef = useRef(null);
+    if (maxBrowserHistoryIndexRef.current === null) {
+        maxBrowserHistoryIndexRef.current = getBrowserHistoryIndex();
+    }
+    const canFallbackToBrowserForward = navigationHistory.length === 0
+        && getBrowserHistoryIndex() < maxBrowserHistoryIndexRef.current;
+
     const handleNavigationBack = () => {
         if (historyPointer > 0) {
             const prevEntry = navigationHistory[historyPointer - 1];
@@ -491,6 +504,11 @@ export default function VaultDashboard() {
             }
 
             setTimeout(() => setIsInternalNavigating(false), 100);
+        } else if (canFallbackToBrowserForward) {
+            // Simètric al back: torna ENDAVANT per l'historial del navegador.
+            // El canvi d'URL dispara l'efecte de sincronització, que recarrega
+            // la pàgina amb fromHistory=true (sense tocar la pila interna).
+            window.history.forward();
         }
     };
     // --------------------------------------------
@@ -3095,7 +3113,7 @@ export default function VaultDashboard() {
             onBack={handleNavigationBack}
             onForward={handleNavigationForward}
             canGoBack={historyPointer > 0 || canFallbackToBrowserBack}
-            canGoForward={historyPointer < navigationHistory.length - 1}
+            canGoForward={historyPointer < navigationHistory.length - 1 || canFallbackToBrowserForward}
             canOpenHistory={Boolean(currentOpenPage)}
             onOpenHistory={() => {
                 if (!currentOpenPage) return;
