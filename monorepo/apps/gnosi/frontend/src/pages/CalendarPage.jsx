@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from '../lib/toast';
-import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle, Trash2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle, Trash2, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { DigitalBrainCalendar } from '../components/Vault/DigitalBrainCalendar';
@@ -38,6 +38,10 @@ export default function CalendarPage() {
     const [showRightSidebar, setShowRightSidebar] = useState(true);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
     const [partialData, setPartialData] = useState(false);
+
+    // Notificador de reunions amb IA (orden del día)
+    const [remindersEnabled, setRemindersEnabled] = useState(false);
+    const [remindersLead, setRemindersLead] = useState(10);
 
     // Estado de selección y edición de eventos
     const [selectedEventId, setSelectedEventId] = useState(null); // ID del evento seleccionado
@@ -830,6 +834,36 @@ export default function CalendarPage() {
         setActiveView(view);
     };
 
+    // ── Recordatoris de reunions (notificador IA) ──────────────────────────
+    useEffect(() => {
+        let alive = true;
+        axios.get('/api/calendar/reminders/settings')
+            .then(({ data }) => {
+                if (!alive || !data) return;
+                setRemindersEnabled(!!data.enabled);
+                if (data.lead_minutes) setRemindersLead(Number(data.lead_minutes));
+            })
+            .catch(() => {});
+        return () => { alive = false; };
+    }, []);
+
+    const saveReminderSettings = useCallback(async (patch) => {
+        const next = {
+            enabled: patch.enabled ?? remindersEnabled,
+            lead_minutes: patch.lead_minutes ?? remindersLead,
+        };
+        setRemindersEnabled(next.enabled);
+        setRemindersLead(next.lead_minutes);
+        try {
+            await axios.put('/api/calendar/reminders/settings', next);
+            toast.success(next.enabled
+                ? t('calendar.reminders_on', 'Recordatoris de reunions activats')
+                : t('calendar.reminders_off', 'Recordatoris de reunions desactivats'));
+        } catch {
+            toast.error(t('calendar.reminders_error', 'No s\'ha pogut desar la configuració de recordatoris'));
+        }
+    }, [remindersEnabled, remindersLead, t]);
+
     const btnClass = "flex items-center justify-center h-7 px-3 rounded-md text-[11px] font-bold tracking-tight uppercase transition-all border";
 
     return (
@@ -859,6 +893,30 @@ export default function CalendarPage() {
                         >
                             <PanelRight size={16} strokeWidth={2.5} />
                         </button>
+                    </div>
+
+                    {/* Notificador de reunions amb IA */}
+                    <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
+                        <button
+                            onClick={() => saveReminderSettings({ enabled: !remindersEnabled })}
+                            className={`flex items-center gap-1 p-1.5 rounded transition-all ${remindersEnabled ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
+                            title={remindersEnabled ? 'Recordatoris de reunions amb IA activats' : 'Activar recordatoris de reunions amb IA'}
+                        >
+                            <Bell size={16} strokeWidth={2.5} />
+                        </button>
+                        {remindersEnabled && (
+                            <select
+                                value={remindersLead}
+                                onChange={(e) => saveReminderSettings({ lead_minutes: Number(e.target.value) })}
+                                className="bg-transparent text-[11px] font-bold uppercase text-[var(--text-secondary)] outline-none cursor-pointer pr-1"
+                                title="Antelació de l'avís"
+                            >
+                                <option value={5}>5 min</option>
+                                <option value={10}>10 min</option>
+                                <option value={15}>15 min</option>
+                                <option value={30}>30 min</option>
+                            </select>
+                        )}
                     </div>
 
                     <div className="w-px h-6 bg-[var(--border-primary)]" />

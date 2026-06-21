@@ -258,8 +258,77 @@ def _get_hybrid_llm():
                 api_key=key,
                 base_url=p_cfg.get(p_name, {}).get("base_url")
             )
-    
+
     return None
+
+
+def get_default_llm(user_message: str = ""):
+    """Retorna un LLM llest per a crides one-shot (generació de contingut,
+    resums, ordre del dia de reunions…).
+
+    Resol el proveïdor/model com ho fa l'agent: agent actiu → selecció `auto`
+    segons el missatge → fallback híbrid (qualsevol proveïdor amb clau). Usa la
+    config FRESCA de params.yaml (no la cachejada a import) perquè reculli
+    proveïdors afegits en calent. Torna None si no n'hi ha cap de disponible.
+
+    NOTA: és el camí MODERN (get_llm + resolve_provider_api_key), a diferència
+    del client legacy `pipeline/ai_client.py` que espera `model_url`/`model_name`
+    per proveïdor (incompatible amb l'esquema de proveïdors actual).
+    """
+    ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
+    providers = ai_cfg.get("providers", {}) or {}
+    agents = ai_cfg.get("agents", []) or []
+
+    target_id = ai_cfg.get("active_agent_id")
+    agent_data = next((a for a in agents if a.get("id") == target_id), None)
+    if not agent_data and agents:
+        agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
+
+    provider_name = (agent_data or {}).get("provider")
+    model_name = (agent_data or {}).get("model")
+
+    # Sense agent definit (o sense proveïdor), tria automàticament segons el text.
+    if not provider_name:
+        provider_name, model_name = _resolve_auto_llm(
+            message=user_message,
+            providers_cfg=providers,
+            fallback_provider="groq",
+            fallback_model=model_name,
+        )
+
+    llm = None
+    if provider_name:
+        p_cfg = providers.get(provider_name, {})
+        key = resolve_provider_api_key(provider_name, p_cfg)
+        llm = get_llm(
+            provider=provider_name,
+            model=model_name,
+            api_key=key,
+            base_url=p_cfg.get("base_url"),
+        )
+
+    if not llm:
+        llm = _get_hybrid_llm()
+    return llm
+
+
+def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tuple[str, str]:
+    """Crida one-shot a l'LLM per defecte. Retorna (text, etiqueta_model).
+
+    Llança RuntimeError si no hi ha cap proveïdor d'IA disponible, perquè el
+    caller pugui degradar amb elegància (HTTP 503 / recordatori sense agenda).
+    """
+    from langchain_core.messages import HumanMessage
+
+    llm = get_default_llm(user_message=user_message or prompt[:200])
+    if not llm:
+        raise RuntimeError("No AI provider available")
+    resp = llm.invoke([HumanMessage(content=prompt)], config={"timeout": timeout})
+    text = getattr(resp, "content", "") or ""
+    if not isinstance(text, str):
+        text = str(text)
+    label = getattr(llm, "model_name", None) or getattr(llm, "model", None) or "ai"
+    return text, str(label)
 
 
 # --- 4. Definir Factory ---

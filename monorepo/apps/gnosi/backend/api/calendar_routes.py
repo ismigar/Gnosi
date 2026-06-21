@@ -143,12 +143,32 @@ async def get_events(
     Retorna events de Google Calendar / CalDAV directament (sense vault).
     Si include_vault=true, afegeix també les notes del vault amb data.
     """
-    from backend.services.hybrid_calendar_service import list_events
-    from backend.services.integration_manager import integration_manager
-
     t_min, t_max = _default_range()
     time_min = time_min or t_min
     time_max = time_max or t_max
+
+    return await asyncio.to_thread(
+        collect_all_events, time_min, time_max, search, calendar_id, include_vault, email
+    )
+
+
+def collect_all_events(
+    time_min: str,
+    time_max: str,
+    search: Optional[str] = None,
+    calendar_id: Optional[str] = None,
+    include_vault: bool = True,
+    email: Optional[str] = None,
+) -> list[dict]:
+    """Reuneix events de tots els comptes (Google/CalDAV) + vault en un rang.
+
+    Versió SÍNCRONA i reutilitzable: l'usa l'endpoint GET /events (via
+    `to_thread`) i també el notificador de reunions
+    (`backend/services/meeting_reminders.py`). Aplica la caché per-compte
+    (`_EVENTS_CACHE`) i el filtre d'esdeveniments amagats.
+    """
+    from backend.services.hybrid_calendar_service import list_events, GoogleAuthExpired
+    from backend.services.integration_manager import integration_manager
 
     integrations = integration_manager.get_all_safe()
     all_accounts = integrations.get("calendars", []) + integrations.get("emails", [])
@@ -162,17 +182,25 @@ async def get_events(
             if a.get("email") or a.get("username")
         })
 
-    all_events = []
-
+    all_events: list[dict] = []
     for em in email_list:
         cache_key = f"{em}|{time_min}|{time_max}|{search}|{calendar_id}"
         cached = _EVENTS_CACHE.get(cache_key)
         if cached and time.time() < cached["expiry"]:
             all_events.extend(cached["data"])
             continue
-        events = await asyncio.to_thread(
-            list_events, em, time_min, time_max, search, calendar_id
-        )
+        # Resiliència per-compte: un token de Google caducat (o qualsevol error
+        # d'un compte) NO ha de tombar tota la consulta. S'omet aquest compte i
+        # es continua amb la resta + els events del vault. La UI ja demana
+        # reconnexió via la capçalera de GET /calendars.
+        try:
+            events = list_events(em, time_min, time_max, search, calendar_id)
+        except GoogleAuthExpired:
+            log.info(f"collect_all_events: auth de Google caducada per {em}; s'omet.")
+            continue
+        except Exception as e:
+            log.warning(f"collect_all_events: el compte {em} ha fallat: {e}")
+            continue
         _EVENTS_CACHE[cache_key] = {"data": events, "expiry": time.time() + _EVENTS_CACHE_TTL}
         all_events.extend(events)
 
@@ -183,9 +211,7 @@ async def get_events(
 
     # Events del vault (notes locals amb camp date)
     if include_vault:
-        vault_events = await asyncio.to_thread(
-            _get_vault_events, time_min, time_max, search
-        )
+        vault_events = _get_vault_events(time_min, time_max, search)
         if hidden_ids:
             vault_events = [ev for ev in vault_events if ev.get("id") not in hidden_ids]
         all_events.extend(vault_events)
@@ -251,6 +277,44 @@ def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> li
     except Exception as ex:
         log.warning(f"_get_vault_events: {ex}")
         return []
+
+
+# ── Recordatoris de reunions (notificador amb IA) ────────────────────────────
+
+@router.get("/reminders")
+async def get_meeting_reminders():
+    """Recordatoris actius per al banner de l'app (amb l'ordre del dia ja
+    generada pel servei; no torna a cridar la IA)."""
+    from backend.services.meeting_reminders import get_active
+    return {"reminders": get_active()}
+
+
+@router.post("/reminders/{reminder_id}/dismiss")
+async def dismiss_meeting_reminder(reminder_id: str):
+    from backend.services.meeting_reminders import dismiss
+    ok = dismiss(reminder_id)
+    return {"status": "success" if ok else "not_found"}
+
+
+@router.get("/reminders/settings")
+async def get_meeting_reminder_settings():
+    from backend.services.meeting_reminders import get_settings
+    return get_settings()
+
+
+@router.put("/reminders/settings")
+async def update_meeting_reminder_settings(payload: dict = Body(...)):
+    """Actualitza {enabled, lead_minutes} i manté UNA sola font de veritat de
+    l'on/off: activa/desactiva també la tasca `meeting_reminders` de l'scheduler
+    (interval 1 min)."""
+    from backend.services.meeting_reminders import update_settings
+    s = update_settings(payload)
+    try:
+        from backend.scheduler.manager import scheduler_manager
+        scheduler_manager.update_task("meeting_reminders", 1, bool(s.get("enabled")))
+    except Exception as e:
+        log.warning(f"No s'ha pogut sincronitzar la tasca meeting_reminders: {e}")
+    return s
 
 
 # ── GET /events/{event_id} ─────────────────────────────────────────────────────

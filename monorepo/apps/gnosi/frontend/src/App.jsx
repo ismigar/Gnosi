@@ -18,6 +18,8 @@ import ComposerPage from './pages/ComposerPage';
 import { Toaster } from './lib/toast';
 
 import AgentChat from './components/AgentChat';
+import MeetingReminderWatcher from './components/MeetingReminderWatcher';
+import MeetingRecorder from './components/MeetingRecorder';
 import PageOutline from './components/PageOutline';
 import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
@@ -84,6 +86,8 @@ function App() {
       <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
       <PageOutline />
       <AgentChat />
+      <MeetingReminderWatcher />
+      <MeetingRecorder />
     </div>
   );
 }
