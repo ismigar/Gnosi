@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
@@ -9,6 +10,73 @@ import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, bui
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
 
+// Desplegable d'una cel·la (select/multi_select) renderitzat en un PORTAL a
+// `document.body` amb `position: fixed`, ancorat sota l'input. Així escapa del
+// scroller `overflow-auto` de la taula incrustada (que abans el retallava quan
+// la vista era curta) i del context d'apilament `isolate` del bloc embed, i
+// queda SEMPRE per sobre (z-index màxim). Si no hi cap a sota, es gira amunt.
+// El click-fora dels pickers ha d'ignorar els clics dins del portal: ho marquem
+// amb `data-cell-dropdown` i ho comprovem amb `closest('[data-cell-dropdown]')`.
+const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
+    { anchorRef, className = '', maxHeight = 240, children },
+    ref,
+) {
+    const [pos, setPos] = useState(null);
+    useLayoutEffect(() => {
+        let raf = 0;
+        const compute = () => {
+            const el = anchorRef.current;
+            // Els layout effects corren child-first: en el primer muntatge el
+            // `ref` del contenidor pare (anchorRef) encara pot no estar adjuntat.
+            // Reintenta al frame següent, quan ja hi és.
+            if (!el) { raf = requestAnimationFrame(compute); return; }
+            const r = el.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - r.bottom;
+            const spaceAbove = r.top;
+            const flipUp = spaceBelow < Math.min(maxHeight, 160) && spaceAbove > spaceBelow;
+            const avail = (flipUp ? spaceAbove : spaceBelow) - 8;
+            setPos({
+                left: Math.round(r.left),
+                width: Math.round(r.width),
+                top: flipUp ? undefined : Math.round(r.bottom + 4),
+                bottom: flipUp ? Math.round(window.innerHeight - r.top + 4) : undefined,
+                maxHeight: Math.max(80, Math.min(maxHeight, avail)),
+            });
+        };
+        compute();
+        // `true` (capture) per recollir l'scroll de QUALSEVOL contenidor ancestre
+        // (el scroller intern de la taula), no només el de window.
+        window.addEventListener('scroll', compute, true);
+        window.addEventListener('resize', compute);
+        return () => {
+            if (raf) cancelAnimationFrame(raf);
+            window.removeEventListener('scroll', compute, true);
+            window.removeEventListener('resize', compute);
+        };
+    }, [anchorRef, maxHeight]);
+
+    if (!pos) return null;
+    return createPortal(
+        <div
+            ref={ref}
+            data-cell-dropdown
+            className={`overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] shadow-xl ${className}`}
+            style={{
+                position: 'fixed',
+                left: pos.left,
+                width: pos.width,
+                top: pos.top,
+                bottom: pos.bottom,
+                maxHeight: pos.maxHeight,
+                zIndex: 2147483000,
+            }}
+        >
+            {children}
+        </div>,
+        document.body,
+    );
+});
+
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
     const [localValues, setLocalValues] = useState(value);
     const [search, setSearch] = useState('');
@@ -16,7 +84,9 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
+            // El desplegable viu en un portal (fora de containerRef): no el
+            // comptem com a "fora".
+            if (containerRef.current && !containerRef.current.contains(e.target) && !e.target.closest?.('[data-cell-dropdown]')) {
                 onSave(localValues);
             }
         };
@@ -72,7 +142,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
                 }}
             />
             {(filtered.length > 0 || canCreate) && (
-                <div className="mt-1 max-h-32 overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] shadow-md z-50 relative">
+                <CellDropdownPortal anchorRef={containerRef} maxHeight={128}>
                     {filtered.map(opt => (
                         <div
                             key={opt}
@@ -105,7 +175,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
                             <Plus size={12} /> Crear «{term}»
                         </div>
                     )}
-                </div>
+                </CellDropdownPortal>
             )}
         </div>
     );
@@ -123,7 +193,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
+            if (containerRef.current && !containerRef.current.contains(e.target) && !e.target.closest?.('[data-cell-dropdown]')) {
                 onSave(value); // tanca sense canviar (handleCellSave fa early-return si és igual)
             }
         };
@@ -172,7 +242,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
                 onChange={e => { setSearch(e.target.value); setHighlightedIndex(0); }}
                 onKeyDown={handleKeyDown}
             />
-            <div ref={listRef} className="mt-1 max-h-40 overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] shadow-md z-50 relative">
+            <CellDropdownPortal ref={listRef} anchorRef={containerRef} maxHeight={160}>
                 {filtered.map((opt, idx) => {
                     const isHighlighted = idx === highlightedIndex;
                     return (
@@ -215,7 +285,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
                 {filtered.length === 0 && !canCreate && (
                     <div className="px-2 py-1 text-xs text-[var(--text-tertiary)]/60 italic">Cap opció</div>
                 )}
-            </div>
+            </CellDropdownPortal>
         </div>
     );
 };
@@ -299,7 +369,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null }) {
     const { t, i18n } = useTranslation();
     // Defaults globals de format (moneda/número/data) — override per camp via config.format.
     const localeSettings = useLocaleSettings();
@@ -2999,8 +3069,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     };
 
     return (
-        <div className={`w-full h-full overflow-hidden ${isEmbedded ? '' : 'bg-[var(--bg-primary)]'}`}>
-            <div className="w-full h-full flex flex-col">
+        <div className={`w-full ${maxHeight ? '' : 'h-full overflow-hidden'} ${isEmbedded ? '' : 'bg-[var(--bg-primary)]'}`}>
+            <div className={`w-full ${maxHeight ? '' : 'h-full'} flex flex-col`}>
                 {selectedIds.size > 0 && (
                     <VaultBulkActionsBar
                         selectedIds={selectedIds}
@@ -3011,9 +3081,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     />
                 )}
 
+                {/* `maxHeight`: mode adaptatiu (embed). El scroller pren l'alçada
+                    del contingut i només fa scroll quan supera el màxim — la
+                    virtualització segueix funcionant perquè max-height és una
+                    fita real. Sense `maxHeight` (taula a pantalla completa)
+                    s'usa `flex-1` per omplir l'alçada del pare. */}
                 <div
                     ref={tableContainerRef}
-                    className={`bg-[var(--bg-primary)] overflow-auto flex-1 custom-scrollbar ${isEmbedded ? 'rounded border border-[var(--border-primary)] shadow-sm' : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
+                    style={maxHeight ? { maxHeight } : undefined}
+                    className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? 'rounded border border-[var(--border-primary)] shadow-sm' : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
 
                     <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                         {!isListView && (

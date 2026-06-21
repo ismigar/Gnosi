@@ -34,8 +34,14 @@ const ScrollBox = ({ children }) => (
 // la barra de pestanyes (la columna sticky del títol, z-40, pintava per sobre
 // del menú "+"/"…"). Amb `isolate`, la taula participa com un sol bloc i els
 // menús (a la barra, positioned) queden sempre per sobre.
+//
+// Alçada ADAPTATIVA: ja no forcem `h-[60vh]` (deixava un gran buit amb poques
+// files). La VaultTable rep `maxHeight` i el seu scroller pren l'alçada del
+// contingut, fent scroll intern només si el supera. Per això la caixa no porta
+// alçada fixa ni `overflow-hidden` (que retallaria els menús que s'obrin avall):
+// la vora/arrodonit els posa el propi scroller de la taula (mode `isEmbedded`).
 const TableBox = ({ children }) => (
-    <div className="my-2 w-full max-w-full min-w-0 h-[60vh] overflow-hidden rounded-lg border border-[var(--border-primary)] flex flex-col isolate">
+    <div className="my-2 w-full max-w-full min-w-0 isolate">
         {children}
     </div>
 );
@@ -1884,6 +1890,9 @@ export function DbViewEmbed({ block }) {
         idToTitle: ctx.idToTitle || {},
         allNotes: allRows,
         activeView: embeddedView,
+        // Cap màxim de l'alçada de la taula/llista incrustada: per sota creix amb
+        // el contingut (sense buit); per sobre fa scroll intern.
+        maxHeight: '70vh',
         searchTerm,
         onSearchChange: setSearchTerm,
         onNoteSelect: (id) => onOpenPage?.(id),
