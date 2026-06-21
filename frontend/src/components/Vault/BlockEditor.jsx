@@ -50,6 +50,7 @@ import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
 import { coerceValueForField, serializeCellForClipboard, parseClipboardMatrix } from './cellGridUtils';
+import { normalizeOption, optionChipStyle, optionColorHex } from './optionCatalogUtils';
 import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useTheme } from '../../hooks/useTheme';
@@ -402,6 +403,29 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
         }
     }, [value]);
 
+    // Les opcions arriben en formats diferents segons l'ús del component:
+    //  · relacions → ids de pàgina (string), amb el títol a `idToTitle`
+    //  · select/multi_select llegats → noms (string)
+    //  · select/multi_select actuals → objectes rics {name, color}
+    // Normalitzem a una clau-string estable perquè TOTA la lògica interna
+    // (filtre, igualtat, selecció, render) treballi amb strings; el color es
+    // guarda a part per pintar el xip. Sense això, `.toLowerCase()` sobre un
+    // objecte tombava tot l'editor (error boundary).
+    const optionKeys = useMemo(() => (
+        (options || [])
+            .map(opt => (opt && typeof opt === 'object' ? String(opt.name ?? '') : String(opt ?? '')))
+            .filter(Boolean)
+    ), [options]);
+    const optionColorByKey = useMemo(() => {
+        const map = {};
+        for (const opt of options || []) {
+            if (opt && typeof opt === 'object' && opt.name) {
+                map[String(opt.name)] = opt.color || null;
+            }
+        }
+        return map;
+    }, [options]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (containerRef.current && !containerRef.current.contains(event.target)) {
@@ -416,12 +440,12 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
     // seleccionada) perquè l'usuari pugui substituir-la sense haver de
     // deseleccionar primer. Mode multi: amaguem les ja seleccionades
     // perquè ja apareixen com a pills.
-    const filteredOptions = (options || []).filter(opt =>
-        (idToTitle[opt] || opt).toLowerCase().includes(searchTerm.toLowerCase()) &&
+    const filteredOptions = optionKeys.filter(opt =>
+        String(idToTitle[opt] || opt).toLowerCase().includes(searchTerm.toLowerCase()) &&
         (single || !currentValues.includes(opt))
     );
     const canCreate = Boolean(
-        searchTerm && !(options || []).includes(searchTerm) && onCreate
+        searchTerm && !optionKeys.includes(searchTerm) && onCreate
     );
     const totalItems = filteredOptions.length + (canCreate ? 1 : 0);
 
@@ -497,14 +521,17 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                 className="flex flex-wrap gap-1.5 p-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg cursor-pointer hover:border-[var(--gnosi-primary)]/50 transition-all min-h-[42px] items-center"
             >
                 {currentValues.length === 0 && <span className="text-[var(--text-tertiary)]/60 text-sm ml-1">{placeholder}</span>}
-                {currentValues.map(val => (
-                    <span key={val} className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-xs font-medium text-[var(--text-secondary)] shadow-sm">
+                {currentValues.map(val => {
+                    const chip = optionChipStyle(optionColorByKey[val]);
+                    return (
+                    <span key={val} style={chip || undefined} className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-xs font-medium text-[var(--text-secondary)] shadow-sm">
                         {idToTitle[val] || val}
                         <span title={t('common.delete', 'Elimina')} className="flex items-center cursor-pointer hover:text-[var(--status-error)] transition-colors" onClick={(e) => { e.stopPropagation(); toggleValue(val); }}>
                             <X size={10} />
                         </span>
                     </span>
-                ))}
+                    );
+                })}
             </div>
             {isOpen && (
                 <div className="absolute z-50 w-full mt-2 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-100 max-h-[300px] flex flex-col">
@@ -534,7 +561,12 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                                             : 'text-[var(--text-secondary)] hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)]'
                                     }`}
                                 >
-                                    <span className="truncate">{idToTitle[opt] || opt}</span>
+                                    <span className="flex items-center gap-2 truncate">
+                                        {optionColorByKey[opt] && (
+                                            <span className="shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: optionColorHex(optionColorByKey[opt]) }} />
+                                        )}
+                                        <span className="truncate">{idToTitle[opt] || opt}</span>
+                                    </span>
                                     <span className="flex items-center gap-1 shrink-0">
                                         {onDeleteOption && (
                                             <span
@@ -3424,7 +3456,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             // d'aquest registre. Altres registres conserven el
                                                             // seu valor (no es reescriuen aquí).
                                                             if (onAddSchemaOption && currentTableId && prop.id) {
-                                                                onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => o !== val));
+                                                                onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => normalizeOption(o)?.name !== val));
                                                             }
                                                             const cur = Array.isArray(metadata[prop.name]) ? metadata[prop.name] : (metadata[prop.name] ? [metadata[prop.name]] : []);
                                                             if (cur.includes(val)) handleMetaChange(prop.name, cur.filter(v => v !== val));
@@ -3449,7 +3481,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         onDeleteOption={val => {
                                                             if (!isEditor) return;
                                                             if (onAddSchemaOption && currentTableId && prop.id) {
-                                                                onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => o !== val));
+                                                                onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => normalizeOption(o)?.name !== val));
                                                             }
                                                             if (metadata[prop.name] === val) handleMetaChange(prop.name, '');
                                                         }}
