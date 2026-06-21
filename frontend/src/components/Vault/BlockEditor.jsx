@@ -1403,7 +1403,7 @@ export function EditorInner({
                         if (b?.type === 'heading' && b.id) {
                             const key = areaHeadingColorKey(textOf(b));
                             if (key) {
-                                rules.push(`.bn-block[data-id="${esc(b.id)}"] > .bn-block-content{background-color:var(--area-${key});border-radius:6px;padding:0.14em 0.45em;}`);
+                                rules.push(`.bn-block[data-id="${esc(b.id)}"] > .bn-block-content{background-color:var(--area-${key});border-radius:6px;padding:0.14em 0.45em 0.14em 0.225em;}`);
                                 // El marge intern de la capçalera (definit amb !important al <style> de sota)
                                 // es pinta DINS de la banda i la inflava de manera asimètrica; el neutralitzem
                                 // (especificitat > la regla base) perquè el color abraci el text amb el padding.
