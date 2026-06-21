@@ -1403,7 +1403,11 @@ export function EditorInner({
                         if (b?.type === 'heading' && b.id) {
                             const key = areaHeadingColorKey(textOf(b));
                             if (key) {
-                                rules.push(`.bn-block[data-id="${esc(b.id)}"] > .bn-block-content{background-color:var(--area-${key});border-radius:6px;padding:0.18em 0.5em;}`);
+                                rules.push(`.bn-block[data-id="${esc(b.id)}"] > .bn-block-content{background-color:var(--area-${key});border-radius:6px;padding:0.14em 0.45em;}`);
+                                // El marge intern de la capçalera (definit amb !important al <style> de sota)
+                                // es pinta DINS de la banda i la inflava de manera asimètrica; el neutralitzem
+                                // (especificitat > la regla base) perquè el color abraci el text amb el padding.
+                                rules.push(`.bn-editor .bn-block[data-id="${esc(b.id)}"] > .bn-block-content[data-content-type="heading"] :is(h1,h2,h3,h4,h5,h6){margin:0 !important;}`);
                             }
                         }
                         if (Array.isArray(b?.children) && b.children.length) visit(b.children);
