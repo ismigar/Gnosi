@@ -29,6 +29,11 @@ import {
     Smile,
     Quote,
     Sparkles,
+    Heading1,
+    Heading2,
+    Heading3,
+    ListOrdered,
+    Code,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -100,7 +105,7 @@ function getPdfSourceUri(metadata) {
     if (/^file:\/\//i.test(url) && /\.pdf$/i.test(url)) return url;
     return null;
 }
-import { buildSlashCommandCatalog, buildColumnLayoutCatalog } from './slashMenuUtils';
+import { buildSlashCommandCatalog, buildColumnLayoutCatalog, buildTurnIntoCatalog } from './slashMenuUtils';
 import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { FileFieldValue } from './FileFieldValue';
@@ -2422,6 +2427,21 @@ export function EditorInner({
                         const layoutItems = buildColumnLayoutCatalog({ editor }).map(item => ({
                             title: item.title, onItemClick: item.onItemClick, aliases: item.aliases, group: item.group, icon: <Columns size={18} />, subtext: item.subtext
                         }));
+                        const turnIntoIcons = {
+                            paragraph: <Type size={18} />,
+                            heading1: <Heading1 size={18} />,
+                            heading2: <Heading2 size={18} />,
+                            heading3: <Heading3 size={18} />,
+                            bullet: <ListIcon size={18} />,
+                            numbered: <ListOrdered size={18} />,
+                            check: <CheckSquare size={18} />,
+                            toggle: <ChevronRight size={18} />,
+                            quote: <Quote size={18} />,
+                            code: <Code size={18} />,
+                        };
+                        const turnIntoItems = buildTurnIntoCatalog({ editor }).map(item => ({
+                            title: item.title, onItemClick: item.onItemClick, aliases: item.aliases, group: item.group, icon: turnIntoIcons[item.iconKey], subtext: item.subtext
+                        }));
                         const quickLinkItems = [
                             {
                                 title: t('editor.insert_content', { defaultValue: 'Insereix contingut…' }),
@@ -2542,7 +2562,7 @@ export function EditorInner({
                                 subtext: t('editor.ai_summarize_subtext', { defaultValue: 'Genera un resum del contingut actual' }),
                             },
                         ];
-                        const allItems = [...aiItems, ...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
+                        const allItems = [...aiItems, ...turnIntoItems, ...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
                         if (!query) return allItems.slice(0, 12);
                         const lowerQuery = String(query || "").toLowerCase();
                         return allItems.filter(item => {
