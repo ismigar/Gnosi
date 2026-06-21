@@ -3320,7 +3320,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
-            <div className="max-w-4xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
+            <div className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 <div 
                     className="relative w-full group/cover mt-4"
                     onMouseEnter={() => setIsHeaderHovered(true)}
