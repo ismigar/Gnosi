@@ -52,6 +52,7 @@ import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
 import { coerceValueForField, serializeCellForClipboard, parseClipboardMatrix } from './cellGridUtils';
 import { normalizeOption, optionChipStyle, optionColorHex } from './optionCatalogUtils';
+import { areaHeadingColorKey, normalizeHeadingText } from './areaHeadingColors';
 import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useTheme } from '../../hooks/useTheme';
@@ -1357,6 +1358,67 @@ export function EditorInner({
 
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
+
+    // Tintat de capçaleres de seccions a les pàgines d'ÀREA (Formació→blau,
+    // Recursos→gris, …). És purament visual: NO toca el contingut de la nota,
+    // així val per a totes les àrees (i noves seccions) sense migrar res.
+    // `isAreaPage` = la pàgina pertany a la taula "Àrees".
+    const isAreaPage = useMemo(() => {
+        const tid = metadata?.table_id || metadata?.database_table_id;
+        if (!tid) return false;
+        const tbl = (contextValue?.allTables || []).find((x) => x.id === tid);
+        return normalizeHeadingText(tbl?.name) === 'arees';
+    }, [metadata?.table_id, metadata?.database_table_id, contextValue?.allTables]);
+
+    // Color de fons de les capçaleres via un `<style>` INJECTAT, indexat pel
+    // `data-id` de cada bloc. Per què així i no tocant el DOM ni amb decoracions:
+    //  - Mutar `.bn-block-content` a mà entra en bucle: ProseMirror vigila el seu
+    //    DOM, detecta la mutació externa, redibuixa el node i esborra la marca.
+    //  - Les decoracions de PM no s'apliquen: BlockNote renderitza els blocs amb
+    //    node-views de React que ignoren les decoracions externes.
+    // En canvi, el `data-id` (UUID) que PM posa al `.bn-block` és ESTABLE i el
+    // preserva a cada redibuixat. Calculem `id→color` des del MODEL
+    // (`editor.document`, mai del DOM) i emetem regles CSS `[data-id="…"]`. Res
+    // no toca el DOM de PM → cap bucle; i com que el data-id no canvia, el fons
+    // és estable. Els colors són variables CSS (`--area-*`) definides a
+    // index.css amb variant clara/fosca. NO toca el contingut de la nota.
+    useEffect(() => {
+        if (!editor || !editorReady) return undefined;
+        const styleEl = document.createElement('style');
+        styleEl.setAttribute('data-gnosi-area-headings', '');
+        document.head.appendChild(styleEl);
+
+        const esc = (s) => (window.CSS && CSS.escape ? CSS.escape(String(s)) : String(s));
+        const textOf = (block) => {
+            const c = block?.content;
+            if (typeof c === 'string') return c;
+            if (!Array.isArray(c)) return '';
+            return c.map((n) => (n?.type === 'text' && typeof n.text === 'string') ? n.text : '').join('');
+        };
+        const recompute = () => {
+            const rules = [];
+            if (isAreaPage) {
+                const visit = (blocks) => {
+                    for (const b of (blocks || [])) {
+                        if (b?.type === 'heading' && b.id) {
+                            const key = areaHeadingColorKey(textOf(b));
+                            if (key) {
+                                rules.push(`.bn-block[data-id="${esc(b.id)}"] > .bn-block-content{background-color:var(--area-${key});border-radius:6px;padding:0.18em 0.5em;}`);
+                            }
+                        }
+                        if (Array.isArray(b?.children) && b.children.length) visit(b.children);
+                    }
+                };
+                try { visit(editor.document); } catch { /* ignore */ }
+            }
+            const next = rules.join('\n');
+            if (styleEl.textContent !== next) styleEl.textContent = next;
+        };
+
+        recompute();
+        const unsub = (typeof editor.onChange === 'function') ? editor.onChange(recompute) : undefined;
+        return () => { if (typeof unsub === 'function') unsub(); styleEl.remove(); };
+    }, [editor, editorReady, isAreaPage, noteFilename]);
 
     // Shortcut global Cmd+Shift+I / Ctrl+Shift+I → obre el CitePicker.
     // Nota: A Chromium en Windows/Linux aquesta combinació també obre el
