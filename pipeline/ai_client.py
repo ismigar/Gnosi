@@ -132,23 +132,27 @@ def call_ai_client(
     prompt: str,
     stream: bool = False,
     timeout: int = 120,
-    provider: Optional[str] = None
+    provider: Optional[str] = None,
+    use_cache: bool = True,
 ) -> str:
     """
     Call AI with caching. Uses specified provider or primary provider.
-    
+
     Args:
         prompt: The prompt to send
         stream: Not used (kept for compatibility)
         timeout: Timeout in seconds
         provider: Specific provider to use (or None for primary)
-        
+        use_cache: Read/write the prompt-hash cache. Set False for
+            non-deterministic generation (p.ex. l'editor de l'usuari), on
+            repetir el mateix prompt ha de tornar text nou, no el cachejat.
+
     Returns:
         AI response content
     """
     # 1. Check cache
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-    if prompt_hash in _AI_CACHE:
+    if use_cache and prompt_hash in _AI_CACHE:
         log.debug("⚡ Cache hit for prompt hash %s", prompt_hash[:8])
         return _AI_CACHE[prompt_hash]
     
@@ -163,10 +167,10 @@ def call_ai_client(
     )
     
     # 3. Save to cache
-    if content:
+    if content and use_cache:
         _AI_CACHE[prompt_hash] = content
         _save_cache(_AI_CACHE)
-    
+
     return content
 
 
@@ -174,7 +178,8 @@ def call_ai_with_fallback(
     prompt: str,
     timeout_primary: Optional[int] = None,
     timeout_fallback: Optional[int] = None,
-    max_chars_primary: Optional[int] = None
+    max_chars_primary: Optional[int] = None,
+    use_cache: bool = True,
 ) -> Tuple[str, str]:
     """
     Call AI with automatic fallback from primary to secondary provider.
@@ -198,7 +203,7 @@ def call_ai_with_fallback(
     """
     # Check cache first
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-    if prompt_hash in _AI_CACHE:
+    if use_cache and prompt_hash in _AI_CACHE:
         log.debug("⚡ Cache hit for prompt hash %s", prompt_hash[:8])
         return _AI_CACHE[prompt_hash], "cache"
     
@@ -217,10 +222,10 @@ def call_ai_with_fallback(
         content = _call_provider(PRIMARY_PROVIDER, truncated_prompt, timeout=timeout)
         
         # Cache the result
-        if content:
+        if content and use_cache:
             _AI_CACHE[prompt_hash] = content
             _save_cache(_AI_CACHE)
-        
+
         return content, PRIMARY_PROVIDER
         
     except requests.exceptions.Timeout as e:
@@ -237,10 +242,10 @@ def call_ai_with_fallback(
             content = _call_provider(FALLBACK_PROVIDER, prompt, timeout=timeout)
             
             # Cache the result
-            if content:
+            if content and use_cache:
                 _AI_CACHE[prompt_hash] = content
                 _save_cache(_AI_CACHE)
-            
+
             log.info(f"✅ {FALLBACK_PROVIDER} succeeded as fallback")
             return content, FALLBACK_PROVIDER
             

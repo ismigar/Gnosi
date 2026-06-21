@@ -37,7 +37,7 @@ from backend.api import (
     analytics_routes,
     scheduler_routes, social_routes,
     vault_routes, vault_graph_routes, vault_views_routes, calendar_routes, mail_routes,
-    reader, google_auth_routes, integrations_routes,
+    reader, meeting_routes, google_auth_routes, integrations_routes,
     auth_routes,
     config_routes, env_routes, credentials_routes, ai_routes,
     workspace_routes, contacts_routes, identity_routes,
@@ -280,6 +280,7 @@ app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaborati
 app.include_router(calendar_routes.router, tags=["Calendar"])
 app.include_router(mail_routes.router, tags=["Mail"])
 app.include_router(reader.router, tags=["Reader"])
+app.include_router(meeting_routes.router, tags=["Meetings"])
 app.include_router(tools_routes.router, tags=["Tools"])
 app.include_router(analytics_routes.router, tags=["Analytics"])
 # app.include_router(sync_routes.router, tags=["Sync"])

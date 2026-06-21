@@ -96,6 +96,14 @@ class SchedulerManager:
             "description": "Materialitza els snapshots de vistes al markdown (migració portable)",
             "default_interval": 1440,  # 24 hours
         },
+        "meeting_reminders": {
+            "description": "Avisos de reunions properes amb ordre del dia (IA)",
+            "default_interval": 1,  # cada minut
+            # quiet: NO emetre les notificacions "Tasca Iniciada/Finalitzada"
+            # (correria cada minut i ompliria macOS de bombolles). Els avisos
+            # reals de reunió els envia el propi servei.
+            "quiet": True,
+        },
     }
 
     def __init__(self):
@@ -414,14 +422,20 @@ class SchedulerManager:
         task = self._tasks[name]
         task.status = "running"
         task.last_run = datetime.now().isoformat()
-        
+
+        # Tasques "quiet" (p.ex. meeting_reminders, cada minut) NO emeten les
+        # notificacions d'inici/fi: omplirien macOS de bombolles. Els seus avisos
+        # propis (si en tenen) els gestiona el servei.
+        quiet = bool(self.AVAILABLE_TASKS.get(name, {}).get("quiet"))
+
         # Log task start
-        notify(
-            f"Tasca Iniciada: {name.replace('_', ' ').title()}", 
-            f"S'ha iniciat el procés de {task.description.lower()}.",
-            level="INFO"
-        )
-        
+        if not quiet:
+            notify(
+                f"Tasca Iniciada: {name.replace('_', ' ').title()}",
+                f"S'ha iniciat el procés de {task.description.lower()}.",
+                level="INFO"
+            )
+
         # Save state immediately so UI sees "running"
         self._save_config()
 
@@ -479,12 +493,13 @@ class SchedulerManager:
                         f"Could not persist task history for {name}: {_e}"
                     )
 
-            notify(
-                f"Tasca Finalitzada: {name.replace('_', ' ').title()}", 
-                msg,
-                level="SUCCESS"
-            )
-            
+            if not quiet:
+                notify(
+                    f"Tasca Finalitzada: {name.replace('_', ' ').title()}",
+                    msg,
+                    level="SUCCESS"
+                )
+
             self._save_config()
             return {"success": True, "result": result}
         except Exception as e:
@@ -511,12 +526,13 @@ class SchedulerManager:
                         f"Could not persist task history for {name}: {_e}"
                     )
 
-            notify(
-                f"Error en Tasca: {name.replace('_', ' ').title()}", 
-                f"S'ha produït un error en l'execució: {error_msg}",
-                level="ERROR"
-            )
-            
+            if not quiet:
+                notify(
+                    f"Error en Tasca: {name.replace('_', ' ').title()}",
+                    f"S'ha produït un error en l'execució: {error_msg}",
+                    level="ERROR"
+                )
+
             task.status = "error"
             self._save_config()
             return {"success": False, "error": error_msg}
@@ -572,6 +588,8 @@ class SchedulerManager:
             return self._task_publish_scheduled_social()
         elif name == "materialize_view_snapshots":
             return self._task_materialize_view_snapshots()
+        elif name == "meeting_reminders":
+            return self._task_meeting_reminders()
 
         return {"error": f"Unknown task: {name}"}
 
@@ -596,6 +614,16 @@ class SchedulerManager:
         from backend.api.vault_routes import refresh_view_snapshots
 
         return refresh_view_snapshots()
+
+    def _task_meeting_reminders(self) -> Dict[str, Any]:
+        """Escaneja reunions properes i n'envia avisos amb ordre del dia (IA).
+
+        La lògica viu a `backend/services/meeting_reminders.py`. Tasca "quiet":
+        corre cada minut i NO emet notificacions d'inici/fi.
+        """
+        from backend.services.meeting_reminders import scan_and_notify
+
+        return scan_and_notify()
 
     def _task_fetch_mail(self) -> Dict[str, Any]:
         """Sync mail from all configured accounts (Gmail + IMAP)."""

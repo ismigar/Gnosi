@@ -28,6 +28,7 @@ import {
     AtSign,
     Smile,
     Quote,
+    Sparkles,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -107,6 +108,7 @@ import { isImageFieldName, toAssetPreviewUrl, servedUrlToVaultPath, parseImageFi
 import { AutoriaEditor, AutoriaDisplay } from './AutoriaField';
 import { dedupeAuthors } from './autoriaUtils';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
+import AIGenerateModal from './AIGenerateModal';
 import { InsertContentModal } from './InsertContentModal';
 import { blocknoteCa } from '../../locales/blocknote/ca';
 
@@ -1179,6 +1181,9 @@ export function EditorInner({
     // component via <CitePicker /> i la inserció s'enruta a `insertCitation`.
     const [isCitePickerOpen, setIsCitePickerOpen] = useState(false);
 
+    // Modal de generació amb IA (slash «IA»). Render al final via <AIGenerateModal>.
+    const [aiRequest, setAiRequest] = useState(null);
+
     const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
         const prev = pendingInsertRef.current;
         if (prev?.reject) {
@@ -1764,6 +1769,29 @@ export function EditorInner({
             } catch (err2) {
                 console.error('insertCitation fallback failed:', err2?.message);
             }
+        }
+    }, [editor, handleSave]);
+
+    // ── IA: obre el modal de generació i insereix el resultat ──────────────
+    const openAICommand = useCallback((mode = 'free') => {
+        let context = '';
+        try { context = blocksToRichMarkdown(editor?.document) || ''; } catch { /* noop */ }
+        let anchor = null;
+        try { anchor = editor?.getTextCursorPosition?.().block || null; } catch { /* noop */ }
+        setAiRequest({ mode, context, anchor });
+    }, [editor]);
+
+    const insertGeneratedMarkdown = useCallback(async (markdown, anchorBlock) => {
+        if (!editor || !markdown) return;
+        try {
+            const blocks = await richMarkdownToBlocks(markdown, editor);
+            if (Array.isArray(blocks) && blocks.length) {
+                const anchor = anchorBlock || editor.getTextCursorPosition().block;
+                editor.insertBlocks(blocks, anchor, 'after');
+                if (typeof handleSave === 'function') setTimeout(() => handleSave(), 150);
+            }
+        } catch (err) {
+            console.error('insertGeneratedMarkdown failed:', err?.message);
         }
     }, [editor, handleSave]);
 
@@ -2404,7 +2432,33 @@ export function EditorInner({
                                 subtext: t('editor.transclusion_alias_format'),
                             },
                         ];
-                        const allItems = [...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
+                        const aiItems = [
+                            {
+                                title: t('editor.ai_ask', { defaultValue: 'Pregunta a la IA…' }),
+                                onItemClick: () => openAICommand('free'),
+                                aliases: ["ia", "ai", "gpt", "assist", "assistent", "genera", "generate", "pregunta", "ask", "sparkle"],
+                                group: t('editor.ai_group', { defaultValue: 'IA' }),
+                                icon: <Sparkles size={18} />,
+                                subtext: t('editor.ai_ask_subtext', { defaultValue: 'Escriu una instrucció i insereix el resultat' }),
+                            },
+                            {
+                                title: t('editor.ai_continue', { defaultValue: 'Continua escrivint' }),
+                                onItemClick: () => openAICommand('continue'),
+                                aliases: ["continua", "continue", "segueix", "writing", "ia", "ai"],
+                                group: t('editor.ai_group', { defaultValue: 'IA' }),
+                                icon: <Sparkles size={18} />,
+                                subtext: t('editor.ai_continue_subtext', { defaultValue: 'La IA continua el text de la pàgina' }),
+                            },
+                            {
+                                title: t('editor.ai_summarize', { defaultValue: 'Resumeix la pàgina' }),
+                                onItemClick: () => openAICommand('summarize'),
+                                aliases: ["resumeix", "resum", "summary", "summarize", "tldr", "ia", "ai"],
+                                group: t('editor.ai_group', { defaultValue: 'IA' }),
+                                icon: <Sparkles size={18} />,
+                                subtext: t('editor.ai_summarize_subtext', { defaultValue: 'Genera un resum del contingut actual' }),
+                            },
+                        ];
+                        const allItems = [...aiItems, ...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
                         if (!query) return allItems.slice(0, 12);
                         const lowerQuery = String(query || "").toLowerCase();
                         return allItems.filter(item => {
@@ -2685,6 +2739,12 @@ export function EditorInner({
                         insertCitation(item.citation_key);
                     }
                 }}
+            />
+            <AIGenerateModal
+                request={aiRequest}
+                onClose={() => setAiRequest(null)}
+                onInsert={insertGeneratedMarkdown}
+                t={t}
             />
         </VaultEditorContext.Provider>
     );

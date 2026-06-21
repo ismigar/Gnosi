@@ -211,3 +211,110 @@ async def update_provider_status(provider_id: str, payload: ProviderStatusPayloa
     safe_write_text(params_path, yaml_text)
 
     return {"status": "success", "provider": provider, "enabled": payload.enabled}
+
+
+# ── Generació de contingut amb IA (per a l'editor del Vault) ──────────────────
+
+class GeneratePayload(BaseModel):
+    prompt: Optional[str] = ""
+    context: Optional[str] = ""
+    mode: Optional[str] = "free"   # free | continue | summarize | improve | translate
+    language: Optional[str] = None
+
+
+def _build_generation_prompt(payload: "GeneratePayload") -> str:
+    """Construeix el prompt final segons el mode (presets estil Notion)."""
+    instruction = (payload.prompt or "").strip()
+    context = (payload.context or "").strip()
+    mode = (payload.mode or "free").strip().lower()
+    language = (payload.language or "").strip()
+
+    style = (
+        "Respon NOMÉS amb el contingut sol·licitat, en format Markdown net "
+        "(títols, llistes, **negreta**, taules si cal). No afegeixis cap "
+        "introducció tipus «Aquí tens…» ni embolcallis tota la resposta en un "
+        "bloc de codi. Mantén el mateix idioma que el text d'entrada"
+    )
+    if mode == "translate" and language:
+        style += f", excepte aquí: tradueix a {language}."
+    else:
+        style += "."
+
+    if mode == "continue":
+        body = (
+            "Continua escrivint el text següent de manera natural i coherent, "
+            "afegint un o dos paràgrafs nous. NO repeteixis el que ja hi ha.\n\n"
+            f"--- TEXT ACTUAL ---\n{context}"
+        )
+    elif mode == "summarize":
+        body = (
+            "Fes un resum clar i estructurat (en punts si escau) del contingut "
+            f"següent.\n\n--- CONTINGUT ---\n{context}"
+        )
+    elif mode == "improve":
+        target = context or instruction
+        body = (
+            "Reescriu el text següent millorant-ne la redacció, la claredat i el "
+            "to, sense canviar-ne el significat ni l'idioma.\n\n"
+            f"--- TEXT ---\n{target}"
+        )
+    elif mode == "translate":
+        target = context or instruction
+        body = (
+            f"Tradueix fidelment el text següent a {language or 'anglès'}.\n\n"
+            f"--- TEXT ---\n{target}"
+        )
+    else:  # free
+        if context:
+            body = (
+                f"{instruction}\n\nFes servir aquest context de la pàgina actual "
+                f"com a referència si cal:\n--- CONTEXT ---\n{context}"
+            )
+        else:
+            body = instruction or "Escriu un paràgraf útil sobre el tema."
+
+    return f"{style}\n\n{body}"
+
+
+@router.post("/generate")
+async def generate_content(payload: GeneratePayload):
+    """Generació one-shot de text amb IA per inserir-lo en pàgines del Vault.
+
+    Usa el camí MODERN `factory.generate_text` (get_llm + resolve_provider_api_key),
+    el mateix que l'agent i el botó «validar» de Configuració › IA. Cada crida és
+    nova (no hi ha caché), així «continua escrivint» dues vegades dona text
+    diferent. Degrada amb 503 si no hi ha cap proveïdor disponible, mai amb error
+    dur.
+    """
+    from backend.agent.factory import generate_text
+
+    final_prompt = _build_generation_prompt(payload)
+    if not final_prompt.strip() or final_prompt.strip() == ".":
+        raise HTTPException(status_code=400, detail="Cal un prompt o context.")
+
+    try:
+        content, provider = await asyncio.to_thread(
+            generate_text, final_prompt, (payload.prompt or ""),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="No hi ha cap proveïdor d'IA disponible. Revisa Configuració › IA.",
+        ) from e
+    except Exception as e:
+        # Clau invàlida/caducada, rate-limit o permisos → missatge accionable.
+        msg = str(e).lower()
+        if any(k in msg for k in (
+            "authentication", "api key", "api_key", "invalid_api_key",
+            "unauthor", "permission", "401", "403",
+        )):
+            raise HTTPException(
+                status_code=503,
+                detail="El proveïdor d'IA ha rebutjat la clau. Revisa Configuració › IA.",
+            ) from e
+        raise HTTPException(
+            status_code=502,
+            detail=safe_error_detail(e, context="POST /ai/generate"),
+        )
+
+    return {"content": (content or "").strip(), "provider": provider}
