@@ -29,6 +29,7 @@ export function VaultViewBody({
     allNotes = [],
     activeView = {},
     isEmbedded = false,
+    maxHeight = null,
     searchTerm = '',
     actionRules,
     onNoteSelect,
@@ -118,6 +119,7 @@ export function VaultViewBody({
             {...common}
             templates={templates}
             isEmbedded={isEmbedded}
+            maxHeight={maxHeight}
             isListView={t === 'list'}
             onOpenParallel={onOpenParallel}
             onCellSaved={onCellSaved}
