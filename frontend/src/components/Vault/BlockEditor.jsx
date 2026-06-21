@@ -2114,6 +2114,24 @@ export function EditorInner({
                     margin: 0.4em 0 0.2em !important;
                 }
 
+                /* Un h1 que va seguit immediatament d'un h2 (subtítol) o d'una
+                   vista incrustada (gnosi_view) no ha de deixar tant d'espai a
+                   sota: el subtítol/contingut és part del mateix grup. El nivell
+                   de l'encapçalament el dona el tag (> h1 / > h2), no cap
+                   data-level; la vista penja sota un wrapper .react-renderer
+                   (per això s'hi arriba per descendència). El germà següent pot
+                   ser un .bn-block-outer normal o un .bn-block-column-list (els
+                   h2 dins columnes), per això el combinador és "+ *". */
+                .bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1):has(+ * .bn-block-content[data-content-type="heading"] > h2) > .bn-block > .bn-block-content[data-content-type="heading"] > h1,
+                .bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1):has(+ * .bn-block-content[data-content-type="gnosi_view"]) > .bn-block > .bn-block-content[data-content-type="heading"] > h1 {
+                    margin-bottom: 0 !important;
+                }
+                /* Quan el bloc següent és una vista incrustada, redueix també el
+                   marge superior del seu contenidor (my-4 = 1rem). */
+                .bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1) + * .bn-block-content[data-content-type="gnosi_view"] > div {
+                    margin-top: 0.25rem !important;
+                }
+
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) {
                     background-color: transparent !important;
                 }
