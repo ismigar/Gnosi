@@ -178,20 +178,20 @@ export default function MeetingRecorder() {
                     type="button"
                     onClick={() => setOpen(true)}
                     title="Acta de reunió amb IA"
-                    className="fixed right-6 bottom-24 z-[99998] flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-700"
+                    className="fixed right-6 bottom-[76px] z-[99998] flex h-11 w-11 items-center justify-center rounded-full bg-[var(--gnosi-blue)] text-white shadow-sm transition hover:brightness-95"
                 >
                     {phase === 'recording'
-                        ? <span className="h-3 w-3 rounded-full bg-red-400 animate-pulse" />
+                        ? <span className="h-2.5 w-2.5 rounded-full bg-red-400 animate-pulse" />
                         : (phase === 'processing' || phase === 'uploading')
-                            ? <Loader2 size={20} className="animate-spin" />
-                            : <Mic size={20} />}
+                            ? <Loader2 size={18} className="animate-spin" />
+                            : <Mic size={18} />}
                 </button>
             )}
 
             {open && (
                 <div className="fixed right-6 bottom-6 z-[99998] w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
                     <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
-                        <Mic size={18} className="text-violet-500" />
+                        <Mic size={18} className="text-blue-500" />
                         <span className="font-medium">Acta de reunió</span>
                         <button type="button" onClick={closePanel} className="ml-auto rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]" aria-label="Tanca">
                             <X size={18} />
@@ -206,7 +206,7 @@ export default function MeetingRecorder() {
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="Títol de la reunió (opcional)"
-                                    className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm outline-none focus:border-violet-500"
+                                    className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm outline-none focus:border-blue-500"
                                 />
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
@@ -217,7 +217,7 @@ export default function MeetingRecorder() {
                                             key={id}
                                             type="button"
                                             onClick={() => setMode(id)}
-                                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm ${mode === id ? 'border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-300' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+                                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm ${mode === id ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-300' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                                         >
                                             {id === 'presencial' ? <Users size={15} /> : <Monitor size={15} />} {label}
                                         </button>
@@ -229,7 +229,7 @@ export default function MeetingRecorder() {
                                         ? 'Hauràs de compartir la pestanya/pantalla amb la casella «Compartir àudio» marcada. Avisa els participants que graves.'
                                         : 'Es gravarà pel micròfon. Avisa els participants que graves.'}
                                 </p>
-                                <button type="button" onClick={startRecording} className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                                <button type="button" onClick={startRecording} className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
                                     <Mic size={16} /> Comença a gravar
                                 </button>
                             </>
@@ -250,7 +250,7 @@ export default function MeetingRecorder() {
 
                         {(phase === 'uploading' || phase === 'processing') && (
                             <div className="flex flex-col items-center gap-2 py-4 text-center">
-                                <Loader2 size={22} className="animate-spin text-violet-500" />
+                                <Loader2 size={22} className="animate-spin text-blue-500" />
                                 <div className="text-sm">{phase === 'uploading' ? 'Pujant l\'àudio…' : stageLabel}</div>
                                 <div className="text-xs text-[var(--text-secondary)]">Pots tancar aquest tauler; continua en segon pla.</div>
                             </div>
@@ -265,7 +265,7 @@ export default function MeetingRecorder() {
                                         type="button"
                                         onClick={() => { if (pageId) navigate(`/vault/page/${pageId}`); reset(); setOpen(false); }}
                                         disabled={!pageId}
-                                        className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                                     >
                                         <FileText size={15} /> Obre l'acta
                                     </button>
@@ -280,7 +280,7 @@ export default function MeetingRecorder() {
                             <div className="flex flex-col items-center gap-3 py-3 text-center">
                                 <AlertTriangle size={22} className="text-amber-500" />
                                 <div className="text-sm">{errMsg || 'Hi ha hagut un error.'}</div>
-                                <button type="button" onClick={reset} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                                <button type="button" onClick={reset} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
                                     Torna-ho a provar
                                 </button>
                             </div>

@@ -638,15 +638,15 @@ const AgentChat = () => {
                     aria-label="Abrir chat"
                     title="Abrir chat"
                     style={{
-                        width: '56px', height: '56px', borderRadius: '18px',
-                        background: 'linear-gradient(135deg, var(--gnosi-blue, #2563eb) 0%, #3b82f6 100%)',
+                        width: '44px', height: '44px', borderRadius: '50%',
+                        background: 'var(--gnosi-blue, #3b82f6)',
                         color: 'white', border: 'none', cursor: 'pointer',
-                        boxShadow: '0 8px 16px -4px rgba(37, 99, 235, 0.4)',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        transition: 'all 0.2s ease'
                     }}
                 >
-                    {renderIcon(agentIcon, 24)}
+                    {renderIcon(agentIcon, 20)}
                 </button>
             </div>
         );
