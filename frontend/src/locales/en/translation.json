@@ -449,7 +449,8 @@
     "rename_table": "Error renaming table",
     "delete_table": "Error deleting table",
     "toggle_favorites": "Error toggling favorites",
-    "save_config": "Error saving configuration"
+    "save_config": "Error saving configuration",
+    "hide_main_view": "The main view cannot be hidden"
   },
   "success": {
     "view_duplicated": "View duplicated",
@@ -622,7 +623,12 @@
     "new_template": "New template",
     "new_from_source": "Create from a source…",
     "templates_title": "Templates",
-    "default_badge": "Def."
+    "default_badge": "Def.",
+    "manage_views": "Views",
+    "add_new_view": "Add new view",
+    "hide_view": "Hide view",
+    "show_view": "Show view",
+    "drag_to_reorder": "Drag to reorder"
   },
   "settings": {
     "title": "Settings",

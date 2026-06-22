@@ -393,7 +393,8 @@
     "rename_table": "Error reanomenant taula",
     "delete_table": "Error eliminant taula",
     "toggle_favorites": "Error canviant preferits",
-    "save_config": "Error desant configuració"
+    "save_config": "Error desant configuració",
+    "hide_main_view": "No es pot amagar la vista principal"
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -568,7 +569,12 @@
     "new_template": "Nova plantilla",
     "new_from_source": "Crear des d'una font…",
     "templates_title": "Plantilles",
-    "default_badge": "Pred."
+    "default_badge": "Pred.",
+    "manage_views": "Vistes",
+    "add_new_view": "Afegir vista nova",
+    "hide_view": "Amaga la vista",
+    "show_view": "Mostra la vista",
+    "drag_to_reorder": "Arrossega per reordenar"
   },
   "icon_picker": {
     "tabs": {
