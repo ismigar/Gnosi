@@ -130,6 +130,22 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return res;
     }
 
+    // Encapçalament desplegable (heading + isToggleable, creat amb /tur). El
+    // `#` de Markdown no pot codificar ni el `isToggleable` ni el niat dels
+    // fills, així que el serialitzem com a fence pròpia que embolcalla els
+    // fills (mirall de :::toggle), preservant el nivell a {level=N}.
+    if (block.type === "heading" && block.props?.isToggleable) {
+        const lvl = Number(block.props.level) || 1;
+        let res = `:::toggle-heading{level=${lvl}} ${inlineContentToMarkdown(block.content)}\n`;
+        if (block.children) {
+            block.children.forEach(child => {
+                res += blockToMarkdown(child, editor, indentLevel + 1);
+            });
+        }
+        res += `:::\n`;
+        return res;
+    }
+
     if (block.type === "database") {
         return `\`\`\`gnosi-database\n${JSON.stringify(block.props, null, 2)}\n\`\`\`\n`;
     }
@@ -775,7 +791,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
             const trimmed = line.trim();
 
             // REGLA ESTRICTA: La directiva ha de ser l'únic que hi ha a la línia trimada
-            const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle|gnosi-ignore)(.*)$/);
+            const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle-heading|toggle|gnosi-ignore)(.*)$/);
             
             if (startMatch) {
                 const typeRaw = startMatch[2];
@@ -796,7 +812,8 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     continue;
                 }
 
-                const type = typeRaw === "column-list" ? "columnList" : typeRaw;
+                let type = typeRaw === "column-list" ? "columnList" : typeRaw;
+                if (typeRaw === "toggle-heading") type = "heading";
 
                 let innerLines = [];
                 let depth = 1;
@@ -804,7 +821,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                 
                 while (j < inputLines.length && depth > 0) {
                     const currentTrimmed = inputLines[j].trim();
-                    if (currentTrimmed.match(/^:{3,}(column-list|column|toggle)$/)) depth++;
+                    if (currentTrimmed.match(/^:{3,}(column-list|column|toggle-heading|toggle)\b/)) depth++;
                     else if (currentTrimmed.match(/^:{3,}$/)) depth--;
                     
                     if (depth > 0) innerLines.push(inputLines[j]);
@@ -843,6 +860,17 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     const cleanLabel = label.replace(/\{.*\}/, "").trim();
                     block.content = [{ type: "text", text: (cleanLabel || "Toggle"), styles: {} }];
                     block.props.textColor = "default";
+                }
+
+                // Encapçalament desplegable: recuperem nivell + isToggleable i el
+                // títol (label sense l'atribut {level=N}).
+                if (typeRaw === "toggle-heading") {
+                    const levelMatch = label.match(/\{level=([0-9]+)\}/);
+                    block.props.level = levelMatch ? parseInt(levelMatch[1], 10) : 1;
+                    block.props.isToggleable = true;
+                    block.props.textColor = "default";
+                    const cleanLabel = label.replace(/\{[^}]*\}/, "").trim();
+                    block.content = cleanLabel ? [{ type: "text", text: cleanLabel, styles: {} }] : [];
                 }
                 
                 blocks.push(block);
@@ -908,7 +936,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
             let textBuffer = [];
             while (i < inputLines.length) {
                 const nextTrimmed = inputLines[i].trim();
-                if (nextTrimmed.match(/^:{3,}(column-list|column|toggle)$/)) break;
+                if (nextTrimmed.match(/^:{3,}(column-list|column|toggle-heading|toggle)\b/)) break;
                 textBuffer.push(inputLines[i]);
                 i++;
             }
