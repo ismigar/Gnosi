@@ -1932,7 +1932,7 @@ export function DbViewEmbed({ block }) {
         // `min-w-0 w-full`: el contenidor del bloc (.bn-block-content) és flex;
         // sense `min-w-0` aquest div no encongeix sota l'amplada del contingut
         // (taula ampla) i desborda l'editor amb scroll horitzontal a la pàgina.
-        <div className="my-4 min-w-0 w-full">
+        <div className="mt-0 mb-4 min-w-0 w-full">
             <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-baseline gap-2 min-w-0">
                     {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}
