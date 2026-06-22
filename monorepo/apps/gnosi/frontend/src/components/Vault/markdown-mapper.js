@@ -852,6 +852,14 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                 if (type === "column") {
                     const widthMatch = label.match(/\{width=([0-9.]+)\}/);
                     block.props.width = widthMatch ? parseFloat(widthMatch[1]) : 1;
+                    // BlockNote rebutja una columna sense fills ("Invalid content
+                    // for node column: <>") i això fa petar el render de TOTA la
+                    // pàgina. Una columna buida apareix quan el seu únic fill era
+                    // un paràgraf buit (que es serialitza a no-res i no torna a
+                    // parsejar com a bloc). Hi posem un paràgraf buit de reserva.
+                    if (!block.children || block.children.length === 0) {
+                        block.children = [{ type: "paragraph", props: { backgroundColor: "default", textColor: "default", textAlignment: "left" }, content: [] }];
+                    }
                 }
 
                 // Per als toggles, el contingut és un array d'inlineContent
