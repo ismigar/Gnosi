@@ -119,6 +119,13 @@ export default function VaultDashboard() {
     const [redoStack, setRedoStack] = useState([]);
     const undoRef = useRef(null);
     const redoRef = useRef(null);
+    // Miralls de la mida de les piles per al listener global de Cmd+Z (deps `[]`).
+    // Sense això el handler segrestaria (preventDefault) l'atall encara que no
+    // hi hagi cap operació de taula per desfer, empassant-se l'undo de l'editor
+    // quan el focus no és exactament dins el contenteditable (p. ex. en obrir
+    // la pàgina o just després d'una interacció que treu el focus al body).
+    const undoStackLenRef = useRef(0);
+    const redoStackLenRef = useRef(0);
     // Miralls de la vista activa per a handlers que viuen en effects amb
     // deps `[]` (p. ex. `handleOpenPdf`): llegir l'estat directament hi
     // seria stale. Els usem per recordar D'ON s'obre un document i poder
@@ -1290,10 +1297,18 @@ export default function VaultDashboard() {
             if (!(e.metaKey || e.ctrlKey)) return;
             const tag = document.activeElement?.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
-            if (e.key === 'z' && !e.shiftKey) {
+            // Amb Shift, e.key arriba en majúscula ('Z'); normalitzem.
+            const key = String(e.key || '').toLowerCase();
+            if (key === 'z' && !e.shiftKey) {
+                // Només segrestem l'atall si REALMENT hi ha una operació de taula
+                // per desfer. Si no, deixem propagar l'event perquè l'editor (o el
+                // navegador) el pugui gestionar — abans s'empassava l'undo de
+                // l'editor quan el focus era fora del contenteditable.
+                if (undoStackLenRef.current === 0) return;
                 e.preventDefault();
                 undoRef.current?.();
-            } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+            } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+                if (redoStackLenRef.current === 0) return;
                 e.preventDefault();
                 redoRef.current?.();
             }
@@ -2293,6 +2308,8 @@ export default function VaultDashboard() {
     // Mantenir refs actualitzades (evita closures obsoletes al listener de Cmd+Z)
     useEffect(() => { undoRef.current = undoLastOperation; }, [undoLastOperation]);
     useEffect(() => { redoRef.current = redoLastOperation; }, [redoLastOperation]);
+    useEffect(() => { undoStackLenRef.current = undoStack.length; }, [undoStack]);
+    useEffect(() => { redoStackLenRef.current = redoStack.length; }, [redoStack]);
     // Mantenim els miralls de la vista activa al dia (vegeu refs a dalt).
     useEffect(() => { activeTableIdRef.current = activeTableId; }, [activeTableId]);
     useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
