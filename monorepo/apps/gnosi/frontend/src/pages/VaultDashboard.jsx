@@ -958,11 +958,39 @@ export default function VaultDashboard() {
         }
     };
 
+    const handleSetViewHidden = async (targetView, hidden) => {
+        const viewId = typeof targetView === 'string' ? targetView : targetView?.id;
+        if (!viewId) return;
+        const tableId = (typeof targetView === 'object' ? targetView.table_id : null) || activeTableId;
+        const tableViews = getTableViews(tableId);
+        const view = tableViews.find(v => v.id === viewId);
+        if (!view) return;
+        // La vista principal mai s'amaga: ha de quedar sempre una pestanya àncora.
+        if (isMainView(view, tableViews)) {
+            toast.error(t('errors.hide_main_view') || 'No es pot amagar la vista principal');
+            return;
+        }
+        // Si amaguem la vista activa, saltem a la primera visible (o a la principal).
+        if (hidden && activeViewId === viewId) {
+            const fallback = tableViews.find(v => v.id !== viewId && !v.hidden)
+                || tableViews.find(v => isMainView(v, tableViews));
+            if (fallback) setActiveViewId(fallback.id);
+        }
+        try {
+            await axios.put(`/api/vault/views/${viewId}`, { ...view, hidden });
+            await fetchRegistry();
+        } catch (err) {
+            console.error("Error canviant la visibilitat de la vista:", err);
+            toast.error(t('errors.save_view'));
+            await fetchRegistry();
+        }
+    };
+
     const handleRenameView = (targetView) => {
         const viewId = typeof targetView === 'string' ? targetView : targetView.id;
-        const view = (registry.views?.find(v => v.id === viewId)) || 
+        const view = (registry.views?.find(v => v.id === viewId)) ||
                      (typeof targetView === 'object' ? targetView : null);
-        
+
         if (!view) return;
 
         setPromptModal({
@@ -2819,6 +2847,7 @@ export default function VaultDashboard() {
                         onDeleteView={handleDeleteView}
                         onReorderViews={handleReorderViews}
                         onRenameView={handleRenameView}
+                        onSetViewHidden={handleSetViewHidden}
                         onEditSchema={(type) => {
                             setActiveTableId(tableId);
                             if (type === 'schema') setIsSchemaModalOpen(true);
@@ -2996,6 +3025,7 @@ export default function VaultDashboard() {
                     onDeleteView={handleDeleteView}
                     onReorderViews={handleReorderViews}
                     onRenameView={handleRenameView}
+                    onSetViewHidden={handleSetViewHidden}
                     onConfigureFields={() => {
                         setActiveTableId(tableId);
                         setIsSchemaModalOpen(true);
@@ -3259,6 +3289,7 @@ export default function VaultDashboard() {
                                         onDeleteView={handleDeleteView}
                                         onReorderViews={handleReorderViews}
                                         onRenameView={handleRenameView}
+                                        onSetViewHidden={handleSetViewHidden}
                                         onConfigureFields={() => setIsSchemaModalOpen(true)}
                                         onEditSchema={(type) => {
                                             if (type === 'schema') setIsSchemaModalOpen(true);

@@ -381,7 +381,8 @@
     "rename_table": "Error renombrando tabla",
     "delete_table": "Error eliminando tabla",
     "toggle_favorites": "Error cambiando favoritos",
-    "save_config": "Error guardando configuración"
+    "save_config": "Error guardando configuración",
+    "hide_main_view": "No se puede ocultar la vista principal"
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -560,7 +561,12 @@
     "new_template": "Nueva plantilla",
     "new_from_source": "Crear desde una fuente…",
     "templates_title": "Plantillas",
-    "default_badge": "Pred."
+    "default_badge": "Pred.",
+    "manage_views": "Vistas",
+    "add_new_view": "Añadir vista nueva",
+    "hide_view": "Ocultar la vista",
+    "show_view": "Mostrar la vista",
+    "drag_to_reorder": "Arrastra para reordenar"
   },
   "settings": {
     "title": "Ajustes",

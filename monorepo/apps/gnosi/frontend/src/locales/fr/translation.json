@@ -439,5 +439,15 @@
   },
   "shell": {
     "translate_record": "Traduire l'enregistrement"
+  },
+  "views_header": {
+    "manage_views": "Vues",
+    "add_new_view": "Ajouter une nouvelle vue",
+    "hide_view": "Masquer la vue",
+    "show_view": "Afficher la vue",
+    "drag_to_reorder": "Glisser pour réordonner"
+  },
+  "errors": {
+    "hide_main_view": "Impossible de masquer la vue principale"
   }
 }

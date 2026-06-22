@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { 
     Plus, Settings, Hash, Search, X, MoreHorizontal,
     Edit2, Copy, Trash2, Star, LayoutTemplate, SlidersHorizontal,
-    ChevronDown, Filter, ArrowUpDown, Tag, Type, CheckSquare, 
+    ChevronDown, Filter, ArrowUpDown, Tag, Type, CheckSquare,
     Calendar, Layers, FileImage, Columns, List, BarChart2,
-    Globe, MapPin, AlignLeft, Lock
+    Globe, MapPin, AlignLeft, Lock, Eye, EyeOff, GripVertical
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -22,11 +22,12 @@ import {
     SortableContext,
     sortableKeyboardCoordinates,
     horizontalListSortingStrategy,
+    verticalListSortingStrategy,
     useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { VIEW_TYPES, getViewIcon, isMainView } from './viewConstants';
+import { VIEW_TYPES, getViewIcon, isMainView, isViewHidden } from './viewConstants';
 import { ReferenceImportExport } from './ReferenceImportExport';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { matchesFilters } from '../../utils/vaultFilters';
@@ -156,6 +157,67 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
     );
 }
 
+// Fila del panell "Gestiona vistes": mànec per reordenar + nom + interruptor
+// mostrar/amagar. La vista principal no es pot amagar (queda bloquejada).
+function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
+    const { t } = useTranslation();
+    const {
+        attributes, listeners, setNodeRef, transform, transition, isDragging
+    } = useSortable({ id: view.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 100 : 1,
+    };
+
+    const ViewIcon = getViewIcon(view.type);
+    const isPrimaryView = isMainView(view, tableViews);
+    const hidden = isViewHidden(view, tableViews);
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md group/row ${isActive ? 'bg-[var(--gnosi-blue)]/5' : 'hover:bg-[var(--bg-tertiary)]'}`}
+        >
+            <span
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing text-[var(--text-tertiary)] shrink-0"
+                title={t('views_header.drag_to_reorder', 'Arrossega per reordenar')}
+            >
+                <GripVertical size={14} />
+            </span>
+            <ViewIcon size={14} className={`shrink-0 ${hidden ? 'text-[var(--text-tertiary)]/60' : 'text-[var(--text-secondary)]'}`} />
+            <span className={`flex-1 min-w-0 truncate text-xs ${hidden ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`} title={view.name}>
+                {view.name}
+            </span>
+            {isPrimaryView ? (
+                <span
+                    className="shrink-0 inline-flex items-center justify-center w-7 h-6 text-[var(--text-tertiary)]/70"
+                    title={t('views_header.main_view_locked')}
+                    aria-label={t('views_header.main_view_locked')}
+                >
+                    <Lock size={13} />
+                </span>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => onToggleHidden?.(view, !hidden)}
+                    className="shrink-0 inline-flex items-center justify-center w-7 h-6 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                    title={hidden ? t('views_header.show_view', 'Mostra la vista') : t('views_header.hide_view', 'Amaga la vista')}
+                    aria-label={hidden ? t('views_header.show_view', 'Mostra la vista') : t('views_header.hide_view', 'Amaga la vista')}
+                    aria-pressed={!hidden}
+                >
+                    {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+            )}
+        </div>
+    );
+}
+
 export function VaultViewsHeader({
     tableName,
     recordCount,
@@ -169,6 +231,7 @@ export function VaultViewsHeader({
     onDeleteView,
     onReorderViews,
     onRenameView,
+    onSetViewHidden,
     onEditSchema,
     onConfigureFields,
     onCreateRecord,
@@ -226,7 +289,15 @@ export function VaultViewsHeader({
         return (notes || []).filter(n => matchesFilters(n, activeViewFilters)).length;
     }, [notes, activeViewFilters, recordCount]);
     const isFilteredView = viewRecordCount !== recordCount;
-    
+
+    // Vistes que es mostren com a pestanyes: totes menys les amagades. La vista
+    // principal sempre hi és (isViewHidden la deixa fora). El panell de gestió
+    // (botó "+") segueix veient TOTES les vistes per poder mostrar-les de nou.
+    const tabViews = useMemo(
+        () => (views || []).filter(v => !isViewHidden(v, views)),
+        [views]
+    );
+
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -287,31 +358,45 @@ export function VaultViewsHeader({
         // Observe the PARENT container of Row 2 to have the real total space
         observer.observe(containerRef.current);
         return () => observer.disconnect();
-    }, [views.length]);
+    }, [tabViews.length]);
 
     // Sort views so that the active one is always visible if needed
     const displayViews = useMemo(() => {
-        const activeIdx = views.findIndex(v => v.id === activeViewId);
-        if (activeIdx === -1 || activeIdx < visibleCount) return views;
-        
+        const activeIdx = tabViews.findIndex(v => v.id === activeViewId);
+        if (activeIdx === -1 || activeIdx < visibleCount) return tabViews;
+
         // If the active one is out of range, move it temporarily to position visibleCount - 1
-        const newDisplay = [...views];
+        const newDisplay = [...tabViews];
         const activeView = newDisplay.splice(activeIdx, 1)[0];
         newDisplay.splice(visibleCount - 1, 0, activeView);
         return newDisplay;
-    }, [views, activeViewId, visibleCount]);
+    }, [tabViews, activeViewId, visibleCount]);
 
     useEffect(() => {
         if (showSearch && searchRef.current) searchRef.current.focus();
     }, [showSearch]);
 
+    // Reordenació del STRIP de pestanyes (només vistes visibles). Es reconstrueix
+    // l'ordre complet conservant les amagades al final (el seu ordre relatiu
+    // només importa dins del panell de gestió).
     const handleDragEnd = (event) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id) {
+            const oldIndex = tabViews.findIndex(v => v.id === active.id);
+            const newIndex = tabViews.findIndex(v => v.id === over.id);
+            const newTabOrder = arrayMove(tabViews, oldIndex, newIndex);
+            const hidden = (views || []).filter(v => isViewHidden(v, views));
+            onReorderViews?.([...newTabOrder, ...hidden]);
+        }
+    };
+
+    // Reordenació del PANELL de gestió: opera sobre la llista completa.
+    const handleManageDragEnd = (event) => {
         const { active, over } = event;
         if (over && active.id !== over.id) {
             const oldIndex = views.findIndex(v => v.id === active.id);
             const newIndex = views.findIndex(v => v.id === over.id);
-            const newViews = arrayMove(views, oldIndex, newIndex);
-            onReorderViews?.(newViews);
+            onReorderViews?.(arrayMove(views, oldIndex, newIndex));
         }
     };
 
@@ -395,7 +480,7 @@ export function VaultViewsHeader({
                             </SortableContext>
 
                             {/* Overflow button for the remaining views */}
-                            {views.length > visibleCount && (
+                            {tabViews.length > visibleCount && (
                                 <div className="relative">
                                     <button 
                                         onClick={() => setShowOverflow(!showOverflow)}
@@ -638,23 +723,57 @@ export function VaultViewsHeader({
                 </div>
             </div>
 
-            {/* Add view menu (same as before but more integrated) */}
+            {/* Panell de gestió de vistes (botó "+"): mostrar/amagar i reordenar
+                les existents, i crear-ne de noves. */}
             {isAddingView && (
-                <div className="absolute top-full left-10 mt-1 w-48 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1 animate-in slide-in-from-top-2 duration-200">
-                    {VIEW_TYPES.map(vt => {
-                         const ViewIcon = vt.icon;
-                         return (
-                            <button
-                                key={vt.id}
-                                onClick={() => { setIsAddingView(false); onAddView(vt.id); }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                <>
+                    <div className="fixed inset-0 z-[1001]" onClick={() => setIsAddingView(false)} />
+                    <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1.5 animate-in slide-in-from-top-2 duration-200">
+                        {/* Secció: gestió de vistes existents */}
+                        <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+                            {t('views_header.manage_views', 'Vistes')}
+                        </div>
+                        <div className="max-h-64 overflow-y-auto px-1">
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleManageDragEnd}
                             >
-                                <ViewIcon size={14} className="text-[var(--text-tertiary)]" />
-                                <span className="capitalize">{vt.label}</span>
-                            </button>
-                         );
-                    })}
-                </div>
+                                <SortableContext items={views.map(v => v.id)} strategy={verticalListSortingStrategy}>
+                                    {views.map(view => (
+                                        <SortableManageRow
+                                            key={view.id}
+                                            view={view}
+                                            tableViews={views}
+                                            isActive={activeViewId === view.id}
+                                            onToggleHidden={(v, hidden) => onSetViewHidden?.(v, hidden)}
+                                        />
+                                    ))}
+                                </SortableContext>
+                            </DndContext>
+                        </div>
+
+                        <div className="h-px bg-[var(--border-primary)] my-1.5 mx-2" />
+
+                        {/* Secció: crear una vista nova */}
+                        <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+                            {t('views_header.add_new_view', 'Afegir vista nova')}
+                        </div>
+                        {VIEW_TYPES.map(vt => {
+                             const ViewIcon = vt.icon;
+                             return (
+                                <button
+                                    key={vt.id}
+                                    onClick={() => { setIsAddingView(false); onAddView(vt.id); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                >
+                                    <ViewIcon size={14} className="text-[var(--text-tertiary)]" />
+                                    <span className="capitalize">{vt.label}</span>
+                                </button>
+                             );
+                        })}
+                    </div>
+                </>
             )}
         </div>
     );

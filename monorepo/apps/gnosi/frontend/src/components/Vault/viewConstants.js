@@ -46,3 +46,9 @@ export const getViewIcon = (typeId) => {
     const view = VIEW_TYPES.find(v => v.id === typeId);
     return view ? view.icon : Table;
 };
+
+// Una vista està amagada (no es mostra com a pestanya) si té `hidden: true`.
+// La vista principal MAI s'amaga: sempre ha de quedar almenys una pestanya
+// accessible, i és l'àncora de la taula.
+export const isViewHidden = (view, tableViews = []) =>
+    !!view?.hidden && !isMainView(view, tableViews);
