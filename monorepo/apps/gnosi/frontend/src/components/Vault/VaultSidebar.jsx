@@ -1050,7 +1050,7 @@ export const VaultSidebar = ({
                                             size={14}
                                             className={`shrink-0 transition-transform ${isExpanded ? 'rotate-90 text-[var(--text-secondary)]/60' : 'text-[var(--text-secondary)]/40'}`}
                                         />
-                                        <Database size={14} className="text-purple-500 shrink-0" />
+                                        <Database size={14} className="text-primary shrink-0" />
                                         <span className="truncate flex-1 text-left text-[var(--text-primary)]">{db.name}</span>
                                     </button>
 
