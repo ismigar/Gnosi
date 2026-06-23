@@ -2,13 +2,16 @@ import React, { useCallback } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
+import { formatDate, resolveFieldFormat } from './formatUtils';
 import { isMainView } from './viewConstants';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
+import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
 export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
+    const localeSettings = useLocaleSettings();
 
     // Propietats visibles (respecta la vista, com la galeria): la vista principal
     // mostra tots els camps; una vista amb selecció, els seus `visibleProperties`.
@@ -40,13 +43,15 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         switch (type) {
             case 'checkbox':
                 return <CheckSquare size={14} className={value ? "text-indigo-500" : "text-[var(--text-tertiary)]"} />;
-            case 'date':
+            case 'date': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return (
                     <div className="flex items-center gap-1.5 whitespace-nowrap text-sm">
                         <Calendar size={14} className="text-[var(--text-tertiary)]" />
-                        <span className="text-[var(--text-secondary)]">{new Date(value).toLocaleDateString()}</span>
+                        <span className="text-[var(--text-secondary)]">{formatDate(value, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale })}</span>
                     </div>
                 );
+            }
             case 'status':
             case 'select':
                 return (

@@ -2,7 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { useTitlePreview } from './useTitlePreview';
 import { Columns, FileText, Clock, Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
+import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
+import { formatDate, resolveFieldFormat } from './formatUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { isMainView } from './viewConstants';
 import { VaultViewToolbar } from './VaultViewToolbar';
@@ -13,6 +15,7 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     // Previsualització del contingut en passar el ratolí pel títol d'una targeta.
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
+    const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
@@ -72,12 +75,14 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         }
         return val;
     };
-    const renderCardValue = (value, type) => {
+    const renderCardValue = (value, type, field) => {
         switch (type) {
             case 'checkbox':
                 return <CheckSquare size={13} className={value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />;
-            case 'date':
-                return <span className="inline-flex items-center gap-1"><Calendar size={11} />{(() => { try { return new Date(value).toLocaleDateString(); } catch { return String(value); } })()}</span>;
+            case 'date': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                return <span className="inline-flex items-center gap-1"><Calendar size={11} />{formatDate(value, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale })}</span>;
+            }
             case 'status':
             case 'select':
                 return <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-secondary)]">{value}</span>;
@@ -218,7 +223,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                                     return (
                                                         <div key={`${key}-${pi}`} className="flex items-center gap-1.5 overflow-hidden min-h-[16px]">
                                                             <span className="font-medium uppercase tracking-wider text-[var(--text-tertiary)] shrink-0 truncate max-w-[45%]">{key}</span>
-                                                            <div className="min-w-0 flex-1 truncate text-[var(--text-secondary)]">{renderCardValue(val, type)}</div>
+                                                            <div className="min-w-0 flex-1 truncate text-[var(--text-secondary)]">{renderCardValue(val, type, key)}</div>
                                                         </div>
                                                     );
                                                 })}
