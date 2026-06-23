@@ -969,6 +969,9 @@ export function EditorInner({
     onOpenPageViewModal,
     applyViewSectionRef,
     isEditable = true,
+    registerEditorApi,
+    onNavigateUp,
+    onOpenProperties,
 }) {
     const { t } = useTranslation();
     const schema = useMemo(() => {
@@ -1523,6 +1526,144 @@ export function EditorInner({
             wrapper.removeEventListener('paste', onPasteCapture, true);
         };
     }, [editor, editorReady, requestInsertContent, uploadFileToAssetsDirect]);
+
+    // API imperativa perquè el pare (títol/propietats) pugui dur el focus al
+    // cos. Es registra/desregistra amb el cicle de vida de l'editor.
+    useEffect(() => {
+        if (!registerEditorApi) return undefined;
+        registerEditorApi({
+            focusFirstBlock: () => {
+                try {
+                    const first = editor?.document?.[0];
+                    if (!first) return false;
+                    editor.focus();
+                    editor.setTextCursorPosition(first.id || first, 'start');
+                    return true;
+                } catch { return false; }
+            },
+        });
+        return () => registerEditorApi(null);
+    }, [editor, registerEditorApi]);
+
+    // ── Pont de navegació editor ↔ vistes incrustades (DbViewEmbed) ──────────
+    // Cada vista incrustada registra aquí la seva API de navegació (per
+    // block.id). L'editor la fa servir per "entrar" a la taula amb les fletxes,
+    // i la vista crida `exitEmbedToEditor` per tornar el cursor a l'editor.
+    const embedNavRef = useRef(new Map());
+    const registerEmbedNav = useCallback((blockId, api) => {
+        if (!blockId) return;
+        const m = embedNavRef.current;
+        if (api) m.set(blockId, api); else m.delete(blockId);
+    }, []);
+    const exitEmbedToEditor = useCallback((blockId, direction) => {
+        try {
+            const doc = editor?.document || [];
+            const idx = doc.findIndex(b => b.id === blockId);
+            if (idx === -1) return;
+            if (direction === 'up') {
+                const prev = doc[idx - 1];
+                if (prev) { editor.focus(); editor.setTextCursorPosition(prev.id, 'end'); }
+                else { onNavigateUp?.(); } // la vista és el primer bloc → títol/propietats
+            } else {
+                const next = doc[idx + 1];
+                if (next) { editor.focus(); editor.setTextCursorPosition(next.id, 'start'); }
+                else {
+                    // La vista és l'últim bloc: afegeix un paràgraf buit i hi va.
+                    editor.insertBlocks([{ type: 'paragraph' }], doc[idx].id, 'after');
+                    editor.focus();
+                    const after = editor.document[idx + 1];
+                    if (after) editor.setTextCursorPosition(after.id, 'start');
+                }
+            }
+        } catch (err) { console.warn('exit embed nav failed:', err?.message); }
+    }, [editor, onNavigateUp]);
+
+    // Navegació de teclat des del COS cap amunt (cap a propietats/títol):
+    //   ↑ a la primera línia del primer bloc → propietats (si obertes) o títol.
+    //   ⌥↑ → drecera dedicada al panell de propietats.
+    // Capture phase per actuar abans que ProseMirror reculli la fletxa.
+    useEffect(() => {
+        const wrapper = editorWrapperRef.current;
+        if (!wrapper || !editor || !editorReady) return undefined;
+
+        // Caret a la PRIMERA línia visual del bloc actual (relatiu al bloc, no a
+        // tot l'editor: així val tant per al primer bloc —navegar al títol— com
+        // per a un bloc enmig —entrar a una vista anterior amb ↑).
+        const caretOnFirstLine = () => {
+            const sel = window.getSelection?.();
+            if (!sel || sel.rangeCount === 0) return false;
+            const range = sel.getRangeAt(0).cloneRange();
+            range.collapse(true);
+            const rect = range.getClientRects()[0] || range.getBoundingClientRect();
+            if (!rect) return false;
+            let node = sel.focusNode;
+            node = (node && node.nodeType === 3) ? node.parentElement : node;
+            const blockEl = node?.closest?.('.bn-block-content') || node?.closest?.('.bn-block');
+            if (!blockEl) return false;
+            const top = blockEl.getBoundingClientRect().top;
+            const lineH = rect.height || 20;
+            return (rect.top - top) < lineH * 0.75 + 6;
+        };
+
+        // Anàleg per a la DARRERA línia del bloc actual (per entrar a una vista
+        // que ve just a sota amb ↓): compara el caret amb la base del bloc.
+        const caretOnLastLine = () => {
+            const sel = window.getSelection?.();
+            if (!sel || sel.rangeCount === 0) return false;
+            const range = sel.getRangeAt(0).cloneRange();
+            range.collapse(false);
+            const rect = range.getClientRects()[0] || range.getBoundingClientRect();
+            if (!rect) return false;
+            let node = sel.focusNode;
+            node = (node && node.nodeType === 3) ? node.parentElement : node;
+            const blockEl = node?.closest?.('.bn-block-content') || node?.closest?.('.bn-block');
+            if (!blockEl) return false;
+            const bottom = blockEl.getBoundingClientRect().bottom;
+            const lineH = rect.height || 20;
+            return (bottom - rect.bottom) < lineH * 0.75 + 6;
+        };
+
+        const safeCursor = () => { try { return editor.getTextCursorPosition?.(); } catch { return null; } };
+        const enterEmbed = (blockId, edge) => {
+            const api = embedNavRef.current.get(blockId);
+            const fn = edge === 'last' ? api?.focusLastCell : api?.focusFirstCell;
+            if (typeof fn !== 'function') return false;
+            return fn() !== false;
+        };
+
+        const onKeyDown = (e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+            if (e.altKey) {
+                if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); onOpenProperties?.(); }
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                if (!caretOnFirstLine()) return; // no és la 1a línia → ProseMirror puja una línia
+                const cur = safeCursor();
+                // Vista incrustada just a sobre → entra-hi (per l'última cel·la).
+                if (cur?.prevBlock?.type === 'gnosi_view') {
+                    if (enterEmbed(cur.prevBlock.id, 'last')) { e.preventDefault(); e.stopPropagation(); }
+                    return; // si no s'hi pot entrar, deixa que ProseMirror ho gestioni
+                }
+                // Primer bloc del cos → puja a propietats/títol.
+                if (!cur?.prevBlock) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onNavigateUp?.();
+                }
+            } else if (e.key === 'ArrowDown') {
+                if (!caretOnLastLine()) return; // no és l'última línia → ProseMirror baixa una línia
+                const cur = safeCursor();
+                // Vista incrustada just a sota → entra-hi (per la primera cel·la).
+                if (cur?.nextBlock?.type === 'gnosi_view') {
+                    if (enterEmbed(cur.nextBlock.id, 'first')) { e.preventDefault(); e.stopPropagation(); }
+                }
+            }
+        };
+
+        wrapper.addEventListener('keydown', onKeyDown, true);
+        return () => wrapper.removeEventListener('keydown', onKeyDown, true);
+    }, [editor, editorReady, onNavigateUp, onOpenProperties]);
 
     // (interceptor de file:// mogut al wrapper BlockEditor perquè estigui
     // actiu sempre, independent del mode de visualització)
@@ -2132,7 +2273,7 @@ export function EditorInner({
     // `/+` (registrat un sol cop quan es crea l'editor) pugui invocar-lo.
     applyInsertResultRef.current = applyInsertResult;
 
-    const providerValue = { ...contextValue, requestInsertContent };
+    const providerValue = { ...contextValue, requestInsertContent, registerEmbedNav, exitEmbedToEditor };
     return (
         <VaultEditorContext.Provider value={providerValue}>
             <style>{`
@@ -2922,6 +3063,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const coverTriggerRef = useRef(null);
     const headerHoverRef = useRef(null);
     const titleInputRef = useRef(null);
+    // Pont per moure el focus entre les tres zones de la pàgina (títol ↔
+    // propietats ↔ cos). El cos (BlockNote) viu dins EditorInner, que hi
+    // registra una API imperativa; el panell de propietats s'inspecciona
+    // pel DOM (atribut data-prop-row) per dur-hi el focus de teclat.
+    const editorApiRef = useRef(null);
+    const propertiesPanelRef = useRef(null);
+    const registerEditorApi = useCallback((api) => { editorApiRef.current = api; }, []);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
     const openPageViewModalFromContext = useCallback((tableId = '', editingBlock = null) => {
@@ -3179,6 +3327,63 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setActiveProp(navProps[next].name);
     }, [navProps, activeProp, propIndexByName]);
 
+    // ── Navegació de focus entre zones (títol ↔ propietats ↔ cos) ─────────
+    const focusTitle = useCallback(() => {
+        const el = titleInputRef.current;
+        if (!el) return;
+        el.focus();
+        try { const len = el.value.length; el.setSelectionRange(len, len); } catch { /* noop */ }
+    }, []);
+
+    // Selecciona una propietat I hi porta el focus del DOM (necessari perquè
+    // el listener de teclat del panell només actua si l'element actiu no és
+    // un camp de text: si el focus es queda al cos contenteditable, les ↑↓
+    // no navegarien). Es fa a la propera frame perquè la fila ja existeix.
+    const selectAndFocusProp = useCallback((name) => {
+        if (!name) return;
+        setIsPropertiesOpen(true);
+        setActiveProp(name);
+        const tryFocus = () => {
+            const root = propertiesPanelRef.current || document;
+            let el = null;
+            try { el = root.querySelector(`[data-prop-row="${(window.CSS && CSS.escape) ? CSS.escape(name) : name}"]`); } catch { el = null; }
+            if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); return true; }
+            return false;
+        };
+        // Si el panell ja és obert, la fila existeix al DOM i l'enfoquem ja.
+        // Si l'hem hagut d'obrir (setIsPropertiesOpen), encara no s'ha
+        // renderitzat: ho reintentem després del commit de React.
+        if (!tryFocus()) {
+            requestAnimationFrame(tryFocus);
+            setTimeout(tryFocus, 0);
+        }
+    }, []);
+
+    // ↑ net a la primera línia del cos: si el panell és OBERT i té propietats
+    // → l'última propietat (la més pròxima al cos); si no → el títol.
+    const navigateUpFromBody = useCallback(() => {
+        if (isPropertiesOpen && navProps.length > 0) {
+            selectAndFocusProp(navProps[navProps.length - 1].name);
+        } else {
+            focusTitle();
+        }
+    }, [isPropertiesOpen, navProps, selectAndFocusProp, focusTitle]);
+
+    // ⌥↑ (drecera dedicada): obre el panell i salta a la primera propietat.
+    // Si la pàgina no té cap propietat, cau al títol.
+    const openPropertiesNav = useCallback(() => {
+        if (navProps.length > 0) {
+            selectAndFocusProp(navProps[0].name);
+        } else {
+            focusTitle();
+        }
+    }, [navProps, selectAndFocusProp, focusTitle]);
+
+    const focusBody = useCallback(() => {
+        setActiveProp(null);
+        editorApiRef.current?.focusFirstBlock?.();
+    }, []);
+
     // Listener de teclat del panell de propietats (a nivell de finestra).
     useEffect(() => {
         if (!activeProp || !isPropertiesOpen) return undefined;
@@ -3192,13 +3397,27 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyPropValue(activeProp); return; }
             if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pastePropValue(activeProp); return; }
             if (meta) return;
-            if (e.key === 'ArrowDown') { e.preventDefault(); movePropCursor(1); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); movePropCursor(-1); }
-            else if (e.key === 'Escape') { setActiveProp(null); }
+            // ⌥↑ / ⌥↓: saltar de zona (amunt = títol, avall = cos), com a
+            // l'editor i el títol — coherent amb la drecera global de zones.
+            if (e.altKey && e.key === 'ArrowUp') { e.preventDefault(); setActiveProp(null); focusTitle(); return; }
+            if (e.altKey && e.key === 'ArrowDown') { e.preventDefault(); focusBody(); return; }
+            if (e.altKey) return;
+            const cur = propIndexByName.has(activeProp) ? propIndexByName.get(activeProp) : -1;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                // A l'última propietat, ↓ surt cap al cos.
+                if (cur >= navProps.length - 1) focusBody();
+                else movePropCursor(1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                // A la primera propietat, ↑ puja al títol.
+                if (cur <= 0) { setActiveProp(null); focusTitle(); }
+                else movePropCursor(-1);
+            } else if (e.key === 'Escape') { setActiveProp(null); }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [activeProp, isPropertiesOpen, copyPropValue, pastePropValue, movePropCursor]);
+    }, [activeProp, isPropertiesOpen, copyPropValue, pastePropValue, movePropCursor, propIndexByName, navProps, focusTitle, focusBody]);
 
     const handleAddAdhocProperty = () => {
         if (!newPropName.trim()) { setIsAddingProp(false); return; }
@@ -3490,7 +3709,33 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 rows={1}
                                 value={metadata.title || ""}
                                 onChange={handleTitleChange}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); } }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') { e.preventDefault(); return; }
+                                    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                                    // ⌥↑: drecera de zona — saltar al panell de propietats.
+                                    if (e.altKey && e.key === 'ArrowUp') { e.preventDefault(); openPropertiesNav(); return; }
+                                    // ⌥↓: baixar de zona (propietats si n'hi ha, si no el cos).
+                                    if (e.altKey && e.key === 'ArrowDown') {
+                                        e.preventDefault();
+                                        if (navProps.length > 0) selectAndFocusProp(navProps[0].name);
+                                        else focusBody();
+                                        return;
+                                    }
+                                    if (e.altKey) return;
+                                    // ↓ a l'última línia del títol → baixa cap a propietats (si
+                                    // obertes) o cap al cos. El títol gairebé sempre és una sola
+                                    // línia, així que "última línia" = cap salt de línia per sota.
+                                    if (e.key === 'ArrowDown') {
+                                        const el = e.currentTarget;
+                                        const collapsed = el.selectionStart === el.selectionEnd;
+                                        const after = String(el.value || '').slice(el.selectionEnd);
+                                        if (collapsed && !after.includes('\n')) {
+                                            e.preventDefault();
+                                            if (isPropertiesOpen && navProps.length > 0) selectAndFocusProp(navProps[0].name);
+                                            else focusBody();
+                                        }
+                                    }
+                                }}
                                 placeholder={t('editor.untitled')}
                                 className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden leading-tight break-words"
                             />
@@ -3521,7 +3766,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             </div>
                         </div>
                         <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center px-1 mb-1.5">
-                            <div className="col-span-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden">
+                            <div ref={propertiesPanelRef} className="col-span-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden">
                                 <div className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-[var(--bg-secondary)]/60 transition-colors">
                                     <button
                                         type="button"
@@ -3570,6 +3815,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             <div
                                                 role="button"
                                                 tabIndex={0}
+                                                data-prop-row={prop.name}
                                                 aria-pressed={activeProp === prop.name}
                                                 onClick={() => setActiveProp(prop.name)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
@@ -3751,6 +3997,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             <div
                                                 role="button"
                                                 tabIndex={0}
+                                                data-prop-row={key}
                                                 aria-pressed={activeProp === key}
                                                 onClick={() => setActiveProp(key)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(key); } }}
@@ -4013,6 +4260,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 isEditable={isEditable}
                                 onOpenPageViewModal={contextValue.onOpenPageViewModal}
                                 applyViewSectionRef={applyViewSectionRef}
+                                registerEditorApi={registerEditorApi}
+                                onNavigateUp={navigateUpFromBody}
+                                onOpenProperties={openPropertiesNav}
                             />
                         )}
                     </ErrorBoundary>

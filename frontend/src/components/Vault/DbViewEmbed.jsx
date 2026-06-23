@@ -1399,6 +1399,10 @@ export function DbViewEmbed({ block }) {
     const pageId = ctx.pageId;
     const onOpenPage = ctx.onOpenPage;
     const onOpenPageViewModal = ctx.onOpenPageViewModal;
+    // API de navegació de teclat que la VaultTable embeguda hi registra, perquè
+    // l'editor pugui "entrar" a la taula (focusFirstCell/focusLastCell) en
+    // arribar-hi amb les fletxes. Vegeu el pont a VaultEditorContext.
+    const tableNavApiRef = useRef(null);
 
     const viewId = String(block?.props?.view_id || '').trim();
     const headingProp = block?.props?.heading || '';
@@ -1784,6 +1788,21 @@ export function DbViewEmbed({ block }) {
         } catch (e) { console.warn('duplicate view failed', e); }
     }, [tableId, columns, refetchTableViews, pinView]);
 
+    // Pont editor↔vista: registra aquesta vista al context per `block.id` perquè
+    // l'editor hi pugui entrar amb el teclat. L'API real (focusFirstCell/Last)
+    // la proporciona la VaultTable via `registerNavApi` → tableNavApiRef.
+    useEffect(() => {
+        if (!ctx.registerEmbedNav || !block?.id) return undefined;
+        ctx.registerEmbedNav(block.id, {
+            // Retornen `false` si no hi ha taula navegable (vista no-taula o
+            // sense files) perquè l'editor no empassi la fletxa i la deixi
+            // passar a ProseMirror (saltar la vista amb normalitat).
+            focusFirstCell: () => tableNavApiRef.current?.focusFirstCell?.() ?? false,
+            focusLastCell: () => tableNavApiRef.current?.focusLastCell?.() ?? false,
+        });
+        return () => ctx.registerEmbedNav(block.id, null);
+    }, [ctx, block?.id]);
+
     // --- FASE 1: taula completa EDITABLE dins l'embed reutilitzant VaultTable ---
     // DEFINITS ABANS dels returns primerencs (loading/error) per no violar les
     // Rules of Hooks. La taula i l'esquema surten del registry del context.
@@ -1914,6 +1933,11 @@ export function DbViewEmbed({ block }) {
         onDeleteSelected: onDeleteSelectedAdapter,
         onEditSchema: onEditSchemaAdapter,
         onUpdateView: onUpdateViewAdapter,
+        // Pont de navegació de teclat editor↔taula (només taula/llista el fan
+        // servir; la resta de tipus l'ignoren).
+        registerNavApi: (api) => { tableNavApiRef.current = api; },
+        onExitTop: () => ctx.exitEmbedToEditor?.(block?.id, 'up'),
+        onExitBottom: () => ctx.exitEmbedToEditor?.(block?.id, 'down'),
     };
     const renderBody = () => {
         // El `graph` no té component editable equivalent → render bespoke.

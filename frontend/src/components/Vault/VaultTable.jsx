@@ -369,7 +369,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null }) {
     const { t, i18n } = useTranslation();
     // Defaults globals de format (moneda/número/data) — override per camp via config.format.
     const localeSettings = useLocaleSettings();
@@ -2169,6 +2169,45 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const rowActionsRef = useRef({});
     rowActionsRef.current = { noteById, onNoteSelect, onOpenParallel, onDeletePage, hasOpenableResource, handleOpenExternalResource };
 
+    // ── Pont de navegació amb l'editor (només quan la taula està incrustada) ──
+    // Callbacks de sortida + límits de la graella, llegits via ref pel listener
+    // global (muntat un sol cop). Quan no s'incrusta, onExit* són null i el
+    // comportament és el de sempre (les fletxes claven als extrems).
+    const onExitTopRef = useRef(null); onExitTopRef.current = onExitTop;
+    const onExitBottomRef = useRef(null); onExitBottomRef.current = onExitBottom;
+    const tableEdgeRef = useRef({});
+    tableEdgeRef.current = {
+        firstRowId: navRows[0]?.id,
+        lastRowId: navRows[navRows.length - 1]?.id,
+        allLoaded: sortedNotes.length <= visibleRowsCount,
+    };
+
+    // Exposa a qui incrusta una API per "entrar" a la taula amb el teclat. En
+    // fixar l'activeCell i treure el focus de l'editor (→ <body>), el listener
+    // global de sota recull les fletxes (vegeu el guard `t === document.body`).
+    useEffect(() => {
+        if (!registerNavApi) return undefined;
+        const focusEdge = (which) => {
+            const rows = navRowsRef.current;
+            const cols = gridColumnsRef.current;
+            if (!rows.length || !cols.length) return false;
+            const row = which === 'last' ? rows[rows.length - 1] : rows[0];
+            const col = cols[0];
+            setAnchorCell(null);
+            setActiveCell({ rowId: row.id, field: col.key });
+            if (row.descriptorIndex != null && rowVirtualizer?.scrollToIndex) {
+                rowVirtualizer.scrollToIndex(row.descriptorIndex, { align: which === 'last' ? 'end' : 'start' });
+            }
+            try { document.activeElement?.blur?.(); } catch { /* noop */ }
+            return true;
+        };
+        registerNavApi({
+            focusFirstCell: () => focusEdge('first'),
+            focusLastCell: () => focusEdge('last'),
+        });
+        return () => registerNavApi(null);
+    }, [registerNavApi, rowVirtualizer]);
+
     useEffect(() => {
         const onKey = (e) => {
             // No segrestar tecles que no són per a la graella. Sense aquests
@@ -2222,8 +2261,25 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
 
             switch (e.key) {
-                case 'ArrowUp': e.preventDefault(); moveCursorRef.current(-1, 0, e.shiftKey); break;
-                case 'ArrowDown': e.preventDefault(); moveCursorRef.current(1, 0, e.shiftKey); break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    // A la primera fila, ↑ surt cap a l'editor (sobre la vista).
+                    if (onExitTopRef.current && !e.shiftKey && cell.rowId === tableEdgeRef.current.firstRowId) {
+                        setActiveCell(null); setAnchorCell(null); onExitTopRef.current();
+                    } else {
+                        moveCursorRef.current(-1, 0, e.shiftKey);
+                    }
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    // A l'última fila (i sense més per carregar), ↓ surt cap a
+                    // l'editor (sota la vista).
+                    if (onExitBottomRef.current && !e.shiftKey && cell.rowId === tableEdgeRef.current.lastRowId && tableEdgeRef.current.allLoaded) {
+                        setActiveCell(null); setAnchorCell(null); onExitBottomRef.current();
+                    } else {
+                        moveCursorRef.current(1, 0, e.shiftKey);
+                    }
+                    break;
                 case 'ArrowLeft': e.preventDefault(); moveCursorRef.current(0, -1, e.shiftKey); break;
                 case 'ArrowRight': e.preventDefault(); moveCursorRef.current(0, 1, e.shiftKey); break;
                 case 'Tab': e.preventDefault(); moveCursorRef.current(0, e.shiftKey ? -1 : 1, false); break;
