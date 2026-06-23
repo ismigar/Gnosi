@@ -1422,6 +1422,7 @@ export function DbViewEmbed({ block }) {
     const pageId = ctx.pageId;
     const onOpenPage = ctx.onOpenPage;
     const onOpenPageViewModal = ctx.onOpenPageViewModal;
+    const onOpenViewConfig = ctx.onOpenViewConfig;
     // API de navegació de teclat que la VaultTable embeguda hi registra, perquè
     // l'editor pugui "entrar" a la taula (focusFirstCell/focusLastCell) en
     // arribar-hi amb les fletxes. Vegeu el pont a VaultEditorContext.
@@ -1564,6 +1565,10 @@ export function DbViewEmbed({ block }) {
                 if (!cancelled) {
                     setRawRecords(records);
                     setTemplates(tpls);
+                    try {
+                        const saved = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]');
+                        setPinnedViewIds(new Set(saved));
+                    } catch { /* noop */ }
                     // Garantim que la vista de la secció hi sigui sempre.
                     const tv = registryViews.filter(v => String(v.table_id) === String(tableId));
                     const sectionAsView = {
@@ -1726,18 +1731,15 @@ export function DbViewEmbed({ block }) {
         setPinnedViewIds(prev => { const next = new Set(prev); next.add(id); persistPinned(next); return next; });
     }, [viewId, pageId]);
 
-    const handleAddView = useCallback(async (type = 'table') => {
-        if (!tableId) return;
-        const name = window.prompt?.('Nom de la nova vista:', 'Nova vista');
-        if (!name) return;
-        try {
-            const res = await axios.post('/api/vault/views', {
-                table_id: tableId, name, type, filters: [], sorts: [], visibleProperties: columns || ['title'],
-            });
-            await refetchTableViews();
-            if (res.data?.id) { pinView(res.data.id); setActiveViewId(res.data.id); }
-        } catch (e) { console.warn('add view failed', e); }
-    }, [tableId, columns, refetchTableViews, pinView]);
+    const handleAddView = useCallback((type = 'table') => {
+        if (!tableId || !onOpenViewConfig) return;
+        onOpenViewConfig({ type: type, name: '' }, (savedView) => {
+            if (savedView?.id) {
+                pinView(savedView.id);
+                setActiveViewId(savedView.id);
+            }
+        });
+    }, [tableId, onOpenViewConfig, pinView]);
 
     // Afegeix a aquest bloc una vista que JA existeix a la taula (la fixa com a
     // pestanya). No crea res nou.
@@ -2092,51 +2094,13 @@ export function DbViewEmbed({ block }) {
                             </div>
                         );
                     })}
-                    <div className="relative">
-                        <button
-                            onClick={(e) => { decideMenuDir(e); setAddMenuOpen(o => !o); }}
-                            className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-                            title="Afegir vista"
-                        >
-                            <Plus size={13} />
-                        </button>
-                        {addMenuOpen && (
-                            <>
-                                <div className="fixed inset-0 z-[55]" onClick={() => setAddMenuOpen(false)} />
-                                <div className={`absolute z-[60] left-0 ${menuUp ? "bottom-full mb-1" : "top-full mt-1"} w-56 max-h-72 overflow-y-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1`}>
-                                    <div className="px-3 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Nova vista</div>
-                                    {VIEW_TYPES.filter(vt => vt.id !== 'graph').map(vt => {
-                                        const Icon = vt.icon;
-                                        return (
-                                            <button
-                                                key={vt.id}
-                                                onClick={() => { setAddMenuOpen(false); handleAddView(vt.id); }}
-                                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
-                                            >
-                                                {Icon && <Icon size={13} className="text-[var(--text-tertiary)]" />}
-                                                {vt.label}
-                                            </button>
-                                        );
-                                    })}
-                                    {unpinnedExisting.length > 0 && (
-                                        <>
-                                            <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] border-t border-[var(--border-primary)] mt-1">Afegir existent</div>
-                                            {unpinnedExisting.map(v => (
-                                                <button
-                                                    key={v.id}
-                                                    onClick={() => { setAddMenuOpen(false); handleAddExistingView(v); }}
-                                                    className="w-full px-2.5 py-1.5 text-xs text-left text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] truncate"
-                                                    title={v.name || v.heading || 'Vista'}
-                                                >
-                                                    {v.name || v.heading || 'Vista'}
-                                                </button>
-                                            ))}
-                                        </>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    <button
+                        onClick={() => handleAddView('table')}
+                        className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
+                        title="Afegir vista"
+                    >
+                        <Plus size={13} />
+                    </button>
                 </div>
                 );
             })()}
