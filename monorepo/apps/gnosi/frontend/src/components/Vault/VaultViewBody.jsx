@@ -44,6 +44,9 @@ export function VaultViewBody({
     onUpdateFieldOptions,
     onUpdateNote,
     onSearchChange,
+    registerNavApi,
+    onExitTop,
+    onExitBottom,
 }) {
     const t = String(type || 'table').toLowerCase();
 
@@ -126,6 +129,9 @@ export function VaultViewBody({
             onTranslated={onTranslated}
             onUpdateFieldOptions={onUpdateFieldOptions}
             actionRules={actionRules}
+            registerNavApi={registerNavApi}
+            onExitTop={onExitTop}
+            onExitBottom={onExitBottom}
         />
     );
 }
