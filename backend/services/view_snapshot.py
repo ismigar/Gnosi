@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import re
+from functools import cmp_to_key
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from backend.services.relation_links import _decorate_item
@@ -448,20 +449,102 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     return True
 
 
+# --- Comparador d'ordenació: paritat 1:1 amb `compareFieldValues` -----------
+# parseFloat de JS (NO és float() de Python!): salta espais INICIALS i parseja
+# el prefix numèric MÉS LLARG, ignorant la resta. float() peta amb "12,5" o "5abc";
+# parseFloat("12,5")=12, parseFloat("5abc")=5, parseFloat("0,25")=0. Inclou signe,
+# ±Infinity i exponent (la gramàtica StrDecimalLiteral de l'spec).
+_JS_PARSEFLOAT_RE = re.compile(r"[+-]?(?:Infinity|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)")
+
+
+def _parse_float_js(text: str) -> Optional[float]:
+    """Equivalent a JS ``parseFloat``: retorna el float del prefix numèric o
+    ``None`` (el ``NaN`` de JS) si no comença per número. ``re.match`` ancora a
+    l'inici; ``lstrip`` replica el «salta espais inicials» de parseFloat."""
+    m = _JS_PARSEFLOAT_RE.match(text.lstrip())
+    if not m:
+        return None
+    try:
+        return float(m.group(0))
+    except ValueError:  # defensiu; la regex ja restringeix el token
+        return None
+
+
+def _js_str(value: Any) -> str:
+    """Coerció EQUIVALENT a JS ``String(value)`` (el front fa ``String(raw ?? '')``):
+    ``None``→'', ``bool``→'true'/'false', llista→elements units per ',' (com
+    ``Array.prototype.toString``, amb '' per a ``None``), dict→'[object Object]'.
+    Sense això una relació/multi_select (llista de Python) es compararia com
+    "['a', 'b']" al backend però "a,b" al front → ordre divergent (per això la
+    relació es trencava). ``bool`` es comprova ABANS que res (és subclasse d'int)."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, list):
+        return ",".join(_js_str(x) for x in value)
+    if isinstance(value, dict):
+        return "[object Object]"
+    return str(value)
+
+
+def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int:
+    """Port 1:1 de ``compareFieldValues`` (vaultFilters.js), ÚNICA font de veritat
+    de l'ordenació de vistes al front (vista principal i incrustades):
+
+    - els valors BUITS van SEMPRE al final, independentment de la direcció (com
+      Notion); la direcció s'aplica NOMÉS a la part no-buida (per això cal un
+      comparador, no un ``key=`` amb ``reverse``: la inversió posaria els buits
+      al principi en descendent).
+    - si tots dos són NUMÈRICS (segons ``parseFloat`` de JS), ordre numèric real
+      (2 < 10, no "10" < "2").
+    - si no, fallback de cadena amb ``sort_key(...).lower()`` (el front fa
+      localeCompare 'ca' base; aquí és l'aproximació que ja existia).
+
+    Retorna -1/0/1."""
+    a_val = _js_str(a_raw)
+    b_val = _js_str(b_raw)
+    a_empty = a_val.strip() == ""
+    b_empty = b_val.strip() == ""
+    if a_empty or b_empty:
+        if a_empty and b_empty:
+            return 0
+        return 1 if a_empty else -1  # buits sempre al final
+    a_num = _parse_float_js(a_val)
+    b_num = _parse_float_js(b_val)
+    if a_num is not None and b_num is not None:
+        cmp = (a_num > b_num) - (a_num < b_num)  # signe (evita nan amb inf-inf)
+    else:
+        ka = sort_key(a_val).lower()
+        kb = sort_key(b_val).lower()
+        cmp = (ka > kb) - (ka < kb)
+    return -cmp if direction == "desc" else cmp
+
+
 def multi_key_sort(rows: List[Dict[str, Any]], sorts: Optional[Sequence[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-    """Port de ``multiKeySort``: sense sorts, per títol; si no, multi-clau
-    estable aplicant les claus de l'última a la primera."""
+    """Port de ``multiKeySort`` (DbViewEmbed) amb el comparador compartit
+    ``_compare_field_values`` (paritat 1:1 amb ``compareFieldValues`` del front):
+    sense sorts, per títol; si no, multi-clau ESTABLE aplicant les claus de
+    l'última a la primera (``list.sort`` és estable, com ``Array.sort``)."""
     if not sorts:
-        return sorted(rows, key=lambda r: sort_key(r.get("title")).lower())
+        return sorted(
+            rows,
+            key=cmp_to_key(lambda a, b: _compare_field_values(a.get("title"), b.get("title"), "asc")),
+        )
     result = list(rows)
     for s in reversed(list(sorts)):
         field = s.get("field") if isinstance(s, dict) else None
         if not field:
             continue
-        reverse = str((s or {}).get("direction") or "asc") == "desc"
+        direction = "desc" if str((s or {}).get("direction") or "asc") == "desc" else "asc"
         result.sort(
-            key=lambda r, _f=field: sort_key((r.get("metadata") or {}).get(_f)).lower(),
-            reverse=reverse,
+            key=cmp_to_key(
+                lambda a, b, _f=field, _d=direction: _compare_field_values(
+                    (a.get("metadata") or {}).get(_f),
+                    (b.get("metadata") or {}).get(_f),
+                    _d,
+                )
+            )
         )
     return result
 
