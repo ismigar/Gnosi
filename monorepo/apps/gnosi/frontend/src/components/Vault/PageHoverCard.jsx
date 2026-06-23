@@ -221,7 +221,7 @@ export const PageHoverCard = ({
             {!loading && !error && data?.cover && (
                 <div
                     className="h-20 bg-cover bg-center shrink-0"
-                    style={{ backgroundImage: `url(${data.cover})` }}
+                    style={{ backgroundImage: `url("${data.cover}")` }}
                 />
             )}
             {!loading && !error && data && (
