@@ -6,13 +6,16 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { FileFieldValue } from './FileFieldValue';
 import { getImageSrc, toAssetPreviewUrl } from '../../lib/fileResource';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
+import { formatDate, resolveFieldFormat } from './formatUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
+import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { useTitlePreview } from './useTitlePreview';
 
 export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
+    const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
@@ -166,13 +169,15 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         switch (type) {
             case 'checkbox':
                 return <CheckSquare size={12} className={value ? "text-[var(--gnosi-primary)]" : "text-[var(--text-tertiary)]"} />;
-            case 'date':
+            case 'date': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return (
                     <div className="flex items-center gap-1 whitespace-nowrap text-[10px] text-[var(--text-secondary)]">
                         <Calendar size={12} className="text-[var(--text-tertiary)]" />
-                        <span>{new Date(value).toLocaleDateString()}</span>
+                        <span>{formatDate(value, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale })}</span>
                     </div>
                 );
+            }
             case 'status':
             case 'select':
                 return (
