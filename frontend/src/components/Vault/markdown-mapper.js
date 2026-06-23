@@ -120,7 +120,9 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
     }
 
     if (block.type === "toggle") {
-        let res = `:::toggle ${inlineContentToMarkdown(block.content)}\n`;
+        // El label del toggle es recupera amb un slice cru del parser (no markdown-it):
+        // escapar-lo hi deixaria backslashes literals → escape:false.
+        let res = `:::toggle ${inlineContentToMarkdown(block.content, { escape: false })}\n`;
         if (block.children) {
             block.children.forEach(child => {
                 res += blockToMarkdown(child, editor, indentLevel + 1);
@@ -136,7 +138,8 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
     // fills (mirall de :::toggle), preservant el nivell a {level=N}.
     if (block.type === "heading" && block.props?.isToggleable) {
         const lvl = Number(block.props.level) || 1;
-        let res = `:::toggle-heading{level=${lvl}} ${inlineContentToMarkdown(block.content)}\n`;
+        // Label recuperat amb slice cru del parser de directives (no markdown-it).
+        let res = `:::toggle-heading{level=${lvl}} ${inlineContentToMarkdown(block.content, { escape: false })}\n`;
         if (block.children) {
             block.children.forEach(child => {
                 res += blockToMarkdown(child, editor, indentLevel + 1);
@@ -196,18 +199,19 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             break;
         }
         case "bulletListItem":
-            content = `- ${inlineContentToMarkdown(block.content)}`;
+            content = `- ${inlineContentToMarkdown(block.content, { atLineStart: true })}`;
             break;
         case "numberedListItem":
-            content = `1. ${inlineContentToMarkdown(block.content)}`;
+            content = `1. ${inlineContentToMarkdown(block.content, { atLineStart: true })}`;
             break;
         case "checkListItem": {
             const checked = block.props.checked ? "[x]" : "[ ]";
-            content = `- ${checked} ${inlineContentToMarkdown(block.content)}`;
+            content = `- ${checked} ${inlineContentToMarkdown(block.content, { atLineStart: true })}`;
             break;
         }
         case "codeBlock":
-            content = `\`\`\`${block.props.language || ""}\n${inlineContentToMarkdown(block.content)}\n\`\`\``;
+            // Contingut de codi: RAW, mai escapat (trencaria `a ** b`, `arr[0]`, etc.).
+            content = `\`\`\`${block.props.language || ""}\n${inlineContentToMarkdown(block.content, { escape: false })}\n\`\`\``;
             break;
         case "horizontalRule":
             content = `---`;
@@ -224,7 +228,9 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         }
         case "alert": { // BlockNote calls callouts 'alert'
             const alertType = block.props?.type || "info";
-            const alertContent = inlineContentToMarkdown(block.content);
+            // El cos del callout es re-llegeix cru (parser propi de `> [!type]`), no per
+            // markdown-it, així que NO s'escapa (ja és segur del round-trip per disseny).
+            const alertContent = inlineContentToMarkdown(block.content, { escape: false });
             return `> [!${alertType}]\n> ${alertContent.replace(/\n/g, "\n> ")}`;
         }
         case "table": {
@@ -243,7 +249,9 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
                 const cellDataRow = row.cells || row.children || [];
                 const markdownCells = cellDataRow.map(cell => {
                     const cellContent = cell.content !== undefined ? cell.content : cell; // Custom has .content, native cell IS the inline content array
-                    return inlineContentToMarkdown(cellContent).replace(/\|/g, "\\|");
+                    // Les cel·les es re-llegeixen crues (parser GFM propi que talla per `|`),
+                    // no per markdown-it → NO s'escapa el text (només el `|` literal).
+                    return inlineContentToMarkdown(cellContent, { escape: false }).replace(/\|/g, "\\|");
                 });
                 return `| ${markdownCells.join(" | ")} |`;
             });
@@ -265,7 +273,7 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         }
         case "paragraph":
         default:
-            content = inlineContentToMarkdown(block.content);
+            content = inlineContentToMarkdown(block.content, { atLineStart: true });
             break;
     }
 
@@ -566,15 +574,108 @@ const promoteCustomFences = (blocks) => {
     });
 };
 
+// --- Escapat contextual de Markdown en text SENSE estil ---
+// Vegeu docs/dev_memory/directives/markdown_roundtrip_escaping.md
+//
+// `inlineContentToMarkdown` serialitzava el text sense estil literal, així que el text
+// pla amb significat Markdown es corrompia en el round-trip (blocs → md → blocs) perquè
+// markdown-it (tryParseMarkdownToBlocks) el reinterpretava: `the __init__ method` → bold
+// "init", backticks → codi, `*word*` → cursiva, `# foo` a inici de línia → heading.
+// Escapem NOMÉS allò que CommonMark reinterpretaria de debò, per no embrutar el .md.
+// CRÍTIC: només s'aplica al contingut que torna a passar per markdown-it (paràgrafs,
+// headings normals, list items, text d'enllaç). Els blocs amb parser propi (toggle,
+// toggle-heading, callout, cel·les de taula) guarden el text CRU i s'han de serialitzar
+// amb `escape:false` (re-escapar-los hi deixaria backslashes literals).
+
+// Puntuació ASCII — les classes que fa servir CommonMark per a la regla de flanking.
+// eslint-disable-next-line no-useless-escape
+const _isMdPunct = (c) => c !== undefined && /[!-\/:-@\[-`{-~]/.test(c);
+// El límit del node de text es tracta com a espai (límit de paraula): segur a la
+// pràctica perquè BlockNote fusiona els nodes de text pla adjacents en un de sol.
+const _isMdSpace = (c) => c === undefined || /\s/.test(c);
+
+// Escapa el marcador de bloc inicial d'UNA línia (heading/quote/llista/hr/setext).
+const escapeLeadingBlockMarker = (line) => {
+    const m = line.match(/^(\s*)([\s\S]*)$/);
+    const ws = m ? m[1] : "";
+    let rest = m ? m[2] : line;
+    if (!rest) return line;
+    if (/^#{1,6}(\s|$)/.test(rest)) {                       // ATX heading
+        rest = "\\" + rest;
+    } else if (rest[0] === ">") {                            // blockquote / callout
+        rest = "\\" + rest;
+    } else if (/^[-+*]\s/.test(rest)) {                      // bullet list
+        rest = "\\" + rest;
+    } else if (/^\d{1,9}[.)]\s/.test(rest)) {                // ordered list
+        rest = rest.replace(/^(\d{1,9})([.)])/, "$1\\$2");
+    } else if (/^([-*_])\1{2,}\s*$/.test(rest)) {            // thematic break --- *** ___
+        rest = "\\" + rest;
+    } else if (/^=+\s*$/.test(rest) || /^-+\s*$/.test(rest)) { // setext underline
+        rest = "\\" + rest;
+    }
+    return ws + rest;
+};
+
+// Escapa un node de text SENSE marques. `atLineStart` activa també l'escapat dels
+// marcadors de bloc a l'inici de cada línia (només per a paràgrafs i list items).
+const escapeUnstyledMarkdown = (text, atLineStart) => {
+    if (!text) return text;
+    let out = "";
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (c === "\\") { out += "\\\\"; continue; }        // backslash PRIMER (idempotència)
+        if (c === "`") { out += "\\`"; continue; }           // backtick → codi inline
+        const prev = i > 0 ? text[i - 1] : undefined;
+        const next = i < text.length - 1 ? text[i + 1] : undefined;
+        if (c === "~") {                                      // strikethrough ~~ (GFM)
+            out += (next === "~" || prev === "~") ? "\\~" : "~";
+            continue;
+        }
+        if (c === "*" || c === "_") {
+            const prevSpace = _isMdSpace(prev), nextSpace = _isMdSpace(next);
+            const prevPunct = _isMdPunct(prev), nextPunct = _isMdPunct(next);
+            const leftFlank = !nextSpace && (!nextPunct || prevSpace || prevPunct);
+            const rightFlank = !prevSpace && (!prevPunct || nextSpace || nextPunct);
+            let dangerous;
+            if (c === "*") {
+                dangerous = leftFlank || rightFlank;          // asterisc: intraword permès
+            } else {                                           // underscore: NO intraword
+                const canOpen = leftFlank && (!rightFlank || prevPunct);
+                const canClose = rightFlank && (!leftFlank || nextPunct);
+                dangerous = canOpen || canClose;               // `my_var_name` queda net
+            }
+            out += dangerous ? "\\" + c : c;
+            continue;
+        }
+        out += c;
+    }
+    // Links/imatges inline `[...](` o `![...](`: escapa el `[` perquè no es torni enllaç.
+    // Els `[ref]` solts NO es toquen (markdown-it ja els deixa literals) → mínima pol·lució.
+    out = out.replace(/(!?)\[([^[\]\n]*)]\(/g, (mm, bang, label) => `${bang}\\[${label}](`);
+    // Marcadors de bloc a inici de cada línia.
+    if (atLineStart) {
+        out = out.split("\n").map(escapeLeadingBlockMarker).join("\n");
+    }
+    return out;
+};
+
 /**
- * Converteix contingut inline
+ * Converteix contingut inline.
+ * @param {object} [opts]
+ * @param {boolean} [opts.escape=true] Escapa els caràcters Markdown del text sense estil.
+ *   Posar `false` per a contingut que NO torna per markdown-it (toggle/callout/cel·les).
+ * @param {boolean} [opts.atLineStart=false] El contingut comença a inici de línia
+ *   (paràgrafs i list items) → escapa també els marcadors de bloc inicials.
  */
-const inlineContentToMarkdown = (content) => {
+const inlineContentToMarkdown = (content, { escape = true, atLineStart = false } = {}) => {
     if (!content) return "";
     if (typeof content === "string") return content;
     if (!Array.isArray(content)) return "";
 
+    let lineStart = atLineStart;
     return content.map(item => {
+        const nodeAtLineStart = lineStart;
+        lineStart = false; // els nodes inline no acaben (per defecte) en línia nova
         if (!item || typeof item !== "object") return "";
         if (item.type === "text") {
             // Defensiva: si item.text no és string, NO el toString-egem
@@ -584,12 +685,23 @@ const inlineContentToMarkdown = (content) => {
                 return "";
             }
             let text = item.text;
+            // El node següent està a inici de línia si AQUEST text acaba en salt.
+            lineStart = text.endsWith("\n");
+
+            // Escapat contextual NOMÉS en text sense cap marca (ni dins de code spans):
+            // dins de bold/italic/underline/strike/code el text es deixa cru.
+            const s = item.styles || {};
+            const hasMark = !!(s.bold || s.italic || s.underline || s.strike || s.code);
+            if (escape && !hasMark) {
+                text = escapeUnstyledMarkdown(text, nodeAtLineStart);
+            }
 
             // Handle soft line breaks inside text nodes. Standard Markdown requires two spaces or <br>.
+            // (Després d'escapar, per no escapar el `<br>` que injectem.)
             if (text.includes('\n')) {
                 text = text.replace(/\n/g, '<br>\n');
             }
-            
+
             if (item.styles) {
                 // CommonMark no reconeix delimitadors d'èmfasi quan tenen
                 // espais immediatament adjacents (p.ex. "** text **" no és bold).
