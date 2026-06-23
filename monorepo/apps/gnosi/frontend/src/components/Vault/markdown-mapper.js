@@ -880,7 +880,34 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     const cleanLabel = label.replace(/\{[^}]*\}/, "").trim();
                     block.content = cleanLabel ? [{ type: "text", text: cleanLabel, styles: {} }] : [];
                 }
-                
+
+                // El contenidor de columnes (germà del guard de columna buida de
+                // dalt). BlockNote EXIGEIX que un columnList tingui ≥2 fills i que
+                // TOTS siguin "column"; si no, llança "Invalid content for node
+                // columnList" i fa petar el render de TOTA la pàgina. Amb markdown
+                // extern / generat per IA / editat a mà pot arribar un :::column-list
+                // buit, amb una sola columna o amb contingut solt (no encolumnat).
+                // Ho normalitzem perquè el contingut no es perdi ni peti la nota.
+                if (type === "columnList") {
+                    // Tot fill que no sigui columna (text solt dins :::column-list)
+                    // l'embolcallem en una columna pròpia per no perdre'l.
+                    const columns = (block.children || []).map(child =>
+                        child.type === "column"
+                            ? child
+                            : { type: "column", props: { backgroundColor: "default", width: 1 }, children: [child] }
+                    );
+                    if (columns.length >= 2) {
+                        block.children = columns;
+                    } else {
+                        // <2 columnes no és un layout vàlid: desempaquetem el
+                        // contingut al nivell actual en lloc de fer petar la pàgina.
+                        const promoted = columns.flatMap(col => col.children || []);
+                        if (promoted.length > 0) blocks.push(...promoted);
+                        i = j;
+                        continue;
+                    }
+                }
+
                 blocks.push(block);
                 i = j;
                 continue;
