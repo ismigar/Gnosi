@@ -1847,10 +1847,23 @@ export function DbViewEmbed({ block }) {
         const tpl = templates.find(t => t.id === templateId) || null;
         handleCreate({}, tpl);
     };
-    const onDeletePageAdapter = (id, title) => { ctx.onDeletePage?.(id, title); setTimeout(reload, 400); };
+    // Notifiquem VaultDashboard dels ids esborrats perquè els registri a la
+    // seva pila d'undo (el Cmd+Z global hi viu). El soft-delete de la vista
+    // incrustada va per axios directe i, sense aquest senyal, no era desfàble.
+    const announceDeleted = (ids) => {
+        const clean = [...(ids || [])].filter(Boolean);
+        if (!clean.length) return;
+        window.dispatchEvent(new CustomEvent('gnosi:records-deleted', { detail: { ids: clean } }));
+    };
+    const onDeletePageAdapter = (id, title) => { ctx.onDeletePage?.(id, title); if (id) announceDeleted([id]); setTimeout(reload, 400); };
     const onDeleteSelectedAdapter = (ids) => {
         Promise.allSettled([...ids].map(id => axios.delete(`/api/vault/pages/${encodeURIComponent(id)}`)))
-            .then(() => reload());
+            .then((results) => {
+                const ok = [...ids].filter((_, i) => results[i]?.status === 'fulfilled'
+                    || results[i]?.reason?.response?.status === 404);
+                announceDeleted(ok);
+                reload();
+            });
     };
     const onUpdateViewAdapter = async (nextView) => {
         if (!pageId) return;
