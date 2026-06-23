@@ -75,6 +75,43 @@ export function sortKey(value) {
 }
 
 /**
+ * Comparador d'un sol camp per a l'ordenació de vistes. ÚNICA font de veritat
+ * perquè la vista principal (useVaultViewData), les vistes incrustades
+ * (DbViewEmbed.multiKeySort) i —idealment— el snapshot del backend
+ * (view_snapshot.multi_key_sort) ordenin EXACTAMENT igual:
+ *  - els valors BUITS van SEMPRE al final, independentment de la direcció
+ *    (com a Notion); sense això una columna poc poblada feia surar les files
+ *    buides al capdamunt en ordre ascendent.
+ *  - si tots dos valors són NUMÈRICS, ordre numèric real (2 < 10, no "10" < "2").
+ *  - si no, `localeCompare` amb normalització (sortKey), locale 'ca' i
+ *    sensibilitat 'base' (insensible a accents/majúscules).
+ * La direcció s'aplica NOMÉS a la part no-buida; el cridador no l'ha de negar.
+ *
+ * @param {*} aRaw - valor del camp de l'element A (escalar o array)
+ * @param {*} bRaw - valor del camp de l'element B
+ * @param {string} direction - 'asc' (per defecte) o 'desc'
+ * @returns {number} negatiu si A va abans, positiu si després, 0 si empat
+ */
+export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
+    const aVal = String(aRaw ?? '');
+    const bVal = String(bRaw ?? '');
+    const aEmpty = aVal.trim() === '';
+    const bEmpty = bVal.trim() === '';
+    if (aEmpty || bEmpty) {
+        if (aEmpty && bEmpty) return 0;
+        return aEmpty ? 1 : -1; // buits sempre al final
+    }
+    const aNum = parseFloat(aVal);
+    const bNum = parseFloat(bVal);
+    const isNumeric = !isNaN(aNum) && !isNaN(bNum);
+    let cmp = isNumeric
+        ? aNum - bNum
+        : sortKey(aVal).localeCompare(sortKey(bVal), 'ca', { sensitivity: 'base' });
+    if (direction === 'desc') cmp = -cmp;
+    return cmp;
+}
+
+/**
  * Aplica una cerca de text al títol i metadata.
  * 
  * @param {Object} item - L'objecte a cercar

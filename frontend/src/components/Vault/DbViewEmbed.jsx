@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
-import { sortKey } from '../../utils/vaultFilters';
+import { compareFieldValues } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
 import { normalizeAssetUrl } from './vaultMarkdownUtils';
@@ -120,21 +120,19 @@ function applyFilter(meta, pageId, f) {
 }
 
 function multiKeySort(rows, sorts) {
+    // Comparador compartit amb la vista principal (vaultFilters.compareFieldValues):
+    // buits al final, ordre numèric per a números i localeCompare normalitzat per
+    // la resta. Abans ordenava per string pur (`localeCompare`), de manera que els
+    // números sortien lexicogràfics ("10" abans de "2") i els buits suraven al
+    // capdamunt → la vista incrustada divergia de la taula principal.
     if (!sorts || sorts.length === 0) {
-        return [...rows].sort((a, b) =>
-            sortKey(a.title).toLowerCase().localeCompare(sortKey(b.title).toLowerCase())
-        );
+        return [...rows].sort((a, b) => compareFieldValues(a.title, b.title, 'asc'));
     }
     const result = [...rows];
     for (let i = sorts.length - 1; i >= 0; i--) {
         const { field, direction = 'asc' } = sorts[i];
         if (!field) continue;
-        const factor = direction === 'desc' ? -1 : 1;
-        result.sort((a, b) => {
-            const av = sortKey(a.metadata?.[field]).toLowerCase();
-            const bv = sortKey(b.metadata?.[field]).toLowerCase();
-            return av.localeCompare(bv) * factor;
-        });
+        result.sort((a, b) => compareFieldValues(a.metadata?.[field], b.metadata?.[field], direction));
     }
     return result;
 }

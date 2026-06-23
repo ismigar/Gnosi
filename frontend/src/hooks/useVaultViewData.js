@@ -4,7 +4,7 @@
  * per a les vistes del Vault (Taula, Galeria, Kanban, Timeline, Feed).
  */
 import { useMemo } from 'react';
-import { matchesFilters, matchesSearch, sortKey } from '../utils/vaultFilters';
+import { matchesFilters, matchesSearch, compareFieldValues } from '../utils/vaultFilters';
 
 /**
  * @param {Object} params
@@ -43,32 +43,13 @@ export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, 
 
         return [...filteredPages].sort((a, b) => {
             for (const sort of sorts) {
-                const aVal = sort.field === 'title'
-                    ? (a.title || '')
-                    : String((a.metadata || {})[sort.field] ?? '');
-                const bVal = sort.field === 'title'
-                    ? (b.title || '')
-                    : String((b.metadata || {})[sort.field] ?? '');
-
-                // Els valors buits van SEMPRE al final, independentment de la
-                // direcció (com a Notion). Sense això, ordenar asc per una
-                // columna poc poblada (p. ex. un camp `files` com "Adjunts")
-                // fa surar totes les files buides al capdamunt i amaga les que
-                // tenen contingut al fons de la llista (que la virtualització
-                // ni arriba a carregar) → semblava que "no es veien els adjunts".
-                const aEmpty = aVal.trim() === '';
-                const bEmpty = bVal.trim() === '';
-                if (aEmpty || bEmpty) {
-                    if (aEmpty && bEmpty) continue; // tots dos buits → camp següent
-                    return aEmpty ? 1 : -1;
-                }
-
-                const aNum = parseFloat(aVal);
-                const bNum = parseFloat(bVal);
-                const isNumeric = !isNaN(aNum) && !isNaN(bNum);
-
-                let cmp = isNumeric ? aNum - bNum : sortKey(aVal).localeCompare(sortKey(bVal), 'ca', { sensitivity: 'base' });
-                if (sort.direction === 'desc') cmp = -cmp;
+                // Comparador compartit (vaultFilters.compareFieldValues): buits
+                // SEMPRE al final, ordre numèric per a valors numèrics i
+                // localeCompare normalitzat per la resta. Mateixa lògica per a
+                // la vista principal i les vistes incrustades (paritat 1:1).
+                const aRaw = sort.field === 'title' ? (a.title || '') : (a.metadata || {})[sort.field];
+                const bRaw = sort.field === 'title' ? (b.title || '') : (b.metadata || {})[sort.field];
+                const cmp = compareFieldValues(aRaw, bRaw, sort.direction);
                 if (cmp !== 0) return cmp;
             }
             return 0;
