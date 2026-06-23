@@ -224,6 +224,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     //   'fork'   = només aquesta pàgina; la secció s'embeveix sense view_id i
     //              porta una còpia inline dels filtres/sorts/properties.
     const [editScope, setEditScope] = useState('shared');
+    const [modalPinnedViewIds, setModalPinnedViewIds] = useState(new Set());
 
     const selectedTable = useMemo(
         () => allTables.find(tbl => tbl.id === sourceTableId),
@@ -372,6 +373,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setError('');
 
             const vid = String(p.view_id || '');
+            // Carreguem les vistes fixades del localStorage
+            try {
+                const saved = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${vid || 'default'}`) || '[]');
+                setModalPinnedViewIds(new Set(saved));
+            } catch {
+                setModalPinnedViewIds(new Set());
+            }
+
             // Inline fallback (vista local desconnectada)
             let inline = null;
             if (!vid && p.section) {
@@ -452,6 +461,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setExistingViews([]);
         setViewUsage({ count: 0, pages: [] });
         setEditScope('shared');
+        setModalPinnedViewIds(new Set());
         resetTypeOptions();
         setError('');
     }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
@@ -884,6 +894,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 throw new Error(data.detail || res.statusText);
             }
 
+            if (viewId && !isTableMode) {
+                try {
+                    localStorage.setItem(`gnosi_embed_pinned_${pageId}_${viewId}`, JSON.stringify([...modalPinnedViewIds]));
+                } catch (e) {
+                    console.warn('Failed to save pinned views to localStorage', e);
+                }
+            }
+
             // Retornem prou info perquè el caller (BlockEditor) pugui inserir
             // un block dbViewEmbed al cursor amb la config completa.
             onClose(true, {
@@ -1241,6 +1259,46 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             Pots revisar / sobreescriure els camps a les pestanyes Camps, Filtres i Ordenació.
                                         </p>
                                     )}
+                                </div>
+                            )}
+
+                            {!isTableMode && sourceTableId && existingViews.length > 0 && (
+                                <div className="border-t border-[var(--border-primary)] pt-4">
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">
+                                        Mostrar pestanyes (vistes fixades a aquest bloc)
+                                    </label>
+                                    <div className="space-y-1.5 max-h-36 overflow-y-auto border border-[var(--border-primary)] rounded-lg p-2.5 bg-[var(--bg-secondary)]">
+                                        {existingViews.map(v => {
+                                            const isChecked = modalPinnedViewIds.has(v.id);
+                                            const isAnchor = v.id === selectedExistingViewId || (v.id === 'default' && !selectedExistingViewId);
+                                            return (
+                                                <label key={v.id} className="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked || isAnchor}
+                                                        disabled={isAnchor}
+                                                        onChange={e => {
+                                                            const checked = e.target.checked;
+                                                            setModalPinnedViewIds(prev => {
+                                                                const next = new Set(prev);
+                                                                if (checked) {
+                                                                    next.add(v.id);
+                                                                } else {
+                                                                    next.delete(v.id);
+                                                                }
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="rounded text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)]"
+                                                    />
+                                                    <span>{v.name || '(sense nom)'}</span>
+                                                    {isAnchor && (
+                                                        <span className="text-[10px] text-[var(--text-tertiary)] italic">(vista àncora)</span>
+                                                    )}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
 
