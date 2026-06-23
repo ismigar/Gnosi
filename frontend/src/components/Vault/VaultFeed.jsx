@@ -183,7 +183,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                                 {hasCover ? (
                                     <div
                                         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                                        style={{ backgroundImage: `url(${note.metadata.cover})` }}
+                                        style={{ backgroundImage: `url("${note.metadata.cover}")` }}
                                     />
                                 ) : (
                                     <div className="absolute inset-0 bg-gradient-to-br from-[var(--gnosi-primary)]/10 to-[var(--bg-tertiary)]" />

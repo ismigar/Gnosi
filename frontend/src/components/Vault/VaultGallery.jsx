@@ -294,7 +294,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                             {hasCover ? (
                                                 <div
                                                     className={`absolute inset-0 ${coverFitClass} bg-center bg-no-repeat`}
-                                                    style={{ backgroundImage: `url(${coverUrl})` }}
+                                                    style={{ backgroundImage: `url("${coverUrl}")` }}
                                                 />
                                             ) : (
                                                 <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />

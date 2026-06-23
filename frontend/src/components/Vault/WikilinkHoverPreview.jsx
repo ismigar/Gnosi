@@ -134,7 +134,7 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
             {!loading && !error && data?.cover && (
                 <div
                     className="h-16 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${data.cover})` }}
+                    style={{ backgroundImage: `url("${data.cover}")` }}
                 />
             )}
             <div className="p-4">
