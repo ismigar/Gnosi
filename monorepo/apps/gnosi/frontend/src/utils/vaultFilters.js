@@ -30,7 +30,18 @@ export function matchesFilters(item, filters = []) {
             ? (item.title || item.label || '')
             : ((item.metadata || {})[filter.field] ?? (item[filter.field] ?? ''));
         
-        const val = String(rawVal).toLowerCase();
+        // Normalitza el valor a un array de strings —paritat 1:1 amb el motor
+        // de snapshot del backend (view_snapshot.apply_filter) i el de les
+        // vistes incrustades (DbViewEmbed.applyFilter)—. Un camp multi_select
+        // (o una relació multivalor) arriba com a ARRAY: tractar-lo com una
+        // sola cadena (`String(['a','b'])` → "a,b") feia que `equals` no casés
+        // MAI (la vista principal amagava files que SÍ contenien el valor) i
+        // que `not_equals` casés SEMPRE. Comparem per pertinença, en minúscules
+        // (case-insensitive, coherent amb la resta del filtre).
+        const arr = Array.isArray(rawVal)
+            ? rawVal.map(x => String(x))
+            : (rawVal === null || rawVal === undefined || rawVal === '' ? [] : [String(rawVal)]);
+        const arrLower = arr.map(s => s.toLowerCase());
         const filterVal = String(filter.value || '').toLowerCase();
 
         switch (filter.operator) {
@@ -39,23 +50,21 @@ export function matchesFilters(item, filters = []) {
             // compti com a "no marcat" i casi amb "false".
             case 'equals':
                 if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) === (filterVal === 'true');
-                return val === filterVal;
+                return arrLower.includes(filterVal);
             case 'not_equals':
                 if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) !== (filterVal === 'true');
-                return val !== filterVal;
-            case 'contains': return val.includes(filterVal);
-            case 'not_contains': return !val.includes(filterVal);
-            case 'is_empty': return !rawVal || rawVal === '';
-            case 'is_not_empty': return rawVal && rawVal !== '';
+                return !arrLower.includes(filterVal);
+            case 'contains': return arrLower.some(x => x.includes(filterVal));
+            case 'not_contains': return !arrLower.some(x => x.includes(filterVal));
+            case 'is_empty': return arr.length === 0;
+            case 'is_not_empty': return arr.length > 0;
             case 'greater_than': {
-                const n1 = parseFloat(rawVal);
                 const n2 = parseFloat(filterVal);
-                return !isNaN(n1) && !isNaN(n2) && n1 > n2;
+                return !isNaN(n2) && arr.some(x => { const n1 = parseFloat(x); return !isNaN(n1) && n1 > n2; });
             }
             case 'less_than': {
-                const n1 = parseFloat(rawVal);
                 const n2 = parseFloat(filterVal);
-                return !isNaN(n1) && !isNaN(n2) && n1 < n2;
+                return !isNaN(n2) && arr.some(x => { const n1 = parseFloat(x); return !isNaN(n1) && n1 < n2; });
             }
             default: return true;
         }
