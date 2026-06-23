@@ -24,6 +24,16 @@ export function evaluateFormula(formula, metadata = {}, title = '', options = {}
     try {
         let expr = formula.trim();
 
+        // if(cond, val1, val2) → crida a la funció real `__IF` injectada a
+        // l'scope d'avaluació. Es fa ABANS de substituir valors (perquè un
+        // valor de camp que contingui "if(" no es confongui amb la funció) i
+        // com a crida JS real gestiona correctament el NIAT i les comes dins
+        // dels arguments —cosa que una simple regex no podria—. Sense això,
+        // `if(...)` arribava a `Function('return (if(...))')` com una sentència
+        // i petava → la fórmula tornava `null` (la funció estava documentada
+        // però no implementada).
+        expr = expr.replace(/\bif\s*\(/gi, '__IF(');
+
         // Substituir now() i today()
         const today = new Date().toISOString().slice(0, 10);
         expr = expr.replace(/\bnow\(\)/gi, `"${today}"`);
@@ -46,8 +56,11 @@ export function evaluateFormula(formula, metadata = {}, title = '', options = {}
         // Substituir len(...)
         expr = expr.replace(/\blen\("([^"]*)"\)/g, (_, s) => String(s.length));
 
-        // Avaluació segura d'operacions numèriques simples
-        const result = Function('"use strict"; return (' + expr + ')')();
+        // Avaluació segura d'operacions numèriques simples. `__IF` implementa
+        // if(cond, a, b) com a ternari (tots dos branques s'avaluen, cosa
+        // acceptable per a fórmules de valors sense efectes secundaris).
+        const __IF = (cond, a, b) => (cond ? a : b);
+        const result = Function('__IF', '"use strict"; return (' + expr + ')')(__IF);
         return result ?? null;
     } catch (e) {
         return null;
