@@ -5,6 +5,7 @@ import { VaultGallery } from './VaultGallery';
 import { VaultTimeline } from './VaultTimeline';
 import { VaultFeed } from './VaultFeed';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
+import { VaultViewErrorBoundary } from './VaultViewErrorBoundary';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 
 /**
@@ -77,17 +78,15 @@ export function VaultViewBody({
         searchTerm,
     });
 
+    let body;
     if (t === 'board') {
-        return <VaultKanban {...common} isEmbedded={isEmbedded} />;
-    }
-    if (t === 'gallery') {
-        return <VaultGallery {...common} />;
-    }
-    if (t === 'timeline') {
-        return <VaultTimeline {...common} onUpdateNote={onUpdateNote} />;
-    }
-    if (t === 'feed') {
-        return (
+        body = <VaultKanban {...common} isEmbedded={isEmbedded} />;
+    } else if (t === 'gallery') {
+        body = <VaultGallery {...common} />;
+    } else if (t === 'timeline') {
+        body = <VaultTimeline {...common} onUpdateNote={onUpdateNote} />;
+    } else if (t === 'feed') {
+        body = (
             <VaultFeed
                 notes={notes}
                 schema={schema}
@@ -101,9 +100,8 @@ export function VaultViewBody({
                 onDeleteSelected={onDeleteSelected}
             />
         );
-    }
-    if (t === 'calendar') {
-        return (
+    } else if (t === 'calendar') {
+        body = (
             <DigitalBrainCalendar
                 allNotes={viewFilteredNotes}
                 onNoteSelect={onNoteSelect}
@@ -115,24 +113,37 @@ export function VaultViewBody({
                 ignoreCalendarFilter
             />
         );
+    } else {
+        // table / list
+        body = (
+            <VaultTable
+                {...common}
+                templates={templates}
+                isEmbedded={isEmbedded}
+                maxHeight={maxHeight}
+                isListView={t === 'list'}
+                onOpenParallel={onOpenParallel}
+                onCellSaved={onCellSaved}
+                onTranslated={onTranslated}
+                onUpdateFieldOptions={onUpdateFieldOptions}
+                actionRules={actionRules}
+                registerNavApi={registerNavApi}
+                onExitTop={onExitTop}
+                onExitBottom={onExitBottom}
+            />
+        );
     }
-    // table / list
+
+    // Xarxa de seguretat: un throw de render transitori durant el bootstrap en
+    // fred (dades/esquema/registry a mig carregar) o un error real en una cel·la
+    // no ha de tombar la vista. El boundary mostra un fallback discret i
+    // s'auto-recupera quan canvien les dades (resetKeys). Les claus inclouen les
+    // referències de `schema`/`notes` (que canvien en arribar les dades) i la
+    // identitat de la vista/tipus (canvi de vista o taula).
     return (
-        <VaultTable
-            {...common}
-            templates={templates}
-            isEmbedded={isEmbedded}
-            maxHeight={maxHeight}
-            isListView={t === 'list'}
-            onOpenParallel={onOpenParallel}
-            onCellSaved={onCellSaved}
-            onTranslated={onTranslated}
-            onUpdateFieldOptions={onUpdateFieldOptions}
-            actionRules={actionRules}
-            registerNavApi={registerNavApi}
-            onExitTop={onExitTop}
-            onExitBottom={onExitBottom}
-        />
+        <VaultViewErrorBoundary resetKeys={[t, activeView?.id, schema, notes, allNotes, isEmbedded]}>
+            {body}
+        </VaultViewErrorBoundary>
     );
 }
 
