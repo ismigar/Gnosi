@@ -69,7 +69,7 @@ export default function VaultDashboard() {
     const [isRegistryLoading, setIsRegistryLoading] = useState(true);
     const [viewToDelete, setViewToDelete] = useState(null);
     const [templateToDelete, setTemplateToDelete] = useState(null);
-    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
+    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, isTemplate: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
     // For now we support "editor" for all pages.
     // You can add "table" directly here or via custom blocks.
@@ -285,6 +285,7 @@ export default function VaultDashboard() {
             isDashboard: false,
             isView: false, 
             isRename: false, 
+            isTemplate: false,
             targetView: null, 
             viewType: null, 
             inputValue: '', 
@@ -1113,20 +1114,30 @@ export default function VaultDashboard() {
         if (type === 'template') {
             setPromptModal({
                 isOpen: true,
-                defaultTitle: `Nova Vista (${type})`,
+                defaultTitle: t('common.new_template'),
                 parentId: null,
                 isDatabase: false,
                 isDrawing: false,
-                isView: true,
-                viewType: type,
-                inputValue: `Nova Vista`,
+                isView: false,
+                isTemplate: true,
+                inputValue: '',
                 isLoading: false
             });
             return;
         }
-        // Vista normal: obre el MATEIX modal que l'embed, en mode taula (crear).
-        setViewToConfigure({ type, table_id: activeTableId });
-        setIsViewConfigOpen(true);
+        // Vista normal: obre el prompt modal genèric per introduir el nom de la vista.
+        setPromptModal({
+            isOpen: true,
+            defaultTitle: t('common.new_view'),
+            parentId: null,
+            isDatabase: false,
+            isDrawing: false,
+            isView: true,
+            isTemplate: false,
+            viewType: type,
+            inputValue: '',
+            isLoading: false
+        });
     };
 
     useEffect(() => {
