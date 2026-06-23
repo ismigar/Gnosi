@@ -398,7 +398,12 @@ def _meta_value_for_field(meta: Dict[str, Any], field: str) -> Any:
 def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]) -> bool:
     """Port 1:1 de ``applyFilter`` (DbViewEmbed.jsx). ``value == 'this'`` →
     ``page_id``. Valors de metadata: llista → conjunt de strings; escalar →
-    [str]; buit/None → []. El field es resol per nom O àlies (tolera renames)."""
+    [str]; buit/None → []. El field es resol per nom O àlies (tolera renames).
+
+    Text/select es compara case-INsensitiu (com Notion i com la vista principal
+    ``matchesFilters``): "Català" emmagatzemat casa amb el filtre "català". Els
+    checkbox (``"true"/"false"``) es comparen per veritat i els numèrics
+    (``>``/``<``) per valor, cap dels dos afectat per les minúscules."""
     field = f.get("field") if isinstance(f, dict) else None
     if not field:
         return True
@@ -425,14 +430,19 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         want = target.lower() == "true"
         cur = _as_bool(v)
         return (cur == want) if op == "equals" else (cur != want)
+    # Text/select case-INsensitiu (com Notion i com la vista principal
+    # matchesFilters): un valor "Català" emmagatzemat casa amb el filtre
+    # "català". Els numèrics (>,<) es comparen a part, sense minúscules.
+    target_l = target.lower()
+    arr_l = [x.lower() for x in arr]
     if op == "equals":
-        return target in arr
+        return target_l in arr_l
     if op == "not_equals":
-        return target not in arr
+        return target_l not in arr_l
     if op == "contains":
-        return any(target in x for x in arr)
+        return any(target_l in x for x in arr_l)
     if op == "not_contains":
-        return not any(target in x for x in arr)
+        return not any(target_l in x for x in arr_l)
     if op in ("greater_than", "less_than"):
         try:
             t = float(target)

@@ -68,6 +68,18 @@ function metaValueForField(meta, field) {
     return undefined;
 }
 
+// Valors que un checkbox considera "marcat". Paritat amb `asBool`
+// (vaultFilters.js) i `_as_bool` (view_snapshot.py): camp absent/""/0/"false"
+// = no marcat. Es replica aquí (en lloc d'importar-lo de vaultFilters) per
+// mantenir el canvi acotat als fitxers d'aquesta vista.
+const FILTER_TRUTHY = new Set(['true', '1', 'yes', 'si', 'sí', 'done', 'checked', 'completat']);
+function asBool(x) {
+    if (x === true) return true;
+    if (x === false || x == null || x === '') return false;
+    if (typeof x === 'number') return x !== 0;
+    return FILTER_TRUTHY.has(String(x).trim().toLowerCase());
+}
+
 function applyFilter(meta, pageId, f) {
     if (!f?.field) return true;
     const op = (f.operator || 'equals').toLowerCase();
@@ -78,10 +90,23 @@ function applyFilter(meta, pageId, f) {
     if (op === 'is_empty') return arr.length === 0;
     if (op === 'is_not_empty') return arr.length > 0;
     if (target == null) return true;
-    if (op === 'equals') return arr.includes(target);
-    if (op === 'not_equals') return !arr.includes(target);
-    if (op === 'contains') return arr.some(x => x.includes(target));
-    if (op === 'not_contains') return !arr.some(x => x.includes(target));
+    const targetLower = target.toLowerCase();
+    // Valor booleà (checkbox: "true"/"false"): comparem per veritat —no per
+    // cadena— perquè un camp absent compti com a "no marcat" i casi amb "false".
+    // Paritat amb matchesFilters (vaultFilters.js) i apply_filter (backend).
+    if ((op === 'equals' || op === 'not_equals') && (targetLower === 'true' || targetLower === 'false')) {
+        const want = targetLower === 'true';
+        const cur = asBool(v);
+        return op === 'equals' ? cur === want : cur !== want;
+    }
+    // Text/select case-INsensitiu (com Notion i com la vista principal): un
+    // valor "Català" emmagatzemat casa amb el filtre "català". Els numèrics
+    // (greater/less) es comparen a part, sense minúscules.
+    const arrLower = arr.map(x => x.toLowerCase());
+    if (op === 'equals') return arrLower.includes(targetLower);
+    if (op === 'not_equals') return !arrLower.includes(targetLower);
+    if (op === 'contains') return arrLower.some(x => x.includes(targetLower));
+    if (op === 'not_contains') return !arrLower.some(x => x.includes(targetLower));
     if (op === 'greater_than' || op === 'less_than') {
         const t = Number(target);
         if (Number.isNaN(t)) return false;
