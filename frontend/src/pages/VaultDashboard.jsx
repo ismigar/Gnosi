@@ -1308,14 +1308,29 @@ export default function VaultDashboard() {
             setActiveTableId(null);
         };
 
+        // Registrar a la pila d'undo els registres esborrats des d'una vista
+        // INCRUSTADA (DbViewEmbed). Aquell esborrat va per un camí propi (axios
+        // directe) que no toca aquest `undoStack`, de manera que sense això el
+        // Cmd+Z no els recuperava. La vista incrustada emet aquest event amb els
+        // ids un cop el soft-delete ha reeixit; aquí ho tractem igual que un
+        // esborrat de la vista principal.
+        const handleRecordsDeleted = (e) => {
+            const ids = (e.detail?.ids || []).filter(Boolean);
+            if (!ids.length) return;
+            setUndoStack(prev => [...prev, { type: 'delete', ids }]);
+            setRedoStack([]);
+        };
+
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('vault-open-folder', handleFolderOpen);
         window.addEventListener('gnosi:open-pdf', handleOpenPdf);
+        window.addEventListener('gnosi:records-deleted', handleRecordsDeleted);
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('vault-open-folder', handleFolderOpen);
             window.removeEventListener('gnosi:open-pdf', handleOpenPdf);
+            window.removeEventListener('gnosi:records-deleted', handleRecordsDeleted);
         };
     }, []);
 
