@@ -29,6 +29,19 @@ export const addDaysISO = (isoDate, days) => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
+// Serialitza un Date als components LOCALS ("YYYY-MM-DD" o, per datetime,
+// "YYYY-MM-DDTHH:MM"). MAI `toISOString()`: per a un camp date en una zona
+// UTC+ la mitjanit local cau al dia anterior en UTC (p. ex. 15/07 00:00 a
+// Madrid → "2024-07-14T22:00:00Z"), així que el DIA es desplaçaria un dia
+// enrere; i per a datetime, l'hora es desplaçaria per l'offset. Desem sempre
+// l'hora local tal com l'usuari la veu (coherent amb les dades "YYYY-MM-DD"
+// ja existents i amb cellGridUtils, que també evita toISOString a les dates).
+const _toLocalDateStr = (date, type) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    return type === 'datetime' ? `${day}T${pad(date.getHours())}:${pad(date.getMinutes())}` : day;
+};
+
 export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
     const inputRef = useRef(null);
     const hiddenInputRef = useRef(null);
@@ -85,7 +98,7 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
 
                 const date = new Date(y, m - 1, d, h, min);
                 if (!isNaN(date.getTime())) {
-                    onChange(date.toISOString());
+                    onChange(_toLocalDateStr(date, type));
                 }
             }
         }
@@ -123,10 +136,11 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         const val = e.target.value;
         if (!val) return;
 
-        const date = new Date(val);
-        if (!isNaN(date.getTime())) {
-            onChange(date.toISOString());
-        }
+        // El valor d'un <input type="date|datetime-local"> JA és l'hora local
+        // en format canònic ("YYYY-MM-DD" o "YYYY-MM-DDTHH:MM"): el desem tal
+        // qual. Passar-lo per `new Date(val).toISOString()` el convertiria a UTC
+        // i desplaçaria el dia/hora (vegeu _toLocalDateStr).
+        onChange(val);
     };
 
     // Gestió de Períodes: dues dates (inici → fi) + nombre de dies.
