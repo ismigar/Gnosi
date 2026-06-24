@@ -11,7 +11,7 @@
 
 /** Tipus calculats o d'acció: mai s'editen ni s'enganxen. */
 export function isComputedType(type) {
-    return type === 'formula' || type === 'rollup' || type === 'button';
+    return type === 'formula' || type === 'rollup' || type === 'virtual' || type === 'button';
 }
 
 /** Cert si una cel·la d'aquest tipus pot rebre un enganxat. */

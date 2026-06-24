@@ -301,6 +301,115 @@ def _compute_is_orphan(page_id: str, ctx: Dict[str, Any]) -> bool:
     return ctx["degrees"].get(page_id, {}).get("total", 0) == 0
 
 
+# ── Rollup invers: progrés de tasques ────────────────────────────────────────
+# A diferència dels computers de graf, aquest deriva d'una ALTRA taula (Tasques)
+# i de la seva relació INVERSA cap a aquest registre. L'índex es construeix a
+# `inject_for_*` (que té el `page_loader`) i es deixa al ctx; el computer és O(1).
+
+def _clean_relation_id(token: Any) -> str:
+    """Normalitza un valor de relació a id net. El backend ja despulla els
+    wikilinks (ids nets), però defensem el cas Obsidian manual `[[Títol|uuid]]`.
+    """
+    if token is None:
+        return ""
+    s = str(token).strip()
+    if s.startswith("[[") and s.endswith("]]"):
+        s = s[2:-2]
+    if "|" in s:  # "Títol|uuid" → uuid
+        s = s.split("|")[-1]
+    return s.strip()
+
+
+def build_task_progress_index(
+    task_pages: Iterable[Any],
+    relation_field: str,
+    status_field: str,
+    done_value: str,
+    id_resolver: Optional[Callable[[str], Optional[str]]] = None,
+) -> Dict[str, Optional[int]]:
+    """Índex {project_id: pct 0-100 | None} a partir de les pàgines de Tasques.
+
+    Agrupa per cada id del camp `relation_field` (p. ex. "Projecte") i compta
+    `status_field == done_value` sobre el total. `None` si el projecte no té cap
+    tasca (mai apareix a l'índex → la cel·la queda buida). `id_resolver` mapeja
+    un títol → id (defensa per enllaços manuals); si retorna None, s'usa el token.
+    """
+    totals: Dict[str, int] = defaultdict(int)
+    done: Dict[str, int] = defaultdict(int)
+    done_norm = str(done_value).strip().casefold()
+
+    for page in task_pages:
+        md = getattr(page, "metadata", None)
+        if md is None and isinstance(page, dict):
+            md = page.get("metadata") or page
+        if not isinstance(md, dict):
+            continue
+        rel = md.get(relation_field)
+        if not rel:
+            continue
+        ids = rel if isinstance(rel, list) else [rel]
+        is_done = str(md.get(status_field) or "").strip().casefold() == done_norm
+        for tok in ids:
+            key = _clean_relation_id(tok)
+            if not key:
+                continue
+            if id_resolver:
+                key = id_resolver(key) or key
+            totals[key] += 1
+            if is_done:
+                done[key] += 1
+
+    return {
+        pid: (round(done[pid] * 100 / total) if total else None)
+        for pid, total in totals.items()
+    }
+
+
+def _compute_task_progress(page_id: str, ctx: Dict[str, Any]) -> Optional[int]:
+    """% de tasques relacionades completades (0-100) o None si no en té cap."""
+    return (ctx.get("task_progress") or {}).get(page_id)
+
+
+# Cache TTL de l'índex per source_table_id: el `page_loader` ja està cachejat,
+# però `refresh_view_snapshots` crida `inject_for_single_page` per pàgina; sense
+# aquest cache l'índex es reconstruiria N vegades en un mateix burst.
+_task_progress_cache: Dict[str, "tuple[float, Dict[str, Optional[int]]]"] = {}
+_TASK_PROGRESS_TTL_SECONDS = 2.0
+_task_progress_lock = threading.Lock()
+
+
+def _task_progress_index_for(
+    prop: Dict[str, Any],
+    page_loader: Optional[Callable[[str], List[Any]]],
+    id_resolver: Optional[Callable[[str], Optional[str]]] = None,
+) -> Dict[str, Optional[int]]:
+    """Construeix (o recupera del cache TTL) l'índex de progrés per a un vprop
+    `task_progress`, llegint la config del camp i carregant les Tasques via
+    `page_loader`. Sense provider o sense `source_table_id` → índex buit."""
+    cfg = prop.get("config") or {}
+    src = cfg.get("source_table_id")
+    if not src or page_loader is None:
+        return {}
+    rel = cfg.get("relation_field") or "Projecte"
+    status_field = cfg.get("status_field") or "Estat"
+    done_value = cfg.get("done_value") or "Fet"
+
+    now = time.monotonic()
+    with _task_progress_lock:
+        cached = _task_progress_cache.get(src)
+        if cached and (now - cached[0]) < _TASK_PROGRESS_TTL_SECONDS:
+            return cached[1]
+    try:
+        task_pages = page_loader(src) or []
+    except Exception as e:
+        log.debug(f"task_progress page_loader failed for {src}: {e}")
+        return {}
+    idx = build_task_progress_index(task_pages, rel, status_field, done_value, id_resolver)
+    with _task_progress_lock:
+        _task_progress_cache[src] = (now, idx)
+    return idx
+
+
 VIRTUAL_COMPUTERS: Dict[str, Dict[str, Any]] = {
     "degree_centrality": {
         "fn": _compute_degree_centrality,
@@ -414,6 +523,19 @@ VIRTUAL_COMPUTERS: Dict[str, Dict[str, Any]] = {
         "value_type": "checkbox",
         "needs": ["graph"],
     },
+    "task_progress": {
+        "fn": _compute_task_progress,
+        "label": "Progrés de tasques",
+        "description": (
+            "Percentatge (0-100) de tasques relacionades completades. Es deriva "
+            "de la relació INVERSA d'una taula font (config: source_table_id, "
+            "relation_field, status_field, done_value): compta status==done sobre "
+            "el total de registres que apunten a aquesta pàgina. Buit si no en té "
+            "cap. Read-only, calculat en llegir (sempre fresc)."
+        ),
+        "value_type": "number",
+        "needs": ["task_progress"],
+    },
 }
 
 
@@ -496,12 +618,17 @@ def inject_for_table(
     table: Optional[Dict[str, Any]],
     pages: List[Any],
     graph_path: Optional[Path] = None,
+    page_loader: Optional[Callable[[str], List[Any]]] = None,
+    id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> None:
     """In-place inject virtual fields into each page's metadata.
 
     `pages` is an iterable of objects with `.id` and `.metadata` (dict). Works
     for both PageInfo Pydantic models and plain dicts that already exposed metadata.
     Mutates `metadata` directly. Silent on errors per page.
+
+    `page_loader(table_id) -> list[pages]` permet als computers de rollup invers
+    (p. ex. `task_progress`) carregar les pàgines d'una ALTRA taula font.
     """
     if not table:
         return
@@ -519,6 +646,7 @@ def inject_for_table(
             # metric to run (avoids computing all when only one is requested).
             needs.add(comp_key)
     ctx = _build_ctx(needs, graph_path)
+    _inject_task_progress_into_ctx(ctx, vprops, page_loader, id_resolver)
 
     for page in pages:
         try:
@@ -542,11 +670,28 @@ def inject_for_table(
             log.debug(f"virtual_fields injection failed for one page: {e}")
 
 
+def _inject_task_progress_into_ctx(
+    ctx: Dict[str, Any],
+    vprops: List[Dict[str, Any]],
+    page_loader: Optional[Callable[[str], List[Any]]],
+    id_resolver: Optional[Callable[[str], Optional[str]]],
+) -> None:
+    """Si hi ha un vprop `task_progress`, construeix el seu índex (cachejat per
+    source_table_id) i el deixa a `ctx["task_progress"]`. Assumeix un sol camp
+    d'aquest tipus per taula (cas actual: «Progrés»)."""
+    for prop in vprops:
+        if (prop.get("compute") or "") == "task_progress":
+            ctx["task_progress"] = _task_progress_index_for(prop, page_loader, id_resolver)
+            return
+
+
 def inject_for_single_page(
     table: Optional[Dict[str, Any]],
     page_id: str,
     metadata: Dict[str, Any],
     graph_path: Optional[Path] = None,
+    page_loader: Optional[Callable[[str], List[Any]]] = None,
+    id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> None:
     """In-place inject virtual fields for a single page metadata dict."""
     if not table:
@@ -565,6 +710,7 @@ def inject_for_single_page(
             # metric to run (avoids computing all when only one is requested).
             needs.add(comp_key)
     ctx = _build_ctx(needs, graph_path)
+    _inject_task_progress_into_ctx(ctx, vprops, page_loader, id_resolver)
 
     for prop in vprops:
         comp_key = prop.get("compute") or ""
