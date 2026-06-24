@@ -4,7 +4,10 @@ import { Clock, RefreshCw, AlertCircle, Edit2, Check, X } from 'lucide-react';
 const formatInterval = (minutes) => {
     if (!minutes && minutes !== 0) return null;
     if (minutes < 1) {
-        return `${Math.round(minutes * 60)} min`;
+        // Sub-minut: `minutes * 60` són SEGONS, no minuts (abans s'etiquetava
+        // erròniament "min", de manera que un interval de 0,5 min es mostrava
+        // com a "30 min" en lloc de "30 s").
+        return `${Math.round(minutes * 60)} s`;
     }
     const hours = minutes / 60;
     if (Number.isInteger(hours) || Math.abs(hours - Math.round(hours * 4) / 4) < 0.001) {
