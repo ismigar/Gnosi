@@ -751,6 +751,18 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
                 if (item.styles.underline) text = wrap(text, "<u>", "</u>");
                 if (item.styles.strike) text = wrap(text, "~~");
                 if (item.styles.code) text = wrap(text, "`");
+                // Color de text/fons INLINE → <span style> (mirall del color de
+                // BLOC, que es desa amb <div style>). Sense això, un tros de text
+                // acolorit des de la toolbar es desava sense cap marca i el color
+                // es perdia silenciosament a cada desat.
+                const tc = item.styles.textColor;
+                const bgc = item.styles.backgroundColor;
+                if ((tc && tc !== "default") || (bgc && bgc !== "default")) {
+                    let st = "";
+                    if (tc && tc !== "default") st += `color: ${tc};`;
+                    if (bgc && bgc !== "default") st += `background-color: ${bgc};`;
+                    text = `<span style="${st}">${text}</span>`;
+                }
             }
             return text;
         }
