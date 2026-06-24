@@ -330,8 +330,13 @@ export function isCalendarPage(page) {
     const tableId = page.resolved_table_id || metadata.table_id || metadata.database_table_id;
     const folder = String(page.folder || '');
     
-    // Match backend logic in is_calendar_entry
-    const isEntry = hasDate && (source.includes('gnosi') || !tableId);
+    // Match backend logic in is_calendar_entry: la font ha de ser EXACTAMENT
+    // "gnosi"/"gnosi vault" (no una subcadena). Amb `includes('gnosi')` un
+    // registre de BD amb taula i data i font "gnosi-*" (p.ex. "gnosi-newsletter")
+    // es classificava com a cita i quedava AMAGAT de Recents/Sidebar/Cerca, tot i
+    // que el backend el tracta com a registre normal. Les cites reals (sense
+    // taula) segueixen comptant gràcies a `!tableId`.
+    const isEntry = hasDate && (source === 'gnosi' || source === 'gnosi vault' || !tableId);
     const isInFolder = folder === 'Calendar' || folder.startsWith('Calendar/');
     
     return isEntry || isInFolder;
