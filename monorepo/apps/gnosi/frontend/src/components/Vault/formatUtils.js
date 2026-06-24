@@ -40,7 +40,12 @@ function isEmpty(value) {
 
 function toNumber(value) {
     if (typeof value === 'number') return value;
-    const n = Number(String(value).trim());
+    const t = String(value).trim();
+    // locale ca/es: un número net amb decimal de coma ("1,5", "-2,75") es desa
+    // sovint com a STRING amb coma. `Number("1,5")` és NaN, així que sense això
+    // el valor es mostrava CRU (sense símbol de moneda, decimals ni agrupació).
+    // Mateix criteri que els motors d'ordenació/filtre/rollup del Vault.
+    const n = /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : Number(t);
     return Number.isFinite(n) ? n : null;
 }
 
