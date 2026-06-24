@@ -11,6 +11,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// Plega accents per a la cerca ràpida insensible a accents ("historia" troba
+// "Història"), com s'espera en un vault català/castellà (NFD + eliminació de
+// les marques combinants U+0300–U+036F).
+const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 function SortableDocTab({ tab, isActive, isSplit, canSplit, onTabSelect, onTabClose, onToggleSplit }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
 
@@ -110,12 +115,12 @@ export function VaultDocumentTabs({
     }, []);
 
     const filteredItems = React.useMemo(() => {
-        const q = query.trim().toLowerCase();
+        const q = foldAccents(query.trim());
         if (!q) return quickOpenItems.slice(0, 12);
         return quickOpenItems
             .filter(item => {
-                const titleMatch = (item.title || '').toLowerCase().includes(q);
-                const subtitleMatch = (item.subtitle || '').toLowerCase().includes(q);
+                const titleMatch = foldAccents(item.title || '').includes(q);
+                const subtitleMatch = foldAccents(item.subtitle || '').includes(q);
                 return titleMatch || subtitleMatch;
             })
             .slice(0, 12);
