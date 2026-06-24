@@ -2,6 +2,12 @@ import { matchesFilters, matchesSearch as vaultMatchesSearch } from './vaultFilt
 
 export { matchesFilters, vaultMatchesSearch };
 
+// Plega accents per a la cerca insensible a accents ("historia" troba
+// "Història"), com s'espera en un vault català/castellà. NFD descompon les
+// lletres accentuades i s'eliminen les marques combinants (U+0300–U+036F:
+// accents, cedilla, titlla).
+const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 /**
  * Determines the logical table/category ID for a node, unifying registry nodes,
  * system entities (calendar, contacts…) and standard BD pages.
@@ -222,7 +228,7 @@ export function applyFilters(graph, filters) {
                 isNodeVisible = isIsolated && matchCluster && matchKind && matchProject;
             } else {
                 const matchIsolated = !hideIsolated || !isIsolated;
-                const matchSearch = !searchTerm?.trim() || (attrs.label || "").toLowerCase().includes(searchTerm.toLowerCase().trim());
+                const matchSearch = !searchTerm?.trim() || foldAccents(attrs.label).includes(foldAccents(searchTerm).trim());
                 const matchTimeline = !timelineDate || !attrs.created_time
                     || new Date(attrs.created_time).getTime() <= timelineDate;
                 isNodeVisible = matchCluster && matchKind && matchProject && matchIsolated && matchSearch && matchTimeline && matchMediaTags;
