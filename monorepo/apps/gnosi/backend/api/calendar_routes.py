@@ -402,7 +402,13 @@ async def delete_event(
     if vault_path:
         p = Path(vault_path)
         if p.exists():
-            p.unlink()
+            # No esborrem permanentment: movem a la paperera del Vault
+            # (recuperable), coherent amb DELETE /api/vault/pages. Abans feia
+            # `p.unlink()`, així que un event del Vault esborrat per aquesta via
+            # es perdia per sempre, saltant-se la paperera. `event_id` és l'id
+            # de la pàgina del Vault.
+            from backend.api.vault_routes import _move_page_to_trash
+            _move_page_to_trash(event_id, p)
             _invalidate_calendar_cache()
             return {"status": "success"}
 
