@@ -1110,11 +1110,24 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                         i++;
                     }
                     
+                    // Parsegem el contingut del callout com a markdown INLINE
+                    // (mateix camí que el text normal) perquè **negreta**, _cursiva_,
+                    // `codi`, [enllaços](url) i [[wikilinks]] sobrevisquin el
+                    // round-trip. Abans es desava com a text PLA → en recarregar es
+                    // veia el markdown literal ("**negreta**") en lloc del format.
+                    const innerText = calloutLines.join("\n");
+                    let alertContent = [{ type: "text", text: innerText, styles: {} }];
+                    try {
+                        const innerParsed = await parsePlainMarkdownBlock(innerText, editor);
+                        const inline = innerParsed?.[0]?.content;
+                        if (Array.isArray(inline) && inline.length > 0) alertContent = inline;
+                    } catch { /* mantenim el text pla com a reserva */ }
+
                     blocks.push({
                         id: Math.random().toString(36).substring(7),
                         type: "alert",
                         props: { type: calloutType },
-                        content: [{ type: "text", text: calloutLines.join("\n"), styles: {} }]
+                        content: alertContent
                     });
                     continue;
                 }
