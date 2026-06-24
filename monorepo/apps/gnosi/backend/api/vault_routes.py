@@ -5955,6 +5955,14 @@ async def export_references(
     )
 
 
+def _fold_accents(s) -> str:
+    """Minúscules SENSE accents (NFKD + treure les marques combinants), perquè la
+    cerca de cites sigui insensible a accents: "liquida" troba "líquida",
+    "academicos" troba "Académicos". Mateix criteri que drupal_sync/import_dedup."""
+    norm = unicodedata.normalize("NFKD", str(s or ""))
+    return "".join(c for c in norm if not unicodedata.combining(c)).lower()
+
+
 @router.get("/search-citations")
 async def search_citations(q: str = "", limit: int = 30):
     """Cerca pàgines de Recursos per al CitePicker (Cmd+Shift+I).
@@ -5976,7 +5984,7 @@ async def search_citations(q: str = "", limit: int = 30):
     v_str = str(v_path)
     idx = _ensure_cite_key_index(v_str)
 
-    query = str(q or "").strip().lower()
+    query = _fold_accents(str(q or "").strip())
     if not query:
         # Sense filtre, retornem els primers `limit` per popularitat (per
         # ara, ordre alfabètic per citation_key).
@@ -5992,10 +6000,10 @@ async def search_citations(q: str = "", limit: int = 30):
     # (fitxers online-only). Ranking: key > títol > autor > altres camps.
     candidates = []
     for entry in idx.values():
-        ck = str(entry.get("citation_key") or "").lower()
-        title = str(entry.get("title") or "").lower()
-        author = str(entry.get("author") or "").lower()
-        blob = str(entry.get("search") or "")
+        ck = _fold_accents(entry.get("citation_key"))
+        title = _fold_accents(entry.get("title"))
+        author = _fold_accents(entry.get("author"))
+        blob = _fold_accents(entry.get("search"))
         score = -1
         if ck.startswith(query):
             score = 100 - len(ck)  # prefer curtes
