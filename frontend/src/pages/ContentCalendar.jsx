@@ -61,13 +61,18 @@ const ContentCalendar = () => {
         return days;
     };
 
-    // Get posts for a specific day
+    // Get posts for a specific day. Agrupem per data LOCAL als dos costats: les
+    // columnes es mostren en hora local (`day.getDate()`), però abans es filtrava
+    // per data UTC (`day.toISOString()`) contra la part de data crua del
+    // `scheduled_time` (desat en UTC) → un post programat per una hora local de
+    // matinada (UTC = dia anterior) apareixia a la columna del dia previ.
     const getPostsForDay = (day) => {
-        const dayStr = day.toISOString().split('T')[0];
-        return scheduledPosts.filter(post => {
-            const postDay = post.scheduled_time.split('T')[0];
-            return postDay === dayStr;
-        });
+        const pad = (n) => String(n).padStart(2, '0');
+        const toLocalDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const dayStr = toLocalDate(day);
+        return scheduledPosts.filter(
+            post => toLocalDate(new Date(post.scheduled_time)) === dayStr
+        );
     };
 
     const formatTime = (isoString) => {
