@@ -147,19 +147,29 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
 }
 
 /**
+ * Normalitza un text per a la cerca: minúscules i SENSE diacrítics (NFD +
+ * eliminació de les marques combinants). Així cercar "merce"/"informacio"/
+ * "franca" troba "Mercè"/"Informació"/"França" —com s'espera en un vault
+ * català/castellà, on l'usuari no acostuma a teclejar els accents—. La cedilla
+ * (ç→c) i la titlla (ñ→n) també es decomponen i s'eliminen.
+ */
+export const normalizeForSearch = (s) =>
+    String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/**
  * Aplica una cerca de text al títol i metadata.
- * 
+ *
  * @param {Object} item - L'objecte a cercar
  * @param {string} searchTerm - El text de cerca
  * @returns {boolean} - True si el text es troba a l'objecte
  */
 export function matchesSearch(item, searchTerm = '') {
     if (!searchTerm || !searchTerm.trim()) return true;
-    
-    const q = searchTerm.toLowerCase();
-    const title = (item.title || item.label || '').toLowerCase();
+
+    const q = normalizeForSearch(searchTerm);
+    const title = normalizeForSearch(item.title || item.label || '');
     if (title.includes(q)) return true;
-    
+
     const metadata = item.metadata || {};
-    return Object.values(metadata).some(v => String(v || '').toLowerCase().includes(q));
+    return Object.values(metadata).some(v => normalizeForSearch(v).includes(q));
 }

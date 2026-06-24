@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, FileText, Hash, FolderClosed } from 'lucide-react';
 import { isCalendarPage } from './schemaUtils';
+import { normalizeForSearch } from '../../utils/vaultFilters';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { IconRenderer } from './IconRenderer';
 
@@ -18,11 +19,13 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
     // Filter notes based on query
     const filteredNotes = React.useMemo(() => {
         if (!query.trim()) return [];
-        const lowerQuery = query.toLowerCase();
+        // Cerca insensible a accents (NFD): "merce" troba "Mercè". Paritat amb
+        // matchesSearch de la cerca de taula/vista.
+        const q = normalizeForSearch(query);
         return allNotes.filter(note => {
             if (isCalendarPage(note)) return false;
-            const titleMatch = (note.title || '').toLowerCase().includes(lowerQuery);
-            const contentMatch = (note.content || '').toLowerCase().includes(lowerQuery); // If we add content search later
+            const titleMatch = normalizeForSearch(note.title || '').includes(q);
+            const contentMatch = normalizeForSearch(note.content || '').includes(q); // If we add content search later
             return titleMatch || contentMatch;
         }).slice(0, 10); // Limit results for performance
     }, [query, allNotes]);
