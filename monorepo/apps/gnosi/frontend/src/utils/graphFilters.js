@@ -19,9 +19,11 @@ export function getEffectiveTableId(attrs) {
     const nodeKind = (attrs.kind || "").toLowerCase();
     const nodePath = attrs.path || "";
 
-    const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
-    if (isWikiNode) return 'wiki';
-
+    // Les ENTITATS DE SISTEMA es classifiquen PRIMER (per kind/path). Un node de
+    // contacte/calendari/correu/dibuix NO té database_id ni table_id, així que la
+    // comprovació "wiki" (sense db/table) se'ls empassava i quedaven mal
+    // classificats com a 'wiki' (p. ex. els 200 contactes del graf). El wiki és
+    // l'ÚLTIM recurs.
     if (nodeKind === 'calendar' || nodePath.startsWith('Calendar/')) {
         return attrs.metadata?.calendar_id
             ? `calendar:${attrs.metadata.calendar_id}`
@@ -39,6 +41,9 @@ export function getEffectiveTableId(attrs) {
     if (nodeKind === 'image' || nodeKind === 'media' || nodePath.startsWith('Assets/Images/') || nodePath.startsWith('Imatges/')) return 'images';
     if (nodeKind === 'asset' || nodeKind === 'adjunt') return 'assets';
 
+    const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
+    if (isWikiNode) return 'wiki';
+
     return nodeTableRaw || null;
 }
 
@@ -50,14 +55,16 @@ export function getSystemCategory(attrs) {
     const nodeKind = (attrs.kind || "").toLowerCase();
     const nodePath = attrs.path || "";
 
-    const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
-    if (isWikiNode) return 'wiki';
+    // Sistema PRIMER (per kind/path); el wiki (sense db/table) és l'últim recurs,
+    // si no se'ls empassaria els nodes de sistema (contacte/calendari/correu…).
     if (nodeKind === 'calendar' || nodePath.startsWith('Calendar/')) return 'calendar';
     if (nodeKind === 'contact' || nodePath.startsWith('Contacts/') || nodePath.startsWith('Contactes/')) return 'contacts';
     if (nodeKind === 'mail') return 'mail';
     if (nodeKind === 'drawing' || nodePath.startsWith('Drawings/') || nodePath.startsWith('Dibuixos/')) return 'drawings';
     if (nodeKind === 'image' || nodeKind === 'media' || nodePath.startsWith('Assets/Images/') || nodePath.startsWith('Imatges/')) return 'images';
     if (nodeKind === 'asset' || nodeKind === 'adjunt') return 'assets';
+    const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
+    if (isWikiNode) return 'wiki';
     return null;
 }
 
