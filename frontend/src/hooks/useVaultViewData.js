@@ -5,6 +5,7 @@
  */
 import { useMemo } from 'react';
 import { matchesFilters, matchesSearch, compareFieldValues } from '../utils/vaultFilters';
+import { normalizeSorts } from '../components/Vault/schemaUtils';
 
 /**
  * @param {Object} params
@@ -38,7 +39,13 @@ export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, 
 
 
     const sortedPages = useMemo(() => {
-        const sorts = view.sort || [];
+        // `normalizeSorts` tolera les dues formes històriques del camp d'ordre
+        // (objecte {field,direction} O array) i, a més, les dues claus que els
+        // callers fan servir: la vista de taula passa `sort` (array) mentre que
+        // galeria/kanban/feed/timeline passen `sorts` (sovint un OBJECTE per
+        // defecte). Abans es llegia només `view.sort` i `sorts.length` sobre un
+        // objecte/undefined era falsy → aquestes vistes NO s'ordenaven.
+        const sorts = normalizeSorts(view.sort ?? view.sorts);
         if (!sorts.length) return filteredPages;
 
         return [...filteredPages].sort((a, b) => {
@@ -54,7 +61,7 @@ export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, 
             }
             return 0;
         });
-    }, [filteredPages, view.sort]);
+    }, [filteredPages, view.sort, view.sorts]);
 
     return { filteredPages, sortedPages };
 }
