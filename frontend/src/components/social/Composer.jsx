@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, Calendar as CalendarIcon, X, AlertTriangle, Loader2 } from 'lucide-react';
 import Scheduler from './Scheduler';
 
