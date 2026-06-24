@@ -70,8 +70,16 @@ class CollabManager:
     pub/sub) — documentat com a TODO.
     """
 
+    # Cap màxim d'updates Yjs guardats per pàgina (replay a late-joiners). Els
+    # updates Yjs són acumulatius i mergeables: aplicar-los en ordre reconstrueix
+    # l'estat. Limitem la mida per no créixer sense fre en sessions llargues; si
+    # se supera, el late-joiner pot demanar un re-sync complet a un peer viu.
+    _MAX_BUFFER = 500
+
     def __init__(self) -> None:
         self._rooms: Dict[str, Set[_Peer]] = {}
+        # Buffer d'updates Yjs (base64) per pàgina, per a replay a late-joiners.
+        self._doc_buffer: Dict[str, List[str]] = {}
         self._lock = asyncio.Lock()
 
     async def join(self, page_id: str, peer: _Peer) -> None:
@@ -85,6 +93,20 @@ class CollabManager:
                 room.discard(peer)
                 if not room:
                     self._rooms.pop(page_id, None)
+                    # Sala buida: l'estat ja s'ha materialitzat a disc (autosave
+                    # del client). Descartem el buffer per no servir estat ranci.
+                    self._doc_buffer.pop(page_id, None)
+
+    def record_update(self, page_id: str, data: str) -> None:
+        """Desa un update Yjs (base64) per a replay. Descarta el més antic si
+        se supera el cap (el client farà re-sync si cal)."""
+        buf = self._doc_buffer.setdefault(page_id, [])
+        buf.append(data)
+        if len(buf) > self._MAX_BUFFER:
+            del buf[0 : len(buf) - self._MAX_BUFFER]
+
+    def buffered_updates(self, page_id: str) -> List[str]:
+        return list(self._doc_buffer.get(page_id, []))
 
     def peers(self, page_id: str) -> List[_Peer]:
         return list(self._rooms.get(page_id, set()))
@@ -147,6 +169,15 @@ async def collab_ws(
         # Anuncia la presència actual a tothom (inclòs el nou peer).
         await manager.broadcast(page_id, manager.presence_payload(page_id))
 
+        # Replay de l'estat CRDT al nou peer (late-joiner): li reenviem els
+        # updates Yjs acumulats de la sessió perquè vegi el document actual sense
+        # esperar que algú torni a teclejar.
+        for data in manager.buffered_updates(page_id):
+            try:
+                await websocket.send_json({"type": "yjs-update", "data": data, "replay": True})
+            except Exception:
+                break
+
         while True:
             msg = await websocket.receive_json()
             if not isinstance(msg, dict):
@@ -156,7 +187,10 @@ async def collab_ws(
                 # Keep-alive del client; responem perquè detecti la connexió viva.
                 await websocket.send_json({"type": "pong"})
                 continue
-            # Relay genèric (cursor, selecció, i en el futur updates Yjs).
+            # Updates Yjs: a més de reenviar-los, els guardem per a late-joiners.
+            if mtype == "yjs-update" and isinstance(msg.get("data"), str):
+                manager.record_update(page_id, msg["data"])
+            # Relay genèric (cursor, selecció, updates Yjs, awareness).
             # Segellem qui l'envia perquè el receptor no s'hagi de refiar del
             # camp arbitrari del client.
             msg["from"] = effective_uid

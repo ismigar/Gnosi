@@ -61,6 +61,7 @@ import { areaHeadingColorKey, normalizeHeadingText } from './areaHeadingColors';
 import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useTheme } from '../../hooks/useTheme';
+import { useYjsCollaboration } from '../../hooks/useYjsCollaboration';
 import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
 import { CoverPicker } from './CoverPicker';
@@ -1240,9 +1241,15 @@ export function EditorInner({
         return data.url;
     }, [metadataRef]);
 
+    // Col·laboració en temps real (CRDT/Yjs) NOMÉS en mode org. En mode
+    // personal `collaboration` és undefined i `collabReady` sempre false →
+    // l'editor es crea exactament igual que abans (cap regressió).
+    const { collaboration, ready: collabReady } = useYjsCollaboration(noteFilename);
+
     const editor = useCreateBlockNote({
         schema,
-        initialContent: blocks || undefined,
+        // Amb col·laboració activa, el contingut prové del Y.Doc (no initialContent).
+        ...(collaboration ? { collaboration } : { initialContent: blocks || undefined }),
         dropCursor: multiColumnDropCursor,
         uploadFile: uploadFileToAssetsDirect,
         dictionary: blocknoteCa,
@@ -1252,8 +1259,34 @@ export function EditorInner({
             cellTextColor: true,
             headers: true,
         },
-    });
+    // Deps: recrea l'editor NOMÉS quan la col·laboració s'activa (transició a
+    // mode org). En personal `collabReady` no canvia mai → cap recreació.
+    }, [collabReady]);
     editorRef.current = editor;
+
+    // Sembra de contingut inicial en col·laboració: si el document Yjs està
+    // buit (primer peer), hi bolquem els blocs de la pàgina. Gated per un flag
+    // compartit al doc perquè només ho faci el primer client.
+    useEffect(() => {
+        if (!collaboration || !editor || !blocks) return;
+        const doc = collaboration.provider?.doc;
+        if (!doc) return;
+        const t = setTimeout(() => {
+            try {
+                const meta = doc.getMap('meta');
+                if (meta.get('seeded')) return; // un altre peer ja ho ha fet
+                const docEmpty = editor.document.length <= 1
+                    && (!editor.document[0]?.content || editor.document[0]?.content.length === 0);
+                if (docEmpty) {
+                    doc.transact(() => { meta.set('seeded', true); });
+                    editor.replaceBlocks(editor.document, blocks);
+                }
+            } catch (e) {
+                console.warn('Yjs seed skipped:', e?.message);
+            }
+        }, 400);
+        return () => clearTimeout(t);
+    }, [collaboration, editor, blocks]);
 
     // Ref a `applyInsertResult` perquè el listener de l'atall `/+` (definit
     // dins d'un useEffect aïllat) en pugui llegir la versió més recent sense

@@ -43,6 +43,7 @@ from backend.api import (
     workspace_routes, contacts_routes, identity_routes,
     microsoft_auth_routes,
     collab_routes,
+    share_routes,
 )
 from backend.scheduler.manager import scheduler_manager
 from backend.models import * # Register all models for SQLAlchemy
@@ -275,6 +276,8 @@ app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"
 
 # Real-time collaboration (WebSocket: presència + relay per pàgina)
 app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaboration"])
+# Share links: authenticated endpoints under /api/vault/*, public read at /api/share/{token}
+app.include_router(share_routes.router, prefix="/api", tags=["Share"])
 
 # Components
 app.include_router(calendar_routes.router, tags=["Calendar"])

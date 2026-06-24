@@ -757,6 +757,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }, []);
     useEffect(() => { setCollapsedGroups(new Set()); }, [activeView?.id, groupByField]);
 
+    // True si l'usuari té alguna agregació de columna activa: aleshores cada
+    // grup mostra un peu amb els subtotals (estil Notion).
+    const hasGroupAggregations = useMemo(
+        () => Object.values(aggregations || {}).some(f => f && f !== 'none'),
+        [aggregations]
+    );
+
     // Llista plana de descriptors. Cada entrada → 1 `<tr>` virtual.
     const rowDescriptors = useMemo(() => {
         const list = [];
@@ -829,9 +836,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             });
             if (collapsedGroups.has(g.key)) continue; // grup col·lapsat → no rows
             for (const note of g.notes) pushNoteRows(note);
+            // Peu de grup (subtotals estil Notion): només si l'usuari té
+            // alguna agregació de columna activa. Es calcula sobre les notes
+            // d'AQUEST grup (g.notes). Es renderitza sota les files del grup.
+            if (hasGroupAggregations) {
+                list.push({ kind: 'group-footer', groupKey: g.key, notes: g.notes });
+            }
         }
         return list;
-    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, collapsedGroups]);
+    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, collapsedGroups, hasGroupAggregations]);
 
     const rowVirtualizer = useVirtualizer({
         count: rowDescriptors.length,
@@ -2682,10 +2695,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
     };
 
-    const calculateAggregation = (field, type) => {
+    const calculateAggregation = (field, type, notesSubset = null) => {
         const func = aggregations[field];
         if (!func || func === 'none') return null;
-        const values = sortedNotes.map(note => {
+        const sourceNotes = notesSubset || sortedNotes;
+        const values = sourceNotes.map(note => {
             if (field === 'title') return note.title;
             if (field === 'last_modified') return note.last_modified;
             const calculated = getCalculatedFieldValue(field, note, undefined);
@@ -3181,6 +3195,45 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         );
     };
 
+    // Peu de grup: subtotals per columna calculats sobre les notes del grup,
+    // amb les MATEIXES agregacions que l'usuari ha triat al peu de la taula.
+    const renderGroupFooter = (d, virtualItem) => {
+        const aggCell = (field, type) => {
+            const func = aggregations[field];
+            if (!func || func === 'none') return null;
+            const val = calculateAggregation(field, type, d.notes);
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <span className="text-[9px] uppercase tracking-wide text-[var(--text-tertiary)]">{t(`table.${func}`, func)}</span>
+                    <span className="text-[var(--text-primary)] font-bold">{val}</span>
+                </span>
+            );
+        };
+        return (
+            <tr
+                key={`gfoot-${d.groupKey}-${virtualItem.index}`}
+                data-index={virtualItem.index}
+                ref={rowVirtualizer.measureElement}
+                className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/60 text-[11px] text-[var(--text-secondary)]"
+            >
+                <td className="w-10 sticky left-0 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)]"></td>
+                <td className="py-1.5 px-4 sticky left-10 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
+                    {aggCell('title', 'title')}
+                </td>
+                {dynamicColumns.map(([key, type]) => (
+                    <td key={key} className="py-1.5 px-4 border-r border-[var(--border-primary)]">
+                        {aggCell(key, type)}
+                    </td>
+                ))}
+                {showModifiedColumn && (
+                    <td className="py-1.5 px-4 border-l border-[var(--border-primary)]">
+                        {aggCell('last_modified', 'date')}
+                    </td>
+                )}
+            </tr>
+        );
+    };
+
     return (
         <div className={`w-full ${maxHeight ? '' : 'h-full overflow-hidden'} ${isEmbedded ? '' : 'bg-[var(--bg-primary)]'}`}>
             <div className={`w-full ${maxHeight ? '' : 'h-full'} flex flex-col`}>
@@ -3313,6 +3366,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 }
                                 if (d.kind === 'group-header') {
                                     return renderGroupHeader(d, vi);
+                                }
+                                if (d.kind === 'group-footer') {
+                                    return renderGroupFooter(d, vi);
                                 }
                                 if (d.kind === 'new-subitem') {
                                     return renderNewSubitemRow(d.parentNote, d.depth, vi);

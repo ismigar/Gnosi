@@ -9,7 +9,12 @@ import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle } from 'lucide-react';
+import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2 } from 'lucide-react';
+import { PageCardShapeUtil, CanvasPageContext } from './canvasPageCardShape';
+import { usePlugins } from '../../plugins/usePlugins';
+
+// Custom shape utils for the canvas (page cards) on top of the tldraw defaults.
+const CANVAS_SHAPE_UTILS = [...defaultShapeUtils, PageCardShapeUtil];
 
 // ──────────────── Page Actions Panel ────────────────
 function PageActionsPanel({ pageId, pageTitle, onClose }) {
@@ -94,8 +99,10 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
 }
 
 // ──────────────── TldrawEditor Component ────────────────
-export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess }) {
-    const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
+export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess, onOpenPage }) {
+    const { isEnabled: isPluginEnabled } = usePlugins();
+    const cardsEnabled = isPluginEnabled('canvas-cards');
+    const [store] = useState(() => createTLStore({ shapeUtils: CANVAS_SHAPE_UTILS }));
     // 'loading' | 'ready' | 'error' | 'incompatible' — el desat (autosave i
     // Ctrl+S) NOMÉS és possible a 'ready'. Si la càrrega falla o el snapshot
     // no s'aplica, desar significaria sobreescriure el dibuix real amb un
@@ -302,25 +309,33 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
 
                 const shapeId = createShapeId();
 
-                // Crear una forma de nota amb el títol i metadata de la pàgina
-                editor.createShape({
-                    id: shapeId,
-                    type: 'note',
-                    x: point.x - 100,
-                    y: point.y - 50,
-                    props: {
-                        color: 'blue',
-                        size: 'm',
-                        font: 'sans',
-                        richText: toRichText(noteData.title || 'Pàgina sense títol'),
-                    },
-                    meta: {
-                        pageId: noteData.id,
-                        pageTitle: noteData.title || 'Pàgina sense títol',
-                    },
-                });
+                if (cardsEnabled) {
+                    // Targeta de pàgina (page-card) amb preview viu, estil Obsidian Canvas.
+                    editor.createShape({
+                        id: shapeId,
+                        type: 'page-card',
+                        x: point.x - 130,
+                        y: point.y - 85,
+                        props: {
+                            w: 260,
+                            h: 170,
+                            pageId: noteData.id,
+                            pageTitle: noteData.title || 'Pàgina sense títol',
+                        },
+                    });
+                } else {
+                    // Plugin desactivat: enllaç simple com a nota de tldraw.
+                    editor.createShape({
+                        id: shapeId,
+                        type: 'note',
+                        x: point.x - 100,
+                        y: point.y - 50,
+                        props: { color: 'blue', size: 'm', font: 'sans', richText: toRichText(noteData.title || 'Pàgina sense títol') },
+                        meta: { pageId: noteData.id, pageTitle: noteData.title || 'Pàgina sense títol' },
+                    });
+                }
 
-                // Seleccionar el shape creat per mostrar els botons
+                // Seleccionar el shape creat
                 editor.select(shapeId);
 
                 toast.success(`Pàgina "${noteData.title}" afegida al llenç`);
@@ -339,6 +354,35 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
         };
     }, []);
 
+    // Crea una pàgina nova al Vault i la incrusta com a targeta al centre del llenç.
+    const handleCreateNoteOnCanvas = useCallback(async () => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        try {
+            const res = await axios.post('/api/vault/pages', {
+                title: 'Nova nota',
+                content: '',
+                is_database: false,
+                metadata: {},
+            });
+            const page = res.data;
+            const center = editor.getViewportPageBounds().center;
+            const shapeId = createShapeId();
+            editor.createShape({
+                id: shapeId,
+                type: 'page-card',
+                x: center.x - 130,
+                y: center.y - 85,
+                props: { w: 260, h: 170, pageId: page.id, pageTitle: page.title || 'Nova nota' },
+            });
+            editor.select(shapeId);
+            toast.success('Nota creada al llenç');
+        } catch (err) {
+            console.error('Error creant nota al llenç:', err);
+            toast.error('Error creant la nota');
+        }
+    }, []);
+
     return (
         <div className="flex flex-col h-full w-full">
             {/* Capçalera */}
@@ -346,13 +390,24 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                 <h2 className="text-sm font-semibold text-slate-700 truncate">
                     {title || 'Dibuix sense títol'}
                 </h2>
-                <button
-                    onClick={onClose}
-                    className="gnosi-close-btn"
-                    aria-label="Tancar"
-                >
-                    <X />
-                </button>
+                <div className="flex items-center gap-2">
+                    {loadState === 'ready' && cardsEnabled && (
+                        <button
+                            onClick={handleCreateNoteOnCanvas}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                            title="Crea una nota nova al llenç"
+                        >
+                            <FilePlus2 size={14} /> Nova nota
+                        </button>
+                    )}
+                    <button
+                        onClick={onClose}
+                        className="gnosi-close-btn"
+                        aria-label="Tancar"
+                    >
+                        <X />
+                    </button>
+                </div>
             </div>
 
             {/* Editor */}
@@ -365,12 +420,15 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                         <Loader2 size={32} className="animate-spin text-indigo-500" />
                     </div>
                 ) : (
-                    <Tldraw
-                        store={store}
-                        hideUi={false}
-                        inferDarkMode
-                        onMount={(editor) => { editorRef.current = editor; }}
-                    />
+                    <CanvasPageContext.Provider value={{ onOpenPage }}>
+                        <Tldraw
+                            store={store}
+                            shapeUtils={CANVAS_SHAPE_UTILS}
+                            hideUi={false}
+                            inferDarkMode
+                            onMount={(editor) => { editorRef.current = editor; }}
+                        />
+                    </CanvasPageContext.Provider>
                 )}
 
                 {/* Càrrega fallida o snapshot inaplicable: bloquegem el llenç

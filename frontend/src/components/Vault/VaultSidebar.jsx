@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/use-api';
 import { toast } from '../../lib/toast';
 import { createPortal } from 'react-dom';
-import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock } from 'lucide-react';
+import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock, CalendarDays } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
@@ -529,6 +529,8 @@ export const VaultSidebar = ({
     onRenameDatabase,
     onDeleteDatabase,
     onOpenRecent,
+    onOpenDaily,
+    showTagsView = true,
     onCreateDashboardPage,
     currentView,
     onCreateDrawing,
@@ -890,6 +892,14 @@ export const VaultSidebar = ({
                     rightElement={<span className="text-[10px] font-semibold text-[var(--text-secondary)]/60 border border-[var(--border-primary)] bg-[var(--bg-secondary)] rounded px-1.5 py-0.5">Cmd K</span>}
                 />
                 <NavItem icon={Clock} label={t('sidebar.recent')} onClick={onOpenRecent} />
+                {onOpenDaily && (
+                    <NavItem
+                        icon={CalendarDays}
+                        label={t('sidebar.daily_note', 'Nota diària')}
+                        onClick={() => onOpenDaily()}
+                        colorClass="text-emerald-500"
+                    />
+                )}
                 <div
                     className={`group relative w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                     onClick={() => onNavigate('drawing')}
@@ -905,6 +915,15 @@ export const VaultSidebar = ({
                         </button>
                     )}
                 </div>
+                {showTagsView && (
+                    <NavItem
+                        icon={Hash}
+                        label={t('sidebar.tags', 'Etiquetes')}
+                        onClick={() => onNavigate('tags')}
+                        isActive={currentView === 'tags'}
+                        colorClass="text-amber-500"
+                    />
+                )}
                 {isAdmin && (
                     <NavItem
                         icon={Trash2}

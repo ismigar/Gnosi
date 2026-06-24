@@ -164,6 +164,7 @@ def get_p(key: str) -> Path:
         "PLANTILLES": base / "Templates",
         "DIBUIXOS": base / "Drawings",
         "WIKI": base / "Wiki",
+        "DAILY": base / "Daily Notes",
         "DASHBOARDS": base / ".Dashboards",
         "NEWSLETTERS": base / "Newsletters",
         # Configs sincronitzats vault-first viuen a `.gnosi/`. La carpeta
@@ -190,6 +191,7 @@ def __getattr__(name: str):
         "PLANTILLES_PATH": "PLANTILLES",
         "DIBUIXOS_PATH": "DIBUIXOS",
         "WIKI_PATH": "WIKI",
+        "DAILY_PATH": "DAILY",
         "DASHBOARDS_PATH": "DASHBOARDS",
         "NEWSLETTERS_PATH": "NEWSLETTERS",
         "GNOSI_CONFIG_PATH": "GNOSI_CONFIG",
@@ -269,6 +271,24 @@ class DrawingSaveRequest(BaseModel):
     title: str
     data: dict
     metadata: dict = {}
+
+
+class DailyNoteRequest(BaseModel):
+    # ISO date (YYYY-MM-DD). The client sends its LOCAL date so the "today"
+    # note matches the user's day regardless of server timezone.
+    date: str
+
+
+class CommentCreateRequest(BaseModel):
+    body: str
+    # Display name shown next to the comment. The server also stamps the
+    # authenticated user id (author_id) independently.
+    author: Optional[str] = None
+
+
+class CommentUpdateRequest(BaseModel):
+    body: Optional[str] = None
+    resolved: Optional[bool] = None
 
 
 class PageInfo(BaseModel):
@@ -959,6 +979,12 @@ def _canonical_visible_table_pages(
 def is_calendar_entry(metadata: Optional[dict]) -> bool:
     """Decides if a page should be saved as a calendar appointment."""
     if not metadata:
+        return False
+
+    # Daily notes (Obsidian-style) carry a `date` but are NOT calendar
+    # appointments — they live in their own folder and must not pollute the
+    # calendar view.
+    if str(metadata.get("note_type") or "").strip().lower() == "daily":
         return False
 
     source = (metadata.get("source") or "").strip().lower()
@@ -3708,10 +3734,13 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     is_template = metadata.get("is_template") is True
     is_dashboard = metadata.get("is_dashboard") is True
+    is_daily = str(metadata.get("note_type") or "").strip().lower() == "daily"
 
     # Determinar directori destí
     if is_template:
         target_dir = get_p("PLANTILLES")
+    elif is_daily:
+        target_dir = get_p("DAILY")
     elif is_calendar_entry(metadata):
         target_dir = get_p("CALENDAR")
     elif is_dashboard:
@@ -3800,6 +3829,329 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         raise HTTPException(
             status_code=500, detail="Error writing the page file"
         )
+
+
+_DAILY_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _load_daily_template_content() -> str:
+    """Returns the body of the daily-note template, if one is configured.
+
+    A template page (in the Templates folder) flagged with
+    `metadata.is_daily_template: true` is used as the initial content for new
+    daily notes — mirroring Obsidian's "Daily note template" setting. Returns
+    an empty string when none exists.
+    """
+    try:
+        templates_dir = get_p("PLANTILLES")
+        if not templates_dir.exists():
+            return ""
+        for f in templates_dir.glob("*.md"):
+            try:
+                meta, body = parse_frontmatter(f.read_text(encoding="utf-8"), f)
+            except Exception:
+                continue
+            if meta.get("is_daily_template") is True:
+                return (body or "").strip()
+    except Exception as e:
+        log.warning(f"Could not load daily-note template: {e}")
+    return ""
+
+
+def _find_daily_note_id(date_str: str) -> Optional[str]:
+    """Returns the page id of the daily note for `date_str`, or None.
+
+    Daily notes are stored as `Daily Notes/{date}.md`, so the common case is an
+    O(1) path check. Falls back to scanning the folder by frontmatter `date`
+    for notes created with a non-ISO title.
+    """
+    daily_dir = get_p("DAILY")
+    if not daily_dir.exists():
+        return None
+    direct = daily_dir / f"{date_str}.md"
+    if direct.exists():
+        try:
+            meta, _ = parse_frontmatter(direct.read_text(encoding="utf-8"), direct)
+            pid = meta.get("id")
+            if pid:
+                return str(pid)
+        except Exception:
+            pass
+    for f in daily_dir.glob("*.md"):
+        try:
+            meta, _ = parse_frontmatter(f.read_text(encoding="utf-8"), f)
+        except Exception:
+            continue
+        if str(meta.get("note_type") or "").lower() == "daily" and str(
+            meta.get("date") or ""
+        ) == date_str:
+            pid = meta.get("id")
+            if pid:
+                return str(pid)
+    return None
+
+
+@router.get("/daily")
+async def list_daily_notes():
+    """Lists existing daily notes (one per day), newest first.
+
+    Used by the sidebar list and by prev/next navigation to jump to the
+    nearest existing note without creating empty ones on every arrow press.
+    """
+    daily_dir = get_p("DAILY")
+    notes = []
+    if daily_dir.exists():
+        for f in daily_dir.glob("*.md"):
+            try:
+                meta, _ = parse_frontmatter(f.read_text(encoding="utf-8"), f)
+            except Exception:
+                continue
+            if str(meta.get("note_type") or "").lower() != "daily":
+                continue
+            date_val = str(meta.get("date") or f.stem)
+            notes.append(
+                {
+                    "id": str(meta.get("id") or ""),
+                    "date": date_val,
+                    "title": meta.get("title") or date_val,
+                }
+            )
+    notes.sort(key=lambda n: n["date"], reverse=True)
+    return notes
+
+
+@router.post("/daily", dependencies=[Depends(require_role("editor"))])
+async def get_or_create_daily_note(
+    request: DailyNoteRequest, background_tasks: BackgroundTasks
+):
+    """Gets (or atomically creates) the daily note for a given date.
+
+    The date arrives as an ISO `YYYY-MM-DD` string in the client's local time.
+    If a note already exists it's returned as-is; otherwise a new one is
+    created in the `Daily Notes` folder, seeded with the daily template (if
+    configured). This single round-trip avoids the find→create race that two
+    separate calls would expose.
+    """
+    date_str = (request.date or "").strip()
+    if not _DAILY_DATE_RE.match(date_str):
+        raise HTTPException(
+            status_code=422, detail="date must be in YYYY-MM-DD format"
+        )
+
+    existing_id = await asyncio.to_thread(_find_daily_note_id, date_str)
+    if existing_id:
+        return await get_page(existing_id)
+
+    content = await asyncio.to_thread(_load_daily_template_content)
+    save_req = PageSaveRequest(
+        title=date_str,
+        content=content,
+        metadata={"note_type": "daily", "date": date_str},
+    )
+    return await create_page(save_req, background_tasks)
+
+
+def _extract_tags(raw) -> list:
+    """Normalizes a `tags` frontmatter value (list or CSV string) to a list."""
+    if isinstance(raw, str):
+        return [t.strip() for t in raw.split(",") if t.strip()]
+    if isinstance(raw, list):
+        return [str(t).strip() for t in raw if str(t).strip()]
+    return []
+
+
+@router.get("/tags")
+async def list_vault_tags():
+    """Aggregates all `tags` across the vault with their page counts.
+
+    Powers the Obsidian-style Tags page: each tag lists the pages that carry
+    it so the UI can navigate straight to them. Built from the in-memory page
+    snapshot (same source the sidebar uses), so it's O(pages) and cache-warm.
+    """
+    pages = await asyncio.to_thread(_get_pages_snapshot)
+    tag_map: dict = {}
+    for p in pages:
+        meta = p.metadata or {}
+        if meta.get("is_template"):
+            continue
+        for tag in _extract_tags(meta.get("tags")):
+            tag_map.setdefault(tag, []).append({"id": p.id, "title": p.title})
+    result = [
+        {"name": name, "count": len(pgs), "pages": pgs}
+        for name, pgs in tag_map.items()
+    ]
+    # Most-used first, then alphabetical for stability.
+    result.sort(key=lambda x: (-x["count"], x["name"].lower()))
+    return {"tags": result}
+
+
+# ---------------------------------------------------------------------------
+# Page comments (Notion-style discussion threads)
+#
+# Stored vault-first as a single JSON map under `.gnosi/page_comments.json`
+# keyed by page id, so comments travel with the vault and survive sync. Low
+# write frequency → a process lock + atomic write is plenty (same pattern as
+# custom icons).
+# ---------------------------------------------------------------------------
+_comments_lock = threading.Lock()
+
+
+def _get_comments_path() -> Path:
+    return get_p("GNOSI_CONFIG") / "page_comments.json"
+
+
+def _load_comments() -> dict:
+    with _comments_lock:
+        try:
+            path = _get_comments_path()
+            if not path.exists():
+                return {}
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+
+def _save_comments(data: dict) -> None:
+    with _comments_lock:
+        path = _get_comments_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_json(path, data, indent=2, ensure_ascii=False)
+
+
+@router.get("/pages/{page_id}/comments")
+async def list_page_comments(page_id: str):
+    """Returns the comment thread for a page (oldest first)."""
+    data = await asyncio.to_thread(_load_comments)
+    return {"comments": data.get(page_id, [])}
+
+
+@router.post("/pages/{page_id}/comments", dependencies=[Depends(require_role("editor"))])
+async def add_page_comment(
+    page_id: str,
+    request: CommentCreateRequest,
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    """Appends a comment to a page's thread."""
+    body = (request.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=422, detail="Comment body cannot be empty")
+
+    comment = {
+        "id": str(uuid.uuid4()),
+        "body": body,
+        "author": (request.author or "").strip() or "Anònim",
+        "author_id": getattr(context, "user_id", None),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": None,
+        "resolved": False,
+    }
+
+    data = await asyncio.to_thread(_load_comments)
+    data.setdefault(page_id, []).append(comment)
+    await asyncio.to_thread(_save_comments, data)
+    return comment
+
+
+@router.patch(
+    "/pages/{page_id}/comments/{comment_id}",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def update_page_comment(
+    page_id: str, comment_id: str, request: CommentUpdateRequest
+):
+    """Edits a comment's body and/or toggles its resolved flag."""
+    data = await asyncio.to_thread(_load_comments)
+    thread = data.get(page_id) or []
+    target = next((c for c in thread if c.get("id") == comment_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    if request.body is not None:
+        new_body = request.body.strip()
+        if not new_body:
+            raise HTTPException(status_code=422, detail="Comment body cannot be empty")
+        target["body"] = new_body
+    if request.resolved is not None:
+        target["resolved"] = bool(request.resolved)
+    target["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await asyncio.to_thread(_save_comments, data)
+    return target
+
+
+@router.delete(
+    "/pages/{page_id}/comments/{comment_id}",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def delete_page_comment(page_id: str, comment_id: str):
+    """Removes a comment from a page's thread."""
+    data = await asyncio.to_thread(_load_comments)
+    thread = data.get(page_id) or []
+    new_thread = [c for c in thread if c.get("id") != comment_id]
+    if len(new_thread) == len(thread):
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if new_thread:
+        data[page_id] = new_thread
+    else:
+        data.pop(page_id, None)
+    await asyncio.to_thread(_save_comments, data)
+    return {"status": "deleted", "id": comment_id}
+
+
+# ---------------------------------------------------------------------------
+# Plugin registry — per-vault on/off state for optional features.
+#
+# v1 is an INTERNAL registry: the app declares built-in feature "plugins"
+# (daily notes, tags page, comments, share, canvas cards…) and this endpoint
+# persists which are disabled. Stored vault-first at `.gnosi/plugins.json`.
+# Third-party/sandboxed plugins are an explicit non-goal of v1 (security).
+# ---------------------------------------------------------------------------
+_plugins_lock = threading.Lock()
+
+
+class PluginsUpdateRequest(BaseModel):
+    # List of plugin ids the user has turned OFF. Everything else is on.
+    disabled: list = []
+
+
+def _get_plugins_path() -> Path:
+    return get_p("GNOSI_CONFIG") / "plugins.json"
+
+
+def _load_plugins_state() -> dict:
+    with _plugins_lock:
+        try:
+            path = _get_plugins_path()
+            if not path.exists():
+                return {"disabled": []}
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                return {"disabled": []}
+            data.setdefault("disabled", [])
+            return data
+        except Exception:
+            return {"disabled": []}
+
+
+@router.get("/plugins")
+async def get_plugins_state():
+    """Returns the plugin on/off state (list of disabled plugin ids)."""
+    return await asyncio.to_thread(_load_plugins_state)
+
+
+@router.put("/plugins", dependencies=[Depends(require_role("editor"))])
+async def set_plugins_state(request: PluginsUpdateRequest):
+    """Persists which plugins are disabled."""
+    disabled = [str(x) for x in (request.disabled or [])]
+    payload = {"disabled": disabled}
+    def _write():
+        with _plugins_lock:
+            path = _get_plugins_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            safe_write_json(path, payload, indent=2, ensure_ascii=False)
+    await asyncio.to_thread(_write)
+    return payload
 
 
 def get_table_id(metadata: Optional[dict]) -> Optional[str]:

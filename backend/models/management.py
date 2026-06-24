@@ -80,6 +80,26 @@ class VaultAccess(Base):
     user = relationship("User")
     workspace = relationship("Workspace")
 
+class ShareLink(Base):
+    """Public/external share link for a single vault page (Notion-style).
+
+    The `id` IS the opaque token used in the public URL `/s/{id}`. Access is
+    anonymous (no membership required) but bounded by `permission`,
+    `expires_at` and `revoked`. We never hard-delete on revoke — keeping the
+    row preserves an audit trail of who shared what.
+    """
+    __tablename__ = "share_links"
+
+    id = Column(String, primary_key=True, default=lambda: uuid.uuid4().hex)
+    page_id = Column(String, nullable=False, index=True)
+    workspace_id = Column(String, nullable=False)
+    created_by = Column(String)  # user_id of the sharer
+    permission = Column(String, default="view")  # view | comment | edit
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    revoked = Column(Integer, default=0)  # 0/1 (SQLite has no bool)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 # --- Pydantic Schemas for API ---
 
 class UserBase(BaseModel):
