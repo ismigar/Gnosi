@@ -26,6 +26,16 @@ export function asBool(x) {
     return TRUTHY.has(String(x).trim().toLowerCase());
 }
 
+// Parseja un valor numèric tolerant amb el decimal LOCAL (coma): "0,25" → 0.25.
+// `parseFloat` s'atura a la coma ("0,25" → 0), de manera que un camp number amb
+// valors en format català/castellà s'ordenava i es filtrava malament (tots els
+// "0,xx" empataven a 0). Només el cas INEQUÍVOC (una sola coma, sense punt de
+// milers); la resta cau a parseFloat (compatible amb "0.25", "5", "12.5"…).
+function parseNumericValue(s) {
+    const t = String(s).trim();
+    return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
+}
+
 /**
  * Aplica una llista de filtres a una pàgina/node.
  * 
@@ -70,19 +80,18 @@ export function matchesFilters(item, filters = []) {
             case 'not_contains': return !arrLower.some(x => x.includes(filterVal));
             case 'is_empty': return arr.length === 0;
             case 'is_not_empty': return arr.length > 0;
-            // major/menor que: si TOTS DOS (valor i filtre) són números purs,
-            // comparació numèrica (parseFloat); si no, comparació de CADENA en
-            // minúscules. Per a dates ISO ("YYYY-MM-DD"[T"HH:MM"]) l'ordre
-            // lexicogràfic és cronològic i coincideix amb Python (ASCII), de
-            // manera que filtrar una columna de data per rang funciona i manté
-            // la paritat amb DbViewEmbed.applyFilter i el backend apply_filter.
+            // major/menor que: si TOTS DOS (valor i filtre) són números purs
+            // (NUM_RE, que EXCLOU les dates "YYYY-MM-DD"), comparació numèrica
+            // amb `parseNumericValue` ('12,5' → 12.5, decimal de coma); si no,
+            // comparació de CADENA en minúscules. Per a dates ISO l'ordre
+            // lexicogràfic és cronològic (paritat amb DbViewEmbed/backend).
             case 'greater_than':
             case 'less_than': {
                 const gt = filter.operator === 'greater_than';
                 const targetNum = NUM_RE.test(filterVal.trim());
                 return arr.some((x, i) => {
                     if (targetNum && NUM_RE.test(x.trim())) {
-                        const n1 = parseFloat(x), n2 = parseFloat(filterVal);
+                        const n1 = parseNumericValue(x), n2 = parseNumericValue(filterVal);
                         return gt ? n1 > n2 : n1 < n2;
                     }
                     const xl = arrLower[i];
@@ -133,16 +142,15 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
         if (aEmpty && bEmpty) return 0;
         return aEmpty ? 1 : -1; // buits sempre al final
     }
-    // `parseFloat` parseja PREFIXOS numèrics ('2024-07-05' → 2024), de manera
-    // que dues dates del mateix any es comparaven com a iguals i l'ordenació per
-    // una columna de DATA no ordenava dins de l'any. Només tractem el valor com a
-    // numèric si TOTA la cadena és un número (dígits, separadors, exponent); les
-    // dates i el text passen al fallback de cadena, però es conserva `parseFloat`
-    // per als números (incl. '12,5' → 12, paritat amb el backend).
-    const numRe = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$/;
-    const isNumeric = numRe.test(aVal.trim()) && numRe.test(bVal.trim());
+    // Només tractem el valor com a NUMÈRIC si TOTA la cadena és un número
+    // (NUM_RE, que EXCLOU les dates): `parseFloat`/`parseNumericValue` parsegen
+    // PREFIXOS ('2024-07-05' → 2024), i sense aquest filtre les dates del mateix
+    // any es comparaven iguals i l'ordre de DATA fallava. Les dates i el text
+    // passen al fallback de cadena. Per als números usem `parseNumericValue`
+    // ('12,5' → 12.5, decimal de coma; #505).
+    const isNumeric = NUM_RE.test(aVal.trim()) && NUM_RE.test(bVal.trim());
     let cmp = isNumeric
-        ? parseFloat(aVal) - parseFloat(bVal)
+        ? parseNumericValue(aVal) - parseNumericValue(bVal)
         : sortKey(aVal).localeCompare(sortKey(bVal), 'ca', { sensitivity: 'base' });
     if (direction === 'desc') cmp = -cmp;
     return cmp;
