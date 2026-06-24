@@ -7,6 +7,13 @@ const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ic
 const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov', 'avi'];
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'flac', 'm4a'];
 
+// Extreu l'extensió (en minúscules) d'una URL o path, ELIMINANT primer la query
+// i el fragment. Cal fer-ho ABANS de partir per `.`: si no, una imatge relativa
+// amb query (`foto.jpg?v=2`) o una query amb punt (`clip.mp4?t=1.5`) deixava
+// l'extensió bruta i la detecció de mèdia fallava (no es renderitzava).
+const extOf = (value) =>
+    String(value).split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
+
 /**
  * Detecta si un valor de camp és una URL d'imatge.
  * @param {string} value
@@ -14,15 +21,7 @@ const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'flac', 'm4a'];
  */
 export function isImageUrl(value) {
     if (!value || typeof value !== 'string') return false;
-    try {
-        const url = new URL(value);
-        const ext = url.pathname.split('.').pop()?.toLowerCase();
-        return IMAGE_EXTENSIONS.includes(ext);
-    } catch {
-        // Potser és un path relatiu
-        const ext = value.split('.').pop()?.toLowerCase();
-        return IMAGE_EXTENSIONS.includes(ext);
-    }
+    return IMAGE_EXTENSIONS.includes(extOf(value));
 }
 
 /**
@@ -32,8 +31,7 @@ export function isImageUrl(value) {
  */
 export function isVideoUrl(value) {
     if (!value || typeof value !== 'string') return false;
-    const ext = value.split('.').pop()?.toLowerCase().split('?')[0];
-    return VIDEO_EXTENSIONS.includes(ext);
+    return VIDEO_EXTENSIONS.includes(extOf(value));
 }
 
 /**
@@ -43,8 +41,7 @@ export function isVideoUrl(value) {
  */
 export function isAudioUrl(value) {
     if (!value || typeof value !== 'string') return false;
-    const ext = value.split('.').pop()?.toLowerCase().split('?')[0];
-    return AUDIO_EXTENSIONS.includes(ext);
+    return AUDIO_EXTENSIONS.includes(extOf(value));
 }
 
 /**
