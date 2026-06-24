@@ -194,6 +194,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
                 clearTimeout(autosaveTimerRef.current);
             }
             autosaveTimerRef.current = setTimeout(() => {
+                autosaveTimerRef.current = null;
                 handleSave();
             }, 1000);
         }, { scope: 'document', source: 'user' });
@@ -205,6 +206,21 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess 
             }
         };
     }, [drawingId, store, handleSave, loadState]);
+
+    // Flush en desmuntar: si queda un autosave PENDENT (un canvi fet menys d'1s
+    // abans de tancar el dibuix o navegar fora), desa'l abans que el component
+    // desaparegui. Sense això, el cleanup de dalt només cancel·la el timer i
+    // l'últim traç es perdia. Ref a la darrera `handleSave` perquè l'effect
+    // d'unmount (deps buides) no en capturi una de vella amb un `title` ranci.
+    const handleSaveRef = useRef(handleSave);
+    useEffect(() => { handleSaveRef.current = handleSave; }, [handleSave]);
+    useEffect(() => () => {
+        if (autosaveTimerRef.current) {
+            clearTimeout(autosaveTimerRef.current);
+            autosaveTimerRef.current = null;
+            handleSaveRef.current?.();
+        }
+    }, []);
 
     // Desar amb Ctrl+S / Cmd+S
     useEffect(() => {
