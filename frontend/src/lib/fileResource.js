@@ -216,8 +216,23 @@ export function interpolateNamePattern(pattern, meta = {}) {
         return undefined;
     };
     let out = pattern.replace(/\{([^{}]+)\}/g, (_, token) => {
-        const [rawField, accessor] = token.trim().split('.');
-        const v = lookup(rawField);
+        // El NOM d'un camp pot contenir un punt (p. ex. "Núm. pàgines"): provem
+        // primer el token SENCER com a camp i NOMÉS si no existeix interpretem el
+        // que ve després del primer punt com a accessor (p. ex. {Authors.cognom1}).
+        // Abans `split('.')` trencava sempre pel punt i un camp amb punt al nom
+        // no es resolia mai (sortia buit al nom de fitxer).
+        const trimmed = token.trim();
+        let rawField = trimmed;
+        let accessor = '';
+        let v = lookup(rawField);
+        if (v === undefined) {
+            const dot = trimmed.indexOf('.');
+            if (dot >= 0) {
+                rawField = trimmed.slice(0, dot).trim();
+                accessor = trimmed.slice(dot + 1).trim();
+                v = lookup(rawField);
+            }
+        }
         if (v === undefined || v === null) return '';
         // Camp autoria: array d'objectes {nom, cognom1, cognom2} → format per accessor.
         if (Array.isArray(v) && v.some(a => a && typeof a === 'object' && ('cognom1' in a || 'cognom2' in a || 'nom' in a))) {
