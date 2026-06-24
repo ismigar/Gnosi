@@ -537,6 +537,10 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <option value="formula">{t('schema.type_formula')}</option>
                         <option value="rollup">{t('schema.type_rollup')}</option>
                         <option value="virtual">{t('schema.type_virtual', 'Derivat')}</option>
+                        <option value="created_time">{t('schema.type_created_time', 'Creat el')}</option>
+                        <option value="last_edited_time">{t('schema.type_last_edited_time', 'Editat el')}</option>
+                        <option value="created_by">{t('schema.type_created_by', 'Creat per')}</option>
+                        <option value="last_edited_by">{t('schema.type_last_edited_by', 'Editat per')}</option>
                         <option value="button">{t('schema.type_button', 'Botó')}</option>
                         <option value="title">{t('schema.type_title')}</option>
                     </select>

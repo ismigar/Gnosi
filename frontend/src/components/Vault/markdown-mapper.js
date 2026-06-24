@@ -59,11 +59,24 @@ export const fileUrlToSentinel = (href) => {
     return href;
 };
 
+// --- Estat de serialització de notes al peu ---
+// Les footnotes inline (`[^N]`) numeren seqüencialment segons l'ordre del
+// document i acumulen les seves definicions (`[^N]: text`) per afegir-les al
+// final del Markdown. Com que `blocksToRichMarkdown` serialitza els blocs (i
+// els seus fills) EN ORDRE, n'hi ha prou amb un comptador d'estat de mòdul que
+// es reinicia a cada serialització completa.
+let _footnoteDefs = [];
+let _footnoteOrder = new Map(); // id de la footnote → número assignat
+
 /**
  * Converteix una llista de blocs de BlockNote a Markdown enriquit.
  */
 export const blocksToRichMarkdown = (blocks, editor) => {
     if (!blocks || !Array.isArray(blocks)) return "";
+
+    // Reinicia l'estat de footnotes per a aquesta serialització.
+    _footnoteDefs = [];
+    _footnoteOrder = new Map();
 
     // Separem els blocs top-level amb una línia en blanc (\n\n).
     // Sense això, dos paràgrafs consecutius serien "Linia1\nLinia2" i el
@@ -95,6 +108,12 @@ export const blocksToRichMarkdown = (blocks, editor) => {
             "el contingut de l'editor té un format inesperat. Save abortat per " +
             "no sobreescriure la nota."
         );
+    }
+
+    // Afegeix les definicions de les notes al peu al final del document
+    // (`[^1]: text`), recollides durant la serialització dels blocs.
+    if (_footnoteDefs.length > 0) {
+        result = (result ? result + "\n\n" : "") + _footnoteDefs.join("\n");
     }
     return result;
 };
@@ -197,6 +216,30 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         }
         if (!locale || locale === 'ca-AD') return `{{bibliography:${style}}}\n`;
         return `{{bibliography:${style}:${locale}}}\n`;
+    }
+
+    if (block.type === "mermaid") {
+        // Diagrama Mermaid → fence ```mermaid (portable a Obsidian/GitHub).
+        const code = String(block?.props?.code || "").replace(/\n+$/, "");
+        return "```mermaid\n" + code + "\n```\n";
+    }
+
+    if (block.type === "tableOfContents") {
+        // Índex de continguts → marca `{{toc}}` (mirall de `{{bibliography}}`).
+        return "{{toc}}\n";
+    }
+
+    if (block.type === "linkcard") {
+        // Targeta d'enllaç → `[bookmark: URL](URL)` (simètric a l'embed).
+        const u = String(block?.props?.url || "").trim();
+        return u ? `[bookmark: ${u}](${u})\n` : "";
+    }
+
+    if (block.type === "synced") {
+        // Bloc sincronitzat → fence ```gnosi-synced amb el sync_id.
+        const sid = String(block?.props?.sync_id || "").trim();
+        if (!sid) return "";
+        return "```gnosi-synced\n" + JSON.stringify({ sync_id: sid }) + "\n```\n";
     }
 
     if (block.type === "transclusion") {
@@ -520,6 +563,60 @@ const processBlocksForCitations = (blocks) => {
     });
 };
 
+// --- Mencions de persones (`@[Nom|id]`) i dates (`@2026-06-25[T09:00]`) ---
+// Tokens segurs: `@[` no col·lisiona amb cites (`@key` exigeix lletra) ni amb
+// wikilinks; `@dígit` tampoc és cita. Es processen DESPRÉS de cites/wikilinks.
+const MENTION_RE = /@\[([^\]|]*)\|([^\]]*)\]/g;
+const DATEREF_RE = /@(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/g;
+
+const convertTextTokens = (content, regex, build) => {
+    if (!Array.isArray(content)) return content;
+    const next = [];
+    content.forEach(item => {
+        if (item?.type === 'link' && Array.isArray(item.content)) {
+            next.push({ ...item, content: convertTextTokens(item.content, regex, build) });
+            return;
+        }
+        if (item?.type !== 'text' || typeof item.text !== 'string') { next.push(item); return; }
+        const text = item.text;
+        let lastIndex = 0;
+        let match;
+        regex.lastIndex = 0;
+        let found = false;
+        while ((match = regex.exec(text)) !== null) {
+            found = true;
+            if (match.index > lastIndex) next.push({ ...item, text: text.slice(lastIndex, match.index) });
+            next.push(build(match));
+            lastIndex = match.index + match[0].length;
+        }
+        if (!found) { next.push(item); return; }
+        if (lastIndex < text.length) next.push({ ...item, text: text.slice(lastIndex) });
+    });
+    return next;
+};
+
+const convertToMentions = (content) => convertTextTokens(content, MENTION_RE, (m) => ({
+    type: 'mention', props: { name: String(m[1] || '').trim(), id: String(m[2] || '').trim() },
+}));
+const convertToDates = (content) => convertTextTokens(content, DATEREF_RE, (m) => ({
+    type: 'dateref', props: { date: String(m[1] || ''), time: String(m[2] || '') },
+}));
+
+const makeBlockProcessor = (convert) => {
+    const proc = (blocks) => {
+        if (!blocks || !Array.isArray(blocks)) return blocks;
+        return blocks.map(block => {
+            const nb = { ...block };
+            if (nb.content) nb.content = convert(nb.content);
+            if (nb.children) nb.children = proc(nb.children);
+            return nb;
+        });
+    };
+    return proc;
+};
+const processBlocksForMentions = makeBlockProcessor(convertToMentions);
+const processBlocksForDates = makeBlockProcessor(convertToDates);
+
 const codeBlockText = (block) => {
     if (!block?.content) return '';
     if (typeof block.content === 'string') return block.content;
@@ -555,6 +652,27 @@ const promoteEmbedBlocks = (blocks) => {
             props: { url: String(item.href), caption: '' },
             content: undefined,
         };
+    });
+};
+
+// Converteix paràgrafs que només contenen `[bookmark: URL](URL)` en blocs
+// `linkcard` (targeta de previsualització). Mirall de `promoteEmbedBlocks`.
+const promoteLinkCards = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteLinkCards(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content || content.length !== 1) return newBlock;
+        const item = content[0];
+        if (!item || item.type !== 'link' || !Array.isArray(item.content)) return newBlock;
+        const text = item.content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('');
+        const match = text.match(/^bookmark:\s*(.+)$/i);
+        if (!match || !item.href) return newBlock;
+        return { ...newBlock, type: 'linkcard', props: { url: String(item.href) }, content: undefined };
     });
 };
 
@@ -623,6 +741,16 @@ const promoteCustomFences = (blocks) => {
         }
         if (block?.type !== 'codeBlock') return block;
         const lang = String(block.props?.language || '').toLowerCase();
+        if (lang === 'mermaid') {
+            // Fence ```mermaid → bloc `mermaid` (renderitza el diagrama).
+            return { type: 'mermaid', props: { code: codeBlockText(block) } };
+        }
+        if (lang === 'gnosi-synced') {
+            // Fence ```gnosi-synced → bloc `synced` (contingut de font compartida).
+            let sid = '';
+            try { sid = String(JSON.parse(codeBlockText(block))?.sync_id || ''); } catch { sid = codeBlockText(block).trim(); }
+            return { type: 'synced', props: { sync_id: sid } };
+        }
         if (lang !== 'gnosi-view' && lang !== 'gnosi-database') return block;
         let payload = null;
         try { payload = JSON.parse(codeBlockText(block)); } catch { return block; }
@@ -653,6 +781,65 @@ const promoteCustomFences = (blocks) => {
                 heading_level: String(Number(payload.heading_level) || 1),
             },
         };
+    });
+};
+
+// Converteix un paràgraf que només conté `{{toc}}` en un bloc `tableOfContents`.
+// Patró simètric a `promoteBibliographyBlocks`.
+const promoteToc = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteToc(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content) return newBlock;
+        const text = content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('').trim();
+        if (!/^\{\{toc\}\}$/i.test(text)) return newBlock;
+        return { ...newBlock, type: 'tableOfContents', props: {}, content: undefined };
+    });
+};
+
+// Reemplaça els marcadors de nota al peu (`[^id]`) dins de nodes de text per
+// contingut inline `footnote`, recuperant el text de la definició de `defs`
+// (mapa id→text extret abans del parser, vegeu richMarkdownToBlocks). El
+// marcador en si NO és un wikilink ni un link (BlockNote el deixa com a text
+// literal), així que aquest post-procés és segseur.
+const FOOTNOTE_MARK_RE = /\[\^([^\]\s]+)\]/g;
+const splitTextForFootnotes = (item, defs) => {
+    const text = item.text;
+    if (typeof text !== 'string' || text.indexOf('[^') === -1) return [item];
+    const out = [];
+    let lastIndex = 0;
+    let match;
+    FOOTNOTE_MARK_RE.lastIndex = 0;
+    while ((match = FOOTNOTE_MARK_RE.exec(text)) !== null) {
+        const start = match.index;
+        const label = match[1];
+        if (start > lastIndex) out.push({ ...item, text: text.slice(lastIndex, start) });
+        const fid = (typeof crypto !== 'undefined' && crypto?.randomUUID) ? crypto.randomUUID() : `fn-${label}-${start}`;
+        out.push({ type: 'footnote', props: { id: fid, content: String(defs[label] || '') } });
+        lastIndex = start + match[0].length;
+    }
+    if (lastIndex < text.length) out.push({ ...item, text: text.slice(lastIndex) });
+    return out;
+};
+const promoteFootnotes = (blocks, defs) => {
+    if (!defs || !blocks || !Array.isArray(blocks)) return blocks;
+    if (Object.keys(defs).length === 0) return blocks;
+    return blocks.map(block => {
+        const newBlock = { ...block };
+        if (Array.isArray(newBlock.content)) {
+            newBlock.content = newBlock.content.flatMap(it =>
+                (it && it.type === 'text') ? splitTextForFootnotes(it, defs) : [it]
+            );
+        }
+        if (Array.isArray(newBlock.children)) {
+            newBlock.children = promoteFootnotes(newBlock.children, defs);
+        }
+        return newBlock;
     });
 };
 
@@ -863,6 +1050,35 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             const ck = item.props?.citationKey || "";
             return ck ? `[@${ck}]` : "";
         }
+        if (item.type === "footnote") {
+            // Nota al peu inline: assigna un número seqüencial (per ordre del
+            // document) i acumula la definició `[^N]: text` per al final.
+            const fid = String(item.props?.id || "");
+            const key = fid || `auto-${_footnoteOrder.size + 1}`;
+            let num = _footnoteOrder.get(key);
+            if (!num) {
+                num = _footnoteOrder.size + 1;
+                _footnoteOrder.set(key, num);
+                const body = String(item.props?.content || "").replace(/\s*\n\s*/g, " ").trim();
+                _footnoteDefs.push(`[^${num}]: ${body}`);
+            }
+            return `[^${num}]`;
+        }
+        if (item.type === "mention") {
+            // Menció de persona → `@[Nom|id]` (token segur: `@[` no és cita ni
+            // wikilink). Es netegen `|` i `]` del nom per no trencar el token.
+            const name = String(item.props?.name || "").replace(/[|\]]/g, " ").trim();
+            const id = String(item.props?.id || "").trim();
+            if (!name && !id) return "";
+            return `@[${name}|${id}]`;
+        }
+        if (item.type === "dateref") {
+            // Menció de data → `@2026-06-25` o `@2026-06-25T09:00` (amb recordatori).
+            const date = String(item.props?.date || "").trim();
+            const time = String(item.props?.time || "").trim();
+            if (!date) return "";
+            return time ? `@${date}T${time}` : `@${date}`;
+        }
         return "";
     }).join("");
 };
@@ -980,7 +1196,11 @@ const parsePlainMarkdownBlock = async (text, editor) => {
         blocks = [{ type: "paragraph", content: text }];
     }
 
-    return processBlocksForCitations(processBlocksForWikilinks(blocks));
+    return processBlocksForDates(
+        processBlocksForMentions(
+            processBlocksForCitations(processBlocksForWikilinks(blocks))
+        )
+    );
 };
 
 /**
@@ -1012,6 +1232,22 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
         try { return JSON.parse(markdown); } catch (e) { console.error(e); }
     }
+
+    // Extreu les definicions de notes al peu (`[^id]: text`) ABANS del parser.
+    // markdown-it (tryParseMarkdownToBlocks) interpretaria `[^id]: text` com una
+    // "link reference definition" i l'eliminaria silenciosament; per això les
+    // capturem i traiem aquí, i després `promoteFootnotes` reconstrueix les
+    // marques inline `[^id]` amb el seu text. Els marcadors dins del cos SÍ que
+    // passen pel parser com a text literal (no són links vàlids).
+    const footnoteDefs = {};
+    const _rawLines = markdown.split("\n");
+    const _keptLines = [];
+    for (const _ln of _rawLines) {
+        const _m = _ln.match(/^\[\^([^\]\s]+)\]:\s?(.*)$/);
+        if (_m) { footnoteDefs[_m[1]] = _m[2]; }
+        else { _keptLines.push(_ln); }
+    }
+    markdown = _keptLines.join("\n");
 
     const lines = markdown.split("\n");
 
@@ -1278,5 +1514,10 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
     };
 
     const parsed = await parseRecursive(lines);
-    return restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteEmbedBlocks(parsed))));
+    return promoteFootnotes(
+        promoteToc(
+            restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteLinkCards(promoteEmbedBlocks(parsed)))))
+        ),
+        footnoteDefs,
+    );
 };

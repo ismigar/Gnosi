@@ -892,6 +892,7 @@ export const VaultSidebar = ({
                     rightElement={<span className="text-[10px] font-semibold text-[var(--text-secondary)]/60 border border-[var(--border-primary)] bg-[var(--bg-secondary)] rounded px-1.5 py-0.5">Cmd K</span>}
                 />
                 <NavItem icon={Clock} label={t('sidebar.recent')} onClick={onOpenRecent} />
+                <NavItem icon={Hash} label={t('sidebar.tags', 'Etiquetes')} onClick={() => window.dispatchEvent(new CustomEvent('gnosi:open-tags'))} />
                 {onOpenDaily && (
                     <NavItem
                         icon={CalendarDays}

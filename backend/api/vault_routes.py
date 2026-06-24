@@ -298,6 +298,7 @@ class PageInfo(BaseModel):
     is_database: bool = False
     metadata: dict = {}
     last_modified: str
+    created_time: Optional[str] = None  # data de creació del fitxer (st_birthtime)
     size: int
     folder: str = (
         ""  # relative folder path inside the vault (e.g. "Databases/Gnosi/Resources")
@@ -2712,6 +2713,8 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         "path": str(file_path),
         "mtime_ns": stat_result.st_mtime_ns,
         "mtime": stat_result.st_mtime,
+        # Data de creació del fitxer (macOS: st_birthtime; fallback st_ctime).
+        "created_mtime": getattr(stat_result, "st_birthtime", None) or stat_result.st_ctime,
         "size": stat_result.st_size,
         "id": file_id,
         "title": title,
@@ -2759,6 +2762,7 @@ def _build_cache_entry_from_memory(
         "path": str(file_path),
         "mtime_ns": stat_result.st_mtime_ns,
         "mtime": stat_result.st_mtime,
+        "created_mtime": getattr(stat_result, "st_birthtime", None) or stat_result.st_ctime,
         "size": stat_result.st_size,
         "id": file_id,
         "title": title,
@@ -3084,6 +3088,7 @@ def _build_pages_by_table_index(v_str: str) -> Dict[str, List["PageInfo"]]:
             is_database=entry.get("is_database", False),
             metadata=metadata,
             last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
+            created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
             size=entry.get("size", 0),
             folder=entry.get("folder", ""),
             path=entry.get("path"),
@@ -3293,6 +3298,7 @@ def _get_pages_snapshot(
             is_database=entry["is_database"],
             metadata=metadata,
             last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
+            created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
             size=entry["size"],
             folder=entry["folder"],
             path=entry.get("path"),
@@ -3467,6 +3473,7 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
             is_database=entry["is_database"],
             metadata=entry.get("metadata") or {},
             last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
+            created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
             size=entry["size"],
             folder=entry["folder"],
             path=entry.get("path"),
@@ -6630,9 +6637,31 @@ def _invalidate_cite_key_index(v_str: str = None) -> None:
             _cite_key_index_size_at_build.pop(v_str, None)
 
 
+def normalize_aliases(val) -> list[str]:
+    """Normalitza el camp `aliases` del frontmatter a una llista de strings.
+
+    Accepta una llista YAML (`aliases: [a, b]`), un escalar, o una cadena
+    separada per comes (`aliases: a, b`). Buida els valors no-text.
+    """
+    if val is None:
+        return []
+    if isinstance(val, str):
+        parts = [p.strip() for p in val.split(",")]
+        return [p for p in parts if p]
+    if isinstance(val, (list, tuple)):
+        out = []
+        for item in val:
+            s = str(item).strip()
+            if s:
+                out.append(s)
+        return out
+    s = str(val).strip()
+    return [s] if s else []
+
+
 @router.get("/resolve-by-title")
 async def resolve_by_title(title: str):
-    """Resol un títol literal a UUID consultant el _page_index_entries.
+    """Resol un títol literal (o un àlies de nota) a UUID via _page_index_entries.
 
     Cas d'ús: el frontend ha rebut un wikilink `[[Foo]]` però el seu
     `idToTitle` està buit o desactualitzat (just després d'una mutació de
@@ -6640,6 +6669,9 @@ async def resolve_by_title(title: str):
     de fer GET /pages/<title> i deixar al backend el match (que ara té
     fallback per títol gràcies a `find_page_path`), el frontend pot
     consultar aquí i obtenir l'UUID directament — ràpid i sense sorolls.
+
+    A més del títol, casa amb els àlies de nota declarats al frontmatter
+    (`aliases:`), de manera que `[[Àlies]]` resol a la pàgina (estil Obsidian).
     """
     title_lower = str(title or "").strip().lower()
     if not title_lower:
@@ -6649,6 +6681,7 @@ async def resolve_by_title(title: str):
     if not v_path:
         raise HTTPException(status_code=503, detail="No active vault")
     v_str = str(v_path)
+    alias_match = None
     with _page_index_lock:
         entries = _page_index_entries.get(v_str, {})
         for entry in list(entries.values()):
@@ -6658,8 +6691,23 @@ async def resolve_by_title(title: str):
                     "id": entry.get("id"),
                     "title": entry.get("title"),
                     "folder": entry.get("folder"),
+                    "matched_alias": None,
                 }
-    return {"id": None, "title": None, "folder": None}
+            # Recordem el primer match per àlies, però el títol té prioritat.
+            if alias_match is None:
+                meta = entry.get("metadata") or {}
+                for alias in normalize_aliases(meta.get("aliases")):
+                    if alias.strip().lower() == title_lower:
+                        alias_match = entry
+                        break
+    if alias_match is not None:
+        return {
+            "id": alias_match.get("id"),
+            "title": alias_match.get("title"),
+            "folder": alias_match.get("folder"),
+            "matched_alias": title,
+        }
+    return {"id": None, "title": None, "folder": None, "matched_alias": None}
 
 
 def _extract_images_from_body(body: str, max_images: int = 6) -> list[str]:
@@ -10434,6 +10482,286 @@ def get_global_index():
     Same rationale as /backlinks and /unlinked-mentions below.
     """
     return build_id_title_index()
+
+
+@router.get("/alias-index")
+def get_alias_index():
+    """Mapa id → [àlies] de les notes que declaren `aliases:` al frontmatter.
+
+    El consumeix el frontend per (a) suggerir àlies a l'autocompletat de
+    wikilinks `[[…]]` i (b) resoldre `[[Àlies]]` localment sense un round-trip a
+    /resolve-by-title. Estil Obsidian: una nota pot tenir múltiples àlies.
+    """
+    from backend.services.context_vars import get_active_vault_path
+    v_path = get_active_vault_path()
+    if not v_path:
+        return {}
+    v_str = str(v_path)
+    out: dict[str, list[str]] = {}
+    with _page_index_lock:
+        for entry in list(_page_index_entries.get(v_str, {}).values()):
+            meta = entry.get("metadata") or {}
+            aliases = normalize_aliases(meta.get("aliases"))
+            if aliases:
+                pid = entry.get("id")
+                if pid:
+                    out[str(pid)] = aliases
+    return out
+
+
+@router.get("/link-preview")
+async def get_link_preview(url: str):
+    """Extreu metadades Open Graph d'una URL per a una targeta de previsualització.
+
+    Retorna `{url, title, description, image, site_name, favicon}`. Pensat per a
+    enllaços enganxats al cos d'una nota (estil Notion bookmark). Seguretat
+    bàsica: només http/https, timeout curt, mida de descàrrega limitada, i no
+    segueix a esquemes interns. No és un proxy SSRF complet — ús personal local.
+    """
+    import html as _html
+    import httpx
+    from urllib.parse import urlparse, urljoin
+
+    raw = str(url or "").strip()
+    parsed = urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise HTTPException(status_code=400, detail="URL http/https invàlida")
+    # Evita destins òbviament interns (defensa lleugera contra SSRF).
+    host = (parsed.hostname or "").lower()
+    if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1") or host.endswith(".local"):
+        raise HTTPException(status_code=400, detail="Host no permès")
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=8.0) as client:
+            resp = await client.get(
+                raw,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; GnosiBot/1.0)"},
+            )
+            ctype = resp.headers.get("content-type", "")
+            if "html" not in ctype and "xml" not in ctype:
+                # No és HTML (p.ex. PDF/imatge): retorna el mínim útil.
+                return {"url": raw, "title": parsed.path.rsplit("/", 1)[-1] or host,
+                        "description": "", "image": "", "site_name": host, "favicon": ""}
+            text = resp.text[:600_000]  # limita el parseig a ~600 KB
+            final_url = str(resp.url)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"No s'ha pogut obtenir la URL: {e}")
+
+    def _meta(*names: str) -> str:
+        for name in names:
+            # <meta property="og:title" content="...">  (ordre d'atributs lliure)
+            m = re.search(
+                r'<meta[^>]+(?:property|name)\s*=\s*["\']' + re.escape(name) +
+                r'["\'][^>]*?content\s*=\s*["\']([^"\']*)["\']', text, re.IGNORECASE)
+            if not m:
+                m = re.search(
+                    r'<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]*?(?:property|name)\s*=\s*["\']' +
+                    re.escape(name) + r'["\']', text, re.IGNORECASE)
+            if m:
+                return _html.unescape(m.group(1)).strip()
+        return ""
+
+    title = _meta("og:title", "twitter:title")
+    if not title:
+        tm = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
+        title = _html.unescape(tm.group(1)).strip() if tm else host
+    description = _meta("og:description", "twitter:description", "description")
+    image = _meta("og:image", "twitter:image", "og:image:url")
+    site_name = _meta("og:site_name") or host
+    if image:
+        image = urljoin(final_url, image)
+    favicon = urljoin(final_url, "/favicon.ico")
+    return {
+        "url": raw,
+        "title": title[:300],
+        "description": description[:500],
+        "image": image,
+        "site_name": site_name[:120],
+        "favicon": favicon,
+    }
+
+
+class ImportFile(BaseModel):
+    name: str
+    content: str
+
+
+class ImportRequest(BaseModel):
+    files: list[ImportFile]
+    folder: str = "Importades"
+
+
+@router.post("/import", dependencies=[Depends(require_role("editor"))])
+async def import_markdown(body: ImportRequest):
+    """Importa fitxers Markdown/Obsidian al vault (estil importador amb UI).
+
+    Cada fitxer es crea com una pàgina dins `folder`. Es preserva el frontmatter
+    existent (s'hi afegeix un `id` si no en té) i el cos tal qual: els wikilinks
+    `[[…]]`, tags `#…` i frontmatter d'Obsidian ja són compatibles amb Gnosi.
+    Retorna el recompte d'importats i els errors per fitxer.
+    """
+    import yaml as _yaml
+    from backend.services.context_vars import get_active_vault_path
+    vault = get_active_vault_path()
+    if not vault:
+        raise HTTPException(status_code=503, detail="No hi ha cap vault actiu")
+    folder = re.sub(r"[^\w\s\-/À-ÿ]", "", str(body.folder or "Importades")).strip() or "Importades"
+    target_dir = Path(vault) / folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    imported = 0
+    errors = []
+    for f in body.files:
+        try:
+            stem = Path(f.name).stem or "Sense títol"
+            raw = f.content or ""
+            meta, body_md = parse_frontmatter(raw)
+            if not isinstance(meta, dict):
+                meta = {}
+            if body_md is None:
+                body_md = raw
+            meta.setdefault("title", meta.get("title") or stem)
+            if not meta.get("id"):
+                meta["id"] = str(uuid.uuid4())
+            safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", stem).strip()[:120] or "Sense títol"
+            path = target_dir / f"{safe}.md"
+            if path.exists():
+                path = target_dir / f"{safe} {meta['id'][:8]}.md"
+            fm = _yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
+            path.write_text(f"---\n{fm}\n---\n\n{str(body_md).lstrip()}\n", encoding="utf-8")
+            imported += 1
+        except Exception as e:
+            errors.append({"name": f.name, "error": str(e)})
+
+    try:
+        _bump_page_index_version(str(vault))
+    except Exception:
+        pass
+    return {"imported": imported, "errors": errors, "folder": folder}
+
+
+# ───────────────── Comentaris inline (ancorats a una selecció) ─────────────────
+# Estil Google Docs / Notion: un comentari ancorat a un fragment de text d'una
+# pàgina. S'emmagatzemen vault-first a `.gnosi/inline_comments/<page_id>.json`
+# (separat del cos .md perquè són metadades derivades, no contingut editable).
+
+def _inline_comments_path(page_id: str) -> Path:
+    vault = get_active_vault_path()
+    if not vault:
+        raise HTTPException(status_code=503, detail="No hi ha cap vault actiu")
+    safe_id = re.sub(r"[^\w\-]", "", str(page_id))[:80]
+    d = Path(vault) / ".gnosi" / "inline_comments"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / f"{safe_id}.json"
+
+
+def _load_inline_comments(page_id: str) -> list:
+    p = _inline_comments_path(page_id)
+    if not p.exists():
+        return []
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+class InlineCommentRequest(BaseModel):
+    quote: str = ""
+    comment: str
+    block_id: Optional[str] = None
+
+
+class InlineCommentPatch(BaseModel):
+    comment: Optional[str] = None
+    resolved: Optional[bool] = None
+
+
+@router.get("/pages/{page_id}/inline-comments")
+async def list_inline_comments(page_id: str):
+    return _load_inline_comments(page_id)
+
+
+@router.post("/pages/{page_id}/inline-comments")
+async def create_inline_comment(
+    page_id: str,
+    body: InlineCommentRequest,
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    comments = _load_inline_comments(page_id)
+    item = {
+        "id": str(uuid.uuid4()),
+        "quote": (body.quote or "")[:500],
+        "comment": body.comment,
+        "block_id": body.block_id or "",
+        "author_id": getattr(context, "user_id", None),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "resolved": False,
+    }
+    comments.append(item)
+    safe_write_json(_inline_comments_path(page_id), comments)
+    return item
+
+
+@router.patch("/pages/{page_id}/inline-comments/{comment_id}")
+async def update_inline_comment(page_id: str, comment_id: str, body: InlineCommentPatch):
+    comments = _load_inline_comments(page_id)
+    found = None
+    for c in comments:
+        if c.get("id") == comment_id:
+            if body.comment is not None:
+                c["comment"] = body.comment
+            if body.resolved is not None:
+                c["resolved"] = bool(body.resolved)
+            found = c
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="Comentari no trobat")
+    safe_write_json(_inline_comments_path(page_id), comments)
+    return found
+
+
+@router.delete("/pages/{page_id}/inline-comments/{comment_id}")
+async def delete_inline_comment(page_id: str, comment_id: str):
+    comments = _load_inline_comments(page_id)
+    new = [c for c in comments if c.get("id") != comment_id]
+    if len(new) == len(comments):
+        raise HTTPException(status_code=404, detail="Comentari no trobat")
+    safe_write_json(_inline_comments_path(page_id), new)
+    return {"status": "deleted", "id": comment_id}
+
+
+def _synced_block_path(sync_id: str) -> Path:
+    vault = get_active_vault_path()
+    if not vault:
+        raise HTTPException(status_code=503, detail="No hi ha cap vault actiu")
+    safe = re.sub(r"[^\w\-]", "", str(sync_id))[:80]
+    if not safe:
+        raise HTTPException(status_code=400, detail="sync_id invàlid")
+    d = Path(vault) / ".gnosi" / "synced"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / f"{safe}.md"
+
+
+@router.get("/synced/{sync_id}")
+async def get_synced_block(sync_id: str):
+    """Contingut d'un bloc sincronitzat (font compartida entre instàncies)."""
+    p = _synced_block_path(sync_id)
+    content = p.read_text(encoding="utf-8") if p.exists() else ""
+    return {"sync_id": sync_id, "content": content}
+
+
+class SyncedBlockSave(BaseModel):
+    content: str = ""
+
+
+@router.put("/synced/{sync_id}", dependencies=[Depends(require_role("editor"))])
+async def save_synced_block(sync_id: str, body: SyncedBlockSave):
+    """Desa la font d'un bloc sincronitzat. Totes les instàncies (a qualsevol
+    pàgina) que referencien aquest `sync_id` en reflecteixen el canvi."""
+    p = _synced_block_path(sync_id)
+    p.write_text(body.content or "", encoding="utf-8")
+    return {"sync_id": sync_id, "content": body.content or "", "saved": True}
 
 
 @router.get("/link-index/stats")
