@@ -200,9 +200,24 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         const note = chartData.find(n => n.id === noteId);
         if (!note) return;
 
+        // Serialitza un Date en hora LOCAL segons el tipus del camp. MAI
+        // `toISOString()` (UTC): en una zona UTC+ desplaçaria el DIA (camp
+        // `date`: la mitjanit local cau al dia anterior en UTC) o l'HORA
+        // (`datetime`), i embrutaria el camp amb un datetime UTC. Mateix arreglat
+        // que al calendari i a l'editor de dates. El `period` es deixa intacte.
+        const fmtForField = (d, field) => {
+            const t = getFieldType(schema, field);
+            if (t === 'period') return d.toISOString();
+            const pad = (n) => String(n).padStart(2, '0');
+            const day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            return t === 'datetime'
+                ? `${day}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                : day;
+        };
+
         const metadata = { ...(note.metadata || {}) };
-        if (datePropertyFound) metadata[datePropertyFound] = newStart.toISOString();
-        if (endPropertyFound) metadata[endPropertyFound] = newEnd.toISOString();
+        if (datePropertyFound) metadata[datePropertyFound] = fmtForField(newStart, datePropertyFound);
+        if (endPropertyFound) metadata[endPropertyFound] = fmtForField(newEnd, endPropertyFound);
 
         // Recursivitat per successores
         const updatedNotes = recalculateSuccessors(noteId, newStart, newEnd, chartData);
@@ -210,8 +225,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         // Desem els canvis de la nota actual i les afectades
         for (const updatedNote of updatedNotes) {
             const upMetadata = { ...(updatedNote.metadata || {}) };
-            if (datePropertyFound) upMetadata[datePropertyFound] = updatedNote.start.toISOString();
-            if (endPropertyFound) upMetadata[endPropertyFound] = updatedNote.end.toISOString();
+            if (datePropertyFound) upMetadata[datePropertyFound] = fmtForField(updatedNote.start, datePropertyFound);
+            if (endPropertyFound) upMetadata[endPropertyFound] = fmtForField(updatedNote.end, endPropertyFound);
             await onUpdateNote(updatedNote.id, { metadata: upMetadata });
         }
     };
