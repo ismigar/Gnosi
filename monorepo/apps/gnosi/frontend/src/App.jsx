@@ -25,6 +25,7 @@ import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/Auth/LoginPage';
+import SharedPage from './pages/SharedPage';
 
 function App() {
   const { effectiveTheme } = useTheme();
@@ -48,6 +49,19 @@ function App() {
       <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
         <div className="animate-pulse text-sm">Carregant…</div>
       </div>
+    );
+  }
+
+  // Pàgines compartides públicament (`/s/:token`): es renderitzen FORA del
+  // gate d'auth i del shell de l'app — qualsevol amb l'enllaç hi accedeix.
+  if (window.location.pathname.startsWith('/s/')) {
+    return (
+      <>
+        <Routes>
+          <Route path="/s/:token" element={<SharedPage />} />
+        </Routes>
+        <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
+      </>
     );
   }
 

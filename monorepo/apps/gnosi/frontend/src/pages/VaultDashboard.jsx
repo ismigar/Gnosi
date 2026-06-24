@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from '../lib/toast';
 import { v4 as uuidv4 } from 'uuid';
 import { logError, notifyError } from '../lib/notifyError';
-import { FileText, Loader2, X } from 'lucide-react';
+import { FileText, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VaultShell } from '../components/Vault/VaultShell';
 import { VaultSidebar } from '../components/Vault/VaultSidebar';
@@ -24,6 +24,10 @@ import { VaultViewsHeader } from '../components/Vault/VaultViewsHeader';
 import VaultDrawings from '../components/Vault/VaultDrawings';
 import { VaultGraph } from '../components/Vault/VaultGraph';
 import { VaultTrashView } from '../components/Vault/VaultTrashView';
+import { VaultTagsView } from '../components/Vault/VaultTagsView';
+import { PageComments } from '../components/Vault/PageComments';
+import { ShareModal } from '../components/Vault/ShareModal';
+import { usePlugins } from '../plugins/usePlugins';
 import { MAIN_VIEW_NAME, isMainView } from '../components/Vault/viewConstants';
 import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
@@ -71,6 +75,9 @@ export default function VaultDashboard() {
     const [templateToDelete, setTemplateToDelete] = useState(null);
     const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, isTemplate: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
+    // Plugins (features opcionals): activació per vault (registre intern).
+    const { isEnabled: isPluginEnabled } = usePlugins();
+
     // For now we support "editor" for all pages.
     // You can add "table" directly here or via custom blocks.
     const [viewMode, setViewMode] = useState('editor');
@@ -88,6 +95,8 @@ export default function VaultDashboard() {
     // tradueix títol + cos a una subpàgina (pàgina normal). Vegeu GAP 2.
     const [translatePageMode, setTranslatePageMode] = useState('page');
     const [historyOpenSignal, setHistoryOpenSignal] = useState(0);
+    const [commentsOpen, setCommentsOpen] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
     const [globalIndex, setGlobalIndex] = useState({});
     const [registry, setRegistry] = useState({ databases: [], tables: [], views: [] });
     const [activeTableId, setActiveTableId] = useState(null);
@@ -1092,6 +1101,25 @@ export default function VaultDashboard() {
         }
     }, [applySchemaDefaults, fetchPages, loadPage, t]);
 
+
+    // Daily Notes (estil Obsidian): obre (o crea) la nota diària d'una data.
+    // La data es calcula en HORA LOCAL del client perquè la nota d'"avui"
+    // coincideixi amb el dia de l'usuari independentment de la zona del servidor.
+    const handleOpenDailyNote = useCallback(async (dateStr) => {
+        try {
+            let date = dateStr;
+            if (!date) {
+                const now = new Date();
+                date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            }
+            const res = await axios.post('/api/vault/daily', { date });
+            await fetchPages();
+            loadPage(res.data.id);
+        } catch (err) {
+            console.error('Error obrint la nota diària:', err);
+            toast.error(t('errors.daily_note', { defaultValue: 'Error obrint la nota diària' }));
+        }
+    }, [fetchPages, loadPage, t]);
 
     // Adaptador estil `fetch` sobre axios per a PageViewModal (que espera
     // `apiFetch(url, {method, headers, body}) -> JSON`).
@@ -2691,6 +2719,8 @@ export default function VaultDashboard() {
             onCreateDashboardPage={(parentId) => handleOpenCreatePrompt(parentId, false, false, true)}
             onSearch={() => setIsGlobalSearchOpen(true)}
             onOpenRecent={() => setIsRecentOpen(true)}
+            onOpenDaily={isPluginEnabled('daily-notes') ? handleOpenDailyNote : null}
+            showTagsView={isPluginEnabled('tags-page')}
             onNavigate={(view) => {
                 setViewMode(view);
                 if (view !== 'editor') setActiveTabId(null);
@@ -2951,7 +2981,45 @@ export default function VaultDashboard() {
             );
         }
 
-        return (
+        // Daily notes: barra de navegació per dies (← dia anterior · Avui · dia següent →),
+        // estil Obsidian. Només es mostra si la pàgina activa és una nota diària.
+        const dailyDate = tab.metadata?.note_type === 'daily' ? (tab.metadata?.date || tab.title) : null;
+        const shiftDay = (iso, delta) => {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+            if (!m) return null;
+            const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            d.setDate(d.getDate() + delta);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+        const dailyBar = dailyDate ? (
+            <div className="flex items-center justify-center gap-1 px-4 py-1.5 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] text-sm">
+                <button
+                    type="button"
+                    onClick={() => { const p = shiftDay(dailyDate, -1); if (p) handleOpenDailyNote(p); }}
+                    className="p-1 rounded hover:bg-[var(--bg-primary)] text-[var(--text-secondary)]"
+                    title={t('vault.daily_prev', 'Dia anterior')}
+                >
+                    <ChevronLeft size={16} />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleOpenDailyNote()}
+                    className="px-2 py-0.5 rounded hover:bg-[var(--bg-primary)] text-[var(--text-primary)] font-medium"
+                >
+                    {t('vault.daily_today', 'Avui')}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { const n = shiftDay(dailyDate, 1); if (n) handleOpenDailyNote(n); }}
+                    className="p-1 rounded hover:bg-[var(--bg-primary)] text-[var(--text-secondary)]"
+                    title={t('vault.daily_next', 'Dia següent')}
+                >
+                    <ChevronRight size={16} />
+                </button>
+            </div>
+        ) : null;
+
+        const editorEl = (
             // key MUST be the page id so React unmounts the BlockEditor (and
             // resets all its refs and timers) when the user navigates to a
             // different note. Otherwise the spurious-autosave + unmount-save
@@ -2989,6 +3057,14 @@ export default function VaultDashboard() {
                 onCreateRecord={handleAddNewNote}
                 onOpenViewConfig={handleConfigureView}
             />
+        );
+
+        if (!dailyBar) return editorEl;
+        return (
+            <div className="h-full flex flex-col min-h-0">
+                {dailyBar}
+                <div className="flex-1 min-h-0 overflow-hidden">{editorEl}</div>
+            </div>
         );
     };
 
@@ -3142,6 +3218,16 @@ export default function VaultDashboard() {
                 if (!currentOpenPage) return;
                 setHistoryOpenSignal(prev => prev + 1);
             }}
+            canOpenComments={Boolean(currentOpenPage) && isPluginEnabled('page-comments')}
+            onOpenComments={() => {
+                if (!currentOpenPage) return;
+                setCommentsOpen(true);
+            }}
+            canOpenShare={Boolean(currentOpenPage) && isPluginEnabled('share-links')}
+            onOpenShare={() => {
+                if (!currentOpenPage) return;
+                setShareOpen(true);
+            }}
             canDeleteCurrentPage={Boolean(currentOpenPage)}
             onDeleteCurrentPage={() => {
                 if (!currentOpenPage) return;
@@ -3249,6 +3335,7 @@ export default function VaultDashboard() {
                                         setViewMode('editor');
                                     }}
                                     onSaveSuccess={() => { }}
+                                    onOpenPage={(pageId) => { setViewMode('editor'); loadPage(pageId); }}
                                 />
                             ) : (
                                 <VaultDrawings
@@ -3270,6 +3357,8 @@ export default function VaultDashboard() {
                                 }}
                             />
                         </div>
+                    ) : viewMode === 'tags' ? (
+                        <VaultTagsView onPageSelect={loadPage} />
                     ) : viewMode === 'table' && activeTableId ? (
                         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
                             {(() => {
@@ -3641,6 +3730,18 @@ export default function VaultDashboard() {
                     />
                 )
             }
+            <PageComments
+                pageId={currentOpenPage?.id}
+                pageTitle={currentOpenPage?.title}
+                open={commentsOpen && Boolean(currentOpenPage)}
+                onClose={() => setCommentsOpen(false)}
+            />
+            <ShareModal
+                pageId={currentOpenPage?.id}
+                pageTitle={currentOpenPage?.title}
+                open={shareOpen && Boolean(currentOpenPage)}
+                onClose={() => setShareOpen(false)}
+            />
         </VaultShell >
     );
 }

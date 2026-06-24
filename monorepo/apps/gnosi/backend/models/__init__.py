@@ -1,4 +1,4 @@
-from .management import User, Workspace, Membership, Vault, VaultAccess
+from .management import User, Workspace, Membership, Vault, VaultAccess, ShareLink
 from .contact import Contact
 from .mail import MailMessage
 from .notification import Notification
@@ -8,7 +8,7 @@ from .calendar import HiddenEvent
 from .pdf_annotation import PdfAnnotation
 
 __all__ = [
-    'User', 'Workspace', 'Membership', 'Vault', 'VaultAccess',
+    'User', 'Workspace', 'Membership', 'Vault', 'VaultAccess', 'ShareLink',
     'Contact', 'MailMessage', 'Notification',
     'FeedSource', 'Article', 'NewsletterAccount', 'TaskExecutionHistory', 'HiddenEvent',
     'PdfAnnotation',

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2, Lock, Unlock, Languages } from 'lucide-react';
+import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2, Lock, Unlock, Languages, MessageSquare, Share2 } from 'lucide-react';
 import { AppHeader } from '../AppHeader';
 
 export const VaultShell = ({
@@ -15,6 +15,10 @@ export const VaultShell = ({
     canGoForward,
     onOpenHistory,
     canOpenHistory = false,
+    onOpenComments,
+    canOpenComments = false,
+    onOpenShare,
+    canOpenShare = false,
     onDeleteCurrentPage,
     canDeleteCurrentPage = false,
     onToggleCodeView,
@@ -179,6 +183,32 @@ export const VaultShell = ({
                                 >
                                     <History size={14} />
                                     <span>{t('shell.view_history')}</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsPageMenuOpen(false);
+                                        if (canOpenComments && onOpenComments) {
+                                            onOpenComments();
+                                        }
+                                    }}
+                                    disabled={!canOpenComments}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                                >
+                                    <MessageSquare size={14} />
+                                    <span>{t('shell.view_comments', 'Comentaris')}</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsPageMenuOpen(false);
+                                        if (canOpenShare && onOpenShare) {
+                                            onOpenShare();
+                                        }
+                                    }}
+                                    disabled={!canOpenShare}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                                >
+                                    <Share2 size={14} />
+                                    <span>{t('shell.share_page', 'Comparteix')}</span>
                                 </button>
                                 <button
                                     onClick={() => {
