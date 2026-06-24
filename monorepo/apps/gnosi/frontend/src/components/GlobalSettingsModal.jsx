@@ -19,6 +19,7 @@ import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
 import IdentityProfile from './Vault/IdentityProfile';
 import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
+import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
 import './GlobalSettingsModal.css';
 
@@ -1641,6 +1642,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
                             <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
                             <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
+                            <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
                             <SidebarItem id="plugins" icon={LucideIcons.Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins'} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
                         </div>
 
@@ -1650,6 +1652,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     <main className="settings-main">
                         <div className="settings-content-wrap">
                             
+                             {/* API I TOKENS (PAT) */}
+                             {activeTab === 'api' && (
+                                <div className="animate-in">
+                                    <ApiTokensSettings />
+                                </div>
+                             )}
+
                              {/* PERFIL D'IDENTITAT */}
                              {activeTab === 'profile' && (
                                 <div className="animate-in">

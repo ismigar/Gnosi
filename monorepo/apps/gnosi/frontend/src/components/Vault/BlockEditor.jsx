@@ -34,6 +34,10 @@ import {
     Heading3,
     ListOrdered,
     Code,
+    Workflow,
+    Superscript,
+    Calendar as CalendarIcon,
+    RefreshCw,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -78,6 +82,13 @@ import { MetadataLookupModal } from './MetadataLookupModal';
 import { BibliographyBlock } from './BibliographyBlock';
 import { ZoteroExtrasSection } from './ZoteroExtrasSection';
 import { PdfAnnotationsToCite } from './PdfAnnotationsToCite';
+import TableOfContentsBlock from './TableOfContentsBlock';
+import MermaidBlock from './MermaidBlock';
+import FootnoteInline from './FootnoteInline';
+import MentionInline from './MentionInline';
+import DateMentionInline from './DateMentionInline';
+import LinkCardBlock from './LinkCardBlock';
+import SyncedBlock from './SyncedBlock';
 
 /**
  * Resol l'URI del PDF associat a una pàgina de Recursos.
@@ -972,6 +983,7 @@ export function EditorInner({
     metadata,
     onUpdate,
     idToTitle,
+    aliasIndex = {},
     onRefreshNotes,
     effectiveTheme,
     contextValue,
@@ -1077,6 +1089,63 @@ export function EditorInner({
                         <div className="flex-1" ref={props.contentRef} />
                     </div>
                 )
+            }),
+            // Índex de continguts generat dels headings del document (`{{toc}}`).
+            tableOfContents: createReactBlockSpec({
+                type: "tableOfContents",
+                propSchema: {},
+                content: "none",
+            }, { render: (props) => <TableOfContentsBlock editor={props.editor} /> }),
+            // Diagrama Mermaid; es desa com a fence ```mermaid.
+            mermaid: createReactBlockSpec({
+                type: "mermaid",
+                propSchema: { code: { default: "" } },
+                content: "none",
+            }, { render: (props) => <MermaidBlock block={props.block} editor={props.editor} /> }),
+            // Targeta de previsualització d'enllaç (OG); `[bookmark: URL](URL)`.
+            linkcard: createReactBlockSpec({
+                type: "linkcard",
+                propSchema: { url: { default: "" } },
+                content: "none",
+            }, { render: (props) => <LinkCardBlock block={props.block} /> }),
+            // Bloc sincronitzat bidireccional; fence ```gnosi-synced amb sync_id.
+            synced: createReactBlockSpec({
+                type: "synced",
+                propSchema: { sync_id: { default: "" } },
+                content: "none",
+            }, { render: (props) => <SyncedBlock block={props.block} /> }),
+            // Nota al peu inline estil Obsidian (`text[^1]` + `[^1]: definició`).
+            footnote: createReactInlineContentSpec({
+                type: "footnote",
+                propSchema: { id: { default: "" }, content: { default: "" } },
+                content: "none",
+            }, {
+                render: (props) => (
+                    <FootnoteInline
+                        inlineContent={props.inlineContent}
+                        updateInlineContent={props.updateInlineContent}
+                        editor={props.editor}
+                    />
+                )
+            }),
+            // Menció d'una persona (contacte): `@[Nom|id]`.
+            mention: createReactInlineContentSpec({
+                type: "mention",
+                propSchema: { id: { default: "" }, name: { default: "" } },
+                content: "none",
+            }, { render: (props) => <MentionInline inlineContent={props.inlineContent} /> }),
+            // Menció de data / recordatori inline: `@2026-06-25` o `@2026-06-25T09:00`.
+            dateref: createReactInlineContentSpec({
+                type: "dateref",
+                propSchema: { date: { default: "" }, time: { default: "" } },
+                content: "none",
+            }, {
+                render: (props) => (
+                    <DateMentionInline
+                        inlineContent={props.inlineContent}
+                        updateInlineContent={props.updateInlineContent}
+                    />
+                )
             })
         };
         const baseSchema = BlockNoteSchema.create({
@@ -1089,11 +1158,18 @@ export function EditorInner({
                 bibliography: { ...specs.bibliography(), group: "bnBlock" },
                 toggle: { ...specs.toggle(), group: "bnBlock" },
                 alert: { ...specs.alert(), group: "bnBlock" },
+                tableOfContents: { ...specs.tableOfContents(), group: "bnBlock" },
+                mermaid: { ...specs.mermaid(), group: "bnBlock" },
+                linkcard: { ...specs.linkcard(), group: "bnBlock" },
+                synced: { ...specs.synced(), group: "bnBlock" },
             },
             inlineContentSpecs: {
                 ...defaultInlineContentSpecs,
                 wikilink: specs.wikilink,
                 cite: specs.cite,
+                footnote: specs.footnote,
+                mention: specs.mention,
+                dateref: specs.dateref,
             },
             styleSpecs: defaultStyleSpecs,
         });
@@ -1157,8 +1233,14 @@ export function EditorInner({
                 if (!id || reservedIds.has(id)) return false;
                 return typeof title === "string" && title.trim().length > 0;
             })
-            .map(([id, title]) => ({ id, title: title.trim() }));
-    }, [idToTitle, contextValue]);
+            .map(([id, title]) => ({
+                id,
+                title: title.trim(),
+                // Àlies de nota (frontmatter `aliases:`), per a suggeriments i
+                // resolució de wikilinks `[[Àlies]]` (estil Obsidian).
+                aliases: Array.isArray(aliasIndex?.[id]) ? aliasIndex[id] : [],
+            }));
+    }, [idToTitle, aliasIndex, contextValue]);
 
     const normalizedLinkableNotes = useMemo(() => {
         const seen = new Set();
@@ -2749,7 +2831,61 @@ export function EditorInner({
                                 subtext: t('editor.ai_summarize_subtext', { defaultValue: 'Genera un resum del contingut actual' }),
                             },
                         ];
-                        const allItems = [...aiItems, ...turnIntoItems, ...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems];
+                        const insertBlockItems = [
+                            {
+                                title: t('editor.toc', { defaultValue: 'Índex de continguts' }),
+                                onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: 'tableOfContents', props: {} }),
+                                aliases: ["toc", "index", "índex", "indice", "taula de continguts", "table of contents", "outline", "continguts"],
+                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                icon: <ListIcon size={18} />,
+                                subtext: t('editor.toc_subtext', { defaultValue: "Genera l'índex a partir dels encapçalaments" }),
+                            },
+                            {
+                                title: t('editor.mermaid', { defaultValue: 'Diagrama Mermaid' }),
+                                onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: 'mermaid', props: { code: '' } }),
+                                aliases: ["mermaid", "diagrama", "diagram", "flowchart", "graph", "uml", "sequence", "gantt"],
+                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                icon: <Workflow size={18} />,
+                                subtext: t('editor.mermaid_subtext', { defaultValue: 'Diagrames de flux, seqüència, Gantt…' }),
+                            },
+                            {
+                                title: t('editor.footnote', { defaultValue: 'Nota al peu' }),
+                                onItemClick: () => {
+                                    const fid = (typeof crypto !== 'undefined' && crypto?.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2);
+                                    editor.insertInlineContent([{ type: 'footnote', props: { id: fid, content: '' } }, ' ']);
+                                },
+                                aliases: ["footnote", "nota", "nota al peu", "peu", "fn", "[^]"],
+                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                icon: <Superscript size={18} />,
+                                subtext: t('editor.footnote_subtext', { defaultValue: 'Insereix una referència de nota al peu' }),
+                            },
+                            {
+                                title: t('editor.synced_block', { defaultValue: 'Bloc sincronitzat' }),
+                                onItemClick: () => {
+                                    const sid = (typeof crypto !== 'undefined' && crypto?.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2);
+                                    insertOrUpdateBlockForSlashMenu(editor, { type: 'synced', props: { sync_id: sid } });
+                                },
+                                aliases: ["synced", "sincronitzat", "sync", "reutilitzable", "compartit"],
+                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                icon: <RefreshCw size={18} />,
+                                subtext: t('editor.synced_block_subtext', { defaultValue: 'Contingut compartit entre pàgines (bidireccional)' }),
+                            },
+                            {
+                                title: t('editor.linkcard', { defaultValue: 'Targeta d\'enllaç' }),
+                                onItemClick: () => {
+                                    const raw = window.prompt(t('editor.linkcard_prompt', { defaultValue: 'Enganxa la URL de la targeta:' }), 'https://');
+                                    const u = String(raw || '').trim();
+                                    if (u && /^https?:\/\//i.test(u)) {
+                                        insertOrUpdateBlockForSlashMenu(editor, { type: 'linkcard', props: { url: u } });
+                                    }
+                                },
+                                aliases: ["bookmark", "targeta", "card", "link", "enllaç", "preview", "og", "marcador"],
+                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                icon: <Link2 size={18} />,
+                                subtext: t('editor.linkcard_subtext', { defaultValue: 'Previsualització d\'un enllaç amb imatge i títol' }),
+                            },
+                        ];
+                        const allItems = [...aiItems, ...turnIntoItems, ...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems, ...insertBlockItems];
                         if (!query) return allItems.slice(0, 12);
                         const lowerQuery = String(query || "").toLowerCase();
                         return allItems.filter(item => {
@@ -2773,8 +2909,27 @@ export function EditorInner({
                             if (!search) return true;
                             const noteTitle = String(note.title || "").toLowerCase();
                             const noteId = String(note.id || "").toLowerCase();
-                            return noteTitle.includes(search) || noteId.includes(search);
+                            const aliasHit = (note.aliases || []).some(a => String(a || "").toLowerCase().includes(search));
+                            return noteTitle.includes(search) || noteId.includes(search) || aliasHit;
                         }).slice(0, 20);
+
+                        // Suggeriments per àlies de nota: una entrada per àlies que
+                        // casa amb la cerca. Insereix `[[àlies]]` (resol via backend),
+                        // mostrant l'àlies com a text de l'enllaç (estil Obsidian).
+                        const aliasItems = search
+                            ? normalizedLinkableNotes.flatMap(note =>
+                                (note.aliases || [])
+                                    .filter(a => String(a || "").toLowerCase().includes(search))
+                                    .map(a => ({
+                                        title: String(a),
+                                        aliases: [note.id, note.title, 'alias', 'àlies'],
+                                        group: t('editor.internal_links'),
+                                        icon: <MessageSquare size={18} />,
+                                        subtext: t('editor.alias_of', { defaultValue: 'àlies de' }) + ` ${note.title}`,
+                                        onItemClick: () => insertWikiLink(String(a), sectionQuery, '', rawQuery),
+                                    }))
+                              ).slice(0, 8)
+                            : [];
 
                         const titleCount = new Map();
                         filteredNotes.forEach((note) => {
@@ -2872,14 +3027,14 @@ export function EditorInner({
 
                         const noteItems = filteredNotes.map(note => ({
                             title: titleCount.get(note.title) > 1 ? `${note.title} (${formatNoteDisambiguator(note.id)})` : note.title,
-                            aliases: [note.id, "wiki", "internal"],
+                            aliases: [note.id, "wiki", "internal", ...(note.aliases || [])],
                             group: t('editor.internal_links'),
                             icon: <MessageSquare size={18} />,
                             subtext: note.id,
                             onItemClick: () => insertWikiLink(note.title, sectionQuery, note.id, rawQuery),
                         }));
 
-                        return [...noteItems, ...createItems].slice(0, 30);
+                        return [...noteItems, ...aliasItems, ...createItems].slice(0, 30);
                     }}
                 />
                 <SuggestionMenuController
@@ -3004,6 +3159,69 @@ export function EditorInner({
                         return [...transclusionItems, ...createItems].slice(0, 30);
                     }}
                 />
+                <SuggestionMenuController
+                    triggerCharacter="@"
+                    getItems={async (query) => {
+                        if (!editor) return [];
+                        const q = String(query || '').trim();
+                        const ql = q.toLowerCase();
+                        const items = [];
+                        const pad = (n) => String(n).padStart(2, '0');
+                        const isoLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                        const now = new Date();
+                        const insertDate = (date) => editor.insertInlineContent([{ type: 'dateref', props: { date, time: '' } }, ' ']);
+                        const insertMention = (id, name) => editor.insertInlineContent([{ type: 'mention', props: { id, name } }, ' ']);
+
+                        // Dreceres de data (estil Notion: @avui, @demà, @ahir).
+                        const shortcuts = [
+                            { label: t('editor.date_today', { defaultValue: 'Avui' }), offset: 0, kw: ['avui', 'today', 'hoy'] },
+                            { label: t('editor.date_tomorrow', { defaultValue: 'Demà' }), offset: 1, kw: ['dema', 'demà', 'tomorrow', 'manana'] },
+                            { label: t('editor.date_yesterday', { defaultValue: 'Ahir' }), offset: -1, kw: ['ahir', 'yesterday', 'ayer'] },
+                        ];
+                        for (const sc of shortcuts) {
+                            if (ql && !sc.kw.some(k => k.includes(ql)) && !sc.label.toLowerCase().includes(ql)) continue;
+                            const d = new Date(now.getTime() + sc.offset * 86400000);
+                            const iso = isoLocal(d);
+                            items.push({
+                                title: sc.label,
+                                aliases: [...sc.kw, 'data', 'date', 'recordatori', 'reminder'],
+                                group: t('editor.dates_group', { defaultValue: 'Dates' }),
+                                icon: <CalendarIcon size={18} />,
+                                subtext: iso,
+                                onItemClick: () => insertDate(iso),
+                            });
+                        }
+                        // Data explícita escrita (YYYY-MM-DD).
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(q)) {
+                            items.push({
+                                title: q,
+                                aliases: ['data', 'date'],
+                                group: t('editor.dates_group', { defaultValue: 'Dates' }),
+                                icon: <CalendarIcon size={18} />,
+                                subtext: t('editor.insert_this_date', { defaultValue: 'Insereix aquesta data' }),
+                                onItemClick: () => insertDate(q),
+                            });
+                        }
+                        // Contactes (persones).
+                        try {
+                            const res = await axios.get('/api/contacts', { params: q ? { search: q } : {} });
+                            const contacts = Array.isArray(res.data) ? res.data : [];
+                            for (const c of contacts.slice(0, 8)) {
+                                const name = String(c?.name || '').trim();
+                                if (!name) continue;
+                                items.push({
+                                    title: name,
+                                    aliases: [String(c.email || ''), 'persona', 'people', 'mention'],
+                                    group: t('editor.people_group', { defaultValue: 'Persones' }),
+                                    icon: <AtSign size={18} />,
+                                    subtext: c.email || t('editor.contact', { defaultValue: 'Contacte' }),
+                                    onItemClick: () => insertMention(String(c.id || ''), name),
+                                });
+                            }
+                        } catch { /* contactes opcional: si falla, només dates */ }
+                        return items.slice(0, 20);
+                    }}
+                />
             </BlockNoteView>
             </div>
             <InsertContentModal
@@ -3041,7 +3259,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewerRole = role === 'viewer';
@@ -4294,6 +4512,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 metadata={metadata}
                                 onUpdate={onUpdate}
                                 idToTitle={idToTitle}
+                                aliasIndex={aliasIndex}
                                 onRefreshNotes={onRefreshNotes}
                                 onUpdatePageMetadata={onUpdatePageMetadata}
                                 effectiveTheme={effectiveTheme}
