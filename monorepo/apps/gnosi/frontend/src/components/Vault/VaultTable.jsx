@@ -2489,6 +2489,22 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     </span>
                 );
             }
+            case 'virtual': {
+                // Camp derivat injectat pel backend (read-only). Booleans
+                // (is_hub/is_orphan) → checkbox; numèrics (Progrés %, centralitat…)
+                // → formatNumber amb el format del camp.
+                if (typeof value === 'boolean' || value === 'true' || value === 'false') {
+                    return (value && value !== 'false')
+                        ? <CheckSquare size={16} className="text-indigo-500" />
+                        : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
+                }
+                const vfmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                return (
+                    <span className="tabular-nums" title={String(value)}>
+                        {formatNumber(value, { kind: vfmt.kind, decimals: vfmt.decimals, currencyCode: vfmt.currencyCode, locale: vfmt.numberLocale })}
+                    </span>
+                );
+            }
             case 'date':
             case 'datetime': {
                 const parsed = new Date(value);

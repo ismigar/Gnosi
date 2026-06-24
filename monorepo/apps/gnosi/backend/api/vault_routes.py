@@ -1229,6 +1229,15 @@ def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
         return view, []
     pages = _get_pages_for_table(table_id)
     table_obj = _table_by_id(table_id)
+    # Injecta els camps virtual (p. ex. «Progrés») perquè les vistes incrustades
+    # els vegin igual que la taula principal (filtres/ordre hi casen).
+    try:
+        _vf_inject_for_table(
+            table_obj, pages,
+            get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+        )
+    except Exception as e:
+        log.debug(f"virtual fields injection (view {vid}) failed: {e}")
     rows: List[dict] = []
     for p in pages:
         meta = p.metadata or {}
@@ -1476,6 +1485,10 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             _table = _table_by_id(_tid)
             if _table:
                 metadata, _ = to_storage_names(metadata, _table)
+                # Mai persistim un camp derivat (`type:'virtual'`): el valor
+                # s'injecta en LLEGIR. Si el frontend reenvia el valor injectat,
+                # el descartem abans d'escriure al .md.
+                metadata = _strip_virtual_keys(metadata, _table)
     except Exception as e:  # defensiu: una fallada de resolució no ha de bloquejar l'escriptura
         log.debug(f"to_storage_names ha fallat per {file_path}: {e}")
     try:
@@ -3305,6 +3318,38 @@ def _get_pages_snapshot(
     return pages
 
 
+def _vf_page_loader(table_id: str) -> List[PageInfo]:
+    """Carrega les pàgines d'una taula amb la metadata en noms CANÒNICS, per als
+    computers de rollup invers (p. ex. `task_progress` llegint Tasques). Refresca
+    els stubs de metadata perquè `Estat`/`Projecte` hi siguin presents."""
+    pages = _get_pages_for_table(table_id)
+    try:
+        _refresh_table_pages_metadata(pages)
+    except Exception as e:
+        log.debug(f"_vf_page_loader refresh skipped for {table_id}: {e}")
+    tbl = _table_by_id(table_id)
+    if tbl:
+        for p in pages:
+            try:
+                p.metadata = to_response_names(p.metadata or {}, tbl)
+            except Exception:
+                pass
+    return pages
+
+
+def _strip_virtual_keys(metadata: Dict[str, Any], table: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Treu de la metadata les claus de camps `type:'virtual'` (per nom o id)
+    perquè el valor derivat (injectat en LLEGIR) no es persisteixi mai al `.md`."""
+    if not table or not isinstance(metadata, dict):
+        return metadata
+    props = table.get("properties") or []
+    drop = {p.get("name") for p in props if p.get("type") == "virtual" and p.get("name")}
+    drop |= {p.get("id") for p in props if p.get("type") == "virtual" and p.get("id")}
+    if not drop:
+        return metadata
+    return {k: v for k, v in metadata.items() if k not in drop}
+
+
 def _get_pages_for_table(table_id: str) -> List[PageInfo]:
     """Fast-path per a `/pages/by-table/{table_id}`.
 
@@ -3504,7 +3549,10 @@ async def list_pages_by_table(table_id: str, include_templates: bool = Query(Tru
     # Cost: només els fitxers d'aquesta taula, no el vault sencer.
     await asyncio.to_thread(_refresh_table_pages_metadata, filtered)
     table_obj = _table_by_id(table_id)
-    _vf_inject_for_table(table_obj, filtered, get_p("DATABASES") / "vault_graph.json")
+    await asyncio.to_thread(
+        _vf_inject_for_table, table_obj, filtered,
+        get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+    )
     if table_obj:
         for p in filtered:
             p.metadata = to_response_names(p.metadata or {}, table_obj)
@@ -3527,7 +3575,10 @@ async def list_pages_by_table_snapshot(table_id: str):
     await asyncio.to_thread(_refresh_table_pages_metadata, visible_pages)
 
     table_obj = _table_by_id(table_id)
-    _vf_inject_for_table(table_obj, visible_pages, get_p("DATABASES") / "vault_graph.json")
+    await asyncio.to_thread(
+        _vf_inject_for_table, table_obj, visible_pages,
+        get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+    )
     if table_obj:
         for p in visible_pages:
             p.metadata = to_response_names(p.metadata or {}, table_obj)
@@ -4035,11 +4086,13 @@ async def get_page(page_id: str):
             metadata, file_path
         )
         _table_obj = _table_by_id(resolved_table_id)
-        _vf_inject_for_single_page(
+        await asyncio.to_thread(
+            _vf_inject_for_single_page,
             _table_obj,
             str(metadata.get("id") or page_id),
             metadata,
             get_p("DATABASES") / "vault_graph.json",
+            _vf_page_loader,
         )
         # Compatibilitat enrere: el frontend antic llegeix metadata per nom de
         # camp; expandim id-keys amb el nom corresponent (sense esborrar id).
@@ -13670,6 +13723,14 @@ async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta,
     await _materialize_if_online_only(fp, "drupal-sync")
     raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
     meta, bdy = parse_frontmatter(raw, fp)
+    # Camps derivats (`type:'virtual'`, p. ex. «Progrés») no es desen al .md:
+    # s'injecten en llegir perquè el sync els pugui mapejar a Drupal.
+    _vf_table = _table_by_id(get_table_id(meta))
+    if _vf_table:
+        await asyncio.to_thread(
+            _vf_inject_for_single_page, _vf_table, str(meta.get("id") or page_id),
+            meta, get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+        )
     fields, _, _ = await _drupal_build_fields(
         mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
         metadata=meta, body=bdy, bundle=bundle,
@@ -13708,6 +13769,11 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
         raise HTTPException(status_code=400, detail="Row is not part of a table")
     if not table.get("drupal_sync_enabled"):
         raise HTTPException(status_code=400, detail="Drupal sync is not enabled on this table")
+    # Injecta camps derivats (p. ex. «Progrés») abans de construir els camps Drupal.
+    await asyncio.to_thread(
+        _vf_inject_for_single_page, table, str(metadata.get("id") or item_id),
+        metadata, get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+    )
     # Salvaguarda d'action_rules («no es pot sincronitzar un esborrany»): el
     # backend revalida sempre el que el frontend ja mostra com a botó desactivat.
     _ok, _reason = action_rules_service.check_requires(
