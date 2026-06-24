@@ -23,8 +23,14 @@ export const isGmail = (email) => {
  */
 export const getGoogleAvatarUrl = (email) => {
     if (!email) return '';
-    // A commonly used semi-public URL for Google profile photos
-    return `https://profiles.google.com/s2/photos/profile/${email}?sz=128`;
+    // L'antiga URL "semipública" `profiles.google.com/s2/photos/...` és de
+    // Google+, tancat el 2019: sempre torna 404. Usar-la com a `src` d'avatar
+    // provocava un 404 per cada contacte de Gmail sense foto i, pitjor, filtrava
+    // l'email de cada contacte a un endpoint de Google a cada càrrega de la
+    // llista. No existeix cap URL PÚBLICA per a la foto de perfil de Google
+    // (caldria la People API amb OAuth), així que tornem '' i els consumidors
+    // cauen elegantment a les inicials.
+    return '';
 };
 
 /**
