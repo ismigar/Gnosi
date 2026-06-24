@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppSidebar } from './components/AppSidebar';
 import GraphPage from './pages/GraphPage';
 import Dashboard from './pages/Dashboard';
@@ -78,6 +78,11 @@ function App() {
           <Route path="/social-dashboard" element={<SocialDashboard />} />
           <Route path="/media" element={<MediaCenter />} />
           <Route path="/contacts" element={<ContactsPage />} />
+          {/* Catch-all: una URL no existent (typo, enllaç ranci, ruta mal
+              escrita per codi) renderitzava NOMÉS el layout amb el cos en blanc.
+              Redirigim a l'inici (replace per no deixar la URL dolenta a
+              l'historial). */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
       {/* z-index per sobre de tots els overlays modals (GlobalSettingsModal:10000,
