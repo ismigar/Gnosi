@@ -56,8 +56,12 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         onDeleteSelection: handleBulkDelete,
     });
 
-    // La vista principal sempre mostra totes les propietats.
-    const visibleProperties = isMainView(activeView, [activeView].filter(Boolean))
+    // La vista principal mostra totes les propietats; una vista personalitzada,
+    // les seves `visibleProperties`. Cridem `isMainView` SENSE la llista de
+    // vistes (cas degenerat): amb `[activeView]` el fallback per ordre la
+    // considerava SEMPRE principal (ordered[0]===view) i s'ignoraven els
+    // visibleProperties de les vistes custom.
+    const visibleProperties = isMainView(activeView)
         ? getSchemaFieldNames(schema)
         : (activeView.visibleProperties || getSchemaFieldNames(schema).slice(0, 3));
     const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([key, type]) => type);
