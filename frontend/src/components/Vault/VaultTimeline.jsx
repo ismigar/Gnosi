@@ -5,6 +5,8 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig } from './schemaUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
+import { formatDate, resolveFieldFormat } from './formatUtils';
+import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { parsePeriod } from './VaultDateProperty';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
@@ -100,6 +102,19 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             return dateLike.includes(getFieldType(schema, k));
         });
     }, [schema, activeView?.endDateField]);
+
+    // Format de data configurat (Settings) — el mateix que respecten la taula i
+    // les targetes (galeria/feed/kanban). Sense això el Gantt mostrava les dates
+    // amb `toLocaleDateString()` (format del NAVEGADOR), ignorant la config.
+    const localeSettings = useLocaleSettings();
+    const tlDateFmt = useMemo(
+        () => resolveFieldFormat(getFieldConfig(schema, datePropertyFound), localeSettings),
+        [schema, datePropertyFound, localeSettings]
+    );
+    const fmtTLDate = useCallback(
+        (d) => formatDate(d, { dateFormat: tlDateFmt.dateFormat, type: 'date', locale: tlDateFmt.dateLocale }),
+        [tlDateFmt]
+    );
 
     // Lògica de dades per al Gantt
     const { chartData, timeScale } = useMemo(() => {
@@ -288,7 +303,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                         {n.title || "Sense Títol"}
                                     </span>
                                     <span className="text-[10px] text-[var(--text-tertiary)]">
-                                        Fins al {n.end.toLocaleDateString()}
+                                        Fins al {fmtTLDate(n.end)}
                                     </span>
                                 </button>
                             ))}
@@ -504,7 +519,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                 {/* Tooltip on hover */}
                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded shadow-xl text-[10px] opacity-0 group-hover/bar:opacity-100 z-30 pointer-events-none transition-opacity whitespace-nowrap font-medium border border-[var(--border-primary)]">
                                                     <strong>{note.title}</strong><br />
-                                                    {note.start.toLocaleDateString()} - {note.end.toLocaleDateString()}
+                                                    {fmtTLDate(note.start)} - {fmtTLDate(note.end)}
                                                 </div>
                                             </div>
                                         </div>
