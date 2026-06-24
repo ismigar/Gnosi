@@ -443,18 +443,21 @@ function GraphPage() {
 
 
 
+    // El graf es computa sota demanda des de GET /api/graph; no hi ha cap
+    // endpoint /api/sync al backend natiu (els syncs són per servei). Aquí
+    // només refresquem el graf: validem que /api/graph respon i recarreguem.
     const handleSync = async () => {
         if (isSyncing) return;
         setIsSyncing(true);
-        const toastId = toast.loading('Sincronitzant dades...');
+        const toastId = toast.loading('Actualitzant el graf...');
         try {
-            const res = await fetch('/api/sync', { method: 'POST' });
-            if (!res.ok) throw new Error('Sync failed');
-            toast.success('Sincronització completada!', { id: toastId });
+            const res = await fetch('/api/graph');
+            if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
+            toast.success('Graf actualitzat!', { id: toastId });
             window.location.reload();
         } catch (e) {
             console.error(e);
-            toast.error('Error al sincronitzar', { id: toastId });
+            toast.error('Error en actualitzar el graf', { id: toastId });
         } finally {
             setIsSyncing(false);
         }
