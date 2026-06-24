@@ -4,7 +4,7 @@ from backend.utils.errors import safe_error_detail
 from backend.data.management_db import get_mgmt_db
 from backend.services.contacts_service import ContactsService
 from backend.services.contacts_sync_engine import ContactsSyncEngine
-from backend.services.workspace_service import require_role
+from backend.services.workspace_service import require_role, get_workspace_context, WorkspaceContext
 from typing import Optional, List
 import json
 import asyncio
@@ -83,13 +83,14 @@ def contacts_response(contact) -> dict:
 
 @router.get("/contacts")
 async def list_contacts(
-    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
     type: Optional[str] = None,
     search: Optional[str] = None,
     source: Optional[str] = None,
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db)
 ):
     try:
+        x_workspace_id = context.workspace_id
         cache_key = f"{x_workspace_id}:{type}:{search}:{source}"
         cached = _contacts_cache.get(cache_key)
         if cached is not None:
@@ -115,11 +116,11 @@ async def list_contacts(
 @router.get("/contacts/{contact_id}")
 async def get_contact(
     contact_id: str,
-    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db)
 ):
     try:
-        service = ContactsService(db, x_workspace_id)
+        service = ContactsService(db, context.workspace_id)
         contact = service.get_contact(contact_id)
         if not contact:
             raise HTTPException(status_code=404, detail="Contact not found")
@@ -133,17 +134,18 @@ async def get_contact(
             detail=safe_error_detail(e, "GET /contacts/{contact_id}"),
         )
 
-@router.post("/contacts", status_code=201, dependencies=[Depends(require_role("editor"))])
+@router.post("/contacts", status_code=201)
 async def create_contact(
     data: dict,
     background_tasks: BackgroundTasks,
-    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    context: WorkspaceContext = Depends(require_role("editor")),
     db: Session = Depends(get_mgmt_db)
 ):
     try:
         if not data.get("name") or not data.get("email"):
             raise HTTPException(status_code=400, detail="Name and email are required")
 
+        x_workspace_id = context.workspace_id
         service = ContactsService(db, x_workspace_id)
         contact = service.create_contact(data)
         _contacts_cache.clear()
@@ -161,15 +163,16 @@ async def create_contact(
             detail=safe_error_detail(e, "POST /contacts"),
         )
 
-@router.put("/contacts/{contact_id}", dependencies=[Depends(require_role("editor"))])
+@router.put("/contacts/{contact_id}")
 async def update_contact(
     contact_id: str,
     data: dict,
     background_tasks: BackgroundTasks,
-    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    context: WorkspaceContext = Depends(require_role("editor")),
     db: Session = Depends(get_mgmt_db)
 ):
     try:
+        x_workspace_id = context.workspace_id
         service = ContactsService(db, x_workspace_id)
         contact = service.update_contact(contact_id, data)
         if not contact:
@@ -189,14 +192,15 @@ async def update_contact(
             detail=safe_error_detail(e, "PUT /contacts/{contact_id}"),
         )
 
-@router.delete("/contacts/{contact_id}", dependencies=[Depends(require_role("editor"))])
+@router.delete("/contacts/{contact_id}")
 async def delete_contact(
     contact_id: str,
-    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
     x_user_email: str = Header("", alias="X-User-Email"),
+    context: WorkspaceContext = Depends(require_role("editor")),
     db: Session = Depends(get_mgmt_db)
 ):
     try:
+        x_workspace_id = context.workspace_id
         service = ContactsService(db, x_workspace_id)
         contact = service.get_contact(contact_id)
         if not contact:
@@ -221,14 +225,15 @@ async def delete_contact(
             detail=safe_error_detail(e, "DELETE /contacts/{contact_id}"),
         )
 
-@router.post("/contacts/sync", dependencies=[Depends(require_role("editor"))])
+@router.post("/contacts/sync")
 async def sync_contacts(
     data: Optional[dict] = None,
-    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
     x_user_email: str = Header("", alias="X-User-Email"),
+    context: WorkspaceContext = Depends(require_role("editor")),
     db: Session = Depends(get_mgmt_db)
 ):
     try:
+        x_workspace_id = context.workspace_id
         # 1. Prepare integration data
         integration = data or {}
         
@@ -268,11 +273,11 @@ async def sync_contacts(
 
 @router.get("/contacts/sync/status")
 async def sync_status(
-    x_workspace_id: str = Header("default", alias="X-Workspace-ID"),
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db)
 ):
     try:
-        service = ContactsService(db, x_workspace_id)
+        service = ContactsService(db, context.workspace_id)
         status = service.get_sync_status()
         return status
     except Exception as e:
