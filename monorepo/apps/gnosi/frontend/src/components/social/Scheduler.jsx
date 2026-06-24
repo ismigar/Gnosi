@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, X, Check } from 'lucide-react';
 
+// Data en format YYYY-MM-DD a partir dels components LOCALS (no UTC). Cal perquè
+// l'hora del formulari (`toTimeString`) també és local: barrejar una data UTC
+// (`toISOString`) amb una hora local desfasava el dia a prop de mitjanit.
+const toLocalDateStr = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 const Scheduler = ({ onSchedule, onCancel }) => {
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
 
-    // Get minimum date (today)
-    const today = new Date().toISOString().split('T')[0];
+    // Get minimum date (today, en hora local)
+    const today = toLocalDateStr(new Date());
 
     const handleSchedule = () => {
         if (date && time) {
@@ -35,7 +43,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
             scheduled = new Date(now.getTime() + option.hours * 60 * 60 * 1000);
         }
 
-        setDate(scheduled.toISOString().split('T')[0]);
+        setDate(toLocalDateStr(scheduled));
         setTime(scheduled.toTimeString().slice(0, 5));
     };
 
