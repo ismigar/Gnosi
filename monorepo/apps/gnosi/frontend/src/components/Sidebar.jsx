@@ -24,6 +24,7 @@ export function Sidebar({
     onPathfindingModeChange,
     pathSource,
     pathTarget,
+    pathResult,
     onClearPath,
     getNodeLabel,
     children,
