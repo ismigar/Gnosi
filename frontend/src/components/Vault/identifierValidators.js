@@ -31,7 +31,10 @@ export function isValidDOI(raw) {
 
 export function isValidISBN(raw) {
     if (!raw || typeof raw !== 'string') return false;
-    const cleaned = raw.trim().replace(/[-\s]/g, '');
+    // `.toUpperCase()` perquè el dígit de control X de l'ISBN-10 és vàlid tant
+    // en majúscula com en minúscula; sense això un "...089x" es rebutjava (el
+    // regex usa `[\dX]`) i el frontend bloquejava la cerca abans de la crida.
+    const cleaned = raw.trim().replace(/[-\s]/g, '').toUpperCase();
     return ISBN_DIGITS_RE.test(cleaned);
 }
 
