@@ -126,7 +126,6 @@ function GraphPage() {
 
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [graphVersion, setGraphVersion] = useState(null);
 
     const mediaTagsList = useMemo(() => {
         if (!graphData?.nodes) return [];
@@ -144,9 +143,6 @@ function GraphPage() {
 
         fetch('/api/graph').then(res => {
             if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
-            // Store version from header
-            const version = res.headers.get('X-Graph-Version');
-            if (version) setGraphVersion(version);
             return res.json();
         }).then(graph => {
             // Fetch suggestions separately
@@ -289,34 +285,11 @@ function GraphPage() {
         if (g.edge_thickness) setEdgeThickness(g.edge_thickness);
     }, [config]);
 
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            try {
-                // 1. Trigger sync
-                const syncRes = await fetch('/api/sync', { method: 'POST' });
-                if (syncRes.status === 429) {
-                    console.warn("⏳ Sync skipped (already in progress)");
-                    return;
-                }
-                if (!syncRes.ok) {
-                    console.error("❌ Sync failed:", syncRes.status);
-                    return;
-                }
-
-                // 2. Check if version changed
-                const versionRes = await fetch('/api/graph/version');
-                if (!versionRes.ok) return;
-                const { version: newVersion } = await versionRes.json();
-
-                if (newVersion && newVersion !== graphVersion) {
-                    fetchGraphData(true);
-                }
-            } catch (err) {
-                console.error("❌ Sync error:", err);
-            }
-        }, 30000);
-        return () => clearInterval(interval);
-    }, [graphVersion]);
+    // (Eliminat l'antic polling d'auto-refresc cada 30s: cridava
+    // `POST /api/sync` i `GET /api/graph/version`, dos endpoints que ja no
+    // existeixen al backend natiu — només produïen un 404 repetit a la consola
+    // i no refrescaven res. El graf es recarrega en entrar i en canviar la
+    // configuració/filtres.)
 
 
 
