@@ -133,6 +133,7 @@
     "type_checkbox": "Case à cocher",
     "type_url": "URL",
     "type_files": "Fichiers",
+    "type_image": "Image",
     "type_relation": "Relation",
     "type_formula": "Formule",
     "type_rollup": "Rollup",

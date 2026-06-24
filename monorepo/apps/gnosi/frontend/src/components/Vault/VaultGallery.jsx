@@ -229,6 +229,14 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         <LinkIcon size={12} /> Zotero
                     </button>
                 );
+            case 'image': {
+                // Tipus imatge explícit: miniatura tant si el valor és string (ruta)
+                // com compost {src, alt, …}. value-gateja amb la URL servible.
+                const src = getImageSrc(value);
+                const previewUrl = toAssetPreviewUrl(src);
+                if (previewUrl) return <img src={previewUrl} alt={(value && value.alt) || field} className="h-9 w-9 rounded object-cover" />;
+                return <span className="truncate text-xs block text-[var(--text-secondary)]" title={src}>{src}</span>;
+            }
             default:
                 if (value && typeof value === 'object') {
                     // Camp imatge COMPOST {src, …}: miniatura si resol, si no el src.

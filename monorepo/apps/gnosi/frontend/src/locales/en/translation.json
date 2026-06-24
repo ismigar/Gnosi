@@ -1003,6 +1003,7 @@
     "type_checkbox": "Checkbox",
     "type_url": "URL",
     "type_files": "Files",
+    "type_image": "Image",
     "type_relation": "Relation",
     "type_formula": "Formula",
     "type_rollup": "Rollup",

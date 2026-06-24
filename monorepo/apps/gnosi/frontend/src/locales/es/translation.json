@@ -902,6 +902,7 @@
     "type_checkbox": "Casilla",
     "type_url": "URL",
     "type_files": "Archivos",
+    "type_image": "Imagen",
     "type_relation": "Relación",
     "type_formula": "Fórmula",
     "type_rollup": "Rollup",

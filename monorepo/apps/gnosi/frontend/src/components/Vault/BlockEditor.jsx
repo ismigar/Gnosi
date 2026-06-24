@@ -3945,7 +3945,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                     // previsualització en hover; en edició, clicar obre el selector
                                                     // (paritat amb la taula) i, si és buit, un afordament "+ Imatge".
                                                     // "Imatge Alt Text" queda exclòs (és prosa) i segueix sent text.
-                                                    if ((!prop.type || prop.type === 'text') && isImageFieldName(prop.name)) {
+                                                    // Tipus `image` explícit: sempre miniatura/selector, sigui quin sigui el nom.
+                                                    if (prop.type === 'image' || ((!prop.type || prop.type === 'text') && isImageFieldName(prop.name))) {
                                                         const imgMeta = parseImageField(v);
                                                         const previewUrl = toAssetPreviewUrl(imgMeta.src);
                                                         const imgAlt = imgMeta.alt || prop.name;
