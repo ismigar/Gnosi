@@ -58,7 +58,10 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
     // vista principal mostra tots els camps; una vista amb selecció, els seus
     // `visibleProperties` (o els 3 primers per defecte). Abans el kanban
     // ignorava `visibleProperties` i només pintava tags + data de modificació.
-    const cardProperties = isMainView(activeView, [activeView].filter(Boolean))
+    // `isMainView` SENSE llista de vistes (cas degenerat): amb `[activeView]` el
+    // fallback per ordre la considerava SEMPRE principal i s'ignoraven els
+    // visibleProperties de les vistes custom.
+    const cardProperties = isMainView(activeView)
         ? getSchemaFieldNames(schema)
         : (activeView?.visibleProperties || getSchemaFieldNames(schema).slice(0, 3));
     const cardColumns = cardProperties

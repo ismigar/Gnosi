@@ -14,8 +14,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const localeSettings = useLocaleSettings();
 
     // Propietats visibles (respecta la vista, com la galeria): la vista principal
-    // mostra tots els camps; una vista amb selecció, els seus `visibleProperties`.
-    const visibleProperties = isMainView(activeView, [activeView].filter(Boolean))
+    // mostra tots els camps; una vista personalitzada, els seus `visibleProperties`.
+    // Cridem `isMainView` SENSE llista de vistes (cas degenerat): amb
+    // `[activeView]` el fallback per ordre la considerava SEMPRE principal i
+    // s'ignoraven els visibleProperties de les vistes custom.
+    const visibleProperties = isMainView(activeView)
         ? getSchemaFieldNames(schema)
         : (activeView?.visibleProperties || getSchemaFieldNames(schema));
     const dynamicColumns = visibleProperties
