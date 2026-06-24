@@ -228,8 +228,14 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             break;
         }
         case "codeBlock":
-            // Contingut de codi: RAW, mai escapat (trencaria `a ** b`, `arr[0]`, etc.).
-            content = `\`\`\`${block.props.language || ""}\n${inlineContentToMarkdown(block.content, { escape: false })}\n\`\`\``;
+            // Text VERBATIM: `codeBlockText` uneix els .text sense passar per
+            // `inlineContentToMarkdown` (que escaparia `a ** b`/`arr[0]` I
+            // converteix els salts de línia tous en `<br>\n` — correcte per a
+            // paràgrafs, NO per a codi). Amb el serialitzador inline, un bloc de
+            // codi multilínia injectava un `<br>` a cada `\n` i, com que en
+            // recarregar quedava literal dins el codi, s'ACUMULAVA un `<br>` més
+            // a cada cicle desar/recarregar. `codeBlockText` és RAW i sense `<br>`.
+            content = `\`\`\`${block.props.language || ""}\n${codeBlockText(block)}\n\`\`\``;
             break;
         case "horizontalRule": // nom legacy del bloc de línia horitzontal
         case "divider":        // nom ACTUAL a BlockNote (defaultBlockSpecs.divider)
