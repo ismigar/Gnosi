@@ -6,7 +6,7 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { FileFieldValue } from './FileFieldValue';
 import { getImageSrc, toAssetPreviewUrl } from '../../lib/fileResource';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
-import { formatDate, resolveFieldFormat } from './formatUtils';
+import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
@@ -181,6 +181,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         <span>{formatDate(value, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale })}</span>
                     </div>
                 );
+            }
+            case 'number': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                return <span className="tabular-nums">{formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
             }
             case 'status':
             case 'select':

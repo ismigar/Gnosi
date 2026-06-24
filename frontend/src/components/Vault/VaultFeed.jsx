@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
-import { formatDate, resolveFieldFormat } from './formatUtils';
+import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { isMainView } from './viewConstants';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
@@ -54,6 +54,10 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                         <span className="text-[var(--text-secondary)]">{formatDate(value, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale })}</span>
                     </div>
                 );
+            }
+            case 'number': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                return <span className="tabular-nums text-[var(--text-secondary)]">{formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
             }
             case 'status':
             case 'select':
