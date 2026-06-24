@@ -1141,14 +1141,30 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     i++;
                 }
 
-                const tableRows = tableLines
-                    .filter(line => !line.match(/^\|?\s*[:\- ]+\s*(\|?\s*[:\- ]+\s*)*\|?$/)) // filter separator
-                    .map(line => {
-                        const cells = line.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-                        return {
-                            cells: cells.map(cell => [{ type: "text", text: cell.trim(), styles: {} }])
-                        };
-                    });
+                const dataLines = tableLines
+                    .filter(line => !line.match(/^\|?\s*[:\- ]+\s*(\|?\s*[:\- ]+\s*)*\|?$/)); // filter separator
+                const tableRows = [];
+                for (const line of dataLines) {
+                    const cells = line.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+                    const richCells = [];
+                    for (const cell of cells) {
+                        const text = cell.trim();
+                        // Parsegem el contingut de la cel·la com a markdown INLINE
+                        // (bold/cursiva/codi/enllaços/[[wikilinks]]) en lloc de
+                        // desar-lo com a text PLA, que perdia tot el format inline
+                        // en el round-trip (es veia "**negreta**" literal).
+                        let inline = [{ type: "text", text, styles: {} }];
+                        if (text) {
+                            try {
+                                const parsed = await parsePlainMarkdownBlock(text, editor);
+                                const c = parsed?.[0]?.content;
+                                if (Array.isArray(c) && c.length > 0) inline = c;
+                            } catch { /* mantenim el text pla com a reserva */ }
+                        }
+                        richCells.push(inline);
+                    }
+                    tableRows.push({ cells: richCells });
+                }
 
                 blocks.push({
                     id: Math.random().toString(36).substring(7),
