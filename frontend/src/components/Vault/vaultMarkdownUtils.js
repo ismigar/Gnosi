@@ -26,7 +26,14 @@ export const convertWikilinksToMd = (md) => {
         // Evitem `[`/`]` al text del link i `(` `)` a l'href perquè no
         // trenquin la sintaxi markdown del link.
         const safeTitle = displayTitle.replace(/[\][]/g, '');
-        const safeHref = encodeURIComponent(fullTarget);
+        // `encodeURIComponent` NO codifica `(` ni `)`; uns parèntesis SENSE
+        // balancejar al títol trencaven el link Markdown (un `)` el tanca abans
+        // d'hora i un `(` impedeix que es parsegi). Els codifiquem explícitament
+        // a %28/%29 — WikilinkInline ja decodifica l'href, així que la diana es
+        // resol igual.
+        const safeHref = encodeURIComponent(fullTarget)
+            .replace(/\(/g, '%28')
+            .replace(/\)/g, '%29');
         return `[${safeTitle}](${WIKILINK_HREF_SENTINEL}${safeHref})`;
     });
 };
