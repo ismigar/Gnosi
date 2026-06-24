@@ -22,7 +22,11 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
         setLoading(true);
         setError(null);
 
-        fetch(`/api/node/${nodeId}`)
+        // Un node del graf és una pàgina del Vault: en demanem el contingut amb
+        // l'endpoint real. Abans cridava `/api/node/{id}`, que no existeix al
+        // backend natiu → 404 a cada clic (panell sense contingut + error a la
+        // consola). Els nodes que no siguin pàgines (404) cauen a `initialData`.
+        fetch(`/api/vault/pages/${encodeURIComponent(nodeId)}`)
             .then(res => {
                 if (!res.ok) throw new Error("Node not found");
                 return res.json();
