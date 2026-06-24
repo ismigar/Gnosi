@@ -137,7 +137,7 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
     // numèric si TOTA la cadena és un número (dígits, separadors, exponent); les
     // dates i el text passen al fallback de cadena, però es conserva `parseFloat`
     // per als números (incl. '12,5' → 12, paritat amb el backend).
-    const numRe = /^[+-]?[\d.,]+(? :[eE][+-]?\d+)?$/;
+    const numRe = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$/;
     const isNumeric = numRe.test(aVal.trim()) && numRe.test(bVal.trim());
     let cmp = isNumeric
         ? parseFloat(aVal) - parseFloat(bVal)
