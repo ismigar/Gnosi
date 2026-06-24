@@ -9,8 +9,18 @@
  * @param {string} aggregation - Tipus d'agregació
  * @returns {string|number}
  */
+// parseFloat no entén els decimals amb coma (locale ca/es): parseFloat("0,25")=0,
+// parseFloat("1,5")=1, així que sum/avg/min/max d'un rollup sobre un camp numèric
+// amb comes sortien mal. Si el valor és un número net amb decimal de coma, el
+// passem a punt; si no, fallback a parseFloat (gestiona "1.5", enters i signe).
+// Mateix criteri que els motors d'ordenació/filtre/agregat de columna del Vault.
+function parseNumericValue(v) {
+    const t = String(v).trim();
+    return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
+}
+
 export function evaluateRollup(values = [], aggregation = 'count_all') {
-    const numericValues = values.map(v => parseFloat(v)).filter(v => !isNaN(v));
+    const numericValues = values.map(parseNumericValue).filter(v => !isNaN(v));
     const nonEmptyValues = values.filter(v => v !== null && v !== undefined && v !== '');
 
     switch (aggregation) {
