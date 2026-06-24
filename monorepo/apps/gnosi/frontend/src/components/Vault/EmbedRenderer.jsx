@@ -59,9 +59,19 @@ const toVimeoEmbed = (url) => {
     try {
         const u = new URL(url, window.location.origin);
         if (u.hostname.includes('player.vimeo.com')) return url;
-        const id = u.pathname.split('/').filter(Boolean).pop();
-        if (!id) return url;
-        return `https://player.vimeo.com/video/${encodeURIComponent(id)}`;
+        // L'ID del vídeo és el segment NUMÈRIC del path, no l'últim: en un vídeo
+        // no llistat (`vimeo.com/123456/abcdef`) l'últim segment és el hash de
+        // privadesa, i agafar-lo amb `.pop()` trencava l'embed. Localitzem l'ID
+        // i, si el segueix un hash, el passem com a `?h=` (necessari per als
+        // no llistats). Els formats de canal/grup ja tenen l'ID al final.
+        const segs = u.pathname.split('/').filter(Boolean);
+        const idIdx = segs.findIndex((s) => /^\d+$/.test(s));
+        if (idIdx === -1) return url;
+        const id = segs[idIdx];
+        const hash = segs[idIdx + 1];
+        return hash
+            ? `https://player.vimeo.com/video/${encodeURIComponent(id)}?h=${encodeURIComponent(hash)}`
+            : `https://player.vimeo.com/video/${encodeURIComponent(id)}`;
     } catch {
         return url;
     }
