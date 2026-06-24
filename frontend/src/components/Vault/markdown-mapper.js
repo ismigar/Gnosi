@@ -72,7 +72,19 @@ export const blocksToRichMarkdown = (blocks, editor) => {
     const parts = blocks.map(
         (block) => blockToMarkdown(block, editor, 0).replace(/\n+$/, "")
     );
-    const result = parts.join("\n\n").trim();
+    // Els ítems de llista CONSECUTIUS del mateix tipus s'uneixen amb un sol salt
+    // de línia (llista "tight"); la resta de blocs amb una línia en blanc (\n\n)
+    // perquè el re-parse de BlockNote no fusioni paràgrafs consecutius. Sense
+    // això, cada ítem de llista quedava separat per una línia en blanc al .md →
+    // llistes "loose" amb espaiat extra (i lletgeses en visors com Obsidian).
+    const LIST_ITEM_TYPES = new Set(["bulletListItem", "numberedListItem", "checkListItem"]);
+    let result = "";
+    blocks.forEach((block, i) => {
+        if (i === 0) { result = parts[i]; return; }
+        const tight = LIST_ITEM_TYPES.has(block.type) && block.type === blocks[i - 1].type;
+        result += (tight ? "\n" : "\n\n") + parts[i];
+    });
+    result = result.trim();
 
     // Sentinella defensiva: si trobem "[object Object]" al resultat,
     // alguna part del converter ha rebut un valor mal format. Llançem error
