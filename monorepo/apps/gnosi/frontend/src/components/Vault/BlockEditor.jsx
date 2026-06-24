@@ -353,6 +353,11 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
 
     const mdRegex = /\[[^\]]*\]\(([^)]+)\)/g;
     for (const match of body.matchAll(mdRegex)) {
+        // Excloure imatges Markdown `![alt](src)`: el `!` immediatament abans
+        // del claudàtor marca una IMATGE, no un enllaç a una pàgina. Sense això,
+        // una imatge amb ruta relativa o `file://` (que no passa el filtre
+        // http/`/` de més avall) s'afegia com a enllaç sortint NO resolt.
+        if (match.index > 0 && body[match.index - 1] === '!') continue;
         const rawRef = String(match?.[1] || '').trim();
         if (!rawRef) continue;
 
