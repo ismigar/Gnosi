@@ -27,7 +27,13 @@ const PostHistory = () => {
     };
 
     const formatDate = (isoString) => {
-        return new Date(isoString).toLocaleString('ca-ES', {
+        // Els posts no publicats (pending/failed/cancelled) arriben amb
+        // `published_at` buit (el backend torna `"" `); sense aquest guard,
+        // `new Date("")`/`new Date(null)` donaven "Invalid Date" o l'epoch (1970).
+        if (!isoString) return '—';
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString('ca-ES', {
             day: 'numeric',
             month: 'short',
             year: 'numeric',
