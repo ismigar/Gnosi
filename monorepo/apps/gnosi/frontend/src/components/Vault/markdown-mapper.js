@@ -131,7 +131,13 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return res;
     }
 
-    if (block.type === "toggle") {
+    // Inclou el `toggleListItem` BUILT-IN de BlockNote (disponible al slash menu
+    // per defecte), no només el bloc `toggle` custom de Gnosi: sense això, una
+    // "Toggle List" creada des del menú queia al `default` i es desava com a
+    // paràgraf + fills indentats, PERDENT l'estructura de desplegable. Tots dos
+    // tenen la mateixa forma (label inline + fills), així que es normalitzen a la
+    // mateixa fence `:::toggle` (en re-llegir, esdevé el toggle custom canònic).
+    if (block.type === "toggle" || block.type === "toggleListItem") {
         // El label del toggle es recupera amb un slice cru del parser (no markdown-it):
         // escapar-lo hi deixaria backslashes literals → escape:false.
         let res = `:::toggle ${inlineContentToMarkdown(block.content, { escape: false })}\n`;
