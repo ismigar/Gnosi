@@ -293,9 +293,15 @@ export function recursosPageToCsl(page) {
     const authors = structured ? structuredAuthorsToCsl(structured) : parseAuthors(m['Authors']);
     if (authors.length) item.author = authors;
 
-    const year = m['Any'];
-    if (year) {
-        item.issued = { 'date-parts': [[Number(year)]] };
+    // Extreu l'ANY de `Any`. Sovint és "2020", però també pot venir com a
+    // "2020-05" (any-mes), "2020a" (desambiguador) o "c. 2020" (circa).
+    // `Number()` sobre aquests donava NaN i citeproc ho renderitzava com a
+    // "n.d." → es perdia l'any tot i tenir-lo. Agafem el primer enter del valor
+    // (amb signe opcional per a anys aC); si no n'hi ha cap (p. ex. "s.d."),
+    // ometem `issued` i citeproc mostra correctament "n.d.".
+    const yearMatch = String(m['Any'] ?? '').match(/-?\d{1,4}/);
+    if (yearMatch) {
+        item.issued = { 'date-parts': [[Number(yearMatch[0])]] };
     }
 
     if (m['Llibre/Revista']) item['container-title'] = m['Llibre/Revista'];
