@@ -293,15 +293,17 @@ export function recursosPageToCsl(page) {
     const authors = structured ? structuredAuthorsToCsl(structured) : parseAuthors(m['Authors']);
     if (authors.length) item.author = authors;
 
-    // Extreu l'ANY de `Any`. Sovint és "2020", però també pot venir com a
-    // "2020-05" (any-mes), "2020a" (desambiguador) o "c. 2020" (circa).
-    // `Number()` sobre aquests donava NaN i citeproc ho renderitzava com a
-    // "n.d." → es perdia l'any tot i tenir-lo. Agafem el primer enter del valor
-    // (amb signe opcional per a anys aC); si no n'hi ha cap (p. ex. "s.d."),
-    // ometem `issued` i citeproc mostra correctament "n.d.".
-    const yearMatch = String(m['Any'] ?? '').match(/-?\d{1,4}/);
+    // Any de cita. Si conté un enter (p. ex. "2020", "2020-05", "c. 2020",
+    // "2020?"), n'extraiem l'any → `date-parts` (manté l'ordenació, #568). Si
+    // NO té cap dígit però hi ha text ("en premsa", "in press"), el preservem
+    // com a `literal` CSL perquè citeproc el mostri tal qual en lloc de "n.d."
+    // (#584). Buit → ometem `issued` i surt "n.d.".
+    const yearRaw = String(m['Any'] ?? '').trim();
+    const yearMatch = yearRaw.match(/-?\d{1,4}/);
     if (yearMatch) {
         item.issued = { 'date-parts': [[Number(yearMatch[0])]] };
+    } else if (yearRaw) {
+        item.issued = { literal: yearRaw };
     }
 
     if (m['Llibre/Revista']) item['container-title'] = m['Llibre/Revista'];
