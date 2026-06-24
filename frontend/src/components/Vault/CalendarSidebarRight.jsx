@@ -1571,7 +1571,13 @@ const AvailabilityTool = ({ calendars }) => {
     // el JSX llançaven ReferenceError quan l'usuari obria el sidebar de
     // disponibilitat → tot el sidebar quedava trencat amb un toast d'error.
     const { t } = useTranslation();
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    // Data per defecte: AVUI en hora local (no `toISOString`, que és UTC i prop
+    // de mitjanit donaria el dia anterior).
+    const [date, setDate] = useState(() => {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    });
     const [loading, setLoading] = useState(false);
     const [freeSlots, setFreeSlots] = useState([]);
 
@@ -1584,8 +1590,13 @@ const AvailabilityTool = ({ calendars }) => {
 
         setLoading(true);
         try {
-            const timeMin = `${date}T00:00:00Z`;
-            const timeMax = `${date}T23:59:59Z`;
+            // Finestra del dia LOCAL triat (no UTC): parsejant sense `Z`, el
+            // navegador interpreta els límits en hora local i `toISOString` els
+            // passa a l'instant UTC correcte. Amb `...Z` la finestra era el dia
+            // UTC, desplaçada respecte del dia local per a usuaris fora d'UTC
+            // (p. ex. UTC+2: el "6 de juliol" consultava 02:00→01:59 locals).
+            const timeMin = new Date(`${date}T00:00:00`).toISOString();
+            const timeMax = new Date(`${date}T23:59:59`).toISOString();
 
             const res = await axios.post(`/api/calendar/freebusy?email=${encodeURIComponent(email)}`, {
                 time_min: timeMin,
