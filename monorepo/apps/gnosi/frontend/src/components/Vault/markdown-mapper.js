@@ -552,6 +552,33 @@ const promoteEmbedBlocks = (blocks) => {
     });
 };
 
+// Restaura la llegenda d'una imatge des del sentinella `|` de l'alt-text.
+// El serialitzador desa `props.caption` a l'slot d'alt del Markdown amb un
+// prefix `|` (`![|llegenda](url)`). En parsejar, BlockNote posa l'alt-text a
+// `props.name` (NO a `props.caption`), de manera que sense aquesta restauració
+// la llegenda que l'usuari escriu sota una imatge es PERDIA a cada recàrrega
+// (quedava com a `name="|llegenda"`, invisible, i `caption=""`). Només tractem
+// els `name` que comencen amb `|` (el sentinella que escriu el serialitzador);
+// un `name`/alt real mai no hi comença. `slice(1)` treu NOMÉS el sentinella,
+// així una llegenda amb `|` interns (p.ex. "abans | després") es preserva sencera.
+const restoreImageCaptions = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: restoreImageCaptions(newBlock.children) };
+        }
+        if (newBlock?.type === 'image' && typeof newBlock.props?.name === 'string'
+            && newBlock.props.name.startsWith('|')) {
+            newBlock = {
+                ...newBlock,
+                props: { ...newBlock.props, caption: newBlock.props.name.slice(1), name: '' },
+            };
+        }
+        return newBlock;
+    });
+};
+
 // Detecta paràgrafs que només contenen `{{bibliography}}` (opcionalment
 // `{{bibliography:apa}}` o `{{bibliography:chicago-author-date:ca-AD}}`)
 // i els converteix en un block `bibliography`. Patró simètric al
@@ -1245,5 +1272,5 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
     };
 
     const parsed = await parseRecursive(lines);
-    return promoteCustomFences(promoteBibliographyBlocks(promoteEmbedBlocks(parsed)));
+    return restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteEmbedBlocks(parsed))));
 };
