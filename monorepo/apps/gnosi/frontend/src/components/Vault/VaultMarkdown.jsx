@@ -83,9 +83,17 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '' }) {
                     }
                     return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
                 },
-                code: ({ inline, ...props }) => inline
-                    ? <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props} />
-                    : <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props} />,
+                // react-markdown v10 ja no passa la prop `inline`: distingim el
+                // codi de bloc (fence amb llenguatge o multilínia) de l'inline
+                // pel className/contingut. A més desestructurem className/node
+                // perquè el spread `{...props}` no sobreescrigui la nostra classe
+                // d'estil (abans `language-js` la trepitjava → bloc sense estil).
+                code: ({ className, children, node, ...props }) => {
+                    const isBlock = /language-/.test(className || '') || String(children).includes('\n');
+                    return isBlock
+                        ? <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props}>{children}</code>
+                        : <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props}>{children}</code>;
+                },
             }}
         >
             {convertWikilinksToMd(md || '')}
