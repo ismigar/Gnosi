@@ -701,6 +701,14 @@ const escapeUnstyledMarkdown = (text, atLineStart) => {
     // Links/imatges inline `[...](` o `![...](`: escapa el `[` perquè no es torni enllaç.
     // Els `[ref]` solts NO es toquen (markdown-it ja els deixa literals) → mínima pol·lució.
     out = out.replace(/(!?)\[([^[\]\n]*)]\(/g, (mm, bang, label) => `${bang}\\[${label}](`);
+    // Tags HTML inline (`<b>tag</b>`) i autolinks (`<http://…>`): markdown-it
+    // (amb HTML activat) els reinterpretaria, de manera que un text PLA amb
+    // aquesta sintaxi (sovint HTML o una URL enganxats) es perdia/transformava
+    // en el round-trip. Escapem NOMÉS el `<` que inicia un tag o autolink COMPLET
+    // (amb el seu `>`), per no tocar `a < b` ni `a<b` (que CommonMark deixa
+    // literals). El `<br>`/`<u>`/`<span>` que injecta el serialitzador s'afegeixen
+    // DESPRÉS, així que no els afecta.
+    out = out.replace(/<(\/?[A-Za-z][^<>]*>|[A-Za-z][A-Za-z0-9+.-]*:[^<>\s]*>)/g, "\\<$1");
     // Marcadors de bloc a inici de cada línia.
     if (atLineStart) {
         out = out.split("\n").map(escapeLeadingBlockMarker).join("\n");
