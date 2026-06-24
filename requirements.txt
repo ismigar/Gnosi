@@ -13,21 +13,27 @@ gunicorn>=26.0.0
 cloudinary>=1.36.0
 fastapi>=0.136.3
 uvicorn[standard]>=0.47.0
-langgraph>=0.0.10
-langchain>=0.1.0
-langchain-openai>=0.0.5
-langchain-ollama
-langchain-groq
+# Stack IA migrat a langchain/langgraph 1.x (2026-06-24). Els terres apunten a
+# les versions REALMENT validades contra l'agent (vegis directiva
+# agent_langchain_v1_migration.md). NO baixar de 1.x: langchain/langgraph 0.x
+# trenquen l'agent (langgraph 0.x no té prebuilt.ToolNode/START; langchain-core
+# 0.x és incompatible amb les integracions 1.x). El terra protegeix la migració.
+langgraph>=1.2.5
+langchain>=1.3.9
+langchain-openai>=1.3.2
+langchain-ollama>=1.1.0
+langchain-groq>=1.1.3
+langchain-anthropic>=1.0  # wrapper que factory.py importa per al proveïdor Anthropic (el SDK cru `anthropic` no basta)
 pydantic>=2.13.4
 pytest>=7.0.0
 chromadb>=0.4.0
 langchain-chroma>=1.1.0
-langgraph-checkpoint-sqlite>=1.0.0
+langgraph-checkpoint-sqlite>=3.1.0
 psutil>=5.9.0
 simpleeval>=0.9.13
 trafilatura>=1.12
 sentence-transformers>=5.5.1
-langchain-huggingface>=0.0.1
+langchain-huggingface>=1.2.2
 icalendar>=5.0.0
 google-auth>=2.53.0
 google-auth-oauthlib>=1.0.0
