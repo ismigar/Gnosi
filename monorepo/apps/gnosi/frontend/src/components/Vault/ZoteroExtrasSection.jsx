@@ -29,10 +29,6 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
     const [newValue, setNewValue] = useState('');
     const [promoting, setPromoting] = useState(null);  // {key, columnName} | null
 
-    if (!extras || typeof extras !== 'object' || Array.isArray(extras)) return null;
-    const entries = Object.entries(extras).filter(([, v]) => v !== null && v !== undefined && v !== '');
-    if (entries.length === 0) return null;
-
     const updateField = useCallback((key, value) => {
         if (!onChange) return;
         const next = { ...extras, [key]: value };
@@ -93,6 +89,15 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
             }));
         }
     }, [promoting, tableId, onPromoted, t]);
+
+    // Early returns DESPRÉS de tots els hooks (regla dels hooks de React): si es
+    // posaven abans, els `useCallback` de sobre es cridaven condicionalment i,
+    // en canviar `extras` entre renders (p. ex. una pàgina de referència que
+    // carrega o un camp que s'esborra), React petava amb "Rendered more/fewer
+    // hooks than during the previous render".
+    if (!extras || typeof extras !== 'object' || Array.isArray(extras)) return null;
+    const entries = Object.entries(extras).filter(([, v]) => v !== null && v !== undefined && v !== '');
+    if (entries.length === 0) return null;
 
     return (
         <details className="col-span-2 mt-3 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden group">
