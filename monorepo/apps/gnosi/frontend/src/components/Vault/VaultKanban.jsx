@@ -4,7 +4,7 @@ import { Columns, FileText, Clock, Calendar, CheckSquare, Link as LinkIcon } fro
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
-import { formatDate, resolveFieldFormat } from './formatUtils';
+import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { isMainView } from './viewConstants';
 import { VaultViewToolbar } from './VaultViewToolbar';
@@ -85,6 +85,10 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
             case 'date': {
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return <span className="inline-flex items-center gap-1"><Calendar size={11} />{formatDate(value, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale })}</span>;
+            }
+            case 'number': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                return <span className="tabular-nums">{formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
             }
             case 'status':
             case 'select':
