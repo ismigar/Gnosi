@@ -29,7 +29,13 @@ export function localeForDecimalSymbol(decimalSymbol) {
 }
 
 function isEmpty(value) {
-    return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+    return value === undefined || value === null
+        // El número `NaN` (p. ex. el resultat d'una fórmula com `{Preu} * 2`
+        // amb un valor no numèric) es tracta com a BUIT: `toNumber` el deixa
+        // passar (`typeof NaN === 'number'`) i acabava mostrant-se com a "NaN%"
+        // a la cel·la, contradint la promesa "mai NaN" de `formatNumber`.
+        || (typeof value === 'number' && Number.isNaN(value))
+        || (typeof value === 'string' && value.trim() === '');
 }
 
 function toNumber(value) {
