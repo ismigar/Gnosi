@@ -235,7 +235,12 @@ export const DigitalBrainCalendar = ({
                     }
                 } else {
                     eventObj.start = dateStr;
-                    eventObj.end = metadata.end_date || metadata.end_time || null;
+                    // Usem `endStr` (que ja inclou el final del període i el camp
+                    // endDateField), no només metadata.end_date/end_time: sense
+                    // això, un event NO recurrent amb un camp `period` o un
+                    // `endDateField` configurat perdia el final i es renderitzava
+                    // com un sol dia.
+                    eventObj.end = endStr;
                     eventObj.allDay = isAllDay;
                 }
 
