@@ -17,6 +17,15 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 import './CalendarStyles.css';
 import { useTitlePreview } from './useTitlePreview';
 
+// Serialitza un Date a "YYYY-MM-DDTHH:MM:SS" en hora LOCAL (no UTC). En moure o
+// redimensionar un event amb hora del Vault cal desar l'hora local: `toISOString()`
+// la passaria a UTC i, com que el calendari torna a llegir la string sense zona
+// com a local, l'hora es desplaçaria per l'offset (p. ex. −2h a Madrid l'estiu)
+// cada cop que es mou l'event. (La branca de Google ja usa `startStr` local.)
+const _p2 = (n) => String(n).padStart(2, '0');
+const toLocalDateTimeStr = (d) =>
+    `${d.getFullYear()}-${_p2(d.getMonth() + 1)}-${_p2(d.getDate())}T${_p2(d.getHours())}:${_p2(d.getMinutes())}:${_p2(d.getSeconds())}`;
+
 // Utilitat per crear colors pastís i manejar variables CSS
 const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
     const finalColor = color || 'var(--gnosi-primary)';
@@ -314,9 +323,9 @@ export const DigitalBrainCalendar = ({
 
         const newStart = event.allDay
             ? event.startStr
-            : event.start.toISOString().replace('.000Z', '');
+            : toLocalDateTimeStr(event.start);
         const newEnd = event.end
-            ? (event.allDay ? event.endStr : event.end.toISOString().replace('.000Z', ''))
+            ? (event.allDay ? event.endStr : toLocalDateTimeStr(event.end))
             : null;
 
         const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);
@@ -370,7 +379,7 @@ export const DigitalBrainCalendar = ({
 
         const newEnd = event.allDay
             ? event.endStr
-            : event.end.toISOString().replace('.000Z', '');
+            : toLocalDateTimeStr(event.end);
 
         const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);
 
