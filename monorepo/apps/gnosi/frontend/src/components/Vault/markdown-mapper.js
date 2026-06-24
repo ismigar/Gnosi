@@ -245,6 +245,18 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             const alertContent = inlineContentToMarkdown(block.content, { escape: false });
             return `> [!${alertType}]\n> ${alertContent.replace(/\n/g, "\n> ")}`;
         }
+        case "quote": {
+            // Cita en bloc → blockquote de Markdown (`> …`). BlockNote suporta el
+            // bloc `quote` de sèrie; sense aquest cas queia al `default` i es
+            // desava com a paràgraf PLA, perdent el format de cita a cada desat.
+            let inner = inlineContentToMarkdown(block.content, { atLineStart: true });
+            if (block.children && block.children.length > 0) {
+                block.children.forEach(child => {
+                    inner += "\n" + blockToMarkdown(child, editor, 0).replace(/\n+$/, "");
+                });
+            }
+            return `> ${inner.replace(/\n/g, "\n> ")}`;
+        }
         case "table": {
             // GFM Table serialization
             // Support native BlockNote table format (block.content.rows) or fallback to custom nested children
