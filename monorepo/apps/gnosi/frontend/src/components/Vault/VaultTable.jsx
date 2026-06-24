@@ -1650,16 +1650,34 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
     };
 
-    const calculateFormula = useCallback((formula, note) => evaluateFormula(formula, note, {
-        notes: safeNotes,
-        currentTableId: resolveNoteTableId(note),
-        schema,
-    }), [safeNotes, resolveNoteTableId, schema]);
+    // evaluateFormula(formula, METADATA, TITLE, options): cal passar la metadata
+    // de la nota (no la nota sencera) i el títol per separat. Abans es passava
+    // (formula, note, opts) → els camps no resolien ({Preu}→'') i prop('title')
+    // tornava l'objecte d'opcions; ara {Preu}*{Quantitat} dona el resultat real.
+    const calculateFormula = useCallback((formula, note) => evaluateFormula(
+        formula,
+        note?.metadata || {},
+        note?.title || '',
+        { notes: safeNotes, currentTableId: resolveNoteTableId(note), schema },
+    ), [safeNotes, resolveNoteTableId, schema]);
 
-    const calculateRollup = useCallback((config, note) => evaluateRollup(config, note, {
-        notes: safeNotes,
-        currentTableId: resolveNoteTableId(note),
-    }), [safeNotes, resolveNoteTableId]);
+    // evaluateRollup(values, aggregation) agrega una llista de valors JA recollits.
+    // Abans es cridava (config, note, opts) → `values.map` petava ("values.map is
+    // not a function"). Aquí recollim els valors dels registres relacionats (pels
+    // ids de `relationField`, buscats a allNotes) i després agreguem.
+    const calculateRollup = useCallback((config, note) => {
+        const relationField = config?.relationField;
+        const aggregation = config?.aggregation || 'count_values';
+        const raw = note?.metadata?.[relationField];
+        let relatedIds = Array.isArray(raw)
+            ? raw.map(String)
+            : (raw != null && raw !== '' ? [String(raw)] : []);
+        if (config?.limit) relatedIds = relatedIds.slice(0, Number(config.limit));
+        if (aggregation === 'count_all') return evaluateRollup(relatedIds, 'count_all');
+        const byId = new Map((allNotes || []).map(n => [n.id, n]));
+        const values = relatedIds.map(id => byId.get(id)?.metadata?.[config?.targetProperty]);
+        return evaluateRollup(values, aggregation);
+    }, [allNotes]);
 
     const getCalculatedFieldValue = useCallback((field, note, fallbackValue = null) => {
         const fieldType = getFieldType(schema, field);
