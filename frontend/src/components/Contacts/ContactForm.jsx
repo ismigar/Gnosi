@@ -85,9 +85,15 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
     };
 
     const handleFieldChange = (field, index, key, value) => {
-        const newList = [...formData[field]];
-        newList[index] = { ...newList[index], [key]: value };
-        setFormData(prev => ({ ...prev, [field]: newList }));
+        // Construïm la nova llista DINS del functional update (a partir de `prev`),
+        // no del `formData` del closure: així no es perd cap actualització pendent
+        // de la mateixa llista (p. ex. una fila afegida just abans en el mateix
+        // batch). Coherent amb handleAddField/handleRemoveField, que ja usen `prev`.
+        setFormData(prev => {
+            const newList = [...prev[field]];
+            newList[index] = { ...newList[index], [key]: value };
+            return { ...prev, [field]: newList };
+        });
     };
 
     const handleAddTag = () => {
