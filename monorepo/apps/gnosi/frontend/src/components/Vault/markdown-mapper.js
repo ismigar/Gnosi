@@ -951,6 +951,25 @@ const parsePlainMarkdownBlock = async (text, editor) => {
 };
 
 /**
+ * Parseja una cadena de markdown a contingut INLINE de BlockNote (negreta,
+ * cursiva, codi, enllaços, [[wikilinks]]…) reaprofitant parsePlainMarkdownBlock.
+ * Retorna el contingut inline del primer bloc, o un únic node de text pla com a
+ * reserva. S'usa per a títols/labels que abans es desaven com a text pla i
+ * perdien el format inline en el round-trip (toggle, encapçalament desplegable).
+ */
+const parseInlineFromMarkdown = async (text, editor) => {
+    const fallback = [{ type: "text", text: String(text ?? ""), styles: {} }];
+    if (!text) return fallback;
+    try {
+        const parsed = await parsePlainMarkdownBlock(text, editor);
+        const inline = parsed?.[0]?.content;
+        return (Array.isArray(inline) && inline.length > 0) ? inline : fallback;
+    } catch {
+        return fallback;
+    }
+};
+
+/**
  * Converteix Markdown enriquit a blocs.
  */
 export const richMarkdownToBlocks = async (markdown, editor) => {
@@ -1047,7 +1066,10 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                 if (type === "toggle") {
                     // Netegem possibles atributs del label si fos necessari
                     const cleanLabel = label.replace(/\{.*\}/, "").trim();
-                    block.content = [{ type: "text", text: (cleanLabel || "Toggle"), styles: {} }];
+                    // El títol del toggle és contingut inline: el parsegem com a
+                    // markdown perquè **negreta**, `codi`, [[wikilinks]]… no es
+                    // perdin (abans es desava com a text pla literal).
+                    block.content = await parseInlineFromMarkdown(cleanLabel || "Toggle", editor);
                     block.props.textColor = "default";
                 }
 
@@ -1059,7 +1081,8 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     block.props.isToggleable = true;
                     block.props.textColor = "default";
                     const cleanLabel = label.replace(/\{[^}]*\}/, "").trim();
-                    block.content = cleanLabel ? [{ type: "text", text: cleanLabel, styles: {} }] : [];
+                    // Títol inline: parsegem el markdown (negreta/codi/wikilinks…).
+                    block.content = cleanLabel ? await parseInlineFromMarkdown(cleanLabel, editor) : [];
                 }
 
                 // El contenidor de columnes (germà del guard de columna buida de
