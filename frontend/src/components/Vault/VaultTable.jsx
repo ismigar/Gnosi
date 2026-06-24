@@ -2697,7 +2697,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }).filter(v => v !== undefined && v !== null && v !== '');
         if (func === 'count') return values.length;
         if (type === 'number' || field === 'size' || type === 'formula' || type === 'rollup') {
-            const nums = values.map(v => Number(v)).filter(v => !isNaN(v));
+            // Parse tolerant amb el decimal de COMA (locale ca/es): "0,25" → 0.25.
+            // `Number("0,25")` és NaN, així que la suma/mitjana/min/max d'una
+            // columna number en format català excloïa els valors amb coma (total
+            // i mitjana falsos: comptava menys files de les que hi ha).
+            const nums = values.map(v => {
+                const t = String(v).trim();
+                return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : Number(t);
+            }).filter(v => !isNaN(v));
             if (nums.length === 0) return 0;
             const aggFmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
             const fnum = (n) => formatNumber(n, { kind: aggFmt.kind, decimals: aggFmt.decimals, currencyCode: aggFmt.currencyCode, locale: aggFmt.numberLocale });
