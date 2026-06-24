@@ -3,6 +3,7 @@ import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare } from 'lucide
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
+import { IconRenderer } from './IconRenderer';
 import { isMainView } from './viewConstants';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
@@ -171,7 +172,6 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
 
                 {sortedNotes.map(note => {
                     const hasCover = !!note.metadata?.cover;
-                    const icon = note.metadata?.icon || <FileText size={24} className="text-[var(--text-tertiary)]" />;
 
                     return (
                         <div
@@ -208,8 +208,10 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                             {/* Feed Item Body */}
                             <div className="p-6 relative bg-[var(--bg-primary)]">
                                 {/* Profile / Icon Overlap */}
-                                <div className="absolute -top-8 left-6 w-16 h-16 bg-[var(--bg-secondary)] rounded-xl shadow-sm border border-[var(--border-primary)] flex items-center justify-center text-3xl z-10 transition-transform group-hover:scale-110">
-                                    {typeof icon === 'string' ? icon : icon}
+                                <div className="absolute -top-8 left-6 w-16 h-16 bg-[var(--bg-secondary)] rounded-xl shadow-sm border border-[var(--border-primary)] flex items-center justify-center text-3xl z-10 transition-transform group-hover:scale-110 overflow-hidden">
+                                    {note.metadata?.icon
+                                        ? <IconRenderer icon={note.metadata.icon} size={32} />
+                                        : <FileText size={24} className="text-[var(--text-tertiary)]" />}
                                 </div>
 
                                 <div className="mt-8 flex flex-col gap-4">
