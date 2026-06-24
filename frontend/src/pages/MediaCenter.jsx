@@ -1472,7 +1472,7 @@ export default function MediaCenter() {
                       </div>
                     </div>
 
-                    {selectedPhoto.lat && (
+                    {selectedPhoto.lat != null && selectedPhoto.lng != null && (
                       <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                         <p className="text-[9px] text-emerald-600 uppercase font-bold mb-1.5">Localització</p>
                         <div className="flex items-center justify-between gap-2">
