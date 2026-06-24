@@ -310,8 +310,14 @@ const ReaderDashboard = () => {
     };
 
     const formatArticleMeta = (article) => {
-        const date = new Date(article.published_at).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
-        return article.source_name ? `${article.source_name} · ${date}` : date;
+        // Alguns articles RSS no porten data (`published_at` null; el backend els
+        // ordena amb `nullslast()`). Sense aquest guard, `new Date(null)` donava
+        // l'epoch ("1 de gen.") com a data de l'article.
+        const d = article.published_at ? new Date(article.published_at) : null;
+        const date = d && !isNaN(d.getTime())
+            ? d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
+            : '';
+        return [article.source_name, date].filter(Boolean).join(' · ');
     };
 
     const formatPending = (count) =>
