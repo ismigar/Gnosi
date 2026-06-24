@@ -17,7 +17,9 @@ const TRUTHY = new Set(['true', '1', 'yes', 'si', 'sí', 'done', 'checked', 'com
 // del backend (view_snapshot.py).
 export const NUM_RE = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$/;
 
-function asBool(x) {
+// Exportada perquè rollupUtils (percent_checked) compti els checkbox amb la
+// MATEIXA lògica de veritat que els filtres.
+export function asBool(x) {
     if (x === true) return true;
     if (x === false || x === null || x === undefined || x === '') return false;
     if (typeof x === 'number') return x !== 0;
