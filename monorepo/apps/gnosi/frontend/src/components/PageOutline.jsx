@@ -95,7 +95,7 @@ export default function PageOutline() {
         // en bucle) quan el conjunt de títols no ha canviat realment.
         setHeadings((prev) => (
             prev.length === collected.length
-            && prev.every((h, i) => h.id === collected[i].id && h.level === collected[i].level)
+            && prev.every((h, i) => h.id === collected[i].id && h.level === collected[i].level && h.text === collected[i].text)
                 ? prev
                 : collected
         ));
