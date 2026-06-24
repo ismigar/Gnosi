@@ -90,7 +90,15 @@ const pad2 = (n) => String(n).padStart(2, '0');
 export function formatDate(value, opts = {}) {
     if (isEmpty(value)) return '';
     const { dateFormat = 'locale', type = 'date', locale } = opts;
-    const d = new Date(value);
+    // Una cadena de NOMÉS data ("YYYY-MM-DD") la parseja `new Date()` com a
+    // mitjanit UTC; com que després en llegim els components LOCALS (getDate…) o
+    // la formatem amb la tz local, el dia es desplaça enrere en zones amb offset
+    // negatiu (p. ex. Amèrica): "2024-10-04" hi sortiria com a 03/10. La parsegem
+    // com a mitjanit LOCAL perquè mostri sempre el dia literal. Els valors amb
+    // hora (ISO datetime) es mantenen com abans (conversió de tz correcta).
+    const d = (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()))
+        ? new Date(value.trim() + 'T00:00:00')
+        : new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
 
     if (dateFormat === 'locale') {
