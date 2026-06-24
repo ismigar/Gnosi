@@ -79,6 +79,13 @@ export function evaluateFormula(formula, metadata = {}, title = '', options = {}
             return falsy ? b : a;
         };
         const result = Function('__IF', '"use strict"; return (' + expr + ')')(__IF);
+        // Un resultat numèric NO FINIT no és un valor de cel·la útil i `?? null`
+        // no l'atrapa (NaN i Infinity no són null/undefined): `NaN` surt
+        // d'operar sobre valors no numèrics ("12,5" * 2, o text - text) i
+        // `Infinity` d'una divisió per zero. Els normalitzem a null perquè la
+        // cel·la quedi BUIDA —i ordeni/filtri com a buida— en lloc de mostrar
+        // "NaN"/"Infinity".
+        if (typeof result === 'number' && !Number.isFinite(result)) return null;
         return result ?? null;
     } catch (e) {
         return null;
