@@ -15,13 +15,21 @@ export function useVaultSelection(pages = []) {
         setSelectedIds(prev => {
             const next = new Set(prev);
             if (isShift && allIds.length && prev.size > 0) {
-                // Selecció per rang
+                // Selecció per rang des de l'última selecció (àncora).
                 const lastSelected = [...prev].at(-1);
                 const lastIdx = allIds.indexOf(lastSelected);
                 const currIdx = allIds.indexOf(id);
-                const [from, to] = lastIdx < currIdx ? [lastIdx, currIdx] : [currIdx, lastIdx];
-                for (let i = from; i <= to; i++) {
-                    next.add(allIds[i]);
+                // Si l'àncora ja no és a la llista actual (p. ex. perquè la cerca
+                // o un filtre l'han tret) `indexOf` torna -1: el bucle afegiria
+                // `allIds[-1]` (undefined) i un rang erroni des de l'índex 0. En
+                // aquest cas fem un toggle simple de l'element clicat.
+                if (lastIdx === -1 || currIdx === -1) {
+                    if (next.has(id)) next.delete(id); else next.add(id);
+                } else {
+                    const [from, to] = lastIdx < currIdx ? [lastIdx, currIdx] : [currIdx, lastIdx];
+                    for (let i = from; i <= to; i++) {
+                        next.add(allIds[i]);
+                    }
                 }
             } else {
                 if (next.has(id)) {
