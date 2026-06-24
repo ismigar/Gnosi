@@ -547,13 +547,21 @@ const AgentChat = () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let aiMsgAdded = false;
+            let buffer = '';
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                // Acumulem al buffer i només processem línies COMPLETES: una línia
+                // JSON pot quedar partida entre dos chunks de xarxa (perdent el
+                // missatge sencer si es prova de parsejar a trossos). `{ stream: !done }`
+                // evita a més corrompre un caràcter UTF-8 multibyte (à, é, ç…) tallat
+                // a la frontera del chunk.
+                buffer += decoder.decode(value, { stream: !done });
+                const lines = buffer.split('\n');
+                // Mentre el stream continua, l'última línia pot estar incompleta i
+                // la mantenim al buffer; en acabar (done) ja s'ha processat tot.
+                buffer = done ? '' : lines.pop();
 
                 for (const line of lines) {
                     if (!line.trim()) continue;
@@ -602,6 +610,8 @@ const AgentChat = () => {
                         console.error("Error parsing JSON line:", line, e);
                     }
                 }
+
+                if (done) break;
             }
         } catch (error) {
             setMessages(prev => [...prev, { role: 'system', content: `Error: ${error.message}` }]);
