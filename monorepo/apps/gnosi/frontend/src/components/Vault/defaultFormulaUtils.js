@@ -4,6 +4,15 @@
  * de les pàgines del Vault en el moment de creació.
  */
 
+// Data d'avui en hora LOCAL (YYYY-MM-DD). No fem servir `toISOString` (UTC):
+// prop de mitjanit la data UTC pot ser el dia anterior i un registre creat de
+// matinada rebria com a valor per defecte la data d'ahir.
+const _localTodayStr = () => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 /**
  * Avalua una expressió de fórmula simple per a un camp per defecte.
  *
@@ -20,14 +29,14 @@ function evaluateDefaultFormula(formula, context = {}) {
     if (!formula || typeof formula !== 'string') return null;
     const expr = formula.trim();
 
-    // now() → data actual
+    // now() → data actual (local)
     if (/^now\(\)$/i.test(expr)) {
-        return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        return _localTodayStr(); // YYYY-MM-DD
     }
 
     // today() → mateix que now()
     if (/^today\(\)$/i.test(expr)) {
-        return new Date().toISOString().slice(0, 10);
+        return _localTodayStr();
     }
 
     // {NomPropietat} → valor del metadat del registre actual
