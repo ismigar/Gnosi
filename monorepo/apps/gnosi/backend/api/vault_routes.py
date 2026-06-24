@@ -834,18 +834,16 @@ def _store_icon_bytes(
     
     icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
 
+    # La generació del thumbnail s'ha mogut a una tasca en segon pla a la ruta;
+    # aquí la resposta el deixa a None (abans hi havia un bloc que referenciava
+    # `thumbnail_rel`, una variable que ja no existeix → NameError en desar la
+    # icona).
     response = {
         "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
         "path": icon_rel,
         "thumbnail_url": None,
         "thumbnail_path": None,
     }
-
-    if thumbnail_rel:
-        response["thumbnail_path"] = thumbnail_rel
-        response["thumbnail_url"] = (
-            f"/api/vault/assets/{thumbnail_rel[len('Assets/') :]}"
-        )
 
     return response
 
