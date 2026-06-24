@@ -59,7 +59,16 @@ export function evaluateFormula(formula, metadata = {}, title = '', options = {}
         // Avaluació segura d'operacions numèriques simples. `__IF` implementa
         // if(cond, a, b) com a ternari (tots dos branques s'avaluen, cosa
         // acceptable per a fórmules de valors sense efectes secundaris).
-        const __IF = (cond, a, b) => (cond ? a : b);
+        // Un checkbox es pot desar com a STRING "false" (o "0"); en JS "false"
+        // és truthy, així que `if({Checkbox}, …)` agafava sempre la branca
+        // "true". Tractem "false"/"0" (a més del buit, null, 0 i false) com a
+        // falsy —coherent amb la lectura del checkbox a VaultTable
+        // (`val !== 'false'`)— sense alterar cap altre text no buit.
+        const __IF = (cond, a, b) => {
+            const falsy = cond == null || cond === false || cond === 0
+                || cond === '' || cond === 'false' || cond === '0';
+            return falsy ? b : a;
+        };
         const result = Function('__IF', '"use strict"; return (' + expr + ')')(__IF);
         return result ?? null;
     } catch (e) {
