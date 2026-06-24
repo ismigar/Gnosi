@@ -2,6 +2,7 @@
  * rollupUtils.js
  * Utilitats per calcular rollups (agregacions) sobre registres relacionats del Vault.
  */
+import { asBool } from '../../utils/vaultFilters';
 
 /**
  * Calcula un rollup sobre una llista de valors.
@@ -40,7 +41,10 @@ export function evaluateRollup(values = [], aggregation = 'count_all') {
             return new Set(nonEmptyValues.map(v => String(v))).size;
         case 'percent_checked':
             if (!values.length) return '0%';
-            const checked = values.filter(v => v === true || v === 'true' || v === 1).length;
+            // Paritat amb els 3 motors de filtres (asBool/_as_bool/_is_truthy_checkbox):
+            // un checkbox emmagatzemat com a 'yes'/'sí'/'done'/'checked'/'completat'
+            // també compta com a marcat, no només `true`/'true'/1.
+            const checked = values.filter(asBool).length;
             return `${Math.round((checked / values.length) * 100)}%`;
         case 'earliest':
             return nonEmptyValues.length ? nonEmptyValues.sort()[0] : null;
