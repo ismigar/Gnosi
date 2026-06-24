@@ -75,7 +75,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
                         onClick={() => onDrawingSelect(drawing.id, drawing.title)}
                         className="group relative bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all cursor-pointer flex flex-col"
                     >
-                        <div className="aspect-video bg-slate-50 flex items-center justify-center border-bottom border-slate-100 overflow-hidden relative">
+                        <div className="aspect-video bg-slate-50 flex items-center justify-center border-b border-slate-100 overflow-hidden relative">
                             <Palette size={40} className="text-slate-200 group-hover:text-indigo-100 transition-colors" />
                             {/* Aquí aniria la thumbnail SVG a la Fase 1.5 */}
                             <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/5 transition-colors flex items-center justify-center">
@@ -88,11 +88,11 @@ const VaultDrawings = ({ onDrawingSelect }) => {
                             <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
                                 <span className="flex items-center gap-1">
                                     <Calendar size={12} />
-                                    {new Date(drawing.last_modified).toLocaleDateString()}
+                                    {drawing.last_modified ? new Date(drawing.last_modified).toLocaleDateString() : '—'}
                                 </span>
                                 <span className="flex items-center gap-1">
                                     <HardDrive size={12} />
-                                    {(drawing.size / 1024).toFixed(1)} KB
+                                    {Number.isFinite(drawing.size) ? `${(drawing.size / 1024).toFixed(1)} KB` : '—'}
                                 </span>
                             </div>
                         </div>
