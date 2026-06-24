@@ -732,8 +732,19 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const options = (cfg && Array.isArray(cfg.options)) ? normalizeOptions(cfg.options) : [];
         const colorMap = {};
         options.forEach(o => { colorMap[o.name] = o.color; });
-        return { fieldId: cfg?.id || null, optionOrder: options.map(o => o.name), colorMap };
-    }, [groupByField, schema]);
+        // Agrupar per un camp RELACIÓ: el valor del grup és l'id de la pàgina
+        // relacionada. Resolem id→títol (com fan les cel·les de relació) perquè
+        // la capçalera de grup mostri el títol i no l'UUID cru. Per a select/text
+        // `labelMap` és null i el label es queda igual (el nom/opció).
+        const relDb = cfg?.relation_database_id;
+        const labelMap = relDb
+            ? Object.fromEntries((allNotes || []).filter(n => {
+                const tid = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                return tid === relDb;
+            }).map(n => [n.id, n.title || idToTitle[n.id] || n.id]))
+            : null;
+        return { fieldId: cfg?.id || null, optionOrder: options.map(o => o.name), colorMap, labelMap };
+    }, [groupByField, schema, allNotes, idToTitle]);
 
     // Col·lapse/expansió d'un grup (estat local). Es reinicia en canviar de
     // vista o de camp d'agrupació, on les claus de grup deixen de tenir sentit.
@@ -791,7 +802,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             else name = (raw === null || raw === undefined) ? '' : String(raw).trim();
             const gid = name === '' ? EMPTY : name;
             let g = groups.get(gid);
-            if (!g) { g = { key: gid, label: gid === EMPTY ? 'Sense valor' : name, notes: [] }; groups.set(gid, g); }
+            if (!g) { g = { key: gid, label: gid === EMPTY ? 'Sense valor' : (groupMeta.labelMap?.[name] || name), notes: [] }; groups.set(gid, g); }
             g.notes.push(note);
         }
         // Ordre: opcions de l'esquema (en el seu ordre) → valors no catalogats
