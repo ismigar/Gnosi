@@ -453,8 +453,13 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
     // seleccionada) perquè l'usuari pugui substituir-la sense haver de
     // deseleccionar primer. Mode multi: amaguem les ja seleccionades
     // perquè ja apareixen com a pills.
+    // Filtre insensible a accents (NFD): "educacio" troba "Educació",
+    // "historia" troba "Història". En un vault català/castellà l'usuari no
+    // acostuma a teclejar els accents i, sense això, l'opció/relació no apareixia.
+    const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const foldedTerm = foldAccents(searchTerm);
     const filteredOptions = optionKeys.filter(opt =>
-        String(idToTitle[opt] || opt).toLowerCase().includes(searchTerm.toLowerCase()) &&
+        foldAccents(idToTitle[opt] || opt).includes(foldedTerm) &&
         (single || !currentValues.includes(opt))
     );
     const canCreate = Boolean(
