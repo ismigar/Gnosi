@@ -95,7 +95,15 @@ export function coerceValueForField(raw, type, ctx = {}) {
     switch (type) {
         case 'number': {
             if (isEmptyRaw(raw)) return { value: '' };
-            const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
+            let n = typeof raw === 'number' ? raw : Number(String(raw).trim());
+            // Decimal amb COMA (locale ca/es): "0,5" → 0.5. Només el cas
+            // inequívoc (una sola coma, signe opcional, SENSE punt de milers)
+            // per no haver d'endevinar "1.234,56" (milers+decimal) ni "1,2,3".
+            // Sense això, enganxar un número en format local s'ometia en silenci.
+            if (typeof raw === 'string' && !Number.isFinite(n)) {
+                const s = raw.trim();
+                if (/^-?\d+,\d+$/.test(s)) n = Number(s.replace(',', '.'));
+            }
             return Number.isFinite(n) ? { value: n } : SKIP;
         }
 
