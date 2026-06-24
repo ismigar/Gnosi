@@ -443,18 +443,26 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         return any(target_l in x for x in arr_l)
     if op == "not_contains":
         return not any(target_l in x for x in arr_l)
+    # major/menor que: si TOTS DOS (valor i filtre) són números purs, comparació
+    # numèrica (_parse_float_js, paritat amb el parseFloat del front); si no,
+    # comparació de CADENA en minúscules. Per a dates ISO l'ordre lexicogràfic és
+    # cronològic i coincideix amb JS (ASCII), de manera que filtrar una columna de
+    # data per rang funciona i és consistent amb matchesFilters / applyFilter.
     if op in ("greater_than", "less_than"):
-        try:
-            t = float(target)
-        except (TypeError, ValueError):
-            return False
+        gt = op == "greater_than"
+        target_num = bool(_FULL_NUMERIC_RE.match(target.strip()))
         for x in arr:
-            try:
-                n = float(x)
-            except (TypeError, ValueError):
-                continue
-            if (n > t) if op == "greater_than" else (n < t):
-                return True
+            if target_num and _FULL_NUMERIC_RE.match(x.strip()):
+                n = _parse_float_js(x)
+                t = _parse_float_js(target)
+                if n is None or t is None:
+                    continue
+                if (n > t) if gt else (n < t):
+                    return True
+            else:
+                xl = x.lower()
+                if (xl > target_l) if gt else (xl < target_l):
+                    return True
         return False
     return True
 
