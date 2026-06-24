@@ -118,12 +118,23 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         ? groupOptions.map(o => o.name)
         : (groupBy === 'status' ? ['Idea', 'Brollador', 'Zettel', 'Tancat'] : []);
 
+    // Valors d'agrupació d'un registre. Resol la clau de forma tolerant (exacta
+    // o normalitzada, com `getCardVal`) i retorna una LLISTA: un camp
+    // multi_select/relació és un ARRAY i el registre ha d'aparèixer a CADA
+    // columna (com Notion). Abans s'usava la clau exacta i el valor cru, així que
+    // un array creava una columna espúria "A,B" i una clau amb prefix decoratiu
+    // (emoji) queia tota a 'Sense Estat'.
+    const groupValuesOf = (note) => {
+        const raw = getCardVal(note, groupBy);
+        if (Array.isArray(raw)) return raw.map(v => String(v)).filter(Boolean);
+        return (raw === undefined || raw === null || String(raw).trim() === '') ? [] : [String(raw)];
+    };
+
     const customStatuses = new Set();
     sortedAndFilteredNotes.forEach(note => {
-        const s = note.metadata?.[groupBy];
-        if (s && !predefinedStatuses.includes(s)) {
-            customStatuses.add(s);
-        }
+        groupValuesOf(note).forEach(v => {
+            if (!predefinedStatuses.includes(v)) customStatuses.add(v);
+        });
     });
 
     const allStatuses = [...predefinedStatuses, ...Array.from(customStatuses), 'Sense Estat'];
@@ -135,12 +146,11 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
     }, {});
 
     sortedAndFilteredNotes.forEach(note => {
-        const status = note.metadata?.[groupBy] || 'Sense Estat';
-        if (groupedNotes[status]) {
-            groupedNotes[status].push(note);
-        } else {
-            groupedNotes['Sense Estat'].push(note);
-        }
+        const vals = groupValuesOf(note);
+        if (!vals.length) { groupedNotes['Sense Estat'].push(note); return; }
+        vals.forEach(v => {
+            (groupedNotes[v] || groupedNotes['Sense Estat']).push(note);
+        });
     });
 
     return (
