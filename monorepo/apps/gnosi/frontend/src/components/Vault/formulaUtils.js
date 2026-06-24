@@ -44,9 +44,13 @@ export function evaluateFormula(formula, metadata = {}, title = '', options = {}
         expr = expr.replace(/\bnow\(\)/gi, `"${today}"`);
         expr = expr.replace(/\btoday\(\)/gi, `"${today}"`);
 
-        // Substituir prop('Camp') per valor
+        // Substituir prop('Camp') per valor. `prop('Camp')` és un àlies de
+        // `{Camp}` (mateixa documentació), així que ha de resoldre el títol amb
+        // els MATEIXOS noms que el handler de `{Camp}` de més avall: 'title' i
+        // l'àlies català 'Títol'. Abans només reconeixia 'title', de manera que
+        // `prop('Títol')` tornava buit mentre que `{Títol}` sí donava el títol.
         expr = expr.replace(/\bprop\('([^']+)'\)/g, (_, name) => {
-            const val = name === 'title' ? title : (metadata[name] ?? '');
+            const val = (name === 'title' || name === 'Títol') ? title : (metadata[name] ?? '');
             return typeof val === 'string' ? `"${val.replace(/"/g, '\\"')}"` : String(val ?? '');
         });
 
