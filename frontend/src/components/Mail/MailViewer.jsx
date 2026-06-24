@@ -412,13 +412,18 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         // Only Gmail threads have a different thread_id
         if (!tid || tid === selectedMail.id || !email || selectedMail.source === 'vault') return;
 
+        // Guard de race: si es canvia de missatge mentre aquest fetch vola, la
+        // resposta tardana no ha d'escriure el fil del missatge anterior.
+        let cancelled = false;
         fetch(`/api/mail/threads/${encodeURIComponent(tid)}?email=${encodeURIComponent(email)}`)
             .then(r => r.json())
             .then(data => {
+                if (cancelled) return;
                 const msgs = (data.messages || []).slice().reverse(); // newest first
                 if (msgs.length > 1) setFullThreadMsgs(msgs);
             })
             .catch(() => {});
+        return () => { cancelled = true; };
     }, [selectedMail?.id]);
 
     // Auto-expand newest message when thread changes
@@ -431,7 +436,13 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
     // Load tags for the current message
     useEffect(() => {
         if (!selectedMail?.id) { setActiveTagIds([]); return; }
-        getMessageTags(selectedMail.id).then(setActiveTagIds).catch(() => setActiveTagIds([]));
+        // Guard de race: una resposta tardana no ha de pintar les etiquetes del
+        // missatge anterior sobre el nou.
+        let cancelled = false;
+        getMessageTags(selectedMail.id)
+            .then(tags => { if (!cancelled) setActiveTagIds(tags); })
+            .catch(() => { if (!cancelled) setActiveTagIds([]); });
+        return () => { cancelled = true; };
     }, [selectedMail?.id]);
 
     const toggleThreadMsg = (msg) => {
@@ -465,6 +476,10 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
     useEffect(() => {
         if (!selectedMail?.id) { setMailData(null); return; }
+        // Guard de race: en saltar ràpid d'un missatge a un altre (els fetches
+        // IMAP poden ser lents), la resposta tardana del missatge ANTERIOR no ha
+        // de sobreescriure el cos del nou ni marcar-lo llegit/escanejar-lo.
+        let cancelled = false;
         setLoading(true);
         const msgEmail = selectedMail.account || account?.email || '';
         const msgFolder = selectedMail.imap_folder || '';
@@ -474,6 +489,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         fetch(`/api/mail/messages/${selectedMail.id}?${params}`)
             .then(res => res.json())
             .then(data => {
+                if (cancelled) return;
                 setMailData(data);
                 setLoading(false);
                 if (!data.is_read) markAsRead(data.id, msgEmail);
@@ -483,7 +499,8 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                     extractEntities(data.body_text || data.snippet);
                 }
             })
-            .catch(() => setLoading(false));
+            .catch(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
     }, [selectedMail]);
 
     const extractEntities = async (context) => {
