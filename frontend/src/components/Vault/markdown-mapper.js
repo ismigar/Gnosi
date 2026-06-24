@@ -225,7 +225,8 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             // Contingut de codi: RAW, mai escapat (trencaria `a ** b`, `arr[0]`, etc.).
             content = `\`\`\`${block.props.language || ""}\n${inlineContentToMarkdown(block.content, { escape: false })}\n\`\`\``;
             break;
-        case "horizontalRule":
+        case "horizontalRule": // nom legacy del bloc de línia horitzontal
+        case "divider":        // nom ACTUAL a BlockNote (defaultBlockSpecs.divider)
             content = `---`;
             break;
         case "image":
