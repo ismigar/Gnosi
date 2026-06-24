@@ -110,11 +110,16 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
         if (aEmpty && bEmpty) return 0;
         return aEmpty ? 1 : -1; // buits sempre al final
     }
-    const aNum = parseFloat(aVal);
-    const bNum = parseFloat(bVal);
-    const isNumeric = !isNaN(aNum) && !isNaN(bNum);
+    // `parseFloat` parseja PREFIXOS numèrics ('2024-07-05' → 2024), de manera
+    // que dues dates del mateix any es comparaven com a iguals i l'ordenació per
+    // una columna de DATA no ordenava dins de l'any. Només tractem el valor com a
+    // numèric si TOTA la cadena és un número (dígits, separadors, exponent); les
+    // dates i el text passen al fallback de cadena, però es conserva `parseFloat`
+    // per als números (incl. '12,5' → 12, paritat amb el backend).
+    const numRe = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$/;
+    const isNumeric = numRe.test(aVal.trim()) && numRe.test(bVal.trim());
     let cmp = isNumeric
-        ? aNum - bNum
+        ? parseFloat(aVal) - parseFloat(bVal)
         : sortKey(aVal).localeCompare(sortKey(bVal), 'ca', { sensitivity: 'base' });
     if (direction === 'desc') cmp = -cmp;
     return cmp;

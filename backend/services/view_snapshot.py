@@ -466,6 +466,12 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
 # ±Infinity i exponent (la gramàtica StrDecimalLiteral de l'spec).
 _JS_PARSEFLOAT_RE = re.compile(r"[+-]?(?:Infinity|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)")
 
+# Un valor només compta com a NUMÈRIC per ordenar si TOTA la cadena és un número
+# (dígits, separadors, exponent). `_parse_float_js` parseja prefixos
+# ("2024-07-05"→2024), així que sense aquesta comprovació les dates del mateix any
+# es comparaven com a iguals. Paritat amb el front (`numRe` a compareFieldValues).
+_FULL_NUMERIC_RE = re.compile(r"^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$")
+
 
 def _parse_float_js(text: str) -> Optional[float]:
     """Equivalent a JS ``parseFloat``: retorna el float del prefix numèric o
@@ -520,8 +526,8 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
         if a_empty and b_empty:
             return 0
         return 1 if a_empty else -1  # buits sempre al final
-    a_num = _parse_float_js(a_val)
-    b_num = _parse_float_js(b_val)
+    a_num = _parse_float_js(a_val) if _FULL_NUMERIC_RE.match(a_val.strip()) else None
+    b_num = _parse_float_js(b_val) if _FULL_NUMERIC_RE.match(b_val.strip()) else None
     if a_num is not None and b_num is not None:
         cmp = (a_num > b_num) - (a_num < b_num)  # signe (evita nan amb inf-inf)
     else:
