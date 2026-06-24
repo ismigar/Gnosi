@@ -590,10 +590,28 @@ const promoteCustomFences = (blocks) => {
         }
         if (block?.type !== 'codeBlock') return block;
         const lang = String(block.props?.language || '').toLowerCase();
-        if (lang !== 'gnosi-view') return block;
+        if (lang !== 'gnosi-view' && lang !== 'gnosi-database') return block;
         let payload = null;
         try { payload = JSON.parse(codeBlockText(block)); } catch { return block; }
         if (!payload || typeof payload !== 'object') return block;
+        if (lang === 'gnosi-database') {
+            // Mirall del serialitzador `gnosi-database`: restaura el bloc
+            // `database` (InlineDatabase). Sense això, una base de dades
+            // incrustada es desava com a fence `gnosi-database` però es tornava a
+            // llegir com un bloc de CODI amb el JSON cru.
+            return {
+                type: 'database',
+                props: {
+                    database_table_id: String(payload.database_table_id || ''),
+                    viewId: String(payload.viewId || ''),
+                    filters: String(payload.filters || ''),
+                    sort: String(payload.sort || ''),
+                    search: String(payload.search || ''),
+                    visibleProperties: String(payload.visibleProperties || ''),
+                    viewType: String(payload.viewType || 'table'),
+                },
+            };
+        }
         return {
             type: 'gnosi_view',
             props: {
