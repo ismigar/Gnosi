@@ -1695,6 +1695,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
     const isImageField = useCallback((field, fieldType) => {
         if (fieldType === 'files') return true;
+        // Tipus `image` explícit: sempre miniatura, independentment del nom (el
+        // render value-gateja amb la URL servible, igual que els camps inferits).
+        if (fieldType === 'image') return true;
         // Només inferim imatge pel NOM en camps de text (o sense tipus declarat):
         // un camp explícitament number/date/select/relation/url/etc. mai és una
         // imatge inferida. Abans aquí es bloquejava QUALSEVOL camp amb tipus

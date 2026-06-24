@@ -532,6 +532,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <option value="url">{t('schema.type_url')}</option>
                         <option value="zotero">Zotero</option>
                         <option value="files">{t('schema.type_files')}</option>
+                        <option value="image">{t('schema.type_image', 'Imatge')}</option>
                         <option value="relation">{t('schema.type_relation')}</option>
                         <option value="formula">{t('schema.type_formula')}</option>
                         <option value="rollup">{t('schema.type_rollup')}</option>

@@ -1014,6 +1014,7 @@
     "type_checkbox": "Casella",
     "type_url": "URL",
     "type_files": "Fitxers",
+    "type_image": "Imatge",
     "type_relation": "Relació",
     "type_formula": "Fórmula",
     "type_rollup": "Rollup",

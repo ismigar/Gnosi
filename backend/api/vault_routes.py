@@ -12910,7 +12910,9 @@ async def _do_translate_row(
             # caption, credit). Una ruta string es copia tal qual (no es tradueix
             # la ruta com si fos prosa). Detectat pel valor compost o pel nom.
             if is_composite_image_value(val) or (
-                is_image_field_name(prop.get("name")) and isinstance(val, (dict, str)) and val
+                (prop.get("type") == "image" or is_image_field_name(prop.get("name")))
+                and isinstance(val, (dict, str))
+                and val
             ):
                 new_val, img_provs, img_tr = translate_image_field(
                     val, lambda s: _translate_one(s, lang)
