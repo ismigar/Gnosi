@@ -2613,10 +2613,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 );
             case 'formula':
             case 'rollup': {
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                const display = formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale });
                 return (
                     <div className="flex items-center gap-1.5 text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-mono text-[11px] w-fit">
                         <span className="text-[10px] opacity-50">{type === 'rollup' ? 'r' : 'ƒ'}</span>
-                        <span>{value || '0'}</span>
+                        <span>{display || '0'}</span>
                     </div>
                 );
             }
