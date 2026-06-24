@@ -175,7 +175,17 @@ export function coerceValueForField(raw, type, ctx = {}) {
             const s = String(raw).trim();
             if (s.includes('T') && !Number.isNaN(new Date(s).getTime())) return { value: s };
             const d = new Date(s);
-            return Number.isNaN(d.getTime()) ? SKIP : { value: d.toISOString() };
+            if (Number.isNaN(d.getTime())) return SKIP;
+            // Components LOCALS (com el `case 'date'`): NO passem per toISOString(),
+            // que converteix a UTC i desplaça l'hora (enganxar "2024-07-15 09:00"
+            // d'un full de càlcul es desava com "...T07:00:00.000Z" amb offset
+            // +02:00). Desem l'hora tal com s'escriu, sense sufix Z.
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            return { value: `${yyyy}-${mm}-${dd}T${hh}:${mi}:00` };
         }
 
         case 'period': {
