@@ -198,7 +198,11 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                             <div className="flex justify-between items-center mb-4 px-1">
                                 <h3 className="font-bold text-[var(--text-secondary)] text-[10px] tracking-wider uppercase bg-[var(--bg-primary)] px-2.5 py-1 rounded-lg shadow-sm border border-[var(--border-primary)] inline-flex items-center gap-1.5">
                                     {columnColor(status) && <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: columnColor(status) }} />}
-                                    {status}
+                                    {/* Agrupar per un camp RELACIÓ: el valor de columna és l'id de
+                                        la pàgina relacionada. `idToTitle` (índex global) el resol a
+                                        títol; sense això, la capçalera mostrava l'UUID cru. Per a
+                                        select/text l'id no hi és i es queda el valor (opció). */}
+                                    {idToTitle[status] || status}
                                 </h3>
                                 <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-primary)]/50">
                                     {groupedNotes[status]?.length || 0}
