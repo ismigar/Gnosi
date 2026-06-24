@@ -67,6 +67,29 @@ const toVimeoEmbed = (url) => {
     }
 };
 
+// Imatge incrustada amb reintents. Els assets d'OneDrive poden retornar 503
+// fins que el backend els materialitza (online-only, errno 35). Sense reintent
+// una imatge incrustada d'un asset evacuat quedava trencada fins recarregar la
+// pàgina, a diferència del render de lectura (RetryableImage de VaultMarkdown),
+// que ja reintenta. Mateix backoff exponencial (500ms · 2^intent, fins a 3).
+function RetryableEmbedImage({ src, alt }) {
+    const [attempt, setAttempt] = useState(0);
+    return (
+        <img
+            key={attempt}
+            src={src}
+            alt={alt}
+            className="max-w-full rounded-lg border border-[var(--border-primary)]"
+            onError={() => {
+                if (attempt < 3) {
+                    const delay = 500 * Math.pow(2, attempt);
+                    setTimeout(() => setAttempt((a) => a + 1), delay);
+                }
+            }}
+        />
+    );
+}
+
 export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
     const { t } = useTranslation();
     const context = React.useContext(VaultEditorContext);
@@ -220,7 +243,7 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
     } else if (kind === 'audio') {
         media = <audio src={url} controls className="w-full" />;
     } else if (kind === 'image') {
-        media = <img src={url} alt={caption || ''} className="max-w-full rounded-lg border border-[var(--border-primary)]" />;
+        media = <RetryableEmbedImage src={url} alt={caption || ''} />;
     }
 
     return (
