@@ -61,6 +61,11 @@ const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
     return { bg: finalColor, border: finalColor, text: finalColor };
 };
 
+// Plega accents per a la cerca insensible a accents ("reunio" troba "Reunió"),
+// com s'espera en un vault català/castellà (NFD + eliminació de les marques
+// combinants U+0300–U+036F: accents, cedilla, titlla).
+const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 export const DigitalBrainCalendar = ({
     allNotes,
     searchQuery = '',
@@ -155,7 +160,7 @@ export const DigitalBrainCalendar = ({
 
             const noteTitle = title || metadata.title || 'Sense Títol';
 
-            if (searchQuery && !noteTitle.toLowerCase().includes(searchQuery.toLowerCase())) {
+            if (searchQuery && !foldAccents(noteTitle).includes(foldAccents(searchQuery))) {
                 return;
             }
 
