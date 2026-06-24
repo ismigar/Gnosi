@@ -34,8 +34,13 @@ export function evaluateFormula(formula, metadata = {}, title = '', options = {}
         // però no implementada).
         expr = expr.replace(/\bif\s*\(/gi, '__IF(');
 
-        // Substituir now() i today()
-        const today = new Date().toISOString().slice(0, 10);
+        // Substituir now() i today(). Data en hora LOCAL (no `toISOString`, que
+        // és UTC): prop de mitjanit la data UTC pot ser el dia anterior i el
+        // càlcul de dates a la fórmula (p. ex. dies fins al venciment) sortiria
+        // desfasat un dia.
+        const _now = new Date();
+        const _pad = (n) => String(n).padStart(2, '0');
+        const today = `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`;
         expr = expr.replace(/\bnow\(\)/gi, `"${today}"`);
         expr = expr.replace(/\btoday\(\)/gi, `"${today}"`);
 
