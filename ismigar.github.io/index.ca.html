@@ -15,11 +15,11 @@
         var lang = navigator.language || navigator.userLanguage || 'en';
         var path = window.location.pathname;
         var isDirect = !document.referrer || !document.referrer.includes(window.location.hostname);
-        if (isDirect && (path.endsWith('index.html') || path === '/' || path.endsWith('/'))) {
+        if (window.location.protocol !== 'file:' && isDirect && (path.endsWith('index.html') || path === '/' || path.endsWith('/'))) {
           if (lang.startsWith('ca')) {
-            window.location.replace('/index.ca.html');
+            window.location.replace('index.ca.html');
           } else if (lang.startsWith('es')) {
-            window.location.replace('/index.es.html');
+            window.location.replace('index.es.html');
           }
         }
       })();
@@ -36,12 +36,13 @@
           <a href="#funcionalidades">Funcionalitats</a>
           <a href="#ia">IA</a>
           <a href="#instalacion">Instal·lació</a>
+          <a href="#colaborar">Col·labora</a>
           <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
         </div>
         <div class="lang-switch">
-          <a href="/index.es.html">ES</a>
+          <a href="index.es.html">ES</a>
           <span class="active">CA</span>
-          <a href="/index.html">EN</a>
+          <a href="index.html">EN</a>
         </div>
       </div>
     </nav>
@@ -68,7 +69,9 @@
 
       <section class="problem">
         <div class="section-content">
-          <h2>Massa informació, dispersa per tot arreu?</h2>
+          <div class="section-header">
+            <h2>Massa informació, dispersa per tot arreu?</h2>
+          </div>
           <div class="problem-grid">
             <div class="problem-item">
               <div class="problem-icon">📚</div>
@@ -526,7 +529,7 @@
         <div class="support-box">
           <div class="support-intro">
             <p><strong>Gnosi és un projecte de codi obert i sense ànim de lucre.</strong> No hi ha recopilació de dades, ni publicitat, ni llicències de pagament. Tot el programari és sobirà i està dissenyat per executar-se localment sobre els teus propis arxius.</p>
-            <p>No obstant això, el desenvolupament continu i els seus sistemes de suport (especialment l'ús d'APIs d'IA per a traducció automàtica, processament semàntic i embeddings locals) comporten costos reals d'infraestructura. Si valores l'eina, pots col·laborar econòmicament a través d'aquestes vies:</p>
+            <p>No obstant això, el desenvolupament continu de Gnosi i el manteniment del web comporten costos reals en APIs d'IA que assumeixo personalment. Si valores l'eina, et convidem a col·laborar en el seu desenvolupament o a ajudar econòmicament a través d'aquestes vies:</p>
           </div>
           <div class="support-grid">
             <div class="support-card">
@@ -547,11 +550,17 @@
             <div class="support-card">
               <div class="support-card-icon">🏦</div>
               <h3>Transferència</h3>
-              <p>Apoya el desenvolupament mitjançant una transferència bancària directa.</p>
+              <p>Dona suport al desenvolupament mitjançant una transferència bancària directa.</p>
               <div class="support-detail">
                 <span class="support-label">IBAN</span>
                 <span class="support-value font-mono">[El teu IBAN]</span>
               </div>
+            </div>
+            <div class="support-card">
+              <div class="support-card-icon">💻</div>
+              <h3>Desenvolupament</h3>
+              <p>Col·labora aportant codi, provant funcionalitats, obrint issues o millorant la documentació.</p>
+              <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer" class="btn btn-secondary btn-support">Veure a GitHub</a>
             </div>
           </div>
         </div>
@@ -588,6 +597,7 @@
             <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
             <a href="https://github.com/ismigar/Gnosi#readme" target="_blank" rel="noreferrer">Documentació</a>
             <a href="https://github.com/ismigar/Gnosi/issues" target="_blank" rel="noreferrer">Issues</a>
+            <a href="#colaborar">Col·labora amb el projecte</a>
           </div>
           <div class="footer-col">
             <h4>Autor</h4>

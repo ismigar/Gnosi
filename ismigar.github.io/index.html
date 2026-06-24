@@ -15,11 +15,11 @@
         var lang = navigator.language || navigator.userLanguage || 'en';
         var path = window.location.pathname;
         var isDirect = !document.referrer || !document.referrer.includes(window.location.hostname);
-        if (isDirect && (path.endsWith('index.html') || path === '/' || path.endsWith('/'))) {
+        if (window.location.protocol !== 'file:' && isDirect && (path.endsWith('index.html') || path === '/' || path.endsWith('/'))) {
           if (lang.startsWith('ca')) {
-            window.location.replace('/index.ca.html');
+            window.location.replace('index.ca.html');
           } else if (lang.startsWith('es')) {
-            window.location.replace('/index.es.html');
+            window.location.replace('index.es.html');
           }
         }
       })();
@@ -36,11 +36,12 @@
           <a href="#funcionalidades">Features</a>
           <a href="#ia">AI</a>
           <a href="#instalacion">Installation</a>
+          <a href="#colaborar">Support</a>
           <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
         </div>
         <div class="lang-switch">
-          <a href="/index.es.html">ES</a>
-          <a href="/index.ca.html">CA</a>
+          <a href="index.es.html">ES</a>
+          <a href="index.ca.html">CA</a>
           <span class="active">EN</span>
         </div>
       </div>
@@ -68,7 +69,9 @@
 
       <section class="problem">
         <div class="section-content">
-          <h2>Too much information, scattered everywhere?</h2>
+          <div class="section-header">
+            <h2>Too much information, scattered everywhere?</h2>
+          </div>
           <div class="problem-grid">
             <div class="problem-item">
               <div class="problem-icon">📚</div>
@@ -526,7 +529,7 @@
         <div class="support-box">
           <div class="support-intro">
             <p><strong>Gnosi is an open-source, non-profit project.</strong> There is no data collection, no advertising, and no paid licenses. All software is sovereign, designed to run locally on your own files.</p>
-            <p>However, ongoing development and its support systems (especially AI API usage for machine translation, semantic processing, and local embeddings) incur real infrastructure costs. If you find the tool valuable, you can support its development through the following channels:</p>
+            <p>However, the ongoing development of Gnosi and the maintenance of the website incur real costs in AI APIs that I personally assume. If you find the tool valuable, we invite you to collaborate on its development or support it financially through these channels:</p>
           </div>
           <div class="support-grid">
             <div class="support-card">
@@ -552,6 +555,12 @@
                 <span class="support-label">IBAN</span>
                 <span class="support-value font-mono">[Your IBAN]</span>
               </div>
+            </div>
+            <div class="support-card">
+              <div class="support-card-icon">💻</div>
+              <h3>Development</h3>
+              <p>Contribute by submitting code, testing new features, opening issues, or improving documentation.</p>
+              <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer" class="btn btn-secondary btn-support">View on GitHub</a>
             </div>
           </div>
         </div>
@@ -588,6 +597,7 @@
             <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer">GitHub</a>
             <a href="https://github.com/ismigar/Gnosi#readme" target="_blank" rel="noreferrer">Documentation</a>
             <a href="https://github.com/ismigar/Gnosi/issues" target="_blank" rel="noreferrer">Issues</a>
+            <a href="#colaborar">Support the project</a>
           </div>
           <div class="footer-col">
             <h4>Author</h4>
