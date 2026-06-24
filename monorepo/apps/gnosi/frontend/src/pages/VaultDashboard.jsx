@@ -1102,12 +1102,15 @@ export default function VaultDashboard() {
         return res.data;
     }, []);
 
+    const onViewConfigSavedRef = useRef(null);
+
     // callback invoked when user wants to configure an existing or new view
-    const handleConfigureView = (view) => {
+    const handleConfigureView = useCallback((view, onSaved) => {
+        onViewConfigSavedRef.current = onSaved;
         setViewToConfigure(view);
         setIsViewConfigOpen(true);
         // if view is an existing one, pendingView remains null
-    };
+    }, []);
 
     const handleAddView = (type) => {
         // Les plantilles segueixen el flux del prompt (no són una vista).
@@ -1125,19 +1128,8 @@ export default function VaultDashboard() {
             });
             return;
         }
-        // Vista normal: obre el prompt modal genèric per introduir el nom de la vista.
-        setPromptModal({
-            isOpen: true,
-            defaultTitle: t('common.new_view'),
-            parentId: null,
-            isDatabase: false,
-            isDrawing: false,
-            isView: true,
-            isTemplate: false,
-            viewType: type,
-            inputValue: '',
-            isLoading: false
-        });
+        // Vista normal: obre el PageViewModal per crear la vista directament.
+        handleConfigureView({ type: type || 'table', name: '' });
     };
 
     useEffect(() => {
@@ -2015,22 +2007,6 @@ export default function VaultDashboard() {
                 }
                 await fetchRegistry();
                 toast.success(t('success.view_renamed'));
-            } else if (isView) {
-                // build object but postpone saving until after user configures it
-                const newView = {
-                    id: uuidv4(),
-                    table_id: activeTableId,
-                    name: title,
-                    type: viewType,
-                    sort: { field: "last_modified", direction: "desc" },
-                    filters: [],
-                    // default visibleProperties is derived later
-                };
-
-                // obre el modal de configuració amb la vista nova (id client);
-                // PageViewModal la persisteix en desar (PUT crea si no existeix).
-                setViewToConfigure(newView);
-                setIsViewConfigOpen(true);
             } else if (isDrawing) {
                 const drawingId = uuidv4();
                 await axios.put(`/api/vault/drawings/${drawingId}`, {
@@ -3011,6 +2987,7 @@ export default function VaultDashboard() {
                 onAddSchemaOption={handleAddSchemaOption}
                 onDeletePage={handleDeletePage}
                 onCreateRecord={handleAddNewNote}
+                onOpenViewConfig={handleConfigureView}
             />
         );
     };
@@ -3655,7 +3632,11 @@ export default function VaultDashboard() {
                             if (saved && savedView) {
                                 fetchRegistry();
                                 if (savedView.id) setActiveViewId(String(savedView.id));
+                                if (onViewConfigSavedRef.current) {
+                                    onViewConfigSavedRef.current(savedView);
+                                }
                             }
+                            onViewConfigSavedRef.current = null;
                         }}
                     />
                 )
