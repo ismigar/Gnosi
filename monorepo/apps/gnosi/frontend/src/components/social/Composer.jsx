@@ -81,6 +81,16 @@ const Composer = () => {
         setShowScheduler(false);
     };
 
+    // Límit de caràcters REAL: el mínim de les xarxes seleccionades (un post va
+    // a totes alhora, així que ha de cabre a la més restrictiva). El backend ja
+    // envia `char_limit` per xarxa (mastodon 500, bluesky 300, twitter 280…);
+    // abans s'avisava sempre a 280 fix, fals per a Mastodon/Facebook/etc. Sense
+    // cap xarxa seleccionada no apliquem límit.
+    const effectiveLimit = selectedNetworks.length
+        ? Math.min(...selectedNetworks.map(id => networks.find(n => n.id === id)?.char_limit ?? 500))
+        : Infinity;
+    const overLimit = content.length > effectiveLimit;
+
     return (
         <div className="glass-panel p-6 rounded-2xl shadow-xl border border-[var(--border-primary)] relative z-10 backdrop-blur-xl">
             {/* Header / Network Selector */}
@@ -117,10 +127,10 @@ const Composer = () => {
                 />
 
                 <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs bg-[var(--bg-secondary)]/80 px-2 py-1 rounded-full backdrop-blur-sm">
-                    <span className={`${content.length > 280 ? 'text-[var(--status-error)]' : 'text-[var(--text-secondary)]'}`}>
-                        {content.length} caràcters
+                    <span className={`${overLimit ? 'text-[var(--status-error)]' : 'text-[var(--text-secondary)]'}`}>
+                        {content.length}{Number.isFinite(effectiveLimit) ? ` / ${effectiveLimit}` : ''} caràcters
                     </span>
-                    {content.length > 280 && (
+                    {overLimit && (
                         <AlertTriangle size={12} className="text-yellow-500" />
                     )}
                 </div>
